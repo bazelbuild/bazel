@@ -15,20 +15,20 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.ProviderCollection;
 
 /**
  * An abstract class for adding a Skylark API for the native providers. Derived classes should
  * declare functions to be used from Skylark.
  */
 public abstract class SkylarkApiProvider {
-  private TransitiveInfoCollection info;
+  private ProviderCollection info;
 
-  protected TransitiveInfoCollection getInfo() {
+  protected ProviderCollection getInfo() {
     return info;
   }
 
-  public final void init(TransitiveInfoCollection info) {
+  public final void init(ProviderCollection info) {
     if (this.info != null) {
       // todo(dslomov): nuke this weird initialization mechanism.
 

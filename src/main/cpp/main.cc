@@ -16,16 +16,19 @@
 
 #include "src/main/cpp/bazel_startup_options.h"
 #include "src/main/cpp/blaze.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/workspace_layout.h"
 
 int main(int argc, const char *argv[]) {
+  uint64_t start_time = blaze::GetMillisecondsMonotonic();
   std::unique_ptr<blaze::WorkspaceLayout> workspace_layout(
       new blaze::WorkspaceLayout());
   std::unique_ptr<blaze::StartupOptions> startup_options(
       new blaze::BazelStartupOptions(workspace_layout.get()));
   return blaze::Main(argc, argv, workspace_layout.get(),
                      new blaze::OptionProcessor(workspace_layout.get(),
-                                                std::move(startup_options)));
+                                                std::move(startup_options)),
+                     start_time);
 }

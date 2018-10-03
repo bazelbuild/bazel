@@ -21,15 +21,20 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.util.List;
+import java.util.Iterator;
 
 /** The collection of source jars from the transitive closure. */
 @AutoValue
 @Immutable
 @AutoCodec
 public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
+
+  @AutoCodec
+  public static final JavaSourceJarsProvider EMPTY =
+      create(NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableList.of());
 
   @AutoCodec.Instantiator
   public static JavaSourceJarsProvider create(
@@ -47,14 +52,20 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
   /** Return the source jars that are to be built when the target is on the command line. */
   public abstract ImmutableList<Artifact> getSourceJars();
 
-  public static JavaSourceJarsProvider merge(List<JavaSourceJarsProvider> providers) {
-    if (providers.size() == 1) {
-      return providers.get(0);
+  public static JavaSourceJarsProvider merge(Iterable<JavaSourceJarsProvider> providers) {
+    Iterator<JavaSourceJarsProvider> it = providers.iterator();
+    if (!it.hasNext()) {
+      return EMPTY;
+    }
+    JavaSourceJarsProvider first = it.next();
+    if (!it.hasNext()) {
+      return first;
     }
     JavaSourceJarsProvider.Builder result = builder();
-    for (JavaSourceJarsProvider provider : providers) {
-      result.mergeFrom(provider);
-    }
+    result.mergeFrom(first);
+    do {
+      result.mergeFrom(it.next());
+    } while (it.hasNext());
     return result.build();
   }
 

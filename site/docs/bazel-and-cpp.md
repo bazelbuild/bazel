@@ -23,6 +23,8 @@ The following resources will help you work with Bazel on C++ projects:
 *  [Tutorial: Building a C++ project](tutorial/cpp.html)
 *  [C++ common use cases](cpp-use-cases.html)
 *  [C/C++ rules](https://docs.bazel.build/versions/master/be/c-cpp.html)
+*  [Understanding CROSSTOOL](crosstool-reference.html)
+*  [Configuring CROSSTOOL](tutorial/crosstool.html)
 
 ## Best practices
 

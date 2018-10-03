@@ -1242,6 +1242,97 @@ EOF
   expect_log '@ext//:foo'
 }
 
+function test_repository_cache_default() {
+  # Verify that the repository cache is enabled by default.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+  mkdir ext
+  cat > ext/BUILD <<'EOF'
+genrule(
+  name="foo",
+  outs=["foo.txt"],
+  cmd="echo Hello World > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+  TOPDIR=`pwd`
+  zip ext.zip ext/*
+  rm -rf ext
+  sha256=$(sha256sum ext.zip | head -c 64)
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${TOPDIR}/ext.zip"],
+  sha256="${sha256}",
+)
+EOF
+  # Use the external repository once to make sure it is cached.
+  bazel build '@ext//:foo' || fail "expected sucess"
+
+  # Now "go offline" and clean local resources.
+  rm -f "${TOPDIR}/ext.zip"
+  bazel clean --expunge
+
+  # Still, the file should be cached.
+  bazel build '@ext//:foo' || fail "expected success"
+}
+
+function test_cache_disable {
+  # Verify that the repository cache can be disabled.
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+  mkdir ext
+  cat > ext/BUILD <<'EOF'
+genrule(
+  name="foo",
+  outs=["foo.txt"],
+  cmd="echo Hello World > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+  TOPDIR=`pwd`
+  zip ext.zip ext/*
+  rm -rf ext
+  sha256=$(sha256sum ext.zip | head -c 64)
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${TOPDIR}/ext.zip"],
+  sha256="${sha256}",
+)
+EOF
+  # Use `--repository_cache` with no path to explicitly disable repository cache
+  bazel build --repository_cache= '@ext//:foo' || fail "expected sucess"
+
+  # make sure, the empty path is not interpreted relative to `pwd`; i.e., we do
+  # not expect any new directories generated in the workspace, in particular
+  # none named conent_adressable, which is the directory where the cache puts
+  # its artifacts into.
+  ls -al | grep content_addressable \
+      && fail "Should not interpret empty path as cache directly in the work space" || :
+
+  # Now "go offline" and clean local resources.
+  rm -f "${TOPDIR}/ext.zip"
+  bazel clean --expunge
+
+  # The build should fail since we are not using the repository cache, but the
+  # original file can no longer be "downloaded".
+  bazel build --repository_cache= '@ext//:foo' \
+      && fail "Should fail for lack of fetchable faile" || :
+}
+
 function test_repository_cache() {
   # Verify that --repository_cache works for query and caches soly
   # based on the predicted hash.

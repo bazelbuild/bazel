@@ -66,6 +66,15 @@ class BuildResultPrinter {
     // problem where the summary message and the exit code disagree.  The logic
     // here is already complex.
 
+    String productName = env.getRuntime().getProductName();
+    PathPrettyPrinter prettyPrinter =
+        OutputDirectoryLinksUtils.getPathPrettyPrinter(
+            request.getBuildOptions().getSymlinkPrefix(productName),
+            productName,
+            env.getWorkspace(),
+            request.getBuildOptions().printWorkspaceInOutputPathsIfNeeded
+                ? env.getWorkingDirectory()
+                : env.getWorkspace());
     OutErr outErr = request.getOutErr();
     Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
     Collection<AspectValue> aspectsToPrint = filterAspectsToPrint(aspects);
@@ -100,7 +109,7 @@ class BuildResultPrinter {
               outErr.printErr("Target " + label + " up-to-date:\n");
               headerFlag = false;
             }
-            outErr.printErrLn(formatArtifactForShowResults(artifact, request));
+            outErr.printErrLn(formatArtifactForShowResults(prettyPrinter, artifact));
           }
         }
         if (headerFlag) {
@@ -113,21 +122,10 @@ class BuildResultPrinter {
         // For failed compilation, it is still useful to examine temp artifacts,
         // (ie, preprocessed and assembler files).
         OutputGroupInfo topLevelProvider = OutputGroupInfo.get(target);
-        String productName = env.getRuntime().getProductName();
         if (topLevelProvider != null) {
           for (Artifact temp : topLevelProvider.getOutputGroup(OutputGroupInfo.TEMP_FILES)) {
             if (temp.getPath().exists()) {
-              outErr.printErrLn(
-                  "  See temp at "
-                      + OutputDirectoryLinksUtils.getPrettyPath(
-                          temp.getPath(),
-                          env.getWorkspaceName(),
-                          env.getWorkspace(),
-                          request.getBuildOptions().printWorkspaceInOutputPathsIfNeeded
-                              ? env.getWorkingDirectory()
-                              : env.getWorkspace(),
-                          request.getBuildOptions().getSymlinkPrefix(productName),
-                          productName));
+              outErr.printErrLn("  See temp at " + prettyPrinter.getPrettyPath(temp.getPath()));
             }
           }
         }
@@ -158,7 +156,7 @@ class BuildResultPrinter {
             headerFlag = false;
           }
           if (shouldPrint(importantArtifact)) {
-            outErr.printErrLn(formatArtifactForShowResults(importantArtifact, request));
+            outErr.printErrLn(formatArtifactForShowResults(prettyPrinter, importantArtifact));
           }
         }
         if (headerFlag) {
@@ -182,18 +180,8 @@ class BuildResultPrinter {
     return !artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact();
   }
 
-  private String formatArtifactForShowResults(Artifact artifact, BuildRequest request) {
-    String productName = env.getRuntime().getProductName();
-    return "  "
-        + OutputDirectoryLinksUtils.getPrettyPath(
-            artifact.getPath(),
-            env.getWorkspaceName(),
-            env.getWorkspace(),
-            request.getBuildOptions().printWorkspaceInOutputPathsIfNeeded
-                ? env.getWorkingDirectory()
-                : env.getWorkspace(),
-            request.getBuildOptions().getSymlinkPrefix(productName),
-            productName);
+  private String formatArtifactForShowResults(PathPrettyPrinter prettyPrinter, Artifact artifact) {
+    return "  " + prettyPrinter.getPrettyPath(artifact.getPath());
   }
 
   /**

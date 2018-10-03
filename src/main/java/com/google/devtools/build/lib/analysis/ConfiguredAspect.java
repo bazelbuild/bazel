@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -76,6 +77,14 @@ public final class ConfiguredAspect {
     this.actions = actions;
     this.generatingActionIndex = generatingActionIndex;
     this.providers = providers;
+
+    // Initialize every SkylarkApiProvider
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      Object obj = providers.getProviderInstanceAt(i);
+      if (obj instanceof SkylarkApiProvider) {
+        ((SkylarkApiProvider) obj).init(providers);
+      }
+    }
   }
 
   /**
@@ -125,14 +134,14 @@ public final class ConfiguredAspect {
   }
 
   public InfoInterface get(Provider.Key key) {
-    return providers.getProvider(key);
+    return providers.get(key);
   }
 
   public Object get(String legacyKey) {
     if (OutputGroupInfo.SKYLARK_NAME.equals(legacyKey)) {
       return get(OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey());
     }
-    return providers.getProvider(legacyKey);
+    return providers.get(legacyKey);
   }
 
   public static ConfiguredAspect forAlias(ConfiguredAspect real) {

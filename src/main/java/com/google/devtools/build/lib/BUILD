@@ -105,6 +105,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
@@ -513,9 +514,12 @@ java_library(
 )
 
 java_library(
-    name = "skylark-provider-collection",
-    srcs = ["analysis/SkylarkProviderCollection.java"],
+    name = "provider-collection",
+    srcs = [
+        "analysis/ProviderCollection.java",
+    ],
     deps = [
+        ":transitive-info-provider",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//third_party:jsr305",
     ],
@@ -560,6 +564,7 @@ java_library(
         ],
         exclude = [
             "analysis/BuildInfo.java",
+            "analysis/ProviderCollection.java",
             "analysis/TransitiveInfoProvider.java",
             "analysis/config/BuildConfigurationOptionDetails.java",
             "rules/repository/CoreWorkspaceRules.java",
@@ -573,6 +578,7 @@ java_library(
     ],
     deps = [
         ":build-request-options",
+        ":provider-collection",
         "//src/main/java/com/google/devtools/build/lib:base-util",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
@@ -581,7 +587,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:process_util",
-        "//src/main/java/com/google/devtools/build/lib:skylark-provider-collection",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib:transitive-info-provider",
@@ -997,6 +1002,7 @@ java_library(
         "rules/java/proto/StrictDepsUtils.java",
     ],
     deps = [
+        ":provider-collection",
         "//src/main/java/com/google/devtools/build/lib:RpcSupport",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
@@ -1089,6 +1095,7 @@ java_library(
         "rules/java/proto/GeneratedExtensionRegistryProvider.java",
     ],
     deps = [
+        ":provider-collection",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:build-info",
         "//src/main/java/com/google/devtools/build/lib:events",
@@ -1284,7 +1291,10 @@ java_library(
 java_library(
     name = "loading-phase-threads-option",
     srcs = ["runtime/LoadingPhaseThreadsOption.java"],
-    deps = ["//src/main/java/com/google/devtools/common/options"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
 )
 
 java_library(
@@ -1387,6 +1397,7 @@ java_library(
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:test_status_java_proto",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",

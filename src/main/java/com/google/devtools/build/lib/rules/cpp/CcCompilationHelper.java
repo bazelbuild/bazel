@@ -246,11 +246,11 @@ public final class CcCompilationHelper {
 
     @Override
     public CcCompilationInfo getCcCompilationInfo() {
-      return (CcCompilationInfo) providers.getProvider(CcCompilationInfo.PROVIDER.getKey());
+      return (CcCompilationInfo) providers.get(CcCompilationInfo.PROVIDER.getKey());
     }
 
     public CcCompilationContext getCcCompilationContext() {
-      return ((CcCompilationInfo) providers.getProvider(CcCompilationInfo.PROVIDER.getKey()))
+      return ((CcCompilationInfo) providers.get(CcCompilationInfo.PROVIDER.getKey()))
           .getCcCompilationContext();
     }
   }

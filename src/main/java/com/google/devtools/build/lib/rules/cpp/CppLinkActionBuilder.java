@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction.Context;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory;
 import com.google.devtools.build.lib.rules.cpp.LibrariesToLinkCollector.CollectedLibrariesToLink;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -234,58 +233,6 @@ public class CppLinkActionBuilder {
     this.cppSemantics = Preconditions.checkNotNull(cppSemantics);
   }
 
-  /**
-   * Given a Context, creates a Builder that builds {@link CppLinkAction}s. Note well: Keep the
-   * Builder->Context and Context->Builder transforms consistent!
-   *
-   * @param ruleContext the rule that owns the action
-   * @param output the output artifact
-   * @param linkContext an immutable CppLinkAction.Context from the original builder
-   * @param configuration build configuration
-   * @param toolchain the C++ toolchain provider
-   * @param fdoProvider the C++ FDO optimization support
-   * @param cppSemantics to be used for linkstamp compiles
-   */
-  public CppLinkActionBuilder(
-      RuleContext ruleContext,
-      Artifact output,
-      Context linkContext,
-      BuildConfiguration configuration,
-      CcToolchainProvider toolchain,
-      FdoProvider fdoProvider,
-      FeatureConfiguration featureConfiguration,
-      CppSemantics cppSemantics) {
-    // These Builder-only fields get set in the constructor:
-    //   ruleContext, analysisEnvironment, outputPath, configuration, toolchainLibrariesSolibDir
-    this(
-        ruleContext,
-        output,
-        configuration,
-        ruleContext.getAnalysisEnvironment(),
-        toolchain,
-        fdoProvider,
-        featureConfiguration,
-        cppSemantics);
-    Preconditions.checkNotNull(linkContext);
-
-    // All linkContext fields should be transferred to this Builder.
-    this.objectFiles.addAll(linkContext.objectFiles);
-    this.nonCodeInputs.addAll(linkContext.nonCodeInputs);
-    this.libraries.addTransitive(linkContext.libraries);
-    this.crosstoolInputs = linkContext.crosstoolInputs;
-    this.ltoBitcodeFiles = linkContext.ltoBitcodeFiles;
-    this.runtimeMiddleman = linkContext.runtimeMiddleman;
-    this.toolchainLibrariesInputs = linkContext.runtimeInputs;
-    this.toolchainLibrariesType = linkContext.runtimeType;
-    this.linkstampsBuilder.addAll(linkContext.linkstamps);
-    this.linkopts.addAll(linkContext.linkopts);
-    this.linkType = linkContext.linkType;
-    this.linkingMode = linkContext.linkingMode;
-    this.fake = linkContext.fake;
-    this.isNativeDeps = linkContext.isNativeDeps;
-    this.useTestOnlyFlags = linkContext.useTestOnlyFlags;
-  }
-
   /** Returns the action name for purposes of querying the crosstool. */
   private String getActionName() {
     return linkType.getActionName();
@@ -296,38 +243,11 @@ public class CppLinkActionBuilder {
     return objectFiles;
   }
 
-  public Set<Artifact> getNonCodeInputs() {
-    return nonCodeInputs;
-  }
-
   /**
    * Returns linker inputs that are libraries.
    */
   public NestedSetBuilder<LibraryToLink> getLibraries() {
     return libraries;
-  }
-
-  /**
-   * Returns inputs arising from the crosstool.
-   */
-  public NestedSet<Artifact> getCrosstoolInputs() {
-    return this.crosstoolInputs;
-  }
-  
-  /**
-   * Returns the runtime middleman artifact.
-   */
-  public Artifact getRuntimeMiddleman() {
-    return this.runtimeMiddleman;
-  }
-
-  /** Returns runtime inputs for this link action. */
-  public NestedSet<Artifact> getToolchainLibrariesInputs() {
-    return this.toolchainLibrariesInputs;
-  }
-
-  public ArtifactCategory getToolchainLibrariesType() {
-    return toolchainLibrariesType;
   }
 
   /** Returns linkstamps for this link action. */
@@ -352,13 +272,6 @@ public class CppLinkActionBuilder {
   public Link.LinkingMode getLinkingMode() {
     return this.linkingMode;
   }
-  /**
-   * Returns linker inputs that are lto bitcode files in a map from the full bitcode file used by
-   * the LTO Backend to the minimized bitcode used by the LTO indexing.
-   */
-  public ImmutableMap<Artifact, Artifact> getLtoBitcodeFiles() {
-    return this.ltoBitcodeFiles;
-  }
 
   /**
    * Returns true for a cc_fake_binary.
@@ -366,24 +279,10 @@ public class CppLinkActionBuilder {
   public boolean isFake() {
     return this.fake;
   }
-  
-  /**
-   * Returns true for native dependencies of another language.
-   */
-  public boolean isNativeDeps() {
-    return this.isNativeDeps;
-  }
  
   public CppLinkActionBuilder setLinkArtifactFactory(LinkArtifactFactory linkArtifactFactory) {
     this.linkArtifactFactory = linkArtifactFactory;
     return this;
-  }
-  
-  /**
-   * Returns true if this link action uses test only flags.
-   */
-  public boolean useTestOnlyFlags() {
-    return this.useTestOnlyFlags;
   }
 
   /**
@@ -1498,6 +1397,9 @@ public class CppLinkActionBuilder {
       throws InterruptedException, RuleErrorException {
     addLinkopts(linkParams.flattenedLinkopts());
     addLibraries(linkParams.getLibraries());
+    if (linkParams.getNonCodeInputs() != null) {
+      addNonCodeInputs(linkParams.getNonCodeInputs());
+    }
     ExtraLinkTimeLibraries extraLinkTimeLibraries = linkParams.getExtraLinkTimeLibraries();
     if (extraLinkTimeLibraries != null) {
       for (ExtraLinkTimeLibrary extraLibrary : extraLinkTimeLibraries.getExtraLibraries()) {

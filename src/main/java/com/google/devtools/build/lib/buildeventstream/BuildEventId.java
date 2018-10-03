@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.TextFormat;
 import java.io.Serializable;
 import java.util.List;
@@ -233,12 +233,12 @@ public final class BuildEventId implements Serializable {
     return new BuildEventId(cause.getIdProto());
   }
 
-  public static BuildEventId actionCompleted(Path path) {
+  public static BuildEventId actionCompleted(PathFragment path) {
     return actionCompleted(path, null, null);
   }
 
   public static BuildEventId actionCompleted(
-      Path path, @Nullable Label label, @Nullable String configurationChecksum) {
+      PathFragment path, @Nullable Label label, @Nullable String configurationChecksum) {
     ActionCompletedId.Builder actionId =
         ActionCompletedId.newBuilder().setPrimaryOutput(path.toString());
     if (label != null) {

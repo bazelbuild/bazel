@@ -18,6 +18,8 @@ To try out Bazel inside a [Docker](https://www.docker.com/) container, check out
 our public Ubuntu Linux (16.04) based Bazel container in
 [Google Cloud Marketplace](https://console.cloud.google.com/marketplace/details/google/bazel).
 
+To get started with the Bazel container, check out [Getting started with Bazel Docker Container](bazel-container.html).
+
 ## Tutorials
 
 To get hands-on with Bazel and understand its core concepts, complete a
@@ -31,6 +33,8 @@ tutorial:
 
 *   [Tutorial: Build an iOS Application](tutorial/ios-app.html)
 
+Once you are familiar with the basics, you can try the rules for
+[other languages](be/overview.html).
 
 ## Migration
 

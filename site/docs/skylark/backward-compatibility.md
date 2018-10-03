@@ -41,6 +41,7 @@ guarded behind flags in the current release:
 *   [New actions API](#new-actions-api)
 *   [New args API](#new-args-api)
 *   [Disable objc provider resources](#disable-objc-provider-resources)
+*   [Disable output group field on Target](#disable-output-group-field-on-target)
 *   [Remove native git repository](#remove-native-git-repository)
 *   [Remove native http archive](#remove-native-http-archive)
 *   [New-style JavaInfo constructor](#new-style-java_info)
@@ -55,6 +56,7 @@ guarded behind flags in the current release:
 *   [Disallow using C++ Specific Make Variables from the configuration](#disallow-using-c-specific-make-variables-from-the-configuration)
 *   [Disable legacy C++ configuration API](#disable-legacy-c-configuration-api)
 *   [Disable legacy C++ toolchain API](#disable-legacy-c-toolchain-api)
+*   [Disallow `cfg = "data"`](#disallow-cfg--data)
 
 
 ### Dictionary concatenation
@@ -251,6 +253,27 @@ This flag disables certain deprecated resource fields on
 [ObjcProvider](lib/ObjcProvider.html).
 
 *   Flag: `--incompatible_objc_provider_resources`
+*   Default: `false`
+
+
+### Disable output group field on Target
+
+This flag disables the `output_group` field on the `Target` Starlark type.
+Use `OutputGroupInfo` instead.
+
+For example, replace:
+
+```python
+dep_bin = ctx.attr.dep.output_group.bin
+```
+
+with:
+
+```python
+dep_bin = ctx.attr.dep[OutputGroupInfo].bin
+```
+
+*   Flag: `--incompatible_no_target_output_group`
 *   Default: `false`
 
 
@@ -602,8 +625,23 @@ cc_toolchain_suite(
         'cpu2' : ':cc_tolchain_label4',
     }
 )
-
 ```
+
+Before, it could happen that the same `cc_toolchain` is used with multiple
+`CToolchain`s from the CROSSTOOL through `default_toolchain`s. This is no longer
+allowed, each `cc_toolchain` must point to at most one `CToolchain` by:
+
+* (preferable) specifying `cc_toolchain.toolchain_identifier` equal to
+  `CToolchain.toolchain_identifier`
+* (deprecated, but still supported, doesn't work without specifying `compiler`)
+  specifying `cc_toolchain.cpu` and `cc_toolchain.compiler` fields that match
+  `CToolchain.target_cpu` and `CToolchain.compiler` respectively.
+* (deprecated, but still supported, doesn't work with
+  [platforms](https://www.bazel.build/roadmaps/platforms.html)) Relying on
+  `--cpu` and `--compiler` options.
+
+Using `cc_toolchain.toolchain_identifier` will save you one migration in the
+future.
 
 *   Flag: `--incompatible_disable_cc_toolchain_label_from_crosstool_proto`
 *   Default: `false`
@@ -759,22 +797,22 @@ List of all legacy fields and their corresponding `cc_toolchain` alternative:
 
 We have deprecated the `cc_toolchain` Starlark API returning legacy CROSSTOOL fields:
 
-* ar_executable
-* c_options
-* compiler_executable
-* compiler_options
-* cxx_options
-* dynamic_link_options
-* fully_static_link_options
-* ld_executable
-* link_options
-* mostly_static_link_options
-* nm_executable
-* objcopy_executable
-* objdump_executable
-* preprocessor_executable
-* strip_executable
-* unfiltered_compiler_options
+* ar\_executable
+* c\_options
+* compiler\_executable
+* compiler\_options
+* cxx\_options
+* dynamic\_link\_options
+* fully\_static\_link\_options
+* ld\_executable
+* link\_options
+* mostly\_static\_link\_options
+* nm\_executable
+* objcopy\_executable
+* objdump\_executable
+* preprocessor\_executable
+* strip\_executable
+* unfiltered\_compiler\_options
 
 Use the new API from [cc_common](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html)
 
@@ -844,5 +882,35 @@ def _impl(ctx):
 *   Flag: `--incompatible_disable_legacy_flags_cc_toolchain_api`
 *   Default: `false`
 *   Introduced in: `0.19.0`
+
+### Disallow `cfg = "data"`
+
+`cfg = "data"` is a no-op that incorrectly gives the impression dependencies under
+it are built in a distinct "data" mode:
+
+```python
+my_rule = rule(
+    ...
+    "some_attr": attr.label_list(
+        cfg = "data"  # This line does nothing
+    )
+)
+```
+
+The original semantics were unclear and were
+[removed](https://github.com/bazelbuild/bazel/commit/8820d3ae601f229b72c61d2eb601b0e8e9b0111a#diff-ffd6930edbe7f2529b608c400fd19456)
+in 0.16.0.
+
+Because this syntax is non-functional and confusing, it's being removed outright
+([#6153](https://github.com/bazelbuild/bazel/issues/6153)). The functionality it
+implies will be provided by
+[Starlark build configuration](https://github.com/bazelbuild/bazel/issues/5574).
+
+When `--incompatible_disallow_data_transition=true`, builds using this syntax
+fail with an error.
+
+*   Flag: `--incompatible_disallow_data_transition`
+*   Default: `false`
+*   Introduced in: `0.16.0`
 
 <!-- Add new options here -->

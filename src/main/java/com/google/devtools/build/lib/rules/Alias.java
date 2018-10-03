@@ -104,7 +104,10 @@ public class Alias implements RuleConfiguredTargetFactory {
 
   <ul>
     <li>
-      Tests are not run if their alias is mentioned on the command line
+      Tests are not run if their alias is mentioned on the command line. To define an alias
+      that runs the referenced test, use a <a href="#test_suite"><code>test_suite</code></a>
+      rule with a single target in its <a href="#test_suite.tests"><code>tests</code></a>
+      attribute.
     </li>
     <li>
       When defining environment groups, the aliases to <code>environment</code> rules are not

@@ -34,16 +34,16 @@ import java.util.List;
 public class RepositoryOptions extends OptionsBase {
 
   @Option(
-    name = "repository_cache",
-    oldName = "experimental_repository_cache",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    converter = OptionsUtils.PathFragmentConverter.class,
-    help =
-        "Specifies the cache location of the downloaded values obtained "
-            + "during the fetching of external repositories."
-  )
+      name = "repository_cache",
+      oldName = "experimental_repository_cache",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "Specifies the cache location of the downloaded values obtained "
+              + "during the fetching of external repositories. An empty string "
+              + "as argument requests the cache to be disabled.")
   public PathFragment experimentalRepositoryCache;
 
   @Option(

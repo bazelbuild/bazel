@@ -271,7 +271,12 @@ public class BlazeCommandDispatcher {
     // the afterCommand call in the finally block below.
     Path profilePath =
         runtime.initProfiler(
-            storedEventHandler, workspace, commonOptions, env.getCommandId(), execStartTimeNanos);
+            storedEventHandler,
+            workspace,
+            commonOptions,
+            env.getCommandId(),
+            execStartTimeNanos,
+            waitTimeInMs);
     if (commonOptions.postProfileStartedEvent) {
       storedEventHandler.post(new ProfilerStartedEvent(profilePath));
     }
@@ -299,16 +304,8 @@ public class BlazeCommandDispatcher {
       }
       env.getReporter().removeHandler(storedEventHandler);
 
-      // We may only start writing to outErr once we've given the modules the chance to hook in.
-      for (BlazeModule module : runtime.getBlazeModules()) {
-        try (SilentCloseable closeable =
-            Profiler.instance().profile(module + ".getOutputListener")) {
-          OutErr listener = module.getOutputListener();
-          if (listener != null) {
-            outErr = tee(outErr, listener);
-          }
-        }
-      }
+      // Setup stdout / stderr.
+      outErr = tee(outErr, env.getOutputListeners());
 
       // Early exit. We need to guarantee that the ErrOut and Reporter setup below never error out,
       // so any invariants they need must be checked before this point.
@@ -564,11 +561,16 @@ public class BlazeCommandDispatcher {
   }
 
 
-  private OutErr tee(OutErr outErr1, OutErr outErr2) {
-    DelegatingOutErr outErr = new DelegatingOutErr();
-    outErr.addSink(outErr1);
-    outErr.addSink(outErr2);
-    return outErr;
+  private OutErr tee(OutErr outErr, List<OutErr> additionalOutErrs) {
+    if (additionalOutErrs.isEmpty()) {
+      return outErr;
+    }
+    DelegatingOutErr result = new DelegatingOutErr();
+    result.addSink(outErr);
+    for (OutErr additionalOutErr : additionalOutErrs) {
+      result.addSink(additionalOutErr);
+    }
+    return result;
   }
 
   private void closeSilently(OutputStream logOutputStream) {

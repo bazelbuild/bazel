@@ -25,7 +25,13 @@ import javax.annotation.Nullable;
  * Interface to mark classes that could contain transitive information added using the Skylark
  * framework.
  */
-public interface SkylarkProviderCollection {
+public interface ProviderCollection {
+  /**
+   * Returns the transitive information provider requested, or null if the provider is not found.
+   * The provider has to be a TransitiveInfoProvider Java class.
+   */
+  @Nullable
+  <P extends TransitiveInfoProvider> P getProvider(Class<P> provider);
 
   /**
    * Returns the transitive information requested or null, if the information is not found. The

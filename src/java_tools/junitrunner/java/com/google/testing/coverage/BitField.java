@@ -62,15 +62,6 @@ public class BitField {
   }
 
   /**
-   * Clears a bit at the given index
-   *
-   * @param index bit index
-   */
-  public void clearBit(int index) {
-    setBit(index, false);
-  }
-
-  /**
    * Sets or clears a bit at the given index.
    *
    * @param index bit index
@@ -90,6 +81,15 @@ public class BitField {
     } else {
       bytes[byteIndex] = (byte) (bytes[byteIndex] & ~mask);
     }
+  }
+
+  /**
+   * Clears a bit at the given index
+   *
+   * @param index bit index
+   */
+  public void clearBit(int index) {
+    setBit(index, false);
   }
 
   /**
@@ -129,7 +129,8 @@ public class BitField {
    * @return this bit field
    */
   public BitField or(BitField other) {
-    byte[] largerArray, smallerArray;
+    byte[] largerArray;
+    byte[] smallerArray;
     if (bytes.length < other.bytes.length) {
       largerArray = other.bytes;
       smallerArray = bytes;

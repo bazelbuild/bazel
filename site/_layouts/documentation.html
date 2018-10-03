@@ -68,49 +68,24 @@ nav: docs
               </li>
 
               <li><a href="/versions/{{ site.version }}/user-manual.html">User Manual</a></li>
+              <li><a href="/versions/{{ site.version }}/windows.html">Using Bazel on Windows</a></li>
+              <li><a href="/versions/{{ site.version }}/external.html">Adding External Dependencies</a></li>
+              <li><a href="/versions/{{ site.version }}/query-how-to.html">Querying Builds</a></li>
+              <li><a href="/versions/{{ site.version }}/test-encyclopedia.html">Writing Tests</a></li>
+              <li><a href="/versions/{{ site.version }}/configurable-attributes.html">Configurable Attributes</a></li>
+              <li><a href="/versions/{{ site.version }}/best-practices.html">Best Practices</a></li>
+              <li><a href="/versions/{{ site.version }}/remote-caching.html">Remote Caching</a></li>
+            </ul>
 
-              <li>
-                <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#cpp-menu" aria-expanded="false"
-                    aria-controls="cpp-menu">
-                  Bazel and C++<span class="caret"></span>
-                </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="cpp-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-cpp.html">C++ Resources</a></li>
-                  <li><a href="/versions/{{ site.version }}/cpp-use-cases.html">C++ Use Cases</a></li>
-                </ul>
-              </li>
-
-              <li>
-                <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#java-menu" aria-expanded="false"
-                    aria-controls="java-menu">
-                  Bazel and Java<span class="caret"></span>
-                </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="java-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-java.html">Java Resources</a></li>
-                  <li><a href="/versions/{{ site.version }}/migrate-maven.html">Migrating from Maven</a></li>
-                  <li><a href="/versions/{{ site.version }}/generate-workspace.html">Converting Maven Dependencies</a></li>
-                </ul>
-              </li>
-
-              <li>
-                <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#javascript-menu" aria-expanded="false"
-                    aria-controls="javascript-menu">
-                  Bazel and JavaScript<span class="caret"></span>
-                </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="javascript-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-javascript.html">JavaScript Resources</a></li>
-                  <li><a href="/versions/{{ site.version }}/build-javascript.html">Building JavaScript</a></li>
-                </ul>
-              </li>
+           <h3>Rules</h3>
+           <ul class="sidebar-nav">
+             <li><a href="/versions/{{ site.version }}/be/overview.html">Build Encyclopedia</a></li>
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#android-menu" aria-expanded="false"
                     aria-controls="android-menu">
-                  Bazel and Android<span class="caret"></span>
+                  Android<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="android-menu">
                   <li><a href="/versions/{{ site.version }}/bazel-and-android.html">Android Resources</a></li>
@@ -125,7 +100,7 @@ nav: docs
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#apple-menu" aria-expanded="false"
                     aria-controls="apple-menu">
-                  Bazel and Apple<span class="caret"></span>
+                  Apple<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="apple-menu">
                   <li><a href="/versions/{{ site.version }}/bazel-and-apple.html">Apple Resources</a></li>
@@ -133,19 +108,51 @@ nav: docs
                   <li><a href="/versions/{{ site.version }}/migrate-cocoapods.html">Converting CocoaPods</a></li>
                 </ul>
               </li>
-              <li><a href="/versions/{{ site.version }}/windows.html">Using Bazel on Windows</a></li>
-              <li><a href="/versions/{{ site.version }}/external.html">Adding External Dependencies</a></li>
-              <li><a href="/versions/{{ site.version }}/query-how-to.html">Querying Builds</a></li>
-              <li><a href="/versions/{{ site.version }}/test-encyclopedia.html">Writing Tests</a></li>
-              <li><a href="/versions/{{ site.version }}/configurable-attributes.html">Configurable Attributes</a></li>
-              <li><a href="/versions/{{ site.version }}/best-practices.html">Best Practices</a></li>
-              <li><a href="/versions/{{ site.version }}/remote-caching.html">Remote Caching</a></li>
-             </ul>
 
-          <h3>Reference</h3>
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#cpp-menu" aria-expanded="false"
+                    aria-controls="cpp-menu">
+                  C++<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="cpp-menu">
+                  <li><a href="/versions/{{ site.version }}/bazel-and-cpp.html">C++ Resources</a></li>
+                  <li><a href="/versions/{{ site.version }}/cpp-use-cases.html">C++ Use Cases</a></li>
+                  <li><a href="/versions/{{ site.version }}/crosstool-reference.html">Understanding CROSSTOOL</a></li>
+                  <li><a href="/versions/{{ site.version }}/tutorial/crosstool.html">Tutorial: CROSSTOOL</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#java-menu" aria-expanded="false"
+                    aria-controls="java-menu">
+                  Java<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="java-menu">
+                  <li><a href="/versions/{{ site.version }}/bazel-and-java.html">Java Resources</a></li>
+                  <li><a href="/versions/{{ site.version }}/migrate-maven.html">Migrating from Maven</a></li>
+                  <li><a href="/versions/{{ site.version }}/generate-workspace.html">Converting Maven Dependencies</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#javascript-menu" aria-expanded="false"
+                    aria-controls="javascript-menu">
+                  JavaScript<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="javascript-menu">
+                  <li><a href="/versions/{{ site.version }}/bazel-and-javascript.html">JavaScript Resources</a></li>
+                  <li><a href="/versions/{{ site.version }}/build-javascript.html">Building JavaScript</a></li>
+                </ul>
+              </li>
+
+           </ul>
+
+           <h3>Reference</h3>
            <ul class="sidebar-nav">
              <li><a href="/versions/{{ site.version }}/build-ref.html">Bazel Concepts</a></li>
-             <li><a href="/versions/{{ site.version }}/be/overview.html">Build Encyclopedia</a></li>
              <li><a href="/versions/{{ site.version }}/skylark/build-style.html">BUILD Style Guide</a></li>
              <li><a href="/versions/{{ site.version }}/command-line-reference.html">Command Line Reference</a></li>
              <li><a href="/versions/{{ site.version }}/build-event-protocol.html">Build Event Protocol</a></li>

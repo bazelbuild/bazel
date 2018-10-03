@@ -131,11 +131,6 @@ public class BuildViewForTesting {
     return skyframeBuildView.getEvaluatedTargetKeys();
   }
 
-  /** The number of targets freshly evaluated in the last analysis run. */
-  public int getTargetsVisited() {
-    return buildView.getTargetsVisited();
-  }
-
   /**
    * Returns whether the given configured target has errors.
    */

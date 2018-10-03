@@ -130,7 +130,7 @@ public class WorkspaceFactoryTest {
         ")");
     assertMapping(helper, "@foo", "@x", "@y");
   }
-  
+
   @Test
   public void testMultipleRepositoriesWithMappings() throws Exception {
     helper.setSkylarkSemantics("--experimental_enable_repo_mapping");
@@ -172,7 +172,7 @@ public class WorkspaceFactoryTest {
         "    path = '/foo',",
         "    repo_mapping = {},",
         ")");
-    assertThat(helper.getPackage().getRepositoryMapping("@foo")).isEmpty();
+    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("@foo"))).isEmpty();
   }
 
   @Test
@@ -208,14 +208,14 @@ public class WorkspaceFactoryTest {
   public void testNoImplicitMainRepoRenameWithoutFlag() throws Exception {
     helper.parse("workspace(name = 'foo')");
     RepositoryName foo = RepositoryName.create("@foo");
-    assertThat(helper.getPackage().getRepositoryMapping("@"))
+    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("@")))
         .doesNotContainEntry(foo, RepositoryName.MAIN);
   }
 
   @Test
   public void testEmptyRepositoryHasEmptyMap() throws Exception {
     helper.parse("");
-    assertThat(helper.getPackage().getRepositoryMapping("@")).isEmpty();
+    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("@"))).isEmpty();
   }
 
   @Test
@@ -237,7 +237,7 @@ public class WorkspaceFactoryTest {
       throws Exception {
     RepositoryName localRepoName = RepositoryName.create(local);
     RepositoryName globalRepoName = RepositoryName.create(global);
-    assertThat(helper.getPackage().getRepositoryMapping(repo))
+    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create(repo)))
         .containsEntry(localRepoName, globalRepoName);
   }
 

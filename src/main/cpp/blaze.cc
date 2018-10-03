@@ -714,13 +714,13 @@ static int StartServer(const WorkspaceLayout *workspace_layout,
 // This function passes the commands array to the blaze process.
 // This array should start with a command ("build", "info", etc.).
 static void StartStandalone(const WorkspaceLayout *workspace_layout,
-                            BlazeServer *server) {
+                            BlazeServer *server, uint64_t start_time) {
   if (server->Connected()) {
     server->KillRunningServer();
   }
 
   // Wall clock time since process startup.
-  globals->startup_time = GetMillisecondsSinceProcessStart();
+  globals->startup_time = GetMillisecondsMonotonic() - start_time;
 
   BAZEL_LOG(INFO) << "Starting " << globals->options->product_name
                   << " in batch mode.";
@@ -1266,7 +1266,8 @@ static void CancelServer() { blaze_server->Cancel(); }
 // Performs all I/O for a single client request to the server, and
 // shuts down the client (by exit or signal).
 static ATTRIBUTE_NORETURN void SendServerRequest(
-    const WorkspaceLayout *workspace_layout, BlazeServer *server) {
+    const WorkspaceLayout *workspace_layout, BlazeServer *server,
+    uint64_t start_time) {
   while (true) {
     if (!server->Connected()) {
       StartServerAndConnect(workspace_layout, server);
@@ -1304,7 +1305,7 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
   BAZEL_LOG(INFO) << "Connected (server pid=" << globals->server_pid << ").";
 
   // Wall clock time since process startup.
-  globals->startup_time = GetMillisecondsSinceProcessStart();
+  globals->startup_time = GetMillisecondsMonotonic() - start_time;
 
   SignalHandler::Get().Install(globals, CancelServer);
   SignalHandler::Get().PropagateSignalOrExit(server->Communicate());
@@ -1511,7 +1512,7 @@ int GetExitCodeForAbruptExit(const GlobalVariables &globals) {
 }
 
 int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
-         OptionProcessor *option_processor) {
+         OptionProcessor *option_processor, uint64_t start_time) {
   // Logging must be set first to assure no log statements are missed.
   std::unique_ptr<blaze_util::BazelLogHandler> default_handler(
       new blaze_util::BazelLogHandler());
@@ -1588,9 +1589,9 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   if (globals->options->batch) {
     SetScheduling(globals->options->batch_cpu_scheduling,
                   globals->options->io_nice_level);
-    StartStandalone(workspace_layout, blaze_server);
+    StartStandalone(workspace_layout, blaze_server, start_time);
   } else {
-    SendServerRequest(workspace_layout, blaze_server);
+    SendServerRequest(workspace_layout, blaze_server, start_time);
   }
   return 0;
 }

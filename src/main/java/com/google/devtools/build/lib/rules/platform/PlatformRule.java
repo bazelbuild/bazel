@@ -41,7 +41,13 @@ public class PlatformRule implements RuleDefinition {
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(constraint_values) -->
-        The constraint_values that define this platform.
+        The combination of constraint choices that this platform comprises. In order for a platform
+        to apply to a given environment, the environment must have at least the values in this list.
+
+        <p>Each <code>constraint_value</code> in this list must be for a different
+        <code>constraint_setting</code>. For example, you cannot define a platform that requires the
+        cpu architecture to be both <code>@bazel_tools//platforms:x86_64</code> and
+        <code>@bazel_tools//platforms:arm</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(CONSTRAINT_VALUES_ATTR, BuildType.LABEL_LIST)
@@ -94,30 +100,23 @@ public class PlatformRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = platform, TYPE = OTHER, FAMILY = Platform)[GENERIC_RULE] -->
 
-<p>This rule defines a platform, as a collection of constraint_values.
+<p>This rule defines a new platform -- a named collection of constraint choices (such as cpu
+architecture or compiler version) describing an environment in which part of the build may run.
+See the <a href="https://docs.bazel.build/versions/master/platforms.html">Platforms</a> page for
+more details.
 
-<h4 id="platform_examples">Examples</h4>
+<h4 id="platform_examples">Example</h4>
 <p>
-  This defines two possible platforms, each targeting a different CPU type.
+  This defines a platform that describes any environment running Linux on ARM.
 </p>
 <pre class="code">
-constraint_setting(name="cpu")
-constraint_value(
-    name="arm64",
-    constraint_setting=":cpu")
-constraint_value(
-    name="k8",
-    constraint_setting=":cpu")
 platform(
-    name="mobile_device",
+    name = "linux_arm",
     constraint_values = [
-        ":arm64",
-    ])
-platform(
-    name="devel",
-    constraint_values = [
-        ":k8",
-    ])
+        "@bazel_tools//platforms:linux",
+        "@bazel_tools//platforms:arm",
+    ],
+)
 </pre>
 
 <!-- #END_BLAZE_RULE -->*/

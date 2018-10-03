@@ -278,29 +278,30 @@ message Attribute {
   repeated bytes DEPRECATED_string_dict_unary_value = 18;
 }
 
-// A rule from a BUILD file (e.g., cc_library, java_binary).  The rule class
-// is the actual name of the rule (e.g., cc_library) and the name is the full
-// label of the rule (e.g., //foo/bar:baz).
+// A rule instance (e.g., cc_library foo, java_binary bar).
 message Rule {
-  // The name of the rule
+  // The name of the rule (formatted as an absolute label, e.g. //foo/bar:baz).
   required string name = 1;
 
   // The rule class (e.g., java_library)
   required string rule_class = 2;
 
-  // The BUILD file and line number of the rule.
+  // The BUILD file and line number of the location (formatted as
+  // <absolute_path>:<line_number>) in the rule's package's BUILD file where the
+  // rule instance was instantiated. The line number will be that of a rule
+  // invocation or macro call (that in turn invoked a rule). See
+  // https://docs.bazel.build/versions/master/skylark/macros.html#macro-creation
   optional string location = 3;
 
   // All of the attributes that describe the rule.
   repeated Attribute attribute = 4;
 
-  // All of the inputs to the rule.  These are predecessors in the dependency
-  // graph.  A rule_input for a rule should always be described as a
-  // source_file in some package (either the rule's package or some other one).
+  // All of the inputs to the rule (formatted as absolute labels). These are
+  // predecessors in the dependency graph.
   repeated string rule_input = 5;
 
-  // All of the outputs of the rule.  These are the successors in the
-  // dependency graph.
+  // All of the outputs of the rule (formatted as absolute labels). These are
+  // successors in the dependency graph.
   repeated string rule_output = 6;
 
   // The set of all default settings affecting this rule. The name of a default

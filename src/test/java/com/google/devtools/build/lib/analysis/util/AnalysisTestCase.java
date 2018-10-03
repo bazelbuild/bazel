@@ -512,10 +512,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return buildView.getSkyframeEvaluatedTargetKeysForTesting();
   }
 
-  protected int getTargetsVisited() {
-    return buildView.getTargetsVisited();
-  }
-
   protected String getAnalysisError() {
     ensureUpdateWasCalled();
     return analysisResult.getError();

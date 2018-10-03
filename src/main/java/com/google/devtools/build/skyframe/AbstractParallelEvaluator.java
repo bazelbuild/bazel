@@ -37,6 +37,7 @@ import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDep;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
+import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Iterator;
@@ -316,7 +317,10 @@ public abstract class AbstractParallelEvaluator {
           return DirtyOutcome.ALREADY_PROCESSED;
         case NEEDS_REBUILDING:
           maybeMarkRebuilding(state);
-          // Fall through to REBUILDING case.
+          return DirtyOutcome.NEEDS_EVALUATION;
+        case NEEDS_FORCED_REBUILDING:
+          state.forceRebuild();
+          return DirtyOutcome.NEEDS_EVALUATION;
         case REBUILDING:
         case FORCED_REBUILDING:
           return DirtyOutcome.NEEDS_EVALUATION;
@@ -709,9 +713,9 @@ public abstract class AbstractParallelEvaluator {
               restartEntry.getKey(),
               /*otherKey=*/ key,
               Inconsistency.CHILD_FORCED_REEVALUATION_BY_PARENT);
-      // Nodes are marked changed to ensure that they run. (Also, marking dirty-but-not-changed
-      // would fail if the node has no deps, because dirtying works only when nodes have deps.)
-      restartEntry.getValue().markDirty(/*isChanged=*/ true);
+      // Nodes are marked "force-rebuild" to ensure that they run, and to allow them to evaluate to
+      // a different value than before, even if their versions remain the same.
+      restartEntry.getValue().markDirty(DirtyType.FORCE_REBUILD);
     }
 
     // TODO(mschaller): rdeps of children have to be handled here. If the graph does not keep edges,

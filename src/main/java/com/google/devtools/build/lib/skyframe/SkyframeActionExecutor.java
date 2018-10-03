@@ -155,6 +155,7 @@ public final class SkyframeActionExecutor {
   // findAndStoreArtifactConflicts, and is preserved across builds otherwise.
   private ImmutableMap<ActionAnalysisMetadata, ConflictException> badActionMap = ImmutableMap.of();
   private OptionsProvider options;
+  private boolean usePerFileActionCache;
   private boolean hadExecutionError;
   private MetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
@@ -358,6 +359,8 @@ public final class SkyframeActionExecutor {
     this.actionCacheChecker = Preconditions.checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
     this.options = options;
+    this.usePerFileActionCache =
+        options.getOptions(BuildRequestOptions.class).usePerActionFileCache;
     // Cache the finalizeActions value for performance, since we consult it on every action.
     this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
     this.outputService = outputService;
@@ -371,6 +374,10 @@ public final class SkyframeActionExecutor {
   public void setClientEnv(Map<String, String> clientEnv) {
     // Copy once here, instead of on every construction of ActionExecutionContext.
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
+  }
+
+  boolean usePerFileActionCache() {
+    return usePerFileActionCache;
   }
 
   boolean usesActionFileSystem() {
@@ -442,8 +449,7 @@ public final class SkyframeActionExecutor {
       ActionMetadataHandler metadataHandler,
       long actionStartTime,
       ActionExecutionContext actionExecutionContext,
-      ActionLookupData actionLookupData,
-      boolean inputDiscoveryRan)
+      ActionLookupData actionLookupData)
       throws ActionExecutionException, InterruptedException {
     Exception exception = badActionMap.get(action);
     if (exception != null) {
@@ -483,15 +489,6 @@ public final class SkyframeActionExecutor {
           ActionExecutionException.class, InterruptedException.class);
       throw new IllegalStateException(e);
     } finally {
-      if (!isPrimaryActionForTheValue && action.discoversInputs() && inputDiscoveryRan) {
-        /**
-         * If this is a shared action that does input discovery, but was not executed, we need to
-         * remove it from the active actions pool (it was added there by {@link
-         * ActionRunner#call()}).
-         */
-        // TODO(b/72764586): Cleanup once we can properly skip input discovery for shared actions
-        statusReporterRef.get().remove(action);
-      }
       String message = action.getProgressMessage();
       if (message != null) {
         // Tell the receiver that the action has completed *before* telling the reporter.
@@ -509,7 +506,7 @@ public final class SkyframeActionExecutor {
    * tasks related to that action.
    */
   public ActionExecutionContext getContext(
-      MetadataProvider graphFileCache,
+      MetadataProvider perActionFileCache,
       MetadataHandler metadataHandler,
       Map<Artifact, Collection<Artifact>> expandedInputs,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
@@ -520,7 +517,7 @@ public final class SkyframeActionExecutor {
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot()));
     return new ActionExecutionContext(
         executorEngine,
-        createFileCache(graphFileCache, actionFileSystem),
+        createFileCache(perActionFileCache, actionFileSystem),
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
@@ -643,7 +640,7 @@ public final class SkyframeActionExecutor {
    */
   Iterable<Artifact> discoverInputs(
       Action action,
-      PerActionFileCache graphFileCache,
+      MetadataProvider perActionFileCache,
       MetadataHandler metadataHandler,
       Environment env,
       @Nullable FileSystem actionFileSystem)
@@ -651,7 +648,7 @@ public final class SkyframeActionExecutor {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
-            createFileCache(graphFileCache, actionFileSystem),
+            createFileCache(perActionFileCache, actionFileSystem),
             actionInputPrefetcher,
             actionKeyContext,
             metadataHandler,
@@ -1253,6 +1250,7 @@ public final class SkyframeActionExecutor {
     }
     eventHandler.post(
         new ActionExecutedEvent(
+            action.getPrimaryOutput().getExecPath(),
             action,
             exception,
             actionExecutionContext.getInputPath(action.getPrimaryOutput()),

@@ -56,8 +56,11 @@ public final class JavaLibraryHelper {
   private JavaPluginInfoProvider plugins = JavaPluginInfoProvider.empty();
   private ImmutableList<String> javacOpts = ImmutableList.of();
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
-  private StrictDepsMode strictDepsMode = StrictDepsMode.OFF;
-  private JavaClasspathMode classpathMode = JavaClasspathMode.OFF;
+
+  /** @see {@link #setCompilationStrictDepsMode}. */
+  private StrictDepsMode strictDepsMode = StrictDepsMode.ERROR;
+
+  private final JavaClasspathMode classpathMode;
   private String injectingRuleKind;
   private boolean neverlink;
 
@@ -167,6 +170,8 @@ public final class JavaLibraryHelper {
    * <p>Contrast this with the strictness-parameter to {@link #buildCompilationArgsProvider}, which
    * controls whether others depending on the result of this compilation, can perform strict-deps
    * checks at all.
+   *
+   * <p>Defaults to {@link StrictDepsMode#ERROR}.
    */
   public JavaLibraryHelper setCompilationStrictDepsMode(StrictDepsMode strictDepsMode) {
     this.strictDepsMode = strictDepsMode;

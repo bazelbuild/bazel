@@ -28,6 +28,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
@@ -71,8 +72,24 @@ class Path {
   std::wstring path_;
 };
 
+struct UndeclaredOutputs {
+  Path root;
+  Path zip;
+  Path manifest;
+  Path annotations;
+  Path annotations_dir;
+};
+
 void LogError(const int line, const char* msg) {
   printf("ERROR(" __FILE__ ":%d) %s\n", line, msg);
+}
+
+void LogError(const int line, const wchar_t* msg) {
+#define _WSTR_HELPER_1(x) L##x
+#define _WSTR_HELPER_2(x) _WSTR_HELPER_1(x)
+  wprintf(L"ERROR(" _WSTR_HELPER_2(__FILE__) L":%d) %s\n", line, msg);
+#undef _WSTR_HELPER_2
+#undef _WSTR_HELPER_1
 }
 
 void LogErrorWithValue(const int line, const char* msg, DWORD error_code) {
@@ -92,15 +109,37 @@ void LogErrorWithArgAndValue(const int line, const char* msg,
          line, error_code, error_code, arg, msg);
 }
 
-inline void CreateDirectories(const Path& path) {
+inline bool CreateDirectories(const Path& path) {
   blaze_util::MakeDirectoriesW(bazel::windows::HasUncPrefix(path.Get().c_str())
                                    ? path.Get()
                                    : L"\\\\?\\" + path.Get(),
                                0777);
+  return true;
 }
 
 inline bool ToInt(const wchar_t* s, int* result) {
   return swscanf_s(s, L"%d", result) == 1;
+}
+
+bool WcsToAcp(const std::wstring& wcs, std::string* acp) {
+  uint32_t err;
+  if (!blaze_util::WcsToAcp(wcs, acp, &err)) {
+    LogErrorWithArgAndValue(__LINE__, "Failed to convert string", wcs.c_str(),
+                            err);
+    return false;
+  }
+  return true;
+}
+
+// Converts a Windows-style path to a mixed (Unix-Windows) style.
+// The path is mixed-style because it is a Windows path (begins with a drive
+// letter) but uses forward slashes as directory separators.
+// We must export envvars as mixed style path because some tools confuse the
+// backslashes in Windows paths for Unix-style escape characters.
+inline std::wstring AsMixedPath(const std::wstring& path) {
+  std::wstring value = path;
+  std::replace(value.begin(), value.end(), L'\\', L'/');
+  return value;
 }
 
 bool GetEnv(const wchar_t* name, std::wstring* result) {
@@ -137,18 +176,22 @@ bool SetEnv(const wchar_t* name, const std::wstring& value) {
   if (SetEnvironmentVariableW(name, value.c_str()) != 0) {
     return true;
   } else {
-    LogErrorWithArgAndValue(__LINE__, "Failed to set envvar", name,
-                            GetLastError());
+    DWORD err = GetLastError();
+    LogErrorWithArgAndValue(__LINE__, "Failed to set envvar", name, err);
     return false;
   }
+}
+
+bool SetPathEnv(const wchar_t* name, const Path& path) {
+  return SetEnv(name, AsMixedPath(path.Get()));
 }
 
 bool UnsetEnv(const wchar_t* name) {
   if (SetEnvironmentVariableW(name, NULL) != 0) {
     return true;
   } else {
-    LogErrorWithArgAndValue(__LINE__, "Failed to unset envvar", name,
-                            GetLastError());
+    DWORD err = GetLastError();
+    LogErrorWithArgAndValue(__LINE__, "Failed to unset envvar", name, err);
     return false;
   }
 }
@@ -183,7 +226,8 @@ bool ExportUserName() {
   WCHAR buffer[UNLEN + 1];
   DWORD len = UNLEN + 1;
   if (GetUserNameW(buffer, &len) == 0) {
-    LogErrorWithValue(__LINE__, "Failed to query user name", GetLastError());
+    DWORD err = GetLastError();
+    LogErrorWithValue(__LINE__, "Failed to query user name", err);
     return false;
   }
   return SetEnv(L"USER", buffer);
@@ -194,19 +238,18 @@ bool ExportSrcPath(const Path& cwd, Path* result) {
   if (!GetPathEnv(L"TEST_SRCDIR", result)) {
     return false;
   }
-  return !result->Absolutize(cwd) || SetEnv(L"TEST_SRCDIR", result->Get());
+  return !result->Absolutize(cwd) || SetPathEnv(L"TEST_SRCDIR", *result);
 }
 
 // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
 bool ExportTmpPath(const Path& cwd, Path* result) {
   if (!GetPathEnv(L"TEST_TMPDIR", result) ||
-      (result->Absolutize(cwd) && !SetEnv(L"TEST_TMPDIR", result->Get()))) {
+      (result->Absolutize(cwd) && !SetPathEnv(L"TEST_TMPDIR", *result))) {
     return false;
   }
   // Create the test temp directory, which may not exist on the remote host when
   // doing a remote build.
-  CreateDirectories(*result);
-  return true;
+  return CreateDirectories(*result);
 }
 
 // Set HOME as required by the Bazel Test Encyclopedia.
@@ -221,7 +264,7 @@ bool ExportHome(const Path& test_tmpdir) {
     return true;
   } else {
     // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
-    return SetEnv(L"HOME", test_tmpdir.Get());
+    return SetPathEnv(L"HOME", test_tmpdir);
   }
 }
 
@@ -229,7 +272,7 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
   Path runfiles_dir;
   if (!GetPathEnv(L"RUNFILES_DIR", &runfiles_dir) ||
       (runfiles_dir.Absolutize(cwd) &&
-       !SetEnv(L"RUNFILES_DIR", runfiles_dir.Get()))) {
+       !SetPathEnv(L"RUNFILES_DIR", runfiles_dir))) {
     return false;
   }
 
@@ -237,9 +280,9 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
   // {JAVA,PYTHON}_RUNFILES vars.
   Path java_rf, py_rf;
   if (!GetPathEnv(L"JAVA_RUNFILES", &java_rf) ||
-      (java_rf.Absolutize(cwd) && !SetEnv(L"JAVA_RUNFILES", java_rf.Get())) ||
+      (java_rf.Absolutize(cwd) && !SetPathEnv(L"JAVA_RUNFILES", java_rf)) ||
       !GetPathEnv(L"PYTHON_RUNFILES", &py_rf) ||
-      (py_rf.Absolutize(cwd) && !SetEnv(L"PYTHON_RUNFILES", py_rf.Get()))) {
+      (py_rf.Absolutize(cwd) && !SetPathEnv(L"PYTHON_RUNFILES", py_rf))) {
     return false;
   }
 
@@ -254,7 +297,7 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
     // manifest file to find their runfiles.
     Path runfiles_mf;
     if (!runfiles_mf.Set(test_srcdir.Get() + L"\\MANIFEST") ||
-        !SetEnv(L"RUNFILES_MANIFEST_FILE", runfiles_mf.Get())) {
+        !SetPathEnv(L"RUNFILES_MANIFEST_FILE", runfiles_mf)) {
       return false;
     }
   }
@@ -266,15 +309,13 @@ bool ExportShardStatusFile(const Path& cwd) {
   Path status_file;
   if (!GetPathEnv(L"TEST_SHARD_STATUS_FILE", &status_file) ||
       (!status_file.Get().empty() && status_file.Absolutize(cwd) &&
-       !SetEnv(L"TEST_SHARD_STATUS_FILE", status_file.Get()))) {
+       !SetPathEnv(L"TEST_SHARD_STATUS_FILE", status_file))) {
     return false;
   }
 
-  if (!status_file.Get().empty()) {
-    // The test shard status file is only set for sharded tests.
-    CreateDirectories(status_file.Dirname());
-  }
-  return true;
+  return status_file.Get().empty() ||
+         // The test shard status file is only set for sharded tests.
+         CreateDirectories(status_file.Dirname());
 }
 
 bool ExportGtestVariables(const Path& test_tmpdir) {
@@ -294,7 +335,7 @@ bool ExportGtestVariables(const Path& test_tmpdir) {
       return false;
     }
   }
-  return SetEnv(L"GTEST_TMP_DIR", test_tmpdir.Get());
+  return SetPathEnv(L"GTEST_TMP_DIR", test_tmpdir);
 }
 
 bool ExportMiscEnvvars(const Path& cwd) {
@@ -304,27 +345,83 @@ bool ExportMiscEnvvars(const Path& cwd) {
         L"TEST_WARNINGS_OUTPUT_FILE"}) {
     Path value;
     if (!GetPathEnv(name, &value) ||
-        (value.Absolutize(cwd) && !SetEnv(name, value.Get()))) {
+        (value.Absolutize(cwd) && !SetPathEnv(name, value))) {
       return false;
     }
   }
   return true;
 }
 
-bool GetAndUnexportUndeclaredOutputsEnvvars(const Path& cwd, Path* zip,
-                                            Path* manifest, Path* annotations) {
-  if (!GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ZIP", zip) ||
-      !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_ZIP") ||
-      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_MANIFEST", manifest) ||
-      !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_MANIFEST") ||
-      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS", annotations) ||
-      !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS")) {
+bool OpenFileForWriting(const std::wstring& path, HANDLE* result) {
+  *result = CreateFileW(bazel::windows::HasUncPrefix(path.c_str())
+                            ? path.c_str()
+                            : (L"\\\\?\\" + path).c_str(),
+                        GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE,
+                        NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (*result == INVALID_HANDLE_VALUE) {
+    DWORD err = GetLastError();
+    LogErrorWithArgAndValue(__LINE__, "Failed to open file", path.c_str(), err);
     return false;
   }
-  zip->Absolutize(cwd);
-  manifest->Absolutize(cwd);
-  annotations->Absolutize(cwd);
   return true;
+}
+
+bool TouchFile(const std::wstring& path) {
+  HANDLE handle;
+  if (!OpenFileForWriting(path, &handle)) {
+    return false;
+  }
+  CloseHandle(handle);
+  return true;
+}
+
+bool ExportXmlPath(const Path& cwd) {
+  Path result;
+  if (!GetPathEnv(L"XML_OUTPUT_FILE", &result)) {
+    return false;
+  }
+  result.Absolutize(cwd);
+  std::wstring unix_result = AsMixedPath(result.Get());
+  return SetEnv(L"XML_OUTPUT_FILE", unix_result) &&
+         // TODO(ulfjack): Update Gunit to accept XML_OUTPUT_FILE and drop the
+         // GUNIT_OUTPUT env variable.
+         SetEnv(L"GUNIT_OUTPUT", L"xml:" + unix_result) &&
+         CreateDirectories(result.Dirname()) &&
+         TouchFile(result.Get() + L".log");
+}
+
+bool GetAndUnexportUndeclaredOutputsEnvvars(const Path& cwd,
+                                            UndeclaredOutputs* result) {
+  // The test may only see TEST_UNDECLARED_OUTPUTS_DIR and
+  // TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR, so keep those but unexport others.
+  if (!GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ZIP", &(result->zip)) ||
+      !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_ZIP") ||
+
+      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_MANIFEST", &(result->manifest)) ||
+      !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_MANIFEST") ||
+
+      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS",
+                  &(result->annotations)) ||
+      !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS") ||
+
+      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_DIR", &(result->root)) ||
+
+      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR",
+                  &(result->annotations_dir))) {
+    return false;
+  }
+
+  result->root.Absolutize(cwd);
+  result->annotations_dir.Absolutize(cwd);
+  result->zip.Absolutize(cwd);
+  result->manifest.Absolutize(cwd);
+  result->annotations.Absolutize(cwd);
+
+  return SetPathEnv(L"TEST_UNDECLARED_OUTPUTS_DIR", result->root) &&
+         SetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR",
+                    result->annotations_dir) &&
+         CreateDirectories(result->root) &&
+         CreateDirectories(result->annotations_dir);
 }
 
 inline bool PrintTestLogStartMarker(bool suppress_output) {
@@ -364,10 +461,7 @@ inline void StripLeadingDotSlash(std::wstring* s) {
 bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
   if (!blaze_util::IsAbsolute(test_path)) {
     std::string argv0_acp;
-    uint32_t err;
-    if (!blaze_util::WcsToAcp(argv0.Get(), &argv0_acp, &err)) {
-      LogErrorWithArgAndValue(__LINE__, "Failed to convert string",
-                              argv0.Get().c_str(), err);
+    if (!WcsToAcp(argv0.Get(), &argv0_acp)) {
       return false;
     }
 
@@ -389,6 +483,7 @@ bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
     test_path = workspace + L"/" + test_path;
 
     std::string utf8_test_path;
+    uint32_t err;
     if (!blaze_util::WcsToUtf8(test_path, &utf8_test_path, &err)) {
       LogErrorWithArgAndValue(__LINE__, "Failed to convert string to UTF-8",
                               test_path.c_str(), err);
@@ -405,14 +500,84 @@ bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
   return result->Set(test_path);
 }
 
-bool StartSubprocess(const Path& path, HANDLE* process) {
+bool AddCommandLineArg(const wchar_t* arg, const size_t arg_size,
+                       const bool first, wchar_t* cmdline,
+                       const size_t cmdline_limit, size_t* inout_cmdline_len) {
+  if (arg_size == 0) {
+    const size_t len = (first ? 0 : 1) + 2;
+    if (*inout_cmdline_len + len >= cmdline_limit) {
+      LogError(__LINE__,
+               (std::wstring(L"Failed to add command line argument \"") + arg +
+                L"\"; command would be too long")
+                   .c_str());
+      return false;
+    }
+
+    size_t offset = *inout_cmdline_len;
+    if (!first) {
+      cmdline[offset] = L' ';
+      offset += 1;
+    }
+    cmdline[offset] = L'"';
+    cmdline[offset + 1] = L'"';
+    *inout_cmdline_len += len;
+    return true;
+  } else {
+    const size_t len = (first ? 0 : 1) + arg_size;
+    if (*inout_cmdline_len + len >= cmdline_limit) {
+      LogError(__LINE__,
+               (std::wstring(L"Failed to add command line argument \"") + arg +
+                L"\"; command would be too long")
+                   .c_str());
+      return false;
+    }
+
+    size_t offset = *inout_cmdline_len;
+    if (!first) {
+      cmdline[offset] = L' ';
+      offset += 1;
+    }
+    wcsncpy(cmdline + offset, arg, arg_size);
+    offset += arg_size;
+    *inout_cmdline_len += len;
+    return true;
+  }
+}
+
+bool CreateCommandLine(const Path& path,
+                       const std::vector<const wchar_t*>& args,
+                       std::unique_ptr<WCHAR[]>* result) {
   // kMaxCmdline value: see lpCommandLine parameter of CreateProcessW.
-  static constexpr size_t kMaxCmdline = 32768;
+  static constexpr size_t kMaxCmdline = 32767;
 
-  std::unique_ptr<WCHAR[]> cmdline(new WCHAR[kMaxCmdline]);
-  size_t len = path.Get().size();
-  wcsncpy(cmdline.get(), path.Get().c_str(), len + 1);
+  // Add an extra character for the final null-terminator.
+  result->reset(new WCHAR[kMaxCmdline + 1]);
 
+  size_t total_len = 0;
+  if (!AddCommandLineArg(path.Get().c_str(), path.Get().size(), true,
+                         result->get(), kMaxCmdline, &total_len)) {
+    return false;
+  }
+
+  for (const auto arg : args) {
+    if (!AddCommandLineArg(arg, wcslen(arg), false, result->get(), kMaxCmdline,
+                           &total_len)) {
+      return false;
+    }
+  }
+  // Add final null-terminator. There's surely enough room for it:
+  // AddCommandLineArg kept validating that we stay under the limit of
+  // kMaxCmdline, and the buffer is one WCHAR larger than that.
+  result->get()[total_len] = 0;
+  return true;
+}
+
+bool StartSubprocess(const Path& path, const std::vector<const wchar_t*>& args,
+                     HANDLE* process) {
+  std::unique_ptr<WCHAR[]> cmdline;
+  if (!CreateCommandLine(path, args, &cmdline)) {
+    return false;
+  }
   PROCESS_INFORMATION processInfo;
   STARTUPINFOW startupInfo = {0};
 
@@ -423,7 +588,8 @@ bool StartSubprocess(const Path& path, HANDLE* process) {
     *process = processInfo.hProcess;
     return true;
   } else {
-    LogErrorWithValue(__LINE__, "CreateProcessW failed", GetLastError());
+    DWORD err = GetLastError();
+    LogErrorWithValue(__LINE__, "CreateProcessW failed", err);
     return false;
   }
 }
@@ -434,15 +600,17 @@ int WaitForSubprocess(HANDLE process) {
     case WAIT_OBJECT_0: {
       DWORD exit_code;
       if (!GetExitCodeProcess(process, &exit_code)) {
-        LogErrorWithValue(__LINE__, "GetExitCodeProcess failed",
-                          GetLastError());
+        DWORD err = GetLastError();
+        LogErrorWithValue(__LINE__, "GetExitCodeProcess failed", err);
         return 1;
       }
       return exit_code;
     }
-    case WAIT_FAILED:
-      LogErrorWithValue(__LINE__, "WaitForSingleObject failed", GetLastError());
+    case WAIT_FAILED: {
+      DWORD err = GetLastError();
+      LogErrorWithValue(__LINE__, "WaitForSingleObject failed", err);
       return 1;
+    }
     default:
       LogErrorWithValue(
           __LINE__, "WaitForSingleObject returned unexpected result", result);
@@ -451,7 +619,8 @@ int WaitForSubprocess(HANDLE process) {
 }
 
 bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
-               std::wstring* out_test_path_arg, bool* out_suppress_output) {
+               std::wstring* out_test_path_arg, bool* out_suppress_output,
+               std::vector<const wchar_t*>* out_args) {
   if (!out_argv0->Set(argv[0])) {
     return false;
   }
@@ -472,7 +641,23 @@ bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
   }
 
   *out_test_path_arg = argv[0];
+  out_args->clear();
+  out_args->reserve(argc - 1);
+  for (int i = 1; i < argc; i++) {
+    out_args->push_back(argv[i]);
+  }
   return true;
+}
+
+int RunSubprocess(const Path& test_path,
+                  const std::vector<const wchar_t*>& args) {
+  HANDLE process;
+  if (!StartSubprocess(test_path, args, &process)) {
+    return 1;
+  }
+  Defer close_process([process]() { CloseHandle(process); });
+
+  return WaitForSubprocess(process);
 }
 
 bool Path::Set(const std::wstring& path) {
@@ -507,9 +692,10 @@ int wmain(int argc, wchar_t** argv) {
   Path argv0;
   std::wstring test_path_arg;
   bool suppress_output = false;
-  Path exec_root, test_path, srcdir, tmpdir, xml_output, undecl_zip, undecl_mf,
-      undecl_annot;
-  if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &suppress_output) ||
+  Path test_path, exec_root, srcdir, tmpdir, xml_output;
+  UndeclaredOutputs undecl;
+  std::vector<const wchar_t*> args;
+  if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &suppress_output, &args) ||
       !PrintTestLogStartMarker(suppress_output) ||
       !FindTestBinary(argv0, test_path_arg, &test_path) ||
       !GetCwd(&exec_root) || !ExportUserName() ||
@@ -517,16 +703,10 @@ int wmain(int argc, wchar_t** argv) {
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
       !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
       !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root) ||
-      !GetAndUnexportUndeclaredOutputsEnvvars(exec_root, &undecl_zip,
-                                              &undecl_mf, &undecl_annot)) {
+      !ExportXmlPath(exec_root) ||
+      !GetAndUnexportUndeclaredOutputsEnvvars(exec_root, &undecl)) {
     return 1;
   }
 
-  HANDLE process;
-  if (!StartSubprocess(test_path, &process)) {
-    return 1;
-  }
-  Defer close_process([process]() { CloseHandle(process); });
-
-  return WaitForSubprocess(process);
+  return RunSubprocess(test_path, args);
 }

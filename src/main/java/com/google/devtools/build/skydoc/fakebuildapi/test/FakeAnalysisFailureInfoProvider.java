@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.java.bazel;
+package com.google.devtools.build.skydoc.fakebuildapi.test;
 
-import javax.tools.JavaCompiler;
+import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi.AnalysisFailureInfoProviderApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 
 /**
- * Command line version of {@link BazelJavaCompiler}, interface-compatible with the {@code javac}
- * command, for use with {@code ant}, for example.
+ * Fake implementation of {@link AnalysisFailureInfoProviderApi}.
  */
-public class BazelJavac {
-  public static void main(String[] args) {
-    JavaCompiler compiler = BazelJavaCompiler.newInstance();
-    System.exit(compiler.run(System.in, System.out, System.err, args));
-  }
+public class FakeAnalysisFailureInfoProvider implements AnalysisFailureInfoProviderApi {
+
+  @Override
+  public void repr(SkylarkPrinter printer) {}
 }

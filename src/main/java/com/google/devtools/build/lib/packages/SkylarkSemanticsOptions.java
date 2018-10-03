@@ -63,6 +63,21 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   // <== Add new options here in alphabetic order ==>
 
   @Option(
+      name = "experimental_analysis_testing_improvements",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {
+          OptionEffectTag.BUILD_FILE_SEMANTICS,
+          OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      metadataTags = {
+          OptionMetadataTag.EXPERIMENTAL
+      },
+      help = "If true, enables pieces of experimental Skylark API for analysis-phase testing."
+  )
+  public boolean experimentalAnalysisTestingImprovements;
+
+  @Option(
       name = "experimental_cc_skylark_api_enabled_packages",
       converter = CommaSeparatedOptionListConverter.class,
       defaultValue = "",
@@ -73,6 +88,14 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
           "Passes list of packages that can use the C++ Skylark API. Don't enable this flag yet, "
               + "we will be making breaking changes.")
   public List<String> experimentalCcSkylarkApiEnabledPackages;
+
+  @Option(
+      name = "experimental_enable_android_migration_apis",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
+      help = "If set to true, enables the APIs required to support the Android Starlark migration.")
+  public boolean experimentalEnableAndroidMigrationApis;
 
   @Option(
       name = "experimental_enable_repo_mapping",
@@ -319,6 +342,18 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleNoSupportToolsInActionInputs;
 
   @Option(
+      name = "incompatible_no_target_output_group",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, disables the output_group field of the 'Target' Starlark type.")
+  public boolean incompatibleNoTargetOutputGroup;
+
+  @Option(
       name = "incompatible_no_transitive_loads",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -446,7 +481,9 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public SkylarkSemantics toSkylarkSemantics() {
     return SkylarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
+        .experimentalAnalysisTestingImprovements(experimentalAnalysisTestingImprovements)
         .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
+        .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
         .experimentalEnableRepoMapping(experimentalEnableRepoMapping)
         .experimentalRemapMainRepo(experimentalRemapMainRepo)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
@@ -465,6 +502,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleGenerateJavaCommonSourceJar(incompatibleGenerateJavaCommonSourceJar)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
+        .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
         .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
         .incompatiblePackageNameIsAFunction(incompatiblePackageNameIsAFunction)
         .incompatibleRangeType(incompatibleRangeType)

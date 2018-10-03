@@ -62,14 +62,14 @@ class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object
 
   @Nullable
   @Override
-  public InfoInterface getProvider(Provider.Key key) {
-    return (InfoInterface) get(key);
+  public InfoInterface get(Provider.Key key) {
+    return (InfoInterface) super.get(key);
   }
 
   @Nullable
   @Override
-  public Object getProvider(String legacyKey) {
-    return get(legacyKey);
+  public Object get(String legacyKey) {
+    return super.get(legacyKey);
   }
 
   @Override

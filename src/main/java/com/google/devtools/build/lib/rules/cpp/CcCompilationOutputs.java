@@ -189,7 +189,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
 
     public Builder addObjectFiles(Iterable<Artifact> artifacts) {
       for (Artifact artifact : artifacts) {
-        Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(artifact.getFilename()));
+        Preconditions.checkArgument(
+            artifact.isTreeArtifact() || Link.OBJECT_FILETYPES.matches(artifact.getFilename()));
       }
       Iterables.addAll(objectFiles, artifacts);
       return this;
@@ -208,7 +209,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
 
     public Builder addPicObjectFiles(Iterable<Artifact> artifacts) {
       for (Artifact artifact : artifacts) {
-        Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(artifact.getFilename()));
+        Preconditions.checkArgument(
+            artifact.isTreeArtifact() || Link.OBJECT_FILETYPES.matches(artifact.getFilename()));
       }
 
       Iterables.addAll(picObjectFiles, artifacts);

@@ -49,11 +49,10 @@ import javax.annotation.Nullable;
  *
  * <p>Concerning the data in this class:
  *
- * <p>We want to track all output data from an ActionExecutionValue. See {@link
- * ActionMetadataHandler} for a discussion of how its fields {@link
- * ActionMetadataHandler#outputArtifactData} and {@link ActionMetadataHandler#additionalOutputData}
- * relate. The relationship is the same between {@link #artifactData} and {@link
- * #additionalOutputData} here.
+ * <p>We want to track all output data from an ActionExecutionValue. See {@link OutputStore} for a
+ * discussion of how its fields {@link OutputStore#artifactData} and {@link
+ * OutputStore#additionalOutputData} relate. The relationship is the same between {@link
+ * #artifactData} and {@link #additionalOutputData} here.
  */
 @Immutable
 @ThreadSafe

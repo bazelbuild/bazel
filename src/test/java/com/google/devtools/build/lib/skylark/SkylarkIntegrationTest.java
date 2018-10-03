@@ -1916,6 +1916,26 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "//test/skylark:dep doesn't support expected environment: //buildenv/foo:default");
   }
 
+  @Test
+  public void testNoTargetOutputGroup() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_no_target_output_group=true");
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def _impl(ctx):",
+        "  f = ctx.attr.dep.output_group()",
+        "  return struct()",
+        "my_rule = rule(implementation = _impl,",
+        "    attrs = { 'dep' : attr.label() })");
+
+    checkError(
+        "test/skylark",
+        "r",
+        "struct has no method 'output_group'",
+        "load('//test/skylark:extension.bzl',  'my_rule')",
+        "cc_binary(name = 'lib', data = ['a.txt'])",
+        "my_rule(name='r', dep = ':lib')");
+  }
+
   /**
    * Skylark integration test that forces inlining.
    */

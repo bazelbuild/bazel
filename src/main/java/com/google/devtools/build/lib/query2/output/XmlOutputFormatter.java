@@ -178,7 +178,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         outputElem.setAttribute("name", outputFile.getLabel().toString());
         elem.appendChild(outputElem);
       }
-      for (String feature : rule.getFeatures()) {
+      for (String feature : rule.getPackage().getFeatures()) {
         Element outputElem = doc.createElement("rule-default-setting");
         outputElem.setAttribute("name", feature);
         elem.appendChild(outputElem);

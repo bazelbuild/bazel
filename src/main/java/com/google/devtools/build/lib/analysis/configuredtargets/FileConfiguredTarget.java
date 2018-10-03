@@ -87,11 +87,11 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
 
   @Override
   protected InfoInterface rawGetSkylarkProvider(Provider.Key providerKey) {
-    return providers.getProvider(providerKey);
+    return providers.get(providerKey);
   }
 
   @Override
   protected Object rawGetSkylarkProvider(String providerKey) {
-    return providers.getProvider(providerKey);
+    return providers.get(providerKey);
   }
 }

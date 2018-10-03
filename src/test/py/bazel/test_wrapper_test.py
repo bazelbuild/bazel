@@ -33,6 +33,25 @@ class TestWrapperTest(test_base.TestBase):
 
   def _CreateMockWorkspace(self):
     self.ScratchFile('WORKSPACE')
+    # All test targets are called <something>.bat, for the benefit of Windows.
+    # This makes test execution faster on Windows for the following reason:
+    #
+    # When building a sh_test rule, the main output's name is the same as the
+    # rule. On Unixes, this output is a symlink to the main script (the first
+    # entry in `srcs`), on Windows it's a copy of the file. In fact the main
+    # "script" does not have to be a script, it may be any executable file.
+    #
+    # On Unixes anything with the +x permission can be executed; the file's
+    # shebang line specifies the interpreter. On Windows, there's no such
+    # mechanism; Bazel runs the main script (which is typically a ".sh" file)
+    # through Bash. However, if the main file is a native executable, it's
+    # faster to run it directly than through Bash (plus it removes the need for
+    # Bash).
+    #
+    # Therefore on Windows, if the main script is a native executable (such as a
+    # ".bat" file) and has the same extension as the main file, Bazel (in case
+    # of sh_test) makes a copy of the file and runs it directly, rather than
+    # through Bash.
     self.ScratchFile('foo/BUILD', [
         'sh_test(',
         '    name = "passing_test.bat",',
@@ -59,7 +78,11 @@ class TestWrapperTest(test_base.TestBase):
         'sh_test(',
         '    name = "unexported_test.bat",',
         '    srcs = ["unexported.bat"],',
-        '    shard_count = 2,',
+        ')',
+        'sh_test(',
+        '    name = "testargs_test.bat",',
+        '    srcs = ["testargs.bat"],',
+        '    args = ["foo", "a b", "", "bar"],',
         ')',
     ])
     self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
@@ -90,6 +113,21 @@ class TestWrapperTest(test_base.TestBase):
         'foo/unexported.bat', [
             '@echo GOOD=%HOME%',
             '@echo BAD=%TEST_UNDECLARED_OUTPUTS_MANIFEST%',
+        ],
+        executable=True)
+    self.ScratchFile(
+        'foo/testargs.bat',
+        [
+            '@echo arg=(%~nx0)',  # basename of $0
+            '@echo arg=(%1)',
+            '@echo arg=(%2)',
+            '@echo arg=(%3)',
+            '@echo arg=(%4)',
+            '@echo arg=(%5)',
+            '@echo arg=(%6)',
+            '@echo arg=(%7)',
+            '@echo arg=(%8)',
+            '@echo arg=(%9)',
         ],
         executable=True)
 
@@ -229,6 +267,30 @@ class TestWrapperTest(test_base.TestBase):
     if not good or bad:
       self._FailWithOutput(stderr + stdout)
 
+  def _AssertTestArgs(self, flag, expected):
+    exit_code, bazel_bin, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = bazel_bin[0]
+
+    exit_code, stdout, stderr = self.RunBazel([
+        'test',
+        '//foo:testargs_test.bat',
+        '-t-',
+        '--test_output=all',
+        '--test_arg=baz',
+        '--test_arg="x y"',
+        '--test_arg=""',
+        '--test_arg=qux',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    actual = []
+    for line in stderr + stdout:
+      if line.startswith('arg='):
+        actual.append(str(line[len('arg='):]))
+    self.assertListEqual(expected, actual)
+
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
     flag = '--nowindows_native_test_wrapper'
@@ -238,6 +300,28 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertRunfiles(flag)
     self._AssertShardedTest(flag)
     self._AssertUnexportsEnvvars(flag)
+    self._AssertTestArgs(
+        flag,
+        [
+            '(testargs_test.bat)',
+            '(foo)',
+            '(a)',
+            '(b)',
+            '(bar)',
+            # Note: debugging shows that test-setup.sh receives more-or-less
+            # good arguments (let's ignore issues #6276 and #6277 for now), but
+            # mangles the last few.
+            # I (laszlocsomor@) don't know the reason (as of 2018-10-01) but
+            # since I'm planning to phase out test-setup.sh on Windows in favor
+            # of the native test wrapper, I don't intend to debug this further.
+            # The test is here merely to guard against unwanted future change of
+            # behavior.
+            '(baz)',
+            '("\\"x)',
+            '(y\\"")',
+            '("\\\\\\")',
+            '(qux")'
+        ])
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
@@ -251,6 +335,26 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertRunfiles(flag)
     self._AssertShardedTest(flag)
     self._AssertUnexportsEnvvars(flag)
+    self._AssertTestArgs(
+        flag,
+        [
+            '(testargs_test.bat)',
+            '(foo)',
+            # TODO(laszlocsomor): assert that "a b" is passed as one argument,
+            # not two, after https://github.com/bazelbuild/bazel/issues/6277
+            # is fixed.
+            '(a)',
+            '(b)',
+            # TODO(laszlocsomor): assert that the empty string argument is
+            # passed, after https://github.com/bazelbuild/bazel/issues/6276
+            # is fixed.
+            '(bar)',
+            '(baz)',
+            '("x y")',
+            '("")',
+            '(qux)',
+            '()'
+        ])
 
 
 if __name__ == '__main__':

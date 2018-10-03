@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 
@@ -30,15 +31,9 @@ import java.io.IOException;
  * <p>Note that implementations of this interface call chmod on output files if {@link
  * #discardOutputMetadata} has been called.
  */
-public interface MetadataHandler {
-  /**
-   * Returns metadata for the given artifact or throws an exception if the metadata could not be
-   * obtained.
-   *
-   * @return metadata instance
-   * @throws IOException if metadata could not be obtained.
-   */
-  FileArtifactValue getMetadata(Artifact artifact) throws IOException;
+public interface MetadataHandler extends MetadataProvider {
+  @Override
+  FileArtifactValue getMetadata(ActionInput actionInput) throws IOException;
 
   /** Sets digest for virtual artifacts (e.g. middlemen). {@code md5Digest} must not be null. */
   void setDigestForVirtualArtifact(Artifact artifact, Md5Digest md5Digest);

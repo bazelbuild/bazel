@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
+import com.google.devtools.build.lib.skyframe.serialization.UnshareableValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -45,7 +46,7 @@ import javax.annotation.Nullable;
  * (e.g. via injection).
  */
 @AutoCodec
-public final class PrecomputedValue implements SkyValue {
+public final class PrecomputedValue implements SkyValue, UnshareableValue {
   /**
    * An externally-injected precomputed value. Exists so that modules can inject precomputed values
    * into Skyframe's graph.

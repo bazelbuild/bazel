@@ -40,6 +40,7 @@ Please file issues in the [GitHub issue tracker](https://github.com/bazelbuild/b
     - [GUI testing](#gui-testing)
     - [Testing with a local emulator or device](#testing-with-a-local-emulator-or-device)
 - [Sample projects](#sample-projects)
+- [Espresso setup](#espresso-setup)
 - [Tips](#tips)
     - [Reading test logs](#reading-test-logs)
     - [Testing against multiple API levels](#testing-against-multiple-api-levels)
@@ -452,6 +453,109 @@ INFO: Build completed successfully, 417 total actions
 //ui/espresso/MultiWindowSample:MultiWindowSampleInstrumentationTest     PASSED in 108.3s
 //ui/espresso/RecyclerViewSample:RecyclerViewSampleInstrumentationTest   PASSED in 102.9s
 //ui/uiautomator/BasicSample:BasicSampleInstrumentationTest              PASSED in 122.6s
+```
+
+# Espresso setup
+
+If you write UI tests with [Espresso](https://developer.android.com/training/testing/espresso/)
+(`androidx.test.espresso`), you can use the following snippets to set up your
+Bazel workspace with the list of commonly used Espresso artifacts and their
+dependencies:
+
+```
+androidx.test.espresso:espresso-core
+androidx.test:rules
+androidx.test:runner
+javax.inject:javax.inject
+org.hamcrest:java-hamcrest
+junit:junit
+```
+
+One way to organize these dependencies is to create a `//:test_deps` shared
+library:
+
+```python
+# In <project root>/BUILD.bazel
+
+load("@gmaven_rules//:defs.bzl", "gmaven_artifact")
+
+java_library(
+    name = "test_deps",
+    visibility = ["//visibility:public"],
+    exports = [
+        gmaven_artifact("androidx.test.espresso:espresso-core:aar:3.1.0-alpha4"),
+        gmaven_artifact("androidx.test:rules:aar:1.1.0-alpha4"),
+        gmaven_artifact("androidx.test:runner:aar:1.1.0-alpha4"),
+        "@javax_inject_javax_inject//jar",
+        "@junit_junit//jar",
+        "@org_hamcrest_java_hamcrest//jar",
+    ],
+)
+```
+
+Then, add the required dependencies in `<project root>/WORKSPACE`:
+
+
+```python
+android_sdk_repository(
+    name = "androidsdk",
+)
+
+# Android Test Support
+ATS_COMMIT = "e39a8c7769a5c8b498d0deb0deef3a25b289d410"
+
+http_archive(
+    name = "android_test_support",
+    strip_prefix = "android-test-%s" % ATS_COMMIT,
+    urls = ["https://github.com/android/android-test/archive/%s.tar.gz" % ATS_COMMIT],
+)
+
+load("@android_test_support//:repo.bzl", "android_test_repositories")
+
+android_test_repositories()
+
+# Google Maven Repository
+GMAVEN_TAG = "20180927-1"
+
+http_archive(
+    name = "gmaven_rules",
+    strip_prefix = "gmaven_rules-%s" % GMAVEN_TAG,
+    url = "https://github.com/bazelbuild/gmaven_rules/archive/%s.tar.gz" % GMAVEN_TAG,
+)
+
+load("@gmaven_rules//:gmaven.bzl", "gmaven_rules")
+
+gmaven_rules()
+
+maven_jar(
+    name = "junit_junit",
+    artifact = "junit:junit:4.12",
+)
+
+maven_jar(
+    name = "javax_inject_javax_inject",
+    artifact = "javax.inject:javax.inject:1",
+)
+
+maven_jar(
+    name = "org_hamcrest_java_hamcrest",
+    artifact = "org.hamcrest:java-hamcrest:2.0.0.0",
+)
+```
+
+Finally, in your test `android_binary` target, add the `//:test_deps`
+dependency:
+
+```python
+android_binary(
+    name = "my_test_app",
+    instruments = "//path/to:app",
+    deps = [
+        "//:test_deps",
+        # ...
+    ],
+    # ...
+)
 ```
 
 # Tips

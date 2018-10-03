@@ -40,13 +40,15 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
     this.packageProvider = packageProvider;
   }
 
-  /** Returns the String representation of the {@code SkyKey}. */
-  protected abstract String prettyPrint(SkyKey key);
-
   /** Returns the associated Label of the SkyKey. */
   protected abstract Label getLabel(SkyKey key);
 
   protected abstract boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo);
+
+  /** Returns the String representation of the {@code SkyKey}. */
+  protected String prettyPrint(SkyKey key) {
+    return getLabel(key).toString();
+  }
 
   /**
    * Can be used to skip individual keys on the path to cycle.
@@ -81,11 +83,18 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
     }
 
     if (alreadyReported) {
-      Label label = getLabel(topLevelKey);
-      Target target = getTargetForLabel(eventHandler, label);
-      eventHandler.handle(Event.error(target.getLocation(),
-          "in " + target.getTargetKind() + " " + label +
-              ": cycle in dependency graph: target depends on an already-reported cycle"));
+      if (!shouldSkip(topLevelKey)) {
+        Label label = getLabel(topLevelKey);
+        Target target = getTargetForLabel(eventHandler, label);
+        eventHandler.handle(
+            Event.error(
+                target.getLocation(),
+                "in "
+                    + target.getTargetKind()
+                    + " "
+                    + label
+                    + ": cycle in dependency graph: target depends on an already-reported cycle"));
+      }
     } else {
       StringBuilder cycleMessage = new StringBuilder("cycle in dependency graph:");
       ImmutableList<SkyKey> pathToCycle = cycleInfo.getPathToCycle();

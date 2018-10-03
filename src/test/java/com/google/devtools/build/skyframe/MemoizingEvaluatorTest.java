@@ -53,6 +53,7 @@ import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -2732,13 +2733,13 @@ public class MemoizingEvaluatorTest {
             if (type == EventType.MARK_DIRTY) {
               TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
                   threadsStarted, "Both threads did not query if value isChanged in time");
-              boolean isChanged = (Boolean) context;
-              if (order == Order.BEFORE && !isChanged) {
+              DirtyType dirtyType = (DirtyType) context;
+              if (order == Order.BEFORE && dirtyType.equals(DirtyType.DIRTY)) {
                 TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
                     waitForChanged, "'changed' thread did not mark value changed in time");
                 return;
               }
-              if (order == Order.AFTER && isChanged) {
+              if (order == Order.AFTER && dirtyType.equals(DirtyType.CHANGE)) {
                 waitForChanged.countDown();
               }
             }

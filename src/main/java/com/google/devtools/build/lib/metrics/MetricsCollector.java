@@ -14,22 +14,30 @@
 package com.google.devtools.build.lib.metrics;
 
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
+import java.util.concurrent.atomic.AtomicLong;
 
 class MetricsCollector {
 
   private final CommandEnvironment env;
   private final boolean bepPublishUsedHeapSizePostBuild;
+  private final AtomicLong executedActionCount = new AtomicLong();
 
   private int actionsConstructed;
+  private int targetsLoaded;
+  private int targetsConfigured;
+  private int packagesLoaded;
 
   MetricsCollector(CommandEnvironment env) {
     this.env = env;
@@ -45,6 +53,14 @@ class MetricsCollector {
   @Subscribe
   public void onAnalysisPhaseComplete(AnalysisPhaseCompleteEvent event) {
     actionsConstructed = event.getActionsConstructed();
+    targetsLoaded = event.getTargetsLoaded();
+    targetsConfigured = event.getTargetsConfigured();
+    packagesLoaded = event.getPkgManagerStats().getPackagesLoaded();
+  }
+
+  @Subscribe
+  public void onActionComplete(ActionCompletionEvent event) {
+    executedActionCount.incrementAndGet();
   }
 
   @Subscribe
@@ -56,11 +72,16 @@ class MetricsCollector {
     BuildMetrics.Builder metrics = BuildMetrics.newBuilder();
     metrics.setActionSummary(createActionSummary());
     metrics.setMemoryMetrics(createMemoryMetrics());
+    metrics.setTargetMetrics(createTargetMetrics());
+    metrics.setPackageMetrics(createPackageMetrics());
     return metrics.build();
   }
 
   private ActionSummary createActionSummary() {
-    return ActionSummary.newBuilder().setActionsCreated(actionsConstructed).build();
+    return ActionSummary.newBuilder()
+        .setActionsCreated(actionsConstructed)
+        .setActionsExecuted(executedActionCount.get())
+        .build();
   }
 
   private MemoryMetrics createMemoryMetrics() {
@@ -71,5 +92,16 @@ class MetricsCollector {
       memoryMetrics.setUsedHeapSizePostBuild(memBean.getHeapMemoryUsage().getUsed());
     }
     return memoryMetrics.build();
+  }
+
+  private TargetMetrics createTargetMetrics() {
+    return TargetMetrics.newBuilder()
+        .setTargetsLoaded(targetsLoaded)
+        .setTargetsConfigured(targetsConfigured)
+        .build();
+  }
+
+  private PackageMetrics createPackageMetrics() {
+    return PackageMetrics.newBuilder().setPackagesLoaded(packagesLoaded).build();
   }
 }

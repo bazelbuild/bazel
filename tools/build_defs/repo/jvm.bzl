@@ -216,5 +216,6 @@ def jvm_maven_import_external(artifact, server_urls, **kwargs):
             server_urls,
             "jar",
         ),
+        rule_name = "java_import",
         **kwargs
     )

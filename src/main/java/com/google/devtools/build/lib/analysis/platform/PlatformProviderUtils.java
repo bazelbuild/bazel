@@ -15,46 +15,45 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.SkylarkProviderCollection;
+import com.google.devtools.build.lib.analysis.ProviderCollection;
 
 /** Utility methods to help locate platform-related providers. */
 public class PlatformProviderUtils {
 
   /** Retrieves and casts the {@link PlatformInfo} provider from the given target. */
-  public static PlatformInfo platform(SkylarkProviderCollection target) {
+  public static PlatformInfo platform(ProviderCollection target) {
     return target.get(PlatformInfo.PROVIDER);
   }
 
   /** Retrieves and casts {@link PlatformInfo} providers from the given targets. */
-  public static Iterable<PlatformInfo> platforms(
-      Iterable<? extends SkylarkProviderCollection> targets) {
+  public static Iterable<PlatformInfo> platforms(Iterable<? extends ProviderCollection> targets) {
     return Iterables.transform(targets, PlatformProviderUtils::platform);
   }
 
   /** Retrieves and casts the {@link ConstraintSettingInfo} provider from the given target. */
-  public static ConstraintSettingInfo constraintSetting(SkylarkProviderCollection target) {
+  public static ConstraintSettingInfo constraintSetting(ProviderCollection target) {
     return target.get(ConstraintSettingInfo.PROVIDER);
   }
 
   /** Retrieves and casts {@link ConstraintSettingInfo} providers from the given targets. */
   public static Iterable<ConstraintSettingInfo> constraintSettings(
-      Iterable<? extends SkylarkProviderCollection> targets) {
+      Iterable<? extends ProviderCollection> targets) {
     return Iterables.transform(targets, PlatformProviderUtils::constraintSetting);
   }
 
   /** Retrieves and casts the {@link ConstraintValueInfo} provider from the given target. */
-  public static ConstraintValueInfo constraintValue(SkylarkProviderCollection target) {
+  public static ConstraintValueInfo constraintValue(ProviderCollection target) {
     return target.get(ConstraintValueInfo.PROVIDER);
   }
 
   /** Retrieves and casts {@link ConstraintValueInfo} providers from the given targets. */
   public static Iterable<ConstraintValueInfo> constraintValues(
-      Iterable<? extends SkylarkProviderCollection> targets) {
+      Iterable<? extends ProviderCollection> targets) {
     return Iterables.transform(targets, PlatformProviderUtils::constraintValue);
   }
 
   /** Retrieves and casts the {@link ToolchainInfo} provider from the given target. */
-  public static ToolchainInfo toolchain(SkylarkProviderCollection target) {
+  public static ToolchainInfo toolchain(ProviderCollection target) {
     return target.get(ToolchainInfo.PROVIDER);
   }
 

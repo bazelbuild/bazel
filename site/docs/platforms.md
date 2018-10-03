@@ -6,24 +6,36 @@ title: Platforms
 # Platforms
 
 - [Overview](#overview)
-- [Defining a platform](#defining-a-platform)
+- [Defining constraints and platforms](#defining-constraints-and-platforms)
 - [Built-in constraints and platforms](#built-in-constraints-and-platforms)
 - [Specifying a platform for a build](#specifying-a-platform-for-a-build)
 
 ## Overview
 
-Bazel can build and test code on a variety of operating systems and hardware
-using many different build tools, such as linkers and compilers. These
-combinations of software and hardware are what Bazel considers *platforms*.
-One major use for specifying a platform for a build is automatic
-[toolchain](toolchains.html)
-selection.
+Bazel can build and test code on a variety of hardware, operating systems, and
+system configurations, using many different versions of build tools such as
+linkers and compilers. To help manage this complexity, Bazel has a concept of
+*constraints* and *platforms*. A constraint is a dimension in which build or
+production environments may differ, such as CPU architecture, the presence or
+absence of a GPU, or the version of a system-installed compiler. A platform is a
+named collection of choices for these constraints, representing the particular
+resources that are available in some environment.
 
-Bazel recognizes the following types of platforms:
+Modeling the environment as a platform helps Bazel to automatically select the
+appropriate
+[toolchains](toolchains.html)
+for build actions. Platforms can also be used in combination with the
+[config_setting](be/general.html#config_setting)
+rule to write
+  <a href="https://docs.bazel.build/versions/master/configurable-attributes.html">
+  configurable attributes</a>.
 
-*  **Host** - platforms on which Bazel runs.
-*  **Execution** - platforms on which build tools execute build actions.
-*  **Target** - platforms for which Bazel builds the output.
+Bazel recognizes three roles that a platform may serve:
+
+*  **Host** - the platform on which Bazel itself runs.
+*  **Execution** - a platform on which build tools execute build actions to
+   produce intermediate and final outputs.
+*  **Target** - a platform on which a final output resides and executes.
 
 Bazel supports the following build scenarios regarding platforms:
 
@@ -38,96 +50,83 @@ Bazel supports the following build scenarios regarding platforms:
 *  **Multi-platform builds** - host, execution, and target platforms are all
    different.
 
-## Defining a platform
+## Defining constraints and platforms
 
-A *Bazel platform* is a named collection of constraints that define a supported
-software and/or hardware configuration through name-value pairs. For example, a
-constraint can define the CPU architecture, GPU presence, or the specific
-version of a build tool, such as a linker or compiler.
-
-You define a platform in a `BUILD` file using the following Bazel rules:
-
-*   [`constraint_setting`](be/platform.html#constraint_setting)  - defines a constraint.
-
-*   [`constraint_value`](be/platform.html#constraint_value)  - defines an allowed value for a constraint.
-
-*   [`platform`](be/platform.html#platform)  - defines a platform by specifying a set of constraints and their values.
-
-The following example defines the `glibc_version` constraint and its two allowed
-values. It then defines a platform that uses the `glibc_version` constraint
-along with Bazel's [built-in constraints](#built-in-constraints-and-platforms)
-for operating systems and CPU architecture:
+The space of possible choices for platforms is defined by using the
+ [`constraint_setting`](be/platform.html#constraint_setting) and
+ [`constraint_value`](be/platform.html#constraint_value) rules within `BUILD` files. `constraint_setting` creates a new dimension, while
+`constraint_value` creates a new value for a given dimension; together they
+effectively define an enum and its possible values. For example, the following
+snippet of a `BUILD` file introduces a constraint for the system's glibc version
+with two possible values.
 
 ```python
-constraint_setting(name = 'glibc_version')
+constraint_setting(name = "glibc_version")
 
 constraint_value(
-    name = 'glibc_2_25',
-    constraint_setting = ':glibc_version')
+    name = "glibc_2_25",
+    constraint_setting = ":glibc_version",
+)
 
 constraint_value(
-    name = 'glibc_2_26',
-    constraint_setting = ':glibc_version')
-
-platform(
-    name = 'linux_x86',
-    constraint_values = [
-      '@bazel_tools//platforms:linux',
-      '@bazel_tools//platforms:x86_64',
-      ':glibc_2_25',
-    ])
+    name = "glibc_2_26",
+    constraint_setting = ":glibc_version",
+)
 ```
 
-Keep the following in mind when defining constraints and platforms that use
-them:
+Constraints and their values may be defined across different packages in the
+workspace. They are referenced by label and subject to the usual visibility
+controls. If visibility allows, you can extend an existing constraint setting by
+defining your own value for it.
 
-*  You can define constraints in any Bazel package within the project.
+The
+ [`platform`](be/platform.html#platform) rule introduces a new platform with certain choices of constraint values. The
+following creates a platform named `linux_x86`, and says that it describes any
+environment that runs a Linux operating system on an x86_64 architecture with a
+glibc version of 2.25. (See below for more on Bazel's built-in constraints.)
 
-*  Constraints follow the visibility settings of the package that contains them.
+```python
+platform(
+    name = "linux_x86",
+    constraint_values = [
+        "@bazel_tools//platforms:linux",
+        "@bazel_tools//platforms:x86_64",
+        ":glibc_2_25",
+    ],
+)
+```
 
-*  You can use constraint values from multiple packages in the same platform
-   definition. However, using constraint values that share a constraint setting
-   will result in an error.
+Note that it is an error for a platform to specify more than one value of the
+same constraint setting, such as `@bazel_tools//platforms:x86_64` and
+`@bazel_tools//platforms:arm` for `@bazel_tools//platforms:cpu`.
 
 ## Built-in constraints and platforms
 
 Bazel ships with constraint definitions for the most popular CPU architectures
-and operating systems.
+and operating systems. These are all located in the package
+`@bazel_tools//platforms`:
 
-*  `@bazel_tools//platforms:cpu` defines the following CPU architectures:
-   *  `@bazel_tools//platforms:x86_32`
-   *  `@bazel_tools//platforms:x86_64`
-   *  `@bazel_tools//platforms:ppc`
-   *  `@bazel_tools//platforms:arm`
-   *  `@bazel_tools//platforms:s390x`
-*   `@bazel_tools//platforms:os` defines the following operating systems:
-   *  `@bazel_tools//platforms:osx`
-   *  `@bazel_tools//platforms:freebsd`
-   *  `@bazel_tools//platforms:linux`
-   *  `@bazel_tools//platforms:windows`
+*  `:cpu` for the CPU architecture, with values `:x86_32`, `:x86_64`, `:ppc`,
+   `:arm`, `:s390x`
+*  `:os` for the operating system, with values `osx`, `freebsd`, `linux`,
+   `windows`
 
-Bazel also ships with the following platform definitions:
+There are also the following special platform definitions:
 
-*  `@bazel_tools//platforms:host_platform` - automatically detects the CPU
-   architecture and operating system for the host platform.
+*  `:host_platform` - represents the CPU and operating system for the host
+   environment
 
-*  `@bazel_tools//platforms:target_platform` - automatically detects the CPU
-   architecture and operating system for the target platform.
+*  `:target_platform` - represents the CPU and operating system for the target
+   environment
 
-In these definitions, the CPU architecture constraint values are pulled from the
+The CPU values used by these two platforms can be specified with the
 `--host_cpu` and `--cpu` flags.
 
 ## Specifying a platform for a build
 
-To select a specific host and target platform for a build, use the following
+You can specify the host and target platforms for a build using the following
 command-line flags:
 
 *  `--host_platform` - defaults to `@bazel_tools//platforms:host_platform`
 
 *  `--platforms` - defaults to `@bazel_tools//platforms:target_platform`
-
-Platforms can also be used with the `config_setting` rule to define configurable
-attributes. See
-[config_setting](be/general.html#config_setting)
-for more
-details.

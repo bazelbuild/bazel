@@ -51,7 +51,7 @@ public final class SkyFunctions {
   public static final SkyFunctionName GLOB = SkyFunctionName.createHermetic("GLOB");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.createHermetic("PACKAGE");
   static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.createHermetic("PACKAGE_ERROR");
-  static final SkyFunctionName PACKAGE_ERROR_MESSAGE =
+  public static final SkyFunctionName PACKAGE_ERROR_MESSAGE =
       SkyFunctionName.createHermetic("PACKAGE_ERROR_MESSAGE");
   public static final SkyFunctionName TARGET_MARKER =
       SkyFunctionName.createHermetic("TARGET_MARKER");
@@ -67,8 +67,12 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("PREPARE_DEPS_OF_PATTERN");
   public static final SkyFunctionName PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY =
       SkyFunctionName.createHermetic("PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY");
+  public static final SkyFunctionName PREPARE_TEST_SUITES_UNDER_DIRECTORY =
+      SkyFunctionName.createHermetic("PREPARE_TEST_SUITES_UNDER_DIRECTORY");
   public static final SkyFunctionName COLLECT_TARGETS_IN_PACKAGE =
       SkyFunctionName.createHermetic("COLLECT_TARGETS_IN_PACKAGE");
+  public static final SkyFunctionName COLLECT_TEST_SUITES_IN_PACKAGE =
+      SkyFunctionName.createHermetic("COLLECT_TEST_SUITES_IN_PACKAGE");
   public static final SkyFunctionName COLLECT_PACKAGES_UNDER_DIRECTORY =
       SkyFunctionName.createHermetic("COLLECT_PACKAGES_UNDER_DIRECTORY");
   public static final SkyFunctionName BLACKLISTED_PACKAGE_PREFIXES =

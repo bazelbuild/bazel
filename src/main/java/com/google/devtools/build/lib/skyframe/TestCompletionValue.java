@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.UnshareableValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -29,7 +30,7 @@ import java.util.Collection;
  * A test completion value represents the completion of a test target. This includes the execution
  * of all test shards and repeated runs, if applicable.
  */
-public class TestCompletionValue implements SkyValue {
+public class TestCompletionValue implements SkyValue, UnshareableValue {
   static final TestCompletionValue TEST_COMPLETION_MARKER = new TestCompletionValue();
 
   private TestCompletionValue() { }

@@ -590,6 +590,7 @@ public interface QueryEnvironment<T> {
           new LabelsFunction(),
           new LoadFilesFunction(),
           new RdepsFunction(),
+          new SamePkgDirectRdepsFunction(),
           new SiblingsFunction(),
           new SomeFunction(),
           new SomePathFunction(),

@@ -56,9 +56,12 @@ import javax.annotation.Nullable;
 public class PrepareDepsOfPatternFunction implements SkyFunction {
 
   private final AtomicReference<PathPackageLocator> pkgPath;
+  private final boolean traverseTestSuites;
 
-  public PrepareDepsOfPatternFunction(AtomicReference<PathPackageLocator> pkgPath) {
+  public PrepareDepsOfPatternFunction(
+      AtomicReference<PathPackageLocator> pkgPath, boolean traverseTestSuites) {
     this.pkgPath = pkgPath;
+    this.traverseTestSuites = traverseTestSuites;
   }
 
   @Nullable
@@ -93,7 +96,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         patternKey.getAllSubdirectoriesToExclude(blacklist.getPatterns());
     ImmutableSet<PathFragment> excludedSubdirectories = ImmutableSet.of();
 
-    DepsOfPatternPreparer preparer = new DepsOfPatternPreparer(env, pkgPath.get());
+    DepsOfPatternPreparer preparer =
+        new DepsOfPatternPreparer(env, pkgPath.get(), traverseTestSuites);
 
     try {
       parsedPattern.eval(
@@ -124,7 +128,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
    */
   private static final class PrepareDepsOfPatternFunctionException extends SkyFunctionException {
 
-    public PrepareDepsOfPatternFunctionException(TargetParsingException e) {
+    PrepareDepsOfPatternFunctionException(TargetParsingException e) {
       super(e, Transience.PERSISTENT);
     }
   }
@@ -141,11 +145,13 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     private final EnvironmentBackedRecursivePackageProvider packageProvider;
     private final Environment env;
     private final ImmutableList<Root> pkgRoots;
+    private final boolean traverseTestSuites;
 
-    public DepsOfPatternPreparer(Environment env, PathPackageLocator pkgPath) {
+    DepsOfPatternPreparer(Environment env, PathPackageLocator pkgPath, boolean traverseTestSuites) {
       this.env = env;
       this.packageProvider = new EnvironmentBackedRecursivePackageProvider(env);
       this.pkgRoots = pkgPath.getPathEntries();
+      this.traverseTestSuites = traverseTestSuites;
     }
 
     @Override
@@ -266,16 +272,31 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
       for (Root root : roots) {
         RootedPath rootedPath = RootedPath.toRootedPath(root, directoryPathFragment);
-        env.getValues(
-            ImmutableList.of(
-                PrepareDepsOfTargetsUnderDirectoryValue.key(
-                    repository, rootedPath, blacklistedSubdirectories, policy),
-                CollectPackagesUnderDirectoryValue.key(
-                    repository, rootedPath, blacklistedSubdirectories)));
+        env.getValues(getDeps(repository, blacklistedSubdirectories, policy, rootedPath));
         if (env.valuesMissing()) {
           throw new MissingDepException();
         }
       }
+    }
+
+    private ImmutableList<SkyKey> getDeps(
+        RepositoryName repository,
+        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        FilteringPolicy policy,
+        RootedPath rootedPath) {
+      List<SkyKey> keys = new ArrayList<>();
+      keys.add(
+          PrepareDepsOfTargetsUnderDirectoryValue.key(
+              repository, rootedPath, blacklistedSubdirectories, policy));
+      keys.add(
+          CollectPackagesUnderDirectoryValue.key(
+              repository, rootedPath, blacklistedSubdirectories));
+      if (traverseTestSuites) {
+        keys.add(
+            PrepareTestSuitesUnderDirectoryValue.key(
+                repository, rootedPath, blacklistedSubdirectories));
+      }
+      return ImmutableList.copyOf(keys);
     }
   }
 }

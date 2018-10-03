@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi.AnalysisFailureInfoProviderApi;
 
 /**
  * {@link Bootstrap} for skylark objects related to testing.
@@ -23,13 +24,17 @@ import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 public class TestingBootstrap implements Bootstrap {
 
   private final TestingModuleApi testingModule;
+  private final AnalysisFailureInfoProviderApi analysisFailureInfoProvider;
 
-  public TestingBootstrap(TestingModuleApi testingModule) {
+  public TestingBootstrap(TestingModuleApi testingModule,
+      AnalysisFailureInfoProviderApi analysisFailureInfoProvider) {
     this.testingModule = testingModule;
+    this.analysisFailureInfoProvider = analysisFailureInfoProvider;
   }
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put("testing", testingModule);
+    builder.put("AnalysisFailureInfo", analysisFailureInfoProvider);
   }
 }

@@ -35,6 +35,12 @@
 //         std::string error;
 //         std::unique_ptr<Runfiles> runfiles(
 //             Runfiles::Create(argv[0], &error));
+//
+//         // Important:
+//         //   If this is a test, use Runfiles::CreateForTest(&error).
+//         //   Otherwise, if you don't have the value for argv[0] for whatever
+//         //   reason, then use Runfiles::Create(&error).
+//
 //         if (runfiles == nullptr) {
 //           ...  // error handling
 //         }
@@ -89,20 +95,40 @@ class Runfiles {
 
   // Returns a new `Runfiles` instance.
   //
+  // Use this from within `cc_test` rules.
+  //
+  // Returns nullptr on error. If `error` is provided, the method prints an
+  // error message into it.
+  //
+  // This method looks at the RUNFILES_MANIFEST_FILE and TEST_SRCDIR
+  // environment variables.
+  static Runfiles* CreateForTest(std::string* error = nullptr);
+
+  // Returns a new `Runfiles` instance.
+  //
+  // Use this from `cc_binary` or `cc_library` rules. You may pass an empty
+  // `argv0` if `argv[0]` from the `main` method is unknown.
+  //
   // Returns nullptr on error. If `error` is provided, the method prints an
   // error message into it.
   //
   // This method looks at the RUNFILES_MANIFEST_FILE and RUNFILES_DIR
   // environment variables. If either is empty, the method looks for the
-  // manifest or directory using the other environment variable, or using argv0.
+  // manifest or directory using the other environment variable, or using argv0
+  // (unless it's empty).
   static Runfiles* Create(const std::string& argv0,
                           std::string* error = nullptr);
 
   // Returns a new `Runfiles` instance.
   //
-  // Same as `Create(argv0, error)`, except it uses `runfiles_manifest_file` and
-  // `runfiles_dir` as the corresponding environment variable values, instead of
-  // looking up the actual environment variables.
+  // Use this from any `cc_*` rule if you want to manually specify the paths to
+  // the runfiles manifest and/or runfiles directory. You may pass an empty
+  // `argv0` if `argv[0]` from the `main` method is unknown.
+  //
+  // This method is the same as `Create(argv0, error)`, except it uses
+  // `runfiles_manifest_file` and `runfiles_dir` as the corresponding
+  // environment variable values, instead of looking up the actual environment
+  // variables.
   static Runfiles* Create(const std::string& argv0,
                           const std::string& runfiles_manifest_file,
                           const std::string& runfiles_dir,

@@ -212,7 +212,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   protected InfoInterface rawGetSkylarkProvider(Provider.Key providerKey) {
-    return providers.getProvider(providerKey);
+    return providers.get(providerKey);
   }
 
   @Override
@@ -220,7 +220,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     if (providerKey.equals(ACTIONS_FIELD_NAME)) {
       return actions;
     }
-    return providers.getProvider(providerKey);
+    return providers.get(providerKey);
   }
 
   @Override

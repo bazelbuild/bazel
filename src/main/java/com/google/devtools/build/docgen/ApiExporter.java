@@ -27,7 +27,6 @@ import com.google.devtools.build.docgen.skylark.SkylarkParamDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.common.options.OptionsParser;
@@ -178,9 +177,6 @@ public class ApiExporter {
       param.setIsStarStarArg(true);
       param.setName("**" + paramNames.get(nameIndex));
       callable.addParam(param);
-    }
-    if (func.getObjectType() != null) {
-      callable.setReturnType(EvalUtils.getDataTypeNameFromClass(func.getObjectType(), false));
     }
     value.setCallable(callable);
     return value;

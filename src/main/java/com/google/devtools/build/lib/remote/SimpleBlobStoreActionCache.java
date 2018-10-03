@@ -129,7 +129,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
       boolean uploadAction)
       throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
-    upload(result, action, command, execRoot, files, uploadAction);
+    upload(result, actionKey, action, command, execRoot, files, uploadAction);
     if (outErr.getErrorPath().exists()) {
       Digest stderr = uploadFileContents(outErr.getErrorPath());
       result.setStderrDigest(stderr);
@@ -145,6 +145,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
 
   public void upload(
       ActionResult.Builder result,
+      DigestUtil.ActionKey actionKey,
       Action action,
       Command command,
       Path execRoot,
@@ -155,7 +156,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
         new UploadManifest(digestUtil, result, execRoot, options.allowSymlinkUpload);
     manifest.addFiles(files);
     if (uploadAction) {
-      manifest.addAction(action, command);
+      manifest.addAction(actionKey, action, command);
     }
 
     for (Map.Entry<Digest, Path> entry : manifest.getDigestToFile().entrySet()) {

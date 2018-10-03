@@ -664,6 +664,48 @@ $ bazel fetch //...
   <code>bazel build</code>.
 </p>
 
+<h4 id='repository-cache'>The repository cache</h4>
+
+<p>
+  Bazel tries to avoid fetching the same file several times, even if the same
+  file is needed in different workspaces, or if the definition of an external
+  repository changed but it still needs the same file to download. To do so,
+  bazel caches all files downloaded in the repository cache which, by default,
+  is  located at <code>~/.cache/bazel/_bazel_$USER/cache/repos/v1/</code>. The
+  location can be changed by the <code>--repository_cache</code> option. The
+  cache is shared between all workspaces and installed versions of bazel.
+  An entry is taken from the cache if
+  Bazel knows for sure that it has a copy of the correct file, that is, if the
+  download request has a SHA256 sum of the file specified and a file with that
+  hash is in the cache. So specifying a hash for each external file is
+  not only a good idea from a security perspective; it also helps avoiding
+  unnecessary downloads.
+</p>
+
+<p>
+  Upon each cache hit, the modification time of the file in the cache is
+  updated. In this way, the last use of a file in the cache directroy can easily
+  be determined, for example to manually clean up the cache. The cache is never
+  cleaned up automatically, as it might contain a copy of a file that is no
+  longer available upstream.
+</p>
+
+<h4 id='distdir'>Distribution files directories</h4>
+
+<p>
+  Besides the repository cache, Bazel has a second mechanism to avoid
+  unnecessary downloads. Using the <code>--distdir</code> option, you can
+  specify additional read-only directories to look for files instead of fetching
+  them. A file is taken from such a directory if the file name is equal to
+  the base name of the URL and additionally the hash of the file is equal to the
+  one specified in the download request (again, no file is taken from a distdir,
+  if no hash is specified). While the condition on the file name is not
+  necessary for correctness, it reduces the number of candidate files to one per
+  specified directory. In this way, specifying distribution files directories
+  remains efficient, even if the number of files in such a directory grows
+  large.
+</p>
+
 <h3 id='configurations'>Build configurations and cross-compilation</h3>
 
 <p>

@@ -192,8 +192,8 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
 
   @Override
   @Nullable
-  public MarkedDirtyResult markDirty(boolean isChanged) throws InterruptedException {
-    return getThinDelegate().markDirty(isChanged);
+  public MarkedDirtyResult markDirty(DirtyType dirtyType) throws InterruptedException {
+    return getThinDelegate().markDirty(dirtyType);
   }
 
   @Override

@@ -226,52 +226,16 @@ public class ConfigRuleClasses {
                   .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id()))
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(constraint_values) -->
-          The set of <code>constraint_values</code> that match this rule.
+          The minimum set of <code>constraint_values</code> that the target platform must specify
+          in order to match this <code>config_setting</code>. (The execution platform is not
+          considered here.) Any additional constraint values that the platform has are ignored. See
+          <a href="https://docs.bazel.build/versions/master/configurable-attributes.html#platforms">
+          Configurable Build Attributes</a> for details.
 
-          <p>A <a href="platform.html#constraint_value">constraint_value</a> is composed of a name
-          and a corresponding <a href="platform.html#constraint_setting">constraint_setting</a>
-          which classifies the value. A <a href=""platform.html#platform>platform</a> consists of a
-          collection of <code>constraint_value</code> labels which describes target itself and/or
-          how its environment.
-          </p>
-
-          <pre class="code">
-            constraint_setting(name = "rock_type")
-            constraint_value(name = metamorphic, constraint_setting = "rock_type")
-            platform(
-              name = "my_platform_rocks",
-              constraint_values = [":metamorphic"]
-            )
-          </pre>
-
-          <p>As mentioned above, this rule inherits the configuration of the configured target that
-            references it in a <code>select</code> statement. This <code>constraint_values</code>
-            attribute is considered to "match" a Bazel invocation if it includes each
-            <code>constraint_value</code> specified in the configuration's target platform which is
-            set with the command line flag <code>--experimental_platforms</code>. If it contains
-            extra <code>constraint_values</code> not included in the target platform, it is still
-            considered a match. In this example, both <code>slate</code> and
-            <code>marble</code> would be considered matches for a bazel invocation which
-            uses <code>--experimental_platforms=my_platform_rocks</code>. Multiple matches like this
-            may lead to ambiguous select resolves and are not allowed.
-          </p>
-          <pre class = "code">
-            constraint_setting(name = "color")
-            constraint_value(name = "white", constraint_setting = "color")
-
-            config_setting(
-              name = "slate",
-              constraint_values = [":metamorphic"]
-            )
-
-            config_setting(
-              name = "marble",
-              constraint_values = [
-                ":metamorphic",
-                ":white"
-              ]
-            )
-          </pre>
+          <p>In the case where two <code>config_setting</code>s both match in the same
+          <code>select</code>, this attribute is not considered for the purpose of determining
+          whether one of the <code>config_setting</code>s is a specialization of the other. In other
+          words, one <code>config_setting</code> cannot match a platform more strongly than another.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST)
@@ -299,16 +263,16 @@ public class ConfigRuleClasses {
   /*<!-- #BLAZE_RULE (NAME = config_setting, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
 
   <p>
-    Matches an expected configuration state (expressed as Bazel flags) for the purpose of triggering
-    configurable attributes. See <a href="${link select}">select</a> for how to consume this
-    rule and <a href="${link common-definitions#configurable-attributes}">
+    Matches an expected configuration state (expressed as Bazel flags or platform constraints) for
+    the purpose of triggering configurable attributes. See <a href="${link select}">select</a> for
+    how to consume this rule and <a href="${link common-definitions#configurable-attributes}">
     Configurable attributes</a> for an overview of the general feature.
 
   <h4 id="config_setting_examples">Examples</h4>
 
   <p>The following matches any Bazel invocation that specifies <code>--compilation_mode=opt</code>
      or <code>-c opt</code> (either explicitly at the command line or implicitly from .blazerc
-     files, etc.), when applied to a target configuration rule:
+     files):
   </p>
 
   <pre class="code">
@@ -318,47 +282,46 @@ public class ConfigRuleClasses {
   )
   </pre>
 
-  <p>The following matches any Bazel invocation that builds for ARM and applies a custom define
-     (e.g. <code>bazel build --cpu=armeabi --define FOO=bar ...</code>), when applied to a target
-     configuration rule:
+  <p>The following matches any Bazel invocation that builds for ARM and that applies the custom
+     define <code>FOO=bar</code> (for instance, <code>bazel build --cpu=arm --define FOO=bar ...
+     </code>):
   </p>
 
   <pre class="code">
   config_setting(
       name = "two_conditions",
       values = {
-          "cpu": "armeabi",
+          "cpu": "arm",
           "define": "FOO=bar"
       }
   )
   </pre>
 
-  <p>The following config_setting matches any Bazel invocation that builds a platform which contains
-    exactly the same or a subset of its constraint_values (like the example below).
+  <p>The following matches any Bazel invocation that builds for a platform that has an x86_64
+     architecture and glibc version 2.25, assuming the existence of a <code>constraint_value</code>
+     with label <code>//example:glibc_2_25</code>. Note that a platform still matches if it defines
+     additional constraint values beyond these two.
   </p>
 
   <pre class=""code">
   config_setting(
-      name = "marble",
+      name = "64bit_glibc_2_25",
       constraint_values = [
-          "white",
-          "metamorphic",
-      ]
-  )
-
-  platform(
-      name = "marble_platform",
-      constraint_values = [
-          "white",
-          "metamorphic"
+          "@bazel_tools//platforms:x86_64",
+          "//example:glibc_2_25",
       ]
   )
   </pre>
 
+  In all these cases, it is possible for the configuration state to change during the build, for
+  instance if a dependency of a target needs to be built for a different platform than the target
+  itself. This means that even when a <code>config_setting</code> does not match the top-level
+  command-line flags, it may still match a deeper part of the build, and vice versa.
+
   <h4 id="config_setting_notes">Notes</h4>
 
-  <p>See <a href="${link select}">select</a> for policies on what happens depending on how
-     many rules match an invocation.
+  <p>See <a href="${link select}">select</a> for what happens when multiple
+     <code>config_setting</code>s match the current configuration state.
   </p>
 
   <p>For flags that support shorthand forms (e.g. <code>--compilation_mode</code> vs.
@@ -367,25 +330,23 @@ public class ConfigRuleClasses {
   </p>
 
   <p>The currently endorsed method for creating custom conditions that can't be expressed through
-    dedicated build flags is through the --define flag. Use this flag with caution: it's not ideal
-    and only endorsed for lack of a currently better workaround. See the
+    dedicated build flags is through the <code>--define</code> flag. Use this flag with caution:
+    it's not ideal and only endorsed for lack of a currently better workaround. See the
     <a href="${link common-definitions#configurable-attributes}">
     Configurable attributes</a> section for more discussion.
   </p>
 
-  <p>Try to consolidate <code>config_setting</code> definitions as much as possible. In other words,
-    define <code>//common/conditions:foo</code> in one common package instead of repeating separate
-    instances in <code>//project1:foo</code>, <code>//project2:foo</code>, etc. that all mean the
-    same thing.
+  <p>Avoid repeating identical <code>config_setting</code> definitions in different packages.
+    Instead, prefer to reference a common <code>config_setting</code> target that is defined in a
+    single package.
   </p>
 
   <p><a href="general.html#config_setting.values"><code>values</code></a>,
      <a href="general.html#config_setting.define_values"><code>define_values</code></a>, and
-     <a href=general.html#config_setting.constraint_values"><code>constraint_values</code></a>
-     can be used in any combination in the same config_setting but at least one must be set for any
-     given config_setting.
+     <a href="general.html#config_setting.constraint_values"><code>constraint_values</code></a>
+     can be used in any combination in the same <code>config_setting</code> but at least one must be
+     set for any given <code>config_setting</code>.
   </p>
-
   <!-- #END_BLAZE_RULE -->*/
 
   /** Rule definition for Android's config_feature_flag rule. */

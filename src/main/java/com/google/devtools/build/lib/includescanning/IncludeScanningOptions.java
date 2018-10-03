@@ -1,0 +1,121 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.includescanning;
+
+import com.google.devtools.build.lib.actions.LocalHostCapacity;
+import com.google.devtools.common.options.Converters.IntegerConverter;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
+
+/**
+ * Command options specific to include scanning.
+ */
+public class IncludeScanningOptions extends OptionsBase {
+
+  /**
+   * Converter for a number of threads or {@code auto}, which automatically selects a value that
+   * makes sense according to the local machine resources.
+   */
+  public static class ParallelismConverter extends IntegerConverter {
+    @Override
+    public Integer convert(String input) throws OptionsParsingException {
+      if (input.equals("auto")) {
+        return (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
+      } else {
+        return super.convert(input);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "\"auto\" or " + super.getTypeDescription();
+    }
+  }
+
+  @Option(
+    name = "experimental_inmemory_dotincludes_files",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {
+      OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+      OptionEffectTag.EXECUTION,
+      OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+    },
+    defaultValue = "false",
+    help =
+        "If enabled, searching for '#include' lines in generated header files will not "
+            + "touch local disk. This makes include scanning of C++ files less disk-intensive."
+  )
+  public boolean inMemoryIncludesFiles;
+
+  @Option(
+      name = "experimental_dotincludes_files_in_tree",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+      },
+      defaultValue = "false",
+      help = "Put remotely-extracted include files next to each source file.")
+  public boolean includesFilesInTree;
+
+  @Option(
+      name = "experimental_remote_include_extraction_size_threshold",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+      },
+      defaultValue = "1000000",
+      help = "Run remotable C++ include extraction remotely if the file size in bytes exceeds this."
+  )
+  public int experimentalRemoteExtractionThreshold;
+
+  @Option(
+    name = "experimental_skyframe_include_scanning",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {
+      OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+      OptionEffectTag.EXECUTION,
+      OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+    },
+    defaultValue = "false",
+    deprecationWarning = "No longer active: is a no-op",
+    help = "Deprecated, has no effect."
+  )
+  public boolean skyframeIncludeScanning;
+
+  @Option(
+      name = "experimental_include_scanning_parallelism",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+      },
+      defaultValue = "80",
+      converter = ParallelismConverter.class,
+      help =
+          "Configures the size of the thread pool used for include scanning. "
+              + "0 means to disable parallelism and to just rely on the build graph parallelism "
+              + "for concurrency. "
+              + " \"auto\" means to use a reasonable value derived from the machine's hardware"
+              + " profile (e.g. the number of processors)."
+  )
+  public int includeScanningParallelism;
+}

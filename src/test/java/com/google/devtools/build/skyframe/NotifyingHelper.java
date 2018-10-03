@@ -102,10 +102,6 @@ public class NotifyingHelper {
       return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
     }
 
-    @Override
-    public Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason) {
-      return delegate.getCurrentlyAvailableNodes(keys, reason);
-    }
   }
 
   static class NotifyingProcessableGraph
@@ -266,10 +262,10 @@ public class NotifyingHelper {
     }
 
     @Override
-    public MarkedDirtyResult markDirty(boolean isChanged) throws InterruptedException {
-      graphListener.accept(myKey, EventType.MARK_DIRTY, Order.BEFORE, isChanged);
-      MarkedDirtyResult result = super.markDirty(isChanged);
-      graphListener.accept(myKey, EventType.MARK_DIRTY, Order.AFTER, isChanged);
+    public MarkedDirtyResult markDirty(DirtyType dirtyType) throws InterruptedException {
+      graphListener.accept(myKey, EventType.MARK_DIRTY, Order.BEFORE, dirtyType);
+      MarkedDirtyResult result = super.markDirty(dirtyType);
+      graphListener.accept(myKey, EventType.MARK_DIRTY, Order.AFTER, dirtyType);
       return result;
     }
 

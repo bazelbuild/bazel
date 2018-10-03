@@ -1,0 +1,55 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.skyframe;
+
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+
+/**
+ * Implementation of {@link OutputStore} that retains a minimal amount of output data necessary to
+ * complete the build.
+ *
+ * <p>This store is intended for use with in-memory file systems, where aggressive caching would not
+ * be worthwhile.
+ */
+// TODO(b/115361150): See if even less data can be retained. Specifically, we shouldn't need to
+// call injectRemoteFile for anything, including children of tree artifacts.
+final class MinimalOutputStore extends OutputStore {
+
+  @Override
+  void putAdditionalOutputData(Artifact artifact, FileArtifactValue value) {
+    if (value.isMarkerValue()) {
+      super.putAdditionalOutputData(artifact, value);
+    }
+  }
+
+  @Override
+  void putArtifactData(Artifact artifact, ArtifactFileMetadata value) {}
+
+  @Override
+  void addTreeArtifactContents(Artifact artifact, TreeFileArtifact contents) {}
+
+  @Override
+  void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
+    if (isChildOfTreeArtifact(output)) {
+      super.injectRemoteFile(output, digest, size, locationIndex);
+    }
+  }
+
+  private static boolean isChildOfTreeArtifact(Artifact artifact) {
+    return artifact.hasParent() && artifact.getParent().isTreeArtifact();
+  }
+}

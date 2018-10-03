@@ -41,7 +41,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       CcToolchainProvider provider =
           (CcToolchainProvider) dep.get(ToolchainInfo.PROVIDER);
       if (provider != null) {
-        filesToBuild.addTransitive(provider.getCrosstoolMiddleman());
+        filesToBuild.addTransitive(provider.getCrosstool());
       }
     }
 

@@ -452,11 +452,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.GLOB, newGlobFunction());
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
-    map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERN, new PrepareDepsOfPatternFunction(pkgLocator));
+    map.put(
+        SkyFunctions.PREPARE_DEPS_OF_PATTERN,
+        new PrepareDepsOfPatternFunction(pkgLocator, traverseTestSuites()));
+    map.put(
+        SkyFunctions.PREPARE_TEST_SUITES_UNDER_DIRECTORY,
+        new PrepareTestSuitesUnderDirectoryFunction(directories));
     map.put(
         SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
         new PrepareDepsOfTargetsUnderDirectoryFunction(directories));
     map.put(SkyFunctions.COLLECT_TARGETS_IN_PACKAGE, new CollectTargetsInPackageFunction());
+    map.put(SkyFunctions.COLLECT_TEST_SUITES_IN_PACKAGE, new CollectTestSuitesInPackageFunction());
     map.put(
         SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY,
         new CollectPackagesUnderDirectoryFunction(directories));
@@ -560,6 +566,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.RESOLVED_FILE, new ResolvedFileFunction());
     map.putAll(extraSkyFunctions);
     return map.build();
+  }
+
+  protected boolean traverseTestSuites() {
+    return false;
   }
 
   protected SkyFunction newGlobFunction() {
@@ -2268,9 +2278,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return new CyclesReporter(
         new TransitiveTargetCycleReporter(packageManager),
         new ActionArtifactCycleReporter(packageManager),
+        new ConfiguredTargetCycleReporter(packageManager),
+        new TestSuiteCycleReporter(packageManager),
         // TODO(ulfjack): The SkylarkModuleCycleReporter swallows previously reported cycles
         // unconditionally! Is that intentional?
-        new ConfiguredTargetCycleReporter(packageManager),
         new SkylarkModuleCycleReporter());
   }
 

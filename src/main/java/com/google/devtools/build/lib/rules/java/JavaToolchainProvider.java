@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -48,12 +49,12 @@ public class JavaToolchainProvider extends ToolchainInfo {
     return from(prerequisite, ruleContext);
   }
 
-  public static JavaToolchainProvider from(TransitiveInfoCollection collection) {
+  public static JavaToolchainProvider from(ProviderCollection collection) {
     return from(collection, null);
   }
 
   private static JavaToolchainProvider from(
-      TransitiveInfoCollection collection, @Nullable RuleErrorConsumer errorConsumer) {
+      ProviderCollection collection, @Nullable RuleErrorConsumer errorConsumer) {
     ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
     if (toolchainInfo instanceof JavaToolchainProvider) {
       return (JavaToolchainProvider) toolchainInfo;

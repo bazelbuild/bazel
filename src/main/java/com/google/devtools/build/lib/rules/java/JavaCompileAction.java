@@ -136,10 +136,8 @@ public final class JavaCompileAction extends SpawnAction {
   /** The subset of classpath jars provided by direct dependencies. */
   private final NestedSet<Artifact> directJars;
 
-  /**
-   * The level of strict dependency checks (off, warnings, or errors).
-   */
-  private final BuildConfiguration.StrictDepsMode strictJavaDeps;
+  /** The level of strict dependency checks (off, warnings, or errors). */
+  private final StrictDepsMode strictJavaDeps;
 
   /** The tool with which to fix dependency errors. */
   private final String fixDepsTool;
@@ -302,7 +300,7 @@ public final class JavaCompileAction extends SpawnAction {
   }
 
   @VisibleForTesting
-  public BuildConfiguration.StrictDepsMode getStrictJavaDepsMode() {
+  public StrictDepsMode getStrictJavaDepsMode() {
     return strictJavaDeps;
   }
 
@@ -436,8 +434,10 @@ public final class JavaCompileAction extends SpawnAction {
     private Artifact artifactForExperimentalCoverage;
     private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
     private final Collection<Artifact> sourceJars = new ArrayList<>();
-    private BuildConfiguration.StrictDepsMode strictJavaDeps =
-        BuildConfiguration.StrictDepsMode.OFF;
+
+    /** @see {@link #setStrictJavaDeps}. */
+    private StrictDepsMode strictJavaDeps = StrictDepsMode.ERROR;
+
     private String fixDepsTool = "add_dep";
     private NestedSet<Artifact> directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private NestedSet<Artifact> compileTimeDependencyArtifacts =
@@ -504,7 +504,7 @@ public final class JavaCompileAction extends SpawnAction {
 
       // Invariant: if strictJavaDeps is OFF, then directJars and
       // dependencyArtifacts are ignored
-      if (strictJavaDeps == BuildConfiguration.StrictDepsMode.OFF) {
+      if (strictJavaDeps == StrictDepsMode.OFF) {
         directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
         compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
@@ -723,7 +723,7 @@ public final class JavaCompileAction extends SpawnAction {
 
       // strict_java_deps controls whether the mapping from jars to targets is
       // written out and whether we try to minimize the compile-time classpath.
-      if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
+      if (strictJavaDeps != StrictDepsMode.OFF) {
         result.add("--strict_java_deps", strictJavaDeps.toString());
         result.addExecPaths("--direct_dependencies", directJars);
 
@@ -870,9 +870,11 @@ public final class JavaCompileAction extends SpawnAction {
 
     /**
      * Sets the strictness of Java dependency checking, see {@link
-     * com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode}.
+     * com.google.devtools.build.lib.analysis.config.StrictDepsMode}.
+     *
+     * <p>Defaults to {@link StrictDepsMode#ERROR}.
      */
-    public Builder setStrictJavaDeps(BuildConfiguration.StrictDepsMode strictDeps) {
+    public Builder setStrictJavaDeps(StrictDepsMode strictDeps) {
       strictJavaDeps = strictDeps;
       return this;
     }

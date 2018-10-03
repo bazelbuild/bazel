@@ -270,7 +270,8 @@ public final class BlazeRuntime {
       BlazeWorkspace workspace,
       CommonCommandOptions options,
       UUID buildID,
-      long execStartTimeNanos) {
+      long execStartTimeNanos,
+      long waitTimeInMs) {
     OutputStream out = null;
     boolean recordFullProfilerData = false;
     ProfiledTaskKinds profiledTasks = ProfiledTaskKinds.NONE;
@@ -324,11 +325,34 @@ public final class BlazeRuntime {
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
         long startupTimeNanos = options.startupTime * 1000000L;
+        long waitTimeNanos = waitTimeInMs * 1000000L;
+        long clientStartTimeNanos = execStartTimeNanos - startupTimeNanos - waitTimeNanos;
         profiler.logSimpleTaskDuration(
-            execStartTimeNanos - startupTimeNanos,
-            Duration.ZERO,
+            clientStartTimeNanos,
+            Duration.ofNanos(startupTimeNanos),
             ProfilerTask.PHASE,
             ProfilePhase.LAUNCH.description);
+        if (options.extractDataTime > 0) {
+          profiler.logSimpleTaskDuration(
+              clientStartTimeNanos,
+              Duration.ofMillis(options.extractDataTime),
+              ProfilerTask.PHASE,
+              "Extracting Bazel binary");
+        }
+        if (options.waitTime > 0) {
+          profiler.logSimpleTaskDuration(
+              clientStartTimeNanos,
+              Duration.ofMillis(options.waitTime),
+              ProfilerTask.PHASE,
+              "Blocking on busy Bazel server (in client)");
+        }
+        if (waitTimeInMs > 0) {
+          profiler.logSimpleTaskDuration(
+              clientStartTimeNanos + startupTimeNanos,
+              Duration.ofMillis(waitTimeInMs),
+              ProfilerTask.PHASE,
+              "Blocking on busy Bazel server (in server)");
+        }
         profiler.logSimpleTaskDuration(
             execStartTimeNanos, Duration.ZERO, ProfilerTask.PHASE, ProfilePhase.INIT.description);
       }

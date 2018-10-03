@@ -73,6 +73,7 @@ public class RBuildFilesFunction implements QueryFunction {
         args.stream()
             .map(argument -> PathFragment.create(argument.getWord()))
             .collect(Collectors.toList()),
+        (QueryExpressionContext<Target>) context,
         (Callback<Target>) callback);
   }
 }

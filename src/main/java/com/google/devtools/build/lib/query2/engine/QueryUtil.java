@@ -218,8 +218,48 @@ public final class QueryUtil {
     }
   }
 
+  /** A {@link Uniquifier} whose methods do not throw {@link QueryException}. */
+  public interface NonExceptionalUniquifier<T> extends Uniquifier<T> {
+    @Override
+    boolean unique(T newElement);
+
+    @Override
+    ImmutableList<T> unique(Iterable<T> newElements);
+  }
+
+  /**
+   * A {@link NonExceptionalUniquifier} that doesn't do anything and always says an element is
+   * unique.
+   */
+  public static class NullUniquifierImpl<T> implements NonExceptionalUniquifier<T> {
+    private static final NullUniquifierImpl<Object> INSTANCE = new NullUniquifierImpl<>();
+
+    private NullUniquifierImpl() {
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> NullUniquifierImpl<T> instance() {
+      return (NullUniquifierImpl<T>) INSTANCE;
+    }
+
+    @Override
+    public boolean uniquePure(T newElement) {
+      return true;
+    }
+
+    @Override
+    public boolean unique(T newElement) {
+      return true;
+    }
+
+    @Override
+    public ImmutableList<T> unique(Iterable<T> newElements) {
+      return ImmutableList.copyOf(newElements);
+    }
+  }
+
   /** A trivial {@link Uniquifier} implementation. */
-  public static class UniquifierImpl<T, K> implements Uniquifier<T> {
+  public static class UniquifierImpl<T, K> implements NonExceptionalUniquifier<T> {
     private final KeyExtractor<T, K> extractor;
     private final Set<K> alreadySeen;
 

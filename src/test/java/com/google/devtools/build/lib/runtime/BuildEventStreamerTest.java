@@ -86,6 +86,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
   private static final ActionExecutedEvent SUCCESSFUL_ACTION_EXECUTED_EVENT =
       new ActionExecutedEvent(
+          ActionsTestUtil.DUMMY_ARTIFACT.getExecPath(),
           new ActionsTestUtil.NullAction(),
           /* exception= */ null,
           ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
@@ -912,6 +913,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     ActionExecutedEvent failedActionExecutedEvent =
         new ActionExecutedEvent(
+            ActionsTestUtil.DUMMY_ARTIFACT.getExecPath(),
             new ActionsTestUtil.NullAction(),
             new ActionExecutionException("Exception", /* action= */ null, /* catastrophe= */ false),
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
@@ -942,6 +944,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     ActionExecutedEvent failedActionExecutedEvent =
         new ActionExecutedEvent(
+            ActionsTestUtil.DUMMY_ARTIFACT.getExecPath(),
             new ActionsTestUtil.NullAction(),
             new ActionExecutionException("Exception", /* action= */ null, /* catastrophe= */ false),
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),

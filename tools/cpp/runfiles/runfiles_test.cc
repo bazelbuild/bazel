@@ -307,29 +307,17 @@ TEST_F(RunfilesTest, ManifestAndDirectoryBasedRunfilesRlocationAndEnvVars) {
 }
 
 TEST_F(RunfilesTest, ManifestBasedRunfilesEnvVars) {
-  const vector<string> suffixes({"/MANIFEST", ".runfiles_manifest",
-                                 "runfiles_manifest", ".runfiles", ".manifest",
-                                 ".txt"});
-  for (vector<string>::size_type i = 0; i < suffixes.size(); ++i) {
-    unique_ptr<MockFile> mf(
-        MockFile::Create(string("foo" LINE_AS_STRING()) + suffixes[i]));
-    EXPECT_TRUE(mf != nullptr) << " (suffix=\"" << suffixes[i] << "\")";
+  unique_ptr<MockFile> mf(
+      MockFile::Create(string("foo" LINE_AS_STRING() ".runfiles_manifest")));
+  EXPECT_TRUE(mf != nullptr);
 
-    string error;
-    unique_ptr<Runfiles> r(
-        Runfiles::Create("ignore-argv0", mf->Path(), "", &error));
-    if (i < 2) {
-      ASSERT_NE(r, nullptr) << " (suffix=\"" << suffixes[i] << "\")";
-      EXPECT_TRUE(error.empty());
+  string error;
+  unique_ptr<Runfiles> r(
+      Runfiles::Create("ignore-argv0", mf->Path(), "", &error));
+  ASSERT_NE(r, nullptr);
+  EXPECT_TRUE(error.empty());
 
-      // The object can compute the runfiles directory when i=0 and i=1, but not
-      // when i>1 because the manifest file's name doesn't end in a well-known
-      // way.
-      AssertEnvvars(*r, mf->Path(), "");
-    } else {
-      ASSERT_EQ(r, nullptr) << " (suffix=\"" << suffixes[i] << "\")";
-    }
-  }
+  AssertEnvvars(*r, mf->Path(), "");
 }
 
 TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromDirectoryNextToBinary) {

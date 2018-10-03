@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -87,15 +86,6 @@ public interface WalkableGraph {
    * given key must be done in the graph if it exists.
    */
   Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys) throws InterruptedException;
-
-  /**
-   * Examines all the given keys. Returns an iterable of keys whose corresponding nodes are
-   * currently available to be fetched.
-   *
-   * <p>Note: An unavailable node does not mean it is not in the graph. It only means it's not ready
-   * to be fetched immediately.
-   */
-  Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason);
 
   /** Provides a WalkableGraph on demand after preparing it. */
   interface WalkableGraphFactory {
