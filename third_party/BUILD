@@ -388,7 +388,6 @@ java_import(
     ],
 )
 
-# For bootstrapping JavaBuilder
 filegroup(
     name = "flogger-jars",
     srcs = [
