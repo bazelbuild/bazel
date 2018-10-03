@@ -211,7 +211,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       String hostPlatform = AndroidNdkCrosstools.getHostPlatform(ndkRelease);
       NdkPaths ndkPaths = new NdkPaths(ruleName, hostPlatform, apiLevel, ndkRelease.majorRevision);
 
-      for (StlImpl stlImpl : StlImpls.get(ndkPaths)) {
+      for (StlImpl stlImpl : StlImpls.get(ndkPaths, ndkRelease.majorRevision)) {
         CrosstoolRelease crosstoolRelease =
             ndkMajorRevision.crosstoolRelease(ndkPaths, stlImpl, hostPlatform);
         crosstoolsAndStls.add(new CrosstoolStlPair(crosstoolRelease, stlImpl));

@@ -102,7 +102,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         eventCollector,
         "The revision of the Android NDK referenced by android_ndk_repository rule 'androidndk' "
             + "could not be determined (the revision string found is 'not a valid release string')."
-            + " Bazel will attempt to treat the NDK as if it was r17.");
+            + " Bazel will attempt to treat the NDK as if it was r18.");
   }
 
   @Test
@@ -128,7 +128,7 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         eventCollector,
         "The revision of the Android NDK referenced by android_ndk_repository rule 'androidndk' "
             + "could not be determined (the revision string found is 'invalid package revision'). "
-            + "Bazel will attempt to treat the NDK as if it was r17.");
+            + "Bazel will attempt to treat the NDK as if it was r18.");
   }
 
   @Test
@@ -143,16 +143,16 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         ")");
 
     scratch.overwriteFile(
-        "/ndk/source.properties", "Pkg.Desc = Android NDK", "Pkg.Revision = 18.0.3675639-beta2");
+        "/ndk/source.properties", "Pkg.Desc = Android NDK", "Pkg.Revision = 19.0.3675639-beta2");
     invalidatePackages();
 
     assertThat(getConfiguredTarget("@androidndk//:files")).isNotNull();
     MoreAsserts.assertContainsEvent(
         eventCollector,
         "The major revision of the Android NDK referenced by android_ndk_repository rule "
-            + "'androidndk' is 18. The major revisions supported by Bazel are "
-            + "[10, 11, 12, 13, 14, 15, 16, 17]. Bazel will attempt to treat the NDK as if it was "
-            + "r17.");
+            + "'androidndk' is 19. The major revisions supported by Bazel are "
+            + "[10, 11, 12, 13, 14, 15, 16, 17, 18]. Bazel will attempt to treat the NDK as if it "
+            + "was r18.");
   }
 
   @Test

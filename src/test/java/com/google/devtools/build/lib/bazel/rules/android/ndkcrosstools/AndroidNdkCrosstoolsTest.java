@@ -77,6 +77,10 @@ public class AndroidNdkCrosstoolsTest {
       return AndroidNdkCrosstools.KNOWN_NDK_MAJOR_REVISIONS.get(ndkRelease.majorRevision);
     }
 
+    Integer getNdkMajorRevisionNumber() {
+      return ndkRelease.majorRevision;
+    }
+
     ImmutableSet<String> getNdkFiles() throws IOException {
       String ndkFilesFileContent =
           ResourceFileLoader.loadResource(AndroidNdkCrosstoolsTest.class, ndkFilesFilename);
@@ -137,7 +141,7 @@ public class AndroidNdkCrosstoolsTest {
 
     ImmutableList.Builder<CrosstoolRelease> crosstools = ImmutableList.builder();
     ImmutableMap.Builder<String, String> stlFilegroupsBuilder = ImmutableMap.builder();
-    for (StlImpl ndkStlImpl : StlImpls.get(ndkPaths)) {
+    for (StlImpl ndkStlImpl : StlImpls.get(ndkPaths, params.getNdkMajorRevisionNumber())) {
       // Protos are immutable, so this can be shared between tests.
       CrosstoolRelease crosstool =
           params.getNdkMajorRevision().crosstoolRelease(ndkPaths, ndkStlImpl, HOST_PLATFORM);

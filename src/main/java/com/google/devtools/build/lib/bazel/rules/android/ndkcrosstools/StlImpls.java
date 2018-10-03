@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Class that contains implementations of NdkStlImpl, one for each STL implementation of the STL
@@ -35,7 +36,7 @@ public final class StlImpls {
     }
 
     @Override
-    public void addStlImpl(CToolchain.Builder toolchain, String gccVersion) {
+    public void addStlImpl(CToolchain.Builder toolchain, @Nullable String gccVersion) {
       addBaseStlImpl(toolchain, gccVersion);
       toolchain.addAllUnfilteredCxxFlag(createIncludeFlags(
           ndkPaths.createGnuLibstdcIncludePaths(gccVersion, toolchain.getTargetCpu())));
@@ -51,7 +52,7 @@ public final class StlImpls {
     }
 
     @Override
-    public void addStlImpl(CToolchain.Builder toolchain, String gccVersion) {
+    public void addStlImpl(CToolchain.Builder toolchain, @Nullable String gccVersion) {
       addBaseStlImpl(toolchain, null);
       toolchain.addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createLibcxxIncludePaths()));
       toolchain.addLinkerFlag("-L" + ndkPaths.createLibcppLinkerPath(toolchain.getTargetCpu()));
@@ -67,20 +68,27 @@ public final class StlImpls {
     }
 
     @Override
-    public void addStlImpl(CToolchain.Builder toolchain, String gccVersion) {
+    public void addStlImpl(CToolchain.Builder toolchain, @Nullable String gccVersion) {
       addBaseStlImpl(toolchain, null);
       toolchain.addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createStlportIncludePaths()));
     }
   }
 
   /**
+   * Gets the list of runtime libraries (STL) in the NDK.
+   *
+   * <p>NDK r17 and lower contains gnustl, STLport and libc++. NDK r18 and above contains libc++
+   * only.
+   *
    * @param ndkPaths NdkPaths to use for creating the NdkStlImpls
    * @return an ImmutableList of every available NdkStlImpl
    */
-  public static List<StlImpl> get(NdkPaths ndkPaths) {
-    return ImmutableList.of(
-        new GnuLibStdCppStlImpl(ndkPaths),
-        new StlPortStlImpl(ndkPaths),
-        new LibCppStlImpl(ndkPaths));
+  public static List<StlImpl> get(NdkPaths ndkPaths, Integer ndkMajorRevision) {
+    return ndkMajorRevision < 18
+        ? ImmutableList.of(
+            new GnuLibStdCppStlImpl(ndkPaths),
+            new StlPortStlImpl(ndkPaths),
+            new LibCppStlImpl(ndkPaths))
+        : ImmutableList.of(new LibCppStlImpl(ndkPaths));
   }
 }
