@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 
@@ -78,11 +79,11 @@ public class PackageFactoryApparatus {
   }
 
   /** Parses and evaluates {@code buildFile} and returns the resulting {@link Package} instance. */
-  public Package createPackage(String packageName, Path buildFile) throws Exception {
+  public Package createPackage(String packageName, RootedPath buildFile) throws Exception {
     return createPackage(PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler);
   }
 
-  public Package createPackage(String packageName, Path buildFile, String skylarkOption)
+  public Package createPackage(String packageName, RootedPath buildFile, String skylarkOption)
       throws Exception {
     return createPackage(
         PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler, skylarkOption);
@@ -94,7 +95,7 @@ public class PackageFactoryApparatus {
    */
   public Package createPackage(
       PackageIdentifier packageIdentifier,
-      Path buildFile,
+      RootedPath buildFile,
       ExtendedEventHandler reporter,
       String skylarkOption)
       throws Exception {
@@ -111,7 +112,10 @@ public class PackageFactoryApparatus {
       Package externalPkg =
           factory
               .newExternalPackageBuilder(
-                  buildFile.getRelative(Label.WORKSPACE_FILE_NAME), "TESTING")
+                  RootedPath.toRootedPath(
+                      buildFile.getRoot(),
+                      buildFile.getRootRelativePath().getRelative(Label.WORKSPACE_FILE_NAME)),
+                  "TESTING")
               .build();
       Package pkg =
           factory.createPackageForTesting(
@@ -123,7 +127,7 @@ public class PackageFactoryApparatus {
   }
 
   public Package createPackage(
-      PackageIdentifier packageIdentifier, Path buildFile, ExtendedEventHandler reporter)
+      PackageIdentifier packageIdentifier, RootedPath buildFile, ExtendedEventHandler reporter)
       throws Exception {
     return createPackage(packageIdentifier, buildFile, reporter, null);
   }
@@ -139,12 +143,12 @@ public class PackageFactoryApparatus {
 
   /** Evaluates the {@code buildFileAST} into a {@link Package}. */
   public Pair<Package, GlobCache> evalAndReturnGlobCache(
-      String packageName, Path buildFile, BuildFileAST buildFileAST)
+      String packageName, RootedPath buildFile, BuildFileAST buildFileAST)
       throws InterruptedException, NoSuchPackageException {
     PackageIdentifier packageId = PackageIdentifier.createInMainRepo(packageName);
     GlobCache globCache =
         new GlobCache(
-            buildFile.getParentDirectory(),
+            buildFile.asPath().getParentDirectory(),
             packageId,
             getPackageLocator(),
             null,
@@ -152,8 +156,12 @@ public class PackageFactoryApparatus {
             -1);
     LegacyGlobber globber = PackageFactory.createLegacyGlobber(globCache);
     Package externalPkg =
-        factory.newExternalPackageBuilder(
-                buildFile.getParentDirectory().getRelative("WORKSPACE"), "TESTING")
+        factory
+            .newExternalPackageBuilder(
+                RootedPath.toRootedPath(
+                    buildFile.getRoot(),
+                    buildFile.getRootRelativePath().getParentDirectory().getRelative("WORKSPACE")),
+                "TESTING")
             .build();
     Package.Builder resultBuilder =
         factory.evaluateBuildFile(
@@ -181,15 +189,15 @@ public class PackageFactoryApparatus {
     return Pair.of(result, globCache);
   }
 
-  public Package eval(String packageName, Path buildFile, BuildFileAST buildFileAST)
+  public Package eval(String packageName, RootedPath buildFile, BuildFileAST buildFileAST)
       throws InterruptedException, NoSuchPackageException {
     return evalAndReturnGlobCache(packageName, buildFile, buildFileAST).first;
   }
 
   /** Evaluates the {@code buildFileAST} into a {@link Package}. */
-  public Package eval(String packageName, Path buildFile)
+  public Package eval(String packageName, RootedPath buildFile)
       throws InterruptedException, IOException, NoSuchPackageException {
-    return eval(packageName, buildFile, ast(buildFile));
+    return eval(packageName, buildFile, ast(buildFile.asPath()));
   }
 
   /**

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -94,10 +95,8 @@ public class Package {
    */
   private final PathFragment nameFragment;
 
-  /**
-   * The filename of this package's BUILD file.
-   */
-  private Path filename;
+  /** The filename of this package's BUILD file. */
+  private RootedPath filename;
 
   /**
    * The directory in which this package's BUILD file resides.  All InputFile
@@ -310,17 +309,22 @@ public class Package {
     return sourceRoot;
   }
 
-  // This must always be consistent with Root.computeSourceRoot; otherwise computing source roots
-  // from exec paths does not work, which can break the action cache for input-discovering actions.
-  private static Root getSourceRoot(Path buildFile, PathFragment packageFragment) {
-    Path current = buildFile.getParentDirectory();
-    for (int i = 0, len = packageFragment.segmentCount();
-         i < len && !packageFragment.equals(PathFragment.EMPTY_FRAGMENT); i++) {
-      if (current != null) {
-        current = current.getParentDirectory();
-      }
+  private static Root getSourceRoot(RootedPath buildFileRootedPath, PathFragment packageFragment) {
+    PathFragment packageDirectory = buildFileRootedPath.getRootRelativePath().getParentDirectory();
+    if (packageFragment.equals(packageDirectory)) {
+      // Fast path: BUILD file path and package name are the same, don't create an extra root.
+      return buildFileRootedPath.getRoot();
     }
-    return Root.fromPath(current);
+    PathFragment current = buildFileRootedPath.asPath().asFragment().getParentDirectory();
+    for (int i = 0, len = packageFragment.segmentCount(); i < len && current != null; i++) {
+      current = current.getParentDirectory();
+    }
+    if (current == null || current.isEmpty()) {
+      // This is never really expected to work. The check below in #finishInit should fail.
+      return buildFileRootedPath.getRoot();
+    }
+    // Note that current is an absolute path.
+    return Root.fromPath(buildFileRootedPath.getRoot().getRelative(current));
   }
 
   /**
@@ -342,14 +346,24 @@ public class Package {
       }
     }
     this.filename = builder.getFilename();
-    this.packageDirectory = filename.getParentDirectory();
+    this.packageDirectory = filename.asPath().getParentDirectory();
 
     this.sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
     if ((sourceRoot.asPath() == null
             || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
-        && !filename.getBaseName().equals("WORKSPACE")) {
+        && !filename.getRootRelativePath().getBaseName().equals("WORKSPACE")) {
       throw new IllegalArgumentException(
-          "Invalid BUILD file name for package '" + packageIdentifier + "': " + filename);
+          "Invalid BUILD file name for package '"
+              + packageIdentifier
+              + "': "
+              + filename
+              + " (in source "
+              + sourceRoot
+              + " with packageDirectory "
+              + packageDirectory
+              + " and package identifier source root "
+              + packageIdentifier.getSourceRoot()
+              + ")");
     }
 
     this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
@@ -395,10 +409,10 @@ public class Package {
   }
 
   /**
-   * Returns the filename of the BUILD file which defines this package. The
-   * parent directory of the BUILD file is the package directory.
+   * Returns the filename of the BUILD file which defines this package. The parent directory of the
+   * BUILD file is the package directory.
    */
-  public Path getFilename() {
+  public RootedPath getFilename() {
     return filename;
   }
 
@@ -577,12 +591,10 @@ public class Package {
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(targetName);
     }
-    String msg = String.format(
-        "target '%s' not declared in package '%s'%s defined by %s",
-        targetName,
-        name,
-        suffix,
-        filename);
+    String msg =
+        String.format(
+            "target '%s' not declared in package '%s'%s defined by %s",
+            targetName, name, suffix, filename.asPath().getPathString());
     return new NoSuchTargetException(label, msg);
   }
 
@@ -683,7 +695,7 @@ public class Package {
    * output.
    */
   public void dump(PrintStream out) {
-    out.println("  Package " + getName() + " (" + getFilename() + ")");
+    out.println("  Package " + getName() + " (" + getFilename().asPath() + ")");
 
     // Rules:
     out.println("    Rules");
@@ -709,8 +721,8 @@ public class Package {
     }
   }
 
-  public static Builder newExternalPackageBuilder(Builder.Helper helper, Path workspacePath,
-      String runfilesPrefix) {
+  public static Builder newExternalPackageBuilder(
+      Builder.Helper helper, RootedPath workspacePath, String runfilesPrefix) {
     Builder b = new Builder(helper.createFreshPackage(
         Label.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix));
     b.setFilename(workspacePath);
@@ -778,7 +790,7 @@ public class Package {
     // It contains an entry from "@<main workspace name>" to "@" for packages within
     // the main workspace.
     private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of();
-    private Path filename = null;
+    private RootedPath filename = null;
     private Label buildFileLabel = null;
     private InputFile buildFile = null;
     // TreeMap so that the iteration order of variables is predictable. This is useful so that the
@@ -903,14 +915,12 @@ public class Package {
       return this.repositoryMapping;
     }
 
-    /**
-     * Sets the name of this package's BUILD file.
-     */
-    Builder setFilename(Path filename) {
+    /** Sets the name of this package's BUILD file. */
+    Builder setFilename(RootedPath filename) {
       this.filename = filename;
       try {
-        buildFileLabel = createLabel(filename.getBaseName());
-        addInputFile(buildFileLabel, Location.fromFile(filename));
+        buildFileLabel = createLabel(filename.getRootRelativePath().getBaseName());
+        addInputFile(buildFileLabel, Location.fromPathFragment(filename.getRootRelativePath()));
       } catch (LabelSyntaxException e) {
         // This can't actually happen.
         throw new AssertionError("Package BUILD file has an illegal name: " + filename);
@@ -922,7 +932,7 @@ public class Package {
       return buildFileLabel;
     }
 
-    Path getFilename() {
+    RootedPath getFilename() {
       return filename;
     }
 

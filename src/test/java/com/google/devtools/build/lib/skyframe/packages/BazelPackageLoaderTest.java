@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
@@ -79,7 +80,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   private void fetchExternalRepo(RepositoryName externalRepo) {
     PackageLoader pkgLoaderForFetch =
-        newPackageLoaderBuilder(workspaceDir)
+        newPackageLoaderBuilder(root)
             .setFetchForTesting()
             .useDefaultSkylarkSemantics()
             .build();
@@ -94,7 +95,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
   }
 
   @Override
-  protected BazelPackageLoader.Builder newPackageLoaderBuilder(Path workspaceDir) {
+  protected BazelPackageLoader.Builder newPackageLoaderBuilder(Root workspaceDir) {
     return BazelPackageLoader.builder(workspaceDir, installBase, outputBase);
   }
 

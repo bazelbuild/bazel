@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Test;
@@ -47,10 +48,11 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
 
   @Test
   public void testCreateRule() throws Exception {
-    Path myPkgPath = scratch.resolve("/foo/workspace/mypkg/BUILD");
+    Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder =
-        packageFactory.newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
-            .setFilename(myPkgPath);
+        packageFactory
+            .newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
+            .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
@@ -110,8 +112,10 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
 
   @Test
   public void testCreateWorkspaceRule() throws Exception {
-    Path myPkgPath = scratch.resolve("/foo/workspace/WORKSPACE");
-    Package.Builder pkgBuilder = packageFactory.newExternalPackageBuilder(myPkgPath, "TESTING");
+    Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
+    Package.Builder pkgBuilder =
+        packageFactory.newExternalPackageBuilder(
+            RootedPath.toRootedPath(root, myPkgPath), "TESTING");
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
@@ -133,10 +137,11 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
 
   @Test
   public void testWorkspaceRuleFailsInBuildFile() throws Exception {
-    Path myPkgPath = scratch.resolve("/foo/workspace/mypkg/BUILD");
+    Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder =
-        packageFactory.newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
-            .setFilename(myPkgPath);
+        packageFactory
+            .newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
+            .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
@@ -161,10 +166,11 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
 
   @Test
   public void testBuildRuleFailsInWorkspaceFile() throws Exception {
-    Path myPkgPath = scratch.resolve("/foo/workspace/WORKSPACE");
+    Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
     Package.Builder pkgBuilder =
-        packageFactory.newPackageBuilder(Label.EXTERNAL_PACKAGE_IDENTIFIER, "TESTING")
-            .setFilename(myPkgPath);
+        packageFactory
+            .newPackageBuilder(Label.EXTERNAL_PACKAGE_IDENTIFIER, "TESTING")
+            .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
@@ -202,10 +208,11 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
 
   @Test
   public void testOutputFileNotEqualDot() throws Exception {
-    Path myPkgPath = scratch.resolve("/foo");
+    Path myPkgPath = scratch.resolve("/workspace/mypkg");
     Package.Builder pkgBuilder =
-        packageFactory.newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
-            .setFilename(myPkgPath);
+        packageFactory
+            .newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
+            .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("outs", Lists.newArrayList("."));
@@ -236,10 +243,11 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
   // pattern, which will always guarantee that these attributes are present.
   @Test
   public void testTestRules() throws Exception {
-    Path myPkgPath = scratch.resolve("/foo/workspace/mypkg/BUILD");
+    Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package pkg =
-        packageFactory.newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
-            .setFilename(myPkgPath)
+        packageFactory
+            .newPackageBuilder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
+            .setFilename(RootedPath.toRootedPath(root, myPkgPath))
             .build();
 
     for (String name : ruleFactory.getRuleClassNames()) {

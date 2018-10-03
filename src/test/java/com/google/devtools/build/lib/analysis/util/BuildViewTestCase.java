@@ -283,7 +283,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,
-            ImmutableList.of(Root.fromPath(rootDirectory)),
+            ImmutableList.of(root),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageCacheOptions,
         skylarkSemanticsOptions,

@@ -22,7 +22,10 @@ import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.concurrent.SynchronousQueue;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,6 +41,12 @@ public class PackageGroupStaticInitializationTest {
   private Scratch scratch = new Scratch("/workspace");
   private EventCollectionApparatus events = new EventCollectionApparatus();
   private PackageFactoryApparatus packages = new PackageFactoryApparatus(events.reporter());
+  private Root root;
+
+  @Before
+  public void setUp() throws Exception {
+    root = Root.fromPath(scratch.dir(""));
+  }
 
   @Test
   public void testNoDeadlockOnPackageGroupCreation() throws Exception {
@@ -90,7 +99,7 @@ public class PackageGroupStaticInitializationTest {
   private Package getPackage(String packageName) throws Exception {
     PathFragment buildFileFragment = PathFragment.create(packageName).getRelative("BUILD");
     Path buildFile = scratch.resolve(buildFileFragment.getPathString());
-    return packages.createPackage(packageName, buildFile);
+    return packages.createPackage(packageName, RootedPath.toRootedPath(root, buildFile));
   }
 
   private PackageGroup getPackageGroup(String pkg, String name) throws Exception {

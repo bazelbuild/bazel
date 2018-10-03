@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -75,7 +74,8 @@ public class WorkspaceFileFunction implements SkyFunction {
       return null;
     }
 
-    Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRootRelativePath());
+    RootedPath repoWorkspace =
+        RootedPath.toRootedPath(workspaceRoot.getRoot(), workspaceRoot.getRootRelativePath());
     Package.Builder builder = packageFactory.newExternalPackageBuilder(
         repoWorkspace, ruleClassProvider.getRunfilesPrefix());
 
@@ -120,8 +120,9 @@ public class WorkspaceFileFunction implements SkyFunction {
         parser.setParent(prevValue.getPackage(), prevValue.getImportMap(), prevValue.getBindings());
       }
       BuildFileAST ast = workspaceASTValue.getASTs().get(key.getIndex());
-      PackageFunction.SkylarkImportResult importResult = PackageFunction.fetchImportsFromBuildFile(
-          repoWorkspace, rootPackage, ast, env, null);
+      PackageFunction.SkylarkImportResult importResult =
+          PackageFunction.fetchImportsFromBuildFile(
+              repoWorkspace.asPath().asFragment(), rootPackage, ast, env, null);
       if (importResult == null) {
         return null;
       }

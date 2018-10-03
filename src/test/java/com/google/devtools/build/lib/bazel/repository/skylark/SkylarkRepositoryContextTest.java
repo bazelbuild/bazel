@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -57,6 +59,7 @@ public class SkylarkRepositoryContextTest {
 
   private Scratch scratch;
   private Path outputDirectory;
+  private Root root;
   private Path workspaceFile;
   private SkylarkRepositoryContext context;
 
@@ -64,6 +67,7 @@ public class SkylarkRepositoryContextTest {
   public void setUp() throws Exception {
     scratch = new Scratch("/");
     outputDirectory = scratch.dir("/outputDir");
+    root = Root.fromPath(scratch.dir("/"));
     workspaceFile = scratch.file("/WORKSPACE");
   }
 
@@ -80,8 +84,11 @@ public class SkylarkRepositoryContextTest {
 
   protected void setUpContextForRule(Map<String, Object> kwargs, Attribute... attributes)
       throws Exception {
-    Package.Builder packageBuilder = Package.newExternalPackageBuilder(
-        Package.Builder.DefaultHelper.INSTANCE, workspaceFile, "runfiles");
+    Package.Builder packageBuilder =
+        Package.newExternalPackageBuilder(
+            Package.Builder.DefaultHelper.INSTANCE,
+            RootedPath.toRootedPath(root, workspaceFile),
+            "runfiles");
     FuncallExpression ast =
         new FuncallExpression(Identifier.of("test"), ImmutableList.<Passed>of());
     ast.setLocation(Location.BUILTIN);

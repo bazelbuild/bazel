@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -1211,10 +1212,6 @@ public final class PackageFactory {
   }
 
   /**
-   * Package creation.
-   */
-
-  /**
    * Loads, scans parses and evaluates the build file at "buildFile", and creates and returns a
    * Package builder instance capable of building a package identified by "packageId".
    *
@@ -1231,7 +1228,7 @@ public final class PackageFactory {
   private Package.Builder createPackage(
       String workspaceName,
       PackageIdentifier packageId,
-      Path buildFile,
+      RootedPath buildFile,
       ParserInputSource input,
       List<Statement> preludeStatements,
       Map<String, Extension> imports,
@@ -1283,7 +1280,7 @@ public final class PackageFactory {
       String workspaceName,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       PackageIdentifier packageId,
-      Path buildFile,
+      RootedPath buildFile,
       AstParseResult astParseResult,
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
@@ -1316,7 +1313,8 @@ public final class PackageFactory {
   }
 
   @VisibleForTesting
-  public Package.Builder newExternalPackageBuilder(Path workspacePath, String runfilesPrefix) {
+  public Package.Builder newExternalPackageBuilder(
+      RootedPath workspacePath, String runfilesPrefix) {
     return Package.newExternalPackageBuilder(packageBuilderHelper, workspacePath, runfilesPrefix);
   }
 
@@ -1328,12 +1326,17 @@ public final class PackageFactory {
   @VisibleForTesting
   public Package createPackageForTesting(
       PackageIdentifier packageId,
-      Path buildFile,
+      RootedPath buildFile,
       CachingPackageLocator locator,
       ExtendedEventHandler eventHandler)
       throws NoSuchPackageException, InterruptedException {
-    Package externalPkg = newExternalPackageBuilder(
-        buildFile.getRelative(Label.WORKSPACE_FILE_NAME), "TESTING").build();
+    Package externalPkg =
+        newExternalPackageBuilder(
+                RootedPath.toRootedPath(
+                    buildFile.getRoot(),
+                    buildFile.getRootRelativePath().getRelative(Label.WORKSPACE_FILE_NAME)),
+                "TESTING")
+            .build();
     return createPackageForTesting(
         packageId,
         externalPkg,
@@ -1351,7 +1354,7 @@ public final class PackageFactory {
   public Package createPackageForTesting(
       PackageIdentifier packageId,
       Package externalPkg,
-      Path buildFile,
+      RootedPath buildFile,
       CachingPackageLocator locator,
       ExtendedEventHandler eventHandler,
       SkylarkSemantics semantics)
@@ -1362,15 +1365,16 @@ public final class PackageFactory {
       throw new BuildFileNotFoundException(
           packageId, "illegal package name: '" + packageId + "' (" + error + ")");
     }
-    byte[] buildFileBytes = maybeGetBuildFileBytes(buildFile, eventHandler);
+    byte[] buildFileBytes = maybeGetBuildFileBytes(buildFile.asPath(), eventHandler);
     if (buildFileBytes == null) {
       throw new BuildFileContainsErrorsException(packageId, "IOException occurred");
     }
 
-    Globber globber = createLegacyGlobber(buildFile.getParentDirectory(), packageId, locator);
+    Globber globber =
+        createLegacyGlobber(buildFile.asPath().getParentDirectory(), packageId, locator);
     ParserInputSource input =
         ParserInputSource.create(
-            FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asFragment());
+            FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asPath().asFragment());
 
     Package result =
         createPackage(
@@ -1601,7 +1605,7 @@ public final class PackageFactory {
       String workspaceName,
       PackageIdentifier packageId,
       BuildFileAST buildFileAST,
-      Path buildFilePath,
+      RootedPath buildFilePath,
       Globber globber,
       Iterable<Event> pastEvents,
       Iterable<Postable> pastPosts,

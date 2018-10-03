@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.packages.BazelPackageLoader;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.vfs.Root;
 
 /**
  * A Package.Builder.Helper for use in tests that a sanity check with {@link BazelPackageLoader} for
@@ -68,9 +69,9 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
     PackageIdentifier pkgId = pkg.getPackageIdentifier();
     PackageLoader packageLoader =
         BazelPackageLoader.builder(
-                directories.getWorkspace(),
-                directories.getInstallBase(),
-                directories.getOutputBase())
+            Root.fromPath(directories.getWorkspace()),
+            directories.getInstallBase(),
+            directories.getOutputBase())
             .setSkylarkSemantics(skylarkSemantics)
             .setRuleClassProvider(ruleClassProvider)
             .build();

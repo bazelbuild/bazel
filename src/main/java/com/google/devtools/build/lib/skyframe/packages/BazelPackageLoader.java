@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -54,7 +55,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class BazelPackageLoader extends AbstractPackageLoader {
   /** Returns a fresh {@link Builder} instance. */
-  public static Builder builder(Path workspaceDir, Path installBase, Path outputBase) {
+  public static Builder builder(Root workspaceDir, Path installBase, Path outputBase) {
     // Prevent PackageLoader from fetching any remote repositories; these should only be fetched by
     // Bazel before calling PackageLoader.
     AtomicBoolean isFetch = new AtomicBoolean(false);
@@ -121,7 +122,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       return classProvider.build();
     }
 
-    private Builder(Path workspaceDir, Path installBase, Path outputBase, AtomicBoolean isFetch) {
+    private Builder(Root workspaceDir, Path installBase, Path outputBase, AtomicBoolean isFetch) {
       super(workspaceDir, installBase, outputBase);
       this.isFetch = isFetch;
     }
