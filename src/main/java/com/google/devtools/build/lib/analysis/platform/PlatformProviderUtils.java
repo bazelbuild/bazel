@@ -58,7 +58,7 @@ public class PlatformProviderUtils {
   }
 
   /** Retrieves and casts the {@link ToolchainTypeInfo} provider from the given target. */
-  public static ToolchainTypeInfo toolchainType(SkylarkProviderCollection target) {
+  public static ToolchainTypeInfo toolchainType(ProviderCollection target) {
     return target.get(ToolchainTypeInfo.PROVIDER);
   }
 }
