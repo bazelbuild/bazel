@@ -143,9 +143,9 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
                 toId(
                     Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
                         .getConfiguration()),
-                "target '//bar:bar' is not visible from target '//foo:foo'. "
-                    + "Check the visibility declaration of the former target if you think the "
-                    + "dependency is legitimate"));
+                "in sh_library rule //foo:foo: target '//bar:bar' is not visible from target "
+                    + "'//foo:foo'. Check the visibility declaration of the former target if you "
+                    + "think the dependency is legitimate"));
   }
 
   // TODO(ulfjack): Add more tests for

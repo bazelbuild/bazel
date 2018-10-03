@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -74,8 +73,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
       };
 
   /** A faked {@link RuleErrorConsumer} that validates that only expected errors were reported. */
-  public static final class FakeRuleErrorConsumer extends AbstractRuleErrorConsumer
-      implements RuleErrorConsumer {
+  public static final class FakeRuleErrorConsumer implements RuleErrorConsumer {
     private String ruleErrorMessage = null;
     private String attributeErrorAttribute = null;
     private String attributeErrorMessage = null;

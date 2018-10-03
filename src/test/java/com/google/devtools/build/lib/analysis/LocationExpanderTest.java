@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,8 +29,7 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link LocationExpander}. */
 @RunWith(JUnit4.class)
 public class LocationExpanderTest {
-  private static final class Capture extends AbstractRuleErrorConsumer
-      implements RuleErrorConsumer {
+  private static final class Capture implements RuleErrorConsumer {
     private final List<String> warnsOrErrors = new ArrayList<>();
 
     @Override

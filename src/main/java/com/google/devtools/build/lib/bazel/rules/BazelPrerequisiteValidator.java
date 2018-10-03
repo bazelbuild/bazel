@@ -71,7 +71,7 @@ public class BazelPrerequisiteValidator
                     + "the dependency is legitimate",
                 AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND),
                 rule.getLabel());
-        context.reportError(rule.getLocation(), errorMessage);
+        context.ruleError(errorMessage);
       }
       // We can always post the visibility error as, regardless of the value of keep going,
       // that target will not be built.
@@ -86,8 +86,8 @@ public class BazelPrerequisiteValidator
           requiredProviders.getDescription().contains("PackageSpecificationProvider");
       // TODO(plf): Add the PackageSpecificationProvider to the 'visibility' attribute.
       if (!attrName.equals("visibility") && !containsPackageSpecificationProvider) {
-        context.reportError(
-            rule.getAttributeLocation(attrName),
+        context.attributeError(
+            attrName,
             "in "
                 + attrName
                 + " attribute of "

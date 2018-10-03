@@ -53,7 +53,10 @@ public interface RuleErrorConsumer {
    * invoke {@link #ruleError} instead to collect additional error information before ending the
    * invocation.
    */
-  RuleErrorException throwWithRuleError(String message) throws RuleErrorException;
+  default RuleErrorException throwWithRuleError(String message) throws RuleErrorException {
+    ruleError(message);
+    throw new RuleErrorException();
+  }
 
   /**
    * Convenience function to report attribute-specific errors in the current rule, and then throw a
@@ -64,8 +67,11 @@ public interface RuleErrorConsumer {
    * <p>If the name of the attribute starts with <code>$</code>
    * it is replaced with a string <code>(an implicit dependency)</code>.
    */
-  RuleErrorException throwWithAttributeError(String attrName, String message)
-      throws RuleErrorException;
+  default RuleErrorException throwWithAttributeError(String attrName, String message)
+      throws RuleErrorException {
+    attributeError(attrName, message);
+    throw new RuleErrorException();
+  }
 
   /**
    * Returns whether this instance is known to have errors at this point during analysis. Do not
@@ -77,5 +83,9 @@ public interface RuleErrorConsumer {
    * No-op if {@link #hasErrors} is false, throws {@link RuleErrorException} if it is true.
    * This provides a convenience to early-exit of configured target creation if there are errors.
    */
-  void assertNoErrors() throws RuleErrorException;
+  default void assertNoErrors() throws RuleErrorException {
+    if (hasErrors()) {
+      throw new RuleErrorException();
+    }
+  }
 }
