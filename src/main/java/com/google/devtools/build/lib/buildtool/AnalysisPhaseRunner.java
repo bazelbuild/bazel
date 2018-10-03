@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -58,13 +59,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 /** Performs target pattern eval, configuration creation, loading and analysis. */
 public final class AnalysisPhaseRunner {
 
-  private static Logger logger = Logger.getLogger(BuildTool.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected CommandEnvironment env;
 
@@ -151,7 +151,7 @@ public final class AnalysisPhaseRunner {
     } else {
       env.getReporter().handle(Event.progress("Loading complete."));
       env.getReporter().post(new NoAnalyzeEvent());
-      logger.info("No analysis requested, so finished");
+      logger.atInfo().log("No analysis requested, so finished");
       String errorMessage = BuildView.createErrorMessage(loadingResult, null);
       if (errorMessage != null) {
         throw new BuildFailedException(errorMessage);

@@ -15,14 +15,13 @@
 package com.google.devtools.build.lib.unix;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.UnixJniLoader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.logging.Level;
 import java.util.logging.LogManager;
-import java.util.logging.Logger;
 
 /**
  * Utility methods for access to UNIX filesystem calls not exposed by the Java
@@ -125,11 +124,14 @@ public final class NativePosixFiles {
         @Override
         public void run() {
           // wait (if necessary) until the logging system is initialized
-          synchronized (LogManager.getLogManager()) {}
-          Logger.getLogger("com.google.devtools.build.lib.unix.FilesystemUtils").log(Level.FINE,
-              "WARNING: Default character set is not latin1; java.io.File and "
-              + "com.google.devtools.build.lib.unix.FilesystemUtils will represent some filenames "
-              + "differently.");
+          synchronized (LogManager.getLogManager()) {
+          }
+          GoogleLogger.forEnclosingClass()
+              .atFine()
+              .log(
+                  "WARNING: Default character set is not latin1; java.io.File and "
+                      + "com.google.devtools.build.lib.unix.FilesystemUtils will represent some "
+                      + "filenames differently.");
         }
       }.start();
     }
