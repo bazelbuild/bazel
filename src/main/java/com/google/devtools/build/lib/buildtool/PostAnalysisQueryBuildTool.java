@@ -14,23 +14,19 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.devtools.build.lib.analysis.AnalysisResult;
-import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.query2.engine.TargetLiteral;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Version of {@link BuildTool} that handles all work for queries based on results from the analysis
@@ -66,7 +62,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
         doPostAnalysisQuery(
             request,
             analysisResult.getConfigurationCollection().getHostConfiguration(),
-            analysisResult.getTopLevelTargetsWithConfigs(),
+            new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
             queryExpression);
       } catch (QueryException | IOException e) {
         if (!request.getKeepGoing()) {
@@ -80,54 +76,20 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
   protected abstract PostAnalysisQueryEnvironment<T> getQueryEnvironment(
       BuildRequest request,
       BuildConfiguration hostConfiguration,
-      BuildConfiguration targetConfig,
+      TopLevelConfigurations topLevelConfigurations,
       WalkableGraph walkableGraph);
-
-  private BuildConfiguration getBuildConfiguration(
-      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
-      QueryExpression queryExpression)
-          throws QueryException {
-    // Currently, CTQE assumes that all top level targets take on the same default config and we
-    // don't have the ability to map multiple configs to multiple top level targets.
-    // So for now, we only allow multiple targets when they all carry the same config.
-    // TODO: b/71508373 - fully support multiple top level targets
-    List<TargetAndConfiguration> nonNullTargets =
-        topLevelTargetsWithConfigs
-            .stream()
-            .filter(targetAndConfig -> targetAndConfig.getConfiguration() != null)
-            .collect(Collectors.toList());
-    BuildConfiguration targetConfig = null;
-    if (!nonNullTargets.isEmpty()) {
-      targetConfig = nonNullTargets.get(0).getConfiguration();
-      for (TargetAndConfiguration targAndConfig : topLevelTargetsWithConfigs) {
-        if (targAndConfig.getConfiguration() != null
-            && !targAndConfig.getConfiguration().equals(targetConfig)) {
-          throw new QueryException(
-              new TargetLiteral(queryExpression.toString()),
-              String.format(
-                  "Top-level targets %s and %s have different configurations (top-level "
-                      + "targets with different configurations is not supported)",
-                  nonNullTargets.get(0).getLabel(), targAndConfig.getLabel()));
-        }
-      }
-    }
-    return targetConfig;
-  }
 
   private void doPostAnalysisQuery(
       BuildRequest request,
       BuildConfiguration hostConfiguration,
-      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
+      TopLevelConfigurations topLevelConfigurations,
       QueryExpression queryExpression)
       throws InterruptedException, QueryException, IOException {
-    BuildConfiguration targetConfig =
-        getBuildConfiguration(topLevelTargetsWithConfigs, queryExpression);
-
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
 
     PostAnalysisQueryEnvironment<T> postAnalysisQueryEnvironment =
-        getQueryEnvironment(request, hostConfiguration, targetConfig, walkableGraph);
+        getQueryEnvironment(request, hostConfiguration, topLevelConfigurations, walkableGraph);
     Iterable<NamedThreadSafeOutputFormatterCallback<T>> callbacks =
         postAnalysisQueryEnvironment.getDefaultOutputFormatters(
             postAnalysisQueryEnvironment.getAccessor(),

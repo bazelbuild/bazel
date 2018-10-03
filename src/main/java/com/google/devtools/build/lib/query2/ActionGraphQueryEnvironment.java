@@ -69,7 +69,7 @@ public class ActionGraphQueryEnvironment
       boolean keepGoing,
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
-      BuildConfiguration defaultTargetConfiguration,
+      TopLevelConfigurations topLevelConfigurations,
       BuildConfiguration hostConfiguration,
       String parserPrefix,
       PathPackageLocator pkgPath,
@@ -79,7 +79,7 @@ public class ActionGraphQueryEnvironment
         keepGoing,
         eventHandler,
         extraFunctions,
-        defaultTargetConfiguration,
+        topLevelConfigurations,
         hostConfiguration,
         parserPrefix,
         pkgPath,
@@ -108,7 +108,7 @@ public class ActionGraphQueryEnvironment
       boolean keepGoing,
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
-      BuildConfiguration defaultTargetConfiguration,
+      TopLevelConfigurations topLevelConfigurations,
       BuildConfiguration hostConfiguration,
       String parserPrefix,
       PathPackageLocator pkgPath,
@@ -118,7 +118,7 @@ public class ActionGraphQueryEnvironment
         keepGoing,
         eventHandler,
         extraFunctions,
-        defaultTargetConfiguration,
+        topLevelConfigurations,
         hostConfiguration,
         parserPrefix,
         pkgPath,
@@ -183,8 +183,20 @@ public class ActionGraphQueryEnvironment
   @Override
   protected ConfiguredTargetValue getTargetConfiguredTarget(Label label)
       throws InterruptedException {
-    return this.getConfiguredTargetValue(
-        ConfiguredTargetValue.key(label, defaultTargetConfiguration));
+    if (topLevelConfigurations.isTopLevelTarget(label)) {
+      return this.getConfiguredTargetValue(
+          ConfiguredTargetValue.key(
+              label, topLevelConfigurations.getConfigurationForTopLevelTarget(label)));
+    } else {
+      ConfiguredTargetValue toReturn;
+      for (BuildConfiguration configuration : topLevelConfigurations.getConfigurations()) {
+        toReturn = this.getConfiguredTargetValue(ConfiguredTargetValue.key(label, configuration));
+        if (toReturn != null) {
+          return toReturn;
+        }
+      }
+      return null;
+    }
   }
 
   @Nullable

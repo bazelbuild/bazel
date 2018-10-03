@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.query2.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.output.AqueryOptions;
@@ -35,7 +36,7 @@ public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTarget
   protected PostAnalysisQueryEnvironment<ConfiguredTargetValue> getQueryEnvironment(
       BuildRequest request,
       BuildConfiguration hostConfiguration,
-      BuildConfiguration targetConfig,
+      TopLevelConfigurations topLevelConfigurations,
       WalkableGraph walkableGraph) {
     ImmutableList<QueryFunction> extraFunctions =
         new ImmutableList.Builder<QueryFunction>()
@@ -47,7 +48,7 @@ public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTarget
         request.getKeepGoing(),
         env.getReporter(),
         extraFunctions,
-        targetConfig,
+        topLevelConfigurations,
         hostConfiguration,
         env.getRelativeWorkingDirectory().getPathString(),
         env.getPackageManager().getPackagePath(),

@@ -13,11 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -66,7 +70,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -85,7 +91,7 @@ import javax.annotation.Nullable;
  * <p>Aspects are also not supported, but probably should be in some fashion.
  */
 public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQueryEnvironment<T> {
-  protected final BuildConfiguration defaultTargetConfiguration;
+  protected final TopLevelConfigurations topLevelConfigurations;
   protected final BuildConfiguration hostConfiguration;
   private final String parserPrefix;
   private final PathPackageLocator pkgPath;
@@ -115,14 +121,14 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       boolean keepGoing,
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
-      BuildConfiguration defaultTargetConfiguration,
+      TopLevelConfigurations topLevelConfigurations,
       BuildConfiguration hostConfiguration,
       String parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings) {
     super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
-    this.defaultTargetConfiguration = defaultTargetConfiguration;
+    this.topLevelConfigurations = topLevelConfigurations;
     this.hostConfiguration = hostConfiguration;
     this.parserPrefix = parserPrefix;
     this.pkgPath = pkgPath;
@@ -216,7 +222,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   protected abstract T getNullConfiguredTarget(Label label) throws InterruptedException;
 
   @Nullable
-  protected ConfiguredTargetValue getConfiguredTargetValue(SkyKey key) throws InterruptedException {
+  ConfiguredTargetValue getConfiguredTargetValue(SkyKey key) throws InterruptedException {
     return (ConfiguredTargetValue) walkableGraphSupplier.get().getValue(key);
   }
 
@@ -232,8 +238,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     return targetPatternKey.getParsedPattern();
   }
 
-  ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets)
-      throws InterruptedException {
+  ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {
     Map<SkyKey, T> targetsByKey = Maps.newHashMapWithExpectedSize(Iterables.size(targets));
     for (T target : targets) {
       targetsByKey.put(getSkyKey(target), target);
@@ -242,8 +247,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         targetifyValues(graph.getDirectDeps(targetsByKey.keySet()));
     if (targetsByKey.size() != directDeps.size()) {
       Iterable<ConfiguredTargetKey> missingTargets =
-          Sets.difference(targetsByKey.keySet(), directDeps.keySet())
-              .stream()
+          Sets.difference(targetsByKey.keySet(), directDeps.keySet()).stream()
               .map(SKYKEY_TO_CTKEY)
               .collect(Collectors.toList());
       eventHandler.handle(Event.warn("Targets were missing from graph: " + missingTargets));
@@ -279,8 +283,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         targetifyValues(graph.getReverseDeps(targetsByKey.keySet()));
     if (targetsByKey.size() != reverseDepsByKey.size()) {
       Iterable<ConfiguredTargetKey> missingTargets =
-          Sets.difference(targetsByKey.keySet(), reverseDepsByKey.keySet())
-              .stream()
+          Sets.difference(targetsByKey.keySet(), reverseDepsByKey.keySet()).stream()
               .map(SKYKEY_TO_CTKEY)
               .collect(Collectors.toList());
       eventHandler.handle(Event.warn("Targets were missing from graph: " + missingTargets));
@@ -438,4 +441,64 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   @Override
   public void close() {}
+
+  /** A wrapper class for the set of top-level configurations in a query. */
+  public static class TopLevelConfigurations {
+
+    private static final List<BuildConfiguration> SINGLETON_CONFIGURATION_LIST_OF_NULL =
+        Collections.singletonList(null);
+
+    /** A map of non-null configured top-level targets sorted by configuration checksum. */
+    private final ImmutableMap<Label, BuildConfiguration> nonNulls;
+    /**
+     * {@code nonNulls} may often have many duplicate values in its value set so we store a sorted
+     * set of all the non-null configurations here.
+     */
+    private final ImmutableSortedSet<BuildConfiguration> nonNullConfigs;
+    /** A list of null configured top-level targets. */
+    private final ImmutableList<Label> nulls;
+
+    public TopLevelConfigurations(
+        Collection<TargetAndConfiguration> topLevelTargetsAndConfigurations) {
+      ImmutableMap.Builder<Label, BuildConfiguration> nonNullsBuilder =
+          ImmutableMap.builderWithExpectedSize(topLevelTargetsAndConfigurations.size());
+      ImmutableList.Builder<Label> nullsBuilder = new ImmutableList.Builder<>();
+      for (TargetAndConfiguration targetAndConfiguration : topLevelTargetsAndConfigurations) {
+        if (targetAndConfiguration.getConfiguration() == null) {
+          nullsBuilder.add(targetAndConfiguration.getLabel());
+        } else {
+          nonNullsBuilder.put(
+              targetAndConfiguration.getLabel(), targetAndConfiguration.getConfiguration());
+        }
+      }
+      nonNulls = nonNullsBuilder.build();
+      nonNullConfigs =
+          ImmutableSortedSet.copyOf(
+              Comparator.comparing(BuildConfiguration::checksum), nonNulls.values());
+      nulls = nullsBuilder.build();
+    }
+
+    boolean isTopLevelTarget(Label label) {
+      return nonNulls.containsKey(label) || nulls.contains(label);
+    }
+
+    // This method returns the configuration of a top-level target if it's not null-configured and
+    // otherwise returns null (signifying it is null configured).
+    @Nullable
+    BuildConfiguration getConfigurationForTopLevelTarget(Label label) {
+      Preconditions.checkArgument(
+          isTopLevelTarget(label),
+          "Attempting to get top-level configuration for non-top-level target %s.",
+          label);
+      return nonNulls.get(label);
+    }
+
+    public Iterable<BuildConfiguration> getConfigurations() {
+      if (nulls.isEmpty()) {
+        return nonNullConfigs;
+      } else {
+        return Iterables.concat(nonNullConfigs, SINGLETON_CONFIGURATION_LIST_OF_NULL);
+      }
+    }
+  }
 }

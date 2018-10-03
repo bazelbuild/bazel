@@ -85,7 +85,7 @@ public class ConfiguredTargetQueryEnvironment
       boolean keepGoing,
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
-      BuildConfiguration defaultTargetConfiguration,
+      TopLevelConfigurations topLevelConfigurations,
       BuildConfiguration hostConfiguration,
       String parserPrefix,
       PathPackageLocator pkgPath,
@@ -95,7 +95,7 @@ public class ConfiguredTargetQueryEnvironment
         keepGoing,
         eventHandler,
         extraFunctions,
-        defaultTargetConfiguration,
+        topLevelConfigurations,
         hostConfiguration,
         parserPrefix,
         pkgPath,
@@ -121,14 +121,22 @@ public class ConfiguredTargetQueryEnvironment
       boolean keepGoing,
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
-      BuildConfiguration defaultTargetConfiguration,
+      TopLevelConfigurations topLevelConfigurations,
       BuildConfiguration hostConfiguration,
       String parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       CqueryOptions cqueryOptions) {
-    this(keepGoing, eventHandler, extraFunctions, defaultTargetConfiguration, hostConfiguration,
-        parserPrefix, pkgPath, walkableGraphSupplier, cqueryOptions.toSettings());
+    this(
+        keepGoing,
+        eventHandler,
+        extraFunctions,
+        topLevelConfigurations,
+        hostConfiguration,
+        parserPrefix,
+        pkgPath,
+        walkableGraphSupplier,
+        cqueryOptions.toSettings());
     this.cqueryOptions = cqueryOptions;
   }
 
@@ -325,7 +333,20 @@ public class ConfiguredTargetQueryEnvironment
   @Nullable
   @Override
   protected ConfiguredTarget getTargetConfiguredTarget(Label label) throws InterruptedException {
-    return getValueFromKey(ConfiguredTargetValue.key(label, defaultTargetConfiguration));
+    if (topLevelConfigurations.isTopLevelTarget(label)) {
+      return getValueFromKey(
+          ConfiguredTargetValue.key(
+              label, topLevelConfigurations.getConfigurationForTopLevelTarget(label)));
+    } else {
+      ConfiguredTarget toReturn;
+      for (BuildConfiguration configuration : topLevelConfigurations.getConfigurations()) {
+        toReturn = getValueFromKey(ConfiguredTargetValue.key(label, configuration));
+        if (toReturn != null) {
+          return toReturn;
+        }
+      }
+      return null;
+    }
   }
 
   @Nullable
