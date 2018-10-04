@@ -330,6 +330,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             CustomCommandLine.builder()
                 .addExecPath("--output", mergedJar)
                 .add("--dont_change_compression")
+                .add("--normalize")
                 .addPrefixedExecPath("@", paramFile)
                 .build())
         .build(ruleContext);
