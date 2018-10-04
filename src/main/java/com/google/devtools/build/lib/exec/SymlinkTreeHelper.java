@@ -27,10 +27,12 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
 import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -85,16 +87,23 @@ public final class SymlinkTreeHelper {
    * @throws CommandException
    */
   public void createSymlinksUsingCommand(
-      Path execRoot, BinTools binTools, ImmutableMap<String, String> shellEnvironment)
+      Path execRoot,
+      BinTools binTools,
+      ImmutableMap<String, String> shellEnvironment,
+      OutErr outErr)
       throws CommandException {
     List<String> argv = getSpawnArgumentList(execRoot, binTools.getExecPath(BUILD_RUNFILES));
     Preconditions.checkNotNull(shellEnvironment);
-    new CommandBuilder()
+    Command command = new CommandBuilder()
         .addArgs(argv)
         .setWorkingDir(execRoot)
         .setEnv(shellEnvironment)
-        .build()
-        .execute();
+        .build();
+    if (outErr != null) {
+      command.execute(outErr.getOutputStream(), outErr.getErrorStream());
+    } else {
+      command.execute();
+    }
   }
 
   /**
@@ -115,7 +124,10 @@ public final class SymlinkTreeHelper {
     if (enableRunfiles) {
       try {
         createSymlinksUsingCommand(
-            actionExecutionContext.getExecRoot(), binTools, shellEnvironment);
+            actionExecutionContext.getExecRoot(),
+            binTools,
+            shellEnvironment,
+            actionExecutionContext.getFileOutErr());
       } catch (CommandException e) {
         throw new UserExecException(CommandUtils.describeCommandFailure(true, e), e);
       }
