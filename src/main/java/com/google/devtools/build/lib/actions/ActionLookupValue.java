@@ -72,6 +72,7 @@ public abstract class ActionLookupValue implements SkyValue {
    */
   @SuppressWarnings("unchecked") // We test to make sure it's an Action.
   public Action getAction(int index) {
+    Preconditions.checkState(index < getActions().size(), "Bad index: %s %s", index, this);
     ActionAnalysisMetadata result = getActions().get(index);
     Preconditions.checkState(result instanceof Action, "Not action: %s %s %s", result, index, this);
     return (Action) result;
