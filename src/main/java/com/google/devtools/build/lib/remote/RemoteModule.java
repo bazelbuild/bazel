@@ -56,11 +56,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.function.Predicate;
-import java.util.logging.Logger;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
-  private static final Logger logger = Logger.getLogger(RemoteModule.class.getName());
+
   private AsynchronousFileOutputStream rpcLogFile;
 
   private final ListeningScheduledExecutorService retryScheduler =
@@ -112,9 +111,11 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     env.getEventBus().register(this);
-    String buildRequestId = env.getBuildRequestId().toString();
-    String commandId = env.getCommandId().toString();
-    logger.info("Command: buildRequestId = " + buildRequestId + ", commandId = " + commandId);
+
+    String invocationId = env.getCommandId().toString();
+    String buildRequestId = env.getBuildRequestId();
+    env.getReporter().handle(Event.info(String.format("Invocation ID: %s", invocationId)));
+    
     Path logDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-remote-logs");
     try {
@@ -212,7 +213,7 @@ public final class RemoteModule extends BlazeModule {
                 digestUtil,
                 uploader.retain());
         Context requestContext =
-            TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, "bes-upload");
+            TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
         buildEventArtifactUploaderFactoryDelegate.init(
             new ByteStreamBuildEventArtifactUploaderFactory(
                 uploader, target, requestContext, remoteOptions.remoteInstanceName));
