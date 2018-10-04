@@ -55,9 +55,14 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
   }
 
   @Override
+  public boolean hasDefaultConstraintValue() {
+    return defaultConstraintValueLabel != null;
+  }
+
+  @Override
   @Nullable
   public ConstraintValueInfo defaultConstraintValue() {
-    if (defaultConstraintValueLabel == null) {
+    if (!hasDefaultConstraintValue()) {
       return null;
     }
     return ConstraintValueInfo.create(this, defaultConstraintValueLabel);

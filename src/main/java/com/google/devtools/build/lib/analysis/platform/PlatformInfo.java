@@ -33,11 +33,13 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.StringUtilities;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /** Provider for a platform, which is a group of constraints and values. */
 @Immutable
@@ -66,7 +68,11 @@ public class PlatformInfo extends NativeInfo
 
     this.label = label;
     this.constraints = constraints;
-    this.remoteExecutionProperties = remoteExecutionProperties;
+    if (remoteExecutionProperties == null) {
+      this.remoteExecutionProperties = "";
+    } else {
+      this.remoteExecutionProperties = remoteExecutionProperties;
+    }
   }
 
   @Override
@@ -103,10 +109,26 @@ public class PlatformInfo extends NativeInfo
 
   /** Builder class to facilitate creating valid {@link PlatformInfo} instances. */
   public static class Builder {
+    public static final String PARENT_REMOTE_EXECUTION_KEY = "{PARENT_REMOTE_EXECUTION_PROPERTIES}";
+
+    private PlatformInfo parent = null;
     private Label label;
     private final List<ConstraintValueInfo> constraints = new ArrayList<>();
-    private String remoteExecutionProperties = "";
+    private String remoteExecutionProperties = null;
     private Location location = Location.BUILTIN;
+
+    /**
+     * Sets the parent {@link PlatformInfo} that this platform inherits from. This platform will
+     * keep the parent's constraint values that do not conflict with the constraint values set
+     * directly on this platform.
+     *
+     * @param parent the platform that is the parent of this platform.
+     * @return the {@link Builder} instance for method chaining
+     */
+    public Builder setParent(PlatformInfo parent) {
+      this.parent = parent;
+      return this;
+    }
 
     /**
      * Sets the {@link Label} for this {@link PlatformInfo}.
@@ -178,9 +200,41 @@ public class PlatformInfo extends NativeInfo
      *     constraint setting
      */
     public PlatformInfo build() throws DuplicateConstraintException {
+      // Validate that there are no collisions in the directly set constraint values.
       ImmutableList<ConstraintValueInfo> validatedConstraints = validateConstraints(constraints);
-      ConstraintCollection platformConstraints = new ConstraintCollection(validatedConstraints);
+
+      // Merge parent constraints and the validated constraints to a single set and create a
+      // collection.
+      ConstraintCollection platformConstraints =
+          new ConstraintCollection(parentConstraints(), validatedConstraints);
+
+      // Merge the remote execution properties.
+      String remoteExecutionProperties =
+          mergeRemoteExecutionProperties(parent, this.remoteExecutionProperties);
       return new PlatformInfo(label, platformConstraints, remoteExecutionProperties, location);
+    }
+
+    @Nullable
+    private ConstraintCollection parentConstraints() {
+      if (parent == null) {
+        return null;
+      }
+      return parent.constraints();
+    }
+
+    private static String mergeRemoteExecutionProperties(
+        PlatformInfo parent, String remoteExecutionProperties) {
+      String parentRemoteExecutionProperties = "";
+      if (parent != null) {
+        parentRemoteExecutionProperties = parent.remoteExecutionProperties();
+      }
+
+      if (remoteExecutionProperties == null) {
+        return parentRemoteExecutionProperties;
+      }
+
+      return StringUtilities.replaceAllLiteral(
+          remoteExecutionProperties, PARENT_REMOTE_EXECUTION_KEY, parentRemoteExecutionProperties);
     }
 
     public static ImmutableList<ConstraintValueInfo> validateConstraints(

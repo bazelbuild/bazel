@@ -46,4 +46,10 @@ public interface ConstraintSettingInfoApi extends StructApi {
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   @Nullable
   ConstraintValueInfoApi defaultConstraintValue();
+
+  @SkylarkCallable(
+      name = "hash_default_constraint_value",
+      doc = "Whether there is a default constraint_value for this setting.",
+      structField = true)
+  boolean hasDefaultConstraintValue();
 }

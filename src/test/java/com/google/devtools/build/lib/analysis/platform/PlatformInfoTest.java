@@ -28,6 +28,158 @@ import org.junit.runners.JUnit4;
 public class PlatformInfoTest extends BuildViewTestCase {
 
   @Test
+  public void platformInfo() throws Exception {
+    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:s1"));
+    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(makeLabel("//constraint:s2"));
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.addConstraint(ConstraintValueInfo.create(setting1, makeLabel("//constraint:v1")));
+    builder.addConstraint(ConstraintValueInfo.create(setting2, makeLabel("//constraint:v2")));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.constraints().has(setting1)).isTrue();
+    assertThat(platformInfo.constraints().get(setting1).label())
+        .isEqualTo(makeLabel("//constraint:v1"));
+    assertThat(platformInfo.constraints().has(setting2)).isTrue();
+    assertThat(platformInfo.constraints().get(setting2).label())
+        .isEqualTo(makeLabel("//constraint:v2"));
+  }
+
+  @Test
+  public void platformInfo_remoteExecutionProperties() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setRemoteExecutionProperties("properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("properties");
+  }
+
+  @Test
+  public void platformInfo_parentPlatform_noOverlaps() throws Exception {
+    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:s1"));
+    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(makeLabel("//constraint:s2"));
+    ConstraintSettingInfo setting3 = ConstraintSettingInfo.create(makeLabel("//constraint:s3"));
+
+    PlatformInfo parent =
+        PlatformInfo.builder()
+            .addConstraint(ConstraintValueInfo.create(setting1, makeLabel("//constraint:v1")))
+            .build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.addConstraint(ConstraintValueInfo.create(setting2, makeLabel("//constraint:v2")));
+    builder.addConstraint(ConstraintValueInfo.create(setting3, makeLabel("//constraint:v3")));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.constraints().has(setting1)).isTrue();
+    assertThat(platformInfo.constraints().get(setting1).label())
+        .isEqualTo(makeLabel("//constraint:v1"));
+    assertThat(platformInfo.constraints().has(setting2)).isTrue();
+    assertThat(platformInfo.constraints().get(setting2).label())
+        .isEqualTo(makeLabel("//constraint:v2"));
+    assertThat(platformInfo.constraints().has(setting3)).isTrue();
+    assertThat(platformInfo.constraints().get(setting3).label())
+        .isEqualTo(makeLabel("//constraint:v3"));
+  }
+
+  @Test
+  public void platformInfo_parentPlatform_overlaps() throws Exception {
+    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:s1"));
+    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(makeLabel("//constraint:s2"));
+    ConstraintSettingInfo setting3 = ConstraintSettingInfo.create(makeLabel("//constraint:s3"));
+
+    PlatformInfo parent =
+        PlatformInfo.builder()
+            .addConstraint(ConstraintValueInfo.create(setting1, makeLabel("//constraint:v1")))
+            .build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.addConstraint(ConstraintValueInfo.create(setting1, makeLabel("//constraint:v1a")));
+    builder.addConstraint(ConstraintValueInfo.create(setting2, makeLabel("//constraint:v2")));
+    builder.addConstraint(ConstraintValueInfo.create(setting3, makeLabel("//constraint:v3")));
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.constraints().get(setting1).label())
+        .isEqualTo(makeLabel("//constraint:v1a"));
+    assertThat(platformInfo.constraints().get(setting2).label())
+        .isEqualTo(makeLabel("//constraint:v2"));
+    assertThat(platformInfo.constraints().get(setting3).label())
+        .isEqualTo(makeLabel("//constraint:v3"));
+  }
+
+  @Test
+  public void platformInfo_parentPlatform_keepRemoteExecutionProperties() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("parent properties");
+  }
+
+  @Test
+  public void platformInfo_parentPlatform_overrideRemoteExecutionProperties() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setRemoteExecutionProperties("child properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child properties");
+  }
+
+  @Test
+  public void platformInfo_parentPlatform_mergeRemoteExecutionProperties() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder().setRemoteExecutionProperties("parent properties").build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties())
+        .isEqualTo("child parent properties properties");
+  }
+
+  @Test
+  public void platformInfo_parentPlatform_mergeRemoteExecutionProperties_noParent()
+      throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
+  }
+
+  @Test
+  public void platformInfo_parentPlatform_mergeRemoteExecutionProperties_parentNotSet()
+      throws Exception {
+    PlatformInfo parent = PlatformInfo.builder().build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setRemoteExecutionProperties("child {PARENT_REMOTE_EXECUTION_PROPERTIES} properties");
+    PlatformInfo platformInfo = builder.build();
+
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child  properties");
+  }
+
+  @Test
   public void platformInfo_overlappingConstraintsError() throws Exception {
     ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
     ConstraintSettingInfo setting2 =

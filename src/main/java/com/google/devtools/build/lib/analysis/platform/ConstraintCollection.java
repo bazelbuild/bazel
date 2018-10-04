@@ -39,10 +39,17 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class ConstraintCollection
     implements ConstraintCollectionApi<ConstraintSettingInfo, ConstraintValueInfo> {
+  @Nullable private final ConstraintCollection parent;
   private final ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints;
 
   ConstraintCollection(ImmutableList<ConstraintValueInfo> constraints) {
+    this(null, constraints);
+  }
+
+  ConstraintCollection(
+      @Nullable ConstraintCollection parent, ImmutableList<ConstraintValueInfo> constraints) {
     this(
+        parent,
         constraints.stream()
             .collect(
                 ImmutableMap.toImmutableMap(ConstraintValueInfo::constraint, Function.identity())));
@@ -50,7 +57,10 @@ public final class ConstraintCollection
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
-  ConstraintCollection(ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints) {
+  ConstraintCollection(
+      @Nullable ConstraintCollection parent,
+      ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints) {
+    this.parent = parent;
     this.constraints = constraints;
   }
 
@@ -66,6 +76,21 @@ public final class ConstraintCollection
     return (ConstraintSettingInfo) key;
   }
 
+  @Override
+  public boolean has(ConstraintSettingInfo constraint) {
+    // First, check locally.
+    if (constraints.containsKey(constraint)) {
+      return true;
+    }
+
+    // Then, check the parent, directly to ignore defaults.
+    if (parent != null && parent.constraints.containsKey(constraint)) {
+      return true;
+    }
+
+    return constraint.hasDefaultConstraintValue();
+  }
+
   /**
    * Returns the {@link ConstraintValueInfo} for the given {@link ConstraintSettingInfo}, or {@code
    * null} if none exists.
@@ -73,11 +98,17 @@ public final class ConstraintCollection
   @Nullable
   @Override
   public ConstraintValueInfo get(ConstraintSettingInfo constraint) {
+    // First, check locally.
     if (constraints.containsKey(constraint)) {
       return constraints.get(constraint);
     }
 
-    // Since this constraint isn't set, fall back to the default.
+    // Then, check the parent, directly to ignore defaults.
+    if (parent != null && parent.constraints.containsKey(constraint)) {
+      return parent.constraints.get(constraint);
+    }
+
+    // Finally, Since this constraint isn't set, fall back to the default.
     return constraint.defaultConstraintValue();
   }
 
