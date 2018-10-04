@@ -182,7 +182,7 @@ public class SpawnInputExpander {
       ImmutableList<FilesetOutputSymlink> outputSymlinks = filesetMappings.get(fileset);
       FilesetManifest filesetManifest =
           FilesetManifest.constructFilesetManifest(
-              outputSymlinks, fileset.getExecPath(), relSymlinkBehavior);
+              outputSymlinks, fileset.getExecPath(), relSymlinkBehavior, execRoot.asFragment());
 
       for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
         String value = mapping.getValue();

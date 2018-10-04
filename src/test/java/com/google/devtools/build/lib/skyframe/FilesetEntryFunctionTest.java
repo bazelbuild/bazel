@@ -59,10 +59,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -124,7 +122,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         new BlacklistedPackagePrefixesFunction(
             /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
             /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
-    skyFunctions.put(SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction());
+    skyFunctions.put(
+        SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction(rootDirectory.asFragment()));
     skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
 
     differencer = new SequencedRecordingDifferencer();
@@ -191,31 +190,32 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     return result.get(key);
   }
 
-  private static FilesetOutputSymlink symlink(String from, Artifact to) {
-    return FilesetOutputSymlink.createForTesting(
-        PathFragment.create(from), to.getPath().asFragment());
+  private FilesetOutputSymlink symlink(String from, Artifact to) {
+    return symlink(PathFragment.create(from), to.getPath().asFragment());
   }
 
-  private static FilesetOutputSymlink symlink(String from, String to) {
-    return FilesetOutputSymlink.createForTesting(
-        PathFragment.create(from), PathFragment.create(to));
+  private FilesetOutputSymlink symlink(String from, String to) {
+    return symlink(PathFragment.create(from), PathFragment.create(to));
   }
 
-  private static FilesetOutputSymlink symlink(String from, RootedPath to) {
-    return FilesetOutputSymlink.createForTesting(
-        PathFragment.create(from), to.asPath().asFragment());
+  private FilesetOutputSymlink symlink(String from, RootedPath to) {
+    return symlink(PathFragment.create(from), to.asPath().asFragment());
+  }
+
+  private FilesetOutputSymlink symlink(PathFragment from, PathFragment to) {
+    return FilesetOutputSymlink.createForTesting(from, to, rootDirectory.asFragment());
   }
 
   private void assertSymlinksCreatedInOrder(
       FilesetTraversalParams request, FilesetOutputSymlink... expectedSymlinks) throws Exception {
-    List<FilesetOutputSymlink> expected = Arrays.asList(expectedSymlinks);
     Collection<FilesetOutputSymlink> actual =
         Collections2.transform(
             evalFilesetTraversal(request).getSymlinks(),
             // Strip the metadata from the actual results.
             (input) ->
-                FilesetOutputSymlink.createForTesting(input.getName(), input.getTargetPath()));
-    assertThat(actual).containsExactlyElementsIn(expected).inOrder();
+                FilesetOutputSymlink.createAlreadyRelativizedForTesting(
+                    input.getName(), input.getTargetPath(), input.isRelativeToExecRoot()));
+    assertThat(actual).containsExactlyElementsIn(expectedSymlinks).inOrder();
   }
 
   private static Label label(String label) throws Exception {

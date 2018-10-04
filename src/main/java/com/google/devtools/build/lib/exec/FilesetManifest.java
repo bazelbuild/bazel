@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.LineProcessor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -75,16 +76,17 @@ public final class FilesetManifest {
   public static FilesetManifest constructFilesetManifest(
       List<FilesetOutputSymlink> outputSymlinks,
       PathFragment targetPrefix,
-      RelativeSymlinkBehavior relSymlinkbehavior)
+      RelativeSymlinkBehavior relSymlinkBehavior,
+      PathFragment execRoot)
       throws IOException {
     LinkedHashMap<PathFragment, String> entries = new LinkedHashMap<>();
     Map<PathFragment, String> relativeLinks = new HashMap<>();
     Map<String, FileArtifactValue> artifactValues = new HashMap<>();
     for (FilesetOutputSymlink outputSymlink : outputSymlinks) {
       PathFragment fullLocation = targetPrefix.getRelative(outputSymlink.getName());
-      String artifact = outputSymlink.getTargetPath().getPathString();
-      artifact = artifact.isEmpty() ? null : artifact;
-      addSymlinkEntry(artifact, fullLocation, relSymlinkbehavior, entries, relativeLinks);
+      PathFragment linkTarget = outputSymlink.reconstituteTargetPath(execRoot);
+      String artifact = Strings.emptyToNull(linkTarget.getPathString());
+      addSymlinkEntry(artifact, fullLocation, relSymlinkBehavior, entries, relativeLinks);
       if (outputSymlink.getMetadata() instanceof FileArtifactValue) {
         artifactValues.put(artifact, (FileArtifactValue) outputSymlink.getMetadata());
       }

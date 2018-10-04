@@ -47,6 +47,12 @@ public final class FilesetEntryFunction implements SkyFunction {
     }
   }
 
+  private final PathFragment execRoot;
+
+  public FilesetEntryFunction(PathFragment execRoot) {
+    this.execRoot = execRoot;
+  }
+
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws FilesetEntryFunctionException, InterruptedException {
@@ -180,7 +186,7 @@ public final class FilesetEntryFunction implements SkyFunction {
   }
 
   /** Stores an output symlink unless it would overwrite an existing one. */
-  private static void maybeStoreSymlink(
+  private void maybeStoreSymlink(
       PathFragment linkName,
       PathFragment linkTarget,
       Object metadata,
@@ -190,7 +196,8 @@ public final class FilesetEntryFunction implements SkyFunction {
     linkName = destPath.getRelative(linkName);
     if (!result.containsKey(linkName)) {
       result.put(
-          linkName, FilesetOutputSymlink.create(linkName, linkTarget, metadata, isGenerated));
+          linkName,
+          FilesetOutputSymlink.create(linkName, linkTarget, metadata, isGenerated, execRoot));
     }
   }
 
