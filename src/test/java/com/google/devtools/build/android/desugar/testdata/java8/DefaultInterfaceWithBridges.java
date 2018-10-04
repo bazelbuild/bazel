@@ -51,16 +51,16 @@ public class DefaultInterfaceWithBridges {
     return c.copy(i);
   }
 
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public Number copy(Number n) {
+    return ((GenericInterfaceWithDefaultMethod) c).copy(n);
+  }
+
   public Number getNumber() {
     return ((GenericInterfaceWithDefaultMethod) c).getNumber();
   }
 
   public Double getDouble() {
     return c.getNumber();
-  }
-
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  public Number copy(Number n) {
-    return ((GenericInterfaceWithDefaultMethod) c).copy(n);
   }
 }
