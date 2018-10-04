@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
@@ -173,6 +174,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // generally fast and they do not depend on non-local data, so it does not make much sense to
       // try to cache from across server instances.
       setupRepositoryRoot(repoRoot);
+      env.getListener().post(new RepositoryFetching(repositoryName.getName(), false));
       RepositoryDirectoryValue.Builder localRepo =
           handler.fetch(rule, repoRoot, directories, env, markerData);
       if (localRepo == null) {
@@ -181,6 +183,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         // We write the marker file for local repository essentially for getting the digest and
         // injecting it in the RepositoryDirectoryValue.
         byte[] digest = writeMarkerFile(markerPath, markerData, ruleKey);
+        env.getListener().post(new RepositoryFetching(repositoryName.getName(), true));
         return localRepo.setDigest(digest).build();
       }
     }
@@ -208,6 +211,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     if (isFetch.get()) {
       // Fetching enabled, go ahead.
+      env.getListener().post(new RepositoryFetching(repositoryName.getName(), false));
       setupRepositoryRoot(repoRoot);
       RepositoryDirectoryValue.Builder result =
           handler.fetch(rule, repoRoot, directories, env, markerData);
@@ -220,6 +224,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // restart thus calling the possibly very slow (networking, decompression...) fetch()
       // operation again. So we write the marker file here immediately.
       byte[] digest = writeMarkerFile(markerPath, markerData, ruleKey);
+      env.getListener().post(new RepositoryFetching(repositoryName.getName(), true));
       return result.setDigest(digest).build();
     }
 
@@ -409,5 +414,34 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         .addInt(MARKER_FILE_VERSION).hexDigestAndReset();
     byte[] digest = writeMarkerFile(markerPath, new TreeMap<String, String>(), ruleKey);
     return directoryValue.setDigest(digest).build();
+  }
+
+  private class RepositoryFetching implements FetchProgress {
+    final String id;
+    final boolean finished;
+
+    RepositoryFetching(String name, boolean finished) {
+      this.id = name;
+      this.finished = finished;
+    }
+
+    @Override
+    public String getResourceIdentifier() {
+      return id;
+    }
+
+    @Override
+    public String getProgress() {
+      if (finished) {
+        return "finished.";
+      } else {
+        return "fetching...";
+      }
+    }
+
+    @Override
+    public boolean isFinished() {
+      return finished;
+    }
   }
 }
