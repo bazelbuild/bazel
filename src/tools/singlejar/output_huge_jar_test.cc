@@ -26,18 +26,19 @@
 
 namespace {
 
+using bazel::tools::cpp::runfiles::Runfiles;
 using singlejar_test_util::AllocateFile;
 using singlejar_test_util::OutputFilePath;
 using singlejar_test_util::VerifyZip;
 
 using std::string;
 
-#if !defined(DATA_DIR_TOP)
-#define DATA_DIR_TOP
-#endif
-
 class OutputHugeJarTest : public ::testing::Test {
  protected:
+  void SetUp() override {
+    runfiles.reset(Runfiles::CreateForTest());
+  }
+
   void CreateOutput(const string &out_path, const std::vector<string> &args) {
     const char *option_list[100] = {"--output", out_path.c_str()};
     int nargs = 2;
@@ -60,6 +61,7 @@ class OutputHugeJarTest : public ::testing::Test {
 
   OutputJar output_jar_;
   Options options_;
+  std::unique_ptr<Runfiles> runfiles;
 };
 
 TEST_F(OutputHugeJarTest, EntryAbove4G) {
@@ -70,8 +72,10 @@ TEST_F(OutputHugeJarTest, EntryAbove4G) {
   ASSERT_TRUE(AllocateFile(launcher_path, 0x100000010));
 
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, {"--java_launcher", launcher_path, "--sources",
-                          DATA_DIR_TOP "src/tools/singlejar/libtest1.jar"});
+  CreateOutput(out_path,
+               {"--java_launcher", launcher_path, "--sources",
+                runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest1.jar")
+                    .c_str()});
 }
 
 }  // namespace

@@ -16,7 +16,9 @@
 #define BAZEL_SRC_TOOLS_SINGLEJAR_INPUT_JAR_SCAN_ENTRIES_TEST_H_ 1
 
 #include <errno.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <memory>
 #include <string>
 
@@ -84,7 +86,11 @@ class InputJarScanEntries : public testing::Test {
     for (int dir = 0; dir < 256; ++dir) {
       char dirname[10];
       snprintf(dirname, sizeof(dirname), "dir%d", dir);
+#ifdef _WIN32
+      ASSERT_EQ(0, mkdir(dirname));
+#else
       ASSERT_EQ(0, mkdir(dirname, 0777));
+#endif
       for (int file = 0; file < 256; ++file) {
         char filepath[20];
         snprintf(filepath, sizeof(filepath), "%s/%d", dirname, file);
@@ -94,8 +100,12 @@ class InputJarScanEntries : public testing::Test {
     ASSERT_EQ(0, ZipCreator::Jar(false, kJar, "dir*", nullptr));
     for (int dir = 0; dir < 256; ++dir) {
       char rmdircmd[100];
+#ifdef _WIN32
+      snprintf(rmdircmd, sizeof(rmdircmd), "rmdir /S /Q dir%d", dir);
+#else
       snprintf(rmdircmd, sizeof(rmdircmd), "rm dir%d/* && rmdir dir%d", dir,
                dir);
+#endif
       ASSERT_EQ(0, system(rmdircmd));
     }
   }
@@ -234,7 +244,7 @@ TYPED_TEST_P(InputJarScanEntries, TestZip64) {
 TYPED_TEST_P(InputJarScanEntries, LotsOfEntries) {
   ASSERT_EQ(0, chdir(getenv("TEST_TMPDIR")));
   this->CreateJarWithLotsOfEntries();
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) && !defined(_WIN32)
   const char kTailUnzip[] = "unzip -v jar.jar | tail";
   ASSERT_EQ(0, system(kTailUnzip)) << "Failed command: " << kTailUnzip;
 #endif

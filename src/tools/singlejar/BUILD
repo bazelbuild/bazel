@@ -2,13 +2,6 @@
 #   singlejar C++ implementation.
 package(default_visibility = ["//src:__subpackages__"])
 
-JAR_TOOL_PATH_COPT_TPL = "-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar%s\\\""
-
-JAR_TOOL_PATH_COPTS = select({
-    "//src/conditions:windows": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
-    "//conditions:default": [JAR_TOOL_PATH_COPT_TPL % ""],
-})
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -131,6 +124,7 @@ cc_test(
 
 cc_test(
     name = "input_jar_preambled_test",
+    size = "large",
     srcs = [
         "input_jar_preambled_test.cc",
     ],
@@ -152,7 +146,6 @@ cc_test(
         "input_jar_scan_entries_test.h",
         "input_jar_scan_jartool_test.cc",
     ],
-    copts = JAR_TOOL_PATH_COPTS,
     data = [
         "@local_jdk//:jar",
         "@local_jdk//:jdk",
@@ -224,7 +217,6 @@ cc_test(
     srcs = [
         "output_jar_simple_test.cc",
     ],
-    copts = JAR_TOOL_PATH_COPTS,
     data = [
         ":data1",
         ":data2",
@@ -232,12 +224,13 @@ cc_test(
         ":test1",
         ":test2",
         "@local_jdk//:jar",
-        "@local_jdk//:jdk-default",
+        "@local_jdk//:jdk",
     ],
     deps = [
         ":input_jar",
         ":options",
         ":output_jar",
+        ":port",
         ":test_util",
         "//src/main/cpp/util",
         "@com_google_googletest//:gtest_main",
@@ -413,8 +406,11 @@ cc_library(
     name = "test_util",
     srcs = ["test_util.cc"],
     hdrs = ["test_util.h"],
+    testonly = 1,
     deps = [
         "//src/main/cpp/util",
+        # TODO(laszlocsomor) Use @bazel_tools//tools/cpp/runfiles
+        "//tools/cpp/runfiles",
         "@com_google_googletest//:gtest_main",
     ],
 )

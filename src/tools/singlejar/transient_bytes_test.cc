@@ -24,6 +24,12 @@
 #include "src/tools/singlejar/transient_bytes.h"
 #include "googletest/include/gtest/gtest.h"
 
+#ifdef _MSC_VER
+#define SINGLEJAR_ALYWAYS_INLINE __forceinline
+#else
+#define SINGLEJAR_ALYWAYS_INLINE __attribute__((always_inline))
+#endif
+
 namespace {
 const char kStoredJar[] = "stored.zip";
 const char kCompressedJar[] = "compressed.zip";
@@ -65,7 +71,7 @@ class TransientBytesTest : public ::testing::Test {
 
   // The value of the byte at a given position in a file created by the
   // CreateFile method below.
-  static __attribute__((always_inline)) uint8_t file_byte_at(uint64_t offset) {
+  static SINGLEJAR_ALYWAYS_INLINE uint8_t file_byte_at(uint64_t offset) {
     // return offset >> (8 * (offset & 7));
     return offset & 255;
   }

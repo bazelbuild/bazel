@@ -18,6 +18,10 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 #include <string>
 
 #include "src/main/cpp/util/file.h"
@@ -27,9 +31,25 @@
 
 #include "googletest/include/gtest/gtest.h"
 
+#ifdef _WIN32
+#define popen _popen
+#define pclose _pclose
+#endif
+
 namespace singlejar_test_util {
 
 bool AllocateFile(const string &name, size_t size) {
+#ifdef _WIN32
+  int fd = _sopen(name.c_str(), _O_RDWR | _O_CREAT | _O_BINARY, _SH_DENYNO,
+                  _S_IREAD | _S_IWRITE);
+  int success = _chsize_s(fd, size);
+  _close(fd);
+  if (success < 0) {
+    perror(strerror(errno));
+    return false;
+  }
+  return true;
+#else
   int fd = open(name.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0777);
   if (fd < 0) {
     perror(name.c_str());
@@ -47,6 +67,7 @@ bool AllocateFile(const string &name, size_t size) {
   } else {
     return close(fd) == 0;
   }
+#endif
 }
 
 int RunCommand(const char *cmd, ...) {
@@ -87,7 +108,7 @@ string GetEntryContents(const string &zip_path, const string &entry_name) {
   string command;
   blaze_util::StringPrintf(&command, "unzip -p %s %s", zip_path.c_str(),
                            entry_name.c_str());
-  FILE *fp = popen(command.c_str(), "r");
+  FILE *fp = popen(command.c_str(), "rb");
   if (!fp) {
     ADD_FAILURE() << "Command " << command << " failed.";
     return string("");
