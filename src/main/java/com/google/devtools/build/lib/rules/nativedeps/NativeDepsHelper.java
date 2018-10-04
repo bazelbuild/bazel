@@ -354,19 +354,37 @@ public abstract class NativeDepsHelper {
       Collection<String> linkopts, Iterable<Artifact> linkstamps,
       Iterable<Artifact> buildInfoArtifacts, Collection<String> features) {
     Fingerprint fp = new Fingerprint();
+    int linkerInputsSize = 0;
     for (Artifact input : linkerInputs) {
       fp.addString(input.getExecPathString());
+      linkerInputsSize++;
     }
     fp.addStrings(linkopts);
+    int linkstampsSize = 0;
     for (Artifact input : linkstamps) {
       fp.addString(input.getExecPathString());
+      linkstampsSize++;
     }
+    int buildInfoSize = 0;
     for (Artifact input : buildInfoArtifacts) {
       fp.addString(input.getExecPathString());
+      buildInfoSize++;
     }
     for (String feature : features) {
       fp.addString(feature);
     }
-    return PathFragment.create("_nativedeps/" + fp.hexDigestAndReset());
+    return PathFragment.create(
+        "_nativedeps/"
+            + linkerInputsSize
+            + "_"
+            + linkopts.size()
+            + "_"
+            + linkstampsSize
+            + "_"
+            + buildInfoSize
+            + "_"
+            + features.size()
+            + "_"
+            + fp.hexDigestAndReset());
   }
 }
