@@ -20,7 +20,7 @@ This is my rule. It does stuff.
       <td>
         String; required
         <p>
-          A unique name for this rule.
+          A unique name for this target.
         </p>
       </td>
     </tr>
@@ -65,7 +65,7 @@ This is the dep rule. It does stuff.
       <td>
         String; required
         <p>
-          A unique name for this rule.
+          A unique name for this target.
         </p>
       </td>
     </tr>

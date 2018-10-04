@@ -181,7 +181,7 @@ that provide a reproducible version of this rule (which a tag not necessarily
 is).
 
 Args:
-  name: A unique name for this rule.
+  name: A unique name for this repository.
 
   build_file: The file to use as the BUILD file for this repository.
     Either build_file or build_file_content must be specified.
@@ -242,7 +242,7 @@ is).
 
 
 Args:
-  name: A unique name for this rule.
+  name: A unique name for this repository.
 
   init_submodules: Whether to clone submodules in the repository.
 

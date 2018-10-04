@@ -20,7 +20,7 @@ This rule does apple-related things.
       <td>
         String; required
         <p>
-          A unique name for this rule.
+          A unique name for this target.
         </p>
       </td>
     </tr>

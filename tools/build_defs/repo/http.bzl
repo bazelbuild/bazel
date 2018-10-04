@@ -181,7 +181,7 @@ Examples:
   Then targets would specify `@my_ssl//:openssl-lib` as a dependency.
 
 Args:
-  name: A unique name for this rule.
+  name: A unique name for this repository.
   build_file: The file to use as the `BUILD` file for this repository.
 
     Either `build_file` or `build_file_content` can be specified.
@@ -279,7 +279,7 @@ Examples:
   Targets would specify `@my_deb//file` as a dependency to depend on this file.
 
 Args:
-  name: A unique name for this rule.
+  name: A unique name for this repository.
   executable: If the downloaded file should be made executable. Defaults to
     False.
   downloaded_file_path: Path assigned to the file downloaded.
@@ -332,7 +332,7 @@ Examples:
 
 
 Args:
-  name: A unique name for this rule.
+  name: A unique name for this repository.
   sha256: The expected SHA-256 of the file downloaded.
   url: The URL to fetch the jar from. It must end in `.jar`.
   urls: A list of URLS the jar can be fetched from. They have to end in `.jar`.

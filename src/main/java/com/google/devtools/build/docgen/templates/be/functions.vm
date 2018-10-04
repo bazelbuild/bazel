@@ -147,7 +147,7 @@ the <a href="common-definitions.html#common.visibility">visibility</a> attribute
       <td id="package_group.name"><code>name</code></td>
       <td>
         <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
-        <p>A unique name for this rule.</p>
+        <p>A unique name for this target.</p>
       </td>
     </tr>
     <tr>
