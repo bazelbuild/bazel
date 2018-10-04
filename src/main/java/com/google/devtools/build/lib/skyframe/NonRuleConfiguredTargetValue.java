@@ -24,14 +24,12 @@ import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
 
 /** A non-rule configured target in the context of a Skyframe graph. */
@@ -98,16 +96,6 @@ public final class NonRuleConfiguredTargetValue extends BasicActionLookupValue
       configuredTarget = null;
     }
     transitivePackagesForPackageRootResolution = null;
-  }
-
-  /**
-   * Returns a label of NonRuleConfiguredTargetValue.
-   */
-  @ThreadSafe
-  static Label extractLabel(SkyKey value) {
-    Object valueName = value.argument();
-    Preconditions.checkState(valueName instanceof ConfiguredTargetKey, valueName);
-    return ((ConfiguredTargetKey) valueName).getLabel();
   }
 
   @Override

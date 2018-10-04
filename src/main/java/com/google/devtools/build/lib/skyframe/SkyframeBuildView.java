@@ -228,6 +228,11 @@ public final class SkyframeBuildView {
     setTopLevelHostConfiguration(configurations.getHostConfiguration());
   }
 
+  @VisibleForTesting
+  public BuildConfigurationCollection getBuildConfigurationCollection() {
+    return configurations;
+  }
+
   /**
    * Sets the host configuration consisting of all fragments that will be used by the top level
    * targets' transitive closures.
@@ -352,73 +357,44 @@ public final class SkyframeBuildView {
           packageRoots);
     }
 
-    // --nokeep_going so we fail with an exception for the first error.
-    // TODO(bazel-team): We might want to report the other errors through the event bus but
-    // for keeping this code in parity with legacy we just report the first error for now.
-    if (!keepGoing) {
-      for (Map.Entry<ActionAnalysisMetadata, ConflictException> bad : badActions.entrySet()) {
-        ConflictException ex = bad.getValue();
-        try {
-          ex.rethrowTyped();
-        } catch (ActionConflictException ace) {
-          ace.reportTo(eventHandler);
-          String errorMsg = "Analysis of target '" + bad.getKey().getOwner().getLabel()
-              + "' failed; build aborted";
-          throw new ViewCreationFailedException(errorMsg);
-        } catch (ArtifactPrefixConflictException apce) {
-          eventHandler.handle(Event.error(apce.getMessage()));
-        }
-        throw new ViewCreationFailedException(ex.getMessage());
-      }
-
-      Map.Entry<SkyKey, ErrorInfo> error = result.errorMap().entrySet().iterator().next();
-      SkyKey topLevel = error.getKey();
-      ErrorInfo errorInfo = error.getValue();
-      assertSaneAnalysisError(errorInfo, topLevel);
-      skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), topLevel,
-          eventHandler);
-      Throwable cause = errorInfo.getException();
-      Preconditions.checkState(cause != null || !Iterables.isEmpty(errorInfo.getCycleInfo()),
-          errorInfo);
-      String errorMsg = null;
-      if (topLevel.argument() instanceof ConfiguredTargetKey) {
-        errorMsg =
-            "Analysis of target '"
-                + NonRuleConfiguredTargetValue.extractLabel(topLevel)
-                + "' failed; build aborted";
-      } else if (topLevel.argument() instanceof AspectValueKey) {
-        AspectValueKey aspectKey = (AspectValueKey) topLevel.argument();
-        errorMsg = "Analysis of aspect '" + aspectKey.getDescription() + "' failed; build aborted";
-      } else {
-        assert false;
-      }
-      if (cause instanceof ActionConflictException) {
-        ((ActionConflictException) cause).reportTo(eventHandler);
-      }
-      if (errorInfo.getException() != null) {
-        throw new ViewCreationFailedException(errorMsg, errorInfo.getException());
-      } else {
-        throw new ViewCreationFailedException(errorMsg);
-      }
-    }
-
     boolean hasLoadingError = false;
-    // --keep_going : We notify the error and return a NonRuleConfiguredTargetValue
+    ViewCreationFailedException noKeepGoingException = null;
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
-      // Only handle errors of configured targets, not errors of top-level aspects.
-      // TODO(ulfjack): this is quadratic - if there are a lot of CTs, this could be rather slow.
-      if (!values.contains(errorEntry.getKey().argument())) {
-        continue;
-      }
       SkyKey errorKey = errorEntry.getKey();
-      ConfiguredTargetKey label = (ConfiguredTargetKey) errorKey.argument();
-      Label topLevelLabel = label.getLabel();
       ErrorInfo errorInfo = errorEntry.getValue();
       assertSaneAnalysisError(errorInfo, errorKey);
-
-      skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey,
-          eventHandler);
+      skyframeExecutor
+          .getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
       Exception cause = errorInfo.getException();
+      Preconditions.checkState(
+          cause != null || !Iterables.isEmpty(errorInfo.getCycleInfo()), errorInfo);
+
+      if (errorKey.argument() instanceof AspectValueKey) {
+        // We skip Aspects in the keepGoing case; the failures should already have been reported to
+        // the event handler.
+        if (!keepGoing) {
+          AspectValueKey aspectKey = (AspectValueKey) errorKey.argument();
+          String errorMsg =
+              String.format(
+                  "Analysis of aspect '%s' failed; build aborted", aspectKey.getDescription());
+          if (noKeepGoingException == null) {
+            if (cause != null) {
+              noKeepGoingException = new ViewCreationFailedException(errorMsg, cause);
+            } else {
+              noKeepGoingException = new ViewCreationFailedException(errorMsg);
+            }
+          }
+        }
+        continue;
+      }
+
+      Preconditions.checkState(
+          errorKey.argument() instanceof ConfiguredTargetKey,
+          "expected '%s' to be a AspectValueKey or ConfiguredTargetKey",
+          errorKey.argument());
+      ConfiguredTargetKey label = (ConfiguredTargetKey) errorKey.argument();
+      Label topLevelLabel = label.getLabel();
+
       BuildEventId configuration = null;
       Iterable<Cause> rootCauses;
       if (cause instanceof ConfiguredValueCreationException) {
@@ -456,9 +432,21 @@ public final class SkyframeBuildView {
         // TODO(ulfjack): Report something!
         rootCauses = ImmutableList.of();
       }
-      eventHandler.handle(
-          Event.warn("errors encountered while analyzing target '"
-              + topLevelLabel + "': it will not be built"));
+      if (keepGoing) {
+        eventHandler.handle(
+            Event.warn(
+                "errors encountered while analyzing target '"
+                    + topLevelLabel
+                    + "': it will not be built"));
+      } else if (noKeepGoingException == null) {
+        String errorMsg =
+            String.format("Analysis of target '%s' failed; build aborted", topLevelLabel);
+        if (cause != null) {
+          noKeepGoingException = new ViewCreationFailedException(errorMsg, cause);
+        } else {
+          noKeepGoingException = new ViewCreationFailedException(errorMsg);
+        }
+      }
       ConfiguredTargetKey configuredTargetKey =
           ConfiguredTargetKey.of(
               topLevelLabel, label.getConfigurationKey(), label.isHostConfiguration());
@@ -472,14 +460,29 @@ public final class SkyframeBuildView {
         ex.rethrowTyped();
       } catch (ActionConflictException ace) {
         ace.reportTo(eventHandler);
-        eventHandler
-            .handle(Event.warn("errors encountered while analyzing target '"
-                + bad.getKey().getOwner().getLabel() + "': it will not be built"));
+        if (keepGoing) {
+          eventHandler.handle(
+              Event.warn(
+                  "errors encountered while analyzing target '"
+                      + bad.getKey().getOwner().getLabel()
+                      + "': it will not be built"));
+        }
       } catch (ArtifactPrefixConflictException apce) {
         if (reportedExceptions.add(apce)) {
           eventHandler.handle(Event.error(apce.getMessage()));
         }
       }
+      // TODO(ulfjack): Don't throw here in the nokeep_going case, but report all known issues.
+      if (!keepGoing) {
+        throw new ViewCreationFailedException(ex.getMessage());
+      }
+    }
+
+    // This is here for backwards compatibility. The keep_going and nokeep_going code paths were
+    // checking action conflicts and analysis errors in different orders, so we only throw the
+    // analysis error here after first throwing action conflicts.
+    if (!keepGoing) {
+      throw noKeepGoingException;
     }
 
     if (!badActions.isEmpty()) {
