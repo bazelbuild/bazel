@@ -1053,6 +1053,90 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testNoOutputAttrDefault() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_no_output_attr_default=true");
+
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  out_file = ctx.actions.declare_file(ctx.attr._o1.name)",
+        "  ctx.actions.write(output=out_file, content='hi')",
+        "  return struct(o1=ctx.attr._o1)",
+        "",
+        "def output_fn():",
+        "  return Label('//test/skylark:foo.txt')",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "  attrs = {'_o1': attr.output(default = output_fn)})");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("'default' is no longer a supported parameter for attr.output");
+  }
+
+  @Test
+  public void testNoOutputListAttrDefault() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_no_output_attr_default=true");
+
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  return []",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "  attrs = {'outs': attr.output_list(default = [])})");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("'default' is no longer a supported parameter for attr.output_list");
+  }
+
+  @Test
+  public void testLegacyOutputAttrDefault() throws Exception {
+    // Note that use of the "default" parameter of attr.output and attr.output_label is deprecated
+    // and barely functional. This test simply serves as proof-of-concept verification that the
+    // legacy behavior remains intact.
+    setSkylarkSemanticsOptions("--incompatible_no_output_attr_default=false");
+
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  out_file = ctx.actions.declare_file(ctx.attr._o1.name)",
+        "  ctx.actions.write(output=out_file, content='hi')",
+        "  return struct(o1=ctx.attr._o1,",
+        "                o2=ctx.attr.o2)",
+        "",
+        "def output_fn():",
+        "  return Label('//test/skylark:foo.txt')",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "  attrs = {'_o1': attr.output(default = output_fn),",
+        "           'o2': attr.output_list(default = [])})");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'cr')");
+
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
+    assertThat(target.get("o1")).isEqualTo(Label.parseAbsoluteUnchecked("//test/skylark:foo.txt"));
+    assertThat(target.get("o2")).isEqualTo(MutableList.empty());
+  }
+
+  @Test
   public void testRuleClassNonMandatoryEmptyOutputs() throws Exception {
     scratch.file(
         "test/skylark/extension.bzl",

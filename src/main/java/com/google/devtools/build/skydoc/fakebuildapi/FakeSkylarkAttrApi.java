@@ -91,7 +91,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
   }
 
   @Override
-  public Descriptor outputListAttribute(Boolean allowEmpty, SkylarkList<?> defaultList, String doc,
+  public Descriptor outputListAttribute(Boolean allowEmpty, Object defaultList, String doc,
       Boolean mandatory, Boolean nonEmpty, FuncallExpression ast, Environment env)
       throws EvalException {
     return new FakeDescriptor(Type.OUTPUT_LIST, doc, mandatory);

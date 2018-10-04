@@ -42,6 +42,7 @@ guarded behind flags in the current release:
 *   [New args API](#new-args-api)
 *   [Disable objc provider resources](#disable-objc-provider-resources)
 *   [Disable output group field on Target](#disable-output-group-field-on-target)
+*   [Disable default parameter of output attributes](#disable-default-parameter-of-output-attributes)
 *   [Remove native git repository](#remove-native-git-repository)
 *   [Remove native http archive](#remove-native-http-archive)
 *   [New-style JavaInfo constructor](#new-style-java_info)
@@ -276,6 +277,48 @@ dep_bin = ctx.attr.dep[OutputGroupInfo].bin
 *   Flag: `--incompatible_no_target_output_group`
 *   Default: `false`
 
+
+### Disable default parameter of output attributes
+
+This flag disables the `default` parameter on `attr.output` and
+`attr.output_list`. Use Starlark macros to specify defaults for these attributes
+instead.
+
+For example, replace:
+
+```python
+my_rule = rule(
+    ...
+    attrs = { "out" : attr.output(default = "foo.txt") }
+    ...
+```
+
+with:
+
+```python
+# myrule.bzl
+my_rule = rule(
+    ...
+    attrs = { "out" : attr.output() }
+    ...
+
+# mymacro.bzl
+load(":myrule.bzl", _my_rule=”my_rule”)
+
+def my_rule(name):
+    _my_rule(
+        name = name,
+        output = "%s_out.txt" % name
+    )
+```
+
+The previous `default` parameter of these attribute types was severely
+bug-prone, as two targets of the same rule would be unable to exist in the same
+package under default behavior. (Two targets both generating `foo.txt` in the
+same package would conflict.)
+
+*   Flag: `--incompatible_no_output_attr_default`
+*   Default: `false`
 
 ### Remove native git repository
 

@@ -131,6 +131,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleNewActionsApi();
 
+  public abstract boolean incompatibleNoOutputAttrDefault();
+
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
 
   public abstract boolean incompatibleNoTargetOutputGroup();
@@ -188,6 +190,7 @@ public abstract class SkylarkSemantics {
           .incompatibleExpandDirectories(false)
           .incompatibleGenerateJavaCommonSourceJar(false)
           .incompatibleNewActionsApi(false)
+          .incompatibleNoOutputAttrDefault(false)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(false)
@@ -245,6 +248,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleGenerateJavaCommonSourceJar(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
+
+    public abstract Builder incompatibleNoOutputAttrDefault(boolean value);
 
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 

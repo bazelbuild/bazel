@@ -756,7 +756,9 @@ public interface SkylarkAttrApi extends SkylarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = DEFAULT_DOC),
+            doc = "<b><code>default<code> is deprecated for <code>attr.output</code>. Use "
+                + "Starlark macros to set the default for <code>output<code> and "
+                + "<code>output_list</code> attributes. <p>" + DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
             type = String.class,
@@ -796,10 +798,13 @@ public interface SkylarkAttrApi extends SkylarkValue {
               @ParamType(type = SkylarkList.class, generic1 = Label.class),
               @ParamType(type = UserDefinedFunction.class)
             },
-            defaultValue = "[]",
+            noneable = true,
+            defaultValue = "None",
             named = true,
             positional = false,
-            doc = DEFAULT_DOC),
+            doc = "<b><code>default<code> is deprecated for <code>attr.output_list</code>. Use "
+                + "Starlark macros to set the default for <code>output<code> and "
+                + "<code>output_list</code> attributes. <p>" + DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
             type = String.class,
@@ -826,7 +831,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       useEnvironment = true)
   public Descriptor outputListAttribute(
       Boolean allowEmpty,
-      SkylarkList<?> defaultList,
+      Object defaultList,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
