@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -423,7 +423,8 @@ public abstract class FileArtifactValue implements SkyValue {
     }
 
     public InlineFileArtifactValue(byte[] bytes) {
-      this(bytes, Hashing.md5().hashBytes(bytes).asBytes());
+      this(bytes,
+          DigestHashFunction.getDefaultUnchecked().getHashFunction().hashBytes(bytes).asBytes());
     }
 
     public ByteArrayInputStream getInputStream() {

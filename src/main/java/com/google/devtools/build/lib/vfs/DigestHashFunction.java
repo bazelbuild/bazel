@@ -144,6 +144,20 @@ public class DigestHashFunction {
     return defaultHash;
   }
 
+  /**
+   * Returns the default DigestHashFunction, or the testing default if unset.
+   */
+  public static DigestHashFunction getDefaultUnchecked() {
+    try {
+      return getDefault();
+    } catch (DefaultHashFunctionNotSetException e) {
+      // Some tests use this class without calling GoogleUnixFileSystemModule.globalInit().
+      System.err.println("Using DigestHashFunction.DEFAULT_HASH_FOR_TESTS for testing");
+      return DEFAULT_HASH_FOR_TESTS;
+    }
+  }
+
+
   /** Indicates that the default has not been initialized. */
   public static final class DefaultHashFunctionNotSetException extends Exception {
     DefaultHashFunctionNotSetException(String message) {
