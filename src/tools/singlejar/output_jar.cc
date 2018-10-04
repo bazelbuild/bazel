@@ -35,6 +35,7 @@
 
 #endif  // _WIN32
 
+#include "src/main/cpp/util/path_platform.h"
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/input_jar.h"
@@ -192,12 +193,19 @@ int OutputJar::Doit(Options *options) {
 
   for (auto &rdesc : options_->resources) {
     // A resource description is either NAME or PATH:NAME
-    std::size_t colon = rdesc.find_first_of(':');
+    // Find the last ':' instead of the first because Windows uses ':' as volume
+    // separator in absolute path.
+    std::size_t colon = rdesc.find_last_of(':');
     if (0 == colon) {
       diag_errx(1, "%s:%d: Bad resource description %s", __FILE__, __LINE__,
                 rdesc.c_str());
     }
-    if (std::string::npos == colon) {
+    bool shouldNotSplit = colon == std::string::npos;
+#ifdef _WIN32
+    // If colon points to volume separator, don't split.
+    shouldNotSplit |= colon == 1 && blaze_util::IsAbsolute(rdesc);
+#endif
+    if (shouldNotSplit) {
       ClasspathResource(rdesc, rdesc);
     } else {
       ClasspathResource(rdesc.substr(colon + 1), rdesc.substr(0, colon));
