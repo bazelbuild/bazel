@@ -85,7 +85,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -181,7 +180,7 @@ public final class RuleContext extends TargetContext
   private final BuildConfiguration hostConfiguration;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
-  private final ErrorReporter reporter;
+  private final RuleErrorConsumer reporter;
   @Nullable private final ToolchainContext toolchainContext;
   private final ConstraintSemantics constraintSemantics;
 
@@ -294,6 +293,22 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * If this target's configuration suppresses analysis failures, this returns a list
+   * of strings, where each string corresponds to a description of an error that occurred during
+   * processing this target.
+   *
+   * @throws IllegalStateException if this target's configuration does not suppress analysis
+   *     failures (if {@code getConfiguration().allowAnalysisFailures()} is false)
+   */
+  public List<String> getSuppressedErrorMessages() {
+    Preconditions.checkState(getConfiguration().allowAnalysisFailures(),
+        "Error messages can only be retrieved via RuleContext if allow_analysis_failures is true");
+    Preconditions.checkState(reporter instanceof SuppressingErrorReporter,
+        "Unexpected error reporter");
+    return ((SuppressingErrorReporter) reporter).getErrorMessages();
+  }
+
+  /**
    * If this <code>RuleContext</code> is for an aspect implementation, returns that aspect.
    * (it is the last aspect in the list of aspects applied to a target; all other aspects
    * are the ones main aspect sees as specified by its "required_aspect_providers")
@@ -355,13 +370,6 @@ public final class RuleContext extends TargetContext
   @Override
   public boolean hasErrors() {
     return getAnalysisEnvironment().hasErrors();
-  }
-
-  @Override
-  public void assertNoErrors() throws RuleErrorException {
-    if (hasErrors()) {
-      throw new RuleErrorException();
-    }
   }
 
   /**
@@ -502,12 +510,6 @@ public final class RuleContext extends TargetContext
     reporter.ruleError(message);
   }
 
-  @Override
-  public RuleErrorException throwWithRuleError(String message) throws RuleErrorException {
-    reporter.ruleError(message);
-    throw new RuleErrorException();
-  }
-
   /**
    * Convenience function for subclasses to report non-attribute-specific
    * warnings in the current rule.
@@ -527,13 +529,6 @@ public final class RuleContext extends TargetContext
   @Override
   public void attributeError(String attrName, String message) {
     reporter.attributeError(attrName, message);
-  }
-
-  @Override
-  public RuleErrorException throwWithAttributeError(String attrName, String message)
-      throws RuleErrorException {
-    reporter.attributeError(attrName, message);
-    throw new RuleErrorException();
   }
 
   /**
@@ -1436,7 +1431,7 @@ public final class RuleContext extends TargetContext
     private final BuildConfiguration configuration;
     private final BuildConfiguration hostConfiguration;
     private final PrerequisiteValidator prerequisiteValidator;
-    private final ErrorReporter reporter;
+    private final RuleErrorConsumer reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
     private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
     private NestedSet<PackageGroupContents> visibility;
@@ -1461,7 +1456,11 @@ public final class RuleContext extends TargetContext
       this.configuration = Preconditions.checkNotNull(configuration);
       this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
       this.prerequisiteValidator = prerequisiteValidator;
-      reporter = new ErrorReporter(env, target.getAssociatedRule(), getRuleClassNameForLogging());
+      if (configuration.allowAnalysisFailures()) {
+        reporter = new SuppressingErrorReporter();
+      } else {
+        reporter = new ErrorReporter(env, target.getAssociatedRule(), getRuleClassNameForLogging());
+      }
     }
 
     @VisibleForTesting
@@ -1694,24 +1693,8 @@ public final class RuleContext extends TargetContext
     }
 
     @Override
-    public RuleErrorException throwWithRuleError(String message) throws RuleErrorException {
-      throw reporter.throwWithRuleError(message);
-    }
-
-    @Override
-    public RuleErrorException throwWithAttributeError(String attrName, String message)
-        throws RuleErrorException {
-      throw reporter.throwWithAttributeError(attrName, message);
-    }
-
-    @Override
     public boolean hasErrors() {
       return reporter.hasErrors();
-    }
-
-    @Override
-    public void assertNoErrors() throws RuleErrorException {
-      reporter.assertNoErrors();
     }
 
     private String badPrerequisiteMessage(
@@ -2026,6 +2009,41 @@ public final class RuleContext extends TargetContext
     protected Location getAttributeLocation(String attrName) {
       return rule.getAttributeLocation(attrName);
     }
+  }
 
+  /**
+   * Implementation of an error consumer which does not post any events, saves rule and attribute
+   * errors for future consumption, and drops warnings.
+   */
+  public static final class SuppressingErrorReporter implements RuleErrorConsumer {
+    private final List<String> errorMessages = Lists.newArrayList();
+
+    @Override
+    public void ruleWarning(String message) {}
+
+    @Override
+    public void ruleError(String message) {
+      errorMessages.add(message);
+    }
+
+    @Override
+    public void attributeWarning(String attrName, String message) {}
+
+    @Override
+    public void attributeError(String attrName, String message) {
+      errorMessages.add(message);
+    }
+
+    @Override
+    public boolean hasErrors() {
+      return !errorMessages.isEmpty();
+    }
+
+    /**
+     * Returns the error message strings reported to this error consumer.
+     */
+    public List<String> getErrorMessages() {
+      return errorMessages;
+    }
   }
 }

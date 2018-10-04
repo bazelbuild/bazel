@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 
 /**
@@ -48,7 +48,8 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
         + "<code>causes</code> equal to the union of the <code>causes</code> of the "
         + "dependencies.</li></ul>",
     documented = false)
-public interface AnalysisFailureInfoApi extends SkylarkValue {
+public interface AnalysisFailureInfoApi<AnalysisFailureApiT extends AnalysisFailureApi>
+    extends SkylarkValue {
 
   @SkylarkCallable(
       name = "causes",
@@ -58,7 +59,7 @@ public interface AnalysisFailureInfoApi extends SkylarkValue {
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS
   )
-  public SkylarkNestedSet getCauses();
+  public NestedSet<AnalysisFailureApiT> getCauses();
 
   /** Provider class for {@link AnalysisFailureInfoApi} objects. */
   @SkylarkModule(name = "Provider", documented = false, doc = "")

@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -2019,6 +2021,34 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "load('//test/skylark:extension.bzl',  'my_rule')",
         "cc_binary(name = 'lib', data = ['a.txt'])",
         "my_rule(name='r', dep = ':lib')");
+  }
+
+  @Test
+  public void testAnalysisFailureInfo() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
+
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "   fail('This Is My Failure Message')",
+        "   return []",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl)");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'r')");
+
+    useConfiguration("--experimental_allow_analysis_failures=true");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:r");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR.getKey());
+    AnalysisFailure failure = info.getCauses().toList().get(0);
+    assertThat(failure.getMessage()).contains("This Is My Failure Message");
+    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
   }
 
   @Test

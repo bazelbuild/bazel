@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -2277,9 +2276,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testAnalysisFailureInfo() throws Exception {
     AnalysisFailure cause = new AnalysisFailure(Label.create("test", "test"), "ErrorMessage");
 
-    AnalysisFailureInfo info = new AnalysisFailureInfo(
-        SkylarkNestedSet.of(
-            AnalysisFailure.class, NestedSetBuilder.create(Order.STABLE_ORDER, cause)));
+    AnalysisFailureInfo info = AnalysisFailureInfo.forAnalysisFailures(ImmutableList.of(cause));
 
     new SkylarkTest("--experimental_analysis_testing_improvements=true")
         .update("val", info)

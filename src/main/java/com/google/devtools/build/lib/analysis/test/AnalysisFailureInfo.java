@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Implementation of {@link AnalysisFailureInfoApi}.
@@ -25,7 +26,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
  * Encapsulates information about analysis-phase errors which would have occurred during a
  * build.
  */
-public class AnalysisFailureInfo extends Info implements AnalysisFailureInfoApi {
+public class AnalysisFailureInfo extends Info implements AnalysisFailureInfoApi<AnalysisFailure> {
 
   /**
    * Singleton provider instance for {@link AnalysisFailureInfo}.
@@ -33,16 +34,23 @@ public class AnalysisFailureInfo extends Info implements AnalysisFailureInfoApi 
   public static final AnalysisFailureInfoProvider SKYLARK_CONSTRUCTOR =
       new AnalysisFailureInfoProvider();
 
-  private final SkylarkNestedSet causes;
+  private final NestedSet<AnalysisFailure> causes;
 
-  public AnalysisFailureInfo(
-      SkylarkNestedSet causes) {
+  private AnalysisFailureInfo(NestedSet<AnalysisFailure> causes) {
     super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
     this.causes = causes;
   }
 
+  /**
+   * Constructs and returns an {@link AnalysisFailureInfo} object representing the given failures.
+   */
+  public static AnalysisFailureInfo forAnalysisFailures(Iterable<AnalysisFailure> failures) {
+    return new AnalysisFailureInfo(
+        NestedSetBuilder.<AnalysisFailure>stableOrder().addAll(failures).build());
+  }
+
   @Override
-  public SkylarkNestedSet getCauses() {
+  public NestedSet<AnalysisFailure> getCauses() {
     return causes;
   }
 
