@@ -62,8 +62,9 @@ public interface AppleDynamicFrameworkInfoApi<PathFragmentT, FileApiT extends Fi
    */
   @Nullable
   @SkylarkCallable(name = "binary",
+      allowReturnNones = true,
       structField = true,
-      doc = "The multi-architecture dylib binary of the dynamic framework. May be null if "
+      doc = "The multi-architecture dylib binary of the dynamic framework. May be None if "
           + "the rule providing the framework only specified framework imports."
   )
   public FileApi getAppleDylibBinary();

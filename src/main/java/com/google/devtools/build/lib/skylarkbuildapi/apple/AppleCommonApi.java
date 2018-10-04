@@ -315,7 +315,9 @@ public interface AppleCommonApi<FileApiT extends FileApi,
         name = "binary",
         type = FileApi.class,
         named = true,
+        noneable = true,
         positional = false,
+        defaultValue = "None",
         doc = "The dylib binary artifact of the dynamic framework."
       ),
       @Param(
@@ -354,7 +356,7 @@ public interface AppleCommonApi<FileApiT extends FileApi,
     }
   )
   public AppleDynamicFrameworkInfoApi<?, ?> newDynamicFrameworkProvider(
-      FileApiT dylibBinary,
+      Object dylibBinary,
       ObjcProviderApiT depsObjcProvider,
       Object dynamicFrameworkDirs,
       Object dynamicFrameworkFiles);
