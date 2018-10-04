@@ -38,33 +38,33 @@ public class DeclaredToolchainInfoTest extends BuildViewTestCase {
         .addEqualityGroup(
             // Base case.
             DeclaredToolchainInfo.create(
-                makeLabel("//toolchain:tc1"),
+                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
                 ImmutableList.of(constraint1),
                 ImmutableList.of(constraint2),
                 makeLabel("//toolchain:toolchain1")),
             DeclaredToolchainInfo.create(
-                makeLabel("//toolchain:tc1"),
+                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
                 ImmutableList.of(constraint1),
                 ImmutableList.of(constraint2),
                 makeLabel("//toolchain:toolchain1")))
         .addEqualityGroup(
             // Different type.
             DeclaredToolchainInfo.create(
-                makeLabel("//toolchain:tc2"),
+                ToolchainTypeInfo.create(makeLabel("//toolchain:tc2")),
                 ImmutableList.of(constraint1),
                 ImmutableList.of(constraint2),
                 makeLabel("//toolchain:toolchain1")))
         .addEqualityGroup(
             // Different constraints.
             DeclaredToolchainInfo.create(
-                makeLabel("//toolchain:tc1"),
+                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
                 ImmutableList.of(constraint2),
                 ImmutableList.of(constraint1),
                 makeLabel("//toolchain:toolchain1")))
         .addEqualityGroup(
             // Different toolchain label.
             DeclaredToolchainInfo.create(
-                makeLabel("//toolchain:tc1"),
+                ToolchainTypeInfo.create(makeLabel("//toolchain:tc1")),
                 ImmutableList.of(constraint1),
                 ImmutableList.of(constraint2),
                 makeLabel("//toolchain:toolchain2")))

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
@@ -44,14 +45,18 @@ public class ToolchainRule implements RuleDefinition {
         .removeAttribute("deps")
         .removeAttribute("data")
         .exemptFromConstraintChecking("this rule *defines* a constraint")
+        .supportsPlatforms(false)
 
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(toolchain_type) -->
         The label of a <code>toolchain_type</code> target that represents the role that this
         toolchain serves.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
-            attr(TOOLCHAIN_TYPE_ATTR, BuildType.NODEP_LABEL)
+            attr(TOOLCHAIN_TYPE_ATTR, BuildType.LABEL)
                 .mandatory()
+                .allowedFileTypes()
+                .allowedRuleClasses("toolchain_type")
+                .mandatoryProviders(ToolchainTypeInfo.PROVIDER.id())
                 .nonconfigurable("part of toolchain configuration"))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(exec_compatible_with) -->
         A list of <code>constraint_value</code>s that must be satisfied by an execution platform in
