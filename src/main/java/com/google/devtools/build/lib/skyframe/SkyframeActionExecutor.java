@@ -18,6 +18,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Striped;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -297,9 +298,12 @@ public final class SkyframeActionExecutor {
     ExecutorService executor = Executors.newFixedThreadPool(
         numJobs,
         new ThreadFactoryBuilder().setNameFormat("ActionLookupValue Processor %d").build());
+    Set<ActionAnalysisMetadata> registeredActions = Sets.newConcurrentHashSet();
     for (List<ActionLookupValue> shard : actionShards) {
       executor.execute(
-          wrapper.wrap(actionRegistration(shard, actionGraph, artifactPathMap, badActionMap)));
+          wrapper.wrap(
+              actionRegistration(
+                  shard, actionGraph, artifactPathMap, badActionMap, registeredActions)));
     }
     boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
@@ -313,12 +317,12 @@ public final class SkyframeActionExecutor {
       final List<ActionLookupValue> values,
       final MutableActionGraph actionGraph,
       final ConcurrentMap<PathFragment, Artifact> artifactPathMap,
-      final ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
+      final ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap,
+      final Set<ActionAnalysisMetadata> registeredActions) {
     return new Runnable() {
       @Override
       public void run() {
         for (ActionLookupValue value : values) {
-          Set<ActionAnalysisMetadata> registeredActions = new HashSet<>();
           for (Map.Entry<Artifact, ActionAnalysisMetadata> entry :
               value.getMapForConsistencyCheck().entrySet()) {
             ActionAnalysisMetadata action = entry.getValue();
