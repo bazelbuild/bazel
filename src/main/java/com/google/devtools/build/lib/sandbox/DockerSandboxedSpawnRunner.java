@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandCompleteEvent;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -210,7 +211,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Map<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
 
-    ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
+    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
     Duration timeout = context.getTimeout();
 
     UUID uuid = UUID.randomUUID();

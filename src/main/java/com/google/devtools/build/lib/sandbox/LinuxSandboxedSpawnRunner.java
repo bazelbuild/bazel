@@ -31,12 +31,12 @@ import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
@@ -150,7 +150,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
 
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
-    ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
+    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
     Duration timeout = context.getTimeout();
 
     LinuxSandboxUtil.CommandLineBuilder commandLineBuilder =

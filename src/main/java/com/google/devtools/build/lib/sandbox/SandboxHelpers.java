@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -117,12 +118,31 @@ public final class SandboxHelpers {
     return inputFiles;
   }
 
-  public static ImmutableSet<PathFragment> getOutputFiles(Spawn spawn) {
-    ImmutableSet.Builder<PathFragment> outputFiles = ImmutableSet.builder();
-    for (ActionInput output : spawn.getOutputFiles()) {
-      outputFiles.add(PathFragment.create(output.getExecPathString()));
+  /** The file and directory outputs of a sandboxed spawn. */
+  @AutoValue
+  public abstract static class SandboxOutputs {
+    public abstract ImmutableSet<PathFragment> files();
+
+    public abstract ImmutableSet<PathFragment> dirs();
+
+    public static SandboxOutputs create(
+        ImmutableSet<PathFragment> files, ImmutableSet<PathFragment> dirs) {
+      return new AutoValue_SandboxHelpers_SandboxOutputs(files, dirs);
     }
-    return outputFiles.build();
+  }
+
+  public static SandboxOutputs getOutputs(Spawn spawn) {
+    ImmutableSet.Builder<PathFragment> files = ImmutableSet.builder();
+    ImmutableSet.Builder<PathFragment> dirs = ImmutableSet.builder();
+    for (ActionInput output : spawn.getOutputFiles()) {
+      PathFragment path = PathFragment.create(output.getExecPathString());
+      if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+        dirs.add(path);
+      } else {
+        files.add(path);
+      }
+    }
+    return SandboxOutputs.create(files.build(), dirs.build());
   }
 
   /**

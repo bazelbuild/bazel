@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.vfs.Path;
@@ -149,9 +150,7 @@ class Worker {
   }
 
   public void prepareExecution(
-      Map<PathFragment, Path> inputFiles,
-      Set<PathFragment> outputFiles,
-      Set<PathFragment> workerFiles)
+      Map<PathFragment, Path> inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException {
     if (process == null) {
       createProcess();

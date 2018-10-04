@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.SymlinkedSandboxedSpawn;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,7 +35,7 @@ final class WorkerExecRoot extends SymlinkedSandboxedSpawn {
   public WorkerExecRoot(
       Path workDir,
       Map<PathFragment, Path> inputs,
-      Collection<PathFragment> outputs,
+      SandboxOutputs outputs,
       Set<PathFragment> workerFiles) {
     super(
         workDir,

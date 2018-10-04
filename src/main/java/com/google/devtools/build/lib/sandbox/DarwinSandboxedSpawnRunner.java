@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
@@ -228,7 +229,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, environment);
     writableDirs.addAll(extraWritableDirs);
 
-    ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
+    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
     Duration timeout = context.getTimeout();

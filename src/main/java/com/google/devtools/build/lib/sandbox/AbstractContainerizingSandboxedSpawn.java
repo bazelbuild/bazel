@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +36,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   private final List<String> arguments;
   private final Map<String, String> environment;
   private final Map<PathFragment, Path> inputs;
-  private final Collection<PathFragment> outputs;
+  private final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
 
   public AbstractContainerizingSandboxedSpawn(
@@ -45,7 +45,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       List<String> arguments,
       Map<String, String> environment,
       Map<PathFragment, Path> inputs,
-      Collection<PathFragment> outputs,
+      SandboxOutputs outputs,
       Set<Path> writableDirs) {
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxExecRoot;
@@ -92,12 +92,15 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   private void createDirectories() throws IOException {
     LinkedHashSet<Path> dirsToCreate = new LinkedHashSet<>();
 
-    for (PathFragment path : Iterables.concat(inputs.keySet(), outputs)) {
+    for (PathFragment path : Iterables.concat(inputs.keySet(), outputs.files(), outputs.dirs())) {
       Preconditions.checkArgument(!path.isAbsolute());
       Preconditions.checkArgument(!path.containsUplevelReferences());
       for (int i = 0; i < path.segmentCount(); i++) {
         dirsToCreate.add(sandboxExecRoot.getRelative(path.subFragment(0, i)));
       }
+    }
+    for (PathFragment path : outputs.dirs()) {
+      dirsToCreate.add(sandboxExecRoot.getRelative(path));
     }
 
     for (Path path : dirsToCreate) {

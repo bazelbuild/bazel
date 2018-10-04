@@ -14,11 +14,12 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -70,9 +71,9 @@ interface SandboxedSpawn {
    * @param targetRoot target directory to which to move the resolved outputs from the source
    * @throws IOException if any of the moves fails
    */
-  static void moveOutputs(Collection<PathFragment> outputs, Path sourceRoot, Path targetRoot)
+  static void moveOutputs(SandboxOutputs outputs, Path sourceRoot, Path targetRoot)
       throws IOException {
-    for (PathFragment output : outputs) {
+    for (PathFragment output : Iterables.concat(outputs.files(), outputs.dirs())) {
       Path source = sourceRoot.getRelative(output);
       Path target = targetRoot.getRelative(output);
       if (source.isFile() || source.isSymbolicLink()) {

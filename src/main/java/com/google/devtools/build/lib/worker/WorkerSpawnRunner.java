@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -51,7 +52,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.regex.Pattern;
 
@@ -142,7 +142,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     Map<PathFragment, Path> inputFiles =
         SandboxHelpers.processInputFiles(
             spawn, context, execRoot, sandboxUsesExpandedTreeArtifactsInRunfiles);
-    Set<PathFragment> outputFiles = SandboxHelpers.getOutputFiles(spawn);
+    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     WorkerKey key =
         new WorkerKey(
@@ -157,7 +157,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     WorkRequest workRequest = createWorkRequest(spawn, context, flagFiles, inputFileCache);
 
     long startTime = System.currentTimeMillis();
-    WorkResponse response = execInWorker(spawn, key, workRequest, context, inputFiles, outputFiles);
+    WorkResponse response = execInWorker(spawn, key, workRequest, context, inputFiles, outputs);
     Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
 
     FileOutErr outErr = context.getFileOutErr();
@@ -270,7 +270,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       WorkRequest request,
       SpawnExecutionContext context,
       Map<PathFragment, Path> inputFiles,
-      Set<PathFragment> outputFiles)
+      SandboxOutputs outputs)
       throws InterruptedException, ExecException {
     Worker worker = null;
     WorkResponse response;
@@ -303,7 +303,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
         context.report(ProgressStatus.EXECUTING, getName());
         try {
-          worker.prepareExecution(inputFiles, outputFiles, key.getWorkerFilesWithHashes().keySet());
+          worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithHashes().keySet());
         } catch (IOException e) {
           throw new UserExecException(
               ErrorMessage.builder()

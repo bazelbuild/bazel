@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.SandboxfsProcess.Mapping;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +53,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   private final Map<PathFragment, Path> inputs;
 
   /** Collection of output files to expect from the spawn. */
-  private final Collection<PathFragment> outputs;
+  private final SandboxOutputs outputs;
 
   /** Collection of directories where the spawn can write files to relative to {@link #execRoot}. */
   private final Set<PathFragment> writableDirs;
@@ -91,13 +91,16 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       List<String> arguments,
       Map<String, String> environment,
       Map<PathFragment, Path> inputs,
-      Collection<PathFragment> outputs,
+      SandboxOutputs outputs,
       Set<PathFragment> writableDirs) {
     this.process = process;
     this.arguments = arguments;
     this.environment = environment;
     this.inputs = inputs;
-    for (PathFragment path : outputs) {
+    for (PathFragment path : outputs.files()) {
+      checkArgument(!path.isAbsolute(), "outputs %s must be relative", path);
+    }
+    for (PathFragment path : outputs.dirs()) {
       checkArgument(!path.isAbsolute(), "outputs %s must be relative", path);
     }
     this.outputs = outputs;
@@ -214,22 +217,24 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   /**
    * Pushes a new configuration to sandboxfs and waits for acceptance.
    *
-   * @param inputs collection of paths to expose within the sandbox as read-only mappings, given
-   *     as a map of mapped path to target path. The target path may be null, in which case an empty
+   * @param inputs collection of paths to expose within the sandbox as read-only mappings, given as
+   *     a map of mapped path to target path. The target path may be null, in which case an empty
    *     file is mapped.
-   * @param writableDirs collection of writable paths to create within the read-write portion of
-   *     the sandbox
+   * @param writableDirs collection of writable paths to create within the read-write portion of the
+   *     sandbox
    * @param outputs collection of outputs to expect within the read-write portion of the sandbox
    * @throws IOException if reconfiguration fails
    */
-  private void reconfigure(Map<PathFragment, Path> inputs, Set<PathFragment> writableDirs,
-      Collection<PathFragment> outputs) throws IOException {
+  private void reconfigure(
+      Map<PathFragment, Path> inputs, Set<PathFragment> writableDirs, SandboxOutputs outputs)
+      throws IOException {
     List<Mapping> mappings = createMappings(inputs);
 
     Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
-    for (PathFragment output : outputs) {
+    for (PathFragment output : outputs.files()) {
       dirsToCreate.add(output.getParentDirectory());
     }
+    dirsToCreate.addAll(outputs.dirs());
     for (PathFragment input : inputs.keySet()) {
       // We must pre-create the directory layout for input files as well as for output files.
       // The reason is that we map the root directory as writable within the sandbox and later

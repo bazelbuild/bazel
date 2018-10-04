@@ -106,7 +106,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
                 context,
                 execRoot,
                 getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
-            SandboxHelpers.getOutputFiles(spawn),
+            SandboxHelpers.getOutputs(spawn),
             getWritableDirs(sandboxExecRoot, environment));
 
     return runSpawn(spawn, sandbox, context, execRoot, timeout, statisticsPath);

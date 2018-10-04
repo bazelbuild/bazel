@@ -761,6 +761,31 @@ EOF
       --test_output=streamed :mkdata_test &>$TEST_log || fail "expected test to pass"
 }
 
+# regression test for https://github.com/bazelbuild/bazel/issues/6262
+function test_create_tree_artifact_inputs() {
+  touch WORKSPACE
+
+  cat > def.bzl <<'EOF'
+def _r(ctx):
+    d = ctx.actions.declare_directory("%s_dir" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [d],
+        command = "cd %s && pwd" % d.path,
+    )
+    return [DefaultInfo(files = depset([d]))]
+
+r = rule(implementation = _r)
+EOF
+
+cat > BUILD <<'EOF'
+load(":def.bzl", "r")
+
+r(name = "a")
+EOF
+
+  bazel build --test_output=streamed :a &>$TEST_log || fail "expected build to succeed"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_supported_platform || exit 0
 check_sandbox_allowed || exit 0

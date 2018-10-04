@@ -18,12 +18,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,14 +43,18 @@ public class SandboxedSpawnTest extends SandboxTestCase {
     Path outputDir = execRoot.getRelative("very/output.dir");
     Path outputInUncreatedTargetDir = execRoot.getRelative("uncreated/output.txt");
 
-    Set<PathFragment> outputs = ImmutableSet.of(
-        outputFile.relativeTo(execRoot),
-        outputLink.relativeTo(execRoot),
-        outputDangling.relativeTo(execRoot),
-        outputDir.relativeTo(execRoot),
-        outputInUncreatedTargetDir.relativeTo(execRoot));
+    ImmutableSet<PathFragment> outputs =
+        ImmutableSet.of(
+            outputFile.relativeTo(execRoot),
+            outputLink.relativeTo(execRoot),
+            outputDangling.relativeTo(execRoot),
+            outputInUncreatedTargetDir.relativeTo(execRoot));
+    ImmutableSet<PathFragment> outputDirs = ImmutableSet.of(outputDir.relativeTo(execRoot));
     for (PathFragment path : outputs) {
       execRoot.getRelative(path).getParentDirectory().createDirectoryAndParents();
+    }
+    for (PathFragment path : outputDirs) {
+      execRoot.getRelative(path).createDirectoryAndParents();
     }
 
     FileSystemUtils.createEmptyFile(outputFile);
@@ -63,7 +67,7 @@ public class SandboxedSpawnTest extends SandboxTestCase {
     Path outputsDir = testRoot.getRelative("outputs");
     outputsDir.createDirectory();
     outputsDir.getRelative("very").createDirectory();
-    SandboxedSpawn.moveOutputs(outputs, execRoot, outputsDir);
+    SandboxedSpawn.moveOutputs(SandboxOutputs.create(outputs, outputDirs), execRoot, outputsDir);
 
     assertThat(outputsDir.getRelative("very/output.txt").isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(outputsDir.getRelative("very/output.link").isSymbolicLink()).isTrue();

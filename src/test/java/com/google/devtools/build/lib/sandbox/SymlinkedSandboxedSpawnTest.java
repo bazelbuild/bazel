@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -60,7 +61,8 @@ public class SymlinkedSandboxedSpawnTest extends SandboxTestCase {
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
             ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
-            ImmutableSet.of(PathFragment.create("very/output.txt")),
+            SandboxOutputs.create(
+                ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(execRoot.getRelative("wow/writable")));
 
     symlinkedExecRoot.createFileSystem();
@@ -84,7 +86,8 @@ public class SymlinkedSandboxedSpawnTest extends SandboxTestCase {
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
             ImmutableMap.of(),
-            ImmutableSet.of(outputFile.relativeTo(execRoot)),
+            SandboxOutputs.create(
+                ImmutableSet.of(outputFile.relativeTo(execRoot)), ImmutableSet.of()),
             ImmutableSet.of());
     symlinkedExecRoot.createFileSystem();
 
