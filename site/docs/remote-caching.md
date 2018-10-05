@@ -378,13 +378,6 @@ watch [issue #4558] for updates.
 
 * **Faster Bazel builds with remote caching: a benchmark:** Nicolò Valigi wrote a [blog post](https://nicolovaligi.com/faster-bazel-remote-caching-benchmark.html) in which he benchmarks remote caching in Bazel.
 
-## Bazel remote execution (in development)
-
-A [gRPC protocol] that supports both remote caching and remote execution
-is in development. Remote execution allows Bazel to execute actions on a
-separate platform, such as a datacenter.  You can try remote execution with
-[Buildbarn], [Buildfarm] or [BuildGrid] which are open source projects providing remote
-execution implementations.
 
 [Adapting Rules for Remote Execution](https://docs.bazel.build/versions/master/remote-execution-rules.html)
 [Troubleshooting Remote Execution](https://docs.bazel.build/versions/master/remote-execution-sandbox.html)
@@ -406,3 +399,4 @@ execution implementations.
 [Buildfarm]: https://github.com/bazelbuild/bazel-buildfarm
 [BuildGrid]: https://gitlab.com/BuildGrid/buildgrid
 [issue #4558]: https://github.com/bazelbuild/bazel/issues/4558
+

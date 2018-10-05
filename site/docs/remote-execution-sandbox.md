@@ -6,7 +6,7 @@ title: Troubleshooting Bazel Remote Execution with Docker Sandbox
 
 # Troubleshooting Bazel Remote Execution with Docker Sandbox
 
-Contents
+## Contents
 
 *  [Overview](#overview)
 *  [Prerequisites](#prerequisites)

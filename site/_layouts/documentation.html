@@ -87,8 +87,21 @@ nav: docs
               <li><a href="/versions/{{ site.version }}/test-encyclopedia.html">Writing Tests</a></li>
               <li><a href="/versions/{{ site.version }}/configurable-attributes.html">Configurable Attributes</a></li>
               <li><a href="/versions/{{ site.version }}/best-practices.html">Best Practices</a></li>
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#remote-execution-menu" aria-expanded="false"
+                    aria-controls="remote-execution-menu">
+                  Remote Execution<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="remote-execution-menu">
+                   <li><a href="/versions/{{ site.version }}/remote-execution.html">Remote Execution Overview</a></li>
+                   <li><a href="/versions/{{ site.version }}/remote-execution-rules.html">Guidelines for Remote Execution</a></li>
+                   <li><a href="/versions/{{ site.version }}/remote-execution-sandbox.html">Troubleshooting Remote Execution</a></li>
+                 </ul>
+              </li>
+
               <li><a href="/versions/{{ site.version }}/remote-caching.html">Remote Caching</a></li>
-            </ul>
+             </ul>
 
            <h3>Rules</h3>
            <ul class="sidebar-nav">
@@ -207,8 +220,6 @@ nav: docs
                   <li><a href="/versions/{{ site.version }}/skylark/skylint.html">Linter</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/performance.html">Optimizing Performance</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/deploying.html">Deploying Rules</a></li>
-                  <li><a href="/versions/{{ site.version }}/remote-execution-rules.html">Guidelines for Remote Execution</a></li>
-                  <li><a href="/versions/{{ site.version }}/remote-execution-sandbox.html">Troubleshooting Remote Execution</a></li>
                 </ul>
               </li>
 
@@ -254,3 +265,4 @@ nav: docs
     {% include footer.html %}
   </body>
 </html>
+
