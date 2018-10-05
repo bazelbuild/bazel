@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -58,15 +60,14 @@ class ArtifactFunction implements SkyFunction {
   public ArtifactFunction(Supplier<Boolean> mkdirForTreeArtifacts) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
   }
-  
+
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ArtifactFunctionException, InterruptedException {
     Artifact artifact = ArtifactSkyKey.artifact(skyKey);
-    boolean isMandatory = ArtifactSkyKey.isMandatory(skyKey);
     if (artifact.isSourceArtifact()) {
       try {
-        return createSourceValue(artifact, isMandatory, env);
+        return createSourceValue(artifact, ArtifactSkyKey.isMandatory(skyKey), env);
       } catch (MissingInputFileException e) {
         // The error is not necessarily truly transient, but we mark it as such because we have
         // the above side effect of posting an event to the EventBus. Importantly, that event
@@ -75,44 +76,24 @@ class ArtifactFunction implements SkyFunction {
       }
     }
 
-    ActionLookupKey actionLookupKey = getActionLookupKey(artifact);
-    ActionLookupValue actionLookupValue = getActionLookupValue(actionLookupKey, env, artifact);
-    if (actionLookupValue == null) {
+    ArtifactDependencies artifactDependencies =
+        ArtifactDependencies.discoverDependencies(artifact, env);
+    if (artifactDependencies == null) {
       return null;
     }
-    Integer actionIndex = actionLookupValue.getGeneratingActionIndex(artifact);
-    if (artifact.hasParent() && actionIndex == null) {
-      // If a TreeFileArtifact is created by a templated action, then it should have the proper
-      // reference to its owner. However, if it was created as part of a directory, by the first
-      // TreeArtifact-generating action in a chain, then its parent's generating action also
-      // generated it. This catches that case.
-      actionIndex = actionLookupValue.getGeneratingActionIndex(artifact.getParent());
-    }
-    Preconditions.checkNotNull(
-        actionIndex, "%s %s %s", artifact, actionLookupKey, actionLookupValue);
 
     // If the action is an ActionTemplate, we need to expand the ActionTemplate into concrete
     // actions, execute those actions in parallel and then aggregate the action execution results.
-    if (artifact.isTreeArtifact() && actionLookupValue.isActionTemplate(actionIndex)) {
-      // Create the directory structures for the output TreeArtifact first.
+    if (artifactDependencies.isTemplateActionForTreeArtifact()) {
       if (mkdirForTreeArtifacts.get()) {
-        try {
-          artifact.getPath().createDirectoryAndParents();
-        } catch (IOException e) {
-          env.getListener()
-              .handle(
-                  Event.error(
-                      String.format(
-                          "Failed to create output directory for TreeArtifact %s: %s",
-                          artifact, e.getMessage())));
-          throw new ArtifactFunctionException(e, Transience.TRANSIENT);
-        }
+        mkdirForTreeArtifact(artifact, env);
       }
-
-      return createTreeArtifactValueFromActionKey(actionLookupKey, actionIndex, artifact, env);
+      return createTreeArtifactValueFromActionKey(artifactDependencies, env);
     }
+
     ActionExecutionValue actionValue =
-        (ActionExecutionValue) env.getValue(ActionExecutionValue.key(actionLookupKey, actionIndex));
+        (ActionExecutionValue)
+            env.getValue(artifactDependencies.getNontemplateActionExecutionKey());
     if (actionValue == null) {
       return null;
     }
@@ -122,29 +103,41 @@ class ArtifactFunction implements SkyFunction {
       // TreeArtifactValue.
       return Preconditions.checkNotNull(actionValue.getTreeArtifactValue(artifact), artifact);
     }
+
     if (artifact.isMiddlemanArtifact()) {
       Action action =
           Preconditions.checkNotNull(
-              actionLookupValue.getAction(actionIndex),
-              "Null middleman action? %s %s %s %s",
-              artifact,
-              actionLookupKey,
-              actionLookupValue,
-              actionIndex);
+              artifactDependencies.getAction(), "Null middleman action? %s", artifactDependencies);
       if (isAggregatingValue(action)) {
         return createAggregatingValue(
             artifact, action, actionValue.getArtifactValue(artifact), env);
       }
     }
+
     return createSimpleFileArtifactValue(artifact, actionValue);
   }
 
+  private static void mkdirForTreeArtifact(Artifact artifact, Environment env)
+      throws ArtifactFunctionException {
+    try {
+      artifact.getPath().createDirectoryAndParents();
+    } catch (IOException e) {
+      env.getListener()
+          .handle(
+              Event.error(
+                  String.format(
+                      "Failed to create output directory for TreeArtifact %s: %s",
+                      artifact, e.getMessage())));
+      throw new ArtifactFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
   private static TreeArtifactValue createTreeArtifactValueFromActionKey(
-      ActionLookupKey actionLookupKey,
-      int actionIndex,
-      final Artifact treeArtifact,
-      Environment env)
-      throws InterruptedException {
+      ArtifactDependencies artifactDependencies, Environment env) throws InterruptedException {
+    ActionLookupKey actionLookupKey = artifactDependencies.getActionLookupKey();
+    int actionIndex = artifactDependencies.getActionIndex();
+    Artifact treeArtifact = artifactDependencies.getArtifact();
+
     // Request the list of expanded actions from the ActionTemplate.
     ActionTemplateExpansionValue.ActionTemplateExpansionKey templateKey =
         ActionTemplateExpansionValue.key(actionLookupKey, actionIndex);
@@ -350,8 +343,8 @@ class ArtifactFunction implements SkyFunction {
 
   static ActionLookupKey getActionLookupKey(Artifact artifact) {
     ArtifactOwner artifactOwner = artifact.getArtifactOwner();
-
-    Preconditions.checkState(artifactOwner instanceof ActionLookupKey, "", artifact, artifactOwner);
+    Preconditions.checkState(
+        artifactOwner instanceof ActionLookupKey, "%s %s", artifact, artifactOwner);
     return (ActionLookupKey) artifactOwner;
   }
 
@@ -388,6 +381,99 @@ class ArtifactFunction implements SkyFunction {
       return String.format("missing input file '%s'", artifact.getPath().getPathString());
     } else {
       return String.format("missing input file '%s'", artifact.getOwner());
+    }
+  }
+
+  /** Describes dependencies of derived artifacts. */
+  // TODO(mschaller): extend this to comprehensively support template actions and middleman
+  // artifacts.
+  static class ArtifactDependencies {
+
+    private final Artifact artifact;
+    private final ActionLookupKey actionLookupKey;
+    private final ActionLookupValue actionLookupValue;
+    private final int actionIndex;
+
+    private ArtifactDependencies(
+        Artifact artifact,
+        ActionLookupKey actionLookupKey,
+        ActionLookupValue actionLookupValue,
+        int actionIndex) {
+      this.artifact = artifact;
+      this.actionLookupKey = actionLookupKey;
+      this.actionLookupValue = actionLookupValue;
+      this.actionIndex = actionIndex;
+    }
+
+    /**
+     * Constructs an {@link ArtifactDependencies} for the provided {@code derivedArtifact}, which
+     * must not be a source artifact.
+     */
+    @Nullable
+    static ArtifactDependencies discoverDependencies(
+        Artifact derivedArtifact, SkyFunction.Environment env) throws InterruptedException {
+      Preconditions.checkArgument(
+          !derivedArtifact.isSourceArtifact(),
+          "derivedArtifact is not derived: %s",
+          derivedArtifact);
+
+      ActionLookupKey actionLookupKey = ArtifactFunction.getActionLookupKey(derivedArtifact);
+      ActionLookupValue actionLookupValue =
+          ArtifactFunction.getActionLookupValue(actionLookupKey, env, derivedArtifact);
+      if (actionLookupValue == null) {
+        return null;
+      }
+      Integer actionIndex = actionLookupValue.getGeneratingActionIndex(derivedArtifact);
+      if (derivedArtifact.hasParent() && actionIndex == null) {
+        // If a TreeFileArtifact is created by a templated action, then it should have the proper
+        // reference to its owner. However, if it was created as part of a directory, by the first
+        // TreeArtifact-generating action in a chain, then its parent's generating action also
+        // generated it. This catches that case.
+        actionIndex = actionLookupValue.getGeneratingActionIndex(derivedArtifact.getParent());
+      }
+      Preconditions.checkNotNull(
+          actionIndex, "%s %s %s", derivedArtifact, actionLookupKey, actionLookupValue);
+
+      return new ArtifactDependencies(
+          derivedArtifact, actionLookupKey, actionLookupValue, actionIndex);
+    }
+
+    Artifact getArtifact() {
+      return artifact;
+    }
+
+    ActionLookupKey getActionLookupKey() {
+      return actionLookupKey;
+    }
+
+    int getActionIndex() {
+      return actionIndex;
+    }
+
+    boolean isTemplateActionForTreeArtifact() {
+      return artifact.isTreeArtifact() && actionLookupValue.isActionTemplate(actionIndex);
+    }
+
+    ActionLookupData getNontemplateActionExecutionKey() {
+      Preconditions.checkState(
+          !actionLookupValue.isActionTemplate(actionIndex),
+          "Action is unexpectedly template: %s",
+          this);
+      return ActionExecutionValue.key(actionLookupKey, actionIndex);
+    }
+
+    Action getAction() {
+      return actionLookupValue.getAction(actionIndex);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("artifact", artifact)
+          .add("actionLookupKey", actionLookupKey)
+          .add("actionLookupValue", actionLookupValue)
+          .add("actionIndex", actionIndex)
+          .toString();
     }
   }
 }
