@@ -4,23 +4,26 @@ package(default_visibility = ["//visibility:private"])
 # The master copy of the completion logic are bazel-complete-template.bash
 # and bazel-complete-header.bash.
 # This is where you should make edits.
-genrule(
-    name = "bash_completion",
+[genrule(
+    name = "bash_completion" + suffix,
     srcs = ["bazel-complete-template.bash"],
-    outs = ["bazel-complete.bash"],
+    outs = ["bazel-complete.bash" + suffix],
     cmd = " ".join([
         "$(location :generate_bash_completion.sh)",
-        "--bazel=$(location //src:bazel)",
+        "--bazel=$(location //src:bazel" + suffix + ")",
         "--output=$@",
         "--prepend=$(location bazel-complete-template.bash)",
     ]),
     output_to_bindir = 1,
     tools = [
         ":generate_bash_completion.sh",
-        "//src:bazel",
+        "//src:bazel" + suffix,
     ],
     visibility = ["//scripts/packages:__subpackages__"],
-)
+) for suffix in [
+    "",
+    "_nojdk",
+]]
 
 sh_test(
     name = "bash_completion_test",
