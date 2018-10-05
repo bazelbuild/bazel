@@ -202,7 +202,7 @@ toolchain {
   compiler_flag: "/DNOMINMAX"
 
   # Platform defines.
-  compiler_flag: "/D_WIN32_WINNT=0x0600"
+  compiler_flag: "/D_WIN32_WINNT=0x0601"
   # Turn off warning messages.
   compiler_flag: "/D_CRT_SECURE_NO_DEPRECATE"
   compiler_flag: "/D_CRT_SECURE_NO_WARNINGS"
