@@ -175,10 +175,10 @@ http_archive(
 # Nothing special about this commit, though.
 http_archive(
     name = "com_google_googletest",
-    sha256 = "313a16fba8f0be8ee20ba9883e044556044cbd1ae6cea532473d163a843ef991",
-    strip_prefix = "googletest-dfa853b63d17c787914b663b50c2095a0c5b706e",
+    sha256 = "0fb00ff413f6b9b80ccee44a374ca7a18af7315aea72a43c62f2acd1ca74e9b5",
+    strip_prefix = "googletest-f13bbe2992d188e834339abe6f715b2b2f840a77",
     urls = [
-        "https://github.com/google/googletest/archive/dfa853b63d17c787914b663b50c2095a0c5b706e.tar.gz",
+        "https://github.com/google/googletest/archive/f13bbe2992d188e834339abe6f715b2b2f840a77.tar.gz",
     ],
 )
 
