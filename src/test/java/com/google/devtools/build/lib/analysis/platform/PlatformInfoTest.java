@@ -32,8 +32,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PlatformInfoTest extends BuildViewTestCase {
 
-  }
-
   @Test
   public void platformInfo_overlappingConstraintsError() throws Exception {
     ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
