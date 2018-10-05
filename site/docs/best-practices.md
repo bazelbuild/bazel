@@ -84,7 +84,7 @@ For project-specific options, use the configuration file `_your-workspace_/.baze
 If you want to support per-user options for your project that you **do not** want to check 
 into source control, include the line
 ```
-try-import uesr.bazelrc
+try-import user.bazelrc
 ```
 (or any other file name) in your `_your-workspace_/.bazelrc` and 
 add `user.bazelrc` to your `.gitignore`.  
