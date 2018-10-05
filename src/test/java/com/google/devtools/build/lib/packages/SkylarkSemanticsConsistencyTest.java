@@ -126,6 +126,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
         "--experimental_enable_repo_mapping=" + rand.nextBoolean(),
         "--experimental_remap_main_repo=" + rand.nextBoolean(),
+        "--experimental_platforms_api=" + rand.nextBoolean(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
@@ -168,6 +169,7 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalEnableAndroidMigrationApis(rand.nextBoolean())
         .experimentalEnableRepoMapping(rand.nextBoolean())
         .experimentalRemapMainRepo(rand.nextBoolean())
+        .experimentalPlatformsApi(rand.nextBoolean())
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())

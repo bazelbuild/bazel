@@ -70,6 +70,7 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
 
   @Test
   public void testGet_starlark() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_platforms_api=true");
     constraintBuilder("//foo:s1").addConstraintValue("value1").write();
     constraintBuilder("//foo:s2").addConstraintValue("value2").write();
     platformBuilder("//foo:my_platform").addConstraint("value1").addConstraint("value2").write();

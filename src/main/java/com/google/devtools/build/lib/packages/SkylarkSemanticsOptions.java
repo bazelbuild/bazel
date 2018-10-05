@@ -114,6 +114,16 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean experimentalRemapMainRepo;
 
   @Option(
+      name = "experimental_platforms_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If set to true, enables a number of platform-related Starlark APIs useful for "
+          + "debugging.")
+  public boolean experimentalPlatformsApi;
+
+  @Option(
     name = "incompatible_bzl_disallow_load_after_statement",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -499,6 +509,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
         .experimentalEnableRepoMapping(experimentalEnableRepoMapping)
         .experimentalRemapMainRepo(experimentalRemapMainRepo)
+        .experimentalPlatformsApi(experimentalPlatformsApi)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)

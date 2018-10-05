@@ -37,6 +37,7 @@ public abstract class SkylarkSemantics {
   public enum FlagIdentifier {
     EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS(
         SkylarkSemantics::experimentalAnalysisTestingImprovements),
+    EXPERIMENTAL_PLATFORM_API(SkylarkSemantics::experimentalPlatformsApi),
     INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
         SkylarkSemantics::incompatibleDisableObjcProviderResources),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(
@@ -100,6 +101,8 @@ public abstract class SkylarkSemantics {
   public abstract boolean experimentalEnableRepoMapping();
 
   public abstract boolean experimentalRemapMainRepo();
+
+  public abstract boolean experimentalPlatformsApi();
 
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
@@ -175,6 +178,7 @@ public abstract class SkylarkSemantics {
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalEnableRepoMapping(false)
           .experimentalRemapMainRepo(false)
+          .experimentalPlatformsApi(false)
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
@@ -218,6 +222,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder experimentalEnableRepoMapping(boolean value);
 
     public abstract Builder experimentalRemapMainRepo(boolean value);
+
+    public abstract Builder experimentalPlatformsApi(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 

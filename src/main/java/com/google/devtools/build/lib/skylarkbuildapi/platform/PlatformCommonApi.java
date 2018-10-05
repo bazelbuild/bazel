@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 
 /**
  * Module containing functions to interact with the platform APIs.
@@ -49,7 +50,8 @@ public interface PlatformCommonApi {
           "The provider constructor for PlatformInfo. The constructor takes the list of "
               + "ConstraintValueInfo providers that defines the platform. "
               + PlatformInfoApi.EXPERIMENTAL_WARNING,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   ProviderApi getPlatformInfoConstructor();
 
   @SkylarkCallable(
@@ -58,7 +60,8 @@ public interface PlatformCommonApi {
           "The provider constructor for ConstraintSettingInfo. The constructor takes the label "
               + "that uniquely identifies the constraint (and which should always be ctx.label). "
               + PlatformInfoApi.EXPERIMENTAL_WARNING,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   ProviderApi getConstraintSettingInfoConstructor();
 
   @SkylarkCallable(
@@ -68,6 +71,7 @@ public interface PlatformCommonApi {
               + "uniquely identifies the constraint value (and which should always be ctx.label), "
               + "and the ConstraintSettingInfo which the value belongs to. "
               + PlatformInfoApi.EXPERIMENTAL_WARNING,
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   ProviderApi getConstraintValueInfoConstructor();
 }

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 
 /** Info object representing data about a specific platform. */
@@ -38,7 +39,8 @@ public interface ConstraintCollectionApi<
   @SkylarkCallable(
       name = "constraint_settings",
       doc = "The ConstraintSettingInfo values that this collection directly references.",
-      structField = true)
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   SkylarkList<ConstraintSettingInfoT> constraintSettings();
 
   @SkylarkCallable(
@@ -53,7 +55,8 @@ public interface ConstraintCollectionApi<
             noneable = true,
             named = true,
             doc = "The constraint setting to fetch the value for.")
-      })
+      },
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   @Nullable
   ConstraintValueInfoT get(ConstraintSettingInfoT constraint);
 }

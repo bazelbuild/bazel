@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /** Provider for a platform, which is a group of constraints and values. */
 @Immutable
@@ -206,6 +207,22 @@ public class PlatformInfo extends NativeInfo
       }
       return ImmutableList.copyOf(constraints.values());
     }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof PlatformInfo)) {
+      return false;
+    }
+    PlatformInfo that = (PlatformInfo) o;
+    return Objects.equals(label, that.label)
+        && Objects.equals(constraints, that.constraints)
+        && Objects.equals(remoteExecutionProperties, that.remoteExecutionProperties);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(label, constraints, remoteExecutionProperties);
   }
 
   /**
