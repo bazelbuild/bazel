@@ -322,6 +322,9 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
       SearchNullaryOption(cmd_line->startup_args, "workspace_rc", true)) {
     const std::string workspaceRcFile =
         blaze_util::JoinPath(workspace, kRcBasename);
+    // Legacy behavior.
+    rc_files.push_back(
+        workspace_layout->GetWorkspaceRcPath(workspace, cmd_line->startup_args));
     rc_files.push_back(workspaceRcFile);
   }
 
@@ -415,6 +418,16 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
            "their contents or import their path into one of the standard rc "
            "files:\n"
         << joined_lost_rcs;
+  }
+
+  std::string legacy_workspace_file = workspace_layout->GetWorkspaceRcPath(workspace, cmd_line->startup_args);
+  if (old_files.find(legacy_workspace_file) != old_files.end()) {
+    BAZEL_LOG(WARNING)
+        << "Processed legacy workspace file "
+        << legacy_workspace_file
+        << ". This file will not be processed in the next release of Bazel. "
+        << " Please read https://github.com/bazelbuild/bazel/issues/6319 for further information, "
+        << " including how to upgrade.";
   }
 
   return blaze_exit_code::SUCCESS;
