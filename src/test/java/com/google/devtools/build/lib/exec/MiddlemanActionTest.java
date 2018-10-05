@@ -44,7 +44,9 @@ public class MiddlemanActionTest extends BuildViewTestCase {
 
   private AnalysisTestUtil.CollectingAnalysisEnvironment analysisEnvironment;
   private MiddlemanFactory middlemanFactory;
-  private Artifact a, b, middle;
+  private Artifact a;
+  private Artifact b;
+  private Artifact middle;
 
   @Before
   public final void initializeMiddleman() throws Exception  {
