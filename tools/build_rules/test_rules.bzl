@@ -267,54 +267,56 @@ rule_test = rule(
 
 def _file_test_impl(ctx):
     """check that a file has a given content."""
-    exe = ctx.outputs.executable
-    file_ = ctx.file.file
-    content = ctx.attr.content
-    regexp = ctx.attr.regexp
-    matches = ctx.attr.matches
-    if bool(content) == bool(regexp):
-        fail("Must specify one and only one of content or regexp")
-    if content and matches != -1:
-        fail("matches only makes sense with regexp")
-    if content:
-        dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
-        ctx.file_action(
-            output = dat,
-            content = content,
-        )
-        ctx.file_action(
-            output = exe,
-            content = "diff -u %s %s" % (dat.short_path, file_.short_path),
-            executable = True,
-        )
-        return struct(runfiles = ctx.runfiles([exe, dat, file_]))
-    if matches != -1:
-        script = "[ %s == $(grep -c %s %s) ]" % (
-            matches,
-            repr(regexp),
-            file_.short_path,
-        )
+    if ctx.attr.is_windows:
+        exe = ctx.actions.declare_file(ctx.label.name + ".bat")
+        command = "echo '@echo passed' > $1"
     else:
-        script = "grep %s %s" % (repr(regexp), file_.short_path)
-    ctx.file_action(
-        output = exe,
-        content = script,
-        executable = True,
+        exe = ctx.actions.declare_file(ctx.label.name + ".bash")
+        command = "echo -e '#!/bin/sh\necho passed' > $1"
+    ctx.actions.run_shell(
+        # The actual test is whether `src` can be successfully generated.
+        # If it can, this action creates a trivial script that works on the
+        # target platform and does nothing, successfully.
+        inputs = [ctx.file.src],
+        outputs = [exe],
+        command = command,
+        arguments = [exe.path],
     )
-    return struct(runfiles = ctx.runfiles([exe, file_]))
+    return [DefaultInfo(executable = exe)]
 
-file_test = rule(
+_file_test = rule(
     attrs = {
-        "file": attr.label(
+        "src": attr.label(
             mandatory = True,
             allow_files = True,
             single_file = True,
         ),
-        "content": attr.string(default = ""),
-        "regexp": attr.string(default = ""),
-        "matches": attr.int(default = -1),
+        "is_windows": attr.bool(mandatory = True),
     },
     executable = True,
     test = True,
     implementation = _file_test_impl,
 )
+
+def file_test(name, file, content = None, regexp = None, matches = None, **kwargs):
+    _file_test(
+        name = name,
+        src = name + ".gen",
+        is_windows = select({
+            "@bazel_tools//src/conditions:windows": True,
+            "//conditions:default": False,
+        }),
+    )
+
+    native.genrule(
+        name = name + "-gen",
+        srcs = [file],
+        outs = [name + ".gen"],
+        cmd = "$(location @bazel_tools//tools/build_rules:filetest) $@ $< %s %s %s" % (
+            repr(content) if content else "\"\"",
+            repr(regexp) if regexp else "\"\"",
+            matches if matches != None else "\"\"",
+        ),
+        tools = ["@bazel_tools//tools/build_rules:filetest"],
+        visibility = ["//visibility:private"],
+    )

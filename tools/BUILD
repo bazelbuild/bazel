@@ -74,6 +74,7 @@ test_suite(
         "//tools/android:all_windows_tests",
         "//tools/bash:all_windows_tests",
         "//tools/build_defs:all_windows_tests",
+        "//tools/build_rules:all_windows_tests",
         "//tools/cpp/runfiles:all_windows_tests",
         "//tools/java:all_windows_tests",
         "//tools/jdk:all_windows_tests",

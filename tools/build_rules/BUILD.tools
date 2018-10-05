@@ -1,0 +1,5 @@
+sh_binary(
+    name = "filetest",
+    srcs = ["filetest.sh"],
+    visibility = ["//visibility:public"],
+)
