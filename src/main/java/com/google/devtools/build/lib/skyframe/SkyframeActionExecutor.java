@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.LostInputsExecException.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MetadataConsumer;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -425,6 +426,10 @@ public final class SkyframeActionExecutor {
 
   boolean probeActionExecution(Action action) {
     return buildActionMap.containsKey(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+  }
+
+  void resetActionExecution(Action action) {
+    buildActionMap.remove(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
   private boolean actionReallyExecuted(Action action, ActionLookupData actionLookupData) {
@@ -1007,6 +1012,10 @@ public final class SkyframeActionExecutor {
         return true;
       }
       // Defer reporting action success until outputs are checked
+    } catch (LostInputsActionExecutionException e) {
+      // If inputs are lost, then avoid publishing ActionExecutedEvents. A higher-level handler may
+      // try to fix things.
+      throw e;
     } catch (ActionExecutionException e) {
       throw processAndThrow(
           eventHandler,

@@ -15,30 +15,33 @@
 package com.google.devtools.build.lib.actions;
 
 /**
- * An exception indication that the execution of an action has failed OR could
- * not be attempted OR could not be finished OR had something else wrong.
+ * An exception indication that the execution of an action has failed OR could not be attempted OR
+ * could not be finished OR had something else wrong.
  *
- * <p>The four main kinds of failure are broadly defined as follows:
+ * <p>The five main kinds of failure are broadly defined as follows:
  *
- * <p>USER_INPUT which means it had something to do with what the user told us
- * to do.  This failure should satisfy the invariant that it would happen
- * identically again if all other things are equal.
+ * <p>USER_INPUT which means it had something to do with what the user told us to do. This failure
+ * should satisfy the invariant that it would happen identically again if all other things are
+ * equal.
  *
- * <p>ENVIRONMENT which is loosely defined as anything which is generally out of
- * scope for a blaze evaluation. As a rule of thumb, these are any errors would
- * not necessarily happen again given constant input.
+ * <p>ENVIRONMENT which is loosely defined as anything which is generally out of scope for a blaze
+ * evaluation. As a rule of thumb, these are any errors would not necessarily happen again given
+ * constant input.
  *
- * <p>INTERRUPTION conditions arise from being unable to complete an evaluation
- * for whatever reason.
+ * <p>INTERRUPTION conditions arise from being unable to complete an evaluation for whatever reason.
  *
- * <p>INTERNAL_ERROR would happen because of anything which arises from within
- * blaze itself but is generally unexpected to ever occur for any user input.
+ * <p>INTERNAL_ERROR would happen because of anything which arises from within blaze itself but is
+ * generally unexpected to ever occur for any user input.
  *
- * <p>The class is a catch-all for both failures of actions and failures to
- * evaluate actions properly.
+ * <p>LOST_INPUT which means the failure occurred because the action expected to consume some input
+ * that went missing. Although this seems similar to ENVIRONMENT, Blaze may know how to fix this
+ * problem.
  *
- * <p>Invariably, all low level ExecExceptions are caught by various specific
- * ConfigurationAction classes and re-raised as ActionExecutionExceptions.
+ * <p>The class is a catch-all for both failures of actions and failures to evaluate actions
+ * properly.
+ *
+ * <p>Invariably, all low level ExecExceptions are caught by various specific ConfigurationAction
+ * classes and re-raised as ActionExecutionExceptions.
  */
 public abstract class ExecException extends Exception {
 
@@ -52,7 +55,7 @@ public abstract class ExecException extends Exception {
   public ExecException(String message) {
     this(message, false);
   }
-  
+
   public ExecException(Throwable cause) {
     super(cause);
     this.catastrophe = false;
@@ -67,21 +70,20 @@ public abstract class ExecException extends Exception {
     this(message, cause, false);
   }
 
-  /**
-   * Catastrophic exceptions should stop the build, even if --keep_going.
-   */
+  /** Catastrophic exceptions should stop the build, even if --keep_going. */
   public boolean isCatastrophic() {
     return catastrophe;
   }
 
   /**
    * Returns a new ActionExecutionException without a message prefix.
+   *
    * @param action failed action
    * @return ActionExecutionException object describing the action failure
    */
   public ActionExecutionException toActionExecutionException(Action action) {
     // In all ExecException implementations verboseFailures argument used only to determine should
-    // we pass ExecException as cause of ActionExecutionException. So use this method only 
+    // we pass ExecException as cause of ActionExecutionException. So use this method only
     // if you need this information inside of ActionExecutionexception.
     return toActionExecutionException("", true, action);
   }
@@ -96,6 +98,6 @@ public abstract class ExecException extends Exception {
    * @param action failed action
    * @return ActionExecutionException object describing the action failure
    */
-  public abstract ActionExecutionException toActionExecutionException(String messagePrefix,
-        boolean verboseFailures, Action action);
+  public abstract ActionExecutionException toActionExecutionException(
+      String messagePrefix, boolean verboseFailures, Action action);
 }

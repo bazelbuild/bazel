@@ -105,7 +105,8 @@ class ParallelEvaluatorContext {
   }
 
   Map<SkyKey, ? extends NodeEntry> getBatchValues(
-      @Nullable SkyKey parent, Reason reason, Iterable<SkyKey> keys) throws InterruptedException {
+      @Nullable SkyKey parent, Reason reason, Iterable<? extends SkyKey> keys)
+      throws InterruptedException {
     return graph.getBatch(parent, reason, keys);
   }
 

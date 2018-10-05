@@ -94,11 +94,11 @@ public interface SkyFunction {
       return selfAnd(ImmutableList.copyOf(additionalKeysToRestart));
     }
 
-    static Restart selfAnd(ImmutableList<SkyKey> additionalKeysToRestart) {
+    static Restart selfAnd(ImmutableList<? extends SkyKey> additionalKeysToRestart) {
       return () -> additionalKeysToRestart;
     }
 
-    ImmutableList<SkyKey> getAdditionalKeysToRestart();
+    ImmutableList<? extends SkyKey> getAdditionalKeysToRestart();
   }
 
   /**

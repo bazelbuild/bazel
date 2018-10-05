@@ -245,7 +245,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         evaluatorContext
             .getGraphInconsistencyReceiver()
             .noteInconsistencyAndMaybeThrow(
-                skyKey, entry.getKey(), Inconsistency.CHILD_UNDONE_FOR_BUILDING_NODE);
+                skyKey, entry.getKey(), Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
         throw new UndonePreviouslyRequestedDep(entry.getKey());
       }
       depValuesBuilder.put(entry.getKey(), !depDone ? NULL_MARKER : valueMaybeWithMetadata);

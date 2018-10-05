@@ -366,7 +366,7 @@ class ArtifactFunction implements SkyFunction {
     return value;
   }
 
-  private static final class ArtifactFunctionException extends SkyFunctionException {
+  static final class ArtifactFunctionException extends SkyFunctionException {
     ArtifactFunctionException(MissingInputFileException e, Transience transience) {
       super(e, transience);
     }
@@ -407,7 +407,7 @@ class ArtifactFunction implements SkyFunction {
 
     /**
      * Constructs an {@link ArtifactDependencies} for the provided {@code derivedArtifact}, which
-     * must not be a source artifact.
+     * must not be a source artifact. Returns {@code null} if any dependencies are not yet ready.
      */
     @Nullable
     static ArtifactDependencies discoverDependencies(

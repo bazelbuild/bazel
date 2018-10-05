@@ -573,7 +573,7 @@ public abstract class AbstractParallelEvaluator {
               evaluatorContext
                   .getGraphInconsistencyReceiver()
                   .noteInconsistencyAndMaybeThrow(
-                      skyKey, childErrorKey, Inconsistency.CHILD_UNDONE_FOR_BUILDING_NODE);
+                      skyKey, childErrorKey, Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
             }
           }
           SkyValue childErrorInfoMaybe =
@@ -710,9 +710,7 @@ public abstract class AbstractParallelEvaluator {
       evaluatorContext
           .getGraphInconsistencyReceiver()
           .noteInconsistencyAndMaybeThrow(
-              restartEntry.getKey(),
-              /*otherKey=*/ key,
-              Inconsistency.CHILD_FORCED_REEVALUATION_BY_PARENT);
+              key, restartEntry.getKey(), Inconsistency.PARENT_FORCE_REBUILD_OF_CHILD);
       // Nodes are marked "force-rebuild" to ensure that they run, and to allow them to evaluate to
       // a different value than before, even if their versions remain the same.
       restartEntry.getValue().markDirty(DirtyType.FORCE_REBUILD);
@@ -848,7 +846,7 @@ public abstract class AbstractParallelEvaluator {
     evaluatorContext
         .getGraphInconsistencyReceiver()
         .noteInconsistencyAndMaybeThrow(
-            skyKey, depKey, Inconsistency.CHILD_UNDONE_FOR_BUILDING_NODE);
+            skyKey, depKey, Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
     if (triState == DependencyState.NEEDS_SCHEDULING) {
       // Top priority since this depKey was already evaluated before, and we want to finish it off
       // again, reducing the chance that another node may observe this dep to be undone.

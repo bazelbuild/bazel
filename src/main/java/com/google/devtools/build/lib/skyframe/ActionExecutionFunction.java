@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.LostInputsExecException.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MissingDepException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
+import com.google.devtools.build.lib.skyframe.ActionRewindStrategy.RewindPlan;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -85,6 +87,7 @@ import javax.annotation.Nullable;
  * </ol>
  */
 public class ActionExecutionFunction implements SkyFunction, CompletionReceiver {
+  private final ActionRewindStrategy actionRewindStrategy = new ActionRewindStrategy();
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final BlazeDirectories directories;
   private final AtomicReference<TimestampGranularityMonitor> tsgm;
@@ -104,10 +107,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionExecutionFunctionException, InterruptedException {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
-    ActionLookupValue actionLookupValue =
-        (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
-    int actionIndex = actionLookupData.getActionIndex();
-    Action action = actionLookupValue.getAction(actionIndex);
+    Action action = getActionForLookupData(env, actionLookupData);
     skyframeActionExecutor.noteActionEvaluationStarted(actionLookupData, action);
     if ((action.isVolatile() && !(action instanceof SkyframeAwareAction))
         || action instanceof NotifyOnActionCacheHit) {
@@ -157,18 +157,16 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Preconditions.checkState(!env.valuesMissing(), "%s %s", action, state);
     }
     CheckInputResults checkedInputs = null;
+    Iterable<SkyKey> inputDepKeys =
+        toKeys(
+            state.allInputs.getAllInputs(),
+            action.discoversInputs() ? action.getMandatoryInputs() : null);
+    // Declare deps on known inputs to action. We do this unconditionally to maintain our
+    // invariant of asking for the same deps each build.
+    Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps =
+        env.getValuesOrThrow(
+            inputDepKeys, MissingInputFileException.class, ActionExecutionException.class);
     try {
-      // Declare deps on known inputs to action. We do this unconditionally to maintain our
-      // invariant of asking for the same deps each build.
-      Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>>
-          inputDeps =
-              env.getValuesOrThrow(
-                  toKeys(
-                      state.allInputs.getAllInputs(),
-                      action.discoversInputs() ? action.getMandatoryInputs() : null),
-                  MissingInputFileException.class,
-                  ActionExecutionException.class);
-
       if (!sharedActionAlreadyRan && !state.hasArtifactData()) {
         // Do we actually need to find our metadata?
         checkedInputs = checkInputs(env, action, inputDeps);
@@ -216,6 +214,14 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           checkCacheAndExecuteIfNeeded(
               action, state, env, clientEnv, actionLookupData, sharedActionAlreadyRan,
               skyframeDepsResult);
+    } catch (LostInputsActionExecutionException e) {
+      // Remove action from state map in case it's there (won't be unless it discovers inputs).
+      stateMap.remove(action);
+      RewindPlan rewindPlan = actionRewindStrategy.getRewindPlan(action, inputDepKeys, e, env);
+      for (Action actionToReset : rewindPlan.getActionsToReset()) {
+        skyframeActionExecutor.resetActionExecution(actionToReset);
+      }
+      return rewindPlan.getNodesToRestart();
     } catch (ActionExecutionException e) {
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
       stateMap.remove(action);
@@ -237,6 +243,18 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
     return result;
+  }
+
+  static Action getActionForLookupData(Environment env, ActionLookupData actionLookupData)
+      throws InterruptedException {
+    // Because of the phase boundary separating analysis and execution, all needed
+    // ActionLookupValues must have already been evaluated.
+    ActionLookupValue actionLookupValue =
+        Preconditions.checkNotNull(
+            (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey()),
+            "ActionLookupValue missing: %s",
+            actionLookupData);
+    return actionLookupValue.getAction(actionLookupData.getActionIndex());
   }
 
   /**
@@ -877,11 +895,11 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
    * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
    * ActionExecutionFunction#compute}.
    */
-  private static final class ActionExecutionFunctionException extends SkyFunctionException {
+  static final class ActionExecutionFunctionException extends SkyFunctionException {
 
     private final ActionExecutionException actionException;
 
-    public ActionExecutionFunctionException(ActionExecutionException e) {
+    ActionExecutionFunctionException(ActionExecutionException e) {
       // We conservatively assume that the error is transient. We don't have enough information to
       // distinguish non-transient errors (e.g. compilation error from a deterministic compiler)
       // from transient ones (e.g. IO error).
