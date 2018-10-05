@@ -267,8 +267,33 @@ mkdir -p ${ARCHIVE_DIR}/_embedded_binaries
 # Dummy build-runfiles
 cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
 #!/bin/sh
-mkdir -p $2
-cp $1 $2/MANIFEST
+# This is bash implementation of build-runfiles: reads space-separated paths
+# from each line in the file in $1, then creates a symlink under $2 for the
+# first element of the pair that points to the second element of the pair.
+#
+# bash is a terrible tool for this job, but in this case, that's the only one
+# we have (we could hand-compile a little .jar file like we hand-compile the
+# bootstrap version of Bazel, but we'd still need a shell wrapper around it, so
+# it's not clear whether that would be a win over a few lines of Lovecraftian
+# code)
+MANIFEST="$1"
+TREE="$2"
+
+rm -fr "$TREE"
+mkdir -p "$TREE"
+
+# Read the lines in $MANIFEST. the usual "for VAR in $(cat FILE)" idiom won't do
+# because the lines in FILE contain spaces.
+while read LINE; do
+  # Split each line into two parts on the first space
+  SYMLINK_PATH="${LINE%% *}"
+  TARGET_PATH="${LINE#* }"
+  ABSOLUTE_SYMLINK_PATH="$TREE/$SYMLINK_PATH"
+  mkdir -p "$(dirname $ABSOLUTE_SYMLINK_PATH)"
+  ln -s "$TARGET_PATH" "$ABSOLUTE_SYMLINK_PATH"
+done < "$MANIFEST"
+
+cp "$MANIFEST" "$TREE/MANIFEST"
 EOF
 chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
 
