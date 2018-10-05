@@ -73,6 +73,14 @@ public final class Spawns {
   }
 
   /**
+   * Returns whether a Spawn claims to support being executed with the persistent multiplex worker strategy
+   * according to its execution info tags.
+   */
+  public static boolean supportsMultiplexWorkers(Spawn spawn) {
+    return "1".equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS));
+  }
+
+  /**
    * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return -1.
    */
   public static Duration getTimeout(Spawn spawn) throws ExecException {

@@ -41,10 +41,22 @@ import java.util.SortedMap;
  * class.
  */
 class Worker {
-  private final WorkerKey workerKey;
-  private final int workerId;
-  private final Path workDir;
-  private final Path logFile;
+  /**
+   * An unique identifier of the work process.
+   */
+  protected final WorkerKey workerKey;
+  /**
+   * An unique ID of the worker. It will be used in WorkRequest and WorkResponse as well.
+   */
+  protected final int workerId;
+  /**
+   * The execution root of the worker.
+   */
+  protected final Path workDir;
+  /**
+   * The path of the log file.
+   */
+  protected final Path logFile;
 
   private Subprocess process;
   private Thread shutdownHook;

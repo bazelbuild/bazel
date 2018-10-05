@@ -42,13 +42,14 @@ public class WorkerFactoryTest {
     WorkerFactory workerFactory = new WorkerFactory(new WorkerOptions(), workerBaseDir);
     WorkerKey workerKey =
         new WorkerKey(
-            ImmutableList.of(),
-            ImmutableMap.of(),
-            fs.getPath("/outputbase/execroot/workspace"),
-            "dummy",
-            HashCode.fromInt(0),
-            ImmutableSortedMap.of(),
-            true);
+            /* args= */ ImmutableList.of(),
+            /* env= */ ImmutableMap.of(),
+            /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+            /* mnemonic= */ "dummy",
+            /* workerFilesCombinedHash= */ HashCode.fromInt(0),
+            /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
+            /* mustBeSandboxed= */ true,
+            /* proxied= */ false);
     Path sandboxedWorkerPath = workerFactory.getSandboxedWorkerPath(workerKey, 1);
 
     assertThat(sandboxedWorkerPath.getBaseName()).isEqualTo("workspace");
