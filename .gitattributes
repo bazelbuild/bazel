@@ -1,3 +1,6 @@
 *.bzl linguist-language=Python
 BUILD linguist-language=Python
 site/* linguist-documentation
+
+# Files that should not use CRLF line endings, even on Windows.
+tools/genrule/genrule-setup.sh -text
