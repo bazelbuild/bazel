@@ -56,9 +56,4 @@ public class PlatformProviderUtils {
   public static ToolchainInfo toolchain(ProviderCollection target) {
     return target.get(ToolchainInfo.PROVIDER);
   }
-
-  /** Retrieves and casts the {@link ToolchainTypeInfo} provider from the given target. */
-  public static ToolchainTypeInfo toolchainType(ProviderCollection target) {
-    return target.get(ToolchainTypeInfo.PROVIDER);
-  }
 }

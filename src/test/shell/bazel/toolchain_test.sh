@@ -67,8 +67,7 @@ ${toolchain_name} = rule(
 EOF
 
   cat >> toolchain/BUILD <<EOF
-toolchain_type(name = '${toolchain_name}',
-    visibility = ['//visibility:public'])
+toolchain_type(name = '${toolchain_name}')
 EOF
 }
 
@@ -1002,10 +1001,7 @@ EOF
 function test_make_variables_custom_rule() {
   # Create a toolchain rule that also exposes make variables.
   mkdir -p toolchain
-  cat >> toolchain/BUILD <<EOF
-toolchain_type(name = 'toolchain_var',
-    visibility = ['//visibility:public'])
-EOF
+  touch toolchain/BUILD
   cat >> toolchain/toolchain_var.bzl <<EOF
 def _impl(ctx):
   toolchain = platform_common.ToolchainInfo()
