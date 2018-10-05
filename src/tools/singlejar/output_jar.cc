@@ -200,15 +200,17 @@ int OutputJar::Doit(Options *options) {
       diag_errx(1, "%s:%d: Bad resource description %s", __FILE__, __LINE__,
                 rdesc.c_str());
     }
-    bool shouldNotSplit = colon == std::string::npos;
+    bool shouldSplit = colon != std::string::npos;
 #ifdef _WIN32
     // If colon points to volume separator, don't split.
-    shouldNotSplit |= colon == 1 && blaze_util::IsAbsolute(rdesc);
+    if (colon == 1 && blaze_util::IsAbsolute(rdesc)) {
+      shouldSplit = false;
+    }
 #endif
-    if (shouldNotSplit) {
-      ClasspathResource(rdesc, rdesc);
-    } else {
+    if (shouldSplit) {
       ClasspathResource(rdesc.substr(colon + 1), rdesc.substr(0, colon));
+    } else {
+      ClasspathResource(rdesc, rdesc);
     }
   }
 
