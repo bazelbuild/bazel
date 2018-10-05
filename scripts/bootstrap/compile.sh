@@ -264,8 +264,16 @@ log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
 mkdir -p ${ARCHIVE_DIR}/_embedded_binaries
 
-# Dummy build-runfiles
-cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
+# Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
+if [ "${PLATFORM}" = "windows" ]; then
+  # We don't rely on runfiles trees on Windows
+  cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
+#!/bin/sh
+mkdir -p $2
+cp $1 $2/MANIFEST
+EOF
+else
+  cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
 #!/bin/sh
 # This is bash implementation of build-runfiles: reads space-separated paths
 # from each line in the file in $1, then creates a symlink under $2 for the
@@ -295,6 +303,8 @@ done < "$MANIFEST"
 
 cp "$MANIFEST" "$TREE/MANIFEST"
 EOF
+fi
+
 chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
 
 function build_jni() {
