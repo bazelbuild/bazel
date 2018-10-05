@@ -1,5 +1,4 @@
 workspace(name = "io_bazel")
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # Protobuf expects an //external:python_headers label which would contain the
 # Python headers if fast Python protos is enabled. Since we are not using fast

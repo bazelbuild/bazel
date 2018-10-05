@@ -58,7 +58,6 @@ function set_up() {
   fi
 
   cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(name="remote", urls=["${FILE_URL}"])
 EOF
   cat > pkg/BUILD <<'EOF'

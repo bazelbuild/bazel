@@ -409,7 +409,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
 
   @Option(
       name = "incompatible_remove_native_git_repository",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -418,12 +418,13 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       },
       help =
           "If set to true, the native git_repository rules are disabled; only the skylark version "
-              + "will be available")
+              + "will be available"
+  )
   public boolean incompatibleRemoveNativeGitRepository;
 
   @Option(
       name = "incompatible_remove_native_http_archive",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -432,7 +433,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       },
       help =
           "If set to true, the native http_archive rules are disabled; only the skylark version "
-              + "will be available")
+              + "will be available"
+  )
   public boolean incompatibleRemoveNativeHttpArchive;
 
   @Option(
