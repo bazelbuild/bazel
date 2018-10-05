@@ -10,7 +10,6 @@ filegroup(
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/bazel:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:srcs",
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/buildjar:srcs",
-        "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/bazel:srcs",
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine:srcs",
     ],
     visibility = ["//:__subpackages__"],
@@ -60,14 +59,6 @@ filegroup(
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:bootstrap_genclass_deploy.jar"],
     tags = ["manual"],
     visibility = ["//visibility:public"],
-)
-
-java_library(
-    name = "BazelJavaCompiler",
-    visibility = ["//visibility:public"],
-    exports = [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/bazel:BazelJavaCompiler",
-    ],
 )
 
 # This toolchain is used to bootstrap Bazel.
