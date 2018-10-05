@@ -15,10 +15,10 @@ title: Configurable Build Attributes
 * [Multiple Selects](#multiple-selects)
 * [OR Chaining](#or-chaining)
 * [Custom Error Messages](#custom-error-messages)
-* [Starlark Compatibility](#starlark)
+* [Rules Compatibility](#rules)
 * [Bazel Query and Cquery](#query)
 * [FAQ](#faq)
-  * [Why doesn't select() work in macros](#starlark-macros-select)
+  * [Why doesn't select() work in macros](#macros-select)
   * [Why does select() always return true?](#boolean-select)
   * [Can I read select() like a dict?](#inspectable-select)
 
@@ -561,9 +561,7 @@ ERROR: Configurable attribute "deps" doesn't match this configuration: Please
 build with an Android or Windows toolchain
 ```
 
-## <a name="starlark"></a>Starlark Compatibility
-Starlark is compatible with configurable attributes in limited form.
-
+## <a name="rules"></a>Rules Compatibility
 Rule implementations receive the *resolved values* of configurable
 attributes. For example, given:
 
@@ -662,7 +660,7 @@ $ bazel cquery 'deps(//myproject:my_lib)' --define dog=pug
 ## FAQ
 
 ## <a name="macros-select"></a>Why doesn't select() work in macros?
-select() *does* work in rules! See [Starlark compatibility](#starlark) for
+select() *does* work in rules! See [Rules compatibility](#rules) for
 details.
 
 The key issue this question usually means is that select() doesn't work in
