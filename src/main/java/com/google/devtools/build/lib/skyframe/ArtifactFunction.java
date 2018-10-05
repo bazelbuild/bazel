@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -48,15 +47,16 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A builder of values for {@link ArtifactSkyKey} keys. */
 class ArtifactFunction implements SkyFunction {
 
-  private final Supplier<Boolean> usesActionFS;
+  private final Supplier<Boolean> mkdirForTreeArtifacts;
 
-  public ArtifactFunction(Supplier<Boolean> usesActionFS) {
-    this.usesActionFS = usesActionFS;
+  public ArtifactFunction(Supplier<Boolean> mkdirForTreeArtifacts) {
+    this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
   }
   
   @Override
@@ -95,7 +95,7 @@ class ArtifactFunction implements SkyFunction {
     // actions, execute those actions in parallel and then aggregate the action execution results.
     if (artifact.isTreeArtifact() && actionLookupValue.isActionTemplate(actionIndex)) {
       // Create the directory structures for the output TreeArtifact first.
-      if (!usesActionFS.get()) {
+      if (mkdirForTreeArtifacts.get()) {
         try {
           artifact.getPath().createDirectoryAndParents();
         } catch (IOException e) {

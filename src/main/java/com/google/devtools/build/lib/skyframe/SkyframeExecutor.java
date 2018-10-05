@@ -539,7 +539,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.ASPECT_COMPLETION,
         CompletionFunction.aspectCompletionFunction(pathResolverFactory));
     map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
-    map.put(Artifact.ARTIFACT, new ArtifactFunction(skyframeActionExecutor::usesActionFileSystem));
+    map.put(
+        Artifact.ARTIFACT,
+        new ArtifactFunction(() -> !skyframeActionExecutor.usesActionFileSystem()));
     map.put(
         SkyFunctions.BUILD_INFO_COLLECTION,
         new BuildInfoCollectionFunction(
