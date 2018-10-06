@@ -166,7 +166,7 @@ public abstract class AbstractParallelEvaluator {
               : childEntry.addReverseDepAndCheckIfDone(skyKey);
       switch (dependencyState) {
         case DONE:
-          if (entry.signalDep(childEntry.getVersion())) {
+          if (entry.signalDep(childEntry.getVersion(), child)) {
             // This can only happen if there are no more children to be added.
             // Maximum priority, since this node has already started evaluation before, and we want
             // it off our plate.
@@ -281,7 +281,7 @@ public abstract class AbstractParallelEvaluator {
         for (int i = 0; i < directDepsToCheck.size() - unknownStatusDeps.size(); i++) {
           // Since all of these nodes were done at an earlier version than this one, we may safely
           // signal with the minimal version, since they cannot trigger a re-evaluation.
-          needsScheduling = state.signalDep(MinimalVersion.INSTANCE);
+          needsScheduling = state.signalDep(MinimalVersion.INSTANCE, /*childForDebugging=*/ null);
         }
         if (needsScheduling) {
           Preconditions.checkState(

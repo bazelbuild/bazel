@@ -127,7 +127,7 @@ class ParallelEvaluatorContext {
       case ENQUEUE:
         for (SkyKey key : keys) {
           NodeEntry entry = Preconditions.checkNotNull(batch.get(key), key);
-          if (entry.signalDep(version)) {
+          if (entry.signalDep(version, skyKey)) {
             getVisitor().enqueueEvaluation(key, Integer.MAX_VALUE);
           }
         }
@@ -137,7 +137,7 @@ class ParallelEvaluatorContext {
           NodeEntry entry = Preconditions.checkNotNull(batch.get(key), key);
           if (!entry.isDone()) {
             // In cycles, we can have parents that are already done.
-            entry.signalDep(version);
+            entry.signalDep(version, skyKey);
           }
         }
         return;
