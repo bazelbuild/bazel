@@ -759,15 +759,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     // Note that if this update didn't actually change the entry, this version may not be
     // evaluationVersion.
     Version currentVersion = primaryEntry.getVersion();
-    Preconditions.checkState(
-        currentVersion.atMost(evaluationVersion),
-        "%s should be at most %s in the version partial ordering (graph version %s), (node %s %s)",
-        currentVersion,
-        evaluationVersion,
-        evaluatorContext.getGraphVersion(),
-        skyKey,
-        primaryEntry);
-
     // Tell the receiver that this value was built. If currentVersion.equals(evaluationVersion), it
     // was evaluated this run, and so was changed. Otherwise, it is less than evaluationVersion, by
     // the Preconditions check above, and was not actually changed this run -- when it was written
