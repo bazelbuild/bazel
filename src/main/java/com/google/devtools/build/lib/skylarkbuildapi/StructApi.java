@@ -29,8 +29,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
     name = "struct",
     category = SkylarkModuleCategory.BUILTIN,
     doc =
-        "A generic object with fields. See the global <a href=\"globals.html#struct\"><code>struct"
-            + "</code></a> function for more details."
+        "A generic object with fields."
             + "<p>Structs fields cannot be reassigned once the struct is created. Two structs are "
             + "equal if they have the same fields and if corresponding field values are equal.")
 public interface StructApi extends SkylarkValue {

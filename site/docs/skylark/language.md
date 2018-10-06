@@ -152,7 +152,7 @@ The following Python features are not supported:
 
 *   implicit string concatenation (use explicit `+` operator)
 *   Chained comparisons (e.g. `1 < x < 5`)
-*   `class` (see [`struct`](lib/globals.html#struct) function)
+*   `class` (see [`struct`](lib/struct.html#struct) function)
 *   `import` (see [`load`](concepts.md#loading-an-extension) statement)
 *   `while`, `yield`
 *   float and set types
