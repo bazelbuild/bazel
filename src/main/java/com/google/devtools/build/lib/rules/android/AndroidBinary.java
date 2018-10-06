@@ -270,7 +270,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             AndroidCommon.getAndroidConfig(ruleContext).checkDesugarDeps(),
             derivedJarFunction);
 
-    if (isInstrumentation(ruleContext)) {
+    boolean isBinaryJarFiltered = isInstrumentation(ruleContext);
+    if (isBinaryJarFiltered) {
       deployJar = getFilteredDeployJar(ruleContext, deployJar);
     }
 
@@ -312,7 +313,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         filesBuilder,
         deployJar,
         derivedJarFunction,
-        /* isBinaryJarFiltered */ false,
+        isBinaryJarFiltered,
         androidCommon,
         javaSemantics,
         androidSemantics,
