@@ -806,7 +806,7 @@ java_library(
 )
 EOF
   bazel build --java_header_compilation=true \
-    //$pkg/java/test:a >& "$TEST_log" && fail "Unexpected success"
+    //$pkg/java/test:liba.jar >& "$TEST_log" && fail "Unexpected success"
   expect_log "symbol not found missing.NoSuch\|package missing does not exist"
 }
 
