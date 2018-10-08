@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
-import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
@@ -62,7 +61,6 @@ import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -251,47 +249,6 @@ public class PackageFunction implements SkyFunction {
           + skyframeException.getMessage() + "' but didn't encounter it when doing the same thing "
           + "earlier in the build");
     }
-  }
-
-  /**
-   * Marks the given dependencies, and returns those already present. Ignores any exception thrown
-   * while building the dependency, except for filesystem inconsistencies.
-   *
-   * <p>We need to mark dependencies implicitly used by the legacy package loading code, but we
-   * don't care about any skyframe errors since the package knows whether it's in error or not.
-   */
-  private static Pair<? extends Map<PathFragment, PackageLookupValue>, Boolean>
-      getPackageLookupDepsAndPropagateInconsistentFilesystemExceptions(
-          PackageIdentifier packageIdentifier,
-          Iterable<SkyKey> depKeys,
-          Environment env,
-          boolean packageWasInError)
-          throws InternalInconsistentFilesystemException, InterruptedException {
-    Preconditions.checkState(
-        Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE_LOOKUP)), depKeys);
-    boolean packageShouldBeInError = packageWasInError;
-    ImmutableMap.Builder<PathFragment, PackageLookupValue> builder = ImmutableMap.builder();
-    for (Map.Entry<SkyKey, ValueOrException3<BuildFileNotFoundException,
-        InconsistentFilesystemException, FileSymlinkException>> entry :
-            env.getValuesOrThrow(depKeys, BuildFileNotFoundException.class,
-                InconsistentFilesystemException.class,
-                FileSymlinkException.class).entrySet()) {
-      PathFragment pkgName = ((PackageIdentifier) entry.getKey().argument()).getPackageFragment();
-      try {
-        PackageLookupValue value = (PackageLookupValue) entry.getValue().get();
-        if (value != null) {
-          builder.put(pkgName, value);
-        }
-      } catch (BuildFileNotFoundException e) {
-        maybeThrowFilesystemInconsistency(packageIdentifier, e, packageWasInError);
-      } catch (InconsistentFilesystemException e) {
-        throw new InternalInconsistentFilesystemException(packageIdentifier, e);
-      } catch (FileSymlinkException e) {
-        // Legacy doesn't detect symlink cycles.
-        packageShouldBeInError = true;
-      }
-    }
-    return Pair.of(builder.build(), packageShouldBeInError);
   }
 
   /**
