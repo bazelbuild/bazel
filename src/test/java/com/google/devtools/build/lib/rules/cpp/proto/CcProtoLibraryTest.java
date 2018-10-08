@@ -68,7 +68,8 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
     assertThat(prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto"))))
-        .containsExactly("x/foo.pb.h", "x/foo.pb.cc", "x/libfoo_proto.a", "x/libfoo_proto.so");
+        .containsExactly("x/foo.pb.h", "x/foo.pb.cc", "x/libfoo_proto.a",
+            "x/libfoo_proto.ifso", "x/libfoo_proto.so");
   }
 
   @Test
@@ -207,7 +208,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto"))))
         .containsExactly("x/foo.pb.cc", "x/foo.pb.h", "x/foo.pb.cc.meta", "x/foo.proto.h",
-            "x/libfoo_proto.a", "x/libfoo_proto.so");
+            "x/libfoo_proto.a", "x/libfoo_proto.ifso", "x/libfoo_proto.so");
   }
 
   // TODO(carmi): test blacklisted protos. I don't currently understand what's the wanted behavior.

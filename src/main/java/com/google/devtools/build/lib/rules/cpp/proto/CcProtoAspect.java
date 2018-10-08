@@ -202,6 +202,9 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       depsBuilder.addAll(ruleContext.getPrerequisites("deps", TARGET));
       ImmutableList<TransitiveInfoCollection> deps = depsBuilder.build();
       CcLinkingHelper ccLinkingHelper = initializeLinkingHelper(featureConfiguration, deps);
+      if (ccToolchain(ruleContext).supportsInterfaceSharedObjects()) {
+        ccLinkingHelper.emitInterfaceSharedObjects(true);
+      }
       CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
       if (!ccCompilationOutputs.isEmpty()) {
         ccLinkingOutputs = ccLinkingHelper.link(ccCompilationOutputs);
