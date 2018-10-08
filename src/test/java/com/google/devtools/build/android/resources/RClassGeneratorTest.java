@@ -122,11 +122,6 @@ public class RClassGeneratorTest {
     checkFileWriteThrowsOnExisting(SdkConstants.FN_COMPILED_RESOURCE_CLASS);
   }
 
-  @Test
-  public void checkInnerFileWriteThrowsOnExisting() throws Exception {
-    checkFileWriteThrowsOnExisting("R$string.class");
-  }
-
   private void checkFileWriteThrowsOnExisting(String existingFile) throws Exception {
     ResourceSymbols symbolValues = createSymbolFile("R.txt", "int string ok 0x7f100001");
     ResourceSymbols symbolsInLibrary = createSymbolFile("lib.R.txt", "int string ok 0x1");
@@ -145,6 +140,11 @@ public class RClassGeneratorTest {
       return;
     }
     throw new Exception("Expected to throw a FileAlreadyExistsException");
+  }
+
+  @Test
+  public void checkInnerFileWriteThrowsOnExisting() throws Exception {
+    checkFileWriteThrowsOnExisting("R$string.class");
   }
 
   @Test
