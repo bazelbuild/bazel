@@ -284,6 +284,7 @@ public class BlazeCommandDispatcher {
     BlazeCommandResult result = BlazeCommandResult.exitCode(ExitCode.BLAZE_INTERNAL_ERROR);
     PrintStream savedOut = System.out;
     PrintStream savedErr = System.err;
+    boolean afterCommandCalled = false;
     try {
       // Temporary: there are modules that output events during beforeCommand, but the reporter
       // isn't setup yet. Add the stored event handler to catch those events.
@@ -322,8 +323,8 @@ public class BlazeCommandDispatcher {
         for (Postable post : storedEventHandler.getPosts()) {
           env.getEventBus().post(post);
         }
-        // TODO(ulfjack): We're not calling BlazeModule.afterCommand here, even though we should.
-        return BlazeCommandResult.exitCode(earlyExitCode);
+        result = BlazeCommandResult.exitCode(earlyExitCode);
+        return result;
       }
 
       Reporter reporter = env.getReporter();
@@ -481,12 +482,12 @@ public class BlazeCommandDispatcher {
       result = command.exec(env, options);
       ExitCode moduleExitCode = env.precompleteCommand(result.getExitCode());
       // If Blaze did not suffer an infrastructure failure, check for errors in modules.
-      if (result.getExitCode() != null
-          && !result.getExitCode().isInfrastructureFailure()
-          && moduleExitCode != null) {
+      if (!result.getExitCode().isInfrastructureFailure() && moduleExitCode != null) {
         result = BlazeCommandResult.exitCode(moduleExitCode);
       }
-      return result;
+
+      afterCommandCalled = true;
+      return runtime.afterCommand(env, result);
     } catch (Throwable e) {
       outErr.printErr(
           "Internal error thrown during build. Printing stack trace: "
@@ -497,11 +498,9 @@ public class BlazeCommandDispatcher {
       logger.log(Level.SEVERE, "Shutting down due to exception", e);
       return BlazeCommandResult.shutdown(BugReport.getExitCodeForThrowable(e));
     } finally {
-      env.getEventBus().post(new AfterCommandEvent());
-      int numericExitCode = result.getExitCode() == null
-          ? 0
-          : result.getExitCode().getNumericExitCode();
-      numericExitCode = runtime.afterCommand(env, numericExitCode);
+      if (!afterCommandCalled) {
+        runtime.afterCommand(env, result);
+      }
       // Swallow IOException, as we are already in a finally clause
       Flushables.flushQuietly(outErr.getOutputStream());
       Flushables.flushQuietly(outErr.getErrorStream());

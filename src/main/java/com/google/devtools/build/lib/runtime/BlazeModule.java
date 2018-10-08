@@ -238,9 +238,20 @@ public abstract class BlazeModule {
 
   /**
    * Called after each command.
+   *
+   * @throws AbruptExitException modules can throw this exception to modify the command exit code
    */
-  public void afterCommand() {
-  }
+  public void afterCommand() throws AbruptExitException {}
+
+  /**
+   * Called after {@link #afterCommand()}. This method can be used to close and cleanup resources
+   * specific to the command.
+   *
+   * <p>This method must not throw any exceptions, report any errors or generate any stdout/stderr.
+   * Any of the above will make Bazel crash occasionally. Please use {@link #afterCommand()}
+   * instead.
+   */
+  public void commandComplete() {}
 
   /**
    * Called when Blaze shuts down.

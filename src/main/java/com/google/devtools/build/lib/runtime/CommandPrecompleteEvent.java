@@ -16,9 +16,10 @@ package com.google.devtools.build.lib.runtime;
 import com.google.devtools.build.lib.util.ExitCode;
 
 /**
- * This message is fired right before the Blaze command completes,
- * and can be used to modify the command's exit code.
+ * This message is fired right before the Blaze command completes.
  */
+// TODO(buchgr): Remove this event as it's not useful anymore.
+@Deprecated
 public class CommandPrecompleteEvent {
   private final ExitCode exitCode;
 

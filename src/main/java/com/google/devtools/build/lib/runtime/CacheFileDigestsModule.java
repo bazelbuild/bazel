@@ -77,9 +77,7 @@ public class CacheFileDigestsModule extends BlazeModule {
   }
 
   @Override
-  public void afterCommand() {
-    super.afterCommand();
-
+  public void commandComplete() {
     if (stats != null) {
       CacheStats newStats = DigestUtils.getCacheStats();
       Preconditions.checkNotNull(newStats, "The cache is enabled so we must get some stats back");

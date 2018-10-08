@@ -76,7 +76,7 @@ public class CommandLogModule extends BlazeModule {
   }
 
   @Override
-  public void afterCommand() {
+  public void commandComplete() {
     this.env = null;
     if (logOutputStream != null) {
       try {

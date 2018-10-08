@@ -496,7 +496,8 @@ public final class BlazeRuntime {
    * Posts the {@link CommandCompleteEvent}, so that listeners can tidy up. Called by {@link
    * #afterCommand}, and by BugReport when crashing from an exception in an async thread.
    */
-  void notifyCommandComplete(int exitCode) {
+  @VisibleForTesting
+  public void notifyCommandComplete(int exitCode) {
     if (!storedExitCode.compareAndSet(ExitCode.RESERVED.getNumericExitCode(), exitCode)) {
       // This command has already been called, presumably because there is a race between the main
       // thread and a worker thread that crashed. Don't try to arbitrate the dispute. If the main
@@ -511,17 +512,23 @@ public final class BlazeRuntime {
    * new exit code in case exceptions were encountered during cleanup.
    */
   @VisibleForTesting
-  public int afterCommand(CommandEnvironment env, int exitCode) {
+  public BlazeCommandResult afterCommand(CommandEnvironment env, BlazeCommandResult commandResult) {
     // Remove any filters that the command might have added to the reporter.
     env.getReporter().setOutputFilter(OutputFilter.OUTPUT_EVERYTHING);
 
-    notifyCommandComplete(exitCode);
-
+    BlazeCommandResult afterCommandResult = null;
     for (BlazeModule module : blazeModules) {
       try (SilentCloseable c = Profiler.instance().profile(module + ".afterCommand")) {
         module.afterCommand();
+      } catch (AbruptExitException e) {
+        env.getReporter().handle(Event.error(e.getMessage()));
+        // It's not ideal but we can only return one exit code, so we just pick the code of the
+        // last exception.
+        afterCommandResult = BlazeCommandResult.exitCode(e.getExitCode());
       }
     }
+
+    env.getEventBus().post(new AfterCommandEvent());
 
     // Wipe the dependency graph if requested. Note that this method always runs at the end of
     // a commands unless the server crashes, in which case no inmemory state will linger for the
@@ -538,10 +545,17 @@ public final class BlazeRuntime {
     try {
       workspace.getSkyframeExecutor().notifyCommandComplete();
     } catch (InterruptedException e) {
-      exitCode = ExitCode.INTERRUPTED.getNumericExitCode();
+      afterCommandResult = BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
       Thread.currentThread().interrupt();
     }
 
+    BlazeCommandResult finalCommandResult;
+    if (!commandResult.getExitCode().isInfrastructureFailure() && afterCommandResult != null) {
+      finalCommandResult = afterCommandResult;
+    } else {
+      finalCommandResult = commandResult;
+    }
+    notifyCommandComplete(finalCommandResult.getExitCode().getNumericExitCode());
     env.getBlazeWorkspace().clearEventBus();
 
     try {
@@ -550,10 +564,14 @@ public final class BlazeRuntime {
     } catch (IOException e) {
       env.getReporter().handle(Event.error("Error while writing profile file: " + e.getMessage()));
     }
-    env.getReporter().clearEventBus();
 
+    for (BlazeModule module : blazeModules) {
+      module.commandComplete();
+    }
+
+    env.getReporter().clearEventBus();
     actionKeyContext.clear();
-    return exitCode;
+    return finalCommandResult;
   }
 
   // Make sure we keep a strong reference to this logger, so that the
