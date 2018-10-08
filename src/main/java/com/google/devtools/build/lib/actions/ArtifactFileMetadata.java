@@ -262,5 +262,10 @@ public abstract class ArtifactFileMetadata {
     public FileStateValue realFileStateValue() {
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public String toString() {
+      return "PlaceholderFileValue:Singleton";
+    }
   }
 }
