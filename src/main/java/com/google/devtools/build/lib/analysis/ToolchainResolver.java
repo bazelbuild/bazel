@@ -530,7 +530,9 @@ public class ToolchainResolver {
           if (toolchainType != null) {
             ToolchainInfo toolchainInfo =
                 PlatformProviderUtils.toolchain(target.getConfiguredTarget());
-            toolchains.put(toolchainType, toolchainInfo);
+            if (toolchainType != null) {
+              toolchains.put(toolchainType, toolchainInfo);
+            }
           }
 
           // Find any template variables present for this toolchain.
