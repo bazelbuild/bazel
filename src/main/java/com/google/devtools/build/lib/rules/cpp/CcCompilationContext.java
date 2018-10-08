@@ -209,15 +209,27 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         }
       }
     }
-    for (Artifact a : headerInfo.modularHeaders) {
-      modularHeaders.remove(a);
-    }
-    for (Artifact a : headerInfo.textualHeaders) {
-      modularHeaders.remove(a);
-    }
+    removeArtifactsFromSet(modularHeaders, headerInfo.modularHeaders);
+    removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
     return new IncludeScanningHeaderData(
         Collections.unmodifiableMap(pathToLegalOutputArtifact),
         Collections.unmodifiableSet(modularHeaders));
+  }
+
+  /** Removes all declared headers from {@code includes}. */
+  public void removeDeclaredIncludes(Set<Artifact> includes) {
+    for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
+      removeArtifactsFromSet(includes, transitiveHeaderInfo.modularHeaders);
+      removeArtifactsFromSet(includes, transitiveHeaderInfo.textualHeaders);
+    }
+  }
+
+  private void removeArtifactsFromSet(Set<Artifact> set, Iterable<Artifact> artifacts) {
+    // Do not use Iterables.removeAll() or Set.removeAll() here as with the given container sizes,
+    // that needlessly deteriorates to a quadratic algorithm.
+    for (Artifact artifact : artifacts) {
+      set.remove(artifact);
+    }
   }
 
   public NestedSet<Artifact> getTransitiveModules(boolean usePic) {
