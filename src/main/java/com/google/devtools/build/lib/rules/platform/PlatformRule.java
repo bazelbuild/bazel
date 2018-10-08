@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 public class PlatformRule implements RuleDefinition {
   public static final String RULE_NAME = "platform";
   public static final String CONSTRAINT_VALUES_ATTR = "constraint_values";
+  public static final String PARENTS_PLATFORM_ATTR = "parents";
   public static final String REMOTE_EXECUTION_PROPS_ATTR = "remote_execution_properties";
   static final String HOST_PLATFORM_ATTR = "host_platform";
   static final String TARGET_PLATFORM_ATTR = "target_platform";
@@ -52,13 +54,23 @@ public class PlatformRule implements RuleDefinition {
         .add(
             attr(CONSTRAINT_VALUES_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.PROVIDER.id())))
+                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id()))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(remote_execution_properties) -->
         A string used to configure a remote execution platform. Actual builds make no attempt to
         interpret this, it is treated as opaque data that can be used by a specific SpawnRunner.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING))
+
+        /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(parents) -->
+        The label of a <code>platform</code> target that this platform should inherit from. Although
+        the attribute takes a list, there should be no more than one platform present. Any
+        constraint_settings not set directly on this platform will be found in the parent platform.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(PARENTS_PLATFORM_ATTR, BuildType.LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .mandatoryProviders(PlatformInfo.PROVIDER.id()))
 
         // Undocumented. Indicates that this platform should auto-configure the platform constraints
         // based on the current host OS and CPU settings.
