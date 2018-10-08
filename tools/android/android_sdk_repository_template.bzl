@@ -101,6 +101,7 @@ def create_android_sdk_rules(
                     "platforms/android-%d/optional/android.test.mock.jar" % api_level,
                     "platforms/android-%d/optional/android.test.runner.jar" % api_level,
                 ],
+                neverlink = 1,
             )
 
         native.android_sdk(
