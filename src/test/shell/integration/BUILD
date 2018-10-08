@@ -413,16 +413,25 @@ sh_test(
     ],
 )
 
+# Copy protoc into a known location, since //third_party/protobuf:protoc
+# might be an alias.  This is referenced from testenv.sh.
+genrule(
+    name = "copy_protoc",
+    srcs = ["//third_party/protobuf:protoc"],
+    outs = ["protoc"],
+    cmd = "cp $< $@",
+)
+
 sh_test(
     name = "process_wrapper_test",
     size = "medium",
     srcs = ["process-wrapper_test.sh"],
     data = [
         ":execution_statistics_utils.sh",
+        ":protoc",
         ":spend_cpu_time",
         ":test-deps",
         "//src/main/protobuf:execution_statistics.proto",
-        "//third_party/protobuf:protoc",
     ],
     tags = ["no_windows"],
 )
@@ -433,11 +442,11 @@ sh_test(
     srcs = ["linux-sandbox_test.sh"],
     data = [
         ":execution_statistics_utils.sh",
+        ":protoc",
         ":spend_cpu_time",
         ":test-deps",
         "//src/main/protobuf:execution_statistics.proto",
         "//src/test/shell:sandboxing_test_utils.sh",
-        "//third_party/protobuf:protoc",
     ],
     tags = ["no_windows"],
 )
