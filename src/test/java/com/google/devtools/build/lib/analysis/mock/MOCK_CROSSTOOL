@@ -584,6 +584,8 @@ toolchain {
    tool_path { name: "strip" path: "C:/tools/msys64/usr/bin/strip" }
    tool_path { name: "llvm-profdata" path: "C:/tools/msys64/usr/bin/llvm-profdata" }
    linking_mode_flags { mode: DYNAMIC }
+
+   supports_interface_shared_objects: true
 }
 
 toolchain {
