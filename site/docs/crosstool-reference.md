@@ -3,30 +3,30 @@ layout: documentation
 title: Understanding CROSSTOOL
 ---
 
-# Understanding `CROSSTOOL`
+# Understanding CROSSTOOL
 
 *  [Overview](#overview)
 *  [`CROSSTOOL` proto structure](#crosstool-proto-structure)
 *  [Toolchain selection](#toolchain-selection)
-*  [CROSSTOOL features](#crosstool-features)
+*  [`CROSSTOOL` features](#crosstool-features)
    *  [Feature relationships](#feature-relationships)
-*  [CROSSTOOL actions](#crosstool-actions)
+*  [`CROSSTOOL` actions](#crosstool-actions)
    *  [Assembler actions](#assembler-actions)
    *  [Compiler actions](#compiler-actions)
    *  [Link actions](#link-actions)
    *  [AR actions](#ar-actions)
    *  [LTO actions](#lto-actions)
-*  [CROSSTOOL `action_config`](#crosstool-action_config)
+*  [`CROSSTOOL` action_config`](#crosstool-action_config)
    *  [`tool` messages](#tool-messages)
    *  [Example usage](#example-usage)
    *  [Flag groups](#flag-groups)
    *  [Conditional expansion](#conditional-expansion)
-*  [CROSSTOOL reference](#crosstool-reference)
-   *  [CROSSOTOOL build variables](#crosstool-build-variables)
-   *  [CROSSTOOL features](#crosstool-features)
+*  [`CROSSTOOL` reference](#crosstool-reference)
+   *  [`CROSSTOOL` build variables](#crosstool-build-variables)
+   *  [`CROSSTOOL` features](#crosstool-features)
 
-To get hands-on with CROSSTOOL, see the
-[Configuring CROSSTOOL](tutorial/crosstool.html) tutorial.
+To get hands-on with `CROSSTOOL`, see the
+[Configuring `CROSSTOOL`](tutorial/crosstool.html) tutorial.
 
 ## Overview
 
