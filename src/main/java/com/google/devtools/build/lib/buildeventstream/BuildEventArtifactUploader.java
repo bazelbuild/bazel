@@ -20,8 +20,6 @@ import java.util.Map;
 
 /** Uploads artifacts referenced by the Build Event Protocol (BEP). */
 public interface BuildEventArtifactUploader {
-  BuildEventArtifactUploader LOCAL_FILES_UPLOADER = new LocalFilesArtifactUploader();
-
   /**
    * Asynchronously uploads a set of files referenced by the protobuf representation of a {@link
    * BuildEvent}. This method is expected to return quickly.

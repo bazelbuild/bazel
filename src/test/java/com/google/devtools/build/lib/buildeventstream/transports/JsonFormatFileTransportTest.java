@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
+import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.util.JsonFormat;
@@ -79,7 +79,7 @@ public class JsonFormatFileTransportTest {
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     JsonFormatFileTransport transport =
         new JsonFormatFileTransport(
-            output.getAbsolutePath(), defaultOpts, LOCAL_FILES_UPLOADER, (e) -> {});
+            output.getAbsolutePath(), defaultOpts, new LocalFilesArtifactUploader(), (e) -> {});
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();
@@ -148,7 +148,7 @@ public class JsonFormatFileTransportTest {
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     JsonFormatFileTransport transport =
         new JsonFormatFileTransport(
-            output.getAbsolutePath(), defaultOpts, LOCAL_FILES_UPLOADER, (e) -> {});
+            output.getAbsolutePath(), defaultOpts, new LocalFilesArtifactUploader(), (e) -> {});
     WrappedOutputStream out = new WrappedOutputStream(transport.writer.out);
     transport.writer.out = out;
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);

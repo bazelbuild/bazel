@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactoryMap;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
@@ -125,7 +126,7 @@ public enum BuildEventTransportFactory {
         BuildEventArtifactUploader uploader =
             transportFactory.usePathConverter(bepOptions)
                 ? artifactUploaders.select(protocolOptions.buildEventUploadStrategy).create(options)
-                : BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
+                : new LocalFilesArtifactUploader();
         buildEventTransportsBuilder.add(
             transportFactory.create(bepOptions, protocolOptions, uploader, exitFunc));
       }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Progress;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TargetComplete;
+import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.PathConverter.FileUriPathConverter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -94,7 +94,7 @@ public class BinaryFormatFileTransportTest {
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
-            output.getAbsolutePath(), defaultOpts, LOCAL_FILES_UPLOADER, (e) -> {});
+            output.getAbsolutePath(), defaultOpts, new LocalFilesArtifactUploader(), (e) -> {});
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     BuildEventStreamProtos.BuildEvent progress =
@@ -131,7 +131,8 @@ public class BinaryFormatFileTransportTest {
             .build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(path, defaultOpts, LOCAL_FILES_UPLOADER, (e) -> {});
+        new BinaryFormatFileTransport(
+            path, defaultOpts, new LocalFilesArtifactUploader(), (e) -> {});
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();
@@ -153,7 +154,7 @@ public class BinaryFormatFileTransportTest {
 
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
-            output.getAbsolutePath(), defaultOpts, LOCAL_FILES_UPLOADER, (e) -> {});
+            output.getAbsolutePath(), defaultOpts, new LocalFilesArtifactUploader(), (e) -> {});
 
     // Close the stream.
     transport.writer.out.close();
@@ -181,7 +182,7 @@ public class BinaryFormatFileTransportTest {
 
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(
-            output.getAbsolutePath(), defaultOpts, LOCAL_FILES_UPLOADER, (e) -> {});
+            output.getAbsolutePath(), defaultOpts, new LocalFilesArtifactUploader(), (e) -> {});
 
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
     Future<Void> closeFuture = transport.close();

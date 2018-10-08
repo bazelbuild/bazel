@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactory;
+import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
@@ -313,7 +314,7 @@ public final class RemoteModule extends BlazeModule {
     public BuildEventArtifactUploader create(OptionsParsingResult options) {
       BuildEventArtifactUploaderFactory uploaderFactory0 = this.uploaderFactory;
       if (uploaderFactory0 == null) {
-        return BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
+        return new LocalFilesArtifactUploader();
       }
       return uploaderFactory0.create(options);
     }

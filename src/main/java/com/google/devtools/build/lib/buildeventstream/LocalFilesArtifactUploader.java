@@ -16,13 +16,18 @@ package com.google.devtools.build.lib.buildeventstream;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
+import com.google.devtools.build.lib.buildeventstream.PathConverter.FileUriPathConverter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** An uploader that simply turns paths into local file URIs. */
-class LocalFilesArtifactUploader implements BuildEventArtifactUploader {
+public class LocalFilesArtifactUploader implements BuildEventArtifactUploader {
+  private static final FileUriPathConverter FILE_URI_PATH_CONVERTER = new FileUriPathConverter();
+  private final ConcurrentHashMap<Path, Boolean> fileIsDirectory = new ConcurrentHashMap<>();
+
   @Override
   public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
     return Futures.immediateFuture(new PathConverterImpl(files.keySet()));
@@ -33,8 +38,7 @@ class LocalFilesArtifactUploader implements BuildEventArtifactUploader {
     // Intentionally left empty
   }
 
-  private static class PathConverterImpl implements PathConverter {
-    private static final FileUriPathConverter FILE_URI_PATH_CONVERTER = new FileUriPathConverter();
+  private class PathConverterImpl implements PathConverter {
     private final Set<Path> paths;
 
     private PathConverterImpl(Set<Path> paths) {
@@ -48,7 +52,7 @@ class LocalFilesArtifactUploader implements BuildEventArtifactUploader {
         // We should throw here, the file wasn't declared in BuildEvent#referencedLocalFiles
         return null;
       }
-      if (path.isDirectory()) {
+      if (fileIsDirectory.computeIfAbsent(path, Path::isDirectory)) {
         return null;
       }
       return FILE_URI_PATH_CONVERTER.apply(path);

@@ -61,14 +61,14 @@ public final class BuildEventArtifactUploaderFactoryMapTest {
   public void testEmptyUploaders() throws Exception {
     BuildEventArtifactUploaderFactoryMap emptyUploader =
         new BuildEventArtifactUploaderFactoryMap.Builder().build();
-    assertThat(emptyUploader.select(null).create(optionsParser))
-        .isEqualTo(BuildEventArtifactUploader.LOCAL_FILES_UPLOADER);
+    assertThat(emptyUploader.select(null).create(optionsParser).getClass())
+        .isEqualTo(LocalFilesArtifactUploader.class);
   }
 
   @Test
   public void testAlphabeticalOrder() {
-    assertThat(uploaderFactories.select(null).create(optionsParser))
-        .isEqualTo(BuildEventArtifactUploader.LOCAL_FILES_UPLOADER);
+    assertThat(uploaderFactories.select(null).create(optionsParser).getClass())
+        .isEqualTo(LocalFilesArtifactUploader.class);
   }
 
   @Test
