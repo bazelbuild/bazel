@@ -210,9 +210,6 @@ public class CompilationSupport {
   /** Enabled if this target generates debug symbols in a dSYM file. */
   private static final String GENERATE_DSYM_FILE_FEATURE_NAME = "generate_dsym_file";
 
-  /** Always enabled to simplify dSYMs handling for newer Bazel versions. */
-  private static final String NO_DSYM_ZIPS_FEATURE_NAME = "no_dsym_create_zip";
-
   /**
    * Enabled if this target does not generate debug symbols.
    *
@@ -548,10 +545,6 @@ public class CompilationSupport {
     if (toolchain.useFission()) {
       activatedCrosstoolSelectables.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
-
-    // TODO(b/111205462): Remove this feature from here, CROSSTOOL, and wrapped_clang after the
-    // next release.
-    activatedCrosstoolSelectables.add(NO_DSYM_ZIPS_FEATURE_NAME);
 
     // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
     // particular versions of Xcode. To ensure consistency across platforms, use exactly two

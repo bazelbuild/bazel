@@ -219,9 +219,6 @@ toolchain {
     }
   }
   feature {
-    name: "no_dsym_create_zip"
-  }
-  feature {
     name: "generate_dsym_file"
     flag_set {
       action: "c-compile"
@@ -240,16 +237,6 @@ toolchain {
       flag_group {
         flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
         flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
-      }
-    }
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
-      }
-      with_feature {
-        not_feature: "no_dsym_create_zip"
       }
     }
   }
@@ -1869,9 +1856,6 @@ toolchain {
     }
   }
   feature {
-    name: "no_dsym_create_zip"
-  }
-  feature {
     name: "generate_dsym_file"
     flag_set {
       action: "c-compile"
@@ -1890,16 +1874,6 @@ toolchain {
       flag_group {
         flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
         flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
-      }
-    }
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
-      }
-      with_feature {
-        not_feature: "no_dsym_create_zip"
       }
     }
   }
@@ -3535,9 +3509,6 @@ toolchain {
     }
   }
   feature {
-    name: "no_dsym_create_zip"
-  }
-  feature {
     name: "generate_dsym_file"
     flag_set {
       action: "c-compile"
@@ -3556,16 +3527,6 @@ toolchain {
       flag_group {
         flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
         flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
-      }
-    }
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
-      }
-      with_feature {
-        not_feature: "no_dsym_create_zip"
       }
     }
   }
@@ -5204,9 +5165,6 @@ toolchain {
     }
   }
   feature {
-    name: "no_dsym_create_zip"
-  }
-  feature {
     name: "generate_dsym_file"
     flag_set {
       action: "c-compile"
@@ -5225,16 +5183,6 @@ toolchain {
       flag_group {
         flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
         flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
-      }
-    }
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
-      }
-      with_feature {
-        not_feature: "no_dsym_create_zip"
       }
     }
   }
@@ -6900,9 +6848,6 @@ toolchain {
     }
   }
   feature {
-    name: "no_dsym_create_zip"
-  }
-  feature {
     name: "generate_dsym_file"
     flag_set {
       action: "c-compile"
@@ -6921,16 +6866,6 @@ toolchain {
       flag_group {
         flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
         flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
-      }
-    }
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
-      }
-      with_feature {
-        not_feature: "no_dsym_create_zip"
       }
     }
   }
@@ -8566,9 +8501,6 @@ toolchain {
     }
   }
   feature {
-    name: "no_dsym_create_zip"
-  }
-  feature {
     name: "generate_dsym_file"
     flag_set {
       action: "c-compile"
@@ -8587,16 +8519,6 @@ toolchain {
       flag_group {
         flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
         flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
-      }
-    }
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
-      }
-      with_feature {
-        not_feature: "no_dsym_create_zip"
       }
     }
   }
@@ -10220,9 +10142,6 @@ toolchain {
     }
   }
   feature {
-    name: "no_dsym_create_zip"
-  }
-  feature {
     name: "generate_dsym_file"
     flag_set {
       action: "c-compile"
@@ -10241,16 +10160,6 @@ toolchain {
       flag_group {
         flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
         flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
-      }
-    }
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
-      }
-      with_feature {
-        not_feature: "no_dsym_create_zip"
       }
     }
   }
@@ -11877,9 +11786,6 @@ toolchain {
     }
   }
   feature {
-    name: "no_dsym_create_zip"
-  }
-  feature {
     name: "generate_dsym_file"
     flag_set {
       action: "c-compile"
@@ -11898,16 +11804,6 @@ toolchain {
       flag_group {
         flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
         flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
-      }
-    }
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
-      }
-      with_feature {
-        not_feature: "no_dsym_create_zip"
       }
     }
   }
@@ -13561,9 +13457,6 @@ toolchain {
     }
   }
   feature {
-    name: "no_dsym_create_zip"
-  }
-  feature {
     name: "generate_dsym_file"
     flag_set {
       action: "c-compile"
@@ -13582,16 +13475,6 @@ toolchain {
       flag_group {
         flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
         flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
-      }
-    }
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
-      }
-      with_feature {
-        not_feature: "no_dsym_create_zip"
       }
     }
   }
@@ -15216,9 +15099,6 @@ toolchain {
     }
   }
   feature {
-    name: "no_dsym_create_zip"
-  }
-  feature {
     name: "generate_dsym_file"
     flag_set {
       action: "c-compile"
@@ -15237,16 +15117,6 @@ toolchain {
       flag_group {
         flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
         flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
-      }
-    }
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "DSYM_HINT_DSYM_BUNDLE_ZIP=%{dsym_bundle_zip}"
-      }
-      with_feature {
-        not_feature: "no_dsym_create_zip"
       }
     }
   }
