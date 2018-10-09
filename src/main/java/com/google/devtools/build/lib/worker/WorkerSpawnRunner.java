@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.hash.HashCode;
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -76,6 +76,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final Multimap<String, String> extraFlags;
   private final EventHandler reporter;
   private final SpawnRunner fallbackRunner;
+  private final LocalEnvProvider localEnvProvider;
   private final boolean sandboxUsesExpandedTreeArtifactsInRunfiles;
 
   public WorkerSpawnRunner(
@@ -84,12 +85,14 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Multimap<String, String> extraFlags,
       EventHandler reporter,
       SpawnRunner fallbackRunner,
+      LocalEnvProvider localEnvProvider,
       boolean sandboxUsesExpandedTreeArtifactsInRunfiles) {
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
     this.extraFlags = extraFlags;
     this.reporter = reporter;
     this.fallbackRunner = fallbackRunner;
+    this.localEnvProvider = localEnvProvider;
     this.sandboxUsesExpandedTreeArtifactsInRunfiles = sandboxUsesExpandedTreeArtifactsInRunfiles;
   }
 
@@ -128,7 +131,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
     // its args and put them into the WorkRequest instead.
     List<String> flagFiles = new ArrayList<>();
     ImmutableList<String> workerArgs = splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
-    ImmutableMap<String, String> env = spawn.getEnvironment();
+    Map<String, String> env =
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
 
     MetadataProvider inputFileCache = context.getMetadataProvider();
 
