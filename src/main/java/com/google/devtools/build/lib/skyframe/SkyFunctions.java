@@ -130,7 +130,7 @@ public final class SkyFunctions {
   // Non-hermetic because accesses package locator
   public static final SkyFunctionName EXTERNAL_PACKAGE =
       SkyFunctionName.createNonHermetic("EXTERNAL_PACKAGE");
-  static final SkyFunctionName ACTION_TEMPLATE_EXPANSION =
+  public static final SkyFunctionName ACTION_TEMPLATE_EXPANSION =
       SkyFunctionName.createHermetic("ACTION_TEMPLATE_EXPANSION");
   public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =
       SkyFunctionName.createHermetic("LOCAL_REPOSITORY_LOOKUP");
