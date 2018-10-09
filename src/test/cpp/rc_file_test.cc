@@ -261,38 +261,8 @@ TEST_F(GetRcFileTest, GetRcFilesWarnsAboutIgnoredMasterRcFiles) {
   // read as expected.
   EXPECT_THAT(output,
               HasSubstr("The following rc files are no longer being read"));
+  EXPECT_THAT(output, HasSubstr(workspace_rc));
   EXPECT_THAT(output, HasSubstr(binary_rc));
-
-  EXPECT_THAT(output, HasSubstr("Processed legacy workspace file"));
-  EXPECT_THAT(output, HasSubstr(workspace_rc));
-}
-
-TEST_F(GetRcFileTest, GetRcFilesWarnsAboutLegacyWorkspaceFile) {
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileInWorkspace("", &workspace_rc));
-
-  const CommandLine cmd_line = CommandLine(binary_path_, {}, "build", {});
-  std::string error = "check that this string is not modified";
-  std::vector<std::unique_ptr<RcFile>> parsed_rcs;
-
-  testing::internal::CaptureStderr();
-  const blaze_exit_code::ExitCode exit_code =
-      option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
-                                    &cmd_line, &parsed_rcs, &error);
-  const std::string output = testing::internal::GetCapturedStderr();
-
-  EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
-  EXPECT_EQ("check that this string is not modified", error);
-
-  // tools/blaze.rc should be read...
-  EXPECT_THAT(
-      output,
-      Not(HasSubstr("The following rc files are no longer being read")));
-
-  // ... but reported specially.
-  // (cf https://github.com/bazelbuild/bazel/issues/6321).
-  EXPECT_THAT(output, HasSubstr("Processed legacy workspace file"));
-  EXPECT_THAT(output, HasSubstr(workspace_rc));
 }
 
 TEST_F(
