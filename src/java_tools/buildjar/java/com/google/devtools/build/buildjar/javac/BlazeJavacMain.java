@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic.Listener;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.ClientCodeWrapper.Trusted;
 import com.sun.tools.javac.api.JavacTool;
@@ -80,8 +81,10 @@ public class BlazeJavacMain {
     }
 
     Context context = new Context();
+    BlazeJavacStatistics.preRegister(context);
     CacheFSInfo.preRegister(context);
     setupBlazeJavaCompiler(arguments.plugins(), context);
+    BlazeJavacStatistics.Builder builder = context.get(BlazeJavacStatistics.Builder.class);
 
     boolean ok = false;
     StringWriter errOutput = new StringWriter();
@@ -130,8 +133,12 @@ public class BlazeJavacMain {
       }
     }
     errWriter.flush();
-    return new BlazeJavacResult(
-        ok, filterDiagnostics(diagnostics.build()), errOutput.toString(), compiler);
+    return BlazeJavacResult.createFullResult(
+        ok,
+        filterDiagnostics(diagnostics.build()),
+        errOutput.toString(),
+        compiler,
+        builder.build());
   }
 
   private static final ImmutableSet<String> IGNORED_DIAGNOSTIC_CODES =
@@ -270,7 +277,8 @@ public class BlazeJavacMain {
               if (name.startsWith("com.google.errorprone.")
                   || name.startsWith("org.checkerframework.dataflow.")
                   || name.startsWith("com.sun.source.")
-                  || name.startsWith("com.sun.tools.")) {
+                  || name.startsWith("com.sun.tools.")
+                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
                 return c;
               }
               if (c.getClassLoader() == null

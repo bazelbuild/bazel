@@ -14,6 +14,7 @@
 package com.google.devtools.build.buildjar.javac.plugins;
 
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
@@ -34,14 +35,16 @@ public abstract class BlazeJavaCompilerPlugin {
   protected Context context;
   protected Log log;
   protected JavaCompiler compiler;
+  protected BlazeJavacStatistics.Builder statisticsBuilder;
 
   /**
    * Preprocess the command-line flags that were passed to javac. This is called before {@link
-   * #init(Context, Log, JavaCompiler)} and {@link #initializeContext(Context)}.
+   * #init(Context, Log, JavaCompiler, BlazeJavacStatistics.Builder)} and {@link
+   * #initializeContext(Context)}.
    *
    * @param args The command-line flags that javac was invoked with.
    * @throws InvalidCommandLineException if the arguments are invalid
-   * @returns The flags that do not belong to this plugin.
+   * @return The flags that do not belong to this plugin.
    */
   public List<String> processArgs(List<String> args) throws InvalidCommandLineException {
     return args;
@@ -84,11 +87,18 @@ public abstract class BlazeJavaCompilerPlugin {
    * @param context The Context object from the enclosing BlazeJavaCompiler instance
    * @param log The Log object from the enclosing BlazeJavaCompiler instance
    * @param compiler The enclosing BlazeJavaCompiler instance
+   * @param statisticsBuilder The builder object for statistics, so that this plugin may report
+   *     performance or auxiliary information.
    */
-  public void init(Context context, Log log, JavaCompiler compiler) {
+  public void init(
+      Context context,
+      Log log,
+      JavaCompiler compiler,
+      BlazeJavacStatistics.Builder statisticsBuilder) {
     this.context = context;
     this.log = log;
     this.compiler = compiler;
+    this.statisticsBuilder = statisticsBuilder;
   }
 
   /** Returns true if the plugin should run on compilations with attribution errors. */

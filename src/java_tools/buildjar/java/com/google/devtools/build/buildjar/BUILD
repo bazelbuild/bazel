@@ -9,6 +9,7 @@ filegroup(
         ["**"],
     ) + [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     ],
@@ -41,6 +42,7 @@ java_library(
     deps = [
         ":invalid_command_line_exception",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",

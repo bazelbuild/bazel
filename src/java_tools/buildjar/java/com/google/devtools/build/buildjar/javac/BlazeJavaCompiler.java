@@ -15,6 +15,7 @@
 package com.google.devtools.build.buildjar.javac;
 
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.CompileStates.CompileState;
 import com.sun.tools.javac.comp.Env;
@@ -40,9 +41,11 @@ public class BlazeJavaCompiler extends JavaCompiler {
   private BlazeJavaCompiler(Context context, Iterable<BlazeJavaCompilerPlugin> plugins) {
     super(context);
 
+    BlazeJavacStatistics.Builder statisticsBuilder =
+        context.get(BlazeJavacStatistics.Builder.class);
     // initialize all plugins
     for (BlazeJavaCompilerPlugin plugin : plugins) {
-      plugin.init(context, log, this);
+      plugin.init(context, log, this, statisticsBuilder);
       this.plugins.add(plugin);
     }
   }

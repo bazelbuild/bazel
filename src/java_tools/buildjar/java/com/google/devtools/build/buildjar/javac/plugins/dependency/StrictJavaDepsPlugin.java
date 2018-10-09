@@ -16,13 +16,13 @@ package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps.ERROR;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
 import com.sun.tools.javac.code.Flags;
@@ -116,8 +116,12 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   }
 
   @Override
-  public void init(Context context, Log log, JavaCompiler compiler) {
-    super.init(context, log, compiler);
+  public void init(
+      Context context,
+      Log log,
+      JavaCompiler compiler,
+      BlazeJavacStatistics.Builder statisticsBuilder) {
+    super.init(context, log, compiler, statisticsBuilder);
     errWriter = log.getWriter(WriterKind.ERROR);
     implicitDependencyExtractor =
         new ImplicitDependencyExtractor(

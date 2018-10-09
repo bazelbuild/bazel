@@ -16,6 +16,8 @@ package com.google.devtools.build.buildjar.javac;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
+import javax.annotation.Nullable;
 
 /** The result of a single compilation performed by {@link BlazeJavacMain}. */
 public class BlazeJavacResult {
@@ -24,24 +26,36 @@ public class BlazeJavacResult {
   private final ImmutableList<FormattedDiagnostic> diagnostics;
   private final String output;
   private final BlazeJavaCompiler compiler;
+  private final BlazeJavacStatistics statistics;
 
   public static BlazeJavacResult ok() {
-    return new BlazeJavacResult(true, ImmutableList.of(), "", null);
+    return createFullResult(true, ImmutableList.of(), "", null, BlazeJavacStatistics.empty());
   }
 
   public static BlazeJavacResult error(String message) {
-    return new BlazeJavacResult(false, ImmutableList.of(), message, null);
+    return createFullResult(false, ImmutableList.of(), message, null, BlazeJavacStatistics.empty());
   }
 
-  public BlazeJavacResult(
+  private BlazeJavacResult(
       boolean ok,
       ImmutableList<FormattedDiagnostic> diagnostics,
       String output,
-      BlazeJavaCompiler compiler) {
+      @Nullable BlazeJavaCompiler compiler,
+      BlazeJavacStatistics statistics) {
     this.ok = ok;
     this.diagnostics = diagnostics;
     this.output = output;
     this.compiler = compiler;
+    this.statistics = statistics;
+  }
+
+  public static BlazeJavacResult createFullResult(
+      boolean ok,
+      ImmutableList<FormattedDiagnostic> diagnostics,
+      String output,
+      BlazeJavaCompiler compiler,
+      BlazeJavacStatistics statistics) {
+    return new BlazeJavacResult(ok, diagnostics, output, compiler, statistics);
   }
 
   public boolean isOk() {
@@ -54,6 +68,10 @@ public class BlazeJavacResult {
 
   public String output() {
     return output;
+  }
+
+  public BlazeJavacStatistics statistics() {
+    return statistics;
   }
 
   @VisibleForTesting

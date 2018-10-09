@@ -15,6 +15,7 @@
 package com.google.devtools.build.java.turbine.javac;
 
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.CompileStates.CompileState;
 import com.sun.tools.javac.comp.Env;
@@ -43,7 +44,8 @@ class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
     super(context);
     this.strictJavaDeps = strictJavaDeps;
     if (strictJavaDeps != null) {
-      strictJavaDeps.init(context, Log.instance(context), this);
+      strictJavaDeps.init(
+          context, Log.instance(context), this, context.get(BlazeJavacStatistics.Builder.class));
     }
     this.transitive = transitive;
   }

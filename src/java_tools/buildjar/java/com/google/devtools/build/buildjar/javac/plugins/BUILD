@@ -8,6 +8,7 @@ java_library(
     srcs = ["BlazeJavaCompilerPlugin.java"],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:invalid_command_line_exception",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//third_party/java/jdk/langtools:javac",
     ],
 )
@@ -18,6 +19,7 @@ java_library(
     deps = [
         ":plugins",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:JarOwner",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//src/main/protobuf:deps_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -32,6 +34,7 @@ java_library(
     deps = [
         ":plugins",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:invalid_command_line_exception",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//third_party:error_prone",
         "//third_party:guava",
         "//third_party/java/jdk/langtools:javac",

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileResult.Status;
 import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.ClientCodeWrapper.Trusted;
@@ -160,7 +161,9 @@ public class JavacTurbineCompiler {
             @Override
             protected Class<?> findClass(String name) throws ClassNotFoundException {
               Class<?> c = Class.forName(name);
-              if (name.startsWith("com.sun.source.") || name.startsWith("com.sun.tools.")) {
+              if (name.startsWith("com.sun.source.")
+                  || name.startsWith("com.sun.tools.")
+                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
                 return c;
               }
               if (c.getClassLoader() == null
@@ -192,5 +195,6 @@ public class JavacTurbineCompiler {
   static void setupContext(
       Context context, @Nullable StrictJavaDepsPlugin sjd, JavacTransitive transitive) {
     JavacTurbineJavaCompiler.preRegister(context, sjd, transitive);
+    BlazeJavacStatistics.preRegister(context);
   }
 }
