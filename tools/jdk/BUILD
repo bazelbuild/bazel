@@ -106,20 +106,8 @@ filegroup(
 filegroup(
     name = "singlejar",
     srcs = select({
-        "//src/conditions:remote": [":singlejar_remote"],
+        "//src/conditions:remote": ["//src/tools/singlejar:singlejar"],
         "//conditions:default": glob(["singlejar/*"]),
-    }),
-)
-
-# This is a separate filegroup from :singlejar above since Bazel doesn't
-# support nested selects (we need a logical "remote AND windows" condition).
-filegroup(
-    name = "singlejar_remote",
-    srcs = select({
-        # TODO(jsharpe): Switch to //src/tools/singlejar:singlejar once
-        # native singlejar works on Windows.
-        "//src/conditions:windows": glob(["singlejar/*"]),
-        "//conditions:default": ["//src/tools/singlejar:singlejar"],
     }),
 )
 

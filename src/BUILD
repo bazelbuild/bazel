@@ -160,13 +160,12 @@ py_binary(
             ":dummy_darwin_tools",
         ],
     }) + select({
-        # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
-        # is resolved, use cc implementation of singlejar on windows
         "//src/conditions:windows": [
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
             "//src/tools/launcher:launcher",
             "//third_party/def_parser:def_parser",
         ],
+        "//conditions:default": [],
+    }) + select({
         "//src/conditions:arm": [
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
         ],
