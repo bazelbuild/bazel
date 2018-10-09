@@ -26,17 +26,23 @@ import build.bazel.remote.execution.v2.ActionCacheGrpc;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheBlockingStub;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CapabilitiesGrpc;
+import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesBlockingStub;
+import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageBlockingStub;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ExecuteRequest;
+import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
+import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.OutputFile;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamBlockingStub;
@@ -49,6 +55,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.ExecuteDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.FindMissingBlobsDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.GetActionResultDetails;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.GetCapabilitiesDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.ReadDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
@@ -519,6 +526,47 @@ public class LoggingInterceptorTest {
                 RpcCallDetails.newBuilder()
                     .setGetActionResult(
                         GetActionResultDetails.newBuilder()
+                            .setRequest(request)
+                            .setResponse(response)))
+            .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(11).setNanos(111000000))
+            .setEndTime(Timestamp.newBuilder().setSeconds(33).setNanos(333000000))
+            .build();
+    verify(logStream).write(expectedEntry);
+  }
+
+  @Test
+  public void testGetCapabilitiesCallOk() {
+    GetCapabilitiesRequest request =
+        GetCapabilitiesRequest.newBuilder()
+            .setInstanceName("test-instance")
+            .build();
+    ServerCapabilities response =
+        ServerCapabilities.newBuilder()
+            .setExecutionCapabilities(
+                ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
+            .build();
+    serviceRegistry.addService(
+        new CapabilitiesImplBase() {
+          @Override
+          public void getCapabilities(
+              GetCapabilitiesRequest request, StreamObserver<ServerCapabilities> responseObserver) {
+            clock.advanceMillis(22222);
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+          }
+        });
+    CapabilitiesBlockingStub stub = CapabilitiesGrpc.newBlockingStub(loggedChannel);
+
+    clock.advanceMillis(11111);
+    stub.getCapabilities(request);
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(CapabilitiesGrpc.getGetCapabilitiesMethod().getFullMethodName())
+            .setDetails(
+                RpcCallDetails.newBuilder()
+                    .setGetCapabilities(
+                        GetCapabilitiesDetails.newBuilder()
                             .setRequest(request)
                             .setResponse(response)))
             .setStatus(com.google.rpc.Status.getDefaultInstance())

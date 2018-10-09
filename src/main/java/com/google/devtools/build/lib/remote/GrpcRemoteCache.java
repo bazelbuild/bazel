@@ -265,23 +265,15 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     if (!uploadAction) {
       return;
     }
-    try {
-      retrier.execute(
-          () ->
-              acBlockingStub()
-                  .updateActionResult(
-                      UpdateActionResultRequest.newBuilder()
-                          .setInstanceName(options.remoteInstanceName)
-                          .setActionDigest(actionKey.getDigest())
-                          .setActionResult(result)
-                          .build()));
-    } catch (RetryException e) {
-      if (RemoteRetrierUtils.causedByStatus(e, Status.Code.UNIMPLEMENTED)) {
-        // Silently return without upload.
-        return;
-      }
-      throw e;
-    }
+    retrier.execute(
+        () ->
+            acBlockingStub()
+                .updateActionResult(
+                    UpdateActionResultRequest.newBuilder()
+                        .setInstanceName(options.remoteInstanceName)
+                        .setActionDigest(actionKey.getDigest())
+                        .setActionResult(result)
+                        .build()));
   }
 
   void upload(

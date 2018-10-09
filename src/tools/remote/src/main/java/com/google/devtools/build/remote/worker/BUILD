@@ -15,9 +15,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:process_util",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:single-line-formatter",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/remote",
@@ -40,5 +38,6 @@ java_library(
         "@googleapis//:google_rpc_status_java_proto",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+        "@remoteapis//:build_bazel_semver_semver_java_proto",
     ],
 )

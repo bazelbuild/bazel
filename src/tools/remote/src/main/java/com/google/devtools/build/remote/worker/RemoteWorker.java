@@ -21,6 +21,7 @@ import static java.util.logging.Level.SEVERE;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
@@ -95,6 +96,7 @@ public final class RemoteWorker {
   private final ByteStreamImplBase bsServer;
   private final ContentAddressableStorageImplBase casServer;
   private final ExecutionImplBase execServer;
+  private final CapabilitiesImplBase capabilitiesServer;
 
   static FileSystem getFileSystem() {
     final DigestHashFunction hashFunction;
@@ -146,6 +148,7 @@ public final class RemoteWorker {
     } else {
       execServer = null;
     }
+    this.capabilitiesServer = new CapabilitiesServer(digestUtil, execServer != null);
   }
 
   public Server startServer() throws IOException {
@@ -154,7 +157,8 @@ public final class RemoteWorker {
         NettyServerBuilder.forPort(workerOptions.listenPort)
             .addService(ServerInterceptors.intercept(actionCacheServer, headersInterceptor))
             .addService(ServerInterceptors.intercept(bsServer, headersInterceptor))
-            .addService(ServerInterceptors.intercept(casServer, headersInterceptor));
+            .addService(ServerInterceptors.intercept(casServer, headersInterceptor))
+            .addService(ServerInterceptors.intercept(capabilitiesServer, headersInterceptor));
 
     if (execServer != null) {
       b.addService(ServerInterceptors.intercept(execServer, headersInterceptor));

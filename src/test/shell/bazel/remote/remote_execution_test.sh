@@ -556,7 +556,7 @@ EOF
       //a:test >& $TEST_log \
       && fail "Test failure expected" || true
   expect_not_log "test.log"
-  expect_log "Remote connection/protocol failed"
+  expect_log "Failed to query remote execution capabilities"
 }
 
 function test_refuse_symlink_output() {

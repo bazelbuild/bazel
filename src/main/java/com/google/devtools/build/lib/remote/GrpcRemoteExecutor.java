@@ -26,7 +26,6 @@ import com.google.longrunning.Operation;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Status;
 import io.grpc.CallCredentials;
-import io.grpc.ManagedChannel;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
@@ -39,14 +38,16 @@ import javax.annotation.Nullable;
 @ThreadSafe
 class GrpcRemoteExecutor {
 
-  private final ManagedChannel channel;
+  private final ReferenceCountedChannel channel;
   private final CallCredentials callCredentials;
   private final RemoteRetrier retrier;
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
   public GrpcRemoteExecutor(
-      ManagedChannel channel, @Nullable CallCredentials callCredentials, RemoteRetrier retrier) {
+      ReferenceCountedChannel channel,
+      @Nullable CallCredentials callCredentials,
+      RemoteRetrier retrier) {
     this.channel = channel;
     this.callCredentials = callCredentials;
     this.retrier = retrier;
@@ -187,6 +188,6 @@ class GrpcRemoteExecutor {
     if (closed.getAndSet(true)) {
       return;
     }
-    channel.shutdown();
+    channel.release();
   }
 }

@@ -17,6 +17,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.common.base.Preconditions;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashingOutputStream;
@@ -56,6 +57,18 @@ public class DigestUtil {
 
   public DigestUtil(DigestHashFunction hashFn) {
     this.hashFn = hashFn;
+  }
+
+  /** Returns the currently used digest function. */
+  public DigestFunction getDigestFunction() {
+    for (String name : hashFn.getNames()) {
+      try {
+        return DigestFunction.valueOf(name);
+      } catch (IllegalArgumentException e) {
+        // continue.
+      }
+    }
+    return DigestFunction.UNKNOWN;
   }
 
   public Digest compute(byte[] blob) {

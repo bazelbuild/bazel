@@ -26,9 +26,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/exec/apple",
-        "//src/main/java/com/google/devtools/build/lib/exec/local",
-        "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore/http",
         "//src/main/java/com/google/devtools/build/lib/remote/logging",
@@ -48,5 +45,6 @@ java_library(
         "@googleapis//:google_rpc_status_java_proto",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+        "@remoteapis//:build_bazel_semver_semver_java_proto",
     ],
 )

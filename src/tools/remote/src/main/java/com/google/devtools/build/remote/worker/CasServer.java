@@ -27,6 +27,7 @@ import java.io.IOException;
 
 /** A basic implementation of a {@link ContentAddressableStorageImplBase} service. */
 final class CasServer extends ContentAddressableStorageImplBase {
+  static final long MAX_BATCH_SIZE_BYTES = 1024 * 1024 * 4;
   private final SimpleBlobStoreActionCache cache;
 
   public CasServer(SimpleBlobStoreActionCache cache) {

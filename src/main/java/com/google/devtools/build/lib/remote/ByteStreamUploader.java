@@ -62,7 +62,7 @@ import javax.annotation.concurrent.GuardedBy;
  * A client implementing the {@code Write} method of the {@code ByteStream} gRPC service.
  *
  * <p>The uploader supports reference counting to easily be shared between components with
- * different lifecyles. After instantiation the reference coune is {@code 1}.
+ * different lifecyles. After instantiation the reference count is {@code 1}.
  *
  * See {@link ReferenceCounted} for more information on reference counting.
  */

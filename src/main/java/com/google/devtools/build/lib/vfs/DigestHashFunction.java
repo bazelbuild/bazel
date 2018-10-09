@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
@@ -25,7 +27,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map.Entry;
 
 /**
@@ -77,11 +78,15 @@ public class DigestHashFunction {
   private final String name;
   private final MessageDigest messageDigestPrototype;
   private final boolean messageDigestPrototypeSupportsClone;
+  private final ImmutableList<String> names;
 
-  private DigestHashFunction(HashFunction hashFunction, DigestLength digestLength, String name) {
+  private DigestHashFunction(
+      HashFunction hashFunction, DigestLength digestLength, ImmutableList<String> names) {
     this.hashFunction = hashFunction;
     this.digestLength = digestLength;
-    this.name = name;
+    checkArgument(!names.isEmpty());
+    this.name = names.get(0);
+    this.names = names;
     this.messageDigestPrototype = getMessageDigestInstance();
     this.messageDigestPrototypeSupportsClone = supportsClone(messageDigestPrototype);
   }
@@ -113,8 +118,9 @@ public class DigestHashFunction {
           e);
     }
 
-    DigestHashFunction hashFunction = new DigestHashFunction(hash, digestLength, hashName);
-    List<String> names = ImmutableList.<String>builder().add(hashName).add(altNames).build();
+    ImmutableList<String> names =
+        ImmutableList.<String>builder().add(hashName).add(altNames).build();
+    DigestHashFunction hashFunction = new DigestHashFunction(hash, digestLength, names);
     synchronized (hashFunctionRegistry) {
       for (String name : names) {
         if (hashFunctionRegistry.containsKey(name)) {
@@ -227,6 +233,10 @@ public class DigestHashFunction {
 
   public DigestLength getDigestLength() {
     return digestLength;
+  }
+
+  public ImmutableList<String> getNames() {
+    return names;
   }
 
   @Override

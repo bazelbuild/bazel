@@ -34,8 +34,12 @@ public final class RemoteRetrierUtils {
     return false;
   }
 
-  public static boolean causedByExecTimeout(RetryException e) {
-    return (e.getCause() instanceof ExecutionStatusException
-        && ((ExecutionStatusException) e.getCause()).isExecutionTimeout());
+  public static boolean causedByExecTimeout(Throwable e) {
+    if (!(e instanceof RetryException)) {
+      return false;
+    }
+    e = e.getCause();
+    return (e instanceof ExecutionStatusException
+        && ((ExecutionStatusException) e).isExecutionTimeout());
   }
 }
