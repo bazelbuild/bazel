@@ -1394,12 +1394,14 @@ public class CppLinkActionBuilder {
    */
   public CppLinkActionBuilder addLinkParams(
       CcLinkParams linkParams, RuleErrorConsumer errorListener)
-      throws InterruptedException, RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     addLinkopts(linkParams.flattenedLinkopts());
     addLibraries(linkParams.getLibraries());
     if (linkParams.getNonCodeInputs() != null) {
       addNonCodeInputs(linkParams.getNonCodeInputs());
     }
+    // TODO(b/117489813): Logic for building of ExtraLinkTimeLibraries is duplicated here and in
+    // the method {@link CcLinkParams#buildFinalExtraLinkTimeLibraries(RuleContext, CcLinkParams).
     ExtraLinkTimeLibraries extraLinkTimeLibraries = linkParams.getExtraLinkTimeLibraries();
     if (extraLinkTimeLibraries != null) {
       for (ExtraLinkTimeLibrary extraLibrary : extraLinkTimeLibraries.getExtraLibraries()) {

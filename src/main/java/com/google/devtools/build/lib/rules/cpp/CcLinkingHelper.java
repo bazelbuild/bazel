@@ -742,7 +742,6 @@ public final class CcLinkingHelper {
       result.addAllLtoArtifacts(dynamicLinkActionBuilder.getAllLtoBackendArtifacts());
     }
     CppLinkAction dynamicLinkAction = dynamicLinkActionBuilder.build();
-    result.addLinkActionInputs(dynamicLinkAction.getInputs());
     env.registerAction(dynamicLinkAction);
 
     LibraryToLink dynamicLibrary = dynamicLinkAction.getOutputLibrary();

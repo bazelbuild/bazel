@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -162,6 +163,30 @@ public final class CcLinkParams implements CcLinkParamsApi {
     return new Builder(linkingStatically, linkShared);
   }
 
+  /**
+   * {@link CcLinkParams} objects contain {@link ExtraLinkTimeLibraries} used for Go linking. These
+   * are actually callbacks that get called at the end. With this method we build a new CcLinkParams
+   * in which we have called every callback and put the result into the list of libraries. The list
+   * of {@link ExtraLinkTimeLibraries} then gets nullified.
+   */
+  public static CcLinkParams buildFinalExtraLinkTimeLibraries(
+      RuleContext ruleContext, CcLinkParams ccLinkParams)
+      throws InterruptedException, RuleErrorException {
+    ExtraLinkTimeLibraries extraLinkTimeLibraries = ccLinkParams.getExtraLinkTimeLibraries();
+    NestedSetBuilder<LibraryToLink> builtExtraLinkTimeLibrariesBuilder =
+        NestedSetBuilder.linkOrder();
+    if (extraLinkTimeLibraries != null) {
+      for (ExtraLinkTimeLibrary extraLibrary : extraLinkTimeLibraries.getExtraLibraries()) {
+        builtExtraLinkTimeLibrariesBuilder.addTransitive(extraLibrary.buildLibraries(ruleContext));
+      }
+    }
+    CcLinkParams.Builder ccLinkParamsBuilder = CcLinkParams.builder();
+    ccLinkParamsBuilder.addTransitiveArgs(ccLinkParams);
+    ccLinkParamsBuilder.addLibraries(builtExtraLinkTimeLibrariesBuilder.build());
+    ccLinkParamsBuilder.extraLinkTimeLibrariesBuilder = null;
+    return ccLinkParamsBuilder.build();
+  }
+
   public static final Builder builder() {
     return new Builder();
   }
@@ -255,16 +280,6 @@ public final class CcLinkParams implements CcLinkParamsApi {
         addTransitiveArgs(args);
       }
       return ccLinkingInfo != null;
-    }
-
-    /**
-     * Includes link parameters from a collection of dependency targets.
-     */
-    public Builder addTransitiveTargets(Iterable<? extends TransitiveInfoCollection> targets) {
-      for (TransitiveInfoCollection target : targets) {
-        addTransitiveTarget(target);
-      }
-      return this;
     }
 
     /**
