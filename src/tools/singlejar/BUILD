@@ -32,7 +32,6 @@ filegroup(
         "options.h",
         "output_jar.cc",
         "output_jar.h",
-        "port.cc",
         "port.h",
         "singlejar_main.cc",
         "token_stream.h",
@@ -100,7 +99,7 @@ cc_test(
 cc_test(
     name = "desugar_checking_test",
     srcs = [
-        "combiners_test.cc",
+        "desugar_checking_test.cc",
         ":zip_headers",
         ":zlib_interface",
     ],
@@ -342,7 +341,6 @@ cc_library(
 
 cc_library(
     name = "port",
-    srcs = ["port.cc"],
     hdrs = ["port.h"],
     visibility = ["//visibility:private"],
 )
