@@ -78,12 +78,16 @@ misleading alias to point both targets to one guava library, then the BUILD file
 
 ## `.bazelrc`
 
-For project-specific options, use the configuration file `_your-workspace_/tools/bazel.rc` (see
+For project-specific options, use the configuration file `_your-workspace_/.bazelrc` (see
 [bazelrc format](https://docs.bazel.build/user-manual.html#bazelrc)).
 
-For options that you **do not** want to check into source control, create the configuration file
-`_your-workspace_/.bazelrc` and add `.bazelrc` to your `.gitignore`.  Note that this file has a
-different name than the file above (`bazel.rc` vs `.bazelrc`).
+If you want to support per-user options for your project that you **do not** want to check
+into source control, include the line
+```
+try-import user.bazelrc
+```
+(or any other file name) in your `_your-workspace_/.bazelrc` and
+add `user.bazelrc` to your `.gitignore`.
 
 ## Packages
 
