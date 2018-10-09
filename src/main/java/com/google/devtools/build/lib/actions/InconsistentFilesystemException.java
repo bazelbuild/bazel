@@ -26,7 +26,7 @@ public class InconsistentFilesystemException extends IOException {
             + inconsistencyMessage
             + " The results of the "
             + "build are not guaranteed to be correct. You should probably run 'bazel clean' and "
-            + "investigate the filesystem inconsistency (likely due to filesytem updates "
+            + "investigate the filesystem inconsistency (likely due to filesystem updates "
             + "concurrent with the build)");
   }
 }
