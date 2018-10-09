@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
  * {@link WalkableGraph} that looks nodes up in a {@link QueryableGraph}.
  */
 public class DelegatingWalkableGraph implements WalkableGraph {
-  private final QueryableGraph graph;
+  protected final QueryableGraph graph;
 
   public DelegatingWalkableGraph(QueryableGraph graph) {
     this.graph = graph;
@@ -34,8 +34,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
 
   @Nullable
   private NodeEntry getEntryForValue(SkyKey key) throws InterruptedException {
-    NodeEntry entry =
-        graph.getBatch(null, Reason.WALKABLE_GRAPH_VALUE, ImmutableList.of(key)).get(key);
+    NodeEntry entry = getBatch(null, Reason.WALKABLE_GRAPH_VALUE, ImmutableList.of(key)).get(key);
     return entry != null && entry.isDone() ? entry : null;
   }
 
@@ -53,8 +52,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   @Override
   public Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<SkyKey> keys)
       throws InterruptedException {
-    Map<SkyKey, ? extends NodeEntry> batchGet =
-        graph.getBatch(null, Reason.WALKABLE_GRAPH_VALUE, keys);
+    Map<SkyKey, ? extends NodeEntry> batchGet = getBatch(null, Reason.WALKABLE_GRAPH_VALUE, keys);
     Map<SkyKey, SkyValue> result = Maps.newHashMapWithExpectedSize(batchGet.size());
     for (Map.Entry<SkyKey, ? extends NodeEntry> entryPair : batchGet.entrySet()) {
       SkyValue value = getValue(entryPair.getValue());
@@ -70,7 +68,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
       throws InterruptedException {
     Map<SkyKey, Exception> result = new HashMap<>();
     Map<SkyKey, ? extends NodeEntry> graphResult =
-        graph.getBatch(null, Reason.WALKABLE_GRAPH_VALUE, keys);
+        getBatch(null, Reason.WALKABLE_GRAPH_VALUE, keys);
     for (SkyKey key : keys) {
       NodeEntry nodeEntry = graphResult.get(key);
       if (nodeEntry == null || !nodeEntry.isDone()) {
@@ -109,8 +107,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   @Override
   public Map<SkyKey, Iterable<SkyKey>> getDirectDeps(Iterable<SkyKey> keys)
       throws InterruptedException {
-    Map<SkyKey, ? extends NodeEntry> entries =
-        graph.getBatch(null, Reason.WALKABLE_GRAPH_DEPS, keys);
+    Map<SkyKey, ? extends NodeEntry> entries = getBatch(null, Reason.WALKABLE_GRAPH_DEPS, keys);
     Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
     for (Map.Entry<SkyKey, ? extends NodeEntry> entry : entries.entrySet()) {
       Preconditions.checkState(entry.getValue().isDone(), entry);
@@ -122,13 +119,18 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   @Override
   public Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys)
       throws InterruptedException {
-    Map<SkyKey, ? extends NodeEntry> entries =
-        graph.getBatch(null, Reason.WALKABLE_GRAPH_RDEPS, keys);
+    Map<SkyKey, ? extends NodeEntry> entries = getBatch(null, Reason.WALKABLE_GRAPH_RDEPS, keys);
     Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
     for (Map.Entry<SkyKey, ? extends NodeEntry> entry : entries.entrySet()) {
       Preconditions.checkState(entry.getValue().isDone(), entry);
       result.put(entry.getKey(), entry.getValue().getReverseDepsForDoneEntry());
     }
     return result;
+  }
+
+  protected Map<SkyKey, ? extends NodeEntry> getBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+      throws InterruptedException {
+    return graph.getBatch(requestor, reason, keys);
   }
 }
