@@ -45,16 +45,4 @@ public interface SkylarkImport extends Serializable {
    * @throws IllegalStateException if this import takes the form of an absolute path.
    */
   Label getLabel(@Nullable Label containingFileLabel);
-
-  /**
-   * True if this import takes the form of an absolute path.
-   */
-  boolean hasAbsolutePath();
-
-  /**
-   * Returns a {@link PathFragment} representing the import path.
-   *
-   * @throws IllegalStateException if this import does not take the form of an absolute path.
-   */
-  PathFragment getAbsolutePath();
 }

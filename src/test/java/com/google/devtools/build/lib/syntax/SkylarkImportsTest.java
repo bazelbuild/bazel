@@ -40,7 +40,6 @@ public class SkylarkImportsTest {
       String expectedPathString) throws Exception {
     SkylarkImport importForLabel = SkylarkImports.create(labelString);
 
-    assertThat(importForLabel.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
     assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
 
     Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
@@ -49,9 +48,6 @@ public class SkylarkImportsTest {
 
     assertThat(importForLabel.asPathFragment()).named("asPathFragment()")
         .isEqualTo(PathFragment.create(expectedPathString));
-
-    thrown.expect(IllegalStateException.class);
-    importForLabel.getAbsolutePath();
   }
 
   @Test
@@ -77,7 +73,6 @@ public class SkylarkImportsTest {
         ImmutableMap.of(RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo"));
     SkylarkImport importForLabel = SkylarkImports.create(labelString, repositoryMapping);
 
-    assertThat(importForLabel.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
     assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
 
     Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
@@ -95,7 +90,6 @@ public class SkylarkImportsTest {
           throws Exception {
     SkylarkImport importForLabel = SkylarkImports.create(labelString);
 
-    assertThat(importForLabel.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
     assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
 
     // The import label is relative to the parent's package, not the parent's directory.
@@ -106,9 +100,6 @@ public class SkylarkImportsTest {
 
     assertThat(importForLabel.asPathFragment()).named("asPathFragment()")
         .isEqualTo(PathFragment.create(expectedPathString));
-
-   thrown.expect(IllegalStateException.class);
-    importForLabel.getAbsolutePath();
   }
 
   @Test

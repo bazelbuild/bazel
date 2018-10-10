@@ -119,45 +119,45 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadRelativePath() throws Exception {
+  public void testLoadRelativeLabel() throws Exception {
     scratch.file("pkg/BUILD");
     scratch.file("pkg/ext1.bzl", "a = 1");
     scratch.file("pkg/ext2.bzl", "load(':ext1.bzl', 'a')");
-    get(key("//pkg:ext2.bzl"));
+    checkSuccessfulLookup("//pkg:ext2.bzl");
   }
 
   @Test
-  public void testLoadAbsolutePath() throws Exception {
+  public void testLoadAbsoluteLabel() throws Exception {
     scratch.file("pkg2/BUILD");
     scratch.file("pkg3/BUILD");
     scratch.file("pkg2/ext.bzl", "b = 1");
     scratch.file("pkg3/ext.bzl", "load('//pkg2:ext.bzl', 'b')");
-    get(key("//pkg3:ext.bzl"));
+    checkSuccessfulLookup("//pkg3:ext.bzl");
   }
 
   @Test
-  public void testLoadFromSameAbsolutePathTwice() throws Exception {
+  public void testLoadFromSameAbsoluteLabelTwice() throws Exception {
     scratch.file("pkg1/BUILD");
     scratch.file("pkg2/BUILD");
     scratch.file("pkg1/ext.bzl", "a = 1", "b = 2");
     scratch.file("pkg2/ext.bzl", "load('//pkg1:ext.bzl', 'a')", "load('//pkg1:ext.bzl', 'b')");
-    get(key("//pkg2:ext.bzl"));
+    checkSuccessfulLookup("//pkg2:ext.bzl");
   }
 
   @Test
-  public void testLoadFromSameRelativePathTwice() throws Exception {
+  public void testLoadFromSameRelativeLabelTwice() throws Exception {
     scratch.file("pkg/BUILD");
     scratch.file("pkg/ext1.bzl", "a = 1", "b = 2");
     scratch.file("pkg/ext2.bzl", "load(':ext1.bzl', 'a')", "load(':ext1.bzl', 'b')");
-    get(key("//pkg:ext2.bzl"));
+    checkSuccessfulLookup("//pkg:ext2.bzl");
   }
 
   @Test
-  public void testLoadFromRelativePathInSubdir() throws Exception {
+  public void testLoadFromRelativeLabelInSubdir() throws Exception {
     scratch.file("pkg/BUILD");
     scratch.file("pkg/subdir/ext1.bzl", "a = 1");
     scratch.file("pkg/subdir/ext2.bzl", "load(':subdir/ext1.bzl', 'a')");
-    get(key("//pkg:subdir/ext2.bzl"));
+    checkSuccessfulLookup("//pkg:subdir/ext2.bzl");
   }
 
   private EvaluationResult<SkylarkImportLookupValue> get(SkyKey skylarkImportLookupKey)
@@ -171,7 +171,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     return result;
   }
 
-  private SkyKey key(String label) throws Exception {
+  private SkyKey key(String label) {
     return SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked(label), false);
   }
 

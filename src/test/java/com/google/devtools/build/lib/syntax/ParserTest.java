@@ -1099,7 +1099,6 @@ public class ParserTest extends EvaluationTestCase {
     SkylarkImport imp = SkylarkImports.create(stmt.getImport().getValue());
 
     assertThat(imp.getImportString()).named("getImportString()").isEqualTo(importString);
-    assertThat(imp.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
 
     Label containingFileLabel = Label.parseAbsoluteUnchecked(containingFileLabelString);
     assertThat(imp.getLabel(containingFileLabel)).named("containingFileLabel()")

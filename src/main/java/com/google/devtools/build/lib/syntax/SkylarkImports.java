@@ -55,16 +55,6 @@ public class SkylarkImports {
     public abstract Label getLabel(Label containingFileLabel);
 
     @Override
-    public boolean hasAbsolutePath() {
-      return false;
-    }
-
-    @Override
-    public PathFragment getAbsolutePath() {
-      throw new IllegalStateException("can't request absolute path from a non-absolute import");
-    }
-
-    @Override
     public int hashCode() {
       return Objects.hash(getClass(), importString);
     }
@@ -82,76 +72,6 @@ public class SkylarkImports {
       return Objects.equals(getClass(), that.getClass())
           && Objects.equals(importString, ((SkylarkImportImpl) that).importString);
     }
-  }
-
-  @VisibleForSerialization
-  @AutoCodec
-  static final class AbsolutePathImport extends SkylarkImportImpl {
-    private final PathFragment importPath;
-
-    @VisibleForSerialization
-    AbsolutePathImport(String importString, PathFragment importPath) {
-      super(importString);
-      this.importPath = importPath;
-    }
-
-    @Override
-    public PathFragment asPathFragment() {
-      return importPath;
-    }
-
-    @Override
-    public Label getLabel(Label containingFileLabel) {
-      throw new IllegalStateException("can't request a label from an absolute path import");
-    }
-
-    @Override
-    public boolean hasAbsolutePath() {
-      return true;
-    }
-
-    @Override
-    public PathFragment getAbsolutePath() {
-      return this.importPath;
-    }
-
-  }
-
-  @VisibleForSerialization
-  @AutoCodec
-  static final class RelativePathImport extends SkylarkImportImpl {
-    private final String importFile;
-
-    @VisibleForSerialization
-    RelativePathImport(String importString, String importFile) {
-      super(importString);
-      this.importFile = importFile;
-    }
-
-    @Override
-    public PathFragment asPathFragment() {
-      return PathFragment.create(importFile);
-    }
-
-    @Override
-    public Label getLabel(Label containingFileLabel) {
-      // The twistiness of the code below is due to the fact that the containing file may be in
-      // a subdirectory of the package that contains it. We need to construct a Label with
-      // the imported file in the same subdirectory of the package.
-      PathFragment containingDirInPkg =
-          PathFragment.create(containingFileLabel.getName()).getParentDirectory();
-      String targetNameForImport = containingDirInPkg.getRelative(importFile).toString();
-      try {
-        // This is for imports relative to the current repository, so repositoryMapping can be
-        // empty
-        return containingFileLabel.getRelativeWithRemapping(targetNameForImport, ImmutableMap.of());
-      } catch (LabelSyntaxException e) {
-        // Shouldn't happen because the parent label is assumed to be valid and the target string is
-        // validated on construction.
-        throw new IllegalStateException(e);
-      }
-    }
-
   }
 
   @VisibleForSerialization
