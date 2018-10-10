@@ -81,6 +81,10 @@ EOF
     --incompatible_use_remotejdk_as_host_javabase //java:javalib >& $TEST_log
   expect_log "exec .*foobar/bin/java"
   expect_not_log "exec external/remotejdk_.*/bin/java"
+
+  bazel aquery --output=text --incompatible_use_jdk10_as_host_javabase \
+    //java:javalib >& $TEST_log
+  expect_log "exec external/remotejdk10_.*/bin/java"
 }
 
 function test_javabase() {
@@ -218,26 +222,30 @@ EOF
   expect_not_log "foo"
   expect_not_log "bar"
   expect_not_log "embedded_jdk"
-  expect_not_log "remotejdk"
+  expect_not_log "remotejdk_"
+  expect_not_log "remotejdk10_"
 
   bazel cquery --implicit_deps 'deps(//:with_java)' >& $TEST_log
   expect_not_log "foo"
   expect_log "bar"
   expect_log "embedded_jdk"
-  expect_not_log "remotejdk"
+  expect_not_log "remotejdk_"
+  expect_not_log "remotejdk10_"
 
   bazel cquery --implicit_deps 'deps(//:with_java)' --host_javabase=:foo_javabase >& $TEST_log
   expect_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"
-  expect_not_log "remotejdk"
+  expect_not_log "remotejdk_"
+  expect_not_log "remotejdk10_"
 
   bazel cquery --implicit_deps 'deps(//:with_java)' \
     --incompatible_use_remotejdk_as_host_javabase >& $TEST_log
   expect_not_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"
-  expect_log "remotejdk"
+  expect_log "remotejdk_"
+  expect_not_log "remotejdk10_"
 
   bazel cquery --implicit_deps 'deps(//:with_java)' \
     --host_javabase=:foo_javabase \
@@ -245,7 +253,17 @@ EOF
   expect_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"
-  expect_not_log "remotejdk"
+  expect_not_log "remotejdk_"
+  expect_not_log "remotejdk10_"
+
+  bazel cquery --implicit_deps 'deps(//:with_java)' \
+    --incompatible_use_jdk10_as_host_javabase >& $TEST_log
+  expect_not_log "foo"
+  expect_log "bar"
+  expect_not_log "embedded_jdk"
+  expect_not_log "remotejdk_"
+  expect_log "remotejdk10_"
+
 }
 
 run_suite "Tests of specifying custom server_javabase/host_javabase and javabase."

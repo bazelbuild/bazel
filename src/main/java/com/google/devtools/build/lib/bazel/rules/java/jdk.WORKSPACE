@@ -130,3 +130,47 @@ new_http_archive(
     build_file = __embedded_dir__ + "/jdk.BUILD",
     strip_prefix = "jdk9-server-release-1708",
 )
+
+new_http_archive(
+    name = "remotejdk10_linux",
+    sha256 = "57fad3602e74c79587901d6966d3b54ef32cb811829a2552163185d5064fe9b5",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-linux_x64-allmodules.tar.gz",
+    ],
+    build_file = __embedded_dir__ + "/jdk.BUILD",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-linux_x64-allmodules",
+)
+
+
+new_http_archive(
+    name = "remotejdk10_macos",
+    sha256 = "e669c9a897413d855b550b4e39d79614392e6fb96f494e8ef99a34297d9d85d3",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz",
+    ],
+    build_file = __embedded_dir__ + "/jdk.BUILD",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules"
+)
+
+new_http_archive(
+    name = "remotejdk10_win",
+    sha256 = "c39e7700a8d41794d60985df5a20352435196e78ecbc6a2b30df7be8637bffd5",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip",
+    ],
+    build_file = __embedded_dir__ + "/jdk.BUILD",
+    strip_prefix = "zulu10.2+3-jdk10.0.1-win_x64-allmodules",
+)
+
+# The source-code for this OpenJDK can be found at:
+# https://openjdk.linaro.org/releases/jdk10-src-1804.tar.xz
+new_http_archive(
+    name = "remotejdk10_linux_aarch64",
+    sha256 = "b7098b7aaf6ee1ffd4a2d0371a0be26c5a5c87f6aebbe46fe9a92c90583a84be",
+    urls = [
+        # When you update this, also update the link to the source-code above.
+        "http://openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz",
+    ],
+    build_file = __embedded_dir__ + "/jdk.BUILD",
+    strip_prefix = "jdk10-server-release-1804",
+)
