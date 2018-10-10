@@ -27,6 +27,19 @@
 
 #if defined(__linux__)
 #include <endian.h>
+#include <features.h>
+#if !defined(__GLIBC__) || __GLIBC_PREREQ(2, 9)
+// endian.h is sufficient
+#elif __BYTE_ORDER == __LITTLE_ENDIAN
+#define le16toh(x) (x)
+#define le32toh(x) (x)
+#define le64toh(x) (x)
+#define htole16(x) (x)
+#define htole32(x) (x)
+#define htole64(x) (x)
+#else
+#error "byte order conversion macros not defined"
+#endif
 #elif defined(__FreeBSD__)
 #include <sys/endian.h>
 #elif defined(__APPLE__) || defined(_WIN32)

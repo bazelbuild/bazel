@@ -53,6 +53,10 @@
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
 
+#ifndef MS_RELATIME
+#define MS_RELATIME (1 << 21)
+#endif
+
 static int global_child_pid;
 
 static void SetupSelfDestruction(int *sync_pipe) {

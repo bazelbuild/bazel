@@ -180,7 +180,11 @@
 #define GPR_GCC_ATOMIC 1
 #define GPR_GCC_TLS 1
 #define GPR_LINUX 1
+#if !defined(__GLIBC__) || __GLIBC_PREREQ(2, 9)
 #define GPR_LINUX_MULTIPOLL_WITH_EPOLL 1
+#else
+#define GPR_POSIX_MULTIPOLL_WITH_POLL 1
+#endif
 #define GPR_POSIX_WAKEUP_FD 1
 #define GPR_POSIX_SOCKET 1
 #define GPR_POSIX_SOCKETADDR 1

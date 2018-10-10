@@ -498,7 +498,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_utime(JNIEnv *env,
                                                   jboolean now,
                                                   jint modtime) {
   const char *path_chars = GetStringLatin1Chars(env, path);
-#ifdef __linux
+#if defined(__linux) && (!defined(__GLIBC__) || __GLIBC_PREREQ(2, 6))
   struct timespec spec[2] = {{0, UTIME_OMIT}, {modtime, now ? UTIME_NOW : 0}};
   if (::utimensat(AT_FDCWD, path_chars, spec, 0) == -1) {
     ::PostFileException(env, errno, path_chars);

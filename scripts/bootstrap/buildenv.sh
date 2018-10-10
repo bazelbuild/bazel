@@ -287,7 +287,8 @@ function get_java_version() {
     || fail "JAVA_HOME ($JAVA_HOME) is not a path to a working JDK."
 
   JAVAC_VERSION=$("${JAVAC}" -version 2>&1)
-  if [[ "$JAVAC_VERSION" =~ javac\ ((1\.)?([789]|[1-9][0-9])).*$ ]]; then
+  PATTERN='javac\ ((1\.)?([789]|[1-9][0-9])).*$'
+  if [[ "$JAVAC_VERSION" =~ $PATTERN ]]; then
     JAVAC_VERSION=1.${BASH_REMATCH[3]}
   else
     fail \
