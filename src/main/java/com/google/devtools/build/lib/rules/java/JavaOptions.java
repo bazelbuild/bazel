@@ -107,7 +107,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "host_javabase",
-      defaultValue = "@bazel_tools//tools/jdk:host_jdk",
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -115,6 +115,19 @@ public class JavaOptions extends FragmentOptions {
           "JAVABASE used for the host JDK. This is the java_runtime which is used to execute "
               + "tools during a build.")
   public Label hostJavaBase;
+
+  @Option(
+      name = "incompatible_use_remotejdk_as_host_javabase",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+      "If enabled, uses a JDK downloaded from a remote repository instead of the embedded JDK.")
+  public boolean useRemoteJdkAsHostJavaBase;
 
   @Option(
     name = "javacopt",
@@ -597,11 +610,22 @@ public class JavaOptions extends FragmentOptions {
               + "--java_header_compilation is enabled.")
   public boolean requireJavaToolchainHeaderCompilerDirect;
 
+  private Label getHostJavaBase() {
+    if (hostJavaBase == null) {
+      if (useRemoteJdkAsHostJavaBase) {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk");
+      } else {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:host_jdk");
+      }
+    }
+    return hostJavaBase;
+  }
+
   @Override
   public FragmentOptions getHost() {
     JavaOptions host = (JavaOptions) getDefault();
 
-    host.javaBase = hostJavaBase;
+    host.javaBase = getHostJavaBase();
     host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
 
     host.javacOpts = hostJavacOpts;
@@ -640,7 +664,7 @@ public class JavaOptions extends FragmentOptions {
   @Override
   public Map<String, Set<Label>> getDefaultsLabels() {
     Map<String, Set<Label>> result = new HashMap<>();
-    result.put("JDK", ImmutableSet.of(javaBase, hostJavaBase));
+    result.put("JDK", ImmutableSet.of(javaBase, getHostJavaBase()));
     result.put("JAVA_TOOLCHAIN", ImmutableSet.of(javaToolchain));
 
     return result;

@@ -315,3 +315,18 @@ test_suite(
     tests = [":windows_tests"],
     visibility = ["//tools:__pkg__"],
 )
+
+# Replacement for the embedded JDK as host javabase.
+alias(
+    name = "remote_jdk",
+    actual = select({
+        "//src/conditions:darwin": "@remotejdk_macos//:jdk",
+        "//src/conditions:darwin_x86_64": "@remotejdk_macos//:jdk",
+        "//src/conditions:windows": "@remotejdk_win//:jdk",
+        "//src/conditions:linux_aarch64": "@remotejdk_linux_aarch64//:jdk",
+        "//src/conditions:linux_x86_64": "@remotejdk_linux//:jdk",
+        # Fall back to the local JDK on any other platform.
+        "//conditions:default": "@local_jdk//:jdk",
+    }),
+    visibility = ["//visibility:public"],
+)
