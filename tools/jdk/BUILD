@@ -327,7 +327,8 @@ alias(
             "//src/conditions:linux_aarch64": "@remotejdk_linux_aarch64//:jdk",
             "//src/conditions:linux_x86_64": "@remotejdk_linux//:jdk",
         },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly provide one using `--host_javabase.",
+        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
+                         " provide one using `--host_javabase.`",
     ),
     visibility = ["//visibility:public"],
 )
