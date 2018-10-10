@@ -57,6 +57,9 @@ cc_toolchain_suite(
 [
     apple_cc_toolchain(
         name = "cc-compiler-" + arch,
+        toolchain_identifier = (
+            arch if arch != "armeabi-v7a" else "stub_armeabi-v7a"
+        ),
         all_files = ":osx_tools_" + arch,
         compiler_files = ":osx_tools_" + arch,
         cpu = arch,

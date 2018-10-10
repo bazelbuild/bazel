@@ -657,9 +657,10 @@ EOF
 
   # Replace the target_root_placeholder with the actual target_root
   sed -i "s|target_root_placeholder|$target_root|g" downloaded_toolchain/CROSSTOOL
+  sed -i "s|name = 'cc-compiler-k8',|name = 'cc-compiler-k8', toolchain_identifier = 'linux_gnu_x86',|g" downloaded_toolchain/BUILD
 
   # Prepare the bazel command flags
-  flags="--crosstool_top=@x86_64_unknown_linux_gnu//:toolchain --verbose_failures --spawn_strategy=sandboxed"
+  flags="--crosstool_top=@x86_64_unknown_linux_gnu//:toolchain --host_crosstool_top=@bazel_tools//tools/cpp:toolchain --verbose_failures --spawn_strategy=sandboxed"
   flags="${flags} --sandbox_add_mount_pair=${source}:${target}"
 
   # Execute the bazel build command without creating the target. Should fail.
