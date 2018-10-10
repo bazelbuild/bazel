@@ -151,6 +151,9 @@ platforms:
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
     - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
   windows:
+    shell_commands:
+    - C:\tools\msys64\usr\bin\sed.exe -i -e 's/^# android_sdk_repository/android_sdk_repository/'
+      -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE
     build_flags:
     - "--copt=-w"
     - "--host_copt=-w"

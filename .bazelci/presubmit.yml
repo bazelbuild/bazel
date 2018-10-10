@@ -188,6 +188,8 @@ platforms:
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
     - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
   windows:
+    shell_commands:
+    - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
     build_flags:
     - "--copt=-w"
     - "--host_copt=-w"
