@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -126,7 +127,12 @@ public class CToolchainSelectionUtils {
     }
     if (selectedToolchain == null) {
       throw new InvalidConfigurationException(
-          String.format("Toolchain identifier '%s' was not found", toolchainIdentifier));
+          String.format(
+                  "Toolchain identifier '%s' was not found, valid identifiers are %s",
+                  toolchainIdentifier,
+                  proto.getToolchainList().stream()
+                      .map(CToolchain::getToolchainIdentifier)
+                      .collect(ImmutableList.toImmutableList())));
     }
     return selectedToolchain;
   }

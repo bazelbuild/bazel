@@ -1,16 +1,5 @@
 major_version: "local"
 minor_version: ""
-default_target_cpu: "armeabi-v7a"
-
-default_toolchain {
-  cpu: "armeabi-v7a"
-  toolchain_identifier: "clang_linux_armhf"
-}
-
-default_toolchain {
-  cpu: "k8"
-  toolchain_identifier: "local"
-}
 
 toolchain {
   abi_version: "gcc"
@@ -29,7 +18,7 @@ toolchain {
   target_libc: "glibc_2.19"
   target_cpu: "armeabi-v7a"
   target_system_name: "arm_a15"
-  toolchain_identifier: "clang_linux_armhf"
+  toolchain_identifier: "armeabi-v7a"
 
   tool_path { name: "ar" path: "linaro_linux_gcc/arm-linux-gnueabihf-ar" }
   tool_path { name: "compat-ld" path: "linaro_linux_gcc/arm-linux-gnueabihf-ld" }

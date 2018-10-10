@@ -37,13 +37,15 @@ cc_toolchain_suite(
         "x64_windows|msvc-cl": ":cc-compiler-x64_windows",
         "x64_windows|msys-gcc": ":cc-compiler-x64_windows_msys",
         "x64_windows|mingw-gcc": ":cc-compiler-x64_windows_mingw",
-        "x64_windows": ":cc-compiler-x64_windows_msys",
+        "x64_windows_msys": ":cc-compiler-x64_windows_msys",
+        "x64_windows": ":cc-compiler-x64_windows",
         "armeabi-v7a": ":cc-compiler-armeabi-v7a",
     },
 )
 
 cc_toolchain(
     name = "cc-compiler-x64_windows_msys",
+    toolchain_identifier = "msys_x64",
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
@@ -73,6 +75,7 @@ toolchain(
 
 cc_toolchain(
     name = "cc-compiler-x64_windows_mingw",
+    toolchain_identifier = "msys_x64_mingw",
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "x64_windows",
@@ -102,6 +105,7 @@ toolchain(
 
 cc_toolchain(
     name = "cc-compiler-x64_windows",
+    toolchain_identifier = "msvc_x64",
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "x64_windows",
@@ -130,6 +134,7 @@ toolchain(
 
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
+    toolchain_identifier = "stub_armeabi-v7a",
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",

@@ -42,6 +42,7 @@ cc_toolchain_suite(
 
 cc_toolchain(
     name = "cc-compiler-freebsd",
+    toolchain_identifier = "local_freebsd",
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
@@ -70,6 +71,7 @@ toolchain(
 
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
+    toolchain_identifier = "stub_armeabi-v7a",
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",

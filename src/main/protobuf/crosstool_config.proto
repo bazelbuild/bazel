@@ -521,7 +521,8 @@ message CrosstoolRelease {
   // not used for that purpose (or anything else) anymore. Please also don't add
   // new uses of this field.
   optional string default_target_cpu = 3;
-  // The default toolchain to use for each given cpu.
+  // Deprecated: The default toolchain to use for each given cpu.
+  // Use cc_toolchain_suite.toolchains with only cpu specified instead
   repeated DefaultCpuToolchain default_toolchain = 4;
 
   // All the toolchains in this release.

@@ -30,6 +30,8 @@ cc_toolchain_suite(
     name = "toolchain",
     # target_cpu | compiler
     toolchains = {
+        "armeabi-v7a": "cc-compiler-armeabi-v7a",
+        "k8": "cc-compiler-k8",
         "armeabi-v7a|gcc": "cc-compiler-armeabi-v7a",
         "k8|compiler": "cc-compiler-k8",
     },
@@ -69,6 +71,7 @@ filegroup(
 
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
+    toolchain_identifier = "armeabi-v7a",
     all_files = ":linaro_linux_all_files",
     ar_files = "//tools/arm_compiler/linaro_linux_gcc:ar",
     as_files = "//tools/arm_compiler/linaro_linux_gcc:as",
@@ -86,6 +89,7 @@ cc_toolchain(
 
 cc_toolchain(
     name = "cc-compiler-k8",
+    toolchain_identifier = "local",
     all_files = ":empty",
     ar_files = ":empty",
     as_files = ":empty",

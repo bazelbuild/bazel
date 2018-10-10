@@ -56,6 +56,7 @@ cc_toolchain_suite(
 
 cc_toolchain(
     name = "cc-compiler-%{name}",
+    toolchain_identifier = "local",
     all_files = ":compiler_deps",
     compiler_files = ":compiler_deps",
     cpu = "%{name}",
@@ -85,6 +86,7 @@ toolchain(
 # Android tooling requires a default toolchain for the armeabi-v7a cpu.
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
+    toolchain_identifier = "stub_armeabi-v7a",
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",

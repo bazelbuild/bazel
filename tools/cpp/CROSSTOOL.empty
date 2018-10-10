@@ -1,6 +1,5 @@
 major_version: "local"
 minor_version: ""
-default_target_cpu: "local"
 
 toolchain {
   abi_version: "local"
