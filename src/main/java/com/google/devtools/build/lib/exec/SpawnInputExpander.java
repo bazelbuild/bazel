@@ -154,25 +154,6 @@ public class SpawnInputExpander {
     }
   }
 
-  /**
-   * Parses the fileset manifest file, adding to the inputMappings where appropriate. Lines
-   * referring to directories are recursed.
-   */
-  // TODO(kush): make tests use the method with in-memory fileset data.
-  @VisibleForTesting
-  void parseFilesetManifest(
-      Map<PathFragment, ActionInput> inputMappings, Artifact manifest, String workspaceName)
-      throws IOException {
-    FilesetManifest filesetManifest =
-        FilesetManifest.parseManifestFile(
-            manifest.getExecPath(), execRoot, workspaceName, relSymlinkBehavior);
-    for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
-      String value = mapping.getValue();
-      ActionInput artifact = value == null ? EMPTY_FILE : ActionInputHelper.fromPath(value);
-      addMapping(inputMappings, mapping.getKey(), artifact);
-    }
-  }
-
   @VisibleForTesting
   void addFilesetManifests(
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
