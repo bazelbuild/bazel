@@ -920,7 +920,7 @@ public class Package {
       this.filename = filename;
       try {
         buildFileLabel = createLabel(filename.getRootRelativePath().getBaseName());
-        addInputFile(buildFileLabel, Location.fromPathFragment(filename.getRootRelativePath()));
+        addInputFile(buildFileLabel, Location.fromPathFragment(filename.asPath().asFragment()));
       } catch (LabelSyntaxException e) {
         // This can't actually happen.
         throw new AssertionError("Package BUILD file has an illegal name: " + filename);
