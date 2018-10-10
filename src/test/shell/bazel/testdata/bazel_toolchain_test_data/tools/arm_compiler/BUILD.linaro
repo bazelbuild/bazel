@@ -35,6 +35,7 @@ cc_toolchain_suite(
         "armeabi-v7a|gcc": "cc-compiler-armeabi-v7a",
         "k8|compiler": "cc-compiler-k8",
     },
+    visibility = ["//visibility:public"],
 )
 
 filegroup(

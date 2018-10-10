@@ -50,53 +50,14 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testFilesToBuild() throws Exception {
-    scratch.file("a/BUILD",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])");
-
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     ConfiguredTarget b = getConfiguredTarget("//a:b");
-    assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(b)))
-        .containsExactly("banana1", "banana2");
+    assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(b))).isNotNull();
   }
 
   @Test
   public void testInterfaceSharedObjects() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])");
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     getAnalysisMock()
         .ccSupport()
         .setupCrosstool(
@@ -153,26 +114,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testFission() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])");
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
 
     // Default configuration: disabled.
     getAnalysisMock()
@@ -248,26 +190,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testPic() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])");
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
 
     assertThat(usePicForBinariesWithConfiguration("--cpu=piii")).isFalse();
     assertThat(usePicForBinariesWithConfiguration("--cpu=piii", "-c", "opt")).isFalse();
@@ -316,7 +239,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     useConfiguration();
 
-    getConfiguredTarget("//a:a");
+    getConfiguredTarget("//a:b");
   }
 
   @Test
@@ -377,34 +300,11 @@ public class CcToolchainTest extends BuildViewTestCase {
     }
   }
 
-  private void writeDummyCcToolchain() throws IOException {
-    scratch.file(
-        "a/BUILD",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])");
-  }
-
   // Regression test for bug 2088255:
   // "StringIndexOutOfBoundsException in BuildConfiguration.<init>()"
   @Test
   public void testShortLibcVersion() throws Exception {
-    writeDummyCcToolchain();
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
 
     getAnalysisMock()
         .ccSupport()
@@ -423,7 +323,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testParamDfDoubleQueueThresholdFactor() throws Exception {
-    writeDummyCcToolchain();
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     useConfiguration();
 
     scratch.file("lib/BUILD", "cc_library(", "   name = 'lib',", "   srcs = ['a.cc'],", ")");
@@ -440,7 +340,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testMergesDefaultCoptsWithUserProvidedOnes() throws Exception {
-    writeDummyCcToolchain();
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
 
     ConfiguredTarget lib = getConfiguredTarget("//lib");
@@ -461,24 +361,7 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
       throws Exception {
     try {
-      scratch.overwriteFile(
-          "a/BUILD",
-          "filegroup(",
-          "   name='empty')",
-          "cc_toolchain(",
-          "    name = 'b',",
-          "    cpu = 'k8',",
-          "    all_files = ':banana',",
-          "    ar_files = ':empty',",
-          "    as_files = ':empty',",
-          "    compiler_files = ':empty',",
-          "    dwp_files = ':empty',",
-          "    linker_files = ':empty',",
-          "    strip_files = ':empty',",
-          "    objcopy_files = ':empty',",
-          "    dynamic_runtime_libs = [':empty'],",
-          "    static_runtime_libs = [':empty'])");
-
+      scratch.overwriteFile("a/BUILD", "cc_toolchain_alias(name = 'b')");
       getAnalysisMock()
           .ccSupport()
           .setupCrosstool(
@@ -584,24 +467,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])",
+        "cc_toolchain_alias(name = 'b')",
         "genrule(",
         "    name ='gen_artifact',",
         "    outs=['profile.profdata'],",
@@ -615,26 +481,7 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void testFdoOptimizeUnexpectedExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
-        "a/BUILD",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])",
-        "exports_files(['profile.unexpected'])");
+        "a/BUILD", "cc_toolchain_alias(name = 'b')", "exports_files(['profile.unexpected'])");
     scratch.file("a/profile.unexpected", "");
     useConfiguration("-c", "opt", "--fdo_optimize=//a:profile.unexpected");
     assertThat(getConfiguredTarget("//a:b")).isNull();
@@ -646,24 +493,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])",
+        "cc_toolchain_alias(name = 'b')",
         "filegroup(",
         "    name ='profile',",
         "    srcs=['my_profile.afdo'])");
@@ -676,7 +506,23 @@ public class CcToolchainTest extends BuildViewTestCase {
   @Test
   public void testZipperInclusionDependsOnFdoOptimization() throws Exception {
     reporter.removeHandler(failFastHandler);
-    writeDummyCcToolchain();
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'])");
     scratch.file("fdo/my_profile.afdo", "");
     scratch.file(
         "fdo/BUILD",
@@ -754,6 +600,10 @@ public class CcToolchainTest extends BuildViewTestCase {
         "cc_toolchain_config_rule(name = 'toolchain_config')",
         "filegroup(",
         "   name='empty')",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    cpu = 'banana',",
@@ -846,16 +696,16 @@ public class CcToolchainTest extends BuildViewTestCase {
             CrosstoolConfig.CToolchain.newBuilder().setAbiVersion("orange").buildPartial());
 
     useConfiguration(
+        "--cpu=k8",
         "--experimental_enable_cc_toolchain_config_info",
         "--incompatible_disable_late_bound_option_defaults",
         "--incompatible_disable_cc_configuration_make_variables");
 
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
     assertThat(toolchainProvider.getAbi()).isEqualTo("banana");
-    assertThat(toolchainProvider.getCcToolchainLabel().toString()).isEqualTo("//a:b");
     assertThat(toolchainProvider.getFeatures().getActivatableNames())
         .containsExactly("simple_action", "simple_feature");
   }
@@ -925,7 +775,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testSupportsDynamicLinkerCheckFeatures() throws Exception {
-    writeDummyCcToolchain();
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
 
     getAnalysisMock()
         .ccSupport()
@@ -946,7 +796,7 @@ public class CcToolchainTest extends BuildViewTestCase {
   // present at all in the toolchain.
   @Test
   public void testStaticLinkCppRuntimesSetViaSupportsEmbeddedRuntimesUnset() throws Exception {
-    writeDummyCcToolchain();
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig);
     useConfiguration();
     ConfiguredTarget target = getConfiguredTarget("//a:b");
@@ -962,7 +812,7 @@ public class CcToolchainTest extends BuildViewTestCase {
   // in the toolchain.
   @Test
   public void testStaticLinkCppRuntimesSetViaSupportsEmbeddedRuntimesFalse() throws Exception {
-    writeDummyCcToolchain();
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     getAnalysisMock().ccSupport().setupCrosstoolWithEmbeddedRuntimes(mockToolsConfig);
     useConfiguration();
     ConfiguredTarget target = getConfiguredTarget("//a:b");
@@ -976,7 +826,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   private FeatureConfiguration configureFeaturesForStaticLinkCppRuntimesTest(
       String partialToolchain, String configurationToUse) throws Exception {
-    writeDummyCcToolchain();
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(partialToolchain, toolchainBuilder);
     getAnalysisMock()
@@ -1027,23 +877,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testSysroot_fromCrosstool() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "filegroup(",
-        "    name='empty')",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])");
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
     scratch.file("libc1/header1.h", "#define FOO 1");
 
@@ -1066,6 +900,10 @@ public class CcToolchainTest extends BuildViewTestCase {
         "a/BUILD",
         "filegroup(",
         "    name='empty')",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    cpu = 'banana',",
@@ -1079,6 +917,16 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = ':empty',",
         "    dynamic_runtime_libs = [':empty'],",
         "    static_runtime_libs = [':empty'],",
+        "    proto = \"\"\"",
+        "      toolchain_identifier: \"a\"",
+        "      host_system_name: \"a\"",
+        "      target_system_name: \"a\"",
+        "      target_cpu: \"a\"",
+        "      target_libc: \"a\"",
+        "      compiler: \"a\"",
+        "      abi_version: \"a\"",
+        "      abi_libc_version: \"a\"",
+        "\"\"\",",
         "    libc_top = '//libc2:everything')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
     scratch.file("libc1/header1.h", "#define FOO 1");
@@ -1090,11 +938,11 @@ public class CcToolchainTest extends BuildViewTestCase {
         .setupCrosstool(
             mockToolsConfig,
             CrosstoolConfig.CToolchain.newBuilder().setDefaultGrteTop("//libc1").buildPartial());
-    useConfiguration();
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    useConfiguration("--cpu=k8");
+    ConfiguredTarget target = getConfiguredTarget("//a:a");
+    CcToolchainProvider ccToolchainProvider =
+        (CcToolchainProvider) target.get(CcToolchainProvider.PROVIDER);
 
-    assertThat(toolchainProvider.getSysroot()).isEqualTo("libc2");
+    assertThat(ccToolchainProvider.getSysroot()).isEqualTo("libc2");
   }
 }

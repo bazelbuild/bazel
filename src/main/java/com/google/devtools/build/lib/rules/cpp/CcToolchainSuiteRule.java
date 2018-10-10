@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -32,12 +33,16 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .setUndocumented()
-        .add(attr("toolchains", BuildType.LABEL_DICT_UNARY)
-            .mandatory()
-            .allowedFileTypes(FileTypeSet.NO_FILE)
-            .nonconfigurable("Used during configuration creation"))
-        .add(attr("proto", Type.STRING)
-            .nonconfigurable("Used during configuration creation"))
+        .requiresConfigurationFragments(CppConfiguration.class)
+        .add(
+            attr("toolchains", BuildType.LABEL_DICT_UNARY)
+                .mandatory()
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .nonconfigurable("Used during configuration creation"))
+        .add(attr("proto", Type.STRING).nonconfigurable("Used during configuration creation"))
+        .add(
+            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
+                .value(CppRuleClasses.ccToolchainTypeAttribute(environment)))
         .build();
   }
 

@@ -72,14 +72,14 @@ public class CppRuleClasses {
 
   @AutoCodec
   static final Resolver<CppConfiguration, Label> CC_TOOLCHAIN_CONFIGURATION_RESOLVER =
-      (rule, attributes, configuration) -> configuration.getCcToolchainRuleLabel();
+      (rule, attributes, configuration) -> configuration.getCrosstoolTop();
 
   public static LabelLateBoundDefault<CppConfiguration> ccHostToolchainAttribute(
       RuleDefinitionEnvironment env) {
     return LabelLateBoundDefault.fromHostConfiguration(
         CppConfiguration.class,
         env.getToolsLabel(CROSSTOOL_LABEL),
-        (rules, attributes, cppConfig) -> cppConfig.getCcToolchainRuleLabel());
+        (rules, attributes, cppConfig) -> cppConfig.getCrosstoolTop());
   }
 
   public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {

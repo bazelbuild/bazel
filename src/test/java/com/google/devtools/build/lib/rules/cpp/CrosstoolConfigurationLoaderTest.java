@@ -150,9 +150,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
   private ConfiguredTarget getCcToolchainTarget(CppConfiguration cppConfiguration)
       throws Exception {
-    update(cppConfiguration.getCcToolchainRuleLabel().toString());
+    update(cppConfiguration.getRuleProvidingCcToolchainProvider().toString());
     return Preconditions.checkNotNull(
-        getConfiguredTarget(cppConfiguration.getCcToolchainRuleLabel().toString()));
+        getConfiguredTarget(cppConfiguration.getRuleProvidingCcToolchainProvider().toString()));
   }
 
   private CcToolchainProvider getCcToolchainProvider(CppConfiguration cppConfiguration)

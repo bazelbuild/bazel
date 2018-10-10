@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -46,10 +48,32 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         new CcToolchainAttributesProvider(
             ruleContext, isAppleToolchain(), getAdditionalBuildVariables(ruleContext));
 
+    RuleConfiguredTargetBuilder ruleConfiguredTargetBuilder =
+        new RuleConfiguredTargetBuilder(ruleContext)
+            .addNativeDeclaredProvider(attributes)
+            .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
+
+    if (attributes.getLicensesProvider() != null) {
+      ruleConfiguredTargetBuilder.add(LicensesProvider.class, attributes.getLicensesProvider());
+    }
+
+    PlatformConfiguration platformConfig =
+        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
+    if (!platformConfig.isToolchainTypeEnabled(
+        CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
+      // This is not a platforms-backed build, let's provide CcToolchainAttributesProvider
+      // and have cc_toolchain_suite select one of its toolchains and create CcToolchainProvider
+      // from its attributes.
+      return ruleConfiguredTargetBuilder.build();
+    }
+
+    // This is a platforms-backed build, we will not analyze cc_toolchain_suite at all, and we are
+    // sure current cc_toolchain is the one selected. We can create CcToolchainProvider here.
     CcToolchainProvider ccToolchainProvider =
         CcToolchainProviderHelper.getCcToolchainProvider(ruleContext, attributes);
 
     if (ccToolchainProvider == null) {
+      // Skyframe restart
       return null;
     }
 
@@ -60,22 +84,15 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             ccToolchainProvider.getSysrootPathFragment(),
             ruleContext.getRule().getLocation());
 
-    RuleConfiguredTargetBuilder builder =
-        new RuleConfiguredTargetBuilder(ruleContext)
-            .addNativeDeclaredProvider(ccToolchainProvider)
-            .addNativeDeclaredProvider(templateVariableInfo)
-            .setFilesToBuild(ccToolchainProvider.getCrosstool())
-            .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
-            .addProvider(new MiddlemanProvider(ccToolchainProvider.getCrosstoolMiddleman()));
-
-    if (attributes.getLicensesProvider() != null) {
-      builder.add(LicensesProvider.class, attributes.getLicensesProvider());
-    }
-
-    return builder.build();
+    ruleConfiguredTargetBuilder
+        .addNativeDeclaredProvider(ccToolchainProvider)
+        .addNativeDeclaredProvider(templateVariableInfo)
+        .setFilesToBuild(ccToolchainProvider.getCrosstool())
+        .addProvider(new MiddlemanProvider(ccToolchainProvider.getCrosstoolMiddleman()));
+    return ruleConfiguredTargetBuilder.build();
   }
 
-  private static TemplateVariableInfo createMakeVariableProvider(
+  static TemplateVariableInfo createMakeVariableProvider(
       CppConfiguration cppConfiguration,
       CcToolchainProvider toolchainProvider,
       PathFragment sysroot,

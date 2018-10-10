@@ -409,20 +409,22 @@ public class CcToolchainProviderHelper {
       ccToolchainSuiteLabelIfNeeded = cppConfiguration.getCrosstoolTop();
     }
 
-    SkyKey ccSupportKey = CcSkyframeSupportValue.key(fdoZip, ccToolchainSuiteLabelIfNeeded);
+    CcSkyframeSupportValue ccSkyframeSupportValue = null;
+    if (ccToolchainSuiteLabelIfNeeded != null || fdoZip != null) {
+      SkyKey ccSupportKey = CcSkyframeSupportValue.key(fdoZip, ccToolchainSuiteLabelIfNeeded);
 
-    SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-    CcSkyframeSupportValue ccSkyframeSupportValue;
-    try {
-      ccSkyframeSupportValue =
-          (CcSkyframeSupportValue)
-              skyframeEnv.getValueOrThrow(ccSupportKey, CcSkyframeSupportException.class);
-    } catch (CcSkyframeSupportException e) {
-      ruleContext.throwWithRuleError(e.getMessage());
-      throw new IllegalStateException("Should not be reached");
-    }
-    if (skyframeEnv.valuesMissing()) {
-      return null;
+      SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
+      try {
+        ccSkyframeSupportValue =
+            (CcSkyframeSupportValue)
+                skyframeEnv.getValueOrThrow(ccSupportKey, CcSkyframeSupportException.class);
+      } catch (CcSkyframeSupportException e) {
+        ruleContext.throwWithRuleError(e.getMessage());
+        throw new IllegalStateException("Should not be reached");
+      }
+      if (skyframeEnv.valuesMissing()) {
+        return null;
+      }
     }
 
     CppToolchainInfo toolchainInfo =
@@ -606,7 +608,7 @@ public class CcToolchainProviderHelper {
         sysroot,
         fdoMode,
         new FdoProvider(
-            ccSkyframeSupportValue.getFdoZipPath(),
+            ccSkyframeSupportValue == null ? null : ccSkyframeSupportValue.getFdoZipPath(),
             fdoMode,
             cppConfiguration.getFdoInstrument(),
             profileArtifact,
@@ -615,7 +617,8 @@ public class CcToolchainProviderHelper {
             allowInference),
         cppConfiguration.useLLVMCoverageMapFormat(),
         configuration.isCodeCoverageEnabled(),
-        configuration.isHostConfiguration());
+        configuration.isHostConfiguration(),
+        attributes.getLicensesProvider());
   }
 
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */
