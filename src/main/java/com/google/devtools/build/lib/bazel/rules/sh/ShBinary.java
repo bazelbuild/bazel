@@ -80,6 +80,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     Runfiles runfiles =
         runfilesBuilder
             .addTransitiveArtifacts(filesToBuild)
+            .addArtifacts(ruleContext.getPrerequisiteArtifacts("data", Mode.DONT_CHECK).list())
             .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
             .build();
 

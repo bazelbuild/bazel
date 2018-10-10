@@ -353,5 +353,41 @@ EOF
   grep "Run Forest run" bazel-bin/a/output || fail "Output file wrong"
 }
 
+function test_sh_binary_data() {
+  cat > BUILD <<EOF
+load("//:whatever.bzl", "whatever")
+whatever()
+EOF
+
+  cat > whatever.bzl <<EOF
+def _catter_impl(ctx):
+    ctx.actions.write(ctx.outputs.out, "#!/bin/sh\ncat xyzzy.txt && echo Laputan Machine")
+
+_catter = rule(
+    outputs = {"out": "catter.sh"},
+    implementation = _catter_impl,
+)
+
+def _empty_file_impl(ctx):
+    ctx.actions.write(ctx.outputs.out, "")
+
+_empty_file = rule(
+    outputs = {"out": "xyzzy.txt"},
+    implementation = _empty_file_impl,
+)
+
+def whatever():
+    _empty_file(name = "empty")
+    _catter(name = "catter")
+    native.sh_binary(
+        name = "runner",
+        srcs = [":catter"],
+        data = [":empty"],
+    )
+EOF
+  bazel run //:runner >"$TEST_log" || fail "Expected success"
+  expect_log_once 'Laputan Machine'
+}
+
 
 run_suite "'${PRODUCT_NAME} run' integration tests"
