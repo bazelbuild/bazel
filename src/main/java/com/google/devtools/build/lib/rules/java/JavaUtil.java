@@ -76,7 +76,7 @@ public final class JavaUtil {
     if (path.isAbsolute()) {
       throw new IllegalArgumentException("path must not be absolute: '" + path + "'");
     }
-    int rootIndex = path.getFirstSegment(ImmutableSet.of("java", "javatests", "src"));
+    int rootIndex = path.getFirstSegment(ImmutableSet.of("java", "javatests", "src", "testsrc"));
     if (rootIndex < 0) {
       return rootIndex;
     }
