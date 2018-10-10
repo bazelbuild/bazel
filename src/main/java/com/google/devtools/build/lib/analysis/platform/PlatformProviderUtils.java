@@ -16,12 +16,17 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
+import javax.annotation.Nullable;
 
 /** Utility methods to help locate platform-related providers. */
 public class PlatformProviderUtils {
 
   /** Retrieves and casts the {@link PlatformInfo} provider from the given target. */
-  public static PlatformInfo platform(ProviderCollection target) {
+  @Nullable
+  public static PlatformInfo platform(@Nullable ProviderCollection target) {
+    if (target == null) {
+      return null;
+    }
     return target.get(PlatformInfo.PROVIDER);
   }
 
@@ -31,7 +36,11 @@ public class PlatformProviderUtils {
   }
 
   /** Retrieves and casts the {@link ConstraintSettingInfo} provider from the given target. */
-  public static ConstraintSettingInfo constraintSetting(ProviderCollection target) {
+  @Nullable
+  public static ConstraintSettingInfo constraintSetting(@Nullable ProviderCollection target) {
+    if (target == null) {
+      return null;
+    }
     return target.get(ConstraintSettingInfo.PROVIDER);
   }
 
@@ -42,7 +51,11 @@ public class PlatformProviderUtils {
   }
 
   /** Retrieves and casts the {@link ConstraintValueInfo} provider from the given target. */
-  public static ConstraintValueInfo constraintValue(ProviderCollection target) {
+  @Nullable
+  public static ConstraintValueInfo constraintValue(@Nullable ProviderCollection target) {
+    if (target == null) {
+      return null;
+    }
     return target.get(ConstraintValueInfo.PROVIDER);
   }
 
@@ -53,7 +66,11 @@ public class PlatformProviderUtils {
   }
 
   /** Retrieves and casts the {@link ToolchainInfo} provider from the given target. */
-  public static ToolchainInfo toolchain(ProviderCollection target) {
+  @Nullable
+  public static ToolchainInfo toolchain(@Nullable ProviderCollection target) {
+    if (target == null) {
+      return null;
+    }
     return target.get(ToolchainInfo.PROVIDER);
   }
 }
