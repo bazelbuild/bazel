@@ -82,6 +82,7 @@ pkg_deb(
         "zlib1g-dev",
         "bash-completion",
         "unzip",
+        "python",
     ],
     description_file = "description",
     homepage = "http://bazel.build",
