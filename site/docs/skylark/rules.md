@@ -508,7 +508,7 @@ provider).
   any of these fields while also returning a `DefaultInfo` modern provider.
 
 * The field `output_groups` takes a struct value and corresponds to an
-  [`OutputGroupInfo`](lib/globals.html#OutputGroupInfo).
+  [`OutputGroupInfo`](lib/OutputGroupInfo.html).
 
 * The field `instrumented_files` is for
   [code coverage instrumentation](#code-coverage-instrumentation). It does not
