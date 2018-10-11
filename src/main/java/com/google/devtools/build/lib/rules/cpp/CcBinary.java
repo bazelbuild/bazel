@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -128,10 +127,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     private void checkRestrictedUsage(RuleContext ruleContext) {
       Rule rule = ruleContext.getRule();
       if (rule.getRuleClassObject().isSkylark()
-          || (!rule.getRuleClass().equals("cc_binary")
-              && !rule.getRuleClass().equals("cc_test")
-              && !rule.getRuleClass().equals("cc_fake_binary")
-              && !rule.getRuleClass().equals("java_binary")
+          || (!rule.getRuleClass().equals("java_binary")
               && !rule.getRuleClass().equals("java_test")
               && !rule.getRuleClass().equals("py_binary")
               && !rule.getRuleClass().equals("py_test"))) {
@@ -346,13 +342,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     CcLinkParams linkParams =
-        CcLinkParams.buildFinalExtraLinkTimeLibraries(
+        collectCcLinkParams(
             ruleContext,
-            collectCcLinkParams(
-                ruleContext,
-                linkingMode != Link.LinkingMode.DYNAMIC,
-                isLinkShared(ruleContext),
-                common.getLinkopts()));
+            linkingMode != Link.LinkingMode.DYNAMIC,
+            isLinkShared(ruleContext),
+            common.getLinkopts());
 
     Artifact generatedDefFile = null;
     Artifact customDefFile = null;
@@ -425,11 +419,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       outputLibrary = dynamicLibrariesForRuntime.get(0);
     }
     Iterable<Artifact> fakeLinkerInputs =
-        fake
-            ? getFakeLinkerInputs(
-                ccLinkingOutputsAndCcLinkingInfo.second.first,
-                ccLauncherInfo.getCcCompilationOutputs(ruleContext))
-            : ImmutableList.of();
+        fake ? ccLinkingOutputsBinary.getLinkActionInputs() : ImmutableList.<Artifact>of();
     CcLinkingOutputs.Builder linkingOutputsBuilder = new CcLinkingOutputs.Builder();
     if (isLinkShared(ruleContext)) {
       linkingOutputsBuilder.addDynamicLibraryForLinking(outputLibrary);
@@ -557,39 +547,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .setRunfilesSupport(runfilesSupport, binary)
         .addNativeDeclaredProvider(ccLauncherInfo)
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
-        .build();
-  }
-
-  private static Iterable<Artifact> getFakeLinkerInputs(
-      CcLinkingInfo ccLinkingInfo, CcCompilationOutputs ccCompilationOutputs) {
-    // Since we are already in cc_binary, we know what we are linking. All the four variants of the
-    // linking parameters should be the same.
-    Preconditions.checkState(
-        ccLinkingInfo.getStaticModeParamsForExecutable()
-            == ccLinkingInfo.getStaticModeParamsForDynamicLibrary());
-    Preconditions.checkState(
-        ccLinkingInfo.getStaticModeParamsForDynamicLibrary()
-            == ccLinkingInfo.getDynamicModeParamsForExecutable());
-    Preconditions.checkState(
-        ccLinkingInfo.getDynamicModeParamsForExecutable()
-            == ccLinkingInfo.getDynamicModeParamsForDynamicLibrary());
-    CcLinkParams ccLinkParams = ccLinkingInfo.getStaticModeParamsForExecutable();
-    ImmutableList.Builder<Artifact> linkstamps = ImmutableList.builder();
-    // This is linearizing a nested set. This is only done here for cc_fake_binary, this is fine
-    // because usage of this rule is not widespread.
-    for (Linkstamp linkstamp : ccLinkParams.getLinkstamps().toList()) {
-      linkstamps.add(linkstamp.getArtifact()).addAll(linkstamp.getDeclaredIncludeSrcs());
-    }
-    return NestedSetBuilder.<Artifact>stableOrder()
-        .addAll(
-            ccLinkParams.getLibraries().toList().stream()
-                .filter(LinkerInput::isFake)
-                .map(LinkerInput::getArtifact)
-                .collect(ImmutableList.toImmutableList()))
-        .addAll(linkstamps.build())
-        .addTransitive(ccLinkParams.getNonCodeInputs())
-        .addAll(ccCompilationOutputs.getObjectFiles(/* usePic= */ true))
-        .addAll(ccCompilationOutputs.getObjectFiles(/* usePic= */ false))
         .build();
   }
 
@@ -934,6 +891,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static CcLinkParams collectCcLinkParams(RuleContext context,
       boolean linkingStatically, boolean linkShared, List<String> linkopts) {
     CcLinkParams.Builder builder = CcLinkParams.builder(linkingStatically, linkShared);
+
     builder.addCcLibrary(context);
     if (!isLinkShared(context)) {
       builder.addTransitiveTarget(CppHelper.mallocForTarget(context));
