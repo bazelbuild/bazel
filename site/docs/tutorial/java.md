@@ -62,7 +62,7 @@ you don't have it installed already.
         3.  Under the "User&nbsp;variables" list (the one on the top), click "New...".
         4.  In the "Variable&nbsp;name" field, enter `JAVA_HOME`.
         5.  Click "Browse&nbsp;Directory...".
-        6.  Navigate to the JDK directory (for example `C:\Program&nbsp;Files\Java\jdk1.8.0_152`).
+        6.  Navigate to the JDK directory (for example `C:\Program Files\Java\jdk1.8.0_152`).
         7.  Click "OK" on all dialog windows.
 
 ### Get the sample project
