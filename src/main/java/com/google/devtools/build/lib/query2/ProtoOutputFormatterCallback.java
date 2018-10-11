@@ -87,7 +87,6 @@ public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   public void close(boolean failFast) throws IOException {
     if (!failFast && printStream != null) {
       if (options.protoIncludeConfigurations) {
-        protoResult.build().writeTo(printStream);
         writeData(protoResult.build());
       } else {
         // Documentation promises that setting this flag to false means we convert directly
