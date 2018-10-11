@@ -16,10 +16,45 @@
 #
 # modify_execution_info_test.sh: tests of the --modify_execution_info flag.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+# --- begin runfiles.bash initialization ---
+# Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
+set -euo pipefail
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
 
 #### HELPER FUNCTIONS ##################################################
 
@@ -98,17 +133,25 @@ EOF
 Genrule=+requires-a,CppCompile=+requires-b,CppCompile=+requires-c \
     > output 2> "$TEST_log" || fail "Expected success"
   assert_contains "ExecutionInfo: {requires-a: '', requires-z: ''}" output
-  assert_contains "ExecutionInfo: {requires-b: '', requires-c: ''}" output
+  assert_contains "ExecutionInfo: {requires-b: '', requires-c: ''" output
 
   # negative lookahead
   bazel aquery --output=text "//$pkg:all" \
    --modify_execution_info='(?!Genrule).*=+requires-a,(?!CppCompile).*=+requires-z' \
     > output 2> "$TEST_log" || fail "Expected success"
   assert_contains "ExecutionInfo: {requires-x: '', requires-z: ''}" output
-  assert_contains "ExecutionInfo: {requires-a: ''}" output
+  assert_contains "ExecutionInfo: {requires-a: ''" output
 }
 
 function test_modify_execution_info_various_types() {
+  # proto_library requires this external workspace.
+  cat >> WORKSPACE << EOF
+new_local_repository(
+    name = "com_google_protobuf",
+    path = "$(dirname $(rlocation io_bazel/third_party/protobuf/3.6.1/BUILD))",
+    build_file = "$(rlocation io_bazel/third_party/protobuf/3.6.1/BUILD)",
+)
+EOF
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   echo "load('//$pkg:shell.bzl', 'skylark_shell')" > "$pkg/BUILD"
@@ -127,7 +170,8 @@ java_library(name = "javalib", srcs = ["HelloWorld.java"])
 action_listener(
   name = "al",
   extra_actions = [":echo-filename"],
-  mnemonics = ["Javac"]
+  mnemonics = ["Javac"],
+  visibility = ["//visibility:public"],
 )
 
 extra_action(name = "echo-filename", cmd = "echo Hi \$(EXTRA_ACTION_FILE)")
@@ -189,9 +233,11 @@ SkylarkAction=+requires-skylark-action \
   assert_contains "requires-turbine: ''" output
   assert_contains "requires-java-source-jar: ''" output
   assert_contains "requires-proto: ''" output  # GenProtoDescriptorSet should match
-  # Python rules generate some cpp actions and local actions, but py-tinypar
-  # is the main unique-to-python rule which runs remotely for a py_binary.
-  assert_contains "requires-py-tinypar: ''" output
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    # Python rules generate some cpp actions and local actions, but py-tinypar
+    # is the main unique-to-python rule which runs remotely for a py_binary.
+    assert_contains "requires-py-tinypar: ''" output
+  fi
 }
 
 run_suite "Integration tests of the --modify_execution_info option."
