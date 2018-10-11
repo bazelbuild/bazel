@@ -25,7 +25,9 @@ public class AqueryOptions extends CommonQueryOptions {
       defaultValue = "proto",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "The format in which the aquery results should be printed.")
+      help =
+          "The format in which the aquery results should be printed. Allowed values for aquery "
+              + "are: text, proto, textproto.")
   public String outputFormat;
 
   @Option(
