@@ -105,8 +105,8 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
     if (verbosity.equals(CqueryOptions.Transitions.NONE)) {
       reporter.handle(
           Event.error(
-              "Instead of using --output=transitions, set the --transition flag"
-                  + " explicitly to 'lite' or 'full'"));
+              "Instead of using --output=transitions, set the --transitions"
+                  + " flag explicitly to 'lite' or 'full'"));
       return;
     }
     partialResult.forEach(
