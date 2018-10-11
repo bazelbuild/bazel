@@ -6,55 +6,6 @@
 
 major_version: "1"
 minor_version: "0"
-default_target_cpu: "same_as_host"
-default_toolchain {
-  cpu: "darwin"
-  toolchain_identifier: "darwin_x86_64"
-}
-default_toolchain {
-  cpu: "darwin_x86_64"
-  toolchain_identifier: "darwin_x86_64"
-}
-default_toolchain {
-  cpu: "k8"
-  toolchain_identifier: "darwin_x86_64"
-}
-default_toolchain {
-  cpu: "ios_x86_64"
-  toolchain_identifier: "ios_x86_64"
-}
-default_toolchain {
-  cpu: "ios_i386"
-  toolchain_identifier: "ios_i386"
-}
-default_toolchain {
-  cpu: "ios_armv7"
-  toolchain_identifier: "ios_armv7"
-}
-default_toolchain {
-  cpu: "ios_arm64"
-  toolchain_identifier: "ios_arm64"
-}
-default_toolchain {
-  cpu: "watchos_i386"
-  toolchain_identifier: "watchos_i386"
-}
-default_toolchain {
-  cpu: "watchos_armv7k"
-  toolchain_identifier: "watchos_armv7k"
-}
-default_toolchain {
-  cpu: "tvos_x86_64"
-  toolchain_identifier: "tvos_x86_64"
-}
-default_toolchain {
-  cpu: "tvos_arm64"
-  toolchain_identifier: "tvos_arm64"
-}
-default_toolchain {
-  cpu: "armeabi-v7a"
-  toolchain_identifier: "stub_armeabi-v7a"
-}
 toolchain {
   toolchain_identifier: "darwin_x86_64"
 %{cxx_builtin_include_directory}
