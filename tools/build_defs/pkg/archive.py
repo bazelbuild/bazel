@@ -340,7 +340,14 @@ class TarFileWriter(object):
       p.wait()
       intar = tarfile.open(fileobj=f, mode='r:')
     else:
-      intar = tarfile.open(name=tar, mode='r:' + compression)
+      if compression in ['gz', 'bz2']:
+        # prevent performance issues due to accidentally-introduced seeks
+        # during intar traversal by opening in "streaming" mode. gz, bz2
+        # are supported natively by python 2.7 and 3.x
+        inmode = 'r|' + compression
+      else:
+        inmode = 'r:' + compression
+      intar = tarfile.open(name=tar, mode=inmode)
     for tarinfo in intar:
       if name_filter is None or name_filter(tarinfo.name):
         tarinfo.mtime = 0
@@ -378,7 +385,9 @@ class TarFileWriter(object):
         tarinfo.name = name
 
         if tarinfo.isfile():
-          self._addfile(tarinfo, intar.extractfile(tarinfo.name))
+          # use extractfile(tarinfo) instead of tarinfo.name to preserve
+          # seek position in intar
+          self._addfile(tarinfo, intar.extractfile(tarinfo))
         else:
           self._addfile(tarinfo)
     intar.close()
