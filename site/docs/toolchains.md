@@ -226,7 +226,7 @@ def _bar_toolchain_impl(ctx):
     return [toolchain_info]
 
 bar_toolchain = rule(
-    _bar_toolchain_impl,
+    implementation = _bar_toolchain_impl,
     attrs = {
         "compiler_path": attr.string(),
         "system_lib": attr.string(),
