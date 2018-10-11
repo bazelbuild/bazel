@@ -19,16 +19,18 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
@@ -184,7 +186,7 @@ public class JacocoCoverageRunner {
   private void analyzeUninstrumentedClassesFromJar(
       Analyzer analyzer, File jar, Set<String> alreadyInstrumentedClasses) throws IOException {
     JarFile jarFile = new JarFile(jar);
-    JarInputStream jarInputStream = new JarInputStream(new FileInputStream(jar));
+    JarInputStream jarInputStream = new JarInputStream(Files.newInputStream(jar.toPath()));
     for (JarEntry jarEntry = jarInputStream.getNextJarEntry();
         jarEntry != null;
         jarEntry = jarInputStream.getNextJarEntry()) {
@@ -228,7 +230,7 @@ public class JacocoCoverageRunner {
   static void addEntriesToExecPathsSet(
       File jar, ImmutableSet.Builder<String> execPathsSetBuilder) throws IOException {
     JarFile jarFile = new JarFile(jar);
-    JarInputStream jarInputStream = new JarInputStream(new FileInputStream(jar));
+    JarInputStream jarInputStream = new JarInputStream(Files.newInputStream(jar.toPath()));
     for (JarEntry jarEntry = jarInputStream.getNextJarEntry();
         jarEntry != null;
         jarEntry = jarInputStream.getNextJarEntry()) {
@@ -247,7 +249,7 @@ public class JacocoCoverageRunner {
   private static String getMainClass(String metadataJar) throws Exception {
     if (metadataJar != null) {
       // Blaze guarantees that JACOCO_METADATA_JAR has a proper manifest with a Main-Class entry.
-      try (JarInputStream jarStream = new JarInputStream(new FileInputStream(metadataJar))) {
+      try (JarInputStream jarStream = new JarInputStream(Files.newInputStream(Paths.get(metadataJar)))) {
         return jarStream.getManifest().getMainAttributes().getValue("Main-Class");
       }
     } else {
@@ -339,7 +341,8 @@ public class JacocoCoverageRunner {
                   try {
                     IAgent agent = RT.getAgent();
                     byte[] data = agent.getExecutionData(false);
-                    try (FileOutputStream fs = new FileOutputStream(coverageData, true)) {
+                    try (OutputStream fs =
+                        Files.newOutputStream(Paths.get(coverageData), StandardOpenOption.APPEND)) {
                       fs.write(data);
                     }
                     // We append to the output file, but run report generation only for the coverage
@@ -356,7 +359,8 @@ public class JacocoCoverageRunner {
                   File[] metadataJars;
                   if (metadataFile != null) {
                     if (isNewImplementation) {
-                      List<String> metadataFiles = Files.readLines(new File(metadataFile), UTF_8);
+                      List<String> metadataFiles =
+                          com.google.common.io.Files.readLines(new File(metadataFile), UTF_8);
                       List<File> convertedMetadataFiles = new ArrayList<>();
                       for (String metadataFile : metadataFiles) {
                         convertedMetadataFiles.add(new File(javaRunfilesRoot + metadataFile));

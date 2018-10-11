@@ -238,8 +238,7 @@ public class ResourceCompiler {
         // aapt2 compile strips out namespaces and attributes from the resources tag.
         // Read them here separately and package them with the other flat files.
         xmlEventReader =
-            XMLInputFactory.newInstance()
-                .createXMLEventReader(new FileInputStream(file.toString()));
+            XMLInputFactory.newInstance().createXMLEventReader(Files.newInputStream(file));
 
         // Iterate through the XML until we find a start element.
         // This should mimic xmlEventReader.nextTag() except that it also skips DTD elements.

@@ -20,6 +20,8 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -101,7 +103,8 @@ public class ProfileGrapher {
     try (JsonReader reader =
         new JsonReader(
             new BufferedReader(
-                new InputStreamReader(new FileInputStream(filename), StandardCharsets.UTF_8)))) {
+                new InputStreamReader(
+                    Files.newInputStream(Paths.get(filename)), StandardCharsets.UTF_8)))) {
       reader.beginArray();
       while (reader.hasNext()) {
         Map<String, Object> data = decodeJsonObject(reader);

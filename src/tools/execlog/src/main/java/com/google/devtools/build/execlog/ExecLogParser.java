@@ -26,6 +26,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.List;
@@ -218,21 +220,21 @@ final class ExecLogParser {
       golden = new ReorderingParser.Golden();
     }
 
-    try (InputStream input = new FileInputStream(logPath)) {
+    try (InputStream input = Files.newInputStream(Paths.get(logPath))) {
       Parser parser = new FilteringLogParser(input, options.restrictToRunner);
 
       if (output1 == null) {
         output(parser, System.out, golden);
       } else {
-        try (OutputStream output = new FileOutputStream(output1)) {
+        try (OutputStream output = Files.newOutputStream(Paths.get(output1))) {
           output(parser, output, golden);
         }
       }
     }
 
     if (secondPath != null) {
-      try (InputStream file2 = new FileInputStream(secondPath);
-          OutputStream output = new FileOutputStream(output2)) {
+      try (InputStream file2 = Files.newInputStream(Paths.get(secondPath));
+          OutputStream output = Files.newOutputStream(Paths.get(output2))) {
         Parser parser = new FilteringLogParser(file2, options.restrictToRunner);
         // ReorderingParser will read the whole golden on initialization,
         // so it is safe to close after.

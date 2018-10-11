@@ -117,7 +117,8 @@ public class CompressedTarFunctionTest {
           @Override
           protected InputStream getDecompressorStream(DecompressorDescriptor descriptor)
               throws IOException {
-            return new GZIPInputStream(new FileInputStream(descriptor.archivePath().getPathFile()));
+            return new GZIPInputStream(
+                Files.newInputStream(descriptor.archivePath().getPathFile().toPath()));
           }
         }.decompress(descriptorBuilder.build());
 
@@ -140,7 +141,8 @@ public class CompressedTarFunctionTest {
           @Override
           protected InputStream getDecompressorStream(DecompressorDescriptor descriptor)
               throws IOException {
-            return new GZIPInputStream(new FileInputStream(descriptor.archivePath().getPathFile()));
+            return new GZIPInputStream(
+                Files.newInputStream(descriptor.archivePath().getPathFile().toPath()));
           }
         }.decompress(descriptorBuilder.build());
 

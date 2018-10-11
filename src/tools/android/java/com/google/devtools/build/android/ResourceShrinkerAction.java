@@ -35,8 +35,8 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -255,14 +255,13 @@ public class ResourceShrinkerAction {
       resourcePackages.addAll(options.resourcePackages);
 
       // Expand resource files zip into working directory.
-      try (ZipInputStream zin =
-          new ZipInputStream(new FileInputStream(options.resourcesZip.toFile()))) {
+      try (ZipInputStream zin = new ZipInputStream(Files.newInputStream(options.resourcesZip))) {
         ZipEntry entry;
         while ((entry = zin.getNextEntry()) != null) {
           if (!entry.isDirectory()) {
             Path output = resourceFiles.resolve(entry.getName());
             Files.createDirectories(output.getParent());
-            try (FileOutputStream fos = new FileOutputStream(output.toFile())) {
+            try (OutputStream fos = Files.newOutputStream(output)) {
               ByteStreams.copy(zin, fos);
             }
           }

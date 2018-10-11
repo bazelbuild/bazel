@@ -29,6 +29,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -97,8 +98,7 @@ public class IdlClassTest {
             "c/g/Bar$Inner.class",
             "c/g/Bar2$Inner.class");
 
-    try (OutputStream os = new FileOutputStream(classJar);
-        ZipOutputStream zos = new ZipOutputStream(os)) {
+    try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(classJar.toPath()))) {
       for (String path : classes) {
         zos.putNextEntry(new ZipEntry(path));
       }
@@ -113,7 +113,7 @@ public class IdlClassTest {
       tempFolder.newFile(file);
     }
 
-    try (OutputStream os = new FileOutputStream(manifestProto)) {
+    try (OutputStream os = Files.newOutputStream(manifestProto.toPath())) {
       MANIFEST.writeTo(os);
     }
 

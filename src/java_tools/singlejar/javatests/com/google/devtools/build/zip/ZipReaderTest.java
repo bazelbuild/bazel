@@ -24,10 +24,11 @@ import com.google.devtools.build.zip.ZipFileEntry.Feature;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.RandomAccessFile;
+import java.nio.file.Files;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
@@ -73,7 +74,7 @@ public class ZipReaderTest {
   }
 
   @Test public void testMalformed_Empty() throws IOException {
-    try (FileOutputStream out = new FileOutputStream(test)) {
+    try (OutputStream out = Files.newOutputStream(test.toPath())) {
     }
     thrown.expect(ZipException.class);
     thrown.expectMessage("is malformed. It does not contain an end of central directory record.");
@@ -81,7 +82,7 @@ public class ZipReaderTest {
   }
 
   @Test public void testMalformed_ShorterThanSignature() throws IOException {
-    try (FileOutputStream out = new FileOutputStream(test)) {
+    try (OutputStream out = Files.newOutputStream(test.toPath())) {
       out.write(new byte[] { 1, 2, 3 });
     }
     thrown.expect(ZipException.class);
@@ -90,7 +91,7 @@ public class ZipReaderTest {
   }
 
   @Test public void testMalformed_SignatureLength() throws IOException {
-    try (FileOutputStream out = new FileOutputStream(test)) {
+    try (OutputStream out = Files.newOutputStream(test.toPath())) {
       out.write(new byte[] { 1, 2, 3, 4 });
     }
     thrown.expect(ZipException.class);
@@ -99,7 +100,7 @@ public class ZipReaderTest {
   }
 
   @Test public void testEmpty() throws IOException {
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(test.toPath()))) {
     }
     try (ZipReader reader = new ZipReader(test, UTF_8)) {
       assertThat(reader.entries()).isEmpty();
@@ -107,7 +108,7 @@ public class ZipReaderTest {
   }
 
   @Test public void testFileComment() throws IOException {
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(test.toPath()))) {
       zout.setComment("test comment");
     }
     try (ZipReader reader = new ZipReader(test, UTF_8)) {
@@ -117,7 +118,7 @@ public class ZipReaderTest {
   }
 
   @Test public void testFileCommentWithSignature() throws IOException {
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(test.toPath()))) {
       zout.setComment("test comment\u0050\u004b\u0005\u0006abcdefghijklmnopqrstuvwxyz");
     }
     try (ZipReader reader = new ZipReader(test, UTF_8)) {
@@ -128,7 +129,7 @@ public class ZipReaderTest {
   }
 
   @Test public void testSingleEntry() throws IOException {
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(test.toPath()))) {
       zout.putNextEntry(new ZipEntry("test"));
       zout.write("foo".getBytes(UTF_8));
       zout.closeEntry();
@@ -140,7 +141,7 @@ public class ZipReaderTest {
 
   @Test public void testMultipleEntries() throws IOException {
     String[] names = new String[] { "test", "foo", "bar", "baz" };
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(test.toPath()))) {
       for (String name : names) {
         zout.putNextEntry(new ZipEntry(name));
         zout.write(name.getBytes(UTF_8));
@@ -164,7 +165,7 @@ public class ZipReaderTest {
     long date = 791784306000L; // 2/3/1995 04:05:06
     byte[] extra = new ExtraData((short) 0xaa, new byte[] { (byte) 0xbb, (byte) 0xcd }).getBytes();
     byte[] tmp = new byte[128];
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(test.toPath()))) {
 
       ZipEntry foo = new ZipEntry("foo");
       foo.setComment("foo comment.");
@@ -223,7 +224,7 @@ public class ZipReaderTest {
   @Test public void testZipEntryInvalidTime() throws IOException {
     long date = 312796800000L; // 11/30/1979 00:00:00, which is also 0 in DOS format
     byte[] extra = new ExtraData((short) 0xaa, new byte[] { (byte) 0xbb, (byte) 0xcd }).getBytes();
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(test.toPath()))) {
       ZipEntry foo = new ZipEntry("foo");
       foo.setComment("foo comment.");
       foo.setMethod(ZipEntry.DEFLATED);
@@ -243,7 +244,7 @@ public class ZipReaderTest {
   @Test public void testRawFileData() throws IOException {
     CRC32 crc = new CRC32();
     Deflater deflator = new Deflater(Deflater.DEFAULT_COMPRESSION, true);
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(test.toPath()))) {
       ZipEntry foo = new ZipEntry("foo");
       foo.setComment("foo comment.");
       foo.setMethod(ZipEntry.DEFLATED);
@@ -295,7 +296,7 @@ public class ZipReaderTest {
 
   @Test public void testFileData() throws IOException {
     CRC32 crc = new CRC32();
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(test.toPath()))) {
       ZipEntry foo = new ZipEntry("foo");
       foo.setComment("foo comment.");
       foo.setMethod(ZipEntry.DEFLATED);
@@ -349,7 +350,7 @@ public class ZipReaderTest {
     byte[] expectedFooData = "This is file foo. It contains a foo.".getBytes(UTF_8);
     byte[] expectedBarData = "This is a different file bar. It contains only a bar."
         .getBytes(UTF_8);
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(test.toPath()))) {
       ZipEntry foo = new ZipEntry("foo");
       foo.setComment("foo comment.");
       foo.setMethod(ZipEntry.DEFLATED);
@@ -387,7 +388,7 @@ public class ZipReaderTest {
     byte[] expectedFooData = "This is file foo. It contains a foo.".getBytes(UTF_8);
     byte[] expectedBarData = "This is a different file bar. It contains only a bar."
         .getBytes(UTF_8);
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(test))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(test.toPath()))) {
       ZipEntry foo = new ZipEntry("foo");
       foo.setComment("foo comment.");
       foo.setMethod(ZipEntry.DEFLATED);
@@ -447,7 +448,7 @@ public class ZipReaderTest {
         (byte) 0xff, (byte) 0xff, (byte) 0xff, 0x00, 0x00
       };
 
-    try (FileOutputStream out = new FileOutputStream(test)) {
+    try (OutputStream out = Files.newOutputStream(test.toPath())) {
       out.write(data);
     }
     String foo = "foo\n";
@@ -476,7 +477,7 @@ public class ZipReaderTest {
   }
 
   @Test public void testZip64_Potential() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8, true)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8, true)) {
       ZipFileEntry template = new ZipFileEntry("template");
       template.setSize(0);
       template.setCompressedSize(0);
@@ -495,7 +496,7 @@ public class ZipReaderTest {
   }
 
   @Test public void testZip64_NumFiles() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8, true)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8, true)) {
       ZipFileEntry template = new ZipFileEntry("template");
       template.setSize(0);
       template.setCompressedSize(0);
@@ -518,14 +519,14 @@ public class ZipReaderTest {
     try (RandomAccessFile bigOut = new RandomAccessFile(bigFile, "rw")) {
       bigOut.setLength(0xffffffffL);
     }
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8, true)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8, true)) {
       ZipFileEntry bigEntry = new ZipFileEntry(bigFile.getName());
       bigEntry.setSize(0xffffffffL);
       bigEntry.setCompressedSize(0xffffffffL);
       bigEntry.setCrc(0);
       bigEntry.setTime(ZipUtil.DOS_EPOCH);
       writer.putNextEntry(bigEntry);
-      ByteStreams.copy(new BufferedInputStream(new FileInputStream(bigFile)), writer);
+      ByteStreams.copy(new BufferedInputStream(Files.newInputStream(bigFile.toPath())), writer);
     }
     try (ZipReader reader = new ZipReader(test, UTF_8)) {
       Collection<ZipFileEntry> entries = reader.entries();
@@ -540,14 +541,14 @@ public class ZipReaderTest {
     try (RandomAccessFile biggerOut = new RandomAccessFile(biggerFile, "rw")) {
       biggerOut.setLength(0x1000000ffL);
     }
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8, true)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8, true)) {
       ZipFileEntry bigEntry = new ZipFileEntry(biggerFile.getName());
       bigEntry.setSize(0x1000000ffL);
       bigEntry.setCompressedSize(0x1000000ffL);
       bigEntry.setCrc(0);
       bigEntry.setTime(ZipUtil.DOS_EPOCH);
       writer.putNextEntry(bigEntry);
-      ByteStreams.copy(new BufferedInputStream(new FileInputStream(biggerFile)), writer);
+      ByteStreams.copy(new BufferedInputStream(Files.newInputStream(biggerFile.toPath())), writer);
     }
     try (ZipReader reader = new ZipReader(test, UTF_8)) {
       Collection<ZipFileEntry> entries = reader.entries();
@@ -558,7 +559,7 @@ public class ZipReaderTest {
   }
 
   @Test public void testZip64_FileCount_Zip64Range_ForceZip32() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8, false)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8, false)) {
       ZipFileEntry template = new ZipFileEntry("template");
       template.setSize(0);
       template.setCompressedSize(0);

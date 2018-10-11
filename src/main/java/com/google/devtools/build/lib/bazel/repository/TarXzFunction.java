@@ -19,6 +19,7 @@ import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import org.tukaani.xz.XZInputStream;
 
 /**
@@ -36,6 +37,6 @@ class TarXzFunction extends CompressedTarFunction {
       throws IOException {
     return new XZInputStream(
         new BufferedInputStream(
-            new FileInputStream(descriptor.archivePath().getPathFile()), BUFFER_SIZE));
+            Files.newInputStream(descriptor.archivePath().getPathFile().toPath()), BUFFER_SIZE));
   }
 }

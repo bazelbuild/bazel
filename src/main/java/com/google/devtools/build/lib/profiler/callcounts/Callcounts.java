@@ -24,6 +24,8 @@ import com.google.perftools.profiles.ProfileProto.Sample;
 import com.google.perftools.profiles.ProfileProto.ValueType;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -140,7 +142,8 @@ public class Callcounts {
 
   static void dump(String path) throws IOException {
     Profile profile = createProfile();
-    try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(new FileOutputStream(path))) {
+    try (GZIPOutputStream gzipOutputStream =
+        new GZIPOutputStream(Files.newOutputStream(Paths.get(path)))) {
       profile.writeTo(gzipOutputStream);
     }
   }

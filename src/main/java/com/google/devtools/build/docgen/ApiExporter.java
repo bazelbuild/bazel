@@ -33,6 +33,8 @@ import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -227,7 +229,8 @@ public class ApiExporter {
   }
 
   private static void writeBuiltins(String filename, Builtins.Builder builtins) throws IOException {
-    try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(filename))) {
+    try (BufferedOutputStream out =
+        new BufferedOutputStream(Files.newOutputStream(Paths.get(filename)))) {
       Builtins build = builtins.build();
       build.writeTo(out);
     }

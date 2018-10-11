@@ -32,11 +32,12 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.ManualSleeper;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.Reader;
+import java.nio.file.Files;
 import java.net.InetAddress;
 import java.net.Proxy;
 import java.net.ServerSocket;
@@ -490,7 +491,7 @@ public class HttpConnectorTest {
 
   private File createTempFile(byte[] fileContents) throws IOException {
     File temp = testFolder.newFile();
-    try (FileOutputStream outputStream = new FileOutputStream(temp)) {
+    try (OutputStream outputStream = Files.newOutputStream(temp.toPath())) {
       outputStream.write(fileContents);
     }
     return temp;

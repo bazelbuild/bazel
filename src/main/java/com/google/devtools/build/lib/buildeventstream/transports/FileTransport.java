@@ -40,10 +40,11 @@ import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
@@ -109,8 +110,8 @@ abstract class FileTransport implements BuildEventTransport {
         Consumer<AbruptExitException> exitFunc,
         BuildEventArtifactUploader uploader) {
       try {
-        this.out = new BufferedOutputStream(new FileOutputStream(path));
-      } catch (FileNotFoundException e) {
+        this.out = new BufferedOutputStream(Files.newOutputStream(Paths.get(path)));
+      } catch (IOException e) {
         this.out = new ByteArrayOutputStream(0);
         closeNow();
         exitFunc.accept(

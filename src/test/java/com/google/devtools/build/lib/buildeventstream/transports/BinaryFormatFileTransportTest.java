@@ -44,6 +44,7 @@ import com.google.devtools.common.options.Options;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -110,7 +111,7 @@ public class BinaryFormatFileTransportTest {
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();
-    try (InputStream in = new FileInputStream(output)) {
+    try (InputStream in = Files.newInputStream(output.toPath())) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(started);
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(progress);
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(completed);
@@ -136,7 +137,7 @@ public class BinaryFormatFileTransportTest {
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();
-    try (InputStream in = new FileInputStream(output)) {
+    try (InputStream in = Files.newInputStream(output.toPath())) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(started);
       assertThat(in.available()).isEqualTo(0);
     }
@@ -165,7 +166,7 @@ public class BinaryFormatFileTransportTest {
     transport.close().get();
 
     // Also, nothing should have been written to the file
-    try (InputStream in = new FileInputStream(output)) {
+    try (InputStream in = Files.newInputStream(output.toPath())) {
       assertThat(in.available()).isEqualTo(0);
     }
   }
@@ -193,7 +194,7 @@ public class BinaryFormatFileTransportTest {
     assertThat(transport.writer.pendingWrites.isEmpty()).isTrue();
 
     // There should have only been one write.
-    try (InputStream in = new FileInputStream(output)) {
+    try (InputStream in = Files.newInputStream(output.toPath())) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(started);
       assertThat(in.available()).isEqualTo(0);
     }
@@ -234,7 +235,7 @@ public class BinaryFormatFileTransportTest {
 
     assertThat(transport.writer.pendingWrites.isEmpty()).isTrue();
 
-    try (InputStream in = new FileInputStream(output)) {
+    try (InputStream in = Files.newInputStream(output.toPath())) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in))
           .isEqualTo(event1.asStreamProto(null));
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in))
@@ -272,7 +273,7 @@ public class BinaryFormatFileTransportTest {
     transport.close().get();
 
     assertThat(transport.writer.pendingWrites).isEmpty();
-    try (InputStream in = new FileInputStream(output)) {
+    try (InputStream in = Files.newInputStream(output.toPath())) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in))
           .isEqualTo(event1.asStreamProto(null));
       assertThat(in.available()).isEqualTo(0);
@@ -310,7 +311,7 @@ public class BinaryFormatFileTransportTest {
 
     closeFuture.get();
 
-    try (InputStream in = new FileInputStream(output)) {
+    try (InputStream in = Files.newInputStream(output.toPath())) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in))
           .isEqualTo(event.asStreamProto(null));
       assertThat(in.available()).isEqualTo(0);

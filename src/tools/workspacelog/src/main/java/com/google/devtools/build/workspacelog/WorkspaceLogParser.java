@@ -26,6 +26,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -91,7 +93,7 @@ final class WorkspaceLogParser {
       System.exit(1);
     }
 
-    try (InputStream input = new FileInputStream(options.logPath)) {
+    try (InputStream input = Files.newInputStream(Paths.get(options.logPath))) {
       ExcludingLogParser parser;
       if (options.excludeRule == null) {
         parser = new ExcludingLogParser(input, null);
@@ -102,7 +104,7 @@ final class WorkspaceLogParser {
       if (options.outputPath == null) {
         output(parser, System.out);
       } else {
-        try (OutputStream output = new FileOutputStream(options.outputPath)) {
+        try (OutputStream output = Files.newOutputStream(Paths.get(options.outputPath))) {
           output(parser, output);
         }
       }

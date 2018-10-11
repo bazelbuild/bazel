@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.nio.file.Files;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -83,7 +84,7 @@ public class JsonFormatFileTransportTest {
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();
-    try (Reader reader = new InputStreamReader(new FileInputStream(output))) {
+    try (Reader reader = new InputStreamReader(Files.newInputStream(output.toPath()))) {
       JsonFormat.Parser parser = JsonFormat.parser();
       BuildEventStreamProtos.BuildEvent.Builder builder =
           BuildEventStreamProtos.BuildEvent.newBuilder();

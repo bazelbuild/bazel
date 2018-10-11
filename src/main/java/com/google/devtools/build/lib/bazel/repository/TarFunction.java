@@ -19,6 +19,7 @@ import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 
 /** Creates a repository by unarchiving a plain .tar file. */
 public class TarFunction extends CompressedTarFunction {
@@ -31,6 +32,6 @@ public class TarFunction extends CompressedTarFunction {
   protected InputStream getDecompressorStream(DecompressorDescriptor descriptor)
       throws IOException {
     return new BufferedInputStream(
-        new FileInputStream(descriptor.archivePath().getPathFile()), BUFFER_SIZE);
+        Files.newInputStream(descriptor.archivePath().getPathFile().toPath()), BUFFER_SIZE);
   }
 }

@@ -17,7 +17,7 @@ package com.google.devtools.build.buildjar.jarhelper;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -201,7 +201,7 @@ public class JarCreator extends JarHelper {
 
   private byte[] manifestContent() throws IOException {
     if (manifestFile != null) {
-      try (FileInputStream in = new FileInputStream(manifestFile)) {
+      try (InputStream in = Files.newInputStream(Paths.get(manifestFile))) {
         return manifestContentImpl(new Manifest(in));
       }
     } else {

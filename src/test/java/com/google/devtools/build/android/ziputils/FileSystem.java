@@ -19,6 +19,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * A simple file system abstraction, for testing. This library doesn't itself open files.
@@ -50,7 +52,7 @@ class FileSystem  {
    * @throws java.io.IOException
    */
   public FileChannel getInputChannel(String filename) throws IOException {
-    return new FileInputStream(filename).getChannel();
+    return Files.newInputStream(Paths.get(filename)).getChannel();
   }
 
   /**
@@ -62,7 +64,7 @@ class FileSystem  {
    * @throws java.io.IOException
    */
   public FileChannel getOutputChannel(String filename, boolean append) throws IOException {
-    return new FileOutputStream(filename, append).getChannel();
+    return Files.newOutputStream(Paths.get(filename), append).getChannel();
   }
 
   /**
@@ -73,6 +75,6 @@ class FileSystem  {
    * @throws java.io.IOException
    */
   public InputStream getInputStream(String filename) throws IOException {
-    return new FileInputStream(filename);
+    return Files.newInputStream(Paths.get(filename));
   }
 }

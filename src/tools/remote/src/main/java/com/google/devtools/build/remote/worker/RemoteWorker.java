@@ -68,11 +68,12 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -334,7 +335,7 @@ public final class RemoteWorker {
     Path sandboxPath = null;
     try {
       sandboxPath = fs.getPath(remoteWorkerOptions.workPath).getChild("linux-sandbox");
-      try (FileOutputStream fos = new FileOutputStream(sandboxPath.getPathString())) {
+      try (OutputStream fos = Files.newOutputStream(sandboxPath.getPathFile().toPath())) {
         ByteStreams.copy(sandbox, fos);
       }
       sandboxPath.setExecutable(true);

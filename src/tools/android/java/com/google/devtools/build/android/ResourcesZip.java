@@ -31,8 +31,8 @@ import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.proto.SerializeFormat.ToolAttributes;
 import java.io.Closeable;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -152,7 +152,7 @@ public class ResourcesZip {
               Path output = workingDirectory.resolve(entry.getName());
               try {
                 Files.createDirectories(output.getParent());
-                try (FileOutputStream fos = new FileOutputStream(output.toFile())) {
+                try (OutputStream fos = Files.newOutputStream(output)) {
                   ByteStreams.copy(zipFile.getInputStream(entry), fos);
                 }
               } catch (IOException e) {
