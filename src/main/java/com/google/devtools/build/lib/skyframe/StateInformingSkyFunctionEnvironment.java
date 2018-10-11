@@ -23,6 +23,7 @@ import com.google.devtools.build.skyframe.ValueOrException2;
 import com.google.devtools.build.skyframe.ValueOrException3;
 import com.google.devtools.build.skyframe.ValueOrException4;
 import com.google.devtools.build.skyframe.ValueOrException5;
+import com.google.devtools.build.skyframe.Version;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -258,6 +259,11 @@ class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
   @Override
   public GroupedList<SkyKey> getTemporaryDirectDeps() {
     return delegate.getTemporaryDirectDeps();
+  }
+
+  @Override
+  public void injectVersionForNonHermeticFunction(Version version) {
+    delegate.injectVersionForNonHermeticFunction(version);
   }
 
   interface Informee {

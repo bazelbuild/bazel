@@ -50,6 +50,9 @@ public interface SkyFunction {
    * <p>This method may return {@link Restart} in rare circumstances. See its docs. Do not return
    * values of this type unless you know exactly what you are doing.
    *
+   * <p>If version information is discovered for the given {@code skyKey}, {@link
+   * Environment#injectVersionForNonHermeticFunction(Version)} may be called on {@code env}.
+   *
    * @throws SkyFunctionException on failure
    * @throws InterruptedException if interrupted
    */
@@ -319,6 +322,17 @@ public interface SkyFunction {
     default GroupedList<SkyKey> getTemporaryDirectDeps() {
       return null;
     }
+
+    /**
+     * Injects non-hermetic {@link Version} information for this environment.
+     *
+     * <p>This may be called during the course of {@link SkyFunction#compute(SkyKey, Environment)}
+     * if the function discovers version information for the {@link SkyKey}.
+     *
+     * <p>Environments that either do not need or wish to ignore non-hermetic version information
+     * may keep the default no-op implementation.
+     */
+    default void injectVersionForNonHermeticFunction(Version version) {}
 
     /**
      * Register dependencies on keys without necessarily requiring their values.

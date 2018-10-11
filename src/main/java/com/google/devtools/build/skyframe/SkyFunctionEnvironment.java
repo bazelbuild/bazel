@@ -72,7 +72,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private ErrorInfo errorInfo = null;
 
   private final FunctionHermeticity hermeticity;
-  @Nullable private Version maxChildVersion = null;
+  @Nullable private Version maxChildOrInjectedVersion = null;
 
   /**
    * This is not {@code null} only during cycle detection and error bubbling. The nullness of this
@@ -352,7 +352,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           triState == DependencyState.DONE, "%s %s %s", skyKey, triState, errorInfo);
       state.addTemporaryDirectDeps(GroupedListHelper.create(ErrorTransienceValue.KEY));
       state.signalDep();
-      maxChildVersion = evaluatorContext.getGraphVersion();
+      maxChildOrInjectedVersion = evaluatorContext.getGraphVersion();
     }
 
     this.errorInfo = Preconditions.checkNotNull(errorInfo, skyKey);
@@ -736,7 +736,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         oldDepEntry.removeReverseDep(skyKey);
       }
     }
-    Version evaluationVersion = maxChildVersion;
+    Version evaluationVersion = maxChildOrInjectedVersion;
     if (evaluatorContext.getEvaluationVersionBehavior() == EvaluationVersionBehavior.GRAPH_VERSION
         || hermeticity == FunctionHermeticity.NONHERMETIC) {
       evaluationVersion = evaluatorContext.getGraphVersion();
@@ -830,13 +830,19 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     newlyRequestedDeps.endGroup();
   }
 
+  @Override
+  public void injectVersionForNonHermeticFunction(Version version) {
+    Preconditions.checkState(hermeticity == FunctionHermeticity.NONHERMETIC, skyKey);
+    maxChildOrInjectedVersion = version;
+  }
+
   private void maybeUpdateMaxChildVersion(NodeEntry depEntry) {
     if (hermeticity == FunctionHermeticity.HERMETIC
         && evaluatorContext.getEvaluationVersionBehavior()
             == EvaluationVersionBehavior.MAX_CHILD_VERSIONS) {
       Version depVersion = depEntry.getVersion();
-      if (maxChildVersion == null || maxChildVersion.atMost(depVersion)) {
-        maxChildVersion = depVersion;
+      if (maxChildOrInjectedVersion == null || maxChildOrInjectedVersion.atMost(depVersion)) {
+        maxChildOrInjectedVersion = depVersion;
       }
     }
   }

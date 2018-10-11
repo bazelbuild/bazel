@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -41,7 +40,7 @@ public class FileStateFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env)
+  public FileStateValue compute(SkyKey skyKey, Environment env)
       throws FileStateFunctionException, InterruptedException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
 
@@ -68,7 +67,7 @@ public class FileStateFunction implements SkyFunction {
    * {@link FileStateFunction#compute}.
    */
   private static final class FileStateFunctionException extends SkyFunctionException {
-    public FileStateFunctionException(IOException e) {
+    FileStateFunctionException(IOException e) {
       super(e, Transience.TRANSIENT);
     }
   }
