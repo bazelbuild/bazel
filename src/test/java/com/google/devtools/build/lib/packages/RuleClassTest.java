@@ -767,7 +767,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     try {
       ruleLabel = pkgBuilder.createLabel(name);
     } catch (LabelSyntaxException e) {
-      throw new IllegalArgumentException("Rule has illegal label");
+      throw new IllegalArgumentException("Rule has illegal label", e);
     }
     return ruleClass.createRule(
         pkgBuilder,

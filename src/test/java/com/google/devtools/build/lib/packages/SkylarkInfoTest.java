@@ -197,9 +197,9 @@ public class SkylarkInfoTest {
     SkylarkInfo info2 = makeSchemafulInfoWithF1F2Values(provider, null, 5);
     SkylarkInfo result = (SkylarkInfo) info1.getConcatter().concat(info1, info2, Location.BUILTIN);
     assertThat(result.isCompact()).isTrue();
-    assertThat((result).getFieldNames()).containsExactly("f1", "f2");
-    assertThat((result).getValue("f1")).isEqualTo(4);
-    assertThat((result).getValue("f2")).isEqualTo(5);
+    assertThat(result.getFieldNames()).containsExactly("f1", "f2");
+    assertThat(result.getValue("f1")).isEqualTo(4);
+    assertThat(result.getValue("f2")).isEqualTo(5);
   }
 
   @Test
@@ -209,7 +209,7 @@ public class SkylarkInfoTest {
     SkylarkInfo info2 = makeInvertedSchemafulInfoWithF1F2Values(provider, null, 5);
     SkylarkInfo result = (SkylarkInfo) info1.getConcatter().concat(info1, info2, Location.BUILTIN);
     assertThat(result.isCompact()).isFalse();
-    assertThat((result).getFieldNames()).containsExactly("f1", "f2");
+    assertThat(result.getFieldNames()).containsExactly("f1", "f2");
     assertThat(result.getValue("f1")).isEqualTo(4);
     assertThat(result.getValue("f2")).isEqualTo(5);
   }
@@ -221,9 +221,9 @@ public class SkylarkInfoTest {
     SkylarkInfo info2 = makeSchemafulInfoWithF1F2Values(provider, null, 5);
     SkylarkInfo result = (SkylarkInfo) info1.getConcatter().concat(info1, info2, Location.BUILTIN);
     assertThat(result.isCompact()).isFalse();
-    assertThat((result).getFieldNames()).containsExactly("f1", "f2");
-    assertThat((result).getValue("f1")).isEqualTo(4);
-    assertThat((result).getValue("f2")).isEqualTo(5);
+    assertThat(result.getFieldNames()).containsExactly("f1", "f2");
+    assertThat(result.getValue("f1")).isEqualTo(4);
+    assertThat(result.getValue("f2")).isEqualTo(5);
   }
 
   /** Creates an unexported schemaless provider type with builtin location. */
