@@ -221,7 +221,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "apple_platform_type",
-    defaultValue = "IOS",
+    defaultValue = "MACOS",
     converter = PlatformTypeConverter.class,
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
