@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -86,8 +85,7 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
           /* fdoProvider= */ null,
           /* useLLVMCoverageMapFormat= */ false,
           /* codeCoverageEnabled= */ false,
-          /* isHostConfiguration= */ false,
-          /* licensesProvider= */ null);
+          /* isHostConfiguration= */ false);
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final CppToolchainInfo toolchainInfo;
@@ -132,8 +130,6 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
    */
   private final FdoProvider fdoProvider;
 
-  private final LicensesProvider licensesProvider;
-
   public CcToolchainProvider(
       ImmutableMap<String, Object> values,
       @Nullable CppConfiguration cppConfiguration,
@@ -170,8 +166,7 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
       FdoProvider fdoProvider,
       boolean useLLVMCoverageMapFormat,
       boolean codeCoverageEnabled,
-      boolean isHostConfiguration,
-      LicensesProvider licensesProvider) {
+      boolean isHostConfiguration) {
     super(values, Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
     this.toolchainInfo = toolchainInfo;
@@ -216,7 +211,6 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
       this.forcePic = false;
       this.shouldStripBinaries = false;
     }
-    this.licensesProvider = licensesProvider;
   }
 
   /** Returns c++ Make variables. */
@@ -1115,10 +1109,6 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
 
   public boolean getShouldStripBinaries() {
     return shouldStripBinaries;
-  }
-
-  public LicensesProvider getLicensesProvider() {
-    return licensesProvider;
   }
 }
 

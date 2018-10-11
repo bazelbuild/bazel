@@ -701,7 +701,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "--incompatible_disable_late_bound_option_defaults",
         "--incompatible_disable_cc_configuration_make_variables");
 
-    ConfiguredTarget target = getConfiguredTarget("//a:a");
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
@@ -939,7 +939,7 @@ public class CcToolchainTest extends BuildViewTestCase {
             mockToolsConfig,
             CrosstoolConfig.CToolchain.newBuilder().setDefaultGrteTop("//libc1").buildPartial());
     useConfiguration("--cpu=k8");
-    ConfiguredTarget target = getConfiguredTarget("//a:a");
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider ccToolchainProvider =
         (CcToolchainProvider) target.get(CcToolchainProvider.PROVIDER);
 
