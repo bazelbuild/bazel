@@ -18,12 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import java.util.Map;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,16 +26,6 @@ import org.junit.runners.JUnit4;
 /** Tests of {@link PlatformInfo}. */
 @RunWith(JUnit4.class)
 public class PlatformInfoTest extends BuildViewTestCase {
-
-  @Before
-  public void createPlatform() throws Exception {
-    scratch.file(
-        "constraint/BUILD",
-        "constraint_setting(name = 'basic')",
-        "constraint_value(name = 'foo',",
-        "    constraint_setting = ':basic',",
-        "    )");
-  }
 
   @Test
   public void platformInfo_overlappingConstraintsError() throws Exception {
@@ -126,73 +111,5 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .setRemoteExecutionProperties("foo")
                 .build())
         .testEquals();
-  }
-
-  @Test
-  public void proxyTemplateVariableInfo() throws Exception {
-    scratch.file(
-        "a/rule.bzl",
-        "def _impl(ctx):",
-        "  return struct(",
-        "      providers = [ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo]])",
-        "crule = rule(_impl, attrs = { '_cc_toolchain': attr.label(default=Label('//a:a')) })");
-
-    scratch.file("a/BUILD",
-        "load(':rule.bzl', 'crule')",
-        "cc_toolchain_alias(name='a')",
-        "crule(name='r')",
-        "genrule(name='g', srcs=[], outs=['go'], toolchains=[':r'], cmd='VAR $(CC)')");
-
-    SpawnAction action = (SpawnAction) getGeneratingAction(getConfiguredTarget("//a:g"), "a/go");
-    assertThat(action.getArguments().get(2)).containsMatch("VAR .*gcc");
-  }
-
-  @Test
-  public void templateVariableInfo() throws Exception {
-    scratch.file(
-        "a/rule.bzl",
-        "def _impl(ctx):",
-        "  return struct(",
-        "      variables = ctx.attr._cc_toolchain[platform_common.TemplateVariableInfo].variables)",
-        "crule = rule(_impl, attrs = { '_cc_toolchain': attr.label(default=Label('//a:a')) })");
-
-    scratch.file("a/BUILD",
-        "load(':rule.bzl', 'crule')",
-        "cc_toolchain_alias(name='a')",
-        "crule(name='r')");
-    ConfiguredTarget ct = getConfiguredTarget("//a:r");
-
-    @SuppressWarnings("unchecked")
-    Map<String, String> makeVariables = (Map<String, String>) ct.get("variables");
-    assertThat(makeVariables).containsKey("CC_FLAGS");
-  }
-
-  @Test
-  public void templateVariableInfoConstructor() throws Exception {
-    scratch.file(
-        "a/rule.bzl",
-        "def _consumer_impl(ctx):",
-        "  return struct(",
-        "      var = ctx.attr.supplier[platform_common.TemplateVariableInfo]",
-        "          .variables[ctx.attr.var])",
-        "def _supplier_impl(ctx):",
-        "  return [platform_common.TemplateVariableInfo({ctx.attr.var: ctx.attr.value})]",
-        "consumer = rule(_consumer_impl,",
-        "    attrs = { 'var': attr.string(), 'supplier': attr.label() })",
-        "supplier = rule(_supplier_impl,",
-        "    attrs = { 'var': attr.string(), 'value': attr.string() })");
-
-    scratch.file("a/BUILD",
-        "load(':rule.bzl', 'consumer', 'supplier')",
-        "consumer(name='consumer', supplier=':supplier', var='cherry')",
-        "supplier(name='supplier', var='cherry', value='ontop')");
-
-    ConfiguredTarget consumer = getConfiguredTarget("//a:consumer");
-    @SuppressWarnings("unchecked") String value = (String) consumer.get("var");
-    assertThat(value).isEqualTo("ontop");
-
-    ConfiguredTarget supplier = getConfiguredTarget("//a:supplier");
-    assertThat(supplier.get(TemplateVariableInfo.PROVIDER).getVariables())
-        .containsExactly("cherry", "ontop");
   }
 }
