@@ -13,18 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.io.LineProcessor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Collections;
@@ -55,24 +47,6 @@ public final class FilesetManifest {
     RESOLVE;
   }
 
-  public static FilesetManifest parseManifestFile(
-      PathFragment manifest,
-      Path execRoot,
-      String workspaceName,
-      RelativeSymlinkBehavior relSymlinkBehavior)
-      throws IOException {
-    Path file = execRoot.getRelative(AnalysisUtils.getManifestPathFromFilesetPath(manifest));
-    try {
-      return FileSystemUtils.asByteSource(file).asCharSource(UTF_8)
-          .readLines(
-              new ManifestLineProcessor(workspaceName, manifest, relSymlinkBehavior));
-    } catch (IORuntimeException e) {
-      // We can't throw IOException from getResult below, so we instead use an unchecked exception,
-      // and convert it to an IOException here.
-      throw new IOException(e.getMessage(), e);
-    }
-  }
-
   public static FilesetManifest constructFilesetManifest(
       List<FilesetOutputSymlink> outputSymlinks,
       PathFragment targetPrefix,
@@ -91,76 +65,7 @@ public final class FilesetManifest {
         artifactValues.put(artifact, (FileArtifactValue) outputSymlink.getMetadata());
       }
     }
-    try {
-      return constructFilesetManifest(entries, relativeLinks, artifactValues);
-    } catch (IORuntimeException e) {
-      throw new IOException(e.getMessage(), e);
-    }
-  }
-
-  private static final class ManifestLineProcessor implements LineProcessor<FilesetManifest> {
-    private final String workspaceName;
-    private final PathFragment targetPrefix;
-    private final RelativeSymlinkBehavior relSymlinkBehavior;
-
-    private int lineNum;
-    private final LinkedHashMap<PathFragment, String> entries = new LinkedHashMap<>();
-    // Resolution order of relative links can affect the outcome of the resolution. In particular,
-    // if there's a symlink to a symlink, then resolution fails if the first symlink is resolved
-    // first, but works if the second symlink is resolved first.
-    private final LinkedHashMap<PathFragment, String> relativeLinks = new LinkedHashMap<>();
-
-    ManifestLineProcessor(
-        String workspaceName,
-        PathFragment targetPrefix,
-        RelativeSymlinkBehavior relSymlinkBehavior) {
-      this.workspaceName = workspaceName;
-      this.targetPrefix = targetPrefix;
-      this.relSymlinkBehavior = relSymlinkBehavior;
-    }
-
-    @Override
-    public boolean processLine(String line) throws IOException {
-      if (++lineNum % 2 == 0) {
-        // Digest line, skip.
-        return true;
-      }
-      if (line.isEmpty()) {
-        return true;
-      }
-
-      String artifact;
-      PathFragment location;
-      int pos = line.indexOf(' ');
-      if (pos == -1) {
-        location = PathFragment.create(line);
-        artifact = null;
-      } else {
-        location = PathFragment.create(line.substring(0, pos));
-        String targetPath = line.substring(pos + 1);
-        artifact = targetPath.isEmpty() ? null : targetPath;
-
-        if (!workspaceName.isEmpty()) {
-          if (!location.getSegment(0).equals(workspaceName)) {
-            throw new IOException(
-                String.format(
-                    "fileset manifest line must start with '%s': '%s'", workspaceName, location));
-          } else {
-            // Erase "<workspaceName>/" prefix.
-            location = location.subFragment(1);
-          }
-        }
-      }
-
-      PathFragment fullLocation = targetPrefix.getRelative(location);
-      addSymlinkEntry(artifact, fullLocation, relSymlinkBehavior, entries, relativeLinks);
-      return true;
-    }
-
-    @Override
-    public FilesetManifest getResult() {
-      return constructFilesetManifest(entries, relativeLinks, ImmutableMap.of());
-    }
+    return constructFilesetManifest(entries, relativeLinks, artifactValues);
   }
 
   private static void addSymlinkEntry(
@@ -189,8 +94,7 @@ public final class FilesetManifest {
   private static FilesetManifest constructFilesetManifest(
       Map<PathFragment, String> entries,
       Map<PathFragment, String> relativeLinks,
-      Map<String, FileArtifactValue> artifactValues)
-      throws IORuntimeException {
+      Map<String, FileArtifactValue> artifactValues) {
     // Resolve relative symlinks. Note that relativeLinks only contains entries in RESOLVE mode.
     // We must find targets for these symlinks that are not inside the Fileset itself.
     for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
