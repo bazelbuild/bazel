@@ -45,13 +45,6 @@ public final class SymlinkTreeHelper {
   @VisibleForTesting
   public static final String BUILD_RUNFILES = "build-runfiles" + OsUtils.executableExtension();
 
-  /**
-   * These actions run faster overall when serialized, because most of their cost is in the ext2
-   * block allocator, and there's less seeking required if their directory creations get
-   * non-interleaved allocations. So we give them a huge resource cost.
-   */
-  public static final ResourceSet RESOURCE_SET = ResourceSet.createWithRamCpuIo(1000, 0.5, 0.75);
-
   private final Path inputManifest;
   private final Path symlinkTreeRoot;
   private final boolean filesetTree;
@@ -148,7 +141,7 @@ public final class SymlinkTreeHelper {
             ExecutionRequirements.NO_SANDBOX, ""),
         ImmutableList.of(inputManifestArtifact, buildRunfiles),
         /*outputs=*/ ImmutableList.of(),
-        RESOURCE_SET);
+        ResourceSet.ZERO);
   }
 
   /** Returns the complete argument list build-runfiles has to be called with. */
