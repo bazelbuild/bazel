@@ -138,8 +138,10 @@ function test_init_manifest_based_runfiles() {
   cat > $tmpdir/foo.runfiles_manifest << EOF
 a/b $tmpdir/c/d
 e/f $tmpdir/g h
+y $tmpdir/y
 EOF
   mkdir "${tmpdir}/c"
+  mkdir "${tmpdir}/y"
   touch "${tmpdir}/c/d" "${tmpdir}/g h"
 
   export RUNFILES_DIR=
@@ -150,9 +152,11 @@ EOF
   [[ -z "$(rlocation c/d)" ]] || fail
   [[ "$(rlocation a/b)" == "$tmpdir/c/d" ]] || fail
   [[ "$(rlocation e/f)" == "$tmpdir/g h" ]] || fail
-  rm "$tmpdir/c/d" "$tmpdir/g h"
+  [[ "$(rlocation y)" == "$tmpdir/y" ]] || fail
+  rm -r "$tmpdir/c/d" "$tmpdir/g h" "$tmpdir/y"
   [[ -z "$(rlocation a/b)" ]] || fail
   [[ -z "$(rlocation e/f)" ]] || fail
+  [[ -z "$(rlocation y)" ]] || fail
 }
 
 function test_manifest_based_envvars() {
@@ -178,12 +182,13 @@ function test_init_directory_based_runfiles() {
 
   mkdir -p "$RUNFILES_DIR/a"
   touch "$RUNFILES_DIR/a/b" "$RUNFILES_DIR/c d"
-  [[ -z "$(rlocation a)" ]] || fail
+  [[ "$(rlocation a)" == "$RUNFILES_DIR/a" ]] || fail
   [[ -z "$(rlocation c/d)" ]] || fail
   [[ "$(rlocation a/b)" == "$RUNFILES_DIR/a/b" ]] || fail
   [[ "$(rlocation "c d")" == "$RUNFILES_DIR/c d" ]] || fail
   [[ -z "$(rlocation "c")" ]] || fail
-  rm "$RUNFILES_DIR/a/b" "$RUNFILES_DIR/c d"
+  rm -r "$RUNFILES_DIR/a" "$RUNFILES_DIR/c d"
+  [[ -z "$(rlocation a)" ]] || fail
   [[ -z "$(rlocation a/b)" ]] || fail
   [[ -z "$(rlocation "c d")" ]] || fail
 }
