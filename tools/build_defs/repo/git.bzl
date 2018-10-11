@@ -15,21 +15,37 @@
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
 
+def _hash(ctx, value):
+    """Hash a value... TODO needs implementation"""
+    bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+    key = ctx.execute([
+        bash_exe,
+        "-c",
+        "(echo '{value}' | shasum)".format(value=value),
+    ]).stdout
+    key = key.split(sep=' ')[0]
+    return key
+
 def _clone_or_update(ctx):
     if ((not ctx.attr.tag and not ctx.attr.commit and not ctx.attr.branch) or
         (ctx.attr.tag and ctx.attr.commit) or
         (ctx.attr.tag and ctx.attr.branch) or
         (ctx.attr.commit and ctx.attr.branch)):
         fail("Exactly one of commit, tag, or branch must be provided")
+    remote_name = _hash(ctx, ctx.attr.remote)
     shallow = ""
     if ctx.attr.commit:
         ref = ctx.attr.commit
+	#local_ref needs to be unique among _all_ repos in the git-cache.
+        local_ref = ref
     elif ctx.attr.tag:
         ref = "tags/" + ctx.attr.tag
-        shallow = "--depth=1"
+        local_ref = remote_name + "_" + ctx.attr.tag
+	shallow = "--depth=1"
     else:
         ref = ctx.attr.branch
-        shallow = "--depth=1"
+        local_ref = remote_name + ref
+	shallow = "--depth=1"
     directory = str(ctx.path("."))
     if ctx.attr.strip_prefix:
         directory = directory + "-tmp"
@@ -48,24 +64,40 @@ def _clone_or_update(ctx):
                   ctx.attr.strip_prefix if ctx.attr.strip_prefix else "None",
               ))
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+    git_cache = '/tmp/bazel_cache/git_cache'
+
+    # Set-up git_cache git repository.
+    st = ctx.execute([bash_exe, "-c", """set -ex
+  mkdir -p '{git_cache}'
+  git -C '{git_cache}' init --bare
+  git -C '{git_cache}' remote add '{remote_name}' '{remote}' || :
+  git -C '{git_cache}' fetch {shallow} '{remote_name}' {ref} || git -C '{git_cache}' fetch '{remote_name}' {ref}
+  """.format(
+       git_cache=git_cache,
+       remote_name=remote_name,
+       remote=ctx.attr.remote,
+       ref=ref,
+       shallow=shallow)], environment = ctx.os.environ)
+    if st.return_code:
+        fail("Error fetching {}:\n{}".format(ctx.name, st.stderr))
+
     st = ctx.execute([bash_exe, "-c", """
 set -ex
-( cd {working_dir} &&
     if ! ( cd '{dir_link}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
       rm -rf '{directory}' '{dir_link}'
-      git clone {shallow} '{remote}' '{directory}' || git clone '{remote}' '{directory}'
     fi
-    git -C '{directory}' reset --hard {ref} || \
-    ((git -C '{directory}' fetch {shallow} origin {ref}:{ref} || \
-      git -C '{directory}' fetch origin {ref}:{ref}) && git -C '{directory}' reset --hard {ref})
-      git -C '{directory}' clean -xdf )
+    git -C '{git_cache}' worktree prune
+    git -C '{git_cache}' worktree add --track -b '{local_ref}' '{directory} {ref}
+    #git -C '{git_cache}' worktree add '{directory}' {ref} || :
+    git -C '{directory}' reset --hard {ref}
+    git -C '{directory}' clean -ffdx
   """.format(
         working_dir = ctx.path(".").dirname,
         dir_link = ctx.path("."),
         directory = directory,
-        remote = ctx.attr.remote,
         ref = ref,
         shallow = shallow,
+	git_cache = git_cache,
     )], environment = ctx.os.environ)
 
     if st.return_code:
