@@ -51,6 +51,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -732,7 +733,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
         } catch (InterruptedException e) {
           throw new InterruptedException(
               "Interrupted while scanning " + source + " for include statements");
-        } catch (IOException e) {
+        } catch (CancellationException e) {
+          throw new InterruptedException(
+              "Canceled while scanning " + source + " for include statements: " + e.getMessage());
+        }  catch (IOException e) {
           throw new IOException(
               "Error scanning " + source + " for include statements: " + e.getMessage(), e);
         } catch (MissingDepException e) {
