@@ -108,8 +108,8 @@ and operating systems. These are all located in the package
 
 *  `:cpu` for the CPU architecture, with values `:x86_32`, `:x86_64`, `:ppc`,
    `:arm`, `:s390x`
-*  `:os` for the operating system, with values `osx`, `freebsd`, `linux`,
-   `windows`
+*  `:os` for the operating system, with values `:android`, `:freebsd`, `:ios`,
+   `:linux`, `:osx`, `:windows`
 
 There are also the following special platform definitions:
 
