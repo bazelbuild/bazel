@@ -124,7 +124,12 @@ class WindowsRemoteTest(test_base.TestBase):
         ')',
     ])
     self.ScratchFile(
-        'foo/foo_test.sh', ['#!/bin/sh', 'echo hello test'], executable=True)
+        'foo/foo_test.sh', [
+            '#!/bin/sh',
+            'echo hello test',
+            'echo "RUNFILES_MANIFEST_FILE: \\"${RUNFILES_MANIFEST_FILE:-}\\""'
+        ],
+        executable=True)
     self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
     self.ScratchFile('bar/bar.txt', ['hello'])
 
@@ -132,6 +137,7 @@ class WindowsRemoteTest(test_base.TestBase):
     exit_code, stdout, stderr = self._RunRemoteBazel(
         ['test', '--test_output=all', '//foo:foo_test'])
     self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.assertIn('RUNFILES_MANIFEST_FILE: ""', stdout)
 
   # The Java launcher uses Rlocation which has differing behavior for local and
   # remote.
