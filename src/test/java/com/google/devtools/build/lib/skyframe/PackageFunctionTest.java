@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Optional;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -728,6 +730,49 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(errorMessage).contains("nope");
     assertThat(errorInfo.getException()).isInstanceOf(NoSuchPackageException.class);
     assertThat(errorInfo.getException()).hasCauseThat().isInstanceOf(IOException.class);
+  }
+
+  @Test
+  public void testLabelsCrossesSubpackageBoundaries() throws Exception {
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file("pkg/BUILD", "exports_files(['sub/blah'])");
+    scratch.file("pkg/sub/BUILD");
+    invalidatePackages();
+
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
+    EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(skyKey).getPackage().containsErrors()).isTrue();
+    assertContainsEvent("Label '//pkg:sub/blah' crosses boundary of subpackage 'pkg/sub'");
+  }
+
+  @Test
+  public void testSymlinkCycleEncounteredWhileHandlingLabelCrossingSubpackageBoundaries()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file("pkg/BUILD", "exports_files(['sub/blah'])");
+    Path subBuildFilePath = scratch.dir("pkg/sub").getChild("BUILD");
+    FileSystemUtils.ensureSymbolicLink(subBuildFilePath, subBuildFilePath);
+    invalidatePackages();
+
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
+    EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skyKey)
+        .hasExceptionThat()
+        .isInstanceOf(BuildFileNotFoundException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skyKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "no such package 'pkg/sub': Symlink cycle detected while trying to find BUILD file");
+    assertContainsEvent("circular symlinks detected");
   }
 
   private static class CustomInMemoryFs extends InMemoryFileSystem {
