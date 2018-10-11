@@ -17,60 +17,87 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior.ERROR;
 import static com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior.IGNORE;
 import static com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior.RESOLVE;
-import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link FilesetManifest}. */
+/**
+ * Tests for {@link FilesetManifest}.
+ */
 @RunWith(JUnit4.class)
-public final class FilesetManifestTest {
+public class FilesetManifestTest {
+  private FileSystem fs;
+  private Path execRoot;
 
-  private static final PathFragment EXEC_ROOT = PathFragment.create("/root");
+  @Before
+  public final void createSpawnInputExpander() throws Exception  {
+    fs = new InMemoryFileSystem();
+    execRoot = fs.getPath("/root");
+  }
 
-  private static FilesetOutputSymlink filesetSymlink(String from, String to) {
-    return FilesetOutputSymlink.createForTesting(
-        PathFragment.create(from), PathFragment.create(to), EXEC_ROOT);
+  private void scratchFile(String file, String... lines) throws Exception {
+    Path path = fs.getPath(file);
+    path.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeLinesAs(path, StandardCharsets.UTF_8, lines);
   }
 
   @Test
   public void testEmptyManifest() throws Exception {
-    List<FilesetOutputSymlink> symlinks = ImmutableList.of();
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile("/root/_foo/MANIFEST");
 
+    Artifact artifact =
+        new Artifact(fs.getPath("/root/foo"), ArtifactRoot.asSourceRoot(Root.fromPath(execRoot)));
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
-
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries()).isEmpty();
   }
 
   @Test
   public void testManifestWithSingleFile() throws Exception {
-    List<FilesetOutputSymlink> symlinks = ImmutableList.of(filesetSymlink("bar", "/dir/file"));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar /dir/file",
+        "<some digest>");
 
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
-
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries())
         .containsExactly(PathFragment.create("out/foo/bar"), "/dir/file");
   }
 
   @Test
   public void testManifestWithTwoFiles() throws Exception {
-    List<FilesetOutputSymlink> symlinks =
-        ImmutableList.of(filesetSymlink("bar", "/dir/file"), filesetSymlink("baz", "/dir/file"));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar /dir/file",
+        "<some digest>",
+        "workspace/baz /dir/file",
+        "<some digest>");
 
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
-
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries())
         .containsExactly(
             PathFragment.create("out/foo/bar"), "/dir/file",
@@ -79,64 +106,114 @@ public final class FilesetManifestTest {
 
   @Test
   public void testManifestWithDirectory() throws Exception {
-    List<FilesetOutputSymlink> symlinks = ImmutableList.of(filesetSymlink("bar", "/some"));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar /some",
+        "<some digest>");
 
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
-
-    assertThat(manifest.getEntries()).containsExactly(PathFragment.create("out/foo/bar"), "/some");
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
+    assertThat(manifest.getEntries())
+        .containsExactly(PathFragment.create("out/foo/bar"), "/some");
   }
 
   /** Regression test: code was previously crashing in this case. */
   @Test
   public void testManifestWithEmptyPath() throws Exception {
-    List<FilesetOutputSymlink> symlinks = ImmutableList.of(filesetSymlink("bar", ""));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar ", // <-- Note the trailing whitespace!
+        "<some digest>");
 
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
-
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries()).containsExactly(PathFragment.create("out/foo/bar"), null);
   }
 
   @Test
+  public void testManifestWithMissingWorkspacePrefix() throws Exception {
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "notworkspace/bar /foo/bar",
+        "<some digest>");
+
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
+    try {
+      FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
+      fail();
+    } catch (IOException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("fileset manifest line must start with 'workspace': 'notworkspace/bar'");
+    }
+  }
+
+  @Test
   public void testManifestWithErrorOnRelativeSymlink() throws Exception {
-    List<FilesetOutputSymlink> symlinks =
-        ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "/foo/bar"));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar foo",
+        "<some digest>",
+        "workspace/foo /foo/bar",
+        "<some digest>");
 
-    IOException e =
-        assertThrows(
-            IOException.class,
-            () ->
-                FilesetManifest.constructFilesetManifest(
-                    symlinks, PathFragment.create("out/foo"), ERROR, EXEC_ROOT));
-
-    assertThat(e).hasMessageThat().isEqualTo("runfiles target is not absolute: foo");
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
+    try {
+      FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", ERROR);
+      fail();
+    } catch (IOException e) {
+      assertThat(e).hasMessageThat().isEqualTo("runfiles target is not absolute: foo");
+    }
   }
 
   @Test
   public void testManifestWithIgnoredRelativeSymlink() throws Exception {
-    List<FilesetOutputSymlink> symlinks =
-        ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "/foo/bar"));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar foo",
+        "<some digest>",
+        "workspace/foo /foo/bar",
+        "<some digest>");
 
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
-
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries())
         .containsExactly(PathFragment.create("out/foo/foo"), "/foo/bar");
   }
 
   @Test
   public void testManifestWithResolvedRelativeSymlink() throws Exception {
-    List<FilesetOutputSymlink> symlinks =
-        ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "/foo/bar"));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar foo",
+        "<some digest>",
+        "workspace/foo /foo/bar",
+        "<some digest>");
 
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), RESOLVE, EXEC_ROOT);
-
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
     assertThat(manifest.getEntries())
         .containsExactly(
             PathFragment.create("out/foo/bar"), "/foo/bar",
@@ -145,13 +222,19 @@ public final class FilesetManifestTest {
 
   @Test
   public void testManifestWithResolvedRelativeSymlinkWithDotSlash() throws Exception {
-    List<FilesetOutputSymlink> symlinks =
-        ImmutableList.of(filesetSymlink("bar", "./foo"), filesetSymlink("foo", "/foo/bar"));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar ./foo",
+        "<some digest>",
+        "workspace/foo /foo/bar",
+        "<some digest>");
 
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), RESOLVE, EXEC_ROOT);
-
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
     assertThat(manifest.getEntries())
         .containsExactly(
             PathFragment.create("out/foo/bar"), "/foo/bar",
@@ -160,14 +243,19 @@ public final class FilesetManifestTest {
 
   @Test
   public void testManifestWithResolvedRelativeSymlinkWithDotDotSlash() throws Exception {
-    List<FilesetOutputSymlink> symlinks =
-        ImmutableList.of(
-            filesetSymlink("bar/bar", "../foo/foo"), filesetSymlink("foo/foo", "/foo/bar"));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar/bar ../foo/foo",
+        "<some digest>",
+        "workspace/foo/foo /foo/bar",
+        "<some digest>");
 
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), RESOLVE, EXEC_ROOT);
-
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
     assertThat(manifest.getEntries())
         .containsExactly(
             PathFragment.create("out/foo/bar/bar"), "/foo/bar",
@@ -176,25 +264,36 @@ public final class FilesetManifestTest {
 
   @Test
   public void testManifestWithUnresolvableRelativeSymlink() throws Exception {
-    List<FilesetOutputSymlink> symlinks = ImmutableList.of(filesetSymlink("bar", "foo"));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar foo",
+        "<some digest>");
 
-    FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), RESOLVE, EXEC_ROOT);
-
-    assertThat(manifest.getEntries()).isEmpty();
-    assertThat(manifest.getArtifactValues()).isEmpty();
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
+    FilesetManifest filesetManifest =
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
+    assertThat(filesetManifest.getEntries()).isEmpty();
+    assertThat(filesetManifest.getArtifactValues()).isEmpty();
   }
 
   @Test
   public void testManifestWithUnresolvableRelativeSymlinkToRelativeSymlink() throws Exception {
-    List<FilesetOutputSymlink> symlinks =
-        ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "baz"));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar foo",
+        "<some digest>",
+        "workspace/foo baz",
+        "<some digest>");
 
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), RESOLVE, EXEC_ROOT);
-
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
     assertThat(manifest.getEntries()).isEmpty();
     assertThat(manifest.getArtifactValues()).isEmpty();
   }
@@ -202,14 +301,21 @@ public final class FilesetManifestTest {
   /** Current behavior is first one wins. */
   @Test
   public void testDefactoBehaviorWithDuplicateEntries() throws Exception {
-    List<FilesetOutputSymlink> symlinks =
-        ImmutableList.of(filesetSymlink("bar", "/foo/bar"), filesetSymlink("bar", "/baz"));
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar /foo/bar",
+        "<some digest>",
+        "workspace/bar /baz",
+        "<some digest>");
 
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
-
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", IGNORE);
     assertThat(manifest.getEntries())
-        .containsExactly(PathFragment.create("out/foo/bar"), "/foo/bar");
+        .containsExactly(
+            PathFragment.create("out/foo/bar"), "/foo/bar");
   }
 }
