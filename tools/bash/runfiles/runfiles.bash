@@ -97,7 +97,7 @@ function rlocation() {
     fi
     return 1
   else
-    if [[ -f "${RUNFILES_DIR:-/dev/null}/$1" ]]; then
+    if [[ -e "${RUNFILES_DIR:-/dev/null}/$1" ]]; then
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "INFO[runfiles.bash]: rlocation($1): found under RUNFILES_DIR ($RUNFILES_DIR), return"
       fi
@@ -107,7 +107,7 @@ function rlocation() {
         echo >&2 "INFO[runfiles.bash]: rlocation($1): looking in RUNFILES_MANIFEST_FILE ($RUNFILES_MANIFEST_FILE)"
       fi
       local -r result=$(grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
-      if [[ -f "${result:-/dev/null}" ]]; then
+      if [[ -e "${result:-/dev/null}" ]]; then
         if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
           echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($result)"
         fi
