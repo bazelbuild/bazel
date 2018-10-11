@@ -989,6 +989,7 @@ public class CppCompileAction extends AbstractAction
     return shareable;
   }
 
+  /** For actions that discover inputs, the key must include input names. */
   @Override
   public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addUUID(actionClassId);
@@ -1019,6 +1020,12 @@ public class CppCompileAction extends AbstractAction
      */
     actionKeyContext.addNestedSetToFingerprint(fp, ccCompilationContext.getDeclaredIncludeDirs());
     fp.addPaths(builtInIncludeDirectories);
+
+    // This is needed for CppLinkstampCompile.
+    fp.addInt(0);
+    for (Artifact artifact : inputsForInvalidation) {
+      fp.addString(artifact.expandToCommandLine());
+    }
   }
 
   @Override

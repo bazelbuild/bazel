@@ -68,6 +68,9 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    *       (typically this is achieved by incorporating a UUID into the key, which is changed each
    *       time the program logic of this action changes).
    * </ul>
+   *
+   * <p>Note the following exception: for actions that discover inputs, the key must change if any
+   * input names change or else action validation may falsely validate.
    */
   String getKey(ActionKeyContext actionKeyContext);
 
