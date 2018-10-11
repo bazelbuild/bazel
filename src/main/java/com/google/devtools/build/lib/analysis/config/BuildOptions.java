@@ -100,7 +100,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     for (FragmentOptions options : fragmentOptionsMap.values()) {
       builder.add(options.getHost());
     }
-    return builder.build();
+    return builder.addSkylarkOptions(skylarkOptionsMap).build();
   }
 
   /**
