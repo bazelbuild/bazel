@@ -252,6 +252,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    */
   @Test
   public void lateBoundOptionDefaults() throws Exception {
+    useConfiguration("--incompatible_disable_late_bound_option_defaults=false");
     scratch.file("test/BUILD",
         "config_setting(",
         "    name = 'match',",
