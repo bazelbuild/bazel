@@ -14,3 +14,10 @@ filegroup(
     ],
     visibility = ["//visibility:public"],
 )
+
+py_test(
+    name = "test_rules_test",
+    srcs = ["test_rules_test.py"],
+    data = ["test_rules.bzl"],
+    deps = ["//src/test/py/bazel:test_base"],
+)

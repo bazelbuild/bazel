@@ -22,6 +22,7 @@ py_library(
         "//src/test/py/bazel:__pkg__",
         "//third_party/def_parser:__pkg__",
         "//tools/android:__pkg__",
+        "//tools/build_rules:__pkg__",
     ],
 )
 
