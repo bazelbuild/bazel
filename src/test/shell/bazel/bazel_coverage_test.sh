@@ -1796,4 +1796,31 @@ end_of_record"
   assert_coverage_result "$coverage_result_orange_lib" "$coverage_file_path"
 }
 
+function test_coverage_doesnt_fail_on_empty_output() {
+    if is_gcov_missing_or_wrong_version; then
+        echo "Skipping test." && return
+    fi
+    mkdir empty_cov
+    cat << EOF > empty_cov/t.cc
+#include <stdio.h>
+
+int main(void) {
+    return 0;
+}
+EOF
+
+    cat << EOF > empty_cov/BUILD
+cc_test(
+    name = "empty-cov-test",
+    srcs = ["t.cc"]
+)
+EOF
+
+    bazel coverage --experimental_cc_coverage --test_output=all \
+        //empty_cov:empty-cov-test  &>"$TEST_log" \
+     || fail "Coverage for //empty_cov:empty-cov-test failed"
+
+    expect_log "WARNING: There was no coverage found."
+}
+
 run_suite "test tests"
