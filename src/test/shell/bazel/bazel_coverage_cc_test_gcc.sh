@@ -66,11 +66,7 @@ EOF
 
 # Returns 0 if gcov is not installed or if a version before 7.0 was found.
 # Returns 1 otherwise.
-<<<<<<< HEAD
 function is_gcov_missing_or_wrong_version() {
-=======
-function is_gcov_uninstalled_or_wrong_version() {
->>>>>>> Addressed code review comments.
   local -r gcov_location=$(which gcov)
   if [[ ! -x ${gcov_location:-/usr/bin/gcov} ]]; then
     echo "gcov not installed."
