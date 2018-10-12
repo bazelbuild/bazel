@@ -15,8 +15,15 @@
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
 
+
+def _if_debug(cond, st, what="Action"):
+    "Print if 'cont'."
+    if cond:
+        print("{} returned {}\n{}\n----\n{}".format(what, st.return_code, st.stdout, st.stderr))
+
 def _hash(ctx, value):
-    """Hash a value... TODO needs implementation"""
+    """Hash a value... TODO needs a proper implementation.
+    """
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     key = ctx.execute([
         bash_exe,
@@ -32,20 +39,16 @@ def _clone_or_update(ctx):
         (ctx.attr.tag and ctx.attr.branch) or
         (ctx.attr.commit and ctx.attr.branch)):
         fail("Exactly one of commit, tag, or branch must be provided")
-    remote_name = _hash(ctx, ctx.attr.remote)
+    remote_name = "remote_" + _hash(ctx, ctx.attr.remote)
     shallow = ""
     if ctx.attr.commit:
         ref = ctx.attr.commit
-	#local_ref needs to be unique among _all_ repos in the git-cache.
-        local_ref = ref
     elif ctx.attr.tag:
         ref = "tags/" + ctx.attr.tag
-        local_ref = remote_name + "_" + ctx.attr.tag
-	shallow = "--depth=1"
+        shallow = "--depth=1"
     else:
         ref = ctx.attr.branch
-        local_ref = remote_name + ref
-	shallow = "--depth=1"
+        shallow = "--depth=1"
     directory = str(ctx.path("."))
     if ctx.attr.strip_prefix:
         directory = directory + "-tmp"
@@ -69,37 +72,47 @@ def _clone_or_update(ctx):
     # Set-up git_cache git repository.
     st = ctx.execute([bash_exe, "-c", """set -ex
   mkdir -p '{git_cache}'
-  git -C '{git_cache}' init --bare
-  git -C '{git_cache}' remote add '{remote_name}' '{remote}' || :
-  git -C '{git_cache}' fetch {shallow} '{remote_name}' {ref} || git -C '{git_cache}' fetch '{remote_name}' {ref}
+  git -C '{git_cache}' init --bare || :
+  """.format(git_cache=git_cache)], environment = ctx.os.environ)
+    _if_debug(cond=ctx.attr.verbose, st=st, what='Init')
+    if st.return_code:
+        fail("Error ... {}:\n{}\n---\n{}".format(ctx.name, st.stdout, st.stderr))
+
+    # 'remote add x' must be done only if x does not exist
+    st = ctx.execute([bash_exe, "-c", """set -ex
+  git -C '{git_cache}' remote add '{remote_name}' '{remote}' || \
+                      git -C '{git_cache}' remote set-url '{remote_name}' '{remote}'
+  git -C '{git_cache}' fetch {shallow} '{remote_name}' {ref} || \
+                      git -C '{git_cache}' fetch '{remote_name}' {ref} || \
+                      git -C '{git_cache}' {shallow} fetch '{remote_name}'
   """.format(
        git_cache=git_cache,
        remote_name=remote_name,
        remote=ctx.attr.remote,
        ref=ref,
        shallow=shallow)], environment = ctx.os.environ)
+    _if_debug(cond=ctx.attr.verbose, st=st, what='Fetching')
+
     if st.return_code:
-        fail("Error fetching {}:\n{}".format(ctx.name, st.stderr))
+        fail("Error fetching {}:\n{}\n----\n{}".format(ctx.name, st.stdout, st.stderr))
 
     st = ctx.execute([bash_exe, "-c", """
 set -ex
-    if ! ( cd '{dir_link}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
-      rm -rf '{directory}' '{dir_link}'
-    fi
+    rm -rf '{directory}' '{dir_link}'
     git -C '{git_cache}' worktree prune
-    git -C '{git_cache}' worktree add --track -b '{local_ref}' '{directory} {ref}
-    #git -C '{git_cache}' worktree add '{directory}' {ref} || :
-    git -C '{directory}' reset --hard {ref}
-    git -C '{directory}' clean -ffdx
+    git -C '{git_cache}' worktree add '{directory}' {ref} || :
+    #git -C '{directory}' reset --hard {ref}
+    #git -C '{directory}' clean -ffdx
   """.format(
         working_dir = ctx.path(".").dirname,
         dir_link = ctx.path("."),
         directory = directory,
         ref = ref,
         shallow = shallow,
-	git_cache = git_cache,
+        git_cache = git_cache,
     )], environment = ctx.os.environ)
 
+    _if_debug(cond=ctx.attr.verbose, st=st, what='Checkout')
     if st.return_code:
         fail("error cloning %s:\n%s" % (ctx.name, st.stderr))
 
