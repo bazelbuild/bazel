@@ -104,7 +104,7 @@ public final class SkyFunctions {
   static final SkyFunctionName TEST_COMPLETION =
       SkyFunctionName.create(
           "TEST_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
-  static final SkyFunctionName BUILD_CONFIGURATION =
+  public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION");
   public static final SkyFunctionName CONFIGURATION_FRAGMENT =
       SkyFunctionName.createHermetic("CONFIGURATION_FRAGMENT");
