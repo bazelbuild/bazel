@@ -807,7 +807,7 @@ java_library(
 EOF
   bazel build --java_header_compilation=true \
     //$pkg/java/test:liba.jar >& "$TEST_log" && fail "Unexpected success"
-  expect_log "symbol not found missing.NoSuch\|package missing does not exist"
+  expect_log "symbol not found missing.NoSuch"
 }
 
 function test_java_import_with_empty_jars_attribute() {
