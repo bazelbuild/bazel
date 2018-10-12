@@ -41,12 +41,15 @@ public class JavaUtilTest {
     assertThat(getRootPath("java/com/google/common/case")).isEqualTo("java");
     assertThat(getRootPath("javatests/com/google/common/case")).isEqualTo("javatests");
     assertThat(getRootPath("src/com/myproject/util")).isEqualTo("src");
+    assertThat(getRootPath("testsrc/com/myproject/util")).isEqualTo("testsrc");
     assertThat(getRootPath("project/java")).isEqualTo("project/java");
     assertThat(getRootPath("project/java/anything")).isEqualTo("project/java");
     assertThat(getRootPath("project/javatests")).isEqualTo("project/javatests");
     assertThat(getRootPath("project/javatests/anything")).isEqualTo("project/javatests");
     assertThat(getRootPath("project/src")).isEqualTo("project/src");
+    assertThat(getRootPath("project/testsrc")).isEqualTo("project/testsrc");
     assertThat(getRootPath("project/src/anything")).isEqualTo("project/src");
+    assertThat(getRootPath("project/testsrc/anything")).isEqualTo("project/testsrc");
     assertThat(getRootPath("third_party/java_src/project/src/main/java/foo"))
         .isEqualTo("third_party/java_src/project/src/main/java");
     assertThat(getRootPath("third_party/java_src/project/src/test/java/foo"))
@@ -75,7 +78,11 @@ public class JavaUtilTest {
         .isEqualTo("src/com/google/project/src/main/java");
     assertThat(getRootPath("java/com/google/project/module/src/somethingelse"))
         .isEqualTo("java");
+    assertThat(getRootPath("java/com/google/project/module/testsrc/somethingelse"))
+        .isEqualTo("java");
     assertThat(getRootPath("java/com/google/project/module/src/foo/java"))
+        .isEqualTo("java");
+    assertThat(getRootPath("java/com/google/project/module/testsrc/foo/java"))
         .isEqualTo("java");
     assertThat(getRootPath("java/com/google/project/module/src/main/com"))
         .isEqualTo("java");
@@ -87,6 +94,8 @@ public class JavaUtilTest {
         .isEqualTo("foo/java");
     assertThat(getRootPath("src/com/google/java/javac"))
         .isEqualTo("src");
+    assertThat(getRootPath("testsrc/com/google/java/javac"))
+        .isEqualTo("testsrc");
 
     assertThat(getRootPath("src/java_tools/buildjar/javatests/com"))
         .isEqualTo("src/java_tools/buildjar/javatests");
