@@ -68,8 +68,8 @@ public class Main {
     if (coverage.isEmpty()) {
       int exitStatus = 0;
       if (profdataFile == null) {
-        logger.log(Level.SEVERE, "There was no coverage found.");
-        exitStatus = 1;
+        logger.log(Level.WARNING, "There was no coverage found.");
+        exitStatus = 0;
       } else {
         // Bazel doesn't support yet converting profdata files to lcov. We still want to output a
         // coverage report so we copy the content of the profdata file to the output file. This is
@@ -98,9 +98,9 @@ public class Main {
       // no way to merge them.
       // TODO(#5881): Add support for profdata files.
       logger.log(
-          Level.SEVERE,
+          Level.WARNING,
           "Bazel doesn't support LLVM profdata coverage amongst other coverage formats.");
-      System.exit(1);
+      System.exit(0);
     }
 
     if (!flags.filterSources().isEmpty()) {
@@ -117,8 +117,8 @@ public class Main {
     }
 
     if (coverage.isEmpty()) {
-      logger.log(Level.SEVERE, "There was no coverage found.");
-      System.exit(1);
+      logger.log(Level.WARNING, "There was no coverage found.");
+      System.exit(0);
     }
 
     int exitStatus = 0;
