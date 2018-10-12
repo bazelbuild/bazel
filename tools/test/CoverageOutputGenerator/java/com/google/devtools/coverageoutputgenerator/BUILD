@@ -67,6 +67,7 @@ java_library(
 java_library(
     name = "Constants",
     srcs = ["Constants.java"],
+    deps = ["//third_party:guava"],
 )
 
 java_library(
@@ -100,7 +101,10 @@ java_library(
 java_library(
     name = "Coverage",
     srcs = ["Coverage.java"],
-    deps = [":SourceFileCoverage"],
+    deps = [
+        ":Constants",
+        ":SourceFileCoverage",
+    ],
 )
 
 java_library(

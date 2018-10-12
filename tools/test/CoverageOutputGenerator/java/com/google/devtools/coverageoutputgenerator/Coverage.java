@@ -14,6 +14,8 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
+import static com.google.devtools.coverageoutputgenerator.Constants.CC_EXTENSIONS;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -48,13 +50,14 @@ class Coverage {
   }
 
   /**
-   * Returns {@link Coverage} only for the given source filenames, filtering out everything else in
-   * the given coverage.
+   * Returns {@link Coverage} only for the given CC source filenames, filtering out every other CC
+   * sources of the given coverage. Other types of source files (e.g. Java) will not be filtered
+   * out.
    *
    * @param coverage The initial coverage.
    * @param sourcesToKeep The filenames of the sources to keep from the initial coverage.
    */
-  static Coverage getOnlyTheseSources(Coverage coverage, Set<String> sourcesToKeep) {
+  static Coverage getOnlyTheseCcSources(Coverage coverage, Set<String> sourcesToKeep) {
     if (coverage == null || sourcesToKeep == null) {
       throw new IllegalArgumentException("Coverage and sourcesToKeep should not be null.");
     }
@@ -66,11 +69,21 @@ class Coverage {
     }
     Coverage finalCoverage = new Coverage();
     for (SourceFileCoverage source : coverage.getAllSourceFiles()) {
-      if (sourcesToKeep.contains(source.sourceFileName())) {
+      if (!isCcSourceFile(source.sourceFileName())
+          || sourcesToKeep.contains(source.sourceFileName())) {
         finalCoverage.add(source);
       }
     }
     return finalCoverage;
+  }
+
+  private static boolean isCcSourceFile(String filename) {
+    for (String ccExtension : CC_EXTENSIONS) {
+      if (filename.endsWith(ccExtension)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static Coverage filterOutMatchingSources(Coverage coverage, List<String> regexes)

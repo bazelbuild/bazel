@@ -96,7 +96,8 @@ function assert_coverage_result() {
     local expected_coverage_no_newlines="$( echo "$expected_coverage" | tr '\n' ',' )"
     local output_file_no_newlines="$( cat "$output_file" | tr '\n' ',' )"
 
-    ( echo $output_file_no_newlines | grep  $expected_coverage_no_newlines ) \
+    (echo "$output_file_no_newlines" \
+        | grep -F "$expected_coverage_no_newlines") \
         || fail "Expected coverage result
 <$expected_coverage>
 was not found in actual coverage report:
@@ -159,7 +160,6 @@ function test_cc_test_coverage_gcov() {
   if is_gcov_missing_or_wrong_version; then
     echo "Skipping test." && return
   fi
-
   setup_a_cc_lib_and_t_cc_test
 
   bazel coverage --experimental_cc_coverage --test_output=all \
@@ -1403,6 +1403,397 @@ end_of_record
 EOF
   diff result.dat "$coverage_file_path" >> $TEST_log
   cmp result.dat "$coverage_file_path" || fail "Coverage output file is different than the expected file"
+}
+
+function test_sh_test_coverage_cc_binary() {
+  if is_gcov_missing_or_wrong_version; then
+    echo "Skipping test." && return
+  fi
+
+  ########### Setup source files and BUILD file ###########
+  cat <<EOF > BUILD
+sh_test(
+    name = "hello-sh",
+    srcs = ["hello-test.sh"],
+    data = ["//examples/cpp:hello-world"]
+)
+EOF
+  cat <<EOF > hello-test.sh
+#!/bin/bash
+
+examples/cpp/hello-world
+EOF
+  chmod +x hello-test.sh
+
+  mkdir -p examples/cpp
+
+  cat <<EOF > examples/cpp/BUILD
+package(default_visibility = ["//visibility:public"])
+
+cc_binary(
+    name = "hello-world",
+    srcs = ["hello-world.cc"],
+    deps = [":hello-lib"],
+)
+
+cc_library(
+    name = "hello-lib",
+    srcs = ["hello-lib.cc"],
+    hdrs = ["hello-lib.h"]
+)
+EOF
+
+  cat <<EOF > examples/cpp/hello-world.cc
+#include "examples/cpp/hello-lib.h"
+
+#include <string>
+
+using hello::HelloLib;
+using std::string;
+
+int main(int argc, char** argv) {
+  HelloLib lib("Hello");
+  string thing = "world";
+  if (argc > 1) {
+    thing = argv[1];
+  }
+  lib.greet(thing);
+  return 0;
+}
+EOF
+
+  cat <<EOF > examples/cpp/hello-lib.h
+#ifndef EXAMPLES_CPP_HELLO_LIB_H_
+#define EXAMPLES_CPP_HELLO_LIB_H_
+
+#include <string>
+#include <memory>
+
+namespace hello {
+
+class HelloLib {
+ public:
+  explicit HelloLib(const std::string &greeting);
+
+  void greet(const std::string &thing);
+
+ private:
+  std::auto_ptr<const std::string> greeting_;
+};
+
+}  // namespace hello
+
+#endif  // EXAMPLES_CPP_HELLO_LIB_H_
+EOF
+
+  cat <<EOF > examples/cpp/hello-lib.cc
+#include "examples/cpp/hello-lib.h"
+
+#include <iostream>
+
+using std::cout;
+using std::endl;
+using std::string;
+
+namespace hello {
+
+HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+}
+
+void HelloLib::greet(const string& thing) {
+  cout << *greeting_ << " " << thing << endl;
+}
+
+}  // namespace hello
+EOF
+
+  ########### Run bazel coverage ###########
+  bazel coverage --experimental_cc_coverage --test_output=all \
+      //:hello-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
+
+  ########### Assert coverage results. ###########
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result_hello_lib="SF:examples/cpp/hello-lib.cc
+FN:18,_GLOBAL__sub_I_hello_lib.cc
+FN:18,_Z41__static_initialization_and_destruction_0ii
+FN:14,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FN:11,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNDA:1,_GLOBAL__sub_I_hello_lib.cc
+FNDA:1,_Z41__static_initialization_and_destruction_0ii
+FNDA:1,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNDA:1,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNF:4
+FNH:4
+BA:11,2
+BA:18,2
+BRF:2
+BRH:2
+DA:11,1
+DA:12,1
+DA:14,1
+DA:15,1
+DA:16,1
+DA:18,3
+LH:6
+LF:6
+end_of_record"
+  assert_coverage_result "$expected_result_hello_lib" "$coverage_file_path"
+  local coverage_result_hello_lib_header="SF:examples/cpp/hello-world.cc
+FN:8,main
+FNDA:1,main
+FNF:1
+FNH:1
+BA:9,2
+BA:10,2
+BA:11,2
+BA:12,0
+BA:14,2
+BRF:5
+BRH:4
+DA:8,1
+DA:9,2
+DA:10,2
+DA:11,1
+DA:12,0
+DA:14,1
+DA:15,1
+LH:6
+LF:7
+end_of_record"
+  assert_coverage_result "$coverage_result_hello_lib_header" "$coverage_file_path"
+}
+
+function test_sh_test_coverage_cc_binary_and_java_binary() {
+   if is_gcov_missing_or_wrong_version; then
+    echo "Skipping test." && return
+  fi
+
+  ########### Setup source files and BUILD file ###########
+  cat <<EOF > BUILD
+sh_test(
+    name = "hello-sh",
+    srcs = ["hello-test.sh"],
+    data = [
+      "//examples/cpp:hello-world",
+      "//java/com/google/orange:orange-bin"
+    ]
+)
+EOF
+  cat <<EOF > hello-test.sh
+#!/bin/bash
+
+examples/cpp/hello-world
+java/com/google/orange/orange-bin
+EOF
+  chmod +x hello-test.sh
+
+  mkdir -p examples/cpp
+
+  cat <<EOF > examples/cpp/BUILD
+package(default_visibility = ["//visibility:public"])
+
+cc_binary(
+    name = "hello-world",
+    srcs = ["hello-world.cc"],
+    deps = [":hello-lib"],
+)
+
+cc_library(
+    name = "hello-lib",
+    srcs = ["hello-lib.cc"],
+    hdrs = ["hello-lib.h"]
+)
+EOF
+
+  cat <<EOF > examples/cpp/hello-world.cc
+#include "examples/cpp/hello-lib.h"
+
+#include <string>
+
+using hello::HelloLib;
+using std::string;
+
+int main(int argc, char** argv) {
+  HelloLib lib("Hello");
+  string thing = "world";
+  if (argc > 1) {
+    thing = argv[1];
+  }
+  lib.greet(thing);
+  return 0;
+}
+EOF
+
+  cat <<EOF > examples/cpp/hello-lib.h
+#ifndef EXAMPLES_CPP_HELLO_LIB_H_
+#define EXAMPLES_CPP_HELLO_LIB_H_
+
+#include <string>
+#include <memory>
+
+namespace hello {
+
+class HelloLib {
+ public:
+  explicit HelloLib(const std::string &greeting);
+
+  void greet(const std::string &thing);
+
+ private:
+  std::auto_ptr<const std::string> greeting_;
+};
+
+}  // namespace hello
+
+#endif  // EXAMPLES_CPP_HELLO_LIB_H_
+EOF
+
+  cat <<EOF > examples/cpp/hello-lib.cc
+#include "examples/cpp/hello-lib.h"
+
+#include <iostream>
+
+using std::cout;
+using std::endl;
+using std::string;
+
+namespace hello {
+
+HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+}
+
+void HelloLib::greet(const string& thing) {
+  cout << *greeting_ << " " << thing << endl;
+}
+
+}  // namespace hello
+EOF
+
+  ########### Setup Java sources ###########
+  mkdir -p java/com/google/orange
+
+  cat <<EOF > java/com/google/orange/BUILD
+package(default_visibility = ["//visibility:public"])
+java_binary(
+    name = "orange-bin",
+    srcs = ["orangeBin.java"],
+    main_class = "com.google.orange.orangeBin",
+    deps = [":orange-lib"],
+)
+java_library(
+    name = "orange-lib",
+    srcs = ["orangeLib.java"],
+)
+EOF
+
+  cat <<EOF > java/com/google/orange/orangeLib.java
+package com.google.orange;
+public class orangeLib {
+  public void print() {
+    System.out.println("orange prints a message!");
+  }
+}
+EOF
+
+  cat <<EOF > java/com/google/orange/orangeBin.java
+package com.google.orange;
+public class orangeBin {
+  public static void main(String[] args) {
+    orangeLib orange = new orangeLib();
+    orange.print();
+  }
+}
+EOF
+
+  ########### Run bazel coverage ###########
+  bazel coverage --experimental_cc_coverage --test_output=all \
+      //:hello-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
+
+  ########### Assert coverage results. ###########
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result_hello_lib="SF:examples/cpp/hello-lib.cc
+FN:18,_GLOBAL__sub_I_hello_lib.cc
+FN:18,_Z41__static_initialization_and_destruction_0ii
+FN:14,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FN:11,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNDA:1,_GLOBAL__sub_I_hello_lib.cc
+FNDA:1,_Z41__static_initialization_and_destruction_0ii
+FNDA:1,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNDA:1,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNF:4
+FNH:4
+BA:11,2
+BA:18,2
+BRF:2
+BRH:2
+DA:11,1
+DA:12,1
+DA:14,1
+DA:15,1
+DA:16,1
+DA:18,3
+LH:6
+LF:6
+end_of_record"
+  assert_coverage_result "$expected_result_hello_lib" "$coverage_file_path"
+
+  local coverage_result_hello_lib_header="SF:examples/cpp/hello-world.cc
+FN:8,main
+FNDA:1,main
+FNF:1
+FNH:1
+BA:9,2
+BA:10,2
+BA:11,2
+BA:12,0
+BA:14,2
+BRF:5
+BRH:4
+DA:8,1
+DA:9,2
+DA:10,2
+DA:11,1
+DA:12,0
+DA:14,1
+DA:15,1
+LH:6
+LF:7
+end_of_record"
+  assert_coverage_result "$coverage_result_hello_lib_header" "$coverage_file_path"
+
+
+  ############# Assert Java code coverage results
+
+  local coverage_result_orange_bin="SF:com/google/orange/orangeBin.java
+FN:2,com/google/orange/orangeBin::<init> ()V
+FN:4,com/google/orange/orangeBin::main ([Ljava/lang/String;)V
+FNDA:0,com/google/orange/orangeBin::<init> ()V
+FNDA:1,com/google/orange/orangeBin::main ([Ljava/lang/String;)V
+FNF:2
+FNH:1
+DA:2,0
+DA:4,4
+DA:5,2
+DA:6,1
+LH:3
+LF:4
+end_of_record"
+  assert_coverage_result "$coverage_result_orange_bin" "$coverage_file_path"
+
+  local coverage_result_orange_lib="SF:com/google/orange/orangeLib.java
+FN:2,com/google/orange/orangeLib::<init> ()V
+FN:4,com/google/orange/orangeLib::print ()V
+FNDA:1,com/google/orange/orangeLib::<init> ()V
+FNDA:1,com/google/orange/orangeLib::print ()V
+FNF:2
+FNH:2
+DA:2,3
+DA:4,3
+DA:5,1
+LH:3
+LF:3
+end_of_record"
+  assert_coverage_result "$coverage_result_orange_lib" "$coverage_file_path"
 }
 
 run_suite "test tests"

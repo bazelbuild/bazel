@@ -128,6 +128,7 @@ export LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
   --output_file=${COVERAGE_OUTPUT_FILE} \
   --filter_sources=/usr/bin/.+ \
   --filter_sources=/usr/lib/.+ \
+  --filter_sources=/usr/include.+ \
   --filter_sources=.*external/.+ \
   --source_file_manifest=${COVERAGE_MANIFEST}"
 
