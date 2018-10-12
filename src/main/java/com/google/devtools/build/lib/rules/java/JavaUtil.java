@@ -61,13 +61,13 @@ public final class JavaUtil {
   }
 
   /**
-   * Finds the index of the segment in a Java path fragment that precedes the source root.
-   * Starts from the first "java" or "javatests" or "src" segment.
-   * If the found item was "src", check if this is followed by "main" or "test" and then "java"
-   * or "resources" (maven layout).
-   * If the found item was "src", or "java"/"javatests" at the first segment, check for a nested
-   * root directory (src, java or javatests). A nested root must be followed by (com|net|org),
-   * or matching maven structure for nested "src", to be accepted, to avoid false positives.
+   * Finds the index of the segment in a Java path fragment that precedes the source root. Starts
+   * from the first "java" or "javatests" or "src" or "testsrc" segment. If the found item was
+   * "src", check if this is followed by "main" or "test" and then "java" or "resources" (maven
+   * layout). If the found item was "src", or "java"/"javatests" at the first segment, check for a
+   * nested root directory (src, java or javatests). A nested root must be followed by
+   * (com|net|org), or matching maven structure for nested "src", to be accepted, to avoid false
+   * positives.
    *
    * @param path a Java source dir or file path
    * @return the index of the java segment or -1 iff no java segment was found.
@@ -76,7 +76,7 @@ public final class JavaUtil {
     if (path.isAbsolute()) {
       throw new IllegalArgumentException("path must not be absolute: '" + path + "'");
     }
-    int rootIndex = path.getFirstSegment(ImmutableSet.of("java", "javatests", "src"));
+    int rootIndex = path.getFirstSegment(ImmutableSet.of("java", "javatests", "src", "testsrc"));
     if (rootIndex < 0) {
       return rootIndex;
     }
