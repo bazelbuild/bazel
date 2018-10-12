@@ -62,7 +62,7 @@ public final class JavaUtil {
 
   /**
    * Finds the index of the segment in a Java path fragment that precedes the source root.
-   * Starts from the first "java" or "javatests" or "src" segment.
+   * Starts from the first "java" or "javatests" or "src" or "testsrc" segment.
    * If the found item was "src", check if this is followed by "main" or "test" and then "java"
    * or "resources" (maven layout).
    * If the found item was "src", or "java"/"javatests" at the first segment, check for a nested
@@ -76,7 +76,7 @@ public final class JavaUtil {
     if (path.isAbsolute()) {
       throw new IllegalArgumentException("path must not be absolute: '" + path + "'");
     }
-    int rootIndex = path.getFirstSegment(ImmutableSet.of("java", "javatests", "src"));
+    int rootIndex = path.getFirstSegment(ImmutableSet.of("java", "javatests", "src", "testsrc"));
     if (rootIndex < 0) {
       return rootIndex;
     }
