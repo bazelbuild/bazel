@@ -318,16 +318,16 @@ java_import(
     name = "error_prone_annotations",
     jars = [
         "error_prone/error_prone_annotations-2.2.0.jar",
-        "error_prone/error_prone_type_annotations-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_type_annotations-2.3.2.jar",
     ],
 )
 
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.3.2-SNAPSHOT.jar",
-        "error_prone/error_prone_check_api-2.3.2-SNAPSHOT.jar",
-        "error_prone/error_prone_core-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_annotation-2.3.2.jar",
+        "error_prone/error_prone_check_api-2.3.2.jar",
+        "error_prone/error_prone_core-2.3.2.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -391,7 +391,7 @@ java_import(
     jars = [
         "flogger/flogger-0.3.1.jar",
         "flogger/flogger-system-backend-0.3.1.jar",
-        "flogger/google-extensions-0.3.1.jar"
+        "flogger/google-extensions-0.3.1.jar",
     ],
 )
 
@@ -401,7 +401,7 @@ filegroup(
         "flogger/flogger-0.3.1.jar",
         "flogger/flogger-system-backend-0.3.1.jar",
         "flogger/google-extensions-0.3.1.jar",
-    ]
+    ],
 )
 
 java_import(
@@ -566,6 +566,7 @@ filegroup(
         "//conditions:default": [],
     }),
 )
+
 java_import(
     name = "turbine",
     jars = ["turbine/turbine.jar"],
