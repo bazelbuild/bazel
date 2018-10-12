@@ -409,7 +409,6 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "proto_library(",
         "    name = 'proto',",
         "    srcs = [ 'file.proto' ],",
-        "    java_api_version = 2,",
         ")",
         "java_lite_proto_library(name = 'lite_pb2', deps = [':proto'])");
     update(
