@@ -583,6 +583,21 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     )
     public List<String> dexoptsSupportedInDexMerger;
 
+    // Do not use on the command line.
+    // This flag is intended to be updated as we add supported flags to the incremental dexing tools
+    @Option(
+        name = "dexopts_supported_in_dexsharder",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        defaultValue = "--minimal-main-dex",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+            OptionEffectTag.ACTION_COMMAND_LINES,
+            OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        help = "dx flags supported in tool that groups classes for inclusion in final .dex files."
+    )
+    public List<String> dexoptsSupportedInDexSharder;
+
     @Option(
       name = "use_workers_with_dexbuilder",
       defaultValue = "true",
@@ -908,6 +923,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
       host.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
+      host.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
       host.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
       host.manifestMerger = manifestMerger;
       host.androidAaptVersion = androidAaptVersion;
@@ -950,6 +966,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
+  private final ImmutableList<String> dexoptsSupportedInDexSharder;
   private final boolean useWorkersWithDexbuilder;
   private final boolean desugarJava8;
   private final boolean desugarJava8Libs;
@@ -990,6 +1007,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.targetDexoptsThatPreventIncrementalDexing =
         ImmutableList.copyOf(options.nonIncrementalPerTargetDexopts);
     this.dexoptsSupportedInDexMerger = ImmutableList.copyOf(options.dexoptsSupportedInDexMerger);
+    this.dexoptsSupportedInDexSharder = ImmutableList.copyOf(options.dexoptsSupportedInDexSharder);
     this.useWorkersWithDexbuilder = options.useWorkersWithDexbuilder;
     this.desugarJava8 = options.desugarJava8;
     this.desugarJava8Libs = options.desugarJava8Libs;
@@ -1094,6 +1112,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public ImmutableList<String> getDexoptsSupportedInDexMerger() {
     return dexoptsSupportedInDexMerger;
+  }
+
+  /** dx flags supported in dexmerger actions. */
+  public ImmutableList<String> getDexoptsSupportedInDexSharder() {
+    return dexoptsSupportedInDexSharder;
   }
 
   /**

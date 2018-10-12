@@ -513,6 +513,20 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             new FlagMatcher(getAndroidConfig(ruleContext).getDexoptsSupportedInDexMerger())));
   }
 
+  /**
+   * Derives options to use in DexFileSharder actions from the given context and dx flags, where the
+   * latter typically come from a {@code dexopts} attribute on a top-level target.
+   */
+  static ImmutableSet<String> sharderDexopts(
+      RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
+    // We don't need an ordered set but might as well.  Note we don't need to worry about coverage
+    // builds since the merger doesn't use --no-locals.
+    return normalizeDexopts(
+        Iterables.filter(
+            tokenizedDexopts,
+            new FlagMatcher(getAndroidConfig(ruleContext).getDexoptsSupportedInDexSharder())));
+  }
+
   private static ImmutableSet<String> normalizeDexopts(Iterable<String> tokenizedDexopts) {
     // Sort and use ImmutableSet to drop duplicates and get fixed (sorted) order.  Fixed order is
     // important so we generate one dex archive per set of flag in create() method, regardless of

@@ -1197,7 +1197,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext,
               dexArchives,
               mainDexList,
-              dexopts.contains(DX_MINIMAL_MAIN_DEX_OPTION),
+              dexopts,
               inclusionFilterJar);
       Artifact multidexShards = createTemplatedMergerActions(ruleContext, shardsToMerge, dexopts);
       // TODO(b/69431301): avoid this action and give the files to apk build action directly
@@ -1281,7 +1281,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       ImmutableList<Artifact> dexArchives,
       @Nullable Artifact mainDexList,
-      boolean minimalMainDex,
+      Collection<String> dexopts,
       @Nullable Artifact inclusionFilterJar) {
     SpecialArtifact outputTree =
         ruleContext.getTreeArtifact(
@@ -1306,9 +1306,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       shardAction.addInput(mainDexList);
       shardCommandLine.addExecPath("--main-dex-list", mainDexList);
     }
-    if (minimalMainDex) {
-      shardCommandLine.add(DX_MINIMAL_MAIN_DEX_OPTION);
-    }
+    shardCommandLine.addAll(DexArchiveAspect.sharderDexopts(ruleContext, dexopts));
     if (inclusionFilterJar != null) {
       shardCommandLine.addExecPath("--inclusion_filter_jar", inclusionFilterJar);
       shardAction.addInput(inclusionFilterJar);
