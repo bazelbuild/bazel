@@ -188,4 +188,27 @@ function test_zipper_specify_path() {
       || fail "Unzip after zipper output is not expected"
 }
 
+function test_zipper_permissions() {
+  local -r LOCAL_TEST_DIR="${TEST_TMPDIR}/${FUNCNAME[0]}"
+  mkdir -p ${LOCAL_TEST_DIR}/files
+  printf "#!/bin/sh\nexit 0\n" > ${LOCAL_TEST_DIR}/files/executable
+  printf "#!/bin/sh\nexit 0\n" > ${LOCAL_TEST_DIR}/files/non_executable
+  chmod +x ${LOCAL_TEST_DIR}/files/executable
+  chmod -x ${LOCAL_TEST_DIR}/files/non_executable
+
+  ${ZIPPER} cC ${LOCAL_TEST_DIR}/output.zip \
+      executable=${LOCAL_TEST_DIR}/files/executable \
+      non_executable=${LOCAL_TEST_DIR}/files/non_executable
+
+  mkdir -p ${LOCAL_TEST_DIR}/out
+  cd ${LOCAL_TEST_DIR}/out && $UNZIP -q ${LOCAL_TEST_DIR}/output.zip
+
+  if ! test -x ${LOCAL_TEST_DIR}/out/executable; then
+    fail "out/executable should have been executable"
+  fi
+  if test -x ${LOCAL_TEST_DIR}/out/non_executable; then
+    fail "out/non_executable should not have been executable"
+  fi
+}
+
 run_suite "zipper tests"
