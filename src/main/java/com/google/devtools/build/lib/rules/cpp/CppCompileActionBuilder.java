@@ -518,7 +518,7 @@ public class CppCompileActionBuilder {
         ruleContext,
         CppHelper.getArtifactNameForCategory(ruleContext, ccToolchain, outputCategory, outputName),
         configuration);
-    if (generateDotd && !(cppConfiguration.getNoDotdScanningWithModules() && useHeaderModules())) {
+    if (generateDotd && !useHeaderModules()) {
       String dotdFileName =
           CppHelper.getDotdFileName(ruleContext, ccToolchain, outputCategory, outputName);
       if (cppConfiguration.getInmemoryDotdFiles()) {

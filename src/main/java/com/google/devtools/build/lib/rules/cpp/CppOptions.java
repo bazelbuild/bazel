@@ -669,15 +669,6 @@ public class CppOptions extends FragmentOptions {
   public boolean pruneCppInputDiscovery;
 
   @Option(
-    name = "experimental_no_dotd_scanning_with_modules",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-    effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.CHANGES_INPUTS},
-    help = "If enabled, don't analyze generated .d files in builds with Clang's C++ modules."
-  )
-  public boolean noDotdScanningWithModules;
-
-  @Option(
     name = "parse_headers_verifies_modules",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -951,7 +942,6 @@ public class CppOptions extends FragmentOptions {
     host.fdoProfileLabel = null;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
     host.pruneCppInputDiscovery = pruneCppInputDiscovery;
-    host.noDotdScanningWithModules = noDotdScanningWithModules;
 
     return host;
   }
