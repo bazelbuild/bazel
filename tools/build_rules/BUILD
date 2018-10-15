@@ -23,6 +23,12 @@ py_test(
     deps = ["//src/test/py/bazel:test_base"],
 )
 
+sh_binary(
+    name = "filetest",
+    srcs = ["filetest.sh"],
+    visibility = ["//visibility:public"],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [
