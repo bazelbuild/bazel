@@ -39,12 +39,26 @@ filegroup(
 )
 
 # Test wrapper binary to run tests on Windows.
+# This target just wraps the actual code in "tw_lib" to make it into a binary.
 # See https://github.com/bazelbuild/bazel/issues/5508
 cc_binary(
     name = "tw",
+    srcs = ["windows/tw_main.cc"],
+    visibility = ["//visibility:private"],
+    deps = [":tw_lib"],
+)
+
+# Test wrapper binary to run tests on Windows.
+# See https://github.com/bazelbuild/bazel/issues/5508
+cc_library(
+    name = "tw_lib",
     srcs = select({
-        "@bazel_tools//src/conditions:windows": ["windows/test_wrapper.cc"],
+        "@bazel_tools//src/conditions:windows": ["windows/tw.cc"],
         "//conditions:default": ["empty_test_wrapper.cc"],
+    }),
+    hdrs = select({
+        "@bazel_tools//src/conditions:windows": ["windows/tw.h"],
+        "//conditions:default": [],
     }),
     linkopts = select({
         "//src/conditions:windows": [
@@ -59,6 +73,25 @@ cc_binary(
             "//src/main/cpp/util:strings",
             "//src/main/native/windows:lib-file",
             "@bazel_tools//tools/cpp/runfiles",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
+    name = "tw_test",
+    srcs = select({
+        "@bazel_tools//src/conditions:windows": ["windows/tw_test.cc"],
+        "//conditions:default": ["empty_test.cc"],
+    }),
+    deps = [
+        ":tw_lib",
+        "//src/main/cpp/util:filesystem",
+        "//src/test/cpp/util:windows_test_util",
+        "@com_google_googletest//:gtest_main",
+    ] + select({
+        "@bazel_tools//src/conditions:windows": [
+            "//src/main/native/windows:lib-file",
         ],
         "//conditions:default": [],
     }),

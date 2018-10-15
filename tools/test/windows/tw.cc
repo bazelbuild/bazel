@@ -35,7 +35,11 @@
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
 #include "tools/cpp/runfiles/runfiles.h"
+#include "tools/test/windows/tw.h"
 
+namespace bazel {
+namespace tools {
+namespace test_wrapper {
 namespace {
 
 class Defer {
@@ -43,9 +47,17 @@ class Defer {
   explicit Defer(std::function<void()> f) : f_(f) {}
   ~Defer() { f_(); }
 
+  void DoNow() {
+    f_();
+    f_ = kEmpty;
+  }
+
  private:
   std::function<void()> f_;
+  static const std::function<void()> kEmpty;
 };
+
+const std::function<void()> Defer::kEmpty = []() {};
 
 // A lightweight path abstraction that stores a Unicode Windows path.
 //
@@ -350,6 +362,87 @@ bool ExportMiscEnvvars(const Path& cwd) {
     }
   }
   return true;
+}
+
+bool _GetFileListRelativeTo(
+    const std::wstring& unc_root, const std::wstring& subdir,
+    std::vector<bazel::tools::test_wrapper::FileInfo>* result) {
+  const std::wstring full_subdir =
+      unc_root + (subdir.empty() ? L"" : (L"\\" + subdir)) + L"\\*";
+  WIN32_FIND_DATAW info;
+  HANDLE handle = FindFirstFileW(full_subdir.c_str(), &info);
+  if (handle == INVALID_HANDLE_VALUE) {
+    DWORD err = GetLastError();
+    if (err == ERROR_FILE_NOT_FOUND) {
+      // No files found, nothing to do.
+      return true;
+    }
+    LogErrorWithArgAndValue(__LINE__, "Failed to list directory contents",
+                            full_subdir.c_str(), err);
+    return false;
+  }
+
+  Defer close_handle([handle]() { FindClose(handle); });
+  static const std::wstring kDot(1, L'.');
+  static const std::wstring kDotDot(2, L'.');
+  std::vector<std::wstring> subdirectories;
+  while (true) {
+    if (kDot != info.cFileName && kDotDot != info.cFileName) {
+      std::wstring rel_path =
+          subdir.empty() ? info.cFileName : (subdir + L"\\" + info.cFileName);
+      if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        subdirectories.push_back(rel_path);
+      } else {
+        if (info.nFileSizeHigh > 0 || info.nFileSizeLow > INT_MAX) {
+          // devtools_ijar::Stat::total_size is declared as `int`, so the file
+          // size limit is INT_MAX. Additionally we limit the files to be below
+          // 4 GiB, not only because int is typically 4 bytes long, but also
+          // because such huge files are unreasonably large as an undeclared
+          // output.
+          LogErrorWithArgAndValue(__LINE__, "File is too large to archive",
+                                  rel_path.c_str(), 0);
+          return false;
+        }
+
+        result->push_back({rel_path,
+                           // File size is already validated to be smaller than
+                           // min(INT_MAX, 4 GiB)
+                           static_cast<int>(info.nFileSizeLow)});
+      }
+    }
+    if (FindNextFileW(handle, &info) == 0) {
+      DWORD err = GetLastError();
+      if (err == ERROR_NO_MORE_FILES) {
+        break;
+      }
+      LogErrorWithArgAndValue(__LINE__,
+                              "Failed to get next element in directory",
+                              (unc_root + L"\\" + subdir).c_str(), err);
+      return false;
+    }
+  }
+  close_handle.DoNow();
+
+  for (const auto& s : subdirectories) {
+    if (!_GetFileListRelativeTo(unc_root, s, result)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool GetFileListRelativeTo(
+    const Path& root,
+    std::vector<bazel::tools::test_wrapper::FileInfo>* result) {
+  if (!blaze_util::IsAbsolute(root.Get())) {
+    LogError(__LINE__, "Root should be absolute");
+    return false;
+  }
+
+  return _GetFileListRelativeTo(bazel::windows::HasUncPrefix(root.Get().c_str())
+                                    ? root.Get()
+                                    : L"\\\\?\\" + root.Get(),
+                                std::wstring(), result);
 }
 
 bool OpenFileForWriting(const std::wstring& path, HANDLE* result) {
@@ -688,7 +781,7 @@ Path Path::Dirname() const {
 
 }  // namespace
 
-int wmain(int argc, wchar_t** argv) {
+int Main(int argc, wchar_t** argv) {
   Path argv0;
   std::wstring test_path_arg;
   bool suppress_output = false;
@@ -710,3 +803,21 @@ int wmain(int argc, wchar_t** argv) {
 
   return RunSubprocess(test_path, args);
 }
+
+namespace testing {
+
+bool TestOnly_GetEnv(const wchar_t* name, std::wstring* result) {
+  return GetEnv(name, result);
+}
+
+bool TestOnly_GetFileListRelativeTo(const std::wstring& abs_root,
+                                    std::vector<FileInfo>* result) {
+  Path root;
+  return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
+         GetFileListRelativeTo(root, result);
+}
+
+}  // namespace testing
+}  // namespace test_wrapper
+}  // namespace tools
+}  // namespace bazel

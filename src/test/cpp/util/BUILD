@@ -115,6 +115,7 @@ cc_library(
     visibility = [
         "//src/test/cpp:__subpackages__",
         "//src/test/native:__subpackages__",
+        "//tools/test:__pkg__",
     ],
 )
 
