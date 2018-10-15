@@ -9,7 +9,7 @@ filegroup(
             "*~",
         ],
     ),
-    visibility = ["//tools:__pkg__"],
+    visibility = ["//tools/cpp:__pkg__"],
 )
 
 filegroup(
@@ -18,7 +18,7 @@ filegroup(
         "BUILD.tools",
         ":srcs_for_embedded_tools",
     ],
-    visibility = ["//tools:__pkg__"],
+    visibility = ["//tools/cpp:__pkg__"],
 )
 
 genrule(
@@ -42,6 +42,23 @@ cc_library(
     testonly = 1,
     srcs = ["runfiles_src.cc"],
     hdrs = ["runfiles_src.h"],
+)
+
+# As of 2018-10-01, singlejar needs to temporarily use the C++ runfiles library
+# from source, not from @bazel_tools.
+# Nothing else should depend on this target.
+#
+# TODO(laszlocsomor): remove this library after Bazel is released with
+# https://github.com/bazelbuild/bazel/commit/23bc3bee79d8a8b8dc15bbfb6072ec9f965dff96.
+# Once Bazel is released with that patch, do the following:
+# 1. remove this library
+# 2. let Singlejar depend on @bazel_tools//tools/cpp/runfiles
+# 3. change Singlejar's sources to include "tools/cpp/runfiles.h" instead of
+#    "tools/cpp/runfiles_src.h"
+cc_library(
+    name = "runfiles_src_for_singlejar_only",
+    visibility = ["//src/tools/singlejar:__pkg__"],
+    deps = [":runfiles"],
 )
 
 cc_test(

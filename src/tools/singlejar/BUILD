@@ -2,13 +2,6 @@
 #   singlejar C++ implementation.
 package(default_visibility = ["//src:__subpackages__"])
 
-JAR_TOOL_PATH_COPT_TPL = "-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar%s\\\""
-
-JAR_TOOL_PATH_COPTS = select({
-    "//src/conditions:windows": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
-    "//conditions:default": [JAR_TOOL_PATH_COPT_TPL % ""],
-})
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -99,7 +92,7 @@ cc_test(
 cc_test(
     name = "desugar_checking_test",
     srcs = [
-        "desugar_checking_test.cc",
+        "combiners_test.cc",
         ":zip_headers",
         ":zlib_interface",
     ],
@@ -151,13 +144,13 @@ cc_test(
         "input_jar_scan_entries_test.h",
         "input_jar_scan_jartool_test.cc",
     ],
-    copts = JAR_TOOL_PATH_COPTS,
-    data = [
-        "@local_jdk//:jar",
-        "@local_jdk//:jdk",
-    ],
+    # TODO(@rongjiecomputer): update copts to handle Windows and add
+    # ".exe" extension.
+    copts = ["-DJAR_TOOL_PATH=$(JAVA)/bin/jar"],
+    data = ["@bazel_tools//tools/jdk:current_java_runtime"],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     deps = [
         ":input_jar",
         ":test_util",
@@ -223,20 +216,23 @@ cc_test(
     srcs = [
         "output_jar_simple_test.cc",
     ],
-    copts = JAR_TOOL_PATH_COPTS,
+    # TODO(@rongjiecomputer): update copts to handle Windows and add
+    # ".exe" extension.
+    copts = ["-DJAR_TOOL_PATH=$(JAVA)/bin/jar"],
     data = [
         ":data1",
         ":data2",
         ":stored_jar",
         ":test1",
         ":test2",
-        "@local_jdk//:jar",
-        "@local_jdk//:jdk-default",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     deps = [
         ":input_jar",
         ":options",
         ":output_jar",
+        ":port",
         ":test_util",
         "//src/main/cpp/util",
         "@com_google_googletest//:gtest_main",
@@ -305,8 +301,8 @@ sh_test(
         "//src/test/shell:bashunit",
         "@bazel_tools//tools/bash/runfiles",
         "@bazel_tools//tools/jdk:current_java_runtime",
-        "@local_jdk//:jar",
     ],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     deps = ["//src/test/shell:bashunit"],
 )
 
@@ -409,10 +405,15 @@ cc_library(
 
 cc_library(
     name = "test_util",
+    testonly = 1,
     srcs = ["test_util.cc"],
     hdrs = ["test_util.h"],
     deps = [
         "//src/main/cpp/util",
+        # TODO(laszlocsomor) Use @bazel_tools//tools/cpp/runfiles after Bazel is
+        # released with
+        # https://github.com/bazelbuild/bazel/commit/23bc3bee79d8a8b8dc15bbfb6072ec9f965dff96.
+        "//tools/cpp/runfiles:runfiles_src_for_singlejar_only",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -486,6 +487,7 @@ genrule(
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     outs = ["stored.jar"],
-    cmd = "$(location @local_jdk//:jar) -0cf \"$@\" $(location :output_jar.cc)",
-    tools = ["@local_jdk//:jar"],
+    cmd = "$(location @bazel_tools//tools/jdk:current_java_runtime) -0cf \"$@\" $(location :output_jar.cc)",
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
