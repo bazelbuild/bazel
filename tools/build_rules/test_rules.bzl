@@ -267,6 +267,73 @@ rule_test = rule(
 
 def _file_test_impl(ctx):
     """check that a file has a given content."""
+    script = ctx.actions.declare_file(ctx.label.name + ".bash")
+
+    # Since file_test is used from the @bazel_tools repo but also tested in the main Bazel repo, we
+    # cannot create a sh_binary for the script below and use it from file_test, because depending on
+    # the sh_binary would require knowing which depot the file_test is instantiated from.
+    #
+    # In other words, if there were a @bazel_tools//tools/build_rules:file_test_helper rule (the
+    # sh_binary), then file_test could reference it as:
+    #   - @bazel_tools//tools/build_rules:file_test_helper, which would work when using a Bazel
+    #     version that already contains this target, but not with Bazel 0.17.2 (latest release as of
+    #     the writing of this comment), or
+    #   - @io_bazel//tools/build_rules:file_test_helper, which would only work if the @io_bazel repo
+    #     is defined (either in Bazel's own source tree, or if the current project imports Bazel's
+    #     tree)
+    #   - //tools/build_rules:file_test_helper, which would only work if the current source tree
+    #     contains this target, which is unlikely.
+    # Considering that all 3 options are wrong, we resort to writing a script file on-the-fly.
+    ctx.actions.write(script, is_executable = True, content = """#!/bin/bash
+set -euo pipefail
+declare -r OUT="$1"
+declare -r INPUT="$2"
+declare -r CONTENT="$3"
+declare -r REGEXP="$4"
+declare -r MATCHES="$5"
+
+if [[ ( -n "${CONTENT:-}" && -n "${REGEXP:-}" ) || \
+      ( -z "${CONTENT:-}" && -z "${REGEXP:-}" ) ]]; then
+  echo >&2 "ERROR: expected either 'content' or 'regexp'"
+  exit 1
+elif [[ -n "${CONTENT:-}" && \
+        ( -n "${MATCHES:-}" && "$MATCHES" != "-1" ) ]]; then
+  echo >&2 "ERROR: cannot specify 'matches' together with 'content'"
+  exit 1
+elif [[ ! ( -z "${MATCHES:-}" || "$MATCHES" = 0 || \
+            "$MATCHES" =~ ^-?[1-9][0-9]*$ ) ]]; then
+  echo >&2 "ERROR: 'matches' must be an integer"
+  exit 1
+elif [[ ! -e "${INPUT:-/dev/null/does-not-exist}" ]]; then
+  echo >&2 "ERROR: input file must exist"
+  exit 1
+else
+  if [[ -n "${CONTENT:-}" ]]; then
+    declare -r GOLDEN_FILE="$(mktemp)"
+    declare -r ACTUAL_FILE="$(mktemp)"
+    # Normalize line endings in both files.
+    echo -e -n "$CONTENT" | sed 's,\r\n,\n,g' > "$GOLDEN_FILE"
+    sed 's,\r\n,\n,g' "$INPUT" > "$ACTUAL_FILE"
+    if ! diff -u "$GOLDEN_FILE" "$ACTUAL_FILE" ; then
+      echo >&2 "ERROR: file did not have expected content"
+      exit 1
+    fi
+  else
+    if [[ -n "${MATCHES:-}" && $MATCHES -gt -1 ]]; then
+      if [[ "$MATCHES" != $(grep -c "$REGEXP" "$INPUT") ]]; then
+        echo >&2 "ERROR: file did not contain expected regexp $MATCHES times"
+        exit 1
+      fi
+    else
+      if ! grep "$REGEXP" "$INPUT"; then
+        echo >&2 "ERROR: file did not contain expected regexp"
+        exit 1
+      fi
+    fi
+  fi
+  date +"%s.%N" > "$OUT"
+fi
+""")
     if ctx.attr.is_windows:
         exe = ctx.actions.declare_file(ctx.label.name + ".bat")
         command = "echo '@echo passed' > $1"
@@ -308,15 +375,15 @@ def file_test(name, file, content = None, regexp = None, matches = None, **kwarg
         }),
     )
 
-    native.genrule(
-        name = name + "-gen",
-        srcs = [file],
-        outs = [name + ".gen"],
-        cmd = "$(location @bazel_tools//tools/build_rules:filetest) $@ $< %s %s %s" % (
-            repr(content) if content else "\"\"",
-            repr(regexp) if regexp else "\"\"",
-            matches if matches != None else "\"\"",
-        ),
-        tools = ["@bazel_tools//tools/build_rules:filetest"],
-        visibility = ["//visibility:private"],
-    )
+#    native.genrule(
+#        name = name + "-gen",
+#        srcs = [file],
+#        outs = [name + ".gen"],
+#        cmd = "$(location @//tools/build_rules:filetest) $@ $< %s %s %s" % (
+#            repr(content) if content else "\"\"",
+#            repr(regexp) if regexp else "\"\"",
+#            matches if matches != None else "\"\"",
+#        ),
+#        tools = ["@//tools/build_rules:filetest"],
+#        visibility = ["//visibility:private"],
+#    )
