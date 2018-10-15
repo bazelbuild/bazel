@@ -647,19 +647,6 @@ public class CppOptions extends FragmentOptions {
   public boolean inmemoryDotdFiles;
 
   @Option(
-    name = "prune_cpp_modules",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-    effectTags = {
-      OptionEffectTag.LOADING_AND_ANALYSIS,
-      OptionEffectTag.EXECUTION,
-      OptionEffectTag.CHANGES_INPUTS
-    },
-    help = "If enabled, use the results of input discovery to reduce the number of used modules."
-  )
-  public boolean pruneCppModules;
-
-  @Option(
     name = "experimental_prune_cpp_input_discovery",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,

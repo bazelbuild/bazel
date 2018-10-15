@@ -412,7 +412,7 @@ public class CppCompileActionBuilder {
   }
 
   private boolean shouldPruneModules() {
-    return cppConfiguration.getPruneCppModules() && shouldScanIncludes && useHeaderModules();
+    return shouldScanIncludes && useHeaderModules();
   }
 
   private void verifyActionIncludePaths(CppCompileAction action, Consumer<String> errorReporter) {
