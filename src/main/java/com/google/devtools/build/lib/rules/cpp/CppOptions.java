@@ -647,15 +647,6 @@ public class CppOptions extends FragmentOptions {
   public boolean inmemoryDotdFiles;
 
   @Option(
-    name = "experimental_prune_cpp_input_discovery",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-    effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.CHANGES_INPUTS},
-    help = "If enabled, stop C++ input discovery at modular headers."
-  )
-  public boolean pruneCppInputDiscovery;
-
-  @Option(
     name = "parse_headers_verifies_modules",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -928,7 +919,6 @@ public class CppOptions extends FragmentOptions {
     host.fdoProfiles = null;
     host.fdoProfileLabel = null;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
-    host.pruneCppInputDiscovery = pruneCppInputDiscovery;
 
     return host;
   }

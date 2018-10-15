@@ -518,8 +518,7 @@ public class CppCompileAction extends AbstractAction
   }
 
   public IncludeScanningHeaderData getIncludeScanningHeaderData() {
-    return ccCompilationContext.createIncludeScanningHeaderData(
-        usePic, useHeaderModules && cppConfiguration.getPruneCppInputDiscovery());
+    return ccCompilationContext.createIncludeScanningHeaderData(usePic, useHeaderModules);
   }
 
   @Override
