@@ -63,15 +63,6 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
   public Label deadCodeReport;
 
   @Option(
-    name = "explicit_jre_deps",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "This flag is a noop and will be removed."
-  )
-  public boolean explicitJreDeps;
-
-  @Option(
     name = "experimental_j2objc_header_map",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
