@@ -287,8 +287,8 @@ def _file_test_impl(ctx):
     ctx.actions.write(script1, is_executable = True, content = """#!/bin/bash
 set -euo pipefail
 declare -r OUT="$1"
-declare -r IS_WINDOWS="$2"
-declare -r INPUT="$3"
+declare -r INPUT="$2"
+declare -r IS_WINDOWS="$3"
 declare -r CONTENT="$4"
 declare -r REGEXP="$5"
 declare -r MATCHES="$6"
@@ -331,18 +331,16 @@ else
   fi
 
   # Write a platform-specific script that is the actual test.
-  # The test script is a dummy, trivially passing test. However if this script got to this point,
-  # then the actual assertions succeeded.
-  # The test script has an embedded timestamp, but only for decorational purposes: if it didn't,
-  # Bazel would always report file_test to be cached, because its only input (the test file) would
-  # never change.
-  # The correct
+  # The test script is a dummy, always-passing test. However if this script got to this point, then
+  # the actual assertions succeeded.
+  # The test script has an embedded timestamp, for the purpose of correct cache hit reporting. If it
+  # didn't, Bazel would always report file_test to be cached, because its only input (the test
+  # script) would never change. However, Bazel would still rebuild the action that generates the
+  # test script, i.e. it would perform the actual assertions, but it would look like it didn't.
   if [[ "${IS_WINDOWS:-}" = "yes" ]]; then
-    #echo -e "@rem $(date +"%s.%N")\\n@echo PASSED" > "$OUT"
-    echo "@echo PASSED" > "$OUT"
+    echo -e "@rem $(date +"%s.%N")\\n@echo PASSED" > "$OUT"
   else
-    #echo -e "#!/bin/sh\\n# $(date +"%s.%N" > "$OUT")\\necho PASSED" > "$OUT"
-    echo -e "#!/bin/sh\\necho PASSED" > "$OUT"
+    echo -e "#!/bin/sh\\n# $(date +"%s.%N")\\necho PASSED" > "$OUT"
   fi
   chmod +x "$OUT"
 fi
@@ -360,8 +358,8 @@ fi
         command = " ".join([
             script1.path,
             script2.path,
-            "yes" if is_windows else "no",
             ctx.file.src.path,
+            "yes" if is_windows else "no",
             repr(ctx.attr.content),
             repr(ctx.attr.regexp),
             ctx.attr.matches if ctx.attr.matches > -1 else repr(""),
@@ -399,16 +397,3 @@ def file_test(name, file, content = None, regexp = None, matches = None, **kwarg
             "//conditions:default": False,
         }),
     )
-
-#    native.genrule(
-#        name = name + "-gen",
-#        srcs = [file],
-#        outs = [name + ".gen"],
-#        cmd = "$(location @//tools/build_rules:filetest) $@ $< %s %s %s" % (
-#            repr(content) if content else "\"\"",
-#            repr(regexp) if regexp else "\"\"",
-#            matches if matches != None else "\"\"",
-#        ),
-#        tools = ["@//tools/build_rules:filetest"],
-#        visibility = ["//visibility:private"],
-#    )
