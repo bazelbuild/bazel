@@ -23,21 +23,35 @@ namespace bazel {
 namespace tools {
 namespace test_wrapper {
 
+// Info about a file in the results of TestOnly_GetFileListRelativeTo.
 struct FileInfo {
+  // The file's path, relative to the traversal root.
   std::wstring rel_path;
-  // devtools_ijar::Stat::total_size is declared as `int`, which is what we
-  // ultimately store the file size in, therefore this field is also `int`.
+
+  // The file's size, in bytes.
+  //
+  // Unfortunately this field has to be `int`, so it can only describe files up
+  // to 2 GiB in size. The reason is, devtools_ijar::Stat::total_size is
+  // declared as `int`, which is what we ultimately store the file size in,
+  // therefore this field is also `int`.
   int size;
 };
 
+// The main function of the test wrapper.
+int Main(int argc, wchar_t** argv);
+
+// The "testing" namespace contains functions that should only be used by tests.
 namespace testing {
 
+// Retrieves an environment variable.
 bool TestOnly_GetEnv(const wchar_t* name, std::wstring* result);
 
+// Lists all files under `abs_root`, with paths relative to `abs_root`.
 bool TestOnly_GetFileListRelativeTo(const std::wstring& abs_root,
                                     std::vector<FileInfo>* result);
 
 }  // namespace testing
+
 }  // namespace test_wrapper
 }  // namespace tools
 }  // namespace bazel

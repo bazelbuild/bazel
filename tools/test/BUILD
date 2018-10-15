@@ -43,6 +43,7 @@ filegroup(
 # See https://github.com/bazelbuild/bazel/issues/5508
 cc_binary(
     name = "tw",
+    srcs = ["windows/tw_main.cc"],
     visibility = ["//visibility:private"],
     deps = [":tw_lib"],
 )

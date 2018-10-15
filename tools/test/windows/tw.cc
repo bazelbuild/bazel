@@ -37,6 +37,9 @@
 #include "tools/cpp/runfiles/runfiles.h"
 #include "tools/test/windows/tw.h"
 
+namespace bazel {
+namespace tools {
+namespace test_wrapper {
 namespace {
 
 class Defer {
@@ -778,28 +781,7 @@ Path Path::Dirname() const {
 
 }  // namespace
 
-namespace bazel {
-namespace tools {
-namespace test_wrapper {
-namespace testing {
-
-bool TestOnly_GetEnv(const wchar_t* name, std::wstring* result) {
-  return GetEnv(name, result);
-}
-
-bool TestOnly_GetFileListRelativeTo(const std::wstring& abs_root,
-                                    std::vector<FileInfo>* result) {
-  Path root;
-  return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
-         GetFileListRelativeTo(root, result);
-}
-
-}  // namespace testing
-}  // namespace test_wrapper
-}  // namespace tools
-}  // namespace bazel
-
-int wmain(int argc, wchar_t** argv) {
+int Main(int argc, wchar_t** argv) {
   Path argv0;
   std::wstring test_path_arg;
   bool suppress_output = false;
@@ -821,3 +803,21 @@ int wmain(int argc, wchar_t** argv) {
 
   return RunSubprocess(test_path, args);
 }
+
+namespace testing {
+
+bool TestOnly_GetEnv(const wchar_t* name, std::wstring* result) {
+  return GetEnv(name, result);
+}
+
+bool TestOnly_GetFileListRelativeTo(const std::wstring& abs_root,
+                                    std::vector<FileInfo>* result) {
+  Path root;
+  return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
+         GetFileListRelativeTo(root, result);
+}
+
+}  // namespace testing
+}  // namespace test_wrapper
+}  // namespace tools
+}  // namespace bazel
