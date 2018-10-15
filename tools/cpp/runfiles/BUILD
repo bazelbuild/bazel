@@ -42,6 +42,8 @@ cc_library(
     testonly = 1,
     srcs = ["runfiles_src.cc"],
     hdrs = ["runfiles_src.h"],
+    # TODO(laszlocsomor) Use @bazel_tools//tools/cpp/runfiles in singlejar
+    visibility = ["//src/tools/singlejar:__pkg__"],
 )
 
 cc_test(

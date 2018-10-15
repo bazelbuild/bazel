@@ -14,8 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <unistd.h>
 #include <string>
+
+#include "tools/cpp/runfiles/runfiles_src.h"
 
 namespace singlejar_test_util {
   using std::string;
