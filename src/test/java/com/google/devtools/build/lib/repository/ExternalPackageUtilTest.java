@@ -169,6 +169,14 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     assertThat(rule.getName()).isEqualTo("foo");
   }
 
+  EvaluationResult<GetRuleByNameValue> getRuleByName(SkyKey key) throws InterruptedException {
+    return driver.<GetRuleByNameValue>evaluate(
+        ImmutableList.of(key),
+        false,
+        SkyframeExecutor.DEFAULT_THREAD_COUNT,
+        NullEventHandler.INSTANCE);
+  }
+
   @Test
   public void getRuleByName_missing() throws Exception {
     if (!analysisMock.isThisBazel()) {
@@ -202,6 +210,15 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
         .inOrder();
   }
 
+  EvaluationResult<GetRegisteredToolchainsValue> getRegisteredToolchains(SkyKey key)
+      throws InterruptedException {
+    return driver.<GetRegisteredToolchainsValue>evaluate(
+        ImmutableList.of(key),
+        false,
+        SkyframeExecutor.DEFAULT_THREAD_COUNT,
+        NullEventHandler.INSTANCE);
+  }
+
   @Test
   public void getRegisteredExecutionPlatforms() throws Exception {
     scratch.overwriteFile(
@@ -218,19 +235,20 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
         .inOrder();
   }
 
+  EvaluationResult<GetRegisteredExecutionPlatformsValue> getRegisteredExecutionPlatforms(SkyKey key)
+      throws InterruptedException {
+    return driver.<GetRegisteredExecutionPlatformsValue>evaluate(
+        ImmutableList.of(key),
+        false,
+        SkyframeExecutor.DEFAULT_THREAD_COUNT,
+        NullEventHandler.INSTANCE);
+  }
+
   // HELPER SKYFUNCTIONS
 
   // GetRuleByName.
   private static SkyKey getRuleByNameKey(String ruleName) {
     return new Key(ruleName);
-  }
-
-  EvaluationResult<GetRuleByNameValue> getRuleByName(SkyKey key) throws InterruptedException {
-    return driver.<GetRuleByNameValue>evaluate(
-        ImmutableList.of(key),
-        false,
-        SkyframeExecutor.DEFAULT_THREAD_COUNT,
-        NullEventHandler.INSTANCE);
   }
 
   private static final SkyFunctionName GET_RULE_BY_NAME_FUNCTION =
@@ -272,15 +290,6 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     return () -> GET_REGISTERED_TOOLCHAINS_FUNCTION;
   }
 
-  EvaluationResult<GetRegisteredToolchainsValue> getRegisteredToolchains(SkyKey key)
-      throws InterruptedException {
-    return driver.<GetRegisteredToolchainsValue>evaluate(
-        ImmutableList.of(key),
-        false,
-        SkyframeExecutor.DEFAULT_THREAD_COUNT,
-        NullEventHandler.INSTANCE);
-  }
-
   private static final SkyFunctionName GET_REGISTERED_TOOLCHAINS_FUNCTION =
       SkyFunctionName.createHermetic("GET_REGISTERED_TOOLCHAINS");
 
@@ -317,15 +326,6 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
   // GetRegisteredExecutionPlatforms.
   private static SkyKey getRegisteredExecutionPlatformsKey() {
     return () -> GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION;
-  }
-
-  EvaluationResult<GetRegisteredExecutionPlatformsValue> getRegisteredExecutionPlatforms(SkyKey key)
-      throws InterruptedException {
-    return driver.<GetRegisteredExecutionPlatformsValue>evaluate(
-        ImmutableList.of(key),
-        false,
-        SkyframeExecutor.DEFAULT_THREAD_COUNT,
-        NullEventHandler.INSTANCE);
   }
 
   private static final SkyFunctionName GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION =
