@@ -50,7 +50,9 @@ class ProguardConfigValidator(object):
       invalid_configs = self._Validate(config_string)
       if invalid_configs:
         raise RuntimeError(
-            'Invalid proguard config parameters: ' + str(invalid_configs))
+            'Invalid library proguard config parameters '
+            '(these parameters are either invalid or only supported in '
+            'android_binary rules): ' + str(invalid_configs))
     with open(self._outconfig_path, 'w+') as outconfig:
       config_string = '# Merged from %s \n%s' % (
           self._config_path, config_string)
