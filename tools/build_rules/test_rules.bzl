@@ -267,7 +267,7 @@ rule_test = rule(
 
 def _file_test_impl(ctx):
     """check that a file has a given content."""
-    script = ctx.actions.declare_file(ctx.label.name + ".bash")
+    script1 = ctx.actions.declare_file(ctx.label.name + "-gen.bash")
 
     # Since file_test is used from the @bazel_tools repo but also tested in the main Bazel repo, we
     # cannot create a sh_binary for the script below and use it from file_test, because depending on
@@ -284,24 +284,22 @@ def _file_test_impl(ctx):
     #   - //tools/build_rules:file_test_helper, which would only work if the current source tree
     #     contains this target, which is unlikely.
     # Considering that all 3 options are wrong, we resort to writing a script file on-the-fly.
-    ctx.actions.write(script, is_executable = True, content = """#!/bin/bash
+    ctx.actions.write(script1, is_executable = True, content = """#!/bin/bash
 set -euo pipefail
 declare -r OUT="$1"
-declare -r INPUT="$2"
-declare -r CONTENT="$3"
-declare -r REGEXP="$4"
-declare -r MATCHES="$5"
+declare -r IS_WINDOWS="$2"
+declare -r INPUT="$3"
+declare -r CONTENT="$4"
+declare -r REGEXP="$5"
+declare -r MATCHES="$6"
 
-if [[ ( -n "${CONTENT:-}" && -n "${REGEXP:-}" ) || \
-      ( -z "${CONTENT:-}" && -z "${REGEXP:-}" ) ]]; then
+if [[ ( -n "${CONTENT:-}" && -n "${REGEXP:-}" ) || ( -z "${CONTENT:-}" && -z "${REGEXP:-}" ) ]]; then
   echo >&2 "ERROR: expected either 'content' or 'regexp'"
   exit 1
-elif [[ -n "${CONTENT:-}" && \
-        ( -n "${MATCHES:-}" && "$MATCHES" != "-1" ) ]]; then
+elif [[ -n "${CONTENT:-}" && ( -n "${MATCHES:-}" && "$MATCHES" != "-1" ) ]]; then
   echo >&2 "ERROR: cannot specify 'matches' together with 'content'"
   exit 1
-elif [[ ! ( -z "${MATCHES:-}" || "$MATCHES" = 0 || \
-            "$MATCHES" =~ ^-?[1-9][0-9]*$ ) ]]; then
+elif [[ ! ( -z "${MATCHES:-}" || "$MATCHES" = 0 || "$MATCHES" =~ ^-?[1-9][0-9]*$ ) ]]; then
   echo >&2 "ERROR: 'matches' must be an integer"
   exit 1
 elif [[ ! -e "${INPUT:-/dev/null/does-not-exist}" ]]; then
@@ -312,8 +310,8 @@ else
     declare -r GOLDEN_FILE="$(mktemp)"
     declare -r ACTUAL_FILE="$(mktemp)"
     # Normalize line endings in both files.
-    echo -e -n "$CONTENT" | sed 's,\r\n,\n,g' > "$GOLDEN_FILE"
-    sed 's,\r\n,\n,g' "$INPUT" > "$ACTUAL_FILE"
+    echo -e -n "$CONTENT" | sed 's,\\r\\n,\\n,g' > "$GOLDEN_FILE"
+    sed 's,\\r\\n,\\n,g' "$INPUT" > "$ACTUAL_FILE"
     if ! diff -u "$GOLDEN_FILE" "$ACTUAL_FILE" ; then
       echo >&2 "ERROR: file did not have expected content"
       exit 1
@@ -331,25 +329,46 @@ else
       fi
     fi
   fi
-  date +"%s.%N" > "$OUT"
+
+  # Write a platform-specific script that is the actual test.
+  # The test script is a dummy, trivially passing test. However if this script got to this point,
+  # then the actual assertions succeeded.
+  # The test script has an embedded timestamp, but only for decorational purposes: if it didn't,
+  # Bazel would always report file_test to be cached, because its only input (the test file) would
+  # never change.
+  # The correct
+  if [[ "${IS_WINDOWS:-}" = "yes" ]]; then
+    #echo -e "@rem $(date +"%s.%N")\\n@echo PASSED" > "$OUT"
+    echo "@echo PASSED" > "$OUT"
+  else
+    #echo -e "#!/bin/sh\\n# $(date +"%s.%N" > "$OUT")\\necho PASSED" > "$OUT"
+    echo -e "#!/bin/sh\\necho PASSED" > "$OUT"
+  fi
+  chmod +x "$OUT"
 fi
 """)
-    if ctx.attr.is_windows:
-        exe = ctx.actions.declare_file(ctx.label.name + ".bat")
-        command = "echo '@echo passed' > $1"
-    else:
-        exe = ctx.actions.declare_file(ctx.label.name + ".bash")
-        command = "echo -e '#!/bin/sh\necho passed' > $1"
+
+    is_windows = bool(ctx.attr.is_windows)
+    script2 = ctx.actions.declare_file(ctx.label.name + (".bat" if is_windows else ".bash"))
+
+    # TODO(laszlocsomor): once https://github.com/bazelbuild/bazel/issues/6391 is fixed, change the
+    # "command" to only contain script1's path, and pass arguments with the "arguments" attribute.
     ctx.actions.run_shell(
-        # The actual test is whether `src` can be successfully generated.
-        # If it can, this action creates a trivial script that works on the
-        # target platform and does nothing, successfully.
         inputs = [ctx.file.src],
-        outputs = [exe],
-        command = command,
-        arguments = [exe.path],
+        outputs = [script2],
+        tools = [script1],
+        command = " ".join([
+            script1.path,
+            script2.path,
+            "yes" if is_windows else "no",
+            ctx.file.src.path,
+            repr(ctx.attr.content),
+            repr(ctx.attr.regexp),
+            ctx.attr.matches if ctx.attr.matches > -1 else repr(""),
+        ]),
     )
-    return [DefaultInfo(executable = exe)]
+
+    return [DefaultInfo(executable = script2)]
 
 _file_test = rule(
     attrs = {
@@ -359,6 +378,9 @@ _file_test = rule(
             single_file = True,
         ),
         "is_windows": attr.bool(mandatory = True),
+        "content": attr.string(default = ""),
+        "regexp": attr.string(default = ""),
+        "matches": attr.int(default = -1),
     },
     executable = True,
     test = True,
@@ -368,7 +390,10 @@ _file_test = rule(
 def file_test(name, file, content = None, regexp = None, matches = None, **kwargs):
     _file_test(
         name = name,
-        src = name + ".gen",
+        src = file,
+        content = content,
+        regexp = regexp,
+        matches = matches or -1,
         is_windows = select({
             "@bazel_tools//src/conditions:windows": True,
             "//conditions:default": False,
