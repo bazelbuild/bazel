@@ -3,6 +3,7 @@
 @com_google_protobuf//:protobuf
 @com_google_protobuf//:protobuf_lite
 //tools/test:tw
+//tools/test:tw_lib
 //third_party/ijar:zipper
 //third_party/ijar:ijar
 //third_party/ijar:zip
