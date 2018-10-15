@@ -171,7 +171,7 @@ public final class ClassCache implements Closeable {
                   ResolutionFailureChain.createWithParent(classInfo, resolutionFailureChains));
         }
       } catch (IOException e) {
-        throw new RuntimeException("Error when resolving class entry " + entryName);
+        throw new RuntimeException("Error when resolving class entry " + entryName, e);
       } catch (RuntimeException e) {
         System.err.println(
             "A runtime exception occurred. The following is the content in the class index. "
