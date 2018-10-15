@@ -18,20 +18,19 @@
 
 namespace blaze_util {
 
-using std::wstring;
-
 // Returns $TEST_TMPDIR as a wstring.
 // The result will have backslashes as directory separators, but no UNC prefix.
 // The result will also not have a trailing backslash.
-wstring GetTestTmpDirW();
+std::wstring GetTestTmpDirW();
 
 // Deletes all files and directories under `path`.
 // `path` must be a valid Windows path, but doesn't need to have a UNC prefix.
-bool DeleteAllUnder(wstring path);
+bool DeleteAllUnder(std::wstring path);
 
 // Creates a dummy file under `path`.
 // `path` must be a valid Windows path, and have a UNC prefix if necessary.
-bool CreateDummyFile(const wstring& path);
+bool CreateDummyFile(const std::wstring& path,
+                     const std::string& content = "hello");
 
 }  // namespace blaze_util
 
