@@ -90,7 +90,7 @@ public class JavaRules implements RuleSet {
         new JavaProtoSkylarkCommon()));
 
     try {
-      builder.addWorkspaceFilePrefix(
+      builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
     } catch (IOException e) {
       throw new IllegalStateException(e);
