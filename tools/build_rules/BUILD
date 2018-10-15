@@ -10,7 +10,6 @@ filegroup(
     name = "embedded_tools_srcs",
     srcs = [
         "BUILD.tools",
-        "filetest.sh",
         "test_rules.bzl",
     ],
     visibility = ["//visibility:public"],
@@ -21,12 +20,6 @@ py_test(
     srcs = ["test_rules_test.py"],
     data = ["test_rules.bzl"],
     deps = ["//src/test/py/bazel:test_base"],
-)
-
-sh_binary(
-    name = "filetest",
-    srcs = ["filetest.sh"],
-    visibility = ["//visibility:public"],
 )
 
 test_suite(
