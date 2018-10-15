@@ -44,7 +44,7 @@ filegroup(
 cc_binary(
     name = "tw",
     visibility = ["//visibility:private"],
-    deps = [":tw-lib"],
+    deps = [":tw_lib"],
 )
 
 # Test wrapper binary to run tests on Windows.
