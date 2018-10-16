@@ -675,13 +675,7 @@ public class PackageFunction implements SkyFunction {
     Set<SkyKey> containingPkgLookupKeys = Sets.newHashSet();
     Map<Target, SkyKey> targetToKey = new HashMap<>();
     for (Target target : pkgBuilder.getTargets()) {
-      PathFragment dir = getContainingDirectory(target.getLabel());
-      if (dir == null) {
-        throw new IllegalStateException(
-            String.format(
-                "Null pkg for label %s as path fragment %s in pkg %s",
-                target.getLabel(), target.getLabel().getPackageFragment(), pkgId));
-      }
+      PathFragment dir = Label.getContainingDirectory(target.getLabel());
       if (dir.equals(pkgDir)) {
         continue;
       }
@@ -707,25 +701,16 @@ public class PackageFunction implements SkyFunction {
       ContainingPackageLookupValue containingPackageLookupValue =
           getContainingPkgLookupValueAndPropagateInconsistentFilesystemExceptions(
               pkgId, containingPkgLookupValues.get(key), env);
-        if (maybeAddEventAboutLabelCrossingSubpackage(pkgBuilder, pkgRoot, target.getLabel(),
-          target.getLocation(), containingPackageLookupValue)) {
+      if (maybeAddEventAboutLabelCrossingSubpackage(
+          pkgBuilder,
+          pkgRoot,
+          target.getLabel(),
+          target.getLocation(),
+          containingPackageLookupValue)) {
         pkgBuilder.removeTarget(target);
         pkgBuilder.setContainsErrors();
       }
     }
-  }
-
-  private static PathFragment getContainingDirectory(Label label) {
-    PathFragment pkg = label.getPackageFragment();
-    String name = label.getName();
-    if (name.equals(".")) {
-      return pkg;
-    }
-    if (PathFragment.isNormalizedRelativePath(name) && !PathFragment.containsSeparator(name)) {
-      // Optimize for the common case of a label like '//pkg:target'.
-      return pkg;
-    }
-    return pkg.getRelative(name).getParentDirectory();
   }
 
   @Nullable
@@ -774,24 +759,8 @@ public class PackageFunction implements SkyFunction {
       // exceptions), it reaches here, and we tolerate it.
       return false;
     }
-    PathFragment labelNameFragment = PathFragment.create(label.getName());
-    String message = String.format("Label '%s' crosses boundary of subpackage '%s'",
-        label, containingPkg);
-    Root containingRoot = containingPkgLookupValue.getContainingPackageRoot();
-    if (pkgRoot.equals(containingRoot)) {
-      PathFragment labelNameInContainingPackage = labelNameFragment.subFragment(
-          containingPkg.getPackageFragment().segmentCount()
-              - label.getPackageFragment().segmentCount(),
-          labelNameFragment.segmentCount());
-      message += " (perhaps you meant to put the colon here: '";
-      if (containingPkg.getRepository().isDefault() || containingPkg.getRepository().isMain()) {
-        message += "//";
-      }
-      message += containingPkg + ":" + labelNameInContainingPackage + "'?)";
-    } else {
-      message += " (have you deleted " + containingPkg + "/BUILD? "
-          + "If so, use the --deleted_packages=" + containingPkg + " option)";
-    }
+    String message = ContainingPackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
+        pkgRoot, label, containingPkgLookupValue);
     pkgBuilder.addEvent(Event.error(location, message));
     return true;
   }

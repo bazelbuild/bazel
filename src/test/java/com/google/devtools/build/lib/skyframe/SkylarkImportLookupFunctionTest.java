@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -261,5 +263,161 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
 
     assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void testLoadUsingLabelThatDoesntCrossesBoundaryOfPackage()
+      throws Exception {
+    scratch.file("a/BUILD");
+    scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
+    scratch.file("a/b/b.bzl", "b = 42");
+
+    checkSuccessfulLookup("//a:a.bzl");
+  }
+
+  @Test
+  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Allow_OfSamePkg()
+      throws Exception {
+    scratch.file("a/BUILD");
+    scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
+    scratch.file("a/b/BUILD", "");
+    scratch.file("a/b/b.bzl", "b = 42");
+
+    checkSuccessfulLookup("//a:a.bzl");
+  }
+
+  @Test
+  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfSamePkg()
+      throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_load_labels_to_cross_package_boundaries");
+
+    scratch.file("a/BUILD");
+    scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
+    scratch.file("a/b/BUILD", "");
+    scratch.file("a/b/b.bzl", "b = 42");
+
+    SkyKey skylarkImportLookupKey =
+        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//a:a.bzl"), false);
+    EvaluationResult<SkylarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .isInstanceOf(SkylarkImportFailedException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "Label '//a:b/b.bzl' crosses boundary of subpackage 'a/b' (perhaps you meant to put "
+                + "the colon here: '//a/b:b.bzl'?)");
+  }
+
+  @Test
+  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Allow_OfDifferentPkgUnder()
+      throws Exception {
+    scratch.file("a/BUILD");
+    scratch.file("a/a.bzl", "load('//a/b:c/c.bzl', 'c')");
+    scratch.file("a/b/BUILD", "");
+    scratch.file("a/b/c/BUILD", "");
+    scratch.file("a/b/c/c.bzl", "c = 42");
+
+    checkSuccessfulLookup("//a:a.bzl");
+  }
+
+  @Test
+  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfDifferentPkgUnder()
+      throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_load_labels_to_cross_package_boundaries");
+
+    scratch.file("a/BUILD");
+    scratch.file("a/a.bzl", "load('//a/b:c/c.bzl', 'c')");
+    scratch.file("a/b/BUILD", "");
+    scratch.file("a/b/c/BUILD", "");
+    scratch.file("a/b/c/c.bzl", "c = 42");
+
+    SkyKey skylarkImportLookupKey =
+        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//a:a.bzl"), false);
+    EvaluationResult<SkylarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .isInstanceOf(SkylarkImportFailedException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "Label '//a/b:c/c.bzl' crosses boundary of subpackage 'a/b/c' (perhaps you meant to "
+                + "put the colon here: '//a/b/c:c.bzl'?)");
+  }
+
+  @Test
+  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Allow_OfDifferentPkgAbove()
+      throws Exception {
+    scratch.file("a/b/BUILD");
+    scratch.file("a/b/b.bzl", "load('//a/c:c/c.bzl', 'c')");
+    scratch.file("a/BUILD");
+    scratch.file("a/c/c/c.bzl", "c = 42");
+
+    // With the default of
+    // --incompatible_disallow_load_labels_to_cross_subpackage_boundaries=false,
+    // SkylarkImportLookupValue(//a/b:b.bzl) has an error because ASTFileLookupValue(//a/c:c/c.bzl)
+    // because package //a/c doesn't exist. The behavior with
+    // --incompatible_disallow_load_labels_to_cross_subpackage_boundaries=true is stricter, but we
+    // still have an explicit test for this case so that way we don't forget to think about it when
+    // we address the TODO in ASTFuleLookupFunction.
+
+    SkyKey skylarkImportLookupKey =
+        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//a/b:b.bzl"), false);
+    EvaluationResult<SkylarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .isInstanceOf(SkylarkImportFailedException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "Extension file not found. Unable to load package for '//a/c:c/c.bzl': BUILD file not "
+                + "found on package path");
+  }
+
+  @Test
+  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfDifferentPkgAbove()
+      throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_load_labels_to_cross_package_boundaries");
+
+    scratch.file("a/b/BUILD");
+    scratch.file("a/b/b.bzl", "load('//a/c:c/c.bzl', 'c')");
+    scratch.file("a/BUILD");
+    scratch.file("a/c/c/c.bzl", "c = 42");
+
+    SkyKey skylarkImportLookupKey =
+        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//a/b:b.bzl"), false);
+    EvaluationResult<SkylarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .isInstanceOf(SkylarkImportFailedException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "Label '//a/c:c/c.bzl' crosses boundary of package 'a' (perhaps you meant to put the "
+                + "colon here: '//a:c/c/c.bzl'?)");
   }
 }

@@ -348,4 +348,27 @@ function test_no_package_loading_on_benign_workspace_file_changes() {
   expect_log "//$pkg/foo:shname2"
 }
 
+function test_incompatible_disallow_load_labels_to_cross_package_boundaries() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
+
+  mkdir "$pkg"/foo
+  echo "load(\"//$pkg/foo/a:b/b.bzl\", \"b\")" > "$pkg"/foo/BUILD
+  mkdir -p "$pkg"/foo/a/b
+  touch "$pkg"/foo/a/BUILD
+  touch "$pkg"/foo/a/b/BUILD
+  echo "b = 42" > "$pkg"/foo/a/b/b.bzl
+
+  bazel query "$pkg/foo:BUILD" >& "$TEST_log" || fail "Expected success"
+  expect_log "//$pkg/foo:BUILD"
+
+  bazel query \
+    --incompatible_disallow_load_labels_to_cross_package_boundaries=true \
+    "$pkg/foo:BUILD" >& "$TEST_log" && fail "Expected failure"
+  expect_log "Label '//$pkg/foo/a:b/b.bzl' crosses boundary of subpackage '$pkg/foo/a/b'"
+
+  bazel query "$pkg/foo:BUILD" >& "$TEST_log" || fail "Expected success"
+  expect_log "//$pkg/foo:BUILD"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

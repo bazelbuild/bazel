@@ -58,6 +58,7 @@ guarded behind flags in the current release:
 *   [Disable legacy C++ configuration API](#disable-legacy-c-configuration-api)
 *   [Disable legacy C++ toolchain API](#disable-legacy-c-toolchain-api)
 *   [Disallow `cfg = "data"`](#disallow-cfg--data)
+*   [Load label cannot cross package boundaries](#load-label-cannot-cross-package-boundaries)
 
 
 ### Dictionary concatenation
@@ -955,5 +956,25 @@ fail with an error.
 *   Flag: `--incompatible_disallow_data_transition`
 *   Default: `false`
 *   Introduced in: `0.16.0`
+
+
+### Load label cannot cross package boundaries
+
+Previously, the label argument to the `load` statement (the first argument) was
+checked to ensure that it referenced an existing package but it was not checked
+to ensure that it didn't cross a package boundary.
+
+For example, in
+
+```python
+load('//a:b/c.bzl', 'doesntmatter')
+```
+
+if this flag is set to `true`, the above statement will be in error if `//a/b`
+is a package; in such a case, the correct way to reference `c.bzl` via a label
+would be `//a/b:c.bzl`.
+
+*   Flag: `--incompatible_disallow_load_labels_to_cross_package_boundaries`
+*   Default: `false`
 
 <!-- Add new options here -->

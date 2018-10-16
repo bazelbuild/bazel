@@ -207,6 +207,34 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       return null;
     }
 
+    if (skylarkSemantics.incompatibleDisallowLoadLabelsToCrossPackageBoundaries()) {
+      PathFragment dir = Label.getContainingDirectory(fileLabel);
+      PackageIdentifier dirId =
+          PackageIdentifier.create(fileLabel.getPackageIdentifier().getRepository(), dir);
+      ContainingPackageLookupValue containingPackageLookupValue;
+      try {
+        containingPackageLookupValue = (ContainingPackageLookupValue) env.getValueOrThrow(
+            ContainingPackageLookupValue.key(dirId),
+            BuildFileNotFoundException.class,
+            InconsistentFilesystemException.class);
+      } catch (BuildFileNotFoundException e) {
+        throw SkylarkImportFailedException.errorReadingFile(
+            fileLabel.toPathFragment(),
+            new ErrorReadingSkylarkExtensionException(e));
+      }
+      if (containingPackageLookupValue == null) {
+        return null;
+      }
+      if (!containingPackageLookupValue.hasContainingPackage()) {
+        throw SkylarkImportFailedException.noBuildFile(fileLabel.toPathFragment());
+      }
+      if (!containingPackageLookupValue.getContainingPackageName().equals(
+          fileLabel.getPackageIdentifier())) {
+        throw SkylarkImportFailedException.labelCrossesPackageBoundary(
+            fileLabel, containingPackageLookupValue);
+      }
+    }
+
     // Load the AST corresponding to this file.
     ASTFileLookupValue astLookupValue;
     try {
@@ -532,6 +560,20 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           String.format("Every .bzl file must have a corresponding package, but '%s' "
               + "does not have one. Please create a BUILD file in the same or any parent directory."
               + " Note that this BUILD file does not need to do anything except exist.", file));
+    }
+
+    static SkylarkImportFailedException labelCrossesPackageBoundary(
+        Label fileLabel,
+        ContainingPackageLookupValue containingPackageLookupValue) {
+      return new SkylarkImportFailedException(
+          ContainingPackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
+              // We don't actually know the proper Root to pass in here (since we don't e.g. know
+              // the root of the bzl/BUILD file that is trying to load 'fileLabel'). Therefore we
+              // just pass in the Root of the containing package in order to still get a useful
+              // error message for the user.
+              containingPackageLookupValue.getContainingPackageRoot(),
+              fileLabel,
+              containingPackageLookupValue));
     }
 
     static SkylarkImportFailedException skylarkErrors(PathFragment file) {

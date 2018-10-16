@@ -639,6 +639,23 @@ public final class Label
     return label == null ? "(unknown)" : label.toString();
   }
 
+  /**
+   * Returns a {@link PathFragment} corresponding to the directory in which {@code label} would
+   * reside, if it were interpreted to be a path.
+   */
+  public static PathFragment getContainingDirectory(Label label) {
+    PathFragment pkg = label.getPackageFragment();
+    String name = label.getName();
+    if (name.equals(".")) {
+      return pkg;
+    }
+    if (PathFragment.isNormalizedRelativePath(name) && !PathFragment.containsSeparator(name)) {
+      // Optimize for the common case of a label like '//pkg:target'.
+      return pkg;
+    }
+    return pkg.getRelative(name).getParentDirectory();
+  }
+
   @Override
   public boolean isImmutable() {
     return true;

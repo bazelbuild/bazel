@@ -265,6 +265,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowLegacyJavaInfo;
 
   @Option(
+      name = "incompatible_disallow_load_labels_to_cross_package_boundaries",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, the label argument to 'load' cannot cross a package boundary."
+  )
+  public boolean incompatibleDisallowLoadLabelsToCrossPackageBoundaries;
+
+  @Option(
       name = "incompatible_generate_javacommon_source_jar",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -520,6 +533,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowFileType(incompatibleDisallowFileType)
         .incompatibleDisallowLegacyJavaInfo(incompatibleDisallowLegacyJavaInfo)
+        .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(
+            incompatibleDisallowLoadLabelsToCrossPackageBoundaries)
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
         .incompatibleDisallowSlashOperator(incompatibleDisallowSlashOperator)
         .incompatibleExpandDirectories(incompatibleExpandDirectories)
