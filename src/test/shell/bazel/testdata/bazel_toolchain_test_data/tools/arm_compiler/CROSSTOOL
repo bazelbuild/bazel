@@ -155,8 +155,6 @@ toolchain {
   compiler_flag: "-fstack-protector"
   compiler_flag: "-Wall"
   compiler_flag: "-Wl,-z,-relro,-z,now"
-  compiler_flag: "-B/usr/bin"
-  compiler_flag: "-B/usr/bin"
   compiler_flag: "-Wunused-but-set-parameter"
   compiler_flag: "-Wno-free-nonheap-object"
   compiler_flag: "-fno-omit-frame-pointer"
@@ -173,8 +171,6 @@ toolchain {
   linker_flag: "-lstdc++"
   linker_flag: "-lm"
   linker_flag: "-Wl,-no-as-needed"
-  linker_flag: "-B/usr/bin"
-  linker_flag: "-B/usr/bin"
   linker_flag: "-pass-exit-codes"
   needsPic: true
   objcopy_embed_flag: "-I"
