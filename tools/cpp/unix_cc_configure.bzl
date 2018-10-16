@@ -282,8 +282,6 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
                 "dynamic_lookup",
                 "-headerpad_max_install_names",
             ] if darwin else bin_search_flag + [
-                # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
-                "-B/usr/bin",
                 # Gold linker only? Can we enable this by default?
                 # "-Wl,--warn-execstack",
                 # "-Wl,--detect-odr-violations"
@@ -318,10 +316,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
         ] + ((
             _add_compiler_option_if_supported(repository_ctx, cc, "-Wthread-safety") +
             _add_compiler_option_if_supported(repository_ctx, cc, "-Wself-assign")
-        ) if darwin else bin_search_flag + [
-            # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
-            "-B/usr/bin",
-        ]) + (
+        )) + (
             # Disable problematic warnings.
             _add_compiler_option_if_supported(repository_ctx, cc, "-Wunused-but-set-parameter") +
             # has false positives
