@@ -146,6 +146,7 @@ py_binary(
         "//third_party/ijar",
         "//third_party/ijar:zipper",
         "//third_party/ijar:embedded_tools",
+        "//third_party:turbine_direct",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
         "//third_party/java/jacoco:srcs",
         "//third_party/zlib:embedded_tools",

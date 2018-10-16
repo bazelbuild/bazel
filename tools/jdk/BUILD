@@ -134,6 +134,11 @@ filegroup(
 )
 
 filegroup(
+    name = "turbine_direct",
+    srcs = glob(["turbine_direct*"]),
+)
+
+filegroup(
     name = "javabuilder",
     srcs = ["//tools/jdk:JavaBuilder_deploy.jar"],
 )
