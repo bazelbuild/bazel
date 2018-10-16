@@ -252,7 +252,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     Preconditions.checkArgument(alignedSize <= Integer.MAX_VALUE);
 
     byte[] tableBytes = new byte[(int) alignedSize];
-    resourceTableStream.read(tableBytes, 0, (int) alignedSize);
+    resourceTableStream.readFully(tableBytes, 0, (int) alignedSize);
     ResourceTable resourceTable = ResourceTable.parseFrom(tableBytes);
 
     readPackages(consumers, resourceTable);
