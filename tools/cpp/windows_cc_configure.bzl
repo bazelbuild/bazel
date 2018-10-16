@@ -23,9 +23,12 @@ load(
     "get_env_var",
     "is_cc_configure_debug",
     "resolve_labels",
-    "which",
-    "which_cmd",
 )
+
+def _auto_configure_warning_maybe(repository_ctx, msg):
+    """Output warning message when CC_CONFIGURE_DEBUG is enabled."""
+    if is_cc_configure_debug(repository_ctx):
+        auto_configure_warning(msg)
 
 def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = False):
     """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
@@ -77,7 +80,7 @@ def _get_system_root(repository_ctx):
     """Get System root path on Windows, default is C:\\\Windows. Doesn't %-escape the result."""
     if "SYSTEMROOT" in repository_ctx.os.environ:
         return escape_string(repository_ctx.os.environ["SYSTEMROOT"])
-    auto_configure_warning("SYSTEMROOT is not set, using default SYSTEMROOT=C:\\Windows")
+    _auto_configure_warning_maybe(repository_ctx, "SYSTEMROOT is not set, using default SYSTEMROOT=C:\\Windows")
     return "C:\\Windows"
 
 def _add_system_root(repository_ctx, env):
@@ -96,13 +99,13 @@ def find_vc_path(repository_ctx):
 
     if "BAZEL_VS" in repository_ctx.os.environ:
         return repository_ctx.os.environ["BAZEL_VS"] + "\\VC\\"
-    auto_configure_warning("'BAZEL_VC' is not set, " +
-                           "start looking for the latest Visual C++ installed.")
+    _auto_configure_warning_maybe(repository_ctx, "'BAZEL_VC' is not set, " +
+                                                  "start looking for the latest Visual C++ installed.")
 
     # 2. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
     # vcvarsqueryregistry.bat to detect VC++.
-    auto_configure_warning("Looking for VS%VERSION%COMNTOOLS environment variables, " +
-                           "eg. VS140COMNTOOLS")
+    _auto_configure_warning_maybe(repository_ctx, "Looking for VS%VERSION%COMNTOOLS environment variables, " +
+                                                  "eg. VS140COMNTOOLS")
     for vscommontools_env in [
         "VS140COMNTOOLS",
         "VS120COMNTOOLS",
@@ -125,12 +128,12 @@ def find_vc_path(repository_ctx):
         env = _add_system_root(repository_ctx, repository_ctx.os.environ)
         vc_dir = execute(repository_ctx, ["./get_vc_dir.bat"], environment = env)
 
-        auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
+        _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
         return vc_dir
 
     # 3. User might clean up all environment variables, if so looking for Visual C++ through registry.
     # Works for all VS versions, including Visual Studio 2017.
-    auto_configure_warning("Looking for Visual C++ through registry")
+    _auto_configure_warning_maybe(repository_ctx, "Looking for Visual C++ through registry")
     reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
     vc_dir = None
     for key, suffix in (("VC7", ""), ("VS7", "\\VC")):
@@ -138,9 +141,8 @@ def find_vc_path(repository_ctx):
             if vc_dir:
                 break
             result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\" + key, "/v", version])
-            if is_cc_configure_debug(repository_ctx):
-                auto_configure_warning("registry query result for VC %s:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
-                                       (version, result.stdout, result.stderr))
+            _auto_configure_warning_maybe(repository_ctx, "registry query result for VC %s:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                                                          (version, result.stdout, result.stderr))
             if not result.stderr:
                 for line in result.stdout.split("\n"):
                     line = line.strip()
@@ -148,7 +150,7 @@ def find_vc_path(repository_ctx):
                         vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip() + suffix
 
     # 4. Check default directories for VC installation
-    auto_configure_warning("Looking for default Visual C++ installation directory")
+    _auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
     program_files_dir = get_env_var(repository_ctx, "PROGRAMFILES(X86)", default = "C:\\Program Files (x86)", enable_warning = True)
     for path in [
         "Microsoft Visual Studio\\2017\\BuildTools\\VC",
@@ -164,7 +166,7 @@ def find_vc_path(repository_ctx):
 
     if not vc_dir:
         return None
-    auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
+    _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
     return vc_dir
 
 def _is_vs_2017(vc_path):
