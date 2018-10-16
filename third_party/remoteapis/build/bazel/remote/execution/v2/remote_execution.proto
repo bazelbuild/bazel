@@ -93,6 +93,9 @@ service Execution {
   // * `INTERNAL`: An internal error occurred in the execution engine or the
   //   worker.
   // * `DEADLINE_EXCEEDED`: The execution timed out.
+  // * `CANCELLED`: The operation was cancelled by the client. This status is
+  //   only possible if the server implements the Operations API CancelOperation
+  //   method, and it was called for the current execution.
   //
   // In the case of a missing input or command, the server SHOULD additionally
   // send a [PreconditionFailure][google.rpc.PreconditionFailure] error detail
@@ -438,9 +441,8 @@ message Command {
   // MUST be sorted lexicographically by code point (or, equivalently, by UTF-8
   // bytes).
   //
-  // An output file cannot be duplicated, be a parent of another output file, be
-  // a child of a listed output directory, or have the same path as any of the
-  // listed output directories.
+  // An output file cannot be duplicated, be a parent of another output file, or
+  // have the same path as any of the listed output directories.
   repeated string output_files = 3;
 
   // A list of the output directories that the client expects to retrieve from
@@ -461,9 +463,8 @@ message Command {
   // MUST be sorted lexicographically by code point (or, equivalently, by UTF-8
   // bytes).
   //
-  // An output directory cannot be duplicated, be a parent of another output
-  // directory, be a parent of a listed output file, or have the same path as
-  // any of the listed output files.
+  // An output directory cannot be duplicated or have the same path as any of
+  // the listed output files.
   repeated string output_directories = 4;
 
   // The platform requirements for the execution environment. The server MAY
