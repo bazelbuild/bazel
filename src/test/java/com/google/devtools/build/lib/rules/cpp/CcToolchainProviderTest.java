@@ -122,6 +122,26 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     testDisablingLinkingApiMethod("provider.link_options_do_not_use");
   }
 
+  @Test
+  public void testDisablingMostlyStaticLinkOptionsFromConfiguration() throws Exception {
+    testDisablingLinkingApiMethod("ctx.fragments.cpp.mostly_static_link_options([], False)");
+  }
+
+  @Test
+  public void testDisablingFullyStaticLinkOptionsFromConfiguration() throws Exception {
+    testDisablingLinkingApiMethod("ctx.fragments.cpp.fully_static_link_options([], True)");
+  }
+
+  @Test
+  public void testDisablingDynamicLinkOptionsFromConfiguration() throws Exception {
+    testDisablingLinkingApiMethod("ctx.fragments.cpp.dynamic_link_options([], False)");
+  }
+
+  @Test
+  public void testDisablingLinkOptionsFromConfiguration() throws Exception {
+    testDisablingLinkingApiMethod("ctx.fragments.cpp.link_options");
+  }
+
   private void testDisablingLinkingApiMethod(String method) throws Exception {
     useConfiguration("--experimental_disable_legacy_cc_linking_api");
     testDisablingLinkingApiMethodWithConfiguration(method);
@@ -173,6 +193,27 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   public void testDisablingUnfilteredOptions() throws Exception {
     testDisablingCompilationApiMethod("provider.unfiltered_compiler_options([])");
   }
+
+  @Test
+  public void testDisablingCompilerOptionsFromConfiguration() throws Exception {
+    testDisablingCompilationApiMethod("ctx.fragments.cpp.compiler_options([])");
+  }
+
+  @Test
+  public void testDisablingCxxOptionsFromConfiguration() throws Exception {
+    testDisablingCompilationApiMethod("ctx.fragments.cpp.cxx_options([])");
+  }
+
+  @Test
+  public void testDisablingCOptionsFromConfiguration() throws Exception {
+    testDisablingCompilationApiMethod("ctx.fragments.cpp.c_options");
+  }
+
+  @Test
+  public void testDisablingUnfilteredOptionsFromConfiguration() throws Exception {
+    testDisablingCompilationApiMethod("ctx.fragments.cpp.unfiltered_compiler_options([])");
+  }
+
   private void testDisablingCompilationApiMethod(String method) throws Exception {
     useConfiguration("--experimental_disable_legacy_cc_compilation_api");
     testDisablingCompilationApiMethodWithConfiguration(method);
