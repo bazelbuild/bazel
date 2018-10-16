@@ -230,7 +230,7 @@ public class JavaHeaderCompileActionBuilder {
 
     SpawnAction.Builder builder = new SpawnAction.Builder();
 
-    builder.setEnvironment(JavaCompileAction.UTF8_ENVIRONMENT);
+    builder.setEnvironment(JavaCompileActionBuilder.UTF8_ENVIRONMENT);
 
     builder.setProgressMessage(
         new ProgressMessage(

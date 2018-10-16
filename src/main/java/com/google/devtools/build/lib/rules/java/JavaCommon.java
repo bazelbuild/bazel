@@ -78,7 +78,7 @@ public class JavaCommon {
             NestedSetBuilder<Artifact> metadataFilesBuilder) {
           for (Artifact artifact : objectFiles) {
             ActionAnalysisMetadata action = analysisEnvironment.getLocalGeneratingAction(artifact);
-            if (action instanceof JavaCompileAction) {
+            if (JavaCompileActionBuilder.isJavaCompileAction(action)) {
               addOutputs(metadataFilesBuilder, action, JavaSemantics.COVERAGE_METADATA);
             } else if (action != null
                 && action.getMnemonic().equals(ResourceJarActionBuilder.MNEMONIC)) {

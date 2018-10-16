@@ -1050,7 +1050,7 @@ java_library(
         "rules/java/JavaCompilationArtifacts.java",
         "rules/java/JavaCompilationHelper.java",
         "rules/java/JavaCompilationInfoProvider.java",
-        "rules/java/JavaCompileAction.java",
+        "rules/java/JavaCompileActionBuilder.java",
         "rules/java/JavaConfiguration.java",
         "rules/java/JavaExportsProvider.java",
         "rules/java/JavaGenJarsProvider.java",

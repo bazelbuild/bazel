@@ -481,7 +481,7 @@ public class JavaTargetAttributes {
     return compileTimeDependencyArtifacts;
   }
 
-  public List<Artifact> getSourceJars() {
+  public ImmutableList<Artifact> getSourceJars() {
     return sourceJars;
   }
 
