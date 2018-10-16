@@ -92,7 +92,7 @@ cc_test(
 cc_test(
     name = "desugar_checking_test",
     srcs = [
-        "combiners_test.cc",
+        "desugar_checking_test.cc",
         ":zip_headers",
         ":zlib_interface",
     ],
