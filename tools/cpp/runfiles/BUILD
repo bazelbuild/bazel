@@ -57,6 +57,7 @@ cc_library(
 #    "tools/cpp/runfiles_src.h"
 cc_library(
     name = "runfiles_src_for_singlejar_only",
+    testonly = 1,
     visibility = ["//src/tools/singlejar:__pkg__"],
     deps = [":runfiles"],
 )
