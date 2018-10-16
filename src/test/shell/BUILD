@@ -6,6 +6,7 @@ exports_files([
     "integration_test_setup.sh",
     "sandboxing_test_utils.sh",
     "unittest.bash",
+    "shell_utils.sh",
 ])
 
 filegroup(
