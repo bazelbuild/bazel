@@ -453,7 +453,15 @@ public class ObjcRuleClasses {
           .add(
               attr("bundles", LABEL_LIST)
                   .direct_compile_time_input()
-                  .allowedRuleClasses("objc_bundle", "objc_bundle_library")
+                  // TODO(b/33618143): The native resource attributes are deprecated and will be
+                  // removed in the near future. By adding the new rule names here, the migration
+                  // path towards the end state is easier, as it will allow breaking the migration
+                  // into smaller chunks.
+                  .allowedRuleClasses(
+                      "apple_bundle_import",
+                      "apple_resource_bundle",
+                      "objc_bundle",
+                      "objc_bundle_library")
                   .allowedFileTypes())
           .build();
     }
