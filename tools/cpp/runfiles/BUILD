@@ -59,6 +59,7 @@ cc_library(
     name = "runfiles_src_for_singlejar_only",
     visibility = ["//src/tools/singlejar:__pkg__"],
     deps = [":runfiles"],
+    testonly = 1,
 )
 
 cc_test(
