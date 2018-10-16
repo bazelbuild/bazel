@@ -1422,13 +1422,27 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   if (!blaze::GetEnv("http_proxy").empty() ||
       !blaze::GetEnv("HTTP_PROXY").empty()) {
     BAZEL_LOG(WARNING)
-        << "detected http_proxy set in env, setting no_proxy for localhost.";
+        << "detected HTTP_PROXY set in env, setting NO_PROXY for localhost.";
 
     // Disable HTTP proxies for localhost and any localhost-like address,
     // in case we (or gRPC, etc.) ever use one of these addresses.
-    std::string localhost_addresses = "localhost,127.0.0.1,0:0:0:0:0:0:0:1,::1";
+    string localhost_addresses = blaze::GetEnv("NO_PROXY");
+    if (localhost_addresses.empty()) {
+      localhost_addresses = blaze::GetEnv("no_proxy");
+    }
+    vector<string> localhost_addresses_vec{"localhost", "127.0.0.1", "0:0:0:0:0:0:0:1", "::1"};
+    for (auto const& s : localhost_addresses_vec) {
+      if (localhost_addresses.find(s) == string::npos) {
+        if (!localhost_addresses.empty()) localhost_addresses += ",";
+        localhost_addresses += s;
+      }
+    }
+
     result["no_proxy"] = EnvVarValue(EnvVarAction::SET, localhost_addresses);
     result["NO_PROXY"] = EnvVarValue(EnvVarAction::SET, localhost_addresses);
+
+    BAZEL_LOG(WARNING)
+        << "Setting NO_PROXY to '" << localhost_addresses << "'";
 
     // Set no_proxy for the client, as well.
     blaze::SetEnv("no_proxy", localhost_addresses);
