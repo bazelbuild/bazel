@@ -206,8 +206,8 @@ public class MobileInstallCommand implements BlazeCommand {
 
     Collection<ConfiguredTarget> targetsBuilt = result.getSuccessfulTargets();
     if (targetsBuilt == null) {
-      env.getReporter().handle(Event.error(NO_TARGET_MESSAGE));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      env.getReporter().handle(Event.warn(NO_TARGET_MESSAGE));
+      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
     }
     if (targetsBuilt.size() != 1) {
       env.getReporter().handle(Event.error(SINGLE_TARGET_MESSAGE));
