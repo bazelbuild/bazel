@@ -144,9 +144,7 @@ cc_test(
         "input_jar_scan_entries_test.h",
         "input_jar_scan_jartool_test.cc",
     ],
-    # TODO(@rongjiecomputer): update copts to handle Windows and add
-    # ".exe" extension.
-    copts = ["-DJAR_TOOL_PATH=$(JAVA)/bin/jar"],
+    copts = ["-DJAR_TOOL_PATH=\\\"$(JAVABASE)/bin/jar\\\""],
     data = ["@bazel_tools//tools/jdk:current_java_runtime"],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
@@ -218,7 +216,7 @@ cc_test(
     ],
     # TODO(@rongjiecomputer): update copts to handle Windows and add
     # ".exe" extension.
-    copts = ["-DJAR_TOOL_PATH=$(JAVA)/bin/jar"],
+    copts = ["-DJAR_TOOL_PATH=\\\"$(JAVABASE)/bin/jar\\\""],
     data = [
         ":data1",
         ":data2",
@@ -487,7 +485,7 @@ genrule(
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     outs = ["stored.jar"],
-    cmd = "$(location @bazel_tools//tools/jdk:current_java_runtime) -0cf \"$@\" $(location :output_jar.cc)",
+    cmd = "$(JAVABASE)/bin/jar -0cf \"$@\" $(location :output_jar.cc)",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
