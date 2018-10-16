@@ -267,49 +267,115 @@ rule_test = rule(
 
 def _file_test_impl(ctx):
     """check that a file has a given content."""
-    exe = ctx.outputs.executable
-    file_ = ctx.file.file
-    content = ctx.attr.content
-    regexp = ctx.attr.regexp
-    matches = ctx.attr.matches
-    if bool(content) == bool(regexp):
-        fail("Must specify one and only one of content or regexp")
-    if content and matches != -1:
-        fail("matches only makes sense with regexp")
-    if content:
-        dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
-        ctx.file_action(
-            output = dat,
-            content = content,
-        )
-        ctx.file_action(
-            output = exe,
-            content = "diff -u %s %s" % (dat.short_path, file_.short_path),
-            executable = True,
-        )
-        return struct(runfiles = ctx.runfiles([exe, dat, file_]))
-    if matches != -1:
-        script = "[ %s == $(grep -c %s %s) ]" % (
-            matches,
-            repr(regexp),
-            file_.short_path,
-        )
-    else:
-        script = "grep %s %s" % (repr(regexp), file_.short_path)
-    ctx.file_action(
-        output = exe,
-        content = script,
-        executable = True,
-    )
-    return struct(runfiles = ctx.runfiles([exe, file_]))
+    script1 = ctx.actions.declare_file(ctx.label.name + "-gen.bash")
 
-file_test = rule(
+    # Since file_test is used from the @bazel_tools repo but also tested in the main Bazel repo, we
+    # cannot create a sh_binary for the script below and use it from file_test, because depending on
+    # the sh_binary would require knowing which depot the file_test is instantiated from.
+    #
+    # In other words, if there were a @bazel_tools//tools/build_rules:file_test_helper rule (the
+    # sh_binary), then file_test could reference it as:
+    #   - @bazel_tools//tools/build_rules:file_test_helper, which would work when using a Bazel
+    #     version that already contains this target, but not with Bazel 0.17.2 (latest release as of
+    #     the writing of this comment), or
+    #   - @io_bazel//tools/build_rules:file_test_helper, which would only work if the @io_bazel repo
+    #     is defined (either in Bazel's own source tree, or if the current project imports Bazel's
+    #     tree)
+    #   - //tools/build_rules:file_test_helper, which would only work if the current source tree
+    #     contains this target, which is unlikely.
+    # Considering that all 3 options are wrong, we resort to writing a script file on-the-fly.
+    ctx.actions.write(script1, is_executable = True, content = """#!/bin/bash
+set -euo pipefail
+declare -r OUT="$1"
+declare -r INPUT="$2"
+declare -r IS_WINDOWS="$3"
+declare -r CONTENT="$4"
+declare -r REGEXP="$5"
+declare -r MATCHES="$6"
+
+if [[ ( -n "${CONTENT:-}" && -n "${REGEXP:-}" ) || ( -z "${CONTENT:-}" && -z "${REGEXP:-}" ) ]]; then
+  echo >&2 "ERROR: expected either 'content' or 'regexp'"
+  exit 1
+elif [[ -n "${CONTENT:-}" && ( -n "${MATCHES:-}" && "$MATCHES" != "-1" ) ]]; then
+  echo >&2 "ERROR: cannot specify 'matches' together with 'content'"
+  exit 1
+elif [[ ! ( -z "${MATCHES:-}" || "$MATCHES" = 0 || "$MATCHES" =~ ^-?[1-9][0-9]*$ ) ]]; then
+  echo >&2 "ERROR: 'matches' must be an integer"
+  exit 1
+elif [[ ! -e "${INPUT:-/dev/null/does-not-exist}" ]]; then
+  echo >&2 "ERROR: input file must exist"
+  exit 1
+else
+  if [[ -n "${CONTENT:-}" ]]; then
+    declare -r GOLDEN_FILE="$(mktemp)"
+    declare -r ACTUAL_FILE="$(mktemp)"
+    # Normalize line endings in both files.
+    echo -e -n "$CONTENT" | sed 's,\\r\\n,\\n,g' > "$GOLDEN_FILE"
+    sed 's,\\r\\n,\\n,g' "$INPUT" > "$ACTUAL_FILE"
+    if ! diff -u "$GOLDEN_FILE" "$ACTUAL_FILE" ; then
+      echo >&2 "ERROR: file did not have expected content"
+      exit 1
+    fi
+  else
+    if [[ -n "${MATCHES:-}" && $MATCHES -gt -1 ]]; then
+      if [[ "$MATCHES" != $(grep -c "$REGEXP" "$INPUT") ]]; then
+        echo >&2 "ERROR: file did not contain expected regexp $MATCHES times"
+        exit 1
+      fi
+    else
+      if ! grep "$REGEXP" "$INPUT"; then
+        echo >&2 "ERROR: file did not contain expected regexp"
+        exit 1
+      fi
+    fi
+  fi
+
+  # Write a platform-specific script that is the actual test.
+  # The test script is a dummy, always-passing test. However if this script got to this point, then
+  # the actual assertions succeeded.
+  # The test script has an embedded timestamp, for the purpose of correct cache hit reporting. If it
+  # didn't, Bazel would always report file_test to be cached, because its only input (the test
+  # script) would never change. However, Bazel would still rebuild the action that generates the
+  # test script, i.e. it would perform the actual assertions, but it would look like it didn't.
+  if [[ "${IS_WINDOWS:-}" = "yes" ]]; then
+    echo -e "@rem $(date +"%s.%N")\\n@echo PASSED" > "$OUT"
+  else
+    echo -e "#!/bin/sh\\n# $(date +"%s.%N")\\necho PASSED" > "$OUT"
+  fi
+  chmod +x "$OUT"
+fi
+""")
+
+    is_windows = bool(ctx.attr.is_windows)
+    script2 = ctx.actions.declare_file(ctx.label.name + (".bat" if is_windows else ".bash"))
+
+    # TODO(laszlocsomor): once https://github.com/bazelbuild/bazel/issues/6391 is fixed, change the
+    # "command" to only contain script1's path, and pass arguments with the "arguments" attribute.
+    ctx.actions.run_shell(
+        inputs = [ctx.file.src],
+        outputs = [script2],
+        tools = [script1],
+        command = " ".join([
+            script1.path,
+            script2.path,
+            ctx.file.src.path,
+            "yes" if is_windows else "no",
+            repr(ctx.attr.content),
+            repr(ctx.attr.regexp),
+            ctx.attr.matches if ctx.attr.matches > -1 else repr(""),
+        ]),
+    )
+
+    return [DefaultInfo(executable = script2)]
+
+_file_test = rule(
     attrs = {
-        "file": attr.label(
+        "src": attr.label(
             mandatory = True,
             allow_files = True,
             single_file = True,
         ),
+        "is_windows": attr.bool(mandatory = True),
         "content": attr.string(default = ""),
         "regexp": attr.string(default = ""),
         "matches": attr.int(default = -1),
@@ -318,3 +384,16 @@ file_test = rule(
     test = True,
     implementation = _file_test_impl,
 )
+
+def file_test(name, file, content = None, regexp = None, matches = None, **kwargs):
+    _file_test(
+        name = name,
+        src = file,
+        content = content,
+        regexp = regexp,
+        matches = matches or -1,
+        is_windows = select({
+            "@bazel_tools//src/conditions:windows": True,
+            "//conditions:default": False,
+        }),
+    )
