@@ -584,7 +584,7 @@ If true, Bazel will stop retrieving the value of `compiler` from the cpp configu
 line.
 
 The former behavior can be achieved by changing the `config_setting` to use
-`flag_values = {"@bazel_tools/tools/cpp:compiler": "x"}` instead:
+`flag_values = {"@bazel_tools//tools/cpp:compiler": "x"}` instead:
 
 ```python
 # Before
@@ -603,7 +603,7 @@ config_setting(
         "cpu": "x",
     },
     flag_values = {
-        "@bazel_tools/tools/cpp:compiler": "y",
+        "@bazel_tools//tools/cpp:compiler": "y",
     },
 )
 ```
