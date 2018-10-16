@@ -1,0 +1,47 @@
+General changes
+---------------
+
+* The `--incompatible_expand_directories` flag will automatically expand directories in command lines. Design doc: https://docs.google.com/document/d/11agWFiOUiz2htBLj6swPTob5z78TrCxm8DQE4uJLOwM
+
+* The `--loading_phase_threads` flag now defaults to `auto` (not 200, as was previously the case), which at the moment corresponds to the number of CPUs. This is appropriate for most users. However, if your sources reside on a network file system, increasing this value may yield better analysis-time performance when disk caches are cold.
+
+Android
+-------
+
+* Fixed missing debug symbols when building native code with `--compilation_mode=dbg` that target Android ARM architectures by adding the `-g` flag.
+
+C++
+---
+
+* C++, runfiles in cc_test: the C++ runfiles library (`@bazel_tools//tools/cpp/runfiles`) can now create Runfiles objects for tests. See `//tools/cpp/runfiles/runfiles_src.h` (in the Bazel source tree) for documentation.
+
+* CppRules: cc_binary link action no longer hardcodes `-static-libgcc` for toolchains that support embedded runtimes (guarded by `--experimental_dont_emit_static_libgcc` temporarily).
+
+* The flag `--experimental_enable_cc_configuration_make_variables` is removed, use `--incompatible_disable_cc_configuration_make_variables` instead.
+
+* TODO - update after migration docs are written - Added `--incompatible_disable_legacy_flags_cc_toolchain_api` to deprecate legacy `cc_toolchain` Skylark API for legacy CROSSTOOL fields.
+
+Java
+----
+
+* If the `--javabase` flag is unset, Bazel locates a JDK using the `JAVA_HOME` environment variable and searching the PATH. If no JDK is found `--javabase` will be empty, and builds targeting Java will not be supported.  Previously Bazel would fall back to using the embedded JDK as a `--javabase`, but this is no longer default behaviour. A JDK should be explicitly installed instead to enable Java development.
+
+Code Coverage
+-------------
+
+* LcovMerger was renamed to CoverageOutputGenerator.
+
+* Faster coverage collection for gcc compiled C++ code can now be tested by enabling it with `--experimental_cc_coverage`.
+
+Other Changes
+-------------
+
+* Add `--apple_compiler` and `--apple_grte_top options`. These provide the equivalent of --compiler / --grte_top for the toolchain configured in --apple_crosstool_top.
+
+* There is now a `same_pkg_direct_rdeps` query function. See the query documentation for more details.
+
+* Propagating remote errors to the user even if `--verbose_failures=false` is set.
+
+* Add number of configured targets to analysis phase status output.
+
+* Bazel will now check stderr instead of stdout to decide if it is outputting to a terminal.  `--isatty` is deprecated, use `--is_stderr_atty` instead.
