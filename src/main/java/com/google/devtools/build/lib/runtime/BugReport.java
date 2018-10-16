@@ -47,6 +47,10 @@ public abstract class BugReport {
 
   private static AtomicBoolean alreadyHandlingCrash = new AtomicBoolean(false);
 
+  private static final boolean IN_TEST =
+      System.getenv("TEST_TMPDIR") != null
+          && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
+
   public static void setRuntime(BlazeRuntime newRuntime) {
     Preconditions.checkNotNull(newRuntime);
     Preconditions.checkState(runtime == null, "runtime already set: %s, %s", runtime, newRuntime);
@@ -65,6 +69,11 @@ public abstract class BugReport {
    * @param values Additional string values to clarify the exception.
    */
   public static void sendBugReport(Throwable exception, List<String> args, String... values) {
+    if (IN_TEST) {
+      Throwables.throwIfUnchecked(exception);
+      throw new IllegalStateException(
+          "Bug reports in tests should crash: " + args + ", " + Arrays.toString(values), exception);
+    }
     if (!versionInfo.isReleasedBlaze()) {
       logger.info("(Not a released binary; not logged.)");
       return;
