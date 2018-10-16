@@ -391,7 +391,7 @@ java_import(
     jars = [
         "flogger/flogger-0.3.1.jar",
         "flogger/flogger-system-backend-0.3.1.jar",
-        "flogger/google-extensions-0.3.1.jar"
+        "flogger/google-extensions-0.3.1.jar",
     ],
 )
 
@@ -401,7 +401,7 @@ filegroup(
         "flogger/flogger-0.3.1.jar",
         "flogger/flogger-system-backend-0.3.1.jar",
         "flogger/google-extensions-0.3.1.jar",
-    ]
+    ],
 )
 
 java_import(
@@ -563,12 +563,13 @@ filegroup(
         "//src/conditions:darwin": ["turbine/turbine_direct.darwin"],
         "//src/conditions:darwin_x86_64": ["turbine/turbine_direct.darwin"],
         "//src/conditions:linux_x86_64": ["turbine/turbine_direct.linux"],
-        "//conditions:default": [],
+        "//conditions:default": ["turbine/turbine_direct.jar"],
     }),
 )
+
 java_import(
     name = "turbine",
-    jars = ["turbine/turbine.jar"],
+    jars = ["turbine/turbine_direct.jar"],
 )
 
 java_import(
