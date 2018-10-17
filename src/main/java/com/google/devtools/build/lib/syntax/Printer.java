@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -78,6 +79,15 @@ public class Printer {
    */
   public static PrettyPrinter getPrettyPrinter() {
     return new PrettyPrinter(new StringBuilder());
+  }
+
+  /**
+   * Creates an instance of {@link WorkspacePrettyPrinter} with an empty buffer.
+   *
+   * @return new {@link WorkspacePrettyPrinter}
+   */
+  public static WorkspacePrettyPrinter getWorkspacePrettyPrinter() {
+    return new WorkspacePrettyPrinter(new StringBuilder());
   }
 
   /**
@@ -700,6 +710,29 @@ public class Printer {
       this.append("\n");
       indent -= BASE_INDENT;
       this.append(Strings.repeat(" ", indent) + after);
+      return this;
+    }
+  }
+
+  /**
+   * A pretty printer that represents values in a form usable in WORKSPACE files.
+   *
+   * <p>In WORKSPACE files, the Label constructor is not available. Fortunately, in all places where
+   * a label is needed, we can pass the canonical string associated with this label.
+   */
+  public static class WorkspacePrettyPrinter extends PrettyPrinter {
+
+    protected WorkspacePrettyPrinter(Appendable buffer) {
+      super(buffer);
+    }
+
+    @Override
+    public BasePrinter repr(Object o) {
+      if (o instanceof Label) {
+        this.repr(((Label) o).getCanonicalForm());
+      } else {
+        super.repr(o);
+      }
       return this;
     }
   }
