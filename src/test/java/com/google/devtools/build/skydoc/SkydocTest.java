@@ -81,7 +81,8 @@ public final class SkydocTest extends SkylarkTestCase {
     skydocMain.eval(
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
-        unexportedRuleInfos);
+        unexportedRuleInfos,
+        ImmutableMap.builder());
     Map<String, RuleInfo> ruleInfos = ruleInfoMap.build();
     assertThat(ruleInfos).hasSize(1);
 
@@ -142,7 +143,8 @@ public final class SkydocTest extends SkylarkTestCase {
     skydocMain.eval(
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
-        unexportedRuleInfos);
+        unexportedRuleInfos,
+        ImmutableMap.builder());
 
     assertThat(ruleInfoMap.build().keySet()).containsExactly("rule_one", "rule_two");
 
@@ -193,7 +195,8 @@ public final class SkydocTest extends SkylarkTestCase {
     skydocMain.eval(
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
-        ImmutableList.builder());
+        ImmutableList.builder(),
+        ImmutableMap.builder());
 
     Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
 
@@ -245,7 +248,8 @@ public final class SkydocTest extends SkylarkTestCase {
     skydocMain.eval(
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
-        ImmutableList.builder());
+        ImmutableList.builder(),
+        ImmutableMap.builder());
 
     Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
 
@@ -282,7 +286,8 @@ public final class SkydocTest extends SkylarkTestCase {
             () -> skydocMain.eval(
                 Label.parseAbsoluteUnchecked("//test:main.bzl"),
                 ruleInfoMapBuilder,
-                ImmutableList.builder()));
+                ImmutableList.builder(),
+                ImmutableMap.builder()));
 
     assertThat(expected).hasMessageThat().contains("cycle with test/main.bzl");
   }

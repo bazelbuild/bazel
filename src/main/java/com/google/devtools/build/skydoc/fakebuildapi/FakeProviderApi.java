@@ -29,8 +29,14 @@ import javax.annotation.Nullable;
  */
 public class FakeProviderApi extends BaseFunction implements ProviderApi {
 
+  /**
+   * Each fake is constructed with a unique name, controlled by this counter being the name suffix.
+   */
+  private static int idCounter = 0;
+
   public FakeProviderApi() {
-    super("ProviderFunction", FunctionSignature.WithValues.create(FunctionSignature.KWARGS));
+    super("ProviderIdentifier" + idCounter++,
+        FunctionSignature.WithValues.create(FunctionSignature.KWARGS));
   }
 
   @Override
@@ -41,4 +47,10 @@ public class FakeProviderApi extends BaseFunction implements ProviderApi {
 
   @Override
   public void repr(SkylarkPrinter printer) {}
+
+  @Override
+  public boolean equals(@Nullable Object other) {
+    // Use exact object matching.
+    return this == other;
+  }
 }

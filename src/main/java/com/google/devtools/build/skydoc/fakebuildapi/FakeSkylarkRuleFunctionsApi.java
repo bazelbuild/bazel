@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -30,11 +31,15 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor.Type;
 import com.google.devtools.build.skydoc.rendering.AttributeInfo;
+import com.google.devtools.build.skydoc.rendering.ProviderFieldInfo;
+import com.google.devtools.build.skydoc.rendering.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -49,20 +54,50 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
       new FakeDescriptor(Type.STRING, "A unique name for this target.", true);
   private final List<RuleInfo> ruleInfoList;
+  private final List<ProviderInfo> providerInfoList;
 
   /**
    * Constructor.
    *
    * @param ruleInfoList the list of {@link RuleInfo} objects to which rule() invocation information
    *     will be added
+   * @param providerInfoList the list of {@link ProviderInfo} objects to which provider()
+   *     invocation information will be added
    */
-  public FakeSkylarkRuleFunctionsApi(List<RuleInfo> ruleInfoList) {
+  public FakeSkylarkRuleFunctionsApi(List<RuleInfo> ruleInfoList,
+      List<ProviderInfo> providerInfoList) {
     this.ruleInfoList = ruleInfoList;
+    this.providerInfoList = providerInfoList;
   }
 
   @Override
   public ProviderApi provider(String doc, Object fields, Location location) throws EvalException {
-    return new FakeProviderApi();
+    FakeProviderApi fakeProvider = new FakeProviderApi();
+    // Field documentation will be output preserving the order in which the fields are listed.
+    ImmutableList.Builder<ProviderFieldInfo> providerFieldInfos = ImmutableList.builder();
+    if (fields instanceof SkylarkList) {
+      @SuppressWarnings("unchecked")
+      SkylarkList<String> fieldNames = (SkylarkList<String>)
+          SkylarkType.cast(
+              fields,
+              SkylarkList.class, String.class, location,
+              "Expected list of strings or dictionary of string -> string for 'fields'");
+      for (String fieldName : fieldNames) {
+        providerFieldInfos.add(new ProviderFieldInfo(fieldName));
+      }
+    } else if (fields instanceof SkylarkDict) {
+      Map<String, String> dict = SkylarkType.castMap(
+          fields,
+          String.class, String.class,
+          "Expected list of strings or dictionary of string -> string for 'fields'");
+      for (Map.Entry<String, String> fieldEntry : dict.entrySet()) {
+        providerFieldInfos.add(new ProviderFieldInfo(fieldEntry.getKey(), fieldEntry.getValue()));
+      }
+    } else {
+      // fields is NONE, so there is no field information to add.
+    }
+    providerInfoList.add(new ProviderInfo(fakeProvider, doc, providerFieldInfos.build()));
+    return fakeProvider;
   }
 
   @Override

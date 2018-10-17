@@ -72,3 +72,32 @@ These dependencies better provide MyInfo!
 </table>
 
 
+<a name="#MyInfo"></a>
+## MyInfo
+
+
+
+### Fields
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="#MyInfo_foo">
+      <td><code>foo</code></td>
+      <td>
+        <p>Something foo-related.</p>
+      </td>
+    </tr>
+    <tr id="#MyInfo_bar">
+      <td><code>bar</code></td>
+      <td>
+        <p>Something bar-related.</p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

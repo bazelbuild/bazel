@@ -122,3 +122,10 @@ skydoc_test(
         "testdata/filter_rules_test/dep.bzl",
     ],
 )
+
+skydoc_test(
+    name = "provider_basic_test",
+    golden_file = "testdata/provider_basic_test/golden.txt",
+    input_file = "testdata/provider_basic_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)

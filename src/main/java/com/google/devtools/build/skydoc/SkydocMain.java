@@ -69,6 +69,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInf
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
+import com.google.devtools.build.skydoc.rendering.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -128,24 +129,31 @@ public class SkydocMain {
     ImmutableSet<String> symbolNames = getSymbolNames(args);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
+    ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
     ImmutableList.Builder<RuleInfo> unknownNamedRules = ImmutableList.builder();
 
     new SkydocMain(new FilesystemFileAccessor())
-        .eval(targetFileLabel, ruleInfoMap, unknownNamedRules);
+        .eval(targetFileLabel, ruleInfoMap, unknownNamedRules, providerInfoMap);
 
     MarkdownRenderer renderer = new MarkdownRenderer();
 
     if (symbolNames.isEmpty()) {
       try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
         printRuleInfos(printWriter, renderer, ruleInfoMap.build(), unknownNamedRules.build());
+        printProviderInfos(printWriter, renderer, providerInfoMap.build());
       }
     } else {
-      Map<String, RuleInfo> filteredRuleInfos = ImmutableMap.copyOf(
+      Map<String, RuleInfo> filteredRuleInfos =
           ruleInfoMap.build().entrySet().stream()
               .filter(entry -> symbolNames.contains(entry.getKey()))
-              .collect(Collectors.toList()));
+              .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
+      Map<String, ProviderInfo> filteredProviderInfos =
+          providerInfoMap.build().entrySet().stream()
+              .filter(entry -> symbolNames.contains(entry.getKey()))
+              .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
       try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
         printRuleInfos(printWriter, renderer, filteredRuleInfos, ImmutableList.of());
+        printProviderInfos(printWriter, renderer, filteredProviderInfos);
       }
     }
   }
@@ -173,37 +181,63 @@ public class SkydocMain {
     }
   }
 
+  private static void printProviderInfos(
+      PrintWriter printWriter,
+      MarkdownRenderer renderer,
+      Map<String, ProviderInfo> providerInfos) throws IOException {
+    for (Entry<String, ProviderInfo> entry : providerInfos.entrySet()) {
+      printProviderInfo(printWriter, renderer, entry.getKey(), entry.getValue());
+      printWriter.println();
+    }
+  }
+
   private static void printRuleInfo(
       PrintWriter printWriter, MarkdownRenderer renderer,
       String exportedName, RuleInfo ruleInfo) throws IOException {
     printWriter.println(renderer.render(exportedName, ruleInfo));
   }
 
+  private static void printProviderInfo(
+      PrintWriter printWriter, MarkdownRenderer renderer,
+      String exportedName, ProviderInfo providerInfo) throws IOException {
+    printWriter.println(renderer.render(exportedName, providerInfo));
+  }
+
   /**
    * Evaluates/interprets the skylark file at a given path and its transitive skylark dependencies
-   * using a fake build API and collects information about all rule definitions made in the
-   * root skylark file.
+   * using a fake build API and collects information about all rule definitions made in the root
+   * skylark file.
    *
    * @param label the label of the skylark file to evaluate
-   * @param ruleInfoMap a map builder to be populated with rule definition information for
-   *     named rules. Keys are exported names of rules, and values are their {@link RuleInfo}
-   *     rule descriptions. For example, 'my_rule = rule(...)' has key 'my_rule'
-   * @param unknownNamedRules a list builder to be populated with rule definition information
-   *     for rules which were not exported as top level symbols
+   * @param ruleInfoMap a map builder to be populated with rule definition information for named
+   *     rules. Keys are exported names of rules, and values are their {@link RuleInfo} rule
+   *     descriptions. For example, 'my_rule = rule(...)' has key 'my_rule'
+   * @param unknownNamedRules a list builder to be populated with rule definition information for
+   *     rules which were not exported as top level symbols
+   * @param providerInfoMap a map builder to be populated with provider definition information for
+   *     named providers. Keys are exported names of providers, and values are their
+   *     {@link ProviderInfo} descriptions. For example, 'my_provider = provider(...)' has key
+   *     'my_provider'
    * @throws InterruptedException if evaluation is interrupted
    */
   public Environment eval(
       Label label,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
-      ImmutableList.Builder<RuleInfo> unknownNamedRules)
+      ImmutableList.Builder<RuleInfo> unknownNamedRules,
+      ImmutableMap.Builder<String, ProviderInfo> providerInfoMap)
       throws InterruptedException, IOException, LabelSyntaxException {
 
     List<RuleInfo> ruleInfoList = new ArrayList<>();
-    Environment env = recursiveEval(label, ruleInfoList);
+    List<ProviderInfo> providerInfoList = new ArrayList<>();
+    Environment env = recursiveEval(label, ruleInfoList, providerInfoList);
 
     Map<BaseFunction, RuleInfo> ruleFunctions = ruleInfoList.stream()
         .collect(Collectors.toMap(
             RuleInfo::getIdentifierFunction,
+            Functions.identity()));
+    Map<BaseFunction, ProviderInfo> providerInfos = providerInfoList.stream()
+        .collect(Collectors.toMap(
+            ProviderInfo::getIdentifier,
             Functions.identity()));
 
     ImmutableSet.Builder<RuleInfo> handledRuleDefinitions = ImmutableSet.builder();
@@ -212,6 +246,10 @@ public class SkydocMain {
         RuleInfo ruleInfo = ruleFunctions.get(envEntry.getValue());
         ruleInfoMap.put(envEntry.getKey(), ruleInfo);
         handledRuleDefinitions.add(ruleInfo);
+      }
+      if (providerInfos.containsKey(envEntry.getValue())) {
+        ProviderInfo providerInfo = providerInfos.get(envEntry.getValue());
+        providerInfoMap.put(envEntry.getKey(), providerInfo);
       }
     }
 
@@ -232,7 +270,7 @@ public class SkydocMain {
    * @throws InterruptedException if evaluation is interrupted
    */
   private Environment recursiveEval(
-      Label label, List<RuleInfo> ruleInfoList)
+      Label label, List<RuleInfo> ruleInfoList, List<ProviderInfo> providerInfoList)
       throws InterruptedException, IOException, LabelSyntaxException {
     Path path = pathOfLabel(label);
 
@@ -251,7 +289,7 @@ public class SkydocMain {
       Label relativeLabel = label.getRelative(anImport.getImportString());
 
       try {
-        Environment importEnv = recursiveEval(relativeLabel, ruleInfoList);
+        Environment importEnv = recursiveEval(relativeLabel, ruleInfoList, providerInfoList);
         imports.put(anImport.getImportString(), new Extension(importEnv));
       } catch (NoSuchFileException noSuchFileException) {
         throw new IllegalStateException(
@@ -260,7 +298,7 @@ public class SkydocMain {
       }
     }
 
-    Environment env = evalSkylarkBody(buildFileAST, imports, ruleInfoList);
+    Environment env = evalSkylarkBody(buildFileAST, imports, ruleInfoList, providerInfoList);
 
     pending.remove(path);
     env.mutability().freeze();
@@ -282,11 +320,12 @@ public class SkydocMain {
   private Environment evalSkylarkBody(
       BuildFileAST buildFileAST,
       Map<String, Extension> imports,
-      List<RuleInfo> ruleInfoList) throws InterruptedException {
+      List<RuleInfo> ruleInfoList,
+      List<ProviderInfo> providerInfoList) throws InterruptedException {
 
     Environment env = createEnvironment(
         eventHandler,
-        globalFrame(ruleInfoList),
+        globalFrame(ruleInfoList, providerInfoList),
         imports);
 
     if (!buildFileAST.exec(env, eventHandler)) {
@@ -303,14 +342,17 @@ public class SkydocMain {
    *
    * @param ruleInfoList the list of {@link RuleInfo} objects, to which rule() invocation
    *     information will be added
+   * @param providerInfoList the list of {@link ProviderInfo} objects, to which provider()
+   *     invocation information will be added
    */
-  private static GlobalFrame globalFrame(List<RuleInfo> ruleInfoList) {
+  private static GlobalFrame globalFrame(List<RuleInfo> ruleInfoList,
+      List<ProviderInfo> providerInfoList) {
     TopLevelBootstrap topLevelBootstrap =
         new TopLevelBootstrap(new FakeBuildApiGlobals(),
             new FakeSkylarkAttrApi(),
             new FakeSkylarkCommandLineApi(),
             new FakeSkylarkNativeModuleApi(),
-            new FakeSkylarkRuleFunctionsApi(ruleInfoList),
+            new FakeSkylarkRuleFunctionsApi(ruleInfoList, providerInfoList),
             new FakeStructProviderApi(),
             new FakeOutputGroupInfoProvider(),
             new FakeActionsInfoProvider(),

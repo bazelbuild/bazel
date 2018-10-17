@@ -1,0 +1,68 @@
+<a name="#MyPoorlyDocumentedInfo"></a>
+## MyPoorlyDocumentedInfo
+
+
+
+
+
+<a name="#MyFooInfo"></a>
+## MyFooInfo
+
+Stores information about a foo.
+
+### Fields
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="#MyFooInfo_bar">
+      <td><code>bar</code></td>
+      <td>
+        <p>(Undocumented)</p>
+      </td>
+    </tr>
+    <tr id="#MyFooInfo_baz">
+      <td><code>baz</code></td>
+      <td>
+        <p>(Undocumented)</p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="#MyVeryDocumentedInfo"></a>
+## MyVeryDocumentedInfo
+
+
+A provider with some really neat documentation.
+Look on my works, ye mighty, and despair!
+
+
+### Fields
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="#MyVeryDocumentedInfo_favorite_food">
+      <td><code>favorite_food</code></td>
+      <td>
+        <p>A string representing my favorite food</p>
+      </td>
+    </tr>
+    <tr id="#MyVeryDocumentedInfo_favorite_color">
+      <td><code>favorite_color</code></td>
+      <td>
+        <p>A string representing my favorite color</p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

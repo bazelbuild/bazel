@@ -32,8 +32,10 @@ import org.apache.velocity.runtime.resource.loader.JarResourceLoader;
  */
 public class MarkdownRenderer {
 
-  private static final String TEMPLATE_FILENAME =
+  private static final String RULE_TEMPLATE_FILENAME =
       "com/google/devtools/build/skydoc/rendering/templates/rule.vm";
+  private static final String PROVIDER_TEMPLATE_FILENAME =
+      "com/google/devtools/build/skydoc/rendering/templates/provider.vm";
 
   private final VelocityEngine velocityEngine;
 
@@ -61,7 +63,25 @@ public class MarkdownRenderer {
 
     StringWriter stringWriter = new StringWriter();
     try {
-      velocityEngine.mergeTemplate(TEMPLATE_FILENAME, "UTF-8", context, stringWriter);
+      velocityEngine.mergeTemplate(RULE_TEMPLATE_FILENAME, "UTF-8", context, stringWriter);
+    } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
+      throw new IOException(e);
+    }
+    return stringWriter.toString();
+  }
+
+  /**
+   * Returns a markdown rendering of provider documentation for the given provider information
+   * object with the given name.
+   */
+  public String render(String providerName, ProviderInfo providerInfo) throws IOException {
+    VelocityContext context = new VelocityContext();
+    context.put("providerName", providerName);
+    context.put("providerInfo", providerInfo);
+
+    StringWriter stringWriter = new StringWriter();
+    try {
+      velocityEngine.mergeTemplate(PROVIDER_TEMPLATE_FILENAME, "UTF-8", context, stringWriter);
     } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
       throw new IOException(e);
     }

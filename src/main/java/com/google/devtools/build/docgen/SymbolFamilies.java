@@ -160,7 +160,7 @@ public class SymbolFamilies {
             new FakeSkylarkAttrApi(),
             new FakeSkylarkCommandLineApi(),
             new FakeSkylarkNativeModuleApi(),
-            new FakeSkylarkRuleFunctionsApi(Lists.newArrayList()),
+            new FakeSkylarkRuleFunctionsApi(Lists.newArrayList(), Lists.newArrayList()),
             new FakeStructProviderApi(),
             new FakeOutputGroupInfoProvider(),
             new FakeActionsInfoProvider(),
