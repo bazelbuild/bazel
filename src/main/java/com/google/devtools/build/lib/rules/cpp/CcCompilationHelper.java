@@ -190,15 +190,8 @@ public final class CcCompilationHelper {
   }
 
   /** Function for extracting module maps from CppCompilationDependencies. */
-  private static final Function<TransitiveInfoCollection, CppModuleMap> CPP_DEPS_TO_MODULES =
-      dep -> {
-        CcCompilationInfo ccCompilationInfo = dep.get(CcCompilationInfo.PROVIDER);
-        CcCompilationContext ccCompilationContext = null;
-        if (ccCompilationInfo != null) {
-          ccCompilationContext = ccCompilationInfo.getCcCompilationContext();
-        }
-        return ccCompilationContext == null ? null : ccCompilationContext.getCppModuleMap();
-      };
+  private static final Function<CcCompilationInfo, CppModuleMap> CPP_DEPS_TO_MODULES =
+      ccCompilationInfo -> ccCompilationInfo.getCcCompilationContext().getCppModuleMap();
 
   /**
    * Contains the providers as well as the {@code CcCompilationOutputs} and the {@code
@@ -632,9 +625,9 @@ public final class CcCompilationHelper {
    * (like from a "deps" attribute) and also implicit dependencies on runtime libraries.
    */
   public CcCompilationHelper addDeps(Iterable<? extends TransitiveInfoCollection> deps) {
-    for (TransitiveInfoCollection dep : deps) {
-      this.deps.add(dep);
-    }
+    Iterables.addAll(
+        this.ccCompilationInfos, AnalysisUtils.getProviders(deps, CcCompilationInfo.PROVIDER));
+    Iterables.addAll(this.deps, deps);
     return this;
   }
 
@@ -1187,7 +1180,7 @@ public final class CcCompilationHelper {
   private Iterable<CppModuleMap> collectModuleMaps() {
     // Cpp module maps may be null for some rules. We filter the nulls out at the end.
     List<CppModuleMap> result =
-        deps.stream().map(CPP_DEPS_TO_MODULES).collect(toCollection(ArrayList::new));
+        ccCompilationInfos.stream().map(CPP_DEPS_TO_MODULES).collect(toCollection(ArrayList::new));
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       CcCompilationInfo stl =
           ruleContext.getPrerequisite(":stl", Mode.TARGET, CcCompilationInfo.PROVIDER);
