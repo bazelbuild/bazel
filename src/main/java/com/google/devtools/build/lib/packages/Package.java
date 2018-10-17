@@ -257,6 +257,10 @@ public class Package {
     return repositoryMapping;
   }
 
+  public ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>> getExternalPackageRepositoryMappings() {
+    return this.externalPackageRepositoryMappings;
+  }
+
   /**
    * Package initialization: part 2 of 3: sets this package's default header
    * strictness checking.
