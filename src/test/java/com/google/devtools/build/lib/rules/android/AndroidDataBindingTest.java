@@ -325,15 +325,17 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         "    main_dex_list_creator = 'main_dex_list_creator',",
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign')");
+        "    zipalign = 'zipalign',",
+        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
+        ")");
     scratch.file(
         "java/a/BUILD",
         "android_library(",
-        "  name = 'a', ",
-        "  srcs = ['A.java'],",
-        "  enable_data_binding = 1,",
-        "  manifest = 'a/AndroidManifest.xml',",
-        "  resource_files = [ 'res/values/a.xml' ]",
+        "    name = 'a', ",
+        "    srcs = ['A.java'],",
+        "    enable_data_binding = 1,",
+        "    manifest = 'a/AndroidManifest.xml',",
+        "    resource_files = ['res/values/a.xml'],",
         ")");
 
     useConfiguration("--android_sdk=//sdk:sdk");
@@ -374,22 +376,24 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         "    main_dex_list_creator = 'main_dex_list_creator',",
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign')");
+        "    zipalign = 'zipalign',",
+        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
+        ")");
     scratch.file(
         "java/a/BUILD",
         "android_library(",
-        "  name = 'a', ",
-        "  srcs = ['A.java'],",
-        "  enable_data_binding = 1,",
-        "  manifest = 'a/AndroidManifest.xml',",
-        "  resource_files = [ 'res/values/a.xml' ]",
+        "    name = 'a', ",
+        "    srcs = ['A.java'],",
+        "    enable_data_binding = 1,",
+        "    manifest = 'a/AndroidManifest.xml',",
+        "    resource_files = ['res/values/a.xml'],",
         ")");
     scratch.file(
         "java/b/BUILD",
         "android_library(",
-        "  name = 'b', ",
-        "  srcs = ['A.java'],",
-        "  deps = [ '//java/a:a' ]",
+        "    name = 'b', ",
+        "    srcs = ['A.java'],",
+        "    deps = ['//java/a:a'],",
         ")");
     useConfiguration("--android_sdk=//sdk:sdk");
     ConfiguredTarget b = getConfiguredTarget("//java/b:b");

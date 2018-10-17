@@ -233,6 +233,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "    proguard = ':ProGuard',",
         "    shrinked_android_jar = ':shrinkedAndroid.jar',",
         "    zipalign = ':zipalign',",
+        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
         ")",
         "filegroup(name = 'android_runtime_jar', srcs = ['android.jar'])",
         "filegroup(name = 'dx_binary', srcs = ['dx_binary.jar'])");

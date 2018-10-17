@@ -42,11 +42,17 @@ import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** An implementation of the {@code android_instrumentation_test} rule. */
-public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
+public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFactory {
+
+  private final AndroidMigrationSemantics androidMigrationSemantics;
+
+  public AndroidInstrumentationTestBase(AndroidMigrationSemantics androidMigrationSemantics) {
+    this.androidMigrationSemantics = androidMigrationSemantics;
+  }
 
   private static final Template ANDROID_INSTRUMENTATION_TEST_STUB_SCRIPT =
       Template.forResource(
-          AndroidInstrumentationTest.class, "android_instrumentation_test_template.txt");
+          AndroidInstrumentationTestBase.class, "android_instrumentation_test_template.txt");
   private static final String TEST_SUITE_PROPERTY_NAME_FILE = "test_suite_property_name.txt";
 
   /** Checks expected rule invariants, throws rule errors if anything is set wrong. */
@@ -66,6 +72,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     validateRuleContext(ruleContext);
+    androidMigrationSemantics.validateRuleContext(ruleContext);
 
     // The wrapper script that invokes the test entry point.
     Artifact testExecutable = createTestExecutable(ruleContext);
@@ -303,7 +310,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
       throws RuleErrorException {
     try {
       return ResourceFileLoader.loadResource(
-              AndroidInstrumentationTest.class, TEST_SUITE_PROPERTY_NAME_FILE)
+              AndroidInstrumentationTestBase.class, TEST_SUITE_PROPERTY_NAME_FILE)
           .trim();
     } catch (IOException e) {
       ruleContext.throwWithRuleError("Cannot load test suite property name: " + e.getMessage());

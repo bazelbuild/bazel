@@ -30,10 +30,19 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.syntax.Type;
 
 /** Implementation of the {@code android_sdk} rule. */
-public class AndroidSdk implements RuleConfiguredTargetFactory {
+public class AndroidSdkBase implements RuleConfiguredTargetFactory {
+
+  private final AndroidMigrationSemantics androidMigrationSemantics;
+
+  public AndroidSdkBase(AndroidMigrationSemantics androidMigrationSemantics) {
+    this.androidMigrationSemantics = androidMigrationSemantics;
+  }
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    androidMigrationSemantics.validateRuleContext(ruleContext);
+
     // If the user didn't specify --proguard_top, go with the proguard attribute in the android_sdk
     // rule. Otherwise, use what they told us to.
     FilesToRunProvider proguard =

@@ -842,6 +842,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
+        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
         ")",
         "java_library(",
         "    name = 'aidl_lib',",
@@ -1841,6 +1842,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
+        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
         ")");
     scratch.file(
         "java/a/BUILD",
@@ -1943,6 +1945,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
+        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
         ")");
     scratch.file(
         "java/a/BUILD",

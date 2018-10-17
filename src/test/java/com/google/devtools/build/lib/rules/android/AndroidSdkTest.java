@@ -43,6 +43,7 @@ public class AndroidSdkTest extends BuildViewTestCase {
         "    proguard = 'ProGuard',",
         "    shrinked_android_jar = 'android.jar',",
         "    zipalign = 'zipalign',",
+        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
         ")");
     AndroidSdkProvider sdkProvider = getConfiguredTarget("//sdk").get(AndroidSdkProvider.PROVIDER);
     assertThat(sdkProvider.getSourceProperties().toDetailString())

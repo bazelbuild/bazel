@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -27,7 +26,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for the {@code android_instrumentation_test} rule. */
-public class AndroidInstrumentationTestRule implements RuleDefinition {
+public class AndroidInstrumentationTestBaseRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
@@ -76,20 +75,14 @@ public class AndroidInstrumentationTestRule implements RuleDefinition {
                 .cfg(HostTransition.INSTANCE)
                 .value(
                     environment.getToolsLabel("//tools/android:instrumentation_test_entry_point")))
-        .removeAttribute("deps")
-        .removeAttribute("javacopts")
-        .removeAttribute("plugins")
-        .removeAttribute(":java_plugins")
         .build();
   }
 
   @Override
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
-        .name("android_instrumentation_test")
-        .type(RuleClassType.TEST)
-        .ancestors(AndroidRuleClasses.AndroidBaseRule.class, BaseRuleClasses.TestBaseRule.class)
-        .factoryClass(AndroidInstrumentationTest.class)
+        .name("$android_instrumentation_test_base")
+        .type(RuleClassType.ABSTRACT)
         .build();
   }
 }
