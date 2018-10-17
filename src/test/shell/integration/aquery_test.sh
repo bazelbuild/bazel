@@ -138,14 +138,14 @@ EOF
   bazel aquery --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
-  assert_contains "exec_path: \"$pkg/dummy.txt\"" output || fail "Wrong output"
-  assert_contains "nemonic: \"Genrule\"" output || fail "Wrong output"
-  assert_contains "mnemonic: \".*-fastbuild\"" output || fail "Wrong output"
-  assert_contains "echo unused" output || fail "Wrong output"
+  assert_contains "exec_path: \"$pkg/dummy.txt\"" output
+  assert_contains "nemonic: \"Genrule\"" output
+  assert_contains "mnemonic: \".*-fastbuild\"" output
+  assert_contains "echo unused" output
 
   bazel aquery --output=textproto --noinclude_commandline "//$pkg:bar" > output \
     2> "$TEST_log" || fail "Expected success"
-  assert_not_contains "echo unused" output || fail "Wrong output"
+  assert_not_contains "echo unused" output
 }
 
 function test_aquery_skylark_env() {
