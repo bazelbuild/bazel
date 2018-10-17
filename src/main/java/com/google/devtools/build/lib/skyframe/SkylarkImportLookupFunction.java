@@ -56,6 +56,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -249,7 +250,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     }
     if (!astLookupValue.lookupSuccessful()) {
       // Skylark import files have to exist.
-      throw SkylarkImportFailedException.noFile(astLookupValue.getErrorMsg());
+      throw new SkylarkImportFailedException(astLookupValue.getErrorMsg());
     }
     BuildFileAST ast = astLookupValue.getAST();
     if (ast.containsErrors()) {
@@ -271,7 +272,19 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     boolean valuesMissing = false;
     if (alreadyVisited == null) {
       // Not inlining.
-      skylarkImportMap = env.getValues(importLookupKeys);
+
+      Map<SkyKey, ValueOrException<SkylarkImportFailedException>> values =
+          env.getValuesOrThrow(importLookupKeys, SkylarkImportFailedException.class);
+      skylarkImportMap = Maps.newHashMapWithExpectedSize(values.size());
+      for (Map.Entry<SkyKey, ValueOrException<SkylarkImportFailedException>> entry :
+          env.getValuesOrThrow(importLookupKeys, SkylarkImportFailedException.class).entrySet()) {
+        try {
+          skylarkImportMap.put(entry.getKey(), entry.getValue().get());
+        } catch (SkylarkImportFailedException exn) {
+          throw new SkylarkImportFailedException(
+              "in " + ast.getLocation().getPath() + ": " + exn.getMessage());
+        }
+      }
       valuesMissing = env.valuesMissing();
     } else {
       Preconditions.checkNotNull(
@@ -548,11 +561,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
               file,
               cause.getMessage()),
           cause);
-    }
-
-    static SkylarkImportFailedException noFile(String reason) {
-      return new SkylarkImportFailedException(
-          String.format("Extension file not found. %s", reason));
     }
 
     static SkylarkImportFailedException noBuildFile(PathFragment file) {

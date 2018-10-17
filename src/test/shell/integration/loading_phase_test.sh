@@ -102,7 +102,7 @@ function test_query_buildfiles_with_load() {
     rm -f $pkg/y/rules.bzl
     bazel query --noshow_progress "buildfiles(//$pkg/x)" 2>$TEST_log &&
         fail "Expected error"
-    expect_log "Extension file not found. Unable to load file '//$pkg/y:rules.bzl'"
+    expect_log "Unable to load file '//$pkg/y:rules.bzl'"
 }
 
 # Regression test for:

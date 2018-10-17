@@ -41,16 +41,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for SkylarkImportLookupFunction.
- */
+/** Tests for SkylarkImportLookupFunction. */
 @RunWith(JUnit4.class)
 public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
   String preludeLabelRelativePath;
 
   @Before
-  public final void preparePackageLoading() throws Exception  {
+  public final void preparePackageLoading() throws Exception {
     Path alternativeRoot = scratch.dir("/root_2");
     PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
     packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
@@ -106,17 +104,16 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   @Test
   public void testLoadFromSkylarkFileInRemoteRepo() throws Exception {
     scratch.deleteFile(preludeLabelRelativePath);
-    scratch.overwriteFile("WORKSPACE",
+    scratch.overwriteFile(
+        "WORKSPACE",
         "local_repository(",
         "    name = 'a_remote_repo',",
         "    path = '/a_remote_repo'",
         ")");
     scratch.file("/a_remote_repo/WORKSPACE");
     scratch.file("/a_remote_repo/remote_pkg/BUILD");
-    scratch.file("/a_remote_repo/remote_pkg/ext1.bzl",
-        "load(':ext2.bzl', 'CONST')");
-    scratch.file("/a_remote_repo/remote_pkg/ext2.bzl",
-        "CONST = 17");
+    scratch.file("/a_remote_repo/remote_pkg/ext1.bzl", "load(':ext2.bzl', 'CONST')");
+    scratch.file("/a_remote_repo/remote_pkg/ext2.bzl", "CONST = 17");
     checkSuccessfulLookup("@a_remote_repo//remote_pkg:ext1.bzl");
   }
 
@@ -199,8 +196,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage)
         .isEqualTo(
-            "Extension file not found. Unable to load package for '//pkg:ext.bzl': "
-                + "BUILD file not found on package path");
+            "Unable to load package for '//pkg:ext.bzl': BUILD file not found on package path");
   }
 
   @Test
@@ -218,8 +214,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage)
         .isEqualTo(
-            "Extension file not found. Unable to load package for '//pkg:ext.bzl': "
-                + "BUILD file not found on package path");
+            "Unable to load package for '//pkg:ext.bzl': BUILD file not found on package path");
   }
 
   @Test
@@ -238,26 +233,27 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
       assertThat(errorMessage)
           .contains(
               "invalid target name 'oops<?>.bzl': "
-              + "target names may not contain non-printable characters: '\\x00'");
+                  + "target names may not contain non-printable characters: '\\x00'");
     }
   }
 
   @Test
   public void testLoadFromExternalRepoInWorkspaceFileAllowed() throws Exception {
     scratch.deleteFile(preludeLabelRelativePath);
-    scratch.overwriteFile("WORKSPACE",
+    scratch.overwriteFile(
+        "WORKSPACE",
         "local_repository(",
         "    name = 'a_remote_repo',",
         "    path = '/a_remote_repo'",
         ")");
     scratch.file("/a_remote_repo/WORKSPACE");
     scratch.file("/a_remote_repo/remote_pkg/BUILD");
-    scratch.file("/a_remote_repo/remote_pkg/ext.bzl",
-        "CONST = 17");
+    scratch.file("/a_remote_repo/remote_pkg/ext.bzl", "CONST = 17");
 
     SkyKey skylarkImportLookupKey =
-        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked(
-            "@a_remote_repo//remote_pkg:ext.bzl"), /*inWorkspace=*/ true);
+        SkylarkImportLookupValue.key(
+            Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:ext.bzl"),
+            /*inWorkspace=*/ true);
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
@@ -266,8 +262,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatDoesntCrossesBoundaryOfPackage()
-      throws Exception {
+  public void testLoadUsingLabelThatDoesntCrossesBoundaryOfPackage() throws Exception {
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
     scratch.file("a/b/b.bzl", "b = 42");
@@ -276,8 +271,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Allow_OfSamePkg()
-      throws Exception {
+  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Allow_OfSamePkg() throws Exception {
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
     scratch.file("a/b/BUILD", "");
@@ -287,8 +281,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfSamePkg()
-      throws Exception {
+  public void testLoadUsingLabelThatCrossesBoundaryOfPackage_Disallow_OfSamePkg() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_disallow_load_labels_to_cross_package_boundaries");
 
     scratch.file("a/BUILD");
@@ -388,7 +381,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains(
-            "Extension file not found. Unable to load package for '//a/c:c/c.bzl': BUILD file not "
+            "Unable to load package for '//a/c:c/c.bzl': BUILD file not "
                 + "found on package path");
   }
 

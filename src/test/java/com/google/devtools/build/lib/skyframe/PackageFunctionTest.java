@@ -493,9 +493,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
     assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
-    String expectedMsg = "error loading package 'test/skylark': "
-        + "Extension file not found. Unable to load file '//test/skylark:bad_extension.bzl': "
-        + "file doesn't exist or isn't a file";
+    String expectedMsg =
+        "error loading package 'test/skylark': "
+            + "Unable to load file '//test/skylark:bad_extension.bzl': "
+            + "file doesn't exist or isn't a file";
     assertThat(errorInfo.getException())
         .hasMessage(expectedMsg);
   }
@@ -519,9 +520,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     assertThat(errorInfo.getException())
-        .hasMessage("error loading package 'test/skylark': Extension file not found. "
-            + "Unable to load file '//test/skylark:bad_extension.bzl': "
-            + "file doesn't exist or isn't a file");
+        .hasMessage(
+            "error loading package 'test/skylark': "
+                + "in /workspace/test/skylark/extension.bzl: "
+                + "Unable to load file '//test/skylark:bad_extension.bzl': "
+                + "file doesn't exist or isn't a file");
   }
 
   @Test

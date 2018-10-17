@@ -1241,8 +1241,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
       // expect to fail.
     }
     assertContainsEvent(
-        "Extension file not found. Unable to load file '//test:aspect.bzl': "
-            + "file doesn't exist or isn't a file");
+        "Unable to load file '//test:aspect.bzl': file doesn't exist or isn't a file");
   }
 
   @Test
@@ -1257,7 +1256,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent("Extension file not found. Unable to load package for '//foo:aspect.bzl'");
+    assertContainsEvent("Unable to load package for '//foo:aspect.bzl'");
   }
 
   @Test
