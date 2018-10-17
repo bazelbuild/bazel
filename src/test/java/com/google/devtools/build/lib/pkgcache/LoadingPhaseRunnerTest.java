@@ -581,6 +581,35 @@ public class LoadingPhaseRunnerTest {
   }
 
   @Test
+  public void testTestSuiteIsSubtracted() throws Exception {
+    // Test suites are expanded for each target pattern in sequence, not the whole set of target
+    // patterns after all the inclusions and exclusions are processed.
+    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
+    tester.addFile("cc/BUILD",
+        "cc_test(name = 'my_test', srcs = ['test.cc'])",
+        "cc_test(name = 'my_other_test', srcs = ['other_test.cc'])",
+        "test_suite(name = 'tests', tests = [':my_test'])");
+    TargetPatternPhaseValue result =
+        assertNoErrors(tester.loadTests("//cc:all", "-//cc:tests"));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//cc:my_test", "//cc:my_other_test"));
+    assertThat(result.getTestsToRunLabels())
+        .containsExactlyElementsIn(getLabels("//cc:my_other_test"));
+  }
+
+  /** Regression test for bug: "blaze test "no targets found" warning now fatal" */
+  @Test
+  public void testNoTestsInRecursivePattern() throws Exception {
+    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
+    tester.addFile("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'])");
+    TargetPatternPhaseValue result =
+        assertNoErrors(tester.loadTests("//foo/..."));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//foo"));
+    assertThat(result.getTestsToRunLabels()).isEmpty();
+  }
+
+  @Test
   public void testComplexTestSuite() throws Exception {
     AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile("cc/BUILD",
@@ -593,6 +622,19 @@ public class LoadingPhaseRunnerTest {
     TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//cc:all_tests"));
     assertThat(result.getTargetLabels())
         .containsExactlyElementsIn(getLabels("//cc:test1", "//cc:test2"));
+  }
+
+  @Test
+  public void testAllExcludesManualTest() throws Exception {
+    AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
+    tester.addFile("cc/BUILD",
+        "cc_test(name = 'my_test', srcs = ['test.cc'])",
+        "cc_test(name = 'my_other_test', srcs = ['other_test.cc'], tags = ['manual'])");
+    TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//cc:all"));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//cc:my_test"));
+    assertThat(result.getTestsToRunLabels())
+        .containsExactlyElementsIn(getLabels("//cc:my_test"));
   }
 
   /**
