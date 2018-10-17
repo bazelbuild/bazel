@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.actions;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import java.nio.charset.Charset;
 import java.util.Objects;
@@ -34,24 +32,16 @@ public final class ParamFileInfo {
   private final Charset charset;
   private final String flagFormatString;
   private final boolean always;
-  private final Iterable<Artifact> inputs;
 
   private ParamFileInfo(
       ParameterFileType fileType,
       Charset charset,
       String flagFormatString,
-      Iterable<Artifact> inputs,
       boolean always) {
     this.fileType = Preconditions.checkNotNull(fileType);
     this.charset = Preconditions.checkNotNull(charset);
     this.flagFormatString = Preconditions.checkNotNull(flagFormatString);
     this.always = always;
-    this.inputs = Iterables.transform(inputs, input -> {
-      Preconditions.checkArgument(input.isTreeArtifact(),
-          input.getExecPath() + " is not tree artifacts, "
-              + "it should not be put into ParamFileInfo's inputs");
-      return input;
-    });
   }
 
   /**
@@ -76,11 +66,6 @@ public final class ParamFileInfo {
   /** Returns true if a params file should always be used. */
   public boolean always() {
     return always;
-  }
-
-  /** Returns the tree artifacts that are needed as input for {@code ParameterFileWriteAction} */
-  public Iterable<Artifact> getInputs() {
-    return inputs;
   }
 
   @Override
@@ -113,7 +98,6 @@ public final class ParamFileInfo {
     private Charset charset = ISO_8859_1;
     private String flagFormatString = "@%s";
     private boolean always;
-    private Iterable<Artifact> inputs = ImmutableList.<Artifact>of();
 
     private Builder(ParameterFileType fileType) {
       this.fileType = fileType;
@@ -142,13 +126,8 @@ public final class ParamFileInfo {
       return this;
     }
 
-    public Builder setInputs(Iterable<Artifact> inputs) {
-      this.inputs = inputs;
-      return this;
-    }
-
     public ParamFileInfo build() {
-      return new ParamFileInfo(fileType, charset, flagFormatString, inputs, always);
+      return new ParamFileInfo(fileType, charset, flagFormatString, always);
     }
   }
 }

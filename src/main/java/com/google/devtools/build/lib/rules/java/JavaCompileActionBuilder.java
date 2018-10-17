@@ -24,7 +24,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.ExtraActionInfoSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -290,41 +288,18 @@ public final class JavaCompileActionBuilder {
       inputsBuilder.add(artifactForExperimentalCoverage);
     }
 
-    final CommandLines commandLines;
     CustomCommandLine javaCompileCommandLine =
         buildParamFileContents(ruleContext.getConfiguration(), internedJcopts);
-    if (ruleContext.getConfiguration().deferParamFiles()) {
-      commandLines =
-          CommandLines.builder()
-              .addCommandLine(javaBuilderCommandLine.build())
-              .addCommandLine(
-                  javaCompileCommandLine,
-                  ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
-                      .setCharset(ISO_8859_1)
-                      .setUseAlways(true)
-                      .build())
-              .build();
-    } else {
-      if (paramFile == null) {
-        paramFile =
-            ruleContext.getDerivedArtifact(
-                ParameterFile.derivePath(outputJar.getRootRelativePath()),
-                ruleContext
-                    .getConfiguration()
-                    .getBinDirectory(targetLabel.getPackageIdentifier().getRepository()));
-      }
-      inputsBuilder.add(paramFile);
-      javaBuilderCommandLine.addFormatted("@%s", paramFile.getExecPath());
-      commandLines = CommandLines.of(javaBuilderCommandLine.build());
-      Action parameterFileWriteAction =
-          new ParameterFileWriteAction(
-              ruleContext.getActionOwner(),
-              paramFile,
-              javaCompileCommandLine,
-              ParameterFile.ParameterFileType.UNQUOTED,
-              ISO_8859_1);
-      ruleContext.registerAction(parameterFileWriteAction);
-    }
+    CommandLines commandLines =
+        CommandLines.builder()
+            .addCommandLine(javaBuilderCommandLine.build())
+            .addCommandLine(
+                javaCompileCommandLine,
+                ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
+                    .setCharset(ISO_8859_1)
+                    .setUseAlways(true)
+                    .build())
+            .build();
 
     NestedSet<Artifact> inputs = inputsBuilder.build();
 

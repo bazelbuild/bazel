@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
@@ -635,33 +634,14 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     @VisibleForTesting @CheckReturnValue
     public Action[] build(ActionOwner owner, AnalysisEnvironment analysisEnvironment,
         BuildConfiguration configuration) {
-      final Action[] actions;
-      final CommandLines commandLines;
       ImmutableList<String> executableArgs = buildExecutableArgs();
-      if (configuration.deferParamFiles()) {
-        actions = new Action[1];
-        CommandLines.Builder result = CommandLines.builder();
-        result.addCommandLine(CommandLine.of(executableArgs));
-        for (CommandLineAndParamFileInfo pair : this.commandLines) {
-          result.addCommandLine(pair);
-        }
-        commandLines = result.build();
-      } else {
-        List<Action> paramFileActions = new ArrayList<>(this.commandLines.size());
-        CommandLine commandLine =
-            buildCommandLinesAndParamFileActions(
-                owner,
-                analysisEnvironment,
-                configuration,
-                executableArgs,
-                this.commandLines,
-                paramFileActions);
-        commandLines = CommandLines.of(commandLine);
-        actions = new Action[1 + paramFileActions.size()];
-        for (int i = 0; i < paramFileActions.size(); ++i) {
-          actions[i + 1] = paramFileActions.get(i);
-        }
+      Action[] actions = new Action[1];
+      CommandLines.Builder result = CommandLines.builder();
+      result.addCommandLine(CommandLine.of(executableArgs));
+      for (CommandLineAndParamFileInfo pair : this.commandLines) {
+        result.addCommandLine(pair);
       }
+      CommandLines commandLines = result.build();
       ActionEnvironment env =
           useDefaultShellEnvironment
               ? configuration.getActionEnvironment()
@@ -687,81 +667,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           CommandLineLimits.UNLIMITED,
           null,
           ActionEnvironment.create(environment, inheritedEnvironment));
-    }
-
-    private CommandLine buildCommandLinesAndParamFileActions(
-        ActionOwner owner,
-        AnalysisEnvironment analysisEnvironment,
-        BuildConfiguration configuration,
-        ImmutableList<String> executableArgs,
-        List<CommandLineAndParamFileInfo> commandLines,
-        List<Action> paramFileActions) {
-      boolean hasConditionalParamFile =
-          commandLines.stream().anyMatch(c -> c.paramFileInfo != null && !c.paramFileInfo.always());
-      boolean spillToParamFiles = false;
-      if (hasConditionalParamFile) {
-        int totalLen = getParamFileSize(executableArgs);
-        for (CommandLineAndParamFileInfo commandLineAndParamFileInfo : commandLines) {
-          totalLen += getCommandLineSize(commandLineAndParamFileInfo.commandLine);
-        }
-        // To reduce implementation complexity we either spill all or none of the param files.
-        spillToParamFiles = totalLen >= configuration.getCommandLineLimits().maxLength;
-      }
-      // We a name based on the output, starting at <output>-2.params
-      // and then incrementing
-      int paramFileNameSuffix = 2;
-      SpawnActionCommandLine.Builder result = new SpawnActionCommandLine.Builder();
-      result.addExecutableArguments(executableArgs);
-      for (CommandLineAndParamFileInfo commandLineAndParamFileInfo : commandLines) {
-        CommandLine commandLine = commandLineAndParamFileInfo.commandLine;
-        ParamFileInfo paramFileInfo = commandLineAndParamFileInfo.paramFileInfo;
-        boolean useParamsFile =
-            paramFileInfo != null && (paramFileInfo.always() || spillToParamFiles);
-        if (useParamsFile) {
-          Artifact output = Iterables.getFirst(outputs, null);
-          Preconditions.checkNotNull(output);
-          PathFragment paramFilePath =
-              ParameterFile.derivePath(
-                  output.getRootRelativePath(), Integer.toString(paramFileNameSuffix));
-          Artifact paramFile =
-              analysisEnvironment.getDerivedArtifact(paramFilePath, output.getRoot());
-          inputsBuilder.add(paramFile);
-          ParameterFileWriteAction paramFileWriteAction =
-              new ParameterFileWriteAction(
-                  owner,
-                  paramFileInfo.getInputs(),
-                  paramFile,
-                  commandLine,
-                  paramFileInfo.getFileType(),
-                  paramFileInfo.getCharset());
-          paramFileActions.add(paramFileWriteAction);
-          ++paramFileNameSuffix;
-          result.addParamFile(paramFile, paramFileInfo);
-        } else {
-          result.addCommandLine(commandLine);
-        }
-      }
-      return result.build();
-    }
-
-    private static int getCommandLineSize(CommandLine commandLine) {
-      try {
-        Iterable<String> actualArguments = commandLine.arguments();
-        return getParamFileSize(actualArguments);
-      } catch (CommandLineExpansionException e) {
-        // CommandLineExpansionException is thrown deterministically. We can ignore
-        // it here and pretend that a params file is not necessary at this stage,
-        // and an error will be thrown later at execution time.
-        return 0;
-      }
-    }
-
-    private static int getParamFileSize(Iterable<String> args) {
-      int size = 0;
-      for (String s : args) {
-        size += s.length() + 1; // Account for the space character
-      }
-      return size;
     }
 
     /**
@@ -1397,30 +1302,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         }
       }
       return result.build();
-    }
-
-    private static class Builder {
-      private List<Object> values = new ArrayList<>();
-
-      Builder addExecutableArguments(ImmutableList<String> executableArguments) {
-        values.addAll(executableArguments);
-        return this;
-      }
-
-      Builder addParamFile(Artifact paramFile, ParamFileInfo paramFileInfo) {
-        values.add(paramFile);
-        values.add(paramFileInfo.getFlagFormatString());
-        return this;
-      }
-
-      Builder addCommandLine(CommandLine commandLine) {
-        values.add(commandLine);
-        return this;
-      }
-
-      SpawnActionCommandLine build() {
-        return new SpawnActionCommandLine(values.toArray());
-      }
     }
   }
 }

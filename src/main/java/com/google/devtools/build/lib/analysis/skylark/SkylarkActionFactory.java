@@ -389,11 +389,6 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
                   .setFlagFormatString(args.flagFormatString)
                   .setUseAlways(args.useAlways)
                   .setCharset(StandardCharsets.UTF_8)
-                  .setInputs(
-                      skylarkSemantics.incompatibleExpandDirectories()
-                              && !context.getConfiguration().deferParamFiles()
-                          ? args.getDirectoryArtifacts()
-                          : ImmutableList.of())
                   .build();
         }
         builder.addCommandLine(args.commandLine.build(), paramFileInfo);

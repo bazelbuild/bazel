@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -44,7 +43,6 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashMap;
@@ -218,95 +216,6 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testBuilderWithJavaExecutableAndParameterFile() throws Exception {
-    useConfiguration("--min_param_file_size=0", "--nodefer_param_files");
-    collectingAnalysisEnvironment = new AnalysisTestUtil.CollectingAnalysisEnvironment(
-        getTestAnalysisEnvironment());
-    Artifact output = getBinArtifactWithNoOwner("output");
-    Artifact paramFile = getBinArtifactWithNoOwner("output-2.params");
-    Action[] actions =
-        builder()
-            .addOutput(output)
-            .setJavaExecutable(
-                scratch.file("/bin/java").asFragment(),
-                jarArtifact,
-                "MyMainClass",
-                asList("-jvmarg"))
-            .addCommandLine(
-                CustomCommandLine.builder().add("-X").build(),
-                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-            .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
-    collectingAnalysisEnvironment.registerAction(actions);
-    SpawnAction action = (SpawnAction) actions[0];
-    if (getMutableActionGraph() != null) {
-      // Otherwise, CachingAnalysisEnvironment.registerAction() registers the action. We cannot
-      // use STUB_ANALYSIS_ENVIRONMENT here because we also need a BuildConfiguration.
-      collectingAnalysisEnvironment.registerWith(getMutableActionGraph());
-    }
-    assertThat(action.getArguments())
-        .containsExactly(
-            "/bin/java",
-            "-Xverify:none",
-            "-jvmarg",
-            "-cp",
-            "pkg/exe.jar",
-            "MyMainClass",
-            "@" + paramFile.getExecPathString())
-        .inOrder();
-
-    assertThat(((ParameterFileWriteAction) getGeneratingAction(paramFile)).getArguments())
-        .containsExactly("-X");
-    MoreAsserts.assertContainsSublist(actionInputsToPaths(action.getSpawn().getInputFiles()),
-        "pkg/exe.jar");
-  }
-
-  @Test
-  public void testBuilderWithJavaExecutableAndParameterFileAndParameterFileFlag() throws Exception {
-    useConfiguration("--min_param_file_size=0", "--nodefer_param_files");
-    collectingAnalysisEnvironment = new AnalysisTestUtil.CollectingAnalysisEnvironment(
-        getTestAnalysisEnvironment());
-
-    Artifact output = getBinArtifactWithNoOwner("output");
-    Artifact paramFile = getBinArtifactWithNoOwner("output-2.params");
-    Action[] actions =
-        builder()
-            .addOutput(output)
-            .setJavaExecutable(
-                scratch.file("/bin/java").asFragment(),
-                jarArtifact,
-                "MyMainClass",
-                asList("-jvmarg"))
-            .addCommandLine(
-                CustomCommandLine.builder().add("-X").build(),
-                ParamFileInfo.builder(ParameterFileType.UNQUOTED)
-                    .setCharset(ISO_8859_1)
-                    .setFlagFormatString("--flagfile=%s")
-                    .build())
-            .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
-    collectingAnalysisEnvironment.registerAction(actions);
-    SpawnAction action = (SpawnAction) actions[0];
-    if (getMutableActionGraph() != null) {
-      // Otherwise, CachingAnalysisEnvironment.registerAction() registers the action. We cannot
-      // use STUB_ANALYSIS_ENVIRONMENT here because we also need a BuildConfiguration.
-      collectingAnalysisEnvironment.registerWith(getMutableActionGraph());
-    }
-    assertThat(action.getArguments())
-        .containsExactly(
-            "/bin/java",
-            "-Xverify:none",
-            "-jvmarg",
-            "-cp",
-            "pkg/exe.jar",
-            "MyMainClass",
-            "--flagfile=" + paramFile.getExecPathString())
-        .inOrder();
-    assertThat(((ParameterFileWriteAction) getGeneratingAction(paramFile)).getArguments())
-        .containsExactly("-X");
-    MoreAsserts.assertContainsSublist(actionInputsToPaths(action.getSpawn().getInputFiles()),
-        "pkg/exe.jar");
-  }
-
-  @Test
   public void testBuilderWithExtraExecutableArguments() throws Exception {
     Action[] actions =
         builder()
@@ -335,100 +244,6 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testBuilderWithExtraExecutableArgumentsAndParameterFile() throws Exception {
-    useConfiguration("--min_param_file_size=0", "--nodefer_param_files");
-    collectingAnalysisEnvironment = new AnalysisTestUtil.CollectingAnalysisEnvironment(
-        getTestAnalysisEnvironment());
-    Artifact output = getBinArtifactWithNoOwner("output");
-    Artifact paramFile = getBinArtifactWithNoOwner("output-2.params");
-    Action[] actions =
-        builder()
-            .addOutput(output)
-            .setJavaExecutable(
-                scratch.file("/bin/java").asFragment(),
-                jarArtifact,
-                "MyMainClass",
-                asList("-jvmarg"))
-            .addExecutableArguments("execArg1", "execArg2")
-            .addCommandLine(
-                CustomCommandLine.builder().add("arg1").add("arg2").add("arg3").build(),
-                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-            .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
-    collectingAnalysisEnvironment.registerAction(actions);
-    SpawnAction action = (SpawnAction) actions[0];
-    if (getMutableActionGraph() != null) {
-      // Otherwise, CachingAnalysisEnvironment.registerAction() registers the action. We cannot
-      // use STUB_ANALYSIS_ENVIRONMENT here because we also need a BuildConfiguration.
-      collectingAnalysisEnvironment.registerWith(getMutableActionGraph());
-    }
-    assertThat(action.getSpawn().getArguments())
-        .containsExactly(
-            "/bin/java",
-            "-Xverify:none",
-            "-jvmarg",
-            "-cp",
-            "pkg/exe.jar",
-            "MyMainClass",
-            "execArg1",
-            "execArg2",
-            "@" + paramFile.getExecPathString());
-
-    assertThat(action.getArguments())
-        .containsExactly(
-            "/bin/java",
-            "-Xverify:none",
-            "-jvmarg",
-            "-cp",
-            "pkg/exe.jar",
-            "MyMainClass",
-            "execArg1",
-            "execArg2",
-            "@" + paramFile.getExecPathString());
-    assertThat(((ParameterFileWriteAction) getGeneratingAction(paramFile)).getArguments())
-        .containsExactly("arg1", "arg2", "arg3")
-        .inOrder();
-  }
-
-  @Test
-  public void testParameterFiles() throws Exception {
-    Artifact output1 = getBinArtifactWithNoOwner("output1");
-    Artifact output2 = getBinArtifactWithNoOwner("output2");
-    Artifact paramFile = getBinArtifactWithNoOwner("output1-2.params");
-    PathFragment executable = PathFragment.create("/bin/executable");
-
-    useConfiguration("--min_param_file_size=500", "--nodefer_param_files");
-
-    String longOption = Strings.repeat("x", 1000);
-    SpawnAction spawnAction =
-        ((SpawnAction)
-            builder()
-                .addOutput(output1)
-                .setExecutable(executable)
-                .addCommandLine(
-                    CustomCommandLine.builder().addDynamicString(longOption).build(),
-                    ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-                .build(
-                    ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig)[
-                0]);
-    assertThat(spawnAction.getRemainingArguments()).containsExactly(
-        "@" + paramFile.getExecPathString()).inOrder();
-
-    useConfiguration("--min_param_file_size=1500", "--nodefer_param_files");
-    spawnAction =
-        ((SpawnAction)
-            builder()
-                .addOutput(output2)
-                .setExecutable(executable)
-                .addCommandLine(
-                    CustomCommandLine.builder().addDynamicString(longOption).build(),
-                    ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-                .build(
-                    ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig)[
-                0]);
-    assertThat(spawnAction.getRemainingArguments()).containsExactly(longOption).inOrder();
-  }
-
-  @Test
   public void testMultipleCommandLines() throws Exception {
     Artifact input = getSourceArtifact("input");
     Artifact output = getBinArtifactWithNoOwner("output");
@@ -445,12 +260,10 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testMultipleParameterFiles() throws Exception {
+  public void testGetArgumentsWithParameterFiles() throws Exception {
     useConfiguration("--min_param_file_size=0", "--nodefer_param_files");
     Artifact input = getSourceArtifact("input");
     Artifact output = getBinArtifactWithNoOwner("output");
-    Artifact paramFile1 = getBinArtifactWithNoOwner("output-2.params");
-    Artifact paramFile2 = getBinArtifactWithNoOwner("output-3.params");
     Action[] actions =
         builder()
             .addInput(input)
@@ -464,10 +277,8 @@ public class SpawnActionTest extends BuildViewTestCase {
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     SpawnAction action = (SpawnAction) actions[0];
-    assertThat(actions).hasLength(3);
-    assertThat(action.getArguments())
-        .containsExactly(
-            "/bin/xxx", "@" + paramFile1.getExecPathString(), "@" + paramFile2.getExecPathString());
+    // getArguments returns all arguments, regardless whether some go in parameter files or not
+    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2");
   }
 
   @Test

@@ -385,14 +385,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.EXECUTION,
-          OptionEffectTag.ACTION_COMMAND_LINES
+            OptionEffectTag.LOADING_AND_ANALYSIS,
+            OptionEffectTag.EXECUTION,
+            OptionEffectTag.ACTION_COMMAND_LINES
         },
-        help =
-            "Whether to use deferred param files. When set, param files will not be "
-                + "added to the action graph. Instead, they will be added as virtual action inputs "
-                + "and written at the same time as the action executes.")
+        help = "This option is deprecated and has no effect and will be removed in the future.")
     public boolean deferParamFiles;
 
     @Option(
@@ -975,7 +972,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
       host.enforceConstraints = enforceConstraints;
       host.separateGenfilesDirectory = separateGenfilesDirectory;
       host.cpu = hostCpu;
-      host.deferParamFiles = deferParamFiles;
 
       // === Runfiles ===
       host.buildRunfilesManifests = buildRunfilesManifests;
@@ -1753,10 +1749,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public CommandLineLimits getCommandLineLimits() {
     return commandLineLimits;
-  }
-
-  public boolean deferParamFiles() {
-    return options.deferParamFiles;
   }
 
   @Override
