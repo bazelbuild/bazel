@@ -60,7 +60,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
         NestedSetBuilder.wrap(Order.STABLE_ORDER, allOutputs);
     common.addPyExtraActionPseudoAction();
 
-    NestedSet<PathFragment> imports = common.collectImports(ruleContext, semantics);
+    NestedSet<String> imports = common.collectImports(ruleContext, semantics);
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -76,7 +76,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
     runfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
-    common.addCommonTransitiveInfoProviders(builder, semantics, filesToBuild);
+    common.addCommonTransitiveInfoProviders(builder, semantics, filesToBuild, imports);
 
     return builder
         .setFilesToBuild(filesToBuild)

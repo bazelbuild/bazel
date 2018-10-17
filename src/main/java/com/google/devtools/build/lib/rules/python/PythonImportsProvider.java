@@ -24,13 +24,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 @AutoCodec
 public final class PythonImportsProvider implements TransitiveInfoProvider {
 
-  private final NestedSet<PathFragment> transitivePythonImports;
+  private final NestedSet<String> transitivePythonImports;
 
-  public PythonImportsProvider(NestedSet<PathFragment> transitivePythonImports) {
+  public PythonImportsProvider(NestedSet<String> transitivePythonImports) {
     this.transitivePythonImports = transitivePythonImports;
   }
 
-  public NestedSet<PathFragment> getTransitivePythonImports() {
+  public NestedSet<String> getTransitivePythonImports() {
     return transitivePythonImports;
   }
 }

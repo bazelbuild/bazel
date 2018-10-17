@@ -72,7 +72,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    NestedSet<PathFragment> imports = common.collectImports(ruleContext, semantics);
+    NestedSet<String> imports = common.collectImports(ruleContext, semantics);
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -118,7 +118,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext);
-    common.addCommonTransitiveInfoProviders(builder, semantics, common.getFilesToBuild());
+    common.addCommonTransitiveInfoProviders(builder, semantics, common.getFilesToBuild(), imports);
 
     semantics.postInitBinary(ruleContext, runfilesSupport, common);
 
