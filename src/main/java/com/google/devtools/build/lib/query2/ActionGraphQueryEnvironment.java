@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.query2.ActionGraphProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -148,7 +149,9 @@ public class ActionGraphQueryEnvironment
     OutputStream out = reporter.getOutErr().getOutputStream();
     return ImmutableList.of(
         new ActionGraphProtoOutputFormatterCallback(
-            reporter, aqueryOptions, out, skyframeExecutor, accessor),
+            reporter, aqueryOptions, out, skyframeExecutor, accessor, OutputType.BINARY),
+        new ActionGraphProtoOutputFormatterCallback(
+            reporter, aqueryOptions, out, skyframeExecutor, accessor, OutputType.TEXT),
         new ActionGraphTextOutputFormatterCallback(
             reporter, aqueryOptions, out, skyframeExecutor, accessor));
   }
