@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -29,6 +29,8 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -37,7 +39,7 @@ import javax.annotation.Nullable;
  * actions, this finds the Skyframe nodes corresponding to those inputs and the actions which
  * generated them.
  */
-class ActionRewindStrategy {
+public class ActionRewindStrategy {
 
   /**
    * Returns a {@link RewindPlan} specifying:
@@ -66,10 +68,15 @@ class ActionRewindStrategy {
       }
     }
 
-    // Find the action execution nodes that lost inputs depend on.
-    HashSet<SkyKey> depsToRestart = Sets.newHashSet();
+    // This collection tracks which Skyframe nodes must be restarted.
+    HashSet<SkyKey> depsToRestart = new HashSet<>();
+
+    // SkyframeActionExecutor must re-execute the actions being restarted, so we must tell it to
+    // evict its cached action results. This collection tracks those actions.
+    HashSet<Action> actionsToReset = new HashSet<>();
+
+    actionsToReset.add(failedAction);
     ImmutableSet<SkyKey> inputDepKeysSet = ImmutableSet.copyOf(inputDepKeys);
-    ImmutableList.Builder<Action> actionsToReset = ImmutableList.builder();
     for (ActionInput lostInput : lostInputs) {
       Preconditions.checkState(
           inputDepKeysSet.contains(lostInput),
@@ -77,31 +84,75 @@ class ActionRewindStrategy {
           lostInput,
           inputDepKeysSet,
           failedAction);
+      // Restart the artifact.
       depsToRestart.add((Artifact) lostInput);
 
-      Set<SkyKey> depsOfArtifact = getDepsOfArtifact((Artifact) lostInput, env);
-      if (depsOfArtifact == null) {
+      Map<ActionLookupData, Action> actionMap = getActionsForLostInput((Artifact) lostInput, env);
+      if (actionMap == null) {
         // Some deps of the artifact are not done. Another rewind must be in-flight, and there is no
         // need to restart the shared deps twice.
         continue;
       }
-      // Restart the execution-phase dependencies of the artifact.
-      depsToRestart.addAll(depsOfArtifact);
-    }
+      // Restart the actions which produced the artifact.
+      depsToRestart.addAll(actionMap.keySet());
+      actionsToReset.addAll(actionMap.values());
 
-    // SkyframeActionExecutor must re-execute the actions being restarted, so we must tell it to
-    // evict its cached action results.
-    actionsToReset.add(failedAction);
-    for (SkyKey depToRestart : depsToRestart) {
-      if (!(depToRestart instanceof ActionLookupData)) {
-        continue;
+      LinkedList<Action> possiblyPropagatingActions = new LinkedList<>(actionMap.values());
+      while (!possiblyPropagatingActions.isEmpty()) {
+        Action action = possiblyPropagatingActions.poll();
+
+        if (!action.mayInsensitivelyPropagateInputs()) {
+          continue;
+        }
+        // Restarting this action is insufficient. Doing so will not recreate the missing input.
+        // We need to also restart this action's non-source inputs and the actions which created
+        // those inputs.
+        //
+        // Note that the artifacts returned by Action#getAllowedDerivedInputs do not need to be
+        // considered because none of the actions which provide non-throwing implementations of
+        // getAllowedDerivedInputs "insensitively propagate inputs".
+        Iterable<Artifact> inputs = action.getInputs();
+        for (Artifact input : inputs) {
+          if (input.isSourceArtifact()) {
+            continue;
+          }
+          // Restarting all derived inputs of propagating actions is overkill. Preferably, we'd want
+          // to only restart the inputs which corresponds to the known lost outputs, somehow.
+          // Rewinding is expected to be rare, so perhaps refining this isn't necessary.
+          depsToRestart.add(input);
+          Map<ActionLookupData, Action> otherActionMap = getActionsForLostInput(input, env);
+          if (otherActionMap == null) {
+            continue;
+          }
+          depsToRestart.addAll(otherActionMap.keySet());
+          for (Action nextAction : otherActionMap.values()) {
+            Preconditions.checkState(
+                actionsToReset.add(nextAction), "Action-artifact cycle? Visited twice: %s", action);
+          }
+          // The preceding precondition guarantees that no action gets added to this list twice.
+          possiblyPropagatingActions.addAll(otherActionMap.values());
+        }
       }
-      actionsToReset.add(
-          ActionExecutionFunction.getActionForLookupData(env, (ActionLookupData) depToRestart));
     }
 
     return new RewindPlan(
-        Restart.selfAnd(ImmutableList.copyOf(depsToRestart)), actionsToReset.build());
+        Restart.selfAnd(ImmutableList.copyOf(depsToRestart)), ImmutableList.copyOf(actionsToReset));
+  }
+
+  @Nullable
+  private Map<ActionLookupData, Action> getActionsForLostInput(Artifact lostInput, Environment env)
+      throws InterruptedException {
+    Set<ActionLookupData> actionExecutionDeps = getActionExecutionDeps(lostInput, env);
+    if (actionExecutionDeps == null) {
+      return null;
+    }
+
+    Map<ActionLookupData, Action> actions =
+        Maps.newHashMapWithExpectedSize(actionExecutionDeps.size());
+    for (ActionLookupData dep : actionExecutionDeps) {
+      actions.put(dep, ActionExecutionFunction.getActionForLookupData(env, dep));
+    }
+    return actions;
   }
 
   /**
@@ -109,7 +160,7 @@ class ActionRewindStrategy {
    * those dependencies are not done.
    */
   @Nullable
-  private Set<SkyKey> getDepsOfArtifact(Artifact lostInput, Environment env)
+  private Set<ActionLookupData> getActionExecutionDeps(Artifact lostInput, Environment env)
       throws InterruptedException {
     ArtifactFunction.ArtifactDependencies artifactDependencies =
         ArtifactFunction.ArtifactDependencies.discoverDependencies(lostInput, env);
@@ -121,7 +172,8 @@ class ActionRewindStrategy {
         "Rewinding template actions not yet supported: %s",
         artifactDependencies);
     // TODO(mschaller): extend ArtifactDependencies to support template actions (and other special
-    // cases)
+    // cases). This return type is a collection assuming that those cases may require multiple keys.
+    // Scalarize it if that's untrue.
     return ImmutableSet.of(artifactDependencies.getNontemplateActionExecutionKey());
   }
 

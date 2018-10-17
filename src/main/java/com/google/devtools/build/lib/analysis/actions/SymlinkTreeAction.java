@@ -114,4 +114,9 @@ public final class SymlinkTreeAction extends AbstractAction {
             this, actionExecutionContext, ImmutableMap.copyOf(resolvedEnv), enableRunfiles);
     return ActionResult.EMPTY;
   }
+
+  @Override
+  public boolean mayInsensitivelyPropagateInputs() {
+    return true;
+  }
 }
