@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.query2.ProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -178,7 +179,22 @@ public class ConfiguredTargetQueryEnvironment
                 trimmingTransitionFactory))
         .add(
             new ProtoOutputFormatterCallback(
-                reporter, cqueryOptions, out, skyframeExecutor, accessor, aspectResolver))
+                reporter,
+                cqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                aspectResolver,
+                OutputType.BINARY))
+        .add(
+            new ProtoOutputFormatterCallback(
+                reporter,
+                cqueryOptions,
+                out,
+                skyframeExecutor,
+                accessor,
+                aspectResolver,
+                OutputType.TEXT))
         .build();
   }
 

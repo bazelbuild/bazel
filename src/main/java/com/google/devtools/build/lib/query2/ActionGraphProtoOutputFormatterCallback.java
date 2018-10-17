@@ -25,12 +25,30 @@ import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
+import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 
 /** Default output callback for aquery, prints proto output. */
 public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCallback {
 
+  /** Defines the types of proto output this class can handle. */
+  public enum OutputType {
+    BINARY("proto"),
+    TEXT("textproto");
+
+    private final String formatName;
+
+    OutputType(String formatName) {
+      this.formatName = formatName;
+    }
+
+    public String formatName() {
+      return formatName;
+    }
+  }
+
+  private final OutputType outputType;
   private final ActionGraphDump actionGraphDump;
 
   ActionGraphProtoOutputFormatterCallback(
@@ -38,14 +56,16 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       AqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTargetValue> accessor) {
+      TargetAccessor<ConfiguredTargetValue> accessor,
+      OutputType outputType) {
     super(reporter, options, out, skyframeExecutor, accessor);
-    actionGraphDump = new ActionGraphDump(options.includeCommandline);
+    this.outputType = outputType;
+    this.actionGraphDump = new ActionGraphDump(options.includeCommandline);
   }
 
   @Override
   public String getName() {
-    return "proto";
+    return outputType.formatName();
   }
 
   @Override
@@ -71,7 +91,18 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   public void close(boolean failFast) throws IOException {
     if (!failFast && printStream != null) {
       ActionGraphContainer actionGraphContainer = actionGraphDump.build();
-      actionGraphContainer.writeTo(printStream);
+
+      // Write the data.
+      switch (outputType) {
+        case BINARY:
+          actionGraphContainer.writeTo(printStream);
+          break;
+        case TEXT:
+          TextFormat.print(actionGraphContainer, printStream);
+          break;
+        default:
+          throw new IllegalStateException("Unknown outputType " + outputType.formatName());
+      }
     }
   }
 

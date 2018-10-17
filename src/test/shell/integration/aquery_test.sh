@@ -117,7 +117,33 @@ EOF
   fi
 
   assert_contains "echo unused" output
-  bazel aquery --noinclude_commandline "//$pkg:bar" > output \
+  bazel aquery --output=text --noinclude_commandline "//$pkg:bar" > output \
+    2> "$TEST_log" || fail "Expected success"
+  assert_not_contains "echo unused" output
+}
+
+function test_aquery_textproto() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  echo "hello aquery" > "$pkg/in.txt"
+
+  bazel aquery --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "exec_path: \"$pkg/dummy.txt\"" output
+  assert_contains "nemonic: \"Genrule\"" output
+  assert_contains "mnemonic: \".*-fastbuild\"" output
+  assert_contains "echo unused" output
+
+  bazel aquery --output=textproto --noinclude_commandline "//$pkg:bar" > output \
     2> "$TEST_log" || fail "Expected success"
   assert_not_contains "echo unused" output
 }

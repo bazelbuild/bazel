@@ -76,6 +76,20 @@ EOF
  assert_contains "//$pkg:japanese" output
 }
 
+function test_basic_query_output_textproto() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+sh_library(name='maple', deps=[':japanese'])
+sh_library(name='japanese')
+EOF
+
+ bazel cquery --output=textproto "deps(//$pkg:maple)" > output 2>"$TEST_log" || fail "Expected success"
+
+ assert_contains "name: \"//$pkg:maple\"" output
+ assert_contains "name: \"//$pkg:japanese\"" output
+}
+
 function test_respects_selects() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg

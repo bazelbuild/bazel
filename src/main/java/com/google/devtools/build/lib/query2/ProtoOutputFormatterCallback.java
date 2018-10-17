@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.protobuf.Message;
+import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
@@ -41,6 +43,23 @@ import java.util.Map;
 /** Proto output formatter for cquery results. */
 public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
+  /** Defines the types of proto output this class can handle. */
+  public enum OutputType {
+    BINARY("proto"),
+    TEXT("textproto");
+
+    private final String formatName;
+
+    OutputType(String formatName) {
+      this.formatName = formatName;
+    }
+
+    public String formatName() {
+      return formatName;
+    }
+  }
+
+  private final OutputType outputType;
   private final AspectResolver resolver;
 
   private AnalysisProtos.CqueryResult.Builder protoResult;
@@ -53,8 +72,10 @@ public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
-      AspectResolver resolver) {
+      AspectResolver resolver,
+      OutputType outputType) {
     super(reporter, options, out, skyframeExecutor, accessor);
+    this.outputType = outputType;
     this.resolver = resolver;
   }
 
@@ -67,21 +88,34 @@ public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   public void close(boolean failFast) throws IOException {
     if (!failFast && printStream != null) {
       if (options.protoIncludeConfigurations) {
-        protoResult.build().writeTo(printStream);
+        writeData(protoResult.build());
       } else {
         // Documentation promises that setting this flag to false means we convert directly
         // to the build.proto format. This is hard to test in integration testing due to the way
         // proto output is turned readable (codex). So change the following code with caution.
         QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
         protoResult.getResultsList().forEach(ct -> queryResult.addTarget(ct.getTarget()));
-        queryResult.build().writeTo(printStream);
+        writeData(queryResult.build());
       }
+    }
+  }
+
+  private void writeData(Message message) throws IOException {
+    switch (outputType) {
+      case BINARY:
+        message.writeTo(printStream);
+        break;
+      case TEXT:
+        TextFormat.print(message, printStream);
+        break;
+      default:
+        throw new IllegalStateException("Unknown outputType " + outputType.formatName());
     }
   }
 
   @Override
   public String getName() {
-    return "proto";
+    return outputType.formatName();
   }
 
   @VisibleForTesting
