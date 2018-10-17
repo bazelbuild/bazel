@@ -200,7 +200,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         new SkyframeActionExecutor(
             actionKeyContext,
             new AtomicReference<>(statusReporter),
-            /*sourceRootSupplier=*/ () -> ImmutableList.of());
+            /*sourceRootSupplier=*/ () -> ImmutableList.of(),
+            /*sourceArtifactFactory=*/ unused -> null);
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(

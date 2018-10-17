@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -33,6 +34,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -121,6 +123,7 @@ public interface OutputService {
    *     com.google.devtools.build.lib.pkgcache.PathPackageLocator})
    * @param inputArtifactData information about required inputs to the action
    * @param outputArtifacts required outputs of the action
+   * @param sourceArtifactFactory obtains source artifacts from source exec paths
    * @return an action-scoped filesystem if {@link #supportsActionFileSystem} is true
    */
   @Nullable
@@ -130,7 +133,8 @@ public interface OutputService {
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
       ActionInputMap inputArtifactData,
-      Iterable<Artifact> outputArtifacts) {
+      Iterable<Artifact> outputArtifacts,
+      Function<PathFragment, SourceArtifact> sourceArtifactFactory) {
     return null;
   }
 
