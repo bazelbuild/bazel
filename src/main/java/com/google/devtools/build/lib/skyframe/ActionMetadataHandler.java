@@ -144,15 +144,15 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
   @Nullable
   private FileArtifactValue getInputFileArtifactValue(Artifact input) {
-    if (outputs.contains(input)) {
+    if (isKnownOutput(input)) {
       return null;
     }
-
-    if (input.hasParent() && outputs.contains(input.getParent())) {
-      return null;
-    }
-
     return inputArtifactData.getMetadata(input);
+  }
+
+  private boolean isKnownOutput(Artifact artifact) {
+    return outputs.contains(artifact)
+        || (artifact.hasParent() && outputs.contains(artifact.getParent()));
   }
 
   @Override
@@ -196,6 +196,15 @@ public final class ActionMetadataHandler implements MetadataHandler {
       throw new FileNotFoundException(artifact + " not found");
     }
     // Fallthrough: the artifact must be a non-tree, non-middleman output artifact.
+
+    // Don't store metadata for output artifacts that are not declared outputs of the action.
+    if (!isKnownOutput(artifact)) {
+      // Throw in strict mode.
+      if (!missingArtifactsAllowed) {
+        throw new IllegalStateException(String.format("null for %s", artifact));
+      }
+      return null;
+    }
 
     // Check for existing metadata. It may have been injected. In either case, this method is called
     // from SkyframeActionExecutor to make sure that we have metadata for all action outputs, as the

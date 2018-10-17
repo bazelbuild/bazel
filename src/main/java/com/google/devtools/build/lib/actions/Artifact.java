@@ -619,7 +619,8 @@ public class Artifact
      * TreeArtifact. The {@link ArtifactOwner} of the TreeFileArtifact is the {@link ArtifactOwner}
      * of the parent TreeArtifact.
      */
-    TreeFileArtifact(SpecialArtifact parent, PathFragment parentRelativePath) {
+    @VisibleForTesting
+    public TreeFileArtifact(SpecialArtifact parent, PathFragment parentRelativePath) {
       this(parent, parentRelativePath, parent.getArtifactOwner());
     }
 
