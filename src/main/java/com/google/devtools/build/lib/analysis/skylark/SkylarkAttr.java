@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -255,10 +256,11 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         builder.cfg((SplitTransition) trans);
       } else if (trans instanceof SplitTransitionProvider) {
         builder.cfg((SplitTransitionProvider) trans);
-      } else if (trans instanceof BaseFunction) {
+      } else if (trans instanceof StarlarkDefinedConfigTransition) {
+        BaseFunction transImpl = ((StarlarkDefinedConfigTransition) trans).getImplementation();
         builder.hasFunctionTransition();
-        builder.cfg(new FunctionSplitTransitionProvider((BaseFunction) trans,
-                env.getSemantics(), env.getEventHandler()));
+        builder.cfg(new FunctionSplitTransitionProvider(transImpl,
+            env.getSemantics(), env.getEventHandler()));
       } else if (!trans.equals("target")) {
         throw new EvalException(ast.getLocation(),
             "cfg must be either 'data', 'host', or 'target'.");

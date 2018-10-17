@@ -43,6 +43,7 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void writeBasicTestFiles() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -52,6 +53,7 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
         "      't0': {'cpu': 'k8'},",
         "      't1': {'cpu': 'armeabi-v7a'},",
         "  }",
+        "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
         "def impl(ctx): ",
         "  return struct(",
         "    split_attr_deps = ctx.split_attr.deps,",
@@ -62,8 +64,8 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
         "my_rule = rule(",
         "  implementation = impl,",
         "  attrs = {",
-        "    'deps': attr.label_list(cfg = transition_func),",
-        "    'dep':  attr.label(cfg = transition_func),",
+        "    'deps': attr.label_list(cfg = my_transition),",
+        "    'dep':  attr.label(cfg = my_transition),",
         "    '_whitelist_function_transition': attr.label(",
         "        default = '//tools/whitelists/function_transition_whitelist',",
         "    ),",
@@ -179,6 +181,7 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void writeReadSettingsTestFiles() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -190,12 +193,13 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
         "      'cpu': cpu,",
         "    }",
         "  return transitions",
+        "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
         "def impl(ctx): ",
         "  return struct(split_attr_dep = ctx.split_attr.dep)",
         "my_rule = rule(",
         "  implementation = impl,",
         "  attrs = {",
-        "    'dep':  attr.label(cfg = transition_func),",
+        "    'dep':  attr.label(cfg = my_transition),",
         "    '_whitelist_function_transition': attr.label(",
         "        default = '//tools/whitelists/function_transition_whitelist',",
         "    ),",
@@ -230,6 +234,7 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void writeOptionConversionTestFiles() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
 
     scratch.file(
@@ -240,12 +245,13 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
         "    'dynamic_mode': 'off',",
         "    'crosstool_top': '//android/crosstool:everything',",
         "  }",
+        "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
         "def impl(ctx): ",
         "  return struct(split_attr_dep = ctx.split_attr.dep)",
         "my_rule = rule(",
         "  implementation = impl,",
         "  attrs = {",
-        "    'dep':  attr.label(cfg = transition_func),",
+        "    'dep':  attr.label(cfg = my_transition),",
         "    '_whitelist_function_transition': attr.label(",
         "        default = '//tools/whitelists/function_transition_whitelist',",
         "    ),",

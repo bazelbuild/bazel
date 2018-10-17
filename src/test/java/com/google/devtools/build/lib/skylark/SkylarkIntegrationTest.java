@@ -1083,6 +1083,31 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testTransitionGuardedByExperimentalFlag() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=false");
+
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  return []",
+        "def transition_func(settings):",
+        "  return settings",
+        "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl)");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("transition() is experimental and disabled by default");
+  }
+
+  @Test
   public void testNoOutputListAttrDefault() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_no_output_attr_default=true");
 

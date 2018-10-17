@@ -125,8 +125,9 @@ public class SkylarkSemanticsConsistencyTest {
             + rand.nextDouble(),
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
         "--experimental_enable_repo_mapping=" + rand.nextBoolean(),
-        "--experimental_remap_main_repo=" + rand.nextBoolean(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
+        "--experimental_remap_main_repo=" + rand.nextBoolean(),
+        "--experimental_starlark_config_transitions=" + rand.nextBoolean(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
@@ -169,8 +170,9 @@ public class SkylarkSemanticsConsistencyTest {
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalEnableAndroidMigrationApis(rand.nextBoolean())
         .experimentalEnableRepoMapping(rand.nextBoolean())
-        .experimentalRemapMainRepo(rand.nextBoolean())
         .experimentalPlatformsApi(rand.nextBoolean())
+        .experimentalRemapMainRepo(rand.nextBoolean())
+        .experimentalStarlarkConfigTransitions(rand.nextBoolean())
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())

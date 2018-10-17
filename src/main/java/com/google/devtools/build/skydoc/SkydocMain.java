@@ -57,6 +57,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidResource
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidSkylarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeApkInfo.FakeApkInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigGlobalLibrary;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigSkylarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcModule;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
@@ -322,7 +323,8 @@ public class SkydocMain {
         new FakeAndroidNativeLibsInfoProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap =
-        new ConfigBootstrap(new FakeConfigSkylarkCommon(), new FakeConfigApi());
+        new ConfigBootstrap(new FakeConfigSkylarkCommon(), new FakeConfigApi(),
+            new FakeConfigGlobalLibrary());
     CcBootstrap ccBootstrap = new CcBootstrap(new FakeCcModule());
     JavaBootstrap javaBootstrap = new JavaBootstrap(new FakeJavaCommon(),
         new FakeJavaInfoProvider(),

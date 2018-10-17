@@ -123,6 +123,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
           + "debugging.")
   public boolean experimentalPlatformsApi;
 
+  // TODO(cparsons): Resolve and finalize the transition() API. The transition implementation
+  // function should accept two mandatory parameters, 'settings' and 'attr'.
+  @Option(
+      name = "experimental_starlark_config_transitions",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set to true, enables creation of configuration transition objects (the "
+              + "`transition()` function) in Starlark.")
+  public boolean experimentalStarlarkConfigTransitions;
+
   @Option(
     name = "incompatible_bzl_disallow_load_after_statement",
     defaultValue = "false",
@@ -523,6 +536,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .experimentalEnableRepoMapping(experimentalEnableRepoMapping)
         .experimentalRemapMainRepo(experimentalRemapMainRepo)
         .experimentalPlatformsApi(experimentalPlatformsApi)
+        .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
