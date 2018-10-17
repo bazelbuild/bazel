@@ -163,11 +163,14 @@ public class SpawnInputExpander {
       ImmutableList<FilesetOutputSymlink> outputSymlinks = filesetMappings.get(fileset);
       FilesetManifest filesetManifest =
           FilesetManifest.constructFilesetManifest(
-              outputSymlinks, fileset.getExecPath(), relSymlinkBehavior, execRoot.asFragment());
+              outputSymlinks, fileset.getExecPath(), relSymlinkBehavior);
 
       for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
         String value = mapping.getValue();
-        ActionInput artifact = value == null ? EMPTY_FILE : ActionInputHelper.fromPath(value);
+        ActionInput artifact =
+            value == null
+                ? EMPTY_FILE
+                : ActionInputHelper.fromPath(execRoot.getRelative(value).getPathString());
         addMapping(inputMappings, mapping.getKey(), artifact);
       }
     }

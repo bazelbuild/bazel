@@ -44,8 +44,7 @@ public final class FilesetManifestTest {
     List<FilesetOutputSymlink> symlinks = ImmutableList.of();
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), IGNORE);
 
     assertThat(manifest.getEntries()).isEmpty();
   }
@@ -55,8 +54,7 @@ public final class FilesetManifestTest {
     List<FilesetOutputSymlink> symlinks = ImmutableList.of(filesetSymlink("bar", "/dir/file"));
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), IGNORE);
 
     assertThat(manifest.getEntries())
         .containsExactly(PathFragment.create("out/foo/bar"), "/dir/file");
@@ -68,8 +66,7 @@ public final class FilesetManifestTest {
         ImmutableList.of(filesetSymlink("bar", "/dir/file"), filesetSymlink("baz", "/dir/file"));
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), IGNORE);
 
     assertThat(manifest.getEntries())
         .containsExactly(
@@ -82,8 +79,7 @@ public final class FilesetManifestTest {
     List<FilesetOutputSymlink> symlinks = ImmutableList.of(filesetSymlink("bar", "/some"));
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), IGNORE);
 
     assertThat(manifest.getEntries()).containsExactly(PathFragment.create("out/foo/bar"), "/some");
   }
@@ -94,8 +90,7 @@ public final class FilesetManifestTest {
     List<FilesetOutputSymlink> symlinks = ImmutableList.of(filesetSymlink("bar", ""));
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), IGNORE);
 
     assertThat(manifest.getEntries()).containsExactly(PathFragment.create("out/foo/bar"), null);
   }
@@ -106,8 +101,7 @@ public final class FilesetManifestTest {
         ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "/foo/bar"));
 
     try {
-      FilesetManifest.constructFilesetManifest(
-          symlinks, PathFragment.create("out/foo"), ERROR, EXEC_ROOT);
+      FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), ERROR);
       fail("Expected to throw");
     } catch (IOException e) {
       assertThat(e).hasMessageThat().isEqualTo("runfiles target is not absolute: foo");
@@ -120,8 +114,7 @@ public final class FilesetManifestTest {
         ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "/foo/bar"));
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), IGNORE);
 
     assertThat(manifest.getEntries())
         .containsExactly(PathFragment.create("out/foo/foo"), "/foo/bar");
@@ -133,8 +126,7 @@ public final class FilesetManifestTest {
         ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "/foo/bar"));
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), RESOLVE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), RESOLVE);
 
     assertThat(manifest.getEntries())
         .containsExactly(
@@ -148,8 +140,7 @@ public final class FilesetManifestTest {
         ImmutableList.of(filesetSymlink("bar", "./foo"), filesetSymlink("foo", "/foo/bar"));
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), RESOLVE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), RESOLVE);
 
     assertThat(manifest.getEntries())
         .containsExactly(
@@ -164,8 +155,7 @@ public final class FilesetManifestTest {
             filesetSymlink("bar/bar", "../foo/foo"), filesetSymlink("foo/foo", "/foo/bar"));
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), RESOLVE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), RESOLVE);
 
     assertThat(manifest.getEntries())
         .containsExactly(
@@ -178,8 +168,7 @@ public final class FilesetManifestTest {
     List<FilesetOutputSymlink> symlinks = ImmutableList.of(filesetSymlink("bar", "foo"));
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), RESOLVE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), RESOLVE);
 
     assertThat(manifest.getEntries()).isEmpty();
     assertThat(manifest.getArtifactValues()).isEmpty();
@@ -191,8 +180,7 @@ public final class FilesetManifestTest {
         ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "baz"));
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), RESOLVE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), RESOLVE);
 
     assertThat(manifest.getEntries()).isEmpty();
     assertThat(manifest.getArtifactValues()).isEmpty();
@@ -205,10 +193,21 @@ public final class FilesetManifestTest {
         ImmutableList.of(filesetSymlink("bar", "/foo/bar"), filesetSymlink("bar", "/baz"));
 
     FilesetManifest manifest =
-        FilesetManifest.constructFilesetManifest(
-            symlinks, PathFragment.create("out/foo"), IGNORE, EXEC_ROOT);
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), IGNORE);
 
     assertThat(manifest.getEntries())
         .containsExactly(PathFragment.create("out/foo/bar"), "/foo/bar");
+  }
+
+  @Test
+  public void testManifestWithExecRootRelativePath() throws Exception {
+    List<FilesetOutputSymlink> symlinks =
+        ImmutableList.of(filesetSymlink("bar", EXEC_ROOT.getRelative("foo/bar").getPathString()));
+
+    FilesetManifest manifest =
+        FilesetManifest.constructFilesetManifest(symlinks, PathFragment.create("out/foo"), IGNORE);
+
+    assertThat(manifest.getEntries())
+        .containsExactly(PathFragment.create("out/foo/bar"), "foo/bar");
   }
 }

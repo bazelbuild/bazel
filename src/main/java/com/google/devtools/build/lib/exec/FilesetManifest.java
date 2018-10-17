@@ -51,17 +51,15 @@ public final class FilesetManifest {
   public static FilesetManifest constructFilesetManifest(
       List<FilesetOutputSymlink> outputSymlinks,
       PathFragment targetPrefix,
-      RelativeSymlinkBehavior relSymlinkBehavior,
-      PathFragment execRoot)
+      RelativeSymlinkBehavior relSymlinkBehavior)
       throws IOException {
     LinkedHashMap<PathFragment, String> entries = new LinkedHashMap<>();
     Map<PathFragment, String> relativeLinks = new HashMap<>();
     Map<String, FileArtifactValue> artifactValues = new HashMap<>();
     for (FilesetOutputSymlink outputSymlink : outputSymlinks) {
       PathFragment fullLocation = targetPrefix.getRelative(outputSymlink.getName());
-      PathFragment linkTarget = outputSymlink.reconstituteTargetPath(execRoot);
-      String artifact = Strings.emptyToNull(linkTarget.getPathString());
-      if (!linkTarget.isAbsolute() && !linkTarget.isEmpty()) {
+      String artifact = Strings.emptyToNull(outputSymlink.getTargetPath().getPathString());
+      if (isRelativeSymlink(outputSymlink)) {
         addRelativeSymlinkEntry(artifact, fullLocation, relSymlinkBehavior, relativeLinks);
       } else if (!entries.containsKey(fullLocation)) { // Keep consistent behavior: no overwriting.
         entries.put(fullLocation, artifact);
@@ -70,7 +68,14 @@ public final class FilesetManifest {
         artifactValues.put(artifact, (FileArtifactValue) outputSymlink.getMetadata());
       }
     }
-    return constructFilesetManifest(entries, relativeLinks, artifactValues);
+    resolveRelativeSymlinks(entries, relativeLinks);
+    return new FilesetManifest(entries, artifactValues);
+  }
+
+  private static boolean isRelativeSymlink(FilesetOutputSymlink symlink) {
+    return !symlink.getTargetPath().isEmpty()
+        && !symlink.getTargetPath().isAbsolute()
+        && !symlink.isRelativeToExecRoot();
   }
 
   /** Potentially adds the relative symlink to the map, depending on {@code relSymlinkBehavior}. */
@@ -95,12 +100,14 @@ public final class FilesetManifest {
 
   private static final int MAX_SYMLINK_TRAVERSALS = 256;
 
-  private static FilesetManifest constructFilesetManifest(
-      Map<PathFragment, String> entries,
-      Map<PathFragment, String> relativeLinks,
-      Map<String, FileArtifactValue> artifactValues) {
-    // Resolve relative symlinks. Note that relativeLinks only contains entries in RESOLVE mode.
-    // We must find targets for these symlinks that are not inside the Fileset itself.
+  /**
+   * Resolves relative symlinks and puts them in the {@code entries} map.
+   *
+   * <p>Note that {@code relativeLinks} should only contain entries in {@link
+   * RelativeSymlinkBehavior#RESOLVE} mode.
+   */
+  private static void resolveRelativeSymlinks(
+      Map<PathFragment, String> entries, Map<PathFragment, String> relativeLinks) {
     for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
       PathFragment location = e.getKey();
       String value = e.getValue();
@@ -142,22 +149,37 @@ public final class FilesetManifest {
         entries.put(location, entries.get(actualLocation));
       }
     }
-    return new FilesetManifest(entries, artifactValues);
   }
 
   private final Map<PathFragment, String> entries;
   private final Map<String, FileArtifactValue> artifactValues;
 
-  private FilesetManifest(Map<PathFragment, String> entries,
-      Map<String, FileArtifactValue> artifactValues) {
+  private FilesetManifest(
+      Map<PathFragment, String> entries, Map<String, FileArtifactValue> artifactValues) {
     this.entries = Collections.unmodifiableMap(entries);
     this.artifactValues = artifactValues;
   }
 
+  /**
+   * Returns a mapping of symlink name to its target path.
+   *
+   * <p>Values in this map can be:
+   *
+   * <ul>
+   *   <li>An absolute path.
+   *   <li>A relative path, which should be considered relative to the exec root.
+   *   <li>{@code null}, which represents an empty file.
+   * </ul>
+   */
   public Map<PathFragment, String> getEntries() {
     return entries;
   }
 
+  /**
+   * Returns a mapping of target path to {@link FileArtifactValue}.
+   *
+   * <p>The keyset of this map is a subset of the values in the map returned by {@link #getEntries}.
+   */
   public Map<String, FileArtifactValue> getArtifactValues() {
     return artifactValues;
   }

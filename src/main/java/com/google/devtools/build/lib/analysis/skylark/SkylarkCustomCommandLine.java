@@ -22,7 +22,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -359,22 +358,13 @@ public class SkylarkCustomCommandLine extends CommandLine {
             FilesetManifest.constructFilesetManifest(
                 artifactExpander.getFileset(fileset),
                 fileset.getExecPath(),
-                RelativeSymlinkBehavior.IGNORE,
-                extractExecRoot(fileset));
+                RelativeSymlinkBehavior.IGNORE);
         for (PathFragment relativePath : filesetManifest.getEntries().keySet()) {
           expandedValues.add(new FilesetSymlinkFile(fileset, relativePath));
         }
       } catch (IOException e) {
         throw new CommandLineExpansionException("Could not expand fileset: " + e.getMessage());
       }
-    }
-
-    // TODO(b/117267351): Pass in the exec root more cleanly, or put relative paths in the manifest.
-    private static PathFragment extractExecRoot(Artifact fileset) {
-      Preconditions.checkArgument(!fileset.isSourceArtifact(), fileset);
-      ArtifactRoot root = fileset.getRoot();
-      PathFragment rootFrag = root.getRoot().asPath().asFragment();
-      return rootFrag.subFragment(0, rootFrag.segmentCount() - root.getExecPath().segmentCount());
     }
 
     private int addToFingerprint(
