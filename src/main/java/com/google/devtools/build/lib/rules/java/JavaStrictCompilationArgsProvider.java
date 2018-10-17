@@ -43,7 +43,7 @@ public class JavaStrictCompilationArgsProvider implements TransitiveInfoProvider
       Collection<JavaStrictCompilationArgsProvider> providers) {
     Collection<JavaCompilationArgsProvider> javaCompilationArgsProviders =
         Streams.stream(providers)
-            .map(x -> x.getJavaCompilationArgsProvider())
+            .map(JavaStrictCompilationArgsProvider::getJavaCompilationArgsProvider)
             .collect(Collectors.toList());
     return new JavaStrictCompilationArgsProvider(
         JavaCompilationArgsProvider.merge(javaCompilationArgsProviders));

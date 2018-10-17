@@ -443,9 +443,8 @@ public class JavaCommon {
   public static NestedSet<Artifact> computePerPackageData(
       RuleContext ruleContext, JavaToolchainProvider toolchain) {
     NestedSetBuilder<Artifact> data = NestedSetBuilder.naiveLinkOrder();
-    computePerPackageConfiguration(ruleContext, toolchain)
-        .stream()
-        .map(p -> p.data())
+    computePerPackageConfiguration(ruleContext, toolchain).stream()
+        .map(JavaPackageConfigurationProvider::data)
         .forEach(data::addTransitive);
     return data.build();
   }

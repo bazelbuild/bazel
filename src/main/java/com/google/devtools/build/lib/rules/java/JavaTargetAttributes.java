@@ -422,7 +422,7 @@ public class JavaTargetAttributes {
   private final NestedSet<Artifact> directJars;
   private final NestedSet<Artifact> compileTimeDependencyArtifacts;
   private final Label targetLabel;
-  @Nullable private String injectingRuleKind;
+  @Nullable private final String injectingRuleKind;
 
   private final NestedSet<Artifact> excludedArtifacts;
   private final StrictDepsMode strictJavaDeps;

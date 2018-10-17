@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -246,7 +247,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   @Override
   public String getStrictJavaDepsName() {
-    return strictJavaDeps.name().toLowerCase();
+    return Ascii.toLowerCase(strictJavaDeps.name());
   }
 
   @Override

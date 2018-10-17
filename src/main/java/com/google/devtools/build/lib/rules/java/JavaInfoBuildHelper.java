@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvid
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.RUNTIME_ONLY;
 import static java.util.stream.Stream.concat;
 
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -465,7 +466,7 @@ final class JavaInfoBuildHelper {
         JavaInfo.fetchProvidersFromList(exports, JavaCompilationArgsProvider.class);
     helper.addAllDeps(depsCompilationArgsProviders);
     helper.addAllExports(exportsCompilationArgsProviders);
-    helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode.toUpperCase()));
+    helper.setCompilationStrictDepsMode(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)));
 
     helper.setPlugins(
         JavaPluginInfoProvider.merge(

@@ -61,7 +61,7 @@ public final class JavaCompilationHelper {
   private final JavaToolchainProvider javaToolchain;
   private final JavaRuntimeInfo hostJavabase;
   private final Iterable<Artifact> jacocoInstrumentation;
-  private JavaTargetAttributes.Builder attributes;
+  private final JavaTargetAttributes.Builder attributes;
   private JavaTargetAttributes builtAttributes;
   private final ImmutableList<String> customJavacOpts;
   private final ImmutableList<String> customJavacJvmOpts;

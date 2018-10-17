@@ -160,7 +160,7 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
           addValues(keys, values, context.getVolatileKeys());
           long timeMillis = timestamp;
           if (values.containsKey(BuildInfo.BUILD_TIMESTAMP)) {
-            timeMillis = Long.valueOf(values.get(BuildInfo.BUILD_TIMESTAMP)) * 1000L;
+            timeMillis = Long.parseLong(values.get(BuildInfo.BUILD_TIMESTAMP)) * 1000L;
           }
           keys.put("BUILD_TIMESTAMP", Long.toString(timeMillis / 1000));
           keys.put("BUILD_TIME", timestampFormatter.format(timeMillis));
