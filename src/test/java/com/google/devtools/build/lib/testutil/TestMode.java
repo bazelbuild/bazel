@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.common.options.OptionsParser;
+import java.util.Map;
 
 /**
  * Describes a particular testing mode by determining how the
@@ -36,10 +39,12 @@ public abstract class TestMode {
   public static final TestMode BUILD =
       new TestMode() {
         @Override
-        public Environment createEnvironment(EventHandler eventHandler, String... skylarkOptions)
+        public Environment createEnvironment(EventHandler eventHandler,
+            Map<String, Object> builtins,
+            String... skylarkOptions)
             throws Exception {
           return Environment.builder(Mutability.create("build test"))
-              .setGlobals(BazelLibrary.GLOBALS)
+              .setGlobals(createGlobalFrame(builtins))
               .setEventHandler(eventHandler)
               .setSemantics(TestMode.parseSkylarkSemantics(skylarkOptions))
               .build();
@@ -49,16 +54,26 @@ public abstract class TestMode {
   public static final TestMode SKYLARK =
       new TestMode() {
         @Override
-        public Environment createEnvironment(EventHandler eventHandler, String... skylarkOptions)
+        public Environment createEnvironment(EventHandler eventHandler,
+            Map<String, Object> builtins, String... skylarkOptions)
             throws Exception {
           return Environment.builder(Mutability.create("skylark test"))
-              .setGlobals(BazelLibrary.GLOBALS)
+              .setGlobals(createGlobalFrame(builtins))
               .setEventHandler(eventHandler)
               .setSemantics(TestMode.parseSkylarkSemantics(skylarkOptions))
               .build();
         }
       };
 
-  public abstract Environment createEnvironment(EventHandler eventHandler, String... skylarkOptions)
-      throws Exception;
+  private static GlobalFrame createGlobalFrame(Map<String, Object> builtins) {
+    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+
+    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
+    envBuilder.putAll(builtins);
+    return GlobalFrame.createForBuiltins(envBuilder.build());
+  }
+
+  public abstract Environment createEnvironment(EventHandler eventHandler,
+      Map<String, Object> builtins,
+      String... skylarkOptions) throws Exception;
 }

@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Ordered;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 
 /**
@@ -98,12 +100,17 @@ public class EvaluationTestCase {
 
   protected Environment newEnvironmentWithSkylarkOptions(String... skylarkOptions)
       throws Exception {
+    return newEnvironmentWithBuiltinsAndSkylarkOptions(ImmutableMap.of(), skylarkOptions);
+  }
+
+  protected Environment newEnvironmentWithBuiltinsAndSkylarkOptions(Map<String, Object> builtins,
+      String... skylarkOptions) throws Exception {
     if (testMode == null) {
       throw new IllegalArgumentException(
           "TestMode is null. Please set a Testmode via setMode() or set the "
               + "Environment manually by overriding newEnvironment()");
     }
-    return testMode.createEnvironment(getEventHandler(), skylarkOptions);
+    return testMode.createEnvironment(getEventHandler(), builtins, skylarkOptions);
   }
 
   /**
@@ -115,6 +122,17 @@ public class EvaluationTestCase {
   protected void setMode(TestMode testMode, String... skylarkOptions) throws Exception {
     this.testMode = testMode;
     env = newEnvironmentWithSkylarkOptions(skylarkOptions);
+  }
+
+  protected void setMode(TestMode testMode, Map<String, Object> builtins,
+      String... skylarkOptions) throws Exception {
+    this.testMode = testMode;
+    env = newEnvironmentWithBuiltinsAndSkylarkOptions(builtins, skylarkOptions);
+  }
+
+  protected void enableSkylarkMode(Map<String, Object> builtins,
+      String... skylarkOptions) throws Exception {
+    setMode(TestMode.SKYLARK, builtins, skylarkOptions);
   }
 
   protected void enableSkylarkMode(String... skylarkOptions) throws Exception {
@@ -589,14 +607,20 @@ public class EvaluationTestCase {
    */
   protected class SkylarkTest extends ModalTestCase {
     private final String[] skylarkOptions;
+    private final Map<String, Object> builtins;
 
     public SkylarkTest(String... skylarkOptions) {
+      this(ImmutableMap.of(), skylarkOptions);
+    }
+
+    public SkylarkTest(Map<String, Object> builtins, String... skylarkOptions) {
+      this.builtins = builtins;
       this.skylarkOptions = skylarkOptions;
     }
 
     @Override
     protected void run(Testable testable) throws Exception {
-      enableSkylarkMode(skylarkOptions);
+      enableSkylarkMode(builtins, skylarkOptions);
       testable.run();
     }
   }

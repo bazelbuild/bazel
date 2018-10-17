@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi.AnalysisFailureInfoProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisTestResultInfoApi.AnalysisTestResultInfoProviderApi;
+import com.google.devtools.build.lib.syntax.FlagGuardedValue;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 
 /**
  * {@link Bootstrap} for skylark objects related to testing.
@@ -39,7 +41,13 @@ public class TestingBootstrap implements Bootstrap {
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put("testing", testingModule);
-    builder.put("AnalysisFailureInfo", analysisFailureInfoProvider);
-    builder.put("AnalysisTestResultInfo", testResultInfoProvider);
+    builder.put("AnalysisFailureInfo",
+         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+             FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS,
+           analysisFailureInfoProvider));
+    builder.put("AnalysisTestResultInfo",
+        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+            FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS,
+        testResultInfoProvider));
   }
 }

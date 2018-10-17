@@ -33,7 +33,10 @@ import java.util.function.Function;
 @AutoValue
 public abstract class SkylarkSemantics {
 
-  /** Enum where each element represents a skylark semantics flag. */
+  /**
+   * Enum where each element represents a skylark semantics flag. The name of each value should
+   * be the exact name of the flag transformed to upper case (for error representation).
+   */
   public enum FlagIdentifier {
     EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS(
         SkylarkSemantics::experimentalAnalysisTestingImprovements),
@@ -51,6 +54,14 @@ public abstract class SkylarkSemantics {
 
     FlagIdentifier(Function<SkylarkSemantics, Boolean> semanticsFunction) {
       this.semanticsFunction = semanticsFunction;
+    }
+
+    /**
+     * Returns the name of the flag that this identifier controls. For example, EXPERIMENTAL_FOO
+     * would return 'experimental_foo'.
+     */
+    public String getFlagName() {
+      return this.name().toLowerCase();
     }
   }
 

@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
  * Provider for structs containing actions created during the analysis of a rule.
  */
 @SkylarkModule(name = "Actions",
-    doc = "",
+    doc = "<b>Deprecated and subject to imminent removal. Please do not use.</b>",
     documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 // TODO(cparsons): Deprecate and remove this API.

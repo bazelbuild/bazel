@@ -41,6 +41,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
@@ -272,6 +273,14 @@ public final class Environment implements Freezable, Debuggable {
     /** Bindings are maintained in order of creation. */
     private final LinkedHashMap<String, Object> bindings;
 
+    /**
+     * A list of bindings which *would* exist in this global frame under certain semantic
+     * flags, but do not exist using the semantic flags used in this frame's creation.
+     * This map should not be used for lookups; it should only be used to throw descriptive
+     * error messages when a lookup of a restricted object is attempted.
+     **/
+    private final LinkedHashMap<String, FlagGuardedValue> restrictedBindings;
+
     /** Set of bindings that are exported (can be loaded from other modules). */
     private final HashSet<String> exportedBindings;
 
@@ -281,6 +290,7 @@ public final class Environment implements Freezable, Debuggable {
       this.universe = null;
       this.label = null;
       this.bindings = new LinkedHashMap<>();
+      this.restrictedBindings = new LinkedHashMap<>();
       this.exportedBindings = new HashSet<>();
     }
 
@@ -288,7 +298,8 @@ public final class Environment implements Freezable, Debuggable {
         Mutability mutability,
         @Nullable GlobalFrame universe,
         @Nullable Label label,
-        @Nullable Map<String, Object> bindings) {
+        @Nullable Map<String, Object> bindings,
+        @Nullable Map<String, FlagGuardedValue> restrictedBindings) {
       Preconditions.checkState(universe == null || universe.universe == null);
       this.mutability = Preconditions.checkNotNull(mutability);
       this.universe = universe;
@@ -303,26 +314,68 @@ public final class Environment implements Freezable, Debuggable {
       if (bindings != null) {
         this.bindings.putAll(bindings);
       }
+      this.restrictedBindings = new LinkedHashMap<>();
+      if (restrictedBindings != null) {
+        this.restrictedBindings.putAll(restrictedBindings);
+      }
+      if (universe != null) {
+        this.restrictedBindings.putAll(universe.restrictedBindings);
+      }
       this.exportedBindings = new HashSet<>();
     }
 
     public GlobalFrame(Mutability mutability) {
-      this(mutability, null, null, null);
+      this(mutability, null, null, null, null);
     }
 
     public GlobalFrame(Mutability mutability, @Nullable GlobalFrame universe) {
-      this(mutability, universe, null, null);
+      this(mutability, universe, null, null, null);
     }
 
     public GlobalFrame(
         Mutability mutability, @Nullable GlobalFrame universe, @Nullable Label label) {
-      this(mutability, universe, label, null);
+      this(mutability, universe, label, null, null);
     }
 
     /** Constructs a global frame for the given builtin bindings. */
     public static GlobalFrame createForBuiltins(Map<String, Object> bindings) {
       Mutability mutability = Mutability.create("<builtins>").freeze();
-      return new GlobalFrame(mutability, null, null, bindings);
+      return new GlobalFrame(mutability, null, null, bindings, null);
+    }
+
+    /**
+     * Constructs a global frame based on the given parent frame, filtering out flag-restricted
+     * global objects.
+     */
+    public static GlobalFrame filterOutRestrictedBindings(
+        Mutability mutability, GlobalFrame parent, SkylarkSemantics semantics) {
+      if (parent == null) {
+        return new GlobalFrame(mutability);
+      }
+      Map<String, Object> filteredBindings = new LinkedHashMap<>();
+      Map<String, FlagGuardedValue> restrictedBindings = new LinkedHashMap<>();
+
+      for (Entry<String, Object> binding : parent.getTransitiveBindings().entrySet()) {
+        if (binding.getValue() instanceof FlagGuardedValue) {
+          FlagGuardedValue val = (FlagGuardedValue) binding.getValue();
+          if (val.isObjectAccessibleUsingSemantics(semantics)) {
+            filteredBindings.put(binding.getKey(), val.getObject(semantics));
+          } else {
+            restrictedBindings.put(binding.getKey(), val);
+          }
+        } else {
+          filteredBindings.put(binding.getKey(), binding.getValue());
+        }
+      }
+
+      restrictedBindings.putAll(parent.restrictedBindings);
+
+      return new GlobalFrame(
+          mutability,
+          null /*parent */,
+          parent.label,
+          filteredBindings,
+          restrictedBindings);
     }
 
     private void checkInitialized() {
@@ -356,7 +409,8 @@ public final class Environment implements Freezable, Debuggable {
      */
     public GlobalFrame withLabel(Label label) {
       checkInitialized();
-      return new GlobalFrame(mutability, /*universe*/ null, label, bindings);
+      return new GlobalFrame(mutability, /*universe*/ null, label, bindings,
+          /*restrictedBindings*/ null);
     }
 
     /** Returns the {@link Mutability} of this {@link GlobalFrame}. */
@@ -928,6 +982,9 @@ public final class Environment implements Freezable, Debuggable {
     /** Builds the Environment. */
     public Environment build() {
       Preconditions.checkArgument(!mutability.isFrozen());
+      if (semantics == null) {
+        throw new IllegalArgumentException("must call either setSemantics or useDefaultSemantics");
+      }
       if (parent != null) {
         Preconditions.checkArgument(parent.mutability().isFrozen(), "parent frame must be frozen");
         if (parent.universe != null) { // This code path doesn't happen in Bazel.
@@ -938,14 +995,20 @@ public final class Environment implements Freezable, Debuggable {
                   parent.mutability(),
                   null /* parent */,
                   parent.label,
-                  parent.getTransitiveBindings());
+                  parent.getTransitiveBindings(),
+                  parent.restrictedBindings);
         }
       }
+
+      // Filter out restricted objects from the universe scope. This cannot be done in-place in
+      // creation of the input global universe scope, because this environment's semantics may not
+      // have been available during its creation. Thus, create a new universe scope for this
+      // environment which is equivalent in every way except that restricted bindings are
+      // filtered out.
+      parent = GlobalFrame.filterOutRestrictedBindings(mutability, parent, semantics);
+
       GlobalFrame globalFrame = new GlobalFrame(mutability, parent);
       LexicalFrame dynamicFrame = LexicalFrame.create(mutability);
-      if (semantics == null) {
-        throw new IllegalArgumentException("must call either setSemantics or useDefaultSemantics");
-      }
       if (importedExtensions == null) {
         importedExtensions = ImmutableMap.of();
       }
@@ -1140,6 +1203,16 @@ public final class Environment implements Freezable, Debuggable {
       return globalValue;
     }
     return dynamicValue;
+  }
+
+  /**
+   * Returns a map containing all bindings that are technically <i>present</i> but are
+   * <i>restricted</i> in the current frame with the current semantics. Such bindings should be
+   * treated unresolvable; this method should be invoked to prepare error messaging for
+   * evaluation environments where access of these restricted objects may have been attempted.
+   */
+  public Map<String, FlagGuardedValue> getRestrictedBindings() {
+    return globalFrame.restrictedBindings;
   }
 
   /**
