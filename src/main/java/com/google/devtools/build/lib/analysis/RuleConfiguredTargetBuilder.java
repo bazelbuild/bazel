@@ -151,6 +151,9 @@ public final class RuleConfiguredTargetBuilder {
     GeneratingActions generatingActions =
         Actions.filterSharedActionsAndThrowActionConflict(
             analysisEnvironment.getActionKeyContext(), analysisEnvironment.getRegisteredActions());
+    if (ruleContext.getRule().isAnalysisTest()) {
+      Preconditions.checkState(generatingActions.getActions().isEmpty());
+    }
     return new RuleConfiguredTarget(
         ruleContext,
         providers,

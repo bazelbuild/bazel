@@ -884,7 +884,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       throws EvalException {
     checkDeprecated("ctx.actions.write", "ctx.file_action", loc, env.getSemantics());
     checkMutable("file_action");
-    actions().write(output, content, executable);
+    actions().write(output, content, executable, loc);
     return Runtime.NONE;
   }
 
@@ -893,7 +893,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       throws EvalException {
     checkDeprecated("ctx.actions.do_nothing", "ctx.empty_action", loc, env.getSemantics());
     checkMutable("empty_action");
-    actions().doNothing(mnemonic, inputs);
+    actions().doNothing(mnemonic, inputs, loc);
     return Runtime.NONE;
   }
 
@@ -908,7 +908,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       throws EvalException {
     checkDeprecated("ctx.actions.expand_template", "ctx.template_action", loc, env.getSemantics());
     checkMutable("template_action");
-    actions().expandTemplate(template, output, substitutionsUnchecked, executable);
+    actions().expandTemplate(template, output, substitutionsUnchecked, executable, loc);
     return Runtime.NONE;
   }
 

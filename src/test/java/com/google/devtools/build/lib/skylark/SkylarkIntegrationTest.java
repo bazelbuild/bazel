@@ -2122,6 +2122,71 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("'Provider' object is not callable");
   }
 
+  @Test
+  public void testAnalysisTestRuleWithoutFlag() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=false");
+
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  return []",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl, analysis_test = True)");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'custom_rule')", "", "custom_rule(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent(
+        "analysis_test parameter is experimental and not available for general use");
+  }
+
+  @Test
+  public void testAnalysisTestRuleWithActionRegistration() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
+
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  out_file = ctx.actions.declare_file('file.txt')",
+        "  ctx.actions.write(output=out_file, content='hi')",
+        "  return []",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl, analysis_test = True)");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'custom_rule')", "", "custom_rule(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent(
+        "implementation function of a rule with analysis_test=true may not register actions");
+  }
+
+  @Test
+  public void testAnalysisTestRuleWithFlag() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
+
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  return [AnalysisTestResultInfo(success = True, message = 'message contents')]",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl, analysis_test = True)");
+
+    scratch.file(
+        "test/BUILD", "load('//test:extension.bzl', 'custom_rule')", "", "custom_rule(name = 'r')");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:r");
+    AnalysisTestResultInfo info =
+        (AnalysisTestResultInfo) target.get(AnalysisTestResultInfo.SKYLARK_CONSTRUCTOR.getKey());
+    assertThat(info.getSuccess()).isTrue();
+    assertThat(info.getMessage()).isEqualTo("message contents");
+
+    // TODO(cparsons): Verify implicit action registration via AnalysisTestResultInfo.
+  }
+
   /**
    * Skylark integration test that forces inlining.
    */

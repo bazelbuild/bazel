@@ -61,21 +61,36 @@ public class FakeJavaCommon implements JavaCommonApi<FileApi, FakeJavaInfo, Skyl
   }
 
   @Override
-  public FileApi runIjar(SkylarkActionFactoryApi actions, FileApi jar, Object targetLabel,
-      TransitiveInfoCollectionApi javaToolchain) throws EvalException {
+  public FileApi runIjar(
+      SkylarkActionFactoryApi actions,
+      FileApi jar,
+      Object targetLabel,
+      TransitiveInfoCollectionApi javaToolchain,
+      Location location)
+      throws EvalException {
     return null;
   }
 
   @Override
-  public FileApi stampJar(SkylarkActionFactoryApi actions, FileApi jar, Label targetLabel,
-      TransitiveInfoCollectionApi javaToolchain) throws EvalException {
+  public FileApi stampJar(
+      SkylarkActionFactoryApi actions,
+      FileApi jar,
+      Label targetLabel,
+      TransitiveInfoCollectionApi javaToolchain,
+      Location location)
+      throws EvalException {
     return null;
   }
 
   @Override
-  public FileApi packSources(SkylarkActionFactoryApi actions, FileApi outputJar,
-      SkylarkList<FileApi> sourceFiles, SkylarkList<FileApi> sourceJars,
-      TransitiveInfoCollectionApi javaToolchain, TransitiveInfoCollectionApi hostJavabase)
+  public FileApi packSources(
+      SkylarkActionFactoryApi actions,
+      FileApi outputJar,
+      SkylarkList<FileApi> sourceFiles,
+      SkylarkList<FileApi> sourceJars,
+      TransitiveInfoCollectionApi javaToolchain,
+      TransitiveInfoCollectionApi hostJavabase,
+      Location location)
       throws EvalException {
     return null;
   }

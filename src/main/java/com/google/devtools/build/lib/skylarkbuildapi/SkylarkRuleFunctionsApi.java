@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 
@@ -89,219 +90,226 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
   public ProviderApi provider(String doc, Object fields, Location location) throws EvalException;
 
   @SkylarkCallable(
-    name = "rule",
-    doc =
-        "Creates a new rule, which can be called from a BUILD file or a macro to create targets."
-            + "<p>Rules must be assigned to global variables in a .bzl file; the name of the "
-            + "global variable is the rule's name."
-            + "<p>Test rules are required to have a name ending in <code>_test</code>, while all "
-            + "other rules must not have this suffix. (This restriction applies only to rules, not "
-            + "to their targets.)",
-    parameters = {
-      @Param(
-        name = "implementation",
-        type = BaseFunction.class,
-        legacyNamed = true,
-        doc =
-            "the function implementing this rule, must have exactly one parameter: "
-                + "<a href=\"ctx.html\">ctx</a>. The function is called during the analysis "
-                + "phase for each instance of the rule. It can access the attributes "
-                + "provided by the user. It must create actions to generate all the declared "
-                + "outputs."
-      ),
-      @Param(
-        name = "test",
-        type = Boolean.class,
-        legacyNamed = true,
-        defaultValue = "False",
-        doc =
-            "Whether this rule is a test rule, that is, whether it may be the subject of a "
-                + "<code>blaze test</code> command. All test rules are automatically considered "
-                + "<a href='#rule.executable'>executable</a>; it is unnecessary (and discouraged) "
-                + "to explicitly set <code>executable = True</code> for a test rule. See the "
-                + "<a href='../rules.$DOC_EXT#executable-rules-and-test-rules'>Rules page</a> for "
-                + "more information."
-      ),
-      @Param(
-        name = "attrs",
-        type = SkylarkDict.class,
-        legacyNamed = true,
-        noneable = true,
-        defaultValue = "None",
-        doc =
-            "dictionary to declare all the attributes of the rule. It maps from an attribute "
-                + "name to an attribute object (see <a href=\"attr.html\">attr</a> module). "
-                + "Attributes starting with <code>_</code> are private, and can be used to "
-                + "add an implicit dependency on a label. The attribute <code>name</code> is "
-                + "implicitly added and must not be specified. Attributes "
-                + "<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, "
-                + "<code>testonly</code>, and <code>features</code> are implicitly added and "
-                + "cannot be overridden."
-      ),
-      // TODO(bazel-team): need to give the types of these builtin attributes
-      @Param(
-        name = "outputs",
-        type = SkylarkDict.class,
-        legacyNamed = true,
-        callbackEnabled = true,
-        noneable = true,
-        defaultValue = "None",
-        doc =
-            "<b>Experimental:</b> This API is in the process of being redesigned."
-                + "<p>A schema for defining predeclared outputs. Unlike <a href='attr.html#output'>"
-                + "<code>output</code></a> and <a href='attr.html#output_list'><code>output_list"
-                + "</code></a> attributes, the user does not specify the labels for these files. "
-                + "See the <a href='../rules.$DOC_EXT#files'>Rules page</a> for more on "
-                + "predeclared outputs."
-                + "<p>The value of this argument is either a dictionary or a callback function "
-                + "that produces a dictionary. The callback works similar to computed dependency "
-                + "attributes: The function's parameter names are matched against the rule's "
-                + "attributes, so for example if you pass <code>outputs = _my_func</code> with the "
-                + "definition <code>def _my_func(srcs, deps): ...</code>, the function has access "
-                + "to the attributes <code>srcs</code> and <code>deps</code>. Whether the "
-                + "dictionary is specified directly or via a function, it is interpreted as "
-                + "follows."
-                + "<p>Each entry in the dictionary creates a predeclared output where the key is "
-                + "an identifier and the value is a string template that determines the output's "
-                + "label. In the rule's implementation function, the identifier becomes the field "
-                + "name used to access the output's <a href='File.html'><code>File</code></a> in "
-                + "<a href='ctx.html#outputs'><code>ctx.outputs</code></a>. The output's label has "
-                + "the same package as the rule, and the part after the package is produced by "
-                + "substituting each placeholder of the form <code>\"%{ATTR}\"</code> with a "
-                + "string formed from the value of the attribute <code>ATTR</code>:"
-                + "<ul>"
-                + "<li>String-typed attributes are substituted verbatim."
-                + "<li>Label-typed attributes become the part of the label after the package, "
-                + "minus the file extension. For example, the label <code>\"//pkg:a/b.c\"</code> "
-                + "becomes <code>\"a/b\"</code>."
-                + "<li>Output-typed attributes become the part of the label after the package, "
-                + "including the file extension (for the above example, <code>\"a/b.c\"</code>)."
-                + "<li>All list-typed attributes (for example, <code>attr.label_list</code>) used "
-                + "in placeholders are required to have <i>exactly one element</i>. Their "
-                + "conversion is the same as their non-list version (<code>attr.label</code>)."
-                + "<li>Other attribute types may not appear in placeholders."
-                + "<li>The special non-attribute placeholders <code>%{dirname}</code> and <code>"
-                + "%{basename}</code> expand to those parts of the rule's label, excluding its "
-                + "package. For example, in <code>\"//pkg:a/b.c\"</code>, the dirname is <code>"
-                + "a</code> and the basename is <code>b.c</code>."
-                + "</ul>"
-                + "<p>In practice, the most common substitution placeholder is "
-                + "<code>\"%{name}\"</code>. For example, for a target named \"foo\", the outputs "
-                + "dict <code>{\"bin\": \"%{name}.exe\"}</code> predeclares an output named "
-                + "<code>foo.exe</code> that is accessible in the implementation function as "
-                + "<code>ctx.outputs.bin</code>."
-      ),
-      @Param(
-        name = "executable",
-        type = Boolean.class,
-        legacyNamed = true,
-        defaultValue = "False",
-        doc =
-            "Whether this rule is considered executable, that is, whether it may be the subject of "
-                + "a <code>blaze run</code> command. See the "
-                + "<a href='../rules.$DOC_EXT#executable-rules-and-test-rules'>Rules page</a> for "
-                + "more information."
-      ),
-      @Param(
-        name = "output_to_genfiles",
-        type = Boolean.class,
-        legacyNamed = true,
-        defaultValue = "False",
-        doc =
-            "If true, the files will be generated in the genfiles directory instead of the "
-                + "bin directory. Unless you need it for compatibility with existing rules "
-                + "(e.g. when generating header files for C++), do not set this flag."
-      ),
-      @Param(
-        name = "fragments",
-        type = SkylarkList.class,
-        legacyNamed = true,
-        generic1 = String.class,
-        defaultValue = "[]",
-        doc =
-            "List of names of configuration fragments that the rule requires "
-                + "in target configuration."
-      ),
-      @Param(
-        name = "host_fragments",
-        type = SkylarkList.class,
-        legacyNamed = true,
-        generic1 = String.class,
-        defaultValue = "[]",
-        doc =
-            "List of names of configuration fragments that the rule requires "
-                + "in host configuration."
-      ),
-      @Param(
-        name = "_skylark_testable",
-        type = Boolean.class,
-        legacyNamed = true,
-        defaultValue = "False",
-        doc =
-            "<i>(Experimental)</i><br/><br/>"
-                + "If true, this rule will expose its actions for inspection by rules that "
-                + "depend on it via an <a href=\"globals.html#Actions\">Actions</a> "
-                + "provider. The provider is also available to the rule itself by calling "
-                + "<a href=\"ctx.html#created_actions\">ctx.created_actions()</a>."
-                + "<br/><br/>"
-                + "This should only be used for testing the analysis-time behavior of "
-                + "Skylark rules. This flag may be removed in the future."
-      ),
-      @Param(
-        name = "toolchains",
-        type = SkylarkList.class,
-        legacyNamed = true,
-        generic1 = String.class,
-        defaultValue = "[]",
-        doc =
-            "<i>(Experimental)</i><br/><br/>"
-                + "If set, the set of toolchains this rule requires. Toolchains will be "
-                + "found by checking the current platform, and provided to the rule "
-                + "implementation via <code>ctx.toolchain</code>."
-      ),
-      @Param(
-        name = "doc",
-        type = String.class,
-        legacyNamed = true,
-        defaultValue = "''",
-        doc = "A description of the rule that can be extracted by documentation generating tools."
-      ),
-      @Param(
-        name = "provides",
-        type = SkylarkList.class,
-        named = true,
-        positional = false,
-        defaultValue = "[]",
-        doc = PROVIDES_DOC
-      ),
-      @Param(
-        name = "execution_platform_constraints_allowed",
-        type = Boolean.class,
-        named = true,
-        positional = false,
-        defaultValue = "False",
-        doc =
-            "If true, a special attribute named <code>exec_compatible_with</code> of "
-                + "label-list type is added, which must not already exist in "
-                + "<code>attrs</code>. Targets may use this attribute to specify additional "
-                + "constraints on the execution platform beyond those given in the "
-                + "<code>exec_compatible_with</code> argument to <code>rule()</code>."
-      ),
-      @Param(
-        name = "exec_compatible_with",
-        type = SkylarkList.class,
-        generic1 = String.class,
-        named = true,
-        positional = false,
-        defaultValue = "[]",
-        doc =
-            "A list of constraints on the execution platform that apply to all targets of "
-                + "this rule type."
-      )
-    },
-    useAst = true,
-    useEnvironment = true
-  )
+      name = "rule",
+      doc =
+          "Creates a new rule, which can be called from a BUILD file or a macro to create targets."
+              + "<p>Rules must be assigned to global variables in a .bzl file; the name of the "
+              + "global variable is the rule's name."
+              + "<p>Test rules are required to have a name ending in <code>_test</code>, while all "
+              + "other rules must not have this suffix. (This restriction applies only to rules, "
+              + "not to their targets.)",
+      parameters = {
+        @Param(
+            name = "implementation",
+            type = BaseFunction.class,
+            legacyNamed = true,
+            doc =
+                "the function implementing this rule, must have exactly one parameter: "
+                    + "<a href=\"ctx.html\">ctx</a>. The function is called during the analysis "
+                    + "phase for each instance of the rule. It can access the attributes "
+                    + "provided by the user. It must create actions to generate all the declared "
+                    + "outputs."),
+        @Param(
+            name = "test",
+            type = Boolean.class,
+            legacyNamed = true,
+            defaultValue = "False",
+            doc =
+                "Whether this rule is a test rule, that is, whether it may be the subject of a "
+                    + "<code>blaze test</code> command. All test rules are automatically "
+                    + "considered <a href='#rule.executable'>executable</a>; it is unnecessary "
+                    + "(and discouraged) to explicitly set <code>executable = True</code> for a "
+                    + "test rule. See the "
+                    + "<a href='../rules.$DOC_EXT#executable-rules-and-test-rules'>Rules page</a> "
+                    + "for more information."),
+        @Param(
+            name = "attrs",
+            type = SkylarkDict.class,
+            legacyNamed = true,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "dictionary to declare all the attributes of the rule. It maps from an attribute "
+                    + "name to an attribute object (see <a href=\"attr.html\">attr</a> module). "
+                    + "Attributes starting with <code>_</code> are private, and can be used to "
+                    + "add an implicit dependency on a label. The attribute <code>name</code> is "
+                    + "implicitly added and must not be specified. Attributes "
+                    + "<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, "
+                    + "<code>testonly</code>, and <code>features</code> are implicitly added and "
+                    + "cannot be overridden."),
+        // TODO(bazel-team): need to give the types of these builtin attributes
+        @Param(
+            name = "outputs",
+            type = SkylarkDict.class,
+            legacyNamed = true,
+            callbackEnabled = true,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "<b>Experimental:</b> This API is in the process of being redesigned."
+                    + "<p>A schema for defining predeclared outputs. Unlike "
+                    + "<a href='attr.html#output'><code>output</code></a> and "
+                    + "<a href='attr.html#output_list'><code>output_list</code></a> attributes, "
+                    + "the user does not specify the labels for these files. "
+                    + "See the <a href='../rules.$DOC_EXT#files'>Rules page</a> for more on "
+                    + "predeclared outputs."
+                    + "<p>The value of this argument is either a dictionary or a callback function "
+                    + "that produces a dictionary. The callback works similar to computed "
+                    + "dependency attributes: The function's parameter names are matched against "
+                    + "the rule's attributes, so for example if you pass "
+                    + "<code>outputs = _my_func</code> with the definition "
+                    + "<code>def _my_func(srcs, deps): ...</code>, the function has access "
+                    + "to the attributes <code>srcs</code> and <code>deps</code>. Whether the "
+                    + "dictionary is specified directly or via a function, it is interpreted as "
+                    + "follows."
+                    + "<p>Each entry in the dictionary creates a predeclared output where the key "
+                    + "is an identifier and the value is a string template that determines the "
+                    + "output's label. In the rule's implementation function, the identifier "
+                    + "becomes the field name used to access the output's "
+                    + "<a href='File.html'><code>File</code></a> in "
+                    + "<a href='ctx.html#outputs'><code>ctx.outputs</code></a>. The output's label "
+                    + "has the same package as the rule, and the part after the package is "
+                    + "produced by substituting each placeholder of the form "
+                    + "<code>\"%{ATTR}\"</code> with a string formed from the value of the "
+                    + "attribute <code>ATTR</code>:"
+                    + "<ul>"
+                    + "<li>String-typed attributes are substituted verbatim."
+                    + "<li>Label-typed attributes become the part of the label after the package, "
+                    + "minus the file extension. For example, the label "
+                    + "<code>\"//pkg:a/b.c\"</code> becomes <code>\"a/b\"</code>."
+                    + "<li>Output-typed attributes become the part of the label after the package, "
+                    + "including the file extension (for the above example, "
+                    + "<code>\"a/b.c\"</code>)."
+                    + "<li>All list-typed attributes (for example, <code>attr.label_list</code>) "
+                    + "used in placeholders are required to have <i>exactly one element</i>. Their "
+                    + "conversion is the same as their non-list version (<code>attr.label</code>)."
+                    + "<li>Other attribute types may not appear in placeholders."
+                    + "<li>The special non-attribute placeholders <code>%{dirname}</code> and "
+                    + "<code>%{basename}</code> expand to those parts of the rule's label, "
+                    + "excluding its package. For example, in <code>\"//pkg:a/b.c\"</code>, the "
+                    + "dirname is <code>a</code> and the basename is <code>b.c</code>."
+                    + "</ul>"
+                    + "<p>In practice, the most common substitution placeholder is "
+                    + "<code>\"%{name}\"</code>. For example, for a target named \"foo\", the "
+                    + "outputs dict <code>{\"bin\": \"%{name}.exe\"}</code> predeclares an output "
+                    + "named <code>foo.exe</code> that is accessible in the implementation "
+                    + "function as <code>ctx.outputs.bin</code>."),
+        @Param(
+            name = "executable",
+            type = Boolean.class,
+            legacyNamed = true,
+            defaultValue = "False",
+            doc =
+                "Whether this rule is considered executable, that is, whether it may be the "
+                    + "subject of a <code>blaze run</code> command. See the "
+                    + "<a href='../rules.$DOC_EXT#executable-rules-and-test-rules'>Rules page</a> "
+                    + "for more information."),
+        @Param(
+            name = "output_to_genfiles",
+            type = Boolean.class,
+            legacyNamed = true,
+            defaultValue = "False",
+            doc =
+                "If true, the files will be generated in the genfiles directory instead of the "
+                    + "bin directory. Unless you need it for compatibility with existing rules "
+                    + "(e.g. when generating header files for C++), do not set this flag."),
+        @Param(
+            name = "fragments",
+            type = SkylarkList.class,
+            legacyNamed = true,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "List of names of configuration fragments that the rule requires "
+                    + "in target configuration."),
+        @Param(
+            name = "host_fragments",
+            type = SkylarkList.class,
+            legacyNamed = true,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "List of names of configuration fragments that the rule requires "
+                    + "in host configuration."),
+        @Param(
+            name = "_skylark_testable",
+            type = Boolean.class,
+            legacyNamed = true,
+            defaultValue = "False",
+            doc =
+                "<i>(Experimental)</i><br/><br/>"
+                    + "If true, this rule will expose its actions for inspection by rules that "
+                    + "depend on it via an <a href=\"globals.html#Actions\">Actions</a> "
+                    + "provider. The provider is also available to the rule itself by calling "
+                    + "<a href=\"ctx.html#created_actions\">ctx.created_actions()</a>."
+                    + "<br/><br/>"
+                    + "This should only be used for testing the analysis-time behavior of "
+                    + "Skylark rules. This flag may be removed in the future."),
+        @Param(
+            name = "toolchains",
+            type = SkylarkList.class,
+            legacyNamed = true,
+            generic1 = String.class,
+            defaultValue = "[]",
+            doc =
+                "<i>(Experimental)</i><br/><br/>"
+                    + "If set, the set of toolchains this rule requires. Toolchains will be "
+                    + "found by checking the current platform, and provided to the rule "
+                    + "implementation via <code>ctx.toolchain</code>."),
+        @Param(
+            name = "doc",
+            type = String.class,
+            legacyNamed = true,
+            defaultValue = "''",
+            doc =
+                "A description of the rule that can be extracted by documentation generating "
+                    + "tools."),
+        @Param(
+            name = "provides",
+            type = SkylarkList.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = PROVIDES_DOC),
+        @Param(
+            name = "execution_platform_constraints_allowed",
+            type = Boolean.class,
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc =
+                "If true, a special attribute named <code>exec_compatible_with</code> of "
+                    + "label-list type is added, which must not already exist in "
+                    + "<code>attrs</code>. Targets may use this attribute to specify additional "
+                    + "constraints on the execution platform beyond those given in the "
+                    + "<code>exec_compatible_with</code> argument to <code>rule()</code>."),
+        @Param(
+            name = "exec_compatible_with",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc =
+                "A list of constraints on the execution platform that apply to all targets of "
+                    + "this rule type."),
+        @Param(
+            name = "analysis_test",
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = UnboundMarker.class)
+            },
+            named = true,
+            positional = false,
+            // TODO(cparsons): Make the default false when this is no longer experimental.
+            defaultValue = "unbound",
+            // TODO(cparsons): Link to in-build testing documentation when it is available.
+            doc =
+                "<b>Experimental: This parameter is experimental and subject to change at any "
+                    + "time.</b><p> If true, then this rule is treated as an analysis test."),
+      },
+      useAst = true,
+      useEnvironment = true)
   public BaseFunction rule(
       BaseFunction implementation,
       Boolean test,
@@ -317,6 +325,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList<?> providesArg,
       Boolean executionPlatformConstraintsAllowed,
       SkylarkList<?> execCompatibleWith,
+      Object analysisTest,
       FuncallExpression ast,
       Environment funcallEnv)
       throws EvalException;

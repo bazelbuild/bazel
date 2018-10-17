@@ -271,10 +271,21 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> providesArg,
       Boolean executionPlatformConstraintsAllowed,
       SkylarkList<?> execCompatibleWith,
+      Object analysisTest,
       FuncallExpression ast,
       Environment funcallEnv)
       throws EvalException, ConversionException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(funcallEnv, "rule", ast.getLocation());
+
+    if (analysisTest != Runtime.UNBOUND
+        && !funcallEnv.getSemantics().experimentalAnalysisTestingImprovements()) {
+      throw new EvalException(
+          ast.getLocation(),
+          "analysis_test parameter is experimental and not available for "
+              + "general use. It is subject to change at any time. It may be enabled by specifying "
+              + "--experimental_analysis_testing_improvements");
+    }
+
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
     RuleClass parent =
         test
@@ -288,6 +299,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
     if (skylarkTestable) {
       builder.setSkylarkTestable();
+    }
+    if (Boolean.TRUE.equals(analysisTest)) {
+      builder.setIsAnalysisTest();
     }
 
     if (executable || test) {

@@ -101,12 +101,25 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   }
 
   @Override
-  public BaseFunction rule(BaseFunction implementation, Boolean test, Object attrs,
-      Object implicitOutputs, Boolean executable, Boolean outputToGenfiles,
-      SkylarkList<?> fragments, SkylarkList<?> hostFragments, Boolean skylarkTestable,
-      SkylarkList<?> toolchains, String doc, SkylarkList<?> providesArg,
-      Boolean executionPlatformConstraintsAllowed, SkylarkList<?> execCompatibleWith,
-      FuncallExpression ast, Environment funcallEnv) throws EvalException {
+  public BaseFunction rule(
+      BaseFunction implementation,
+      Boolean test,
+      Object attrs,
+      Object implicitOutputs,
+      Boolean executable,
+      Boolean outputToGenfiles,
+      SkylarkList<?> fragments,
+      SkylarkList<?> hostFragments,
+      Boolean skylarkTestable,
+      SkylarkList<?> toolchains,
+      String doc,
+      SkylarkList<?> providesArg,
+      Boolean executionPlatformConstraintsAllowed,
+      SkylarkList<?> execCompatibleWith,
+      Object analysisTest,
+      FuncallExpression ast,
+      Environment funcallEnv)
+      throws EvalException {
     List<AttributeInfo> attrInfos;
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Runtime.NONE) {

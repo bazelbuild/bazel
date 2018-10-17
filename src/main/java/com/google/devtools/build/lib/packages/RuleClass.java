@@ -630,6 +630,7 @@ public class RuleClass {
     private boolean binaryOutput = true;
     private boolean workspaceOnly = false;
     private boolean isExecutableSkylark = false;
+    private boolean isAnalysisTest = false;
     private boolean isConfigMatcher = false;
     private boolean hasFunctionTransitionWhitelist = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
@@ -781,6 +782,7 @@ public class RuleClass {
           binaryOutput,
           workspaceOnly,
           isExecutableSkylark,
+          isAnalysisTest,
           hasFunctionTransitionWhitelist,
           implicitOutputsFunction,
           isConfigMatcher,
@@ -1168,6 +1170,12 @@ public class RuleClass {
       return this;
     }
 
+    /** This rule class is marked as an analysis test. */
+    public Builder setIsAnalysisTest() {
+      this.isAnalysisTest = true;
+      return this;
+    }
+
     /**
      * This rule class has the _whitelist_function_transition attribute.  Intended only for Skylark
      * rules.
@@ -1349,6 +1357,7 @@ public class RuleClass {
   private final boolean binaryOutput;
   private final boolean workspaceOnly;
   private final boolean isExecutableSkylark;
+  private final boolean isAnalysisTest;
   private final boolean isConfigMatcher;
   private final boolean hasFunctionTransitionWhitelist;
 
@@ -1470,6 +1479,7 @@ public class RuleClass {
       boolean binaryOutput,
       boolean workspaceOnly,
       boolean isExecutableSkylark,
+      boolean isAnalysisTest,
       boolean hasFunctionTransitionWhitelist,
       ImplicitOutputsFunction implicitOutputsFunction,
       boolean isConfigMatcher,
@@ -1489,7 +1499,7 @@ public class RuleClass {
       boolean supportsPlatforms,
       ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed,
       Set<Label> executionPlatformConstraints,
-      OutputFile.Kind  outputFileKind,
+      OutputFile.Kind outputFileKind,
       Collection<Attribute> attributes) {
     this.name = name;
     this.key = key;
@@ -1517,6 +1527,7 @@ public class RuleClass {
     this.attributes = ImmutableList.copyOf(attributes);
     this.workspaceOnly = workspaceOnly;
     this.isExecutableSkylark = isExecutableSkylark;
+    this.isAnalysisTest = isAnalysisTest;
     this.hasFunctionTransitionWhitelist = hasFunctionTransitionWhitelist;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
@@ -2341,6 +2352,11 @@ public class RuleClass {
    */
   public boolean isExecutableSkylark() {
     return isExecutableSkylark;
+  }
+
+  /** Returns true if this rule class is an analysis test (set by analysis_test = true). */
+  public boolean isAnalysisTest() {
+    return isAnalysisTest;
   }
 
   /**

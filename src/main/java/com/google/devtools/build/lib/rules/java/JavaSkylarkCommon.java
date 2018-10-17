@@ -126,18 +126,28 @@ public class JavaSkylarkCommon implements JavaCommonApi<Artifact, JavaInfo, Skyl
       SkylarkActionFactory actions,
       Artifact jar,
       Object targetLabel,
-      ConfiguredTarget javaToolchain)
+      ConfiguredTarget javaToolchain,
+      Location location)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .buildIjar(
-            actions, jar, targetLabel != Runtime.NONE ? (Label) targetLabel : null, javaToolchain);
+            actions,
+            jar,
+            targetLabel != Runtime.NONE ? (Label) targetLabel : null,
+            javaToolchain,
+            location);
   }
 
   @Override
   public Artifact stampJar(
-      SkylarkActionFactory actions, Artifact jar, Label targetLabel, ConfiguredTarget javaToolchain)
+      SkylarkActionFactory actions,
+      Artifact jar,
+      Label targetLabel,
+      ConfiguredTarget javaToolchain,
+      Location location)
       throws EvalException {
-    return JavaInfoBuildHelper.getInstance().stampJar(actions, jar, targetLabel, javaToolchain);
+    return JavaInfoBuildHelper.getInstance()
+        .stampJar(actions, jar, targetLabel, javaToolchain, location);
   }
 
   @Override
@@ -147,10 +157,12 @@ public class JavaSkylarkCommon implements JavaCommonApi<Artifact, JavaInfo, Skyl
       SkylarkList<Artifact> sourceFiles,
       SkylarkList<Artifact> sourceJars,
       ConfiguredTarget javaToolchain,
-      ConfiguredTarget hostJavabase)
+      ConfiguredTarget hostJavabase,
+      Location location)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
-        .packSourceFiles(actions, outputJar, sourceFiles, sourceJars, javaToolchain, hostJavabase);
+        .packSourceFiles(
+            actions, outputJar, sourceFiles, sourceJars, javaToolchain, hostJavabase, location);
   }
 
   @Override

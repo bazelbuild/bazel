@@ -122,41 +122,41 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             positional = false,
             defaultValue = "[]",
             doc = "List of the input files of the action."),
-      })
-  public void doNothing(String mnemonic, Object inputs) throws EvalException;
+      },
+      useLocation = true)
+  public void doNothing(String mnemonic, Object inputs, Location location) throws EvalException;
 
   @SkylarkCallable(
-    name = "write",
-    doc =
-        "Creates a file write action. When the action is executed, it will write the given content "
-            + "to a file. This is used to generate files using information available in the "
-            + "analysis phase. If the file is large and with a lot of static content, consider "
-            + "using <a href=\"#expand_template\"><code>expand_template</code></a>.",
-    parameters = {
-      @Param(name = "output", type = FileApi.class, doc = "The output file.", named = true),
-      @Param(
-        name = "content",
-        type = Object.class,
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = CommandLineArgsApi.class)
-        },
-        doc =
-            "the contents of the file. "
-                + "May be a either a string or an "
-                + "<a href=\"actions.html#args\"><code>actions.args()</code></a> object.",
-        named = true
-      ),
-      @Param(
-        name = "is_executable",
-        type = Boolean.class,
-        defaultValue = "False",
-        doc = "Whether the output file should be executable.",
-        named = true
-      )
-    }
-  )
-  public void write(FileApi output, Object content, Boolean isExecutable) throws EvalException;
+      name = "write",
+      doc =
+          "Creates a file write action. When the action is executed, it will write the given "
+              + "content to a file. This is used to generate files using information available in "
+              + "the analysis phase. If the file is large and with a lot of static content, "
+              + "consider using <a href=\"#expand_template\"><code>expand_template</code></a>.",
+      parameters = {
+        @Param(name = "output", type = FileApi.class, doc = "The output file.", named = true),
+        @Param(
+            name = "content",
+            type = Object.class,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = CommandLineArgsApi.class)
+            },
+            doc =
+                "the contents of the file. "
+                    + "May be a either a string or an "
+                    + "<a href=\"actions.html#args\"><code>actions.args()</code></a> object.",
+            named = true),
+        @Param(
+            name = "is_executable",
+            type = Boolean.class,
+            defaultValue = "False",
+            doc = "Whether the output file should be executable.",
+            named = true)
+      },
+      useLocation = true)
+  public void write(FileApi output, Object content, Boolean isExecutable, Location location)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "run",
@@ -500,12 +500,14 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             named = true,
             positional = false,
             doc = "Whether the output file should be executable.")
-      })
+      },
+      useLocation = true)
   public void expandTemplate(
       FileApi template,
       FileApi output,
       SkylarkDict<?, ?> substitutionsUnchecked,
-      Boolean executable)
+      Boolean executable,
+      Location location)
       throws EvalException;
 
   @SkylarkCallable(
