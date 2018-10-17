@@ -70,6 +70,7 @@ public final class PyCommon {
   public static final String PYTHON_SKYLARK_PROVIDER_NAME = "py";
   public static final String TRANSITIVE_PYTHON_SRCS = "transitive_sources";
   public static final String IS_USING_SHARED_LIBRARY = "uses_shared_libraries";
+  public static final String IMPORTS = "imports";
 
   private static final LocalMetadataCollector METADATA_COLLECTOR = new LocalMetadataCollector() {
     @Override
@@ -157,7 +158,7 @@ public final class PyCommon {
   }
 
   public void addCommonTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
-      PythonSemantics semantics, NestedSet<Artifact> filesToBuild) {
+      PythonSemantics semantics, NestedSet<Artifact> filesToBuild, NestedSet<String> imports) {
 
     builder
         .add(
@@ -169,7 +170,7 @@ public final class PyCommon {
                 filesToBuild))
         .addSkylarkTransitiveInfo(
             PYTHON_SKYLARK_PROVIDER_NAME,
-            createSourceProvider(this.transitivePythonSources, usesSharedLibraries()))
+            createSourceProvider(this.transitivePythonSources, usesSharedLibraries(), imports))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, transitivePythonSources)
@@ -182,13 +183,15 @@ public final class PyCommon {
    * <p>addSkylarkTransitiveInfo(PYTHON_SKYLARK_PROVIDER_NAME, createSourceProvider(...))
    */
   public static StructImpl createSourceProvider(
-      NestedSet<Artifact> transitivePythonSources, boolean isUsingSharedLibrary) {
+      NestedSet<Artifact> transitivePythonSources, boolean isUsingSharedLibrary, NestedSet<String> imports) {
     return StructProvider.STRUCT.create(
         ImmutableMap.<String, Object>of(
             TRANSITIVE_PYTHON_SRCS,
             SkylarkNestedSet.of(Artifact.class, transitivePythonSources),
             IS_USING_SHARED_LIBRARY,
-            isUsingSharedLibrary),
+            isUsingSharedLibrary,
+            IMPORTS,
+            SkylarkNestedSet.of(String.class, imports)),
         "No such attribute '%s'");
   }
 
@@ -384,15 +387,15 @@ public final class PyCommon {
     return builder.build();
   }
 
-  public NestedSet<PathFragment> collectImports(
+  public NestedSet<String> collectImports(
       RuleContext ruleContext, PythonSemantics semantics) {
-    NestedSetBuilder<PathFragment> builder = NestedSetBuilder.compileOrder();
+    NestedSetBuilder<String> builder = NestedSetBuilder.compileOrder();
     builder.addAll(semantics.getImports(ruleContext));
     collectTransitivePythonImports(builder);
     return builder.build();
   }
 
-  private void collectTransitivePythonImports(NestedSetBuilder<PathFragment> builder) {
+  private void collectTransitivePythonImports(NestedSetBuilder<String> builder) {
     for (TransitiveInfoCollection dep : getTargetDeps()) {
       if (dep.getProvider(PythonImportsProvider.class) != null) {
         PythonImportsProvider provider = dep.getProvider(PythonImportsProvider.class);

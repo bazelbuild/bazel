@@ -101,8 +101,8 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   @Override
-  public List<PathFragment> getImports(RuleContext ruleContext) {
-    List<PathFragment> result = new ArrayList<>();
+  public List<String> getImports(RuleContext ruleContext) {
+    List<String> result = new ArrayList<>();
     PathFragment packageFragment = ruleContext.getLabel().getPackageIdentifier().getRunfilesPath();
     // Python scripts start with x.runfiles/ as the module space, so everything must be manually
     // adjusted to be relative to the workspace name.
@@ -119,7 +119,7 @@ public class BazelPythonSemantics implements PythonSemantics {
         ruleContext.attributeError("imports",
             "Path " + importsAttr + " references a path above the execution root");
       }
-      result.add(importsPath);
+      result.add(importsPath.getPathString());
     }
     return result;
   }
@@ -134,7 +134,7 @@ public class BazelPythonSemantics implements PythonSemantics {
       RuleContext ruleContext,
       PyCommon common,
       CcLinkingInfo ccLinkingInfo,
-      NestedSet<PathFragment> imports)
+      NestedSet<String> imports)
       throws InterruptedException {
     String main = common.determineMainExecutableSource(/*withWorkspaceName=*/ true);
     Artifact executable = common.getExecutable();
