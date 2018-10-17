@@ -25,17 +25,66 @@ title: User Manual
 <p>
   This option specifies the set of directories that are searched to
   find the BUILD file for a given package.
-
 </p>
 
-<h4 id='flag--deleted_packages'><code class='flag'>--deleted_packages</code></h4>
 <p>
-  This option specifies a comma-separated list of packages which Bazel
-  should consider deleted, and not attempt to load from any directory
-  on the package path. This can be used to simulate the deletion of packages without
-  actually deleting them.
+  Bazel finds its packages by searching the package path.  This is a colon
+  separated ordered list of bazel directories, each being the root of a
+  partial source tree.
 </p>
 
+<p>
+  <i>To specify a custom package path</i> using the
+  <code class='flag'>--package_path</code> option:
+</p>
+<pre>
+  % bazel build --package_path %workspace%:/some/other/root
+</pre>
+<p>
+Package path elements may be specified in three formats:
+</p>
+<ol>
+  <li>
+    If the first character is <code>/</code>, the path is absolute.
+  </li>
+  <li>
+    If the path starts with <code>%workspace%</code>, the path is taken relative
+    to the nearest enclosing bazel directory.<br>
+    For instance, if your working directory
+    is <code>/home/bob/clients/bob_client/bazel/foo</code>, then the
+    string <code>%workspace%</code> in the package-path is expanded
+    to <code>/home/bob/clients/bob_client/bazel</code>.
+  </li>
+  <li>
+    Anything else is taken relative to the working directory.<br>  This is usually not what you mean to do,
+    and may behave unexpectedly if you use Bazel from directories below the bazel workspace.
+    For instance, if you use the package-path element <code>.</code>,
+    and then cd into the directory
+    <code>/home/bob/clients/bob_client/bazel/foo</code>, packages
+    will be resolved from the
+    <code>/home/bob/clients/bob_client/bazel/foo</code> directory.
+  </li>
+</ol>
+<p>
+  If you use a non-default package path, we recommend that you specify
+  it in your <a href='#bazelrc'>Bazel configuration file</a> for
+  convenience.
+</p>
+<p>
+  <i>Bazel doesn't require any packages to be in the
+  current directory</i>, so you can do a build from an empty bazel
+  workspace if all the necessary packages can be found somewhere else
+  on the package path.
+</p>
+<p>
+  <i>Example</i>: Building from an empty client
+</p>
+<pre>
+  % mkdir -p foo/bazel
+  % cd foo/bazel
+  % touch WORKSPACE
+  % bazel build --package_path /some/other/path //foo
+</pre>
 <h3 id='checking-options'>Error checking options</h3>
 <p>
   These options control Bazel's error-checking and/or warnings.

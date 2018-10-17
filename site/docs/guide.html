@@ -4,7 +4,6 @@ title: User Manual
 ---
 <h1>A User's Guide to Bazel</h1>
 
-<h2 id='overview'>Bazel overview</h2>
 
 <p>
   To run Bazel, go to
@@ -56,251 +55,11 @@ title: User Manual
 </pre>
 <p>
   The <code>bazel</code> tool performs many functions, called
-  commands; users of CVS and Subversion will be familiar
-  with this "Swiss army knife" arrangement.  The most commonly used one is of
-  course <code>bazel build</code>.  You can browse the online help
+  commands.  The most commonly used ones are <code>bazel build</code>
+  and <code>bazel test</code>.  You can browse the online help
   messages using <code>bazel help</code>.
 </p>
 
-<h3 id='client/server'>Client/server implementation</h3>
-
-<p>
-  The Bazel system is implemented as a long-lived server process.
-  This allows it to perform many optimizations not possible with a
-  batch-oriented implementation, such as caching of BUILD files,
-  dependency graphs, and other metadata from one build to the
-  next.  This improves the speed of incremental builds, and allows
-  different commands, such as <code>build</code>
-  and <code>query</code> to share the same cache of loaded packages,
-  making queries very fast.
-</p>
-<p>
-  When you run <code>bazel</code>, you're running the client.  The
-  client finds the server based on the output base, which by default is
-  determined by the path of the base workspace directory and your
-  userid, so if you build in multiple workspaces, you'll have multiple
-  output bases and thus multiple Bazel server processes.  Multiple
-  users on the same workstation can build concurrently in the same
-  workspace because their output bases will differ (different userids).
-  If the client cannot find a running server instance, it starts a new
-  one. The server process will stop after a period of inactivity (3 hours,
-  by default, which can be modified using the startup option <code>--max_idle_secs</code>).
-</p>
-<p>
-  For the most part, the fact that there is a server running is
-  invisible to the user, but sometimes it helps to bear this in mind.
-  For example, if you're running scripts that perform a lot of
-  automated builds in different directories, it's important to ensure
-  that you don't accumulate a lot of idle servers; you can do this by
-  explicitly shutting them down when you're finished with them, or by
-  specifying a short timeout period.
-</p>
-<p>
-  The name of a Bazel server process appears in the output of <code>ps
-  x</code> or <code>ps -e f</code> as
-  <code>bazel(<i>dirname</i>)</code>, where <i>dirname</i> is the
-  basename of the directory enclosing the root of your workspace directory.
-  For example:
-</p>
-<pre>
-  % ps -e f
-  16143 ?        Sl     3:00 bazel(src-johndoe2) -server -Djava.library.path=...
-</pre>
-<p>
-  This makes it easier to find out which server process belongs to a
-  given workspace.  (Beware that with certain other options
-  to <code>ps</code>, Bazel server processes may be named just
-  <code>java</code>.)  Bazel servers can be stopped using
-  the <a href='#shutdown'>shutdown</a> command.
-</p>
-
-<p>
-  When running <code>bazel</code>, the client first checks that the
-  server is the appropriate version; if not, the server is stopped and
-  a new one started.  This ensures that the use of a long-running
-  server process doesn't interfere with proper versioning.
-</p>
-
-<h3 id='bazelrc'>
-  <code>.bazelrc</code>, the Bazel configuration file,
-  the <code class='flag'>--bazelrc=<var>file</var></code> option, and
-  the <code class='flag'>--config=<var>value</var></code> option
-</h3>
-
-<p>
-  Bazel accepts many options.  Typically, some of these are varied
-  frequently (for example, <code class='flag'>--subcommands</code>) while others stay the
-  same across several builds (e.g. <code class='flag'>--package_path</code>).
-  To avoid having to specify these unchanged options for every build (and other commands)
-  Bazel allows you to specify options in a configuration file.
-</p>
-
-
-<h4>Where are the <code>.bazelrc</code> files?</h4>
-<p>
-  Bazel looks for an optional configuration file in the following locations,
-  in the order shown below. The options are interpreted in this order, so
-  options in later files can override a value from an earlier file if a
-  conflict arises. All options to control which of these files are loaded are
-  startup options, which means they much occur after <code>bazel</code> and
-  before the command (<code>build</code>, etc).
-</p>
-<ol>
-  <li>
-    Unless the <code class='flag'>--nosystem_rc</code> is present, Bazel looks for
-    the system .bazelrc file: on Unix, it lives at <code>/etc/bazel.bazelrc</code>,
-    and on Windows at <code>%%ProgramData%%/bazel.bazelrc</code>.
-
-    If another system-specified location is required, this value can be
-    changed by setting <code>BAZEL_SYSTEM_BAZELRC_PATH</code> in
-    <code>src/main/cpp:option_processor</code> and using this custom Bazel binary.
-  </li>
-  <li>
-    Unless the <code class='flag'>--noworkspace_rc</code> is present, Bazel looks
-    for the <code>.bazelrc</code> file in your workspace directory.
-  </li>
-  <li>
-    Unless the <code class='flag'>--nohome_rc</code> is present, Bazel looks for
-    the home, or user, bazelrc: the file <code>.bazelrc</code> in your home
-    directory.
-  </li>
-  <li>
-    An additional .rc file can be specified by the
-    <code class='flag'>--bazelrc=<var>file</var></code> startup option. If this
-    option is not present, no additional file is loaded. Unlike in the three
-    default locations specified above, an incorrect path or non-existent file
-    will fail if passed explicitly.
-  </li>
-</ol>
-<h4><code>.bazelrc</code> syntax and semantics</h4>
-<p>
-  Like all UNIX "rc" files, the <code>.bazelrc</code> file is a text file with
-  a line-based grammar.  Lines starting <code>#</code> are considered comments
-  and are ignored, as are blank lines.  Each line contains a sequence of words,
-  which are tokenized according to the same rules as the Bourne shell.
-</p>
-
-<h5>Imports</h5>
-<p>
-  Lines that start with <code>import</code> are special: if Bazel encounters such
-  a line in a <code>.bazelrc</code> file, it parses the contents of the file
-  referenced by the import statement, too. Options specified in an imported file
-  take precedence over options specified before the import statement. Options
-  specified after the import statement take precedence over the options in the
-  imported file. Options in files imported later take precedence over files
-  imported earlier. To specify a path that is relative to the workspace root,
-  write <code>import %workspace%/path/to/bazelrc</code>.
-</p>
-
-<h5>Option defaults</h5>
-<p>
-  Most lines of a bazelrc define default option values. The first word on each
-  line specifies when these defaults are applied:
-</p>
-<ol>
-  <li>
-    <code>startup</code>: startup options, which go before the command, and
-    are described in <code>bazel help startup_options</code>.
-  </li>
-  <li>
-    <code>common</code>: options that apply to all Bazel commands.
-  </li>
-  <li>
-    <code><i>command</i></code>: Bazel command, such as <code>build</code>
-    or <code>query</code> to which the options apply. These options also apply
-    to all commands that inherit from the specified command. (For example,
-    <code>test</code> inherits from <code>build</code>.)
-  </li>
-</ol>
-<p>
-  Each of these lines may be used more than once and the arguments that follow
-  the first word are combined as if they had appeared on a single line.
-  (Users of CVS, another tool with a "Swiss army knife" command-line interface,
-  will find the syntax similar to that of <code>.cvsrc</code>.)
-</p>
-<p>
-  Options specified in the command line always take precedence over those from
-  a configuration file. Within the configuration file, precedence is
-  given by specificity. This means that lines for a more specific command take
-  precedence over lines for a less specific command, with <code>common</code>
-  getting lowest precedence (for example, the <code>test</code> command inherits
-  all the options from the <code>build</code> command, so the line
-  <code>test --foo=bar</code> takes precedence over the line
-  <code>build --foo=baz</code>, regardless of which rc file or what order
-  these two lines are in). Two lines specifying options for the same command at
-  equal specificity are parsed in the order in which they appear within the file.
-  The user-specific configuration file takes precedence over the master file.
-</p>
-<p>
-  Because this precedence rule does not match the file order, we recommend
-  that the file follows the same order, with <code>common</code> options at the
-  top, and most-specific commands near the bottom. This way, the order in which
-  the options are read is the same as the order in which they are applied,
-  which is more intuitive.
-</p>
-<p>
-  The arguments specified on a line of an rc file may include arguments that are
-  not options, such as the names of build targets, and so on. These, like the
-  options specified in the same files, have lower precedence than their siblings
-  on the command line, and are always prepended to the explicit list of non-
-  option arguments.
-</p>
-<h5><code>--config</code></h5>
-<p>
-  In addition to setting option defaults, the rc file can be used to group
-  options and provide a shorthand for common groupings. This is done by adding
-  a <code>:name</code> suffix to the command. These options are ignored by
-  default, but will be included when the option
-  <code>--config=<var>name</var></code> is present, either on the command line
-  or in a <code>.bazelrc</code> file, recursively, even inside of another
-  config definition. The options specified by <code>command:name</code> will
-  only be expanded for applicable commands, in the precedence order described
-  above.
-</p>
-<p>
-  Note that configs can be defined in any <code>.bazelrc</code> file, and that
-  all lines of the form <code>command:name</code> (for applicable commands)
-  will be expanded, across the different rc files. In order to avoid name
-  conflicts, we suggest that configs defined in personal rc files start
-  with an underscore ('_') to avoid unintentional name sharing.
-</p>
-<p>
-  <code>--config=foo</code> expands to the options defined in the rc files
-  "in-place" so that the options specified for the config have the same
-  precedence that the <code>--config=foo</code> option had.
-</p>
-
-<h5>Example</h5>
-<p>
-  Here's an example <code>~/.bazelrc</code> file:
-</p>
-<pre>
-  # Bob's Bazel option defaults
-
-  startup --host_jvm_args=-XX:-UseParallelGC
-  import /home/bobs_project/bazelrc
-  build --show_timestamps --keep_going --jobs 600
-  build --color=yes
-  query --keep_going
-
-  # Definition of --config=memcheck
-  build:memcheck --strip=never --test_timeout=3600
-</pre>
-
-
-<h3 id='startup files'>
-  Other files governing Bazel's behavior
-</h3>
-
-<h4 id='.bazelignore'><code>.bazelignore</code></h4>
-<p>
-  You can specify directories within the workspace
-  that you want Bazel to ignore, such as related projects
-  that use other build systems. Place a file called
-  <code>.bazelignore</code> at the root of the workspace
-  and add the directories you want Bazel to ignore, one per
-  line. Entries are relative to the workspace root.
-</p>
 
 <h2 id='build'>Building programs with Bazel</h2>
 <h3>The <code>build</code> command</h3>
@@ -376,66 +135,6 @@ title: User Manual
   your application.
   Bazel allows you to perform a build from a completely read-only volume.
 </p>
-
-<h4 id='flag--package_path'>Setting up a <code class='flag'>--package_path</code></h4>
-<p>
-  Bazel finds its packages by searching the package path.  This is a colon
-  separated ordered list of bazel directories, each being the root of a
-  partial source tree.
-</p>
-
-<p>
-  <i>To specify a custom package path</i> using the
-  <code class='flag'>--package_path</code> option:
-</p>
-<pre>
-  % bazel build --package_path %workspace%:/some/other/root
-</pre>
-<p>
-Package path elements may be specified in three formats:
-</p>
-<ol>
-  <li>
-    If the first character is <code>/</code>, the path is absolute.
-  </li>
-  <li>
-    If the path starts with <code>%workspace%</code>, the path is taken relative
-    to the nearest enclosing bazel directory.<br>
-    For instance, if your working directory
-    is <code>/home/bob/clients/bob_client/bazel/foo</code>, then the
-    string <code>%workspace%</code> in the package-path is expanded
-    to <code>/home/bob/clients/bob_client/bazel</code>.
-  </li>
-  <li>
-    Anything else is taken relative to the working directory.<br>  This is usually not what you mean to do,
-    and may behave unexpectedly if you use Bazel from directories below the bazel workspace.
-    For instance, if you use the package-path element <code>.</code>,
-    and then cd into the directory
-    <code>/home/bob/clients/bob_client/bazel/foo</code>, packages
-    will be resolved from the
-    <code>/home/bob/clients/bob_client/bazel/foo</code> directory.
-  </li>
-</ol>
-<p>
-  If you use a non-default package path, we recommend that you specify
-  it in your <a href='#bazelrc'>Bazel configuration file</a> for
-  convenience.
-</p>
-<p>
-  <i>Bazel doesn't require any packages to be in the
-  current directory</i>, so you can do a build from an empty bazel
-  workspace if all the necessary packages can be found somewhere else
-  on the package path.
-</p>
-<p>
-  <i>Example</i>: Building from an empty client
-</p>
-<pre>
-  % mkdir -p foo/bazel
-  % cd foo/bazel
-  % touch WORKSPACE
-  % bazel build --package_path /some/other/path //foo
-</pre>
 <h3 id='target-patterns'>Specifying targets to build</h3>
 <p>
   Bazel allows a number of ways to specify the targets to be built.
@@ -1114,6 +813,247 @@ $ bazel fetch //...
   produce the expected set of outputs.
 </p>
 
+
+
+<h2 id='client/server'>Client/server implementation</h2>
+
+<p>
+  The Bazel system is implemented as a long-lived server process.
+  This allows it to perform many optimizations not possible with a
+  batch-oriented implementation, such as caching of BUILD files,
+  dependency graphs, and other metadata from one build to the
+  next.  This improves the speed of incremental builds, and allows
+  different commands, such as <code>build</code>
+  and <code>query</code> to share the same cache of loaded packages,
+  making queries very fast.
+</p>
+<p>
+  When you run <code>bazel</code>, you're running the client.  The
+  client finds the server based on the output base, which by default is
+  determined by the path of the base workspace directory and your
+  userid, so if you build in multiple workspaces, you'll have multiple
+  output bases and thus multiple Bazel server processes.  Multiple
+  users on the same workstation can build concurrently in the same
+  workspace because their output bases will differ (different userids).
+  If the client cannot find a running server instance, it starts a new
+  one. The server process will stop after a period of inactivity (3 hours,
+  by default, which can be modified using the startup option <code>--max_idle_secs</code>).
+</p>
+<p>
+  For the most part, the fact that there is a server running is
+  invisible to the user, but sometimes it helps to bear this in mind.
+  For example, if you're running scripts that perform a lot of
+  automated builds in different directories, it's important to ensure
+  that you don't accumulate a lot of idle servers; you can do this by
+  explicitly shutting them down when you're finished with them, or by
+  specifying a short timeout period.
+</p>
+<p>
+  The name of a Bazel server process appears in the output of <code>ps
+  x</code> or <code>ps -e f</code> as
+  <code>bazel(<i>dirname</i>)</code>, where <i>dirname</i> is the
+  basename of the directory enclosing the root of your workspace directory.
+  For example:
+</p>
+<pre>
+  % ps -e f
+  16143 ?        Sl     3:00 bazel(src-johndoe2) -server -Djava.library.path=...
+</pre>
+<p>
+  This makes it easier to find out which server process belongs to a
+  given workspace.  (Beware that with certain other options
+  to <code>ps</code>, Bazel server processes may be named just
+  <code>java</code>.)  Bazel servers can be stopped using
+  the <a href='#shutdown'>shutdown</a> command.
+</p>
+
+<p>
+  When running <code>bazel</code>, the client first checks that the
+  server is the appropriate version; if not, the server is stopped and
+  a new one started.  This ensures that the use of a long-running
+  server process doesn't interfere with proper versioning.
+</p>
+
+<h2 id='bazelrc'>
+  <code>.bazelrc</code>, the Bazel configuration file,
+  the <code class='flag'>--bazelrc=<var>file</var></code> option, and
+  the <code class='flag'>--config=<var>value</var></code> option
+</h2>
+
+<p>
+  Bazel accepts many options.  Typically, some of these are varied
+  frequently (for example, <code class='flag'>--subcommands</code>) while others stay the
+  same across several builds (e.g. <code class='flag'>--package_path</code>).
+  To avoid having to specify these unchanged options for every build (and other commands)
+  Bazel allows you to specify options in a configuration file.
+</p>
+
+
+<h4>Where are the <code>.bazelrc</code> files?</h4>
+<p>
+  Bazel looks for an optional configuration file in the following locations,
+  in the order shown below. The options are interpreted in this order, so
+  options in later files can override a value from an earlier file if a
+  conflict arises. All options to control which of these files are loaded are
+  startup options, which means they much occur after <code>bazel</code> and
+  before the command (<code>build</code>, etc).
+</p>
+<ol>
+  <li>
+    Unless the <code class='flag'>--nosystem_rc</code> is present, Bazel looks for
+    the system .bazelrc file: on Unix, it lives at <code>/etc/bazel.bazelrc</code>,
+    and on Windows at <code>%%ProgramData%%/bazel.bazelrc</code>.
+
+    If another system-specified location is required, this value can be
+    changed by setting <code>BAZEL_SYSTEM_BAZELRC_PATH</code> in
+    <code>src/main/cpp:option_processor</code> and using this custom Bazel binary.
+  </li>
+  <li>
+    Unless the <code class='flag'>--noworkspace_rc</code> is present, Bazel looks
+    for the <code>.bazelrc</code> file in your workspace directory.
+  </li>
+  <li>
+    Unless the <code class='flag'>--nohome_rc</code> is present, Bazel looks for
+    the home, or user, bazelrc: the file <code>.bazelrc</code> in your home
+    directory.
+  </li>
+  <li>
+    An additional .rc file can be specified by the
+    <code class='flag'>--bazelrc=<var>file</var></code> startup option. If this
+    option is not present, no additional file is loaded. Unlike in the three
+    default locations specified above, an incorrect path or non-existent file
+    will fail if passed explicitly.
+  </li>
+</ol>
+<h4><code>.bazelrc</code> syntax and semantics</h4>
+<p>
+  Like all UNIX "rc" files, the <code>.bazelrc</code> file is a text file with
+  a line-based grammar.  Lines starting <code>#</code> are considered comments
+  and are ignored, as are blank lines.  Each line contains a sequence of words,
+  which are tokenized according to the same rules as the Bourne shell.
+</p>
+
+<h5>Imports</h5>
+<p>
+  Lines that start with <code>import</code> are special: if Bazel encounters such
+  a line in a <code>.bazelrc</code> file, it parses the contents of the file
+  referenced by the import statement, too. Options specified in an imported file
+  take precedence over options specified before the import statement. Options
+  specified after the import statement take precedence over the options in the
+  imported file. Options in files imported later take precedence over files
+  imported earlier. To specify a path that is relative to the workspace root,
+  write <code>import %workspace%/path/to/bazelrc</code>.
+</p>
+
+<h5>Option defaults</h5>
+<p>
+  Most lines of a bazelrc define default option values. The first word on each
+  line specifies when these defaults are applied:
+</p>
+<ol>
+  <li>
+    <code>startup</code>: startup options, which go before the command, and
+    are described in <code>bazel help startup_options</code>.
+  </li>
+  <li>
+    <code>common</code>: options that apply to all Bazel commands.
+  </li>
+  <li>
+    <code><i>command</i></code>: Bazel command, such as <code>build</code>
+    or <code>query</code> to which the options apply. These options also apply
+    to all commands that inherit from the specified command. (For example,
+    <code>test</code> inherits from <code>build</code>.)
+  </li>
+</ol>
+<p>
+  Each of these lines may be used more than once and the arguments that follow
+  the first word are combined as if they had appeared on a single line.
+  (Users of CVS, another tool with a "Swiss army knife" command-line interface,
+  will find the syntax similar to that of <code>.cvsrc</code>.)
+</p>
+<p>
+  Options specified in the command line always take precedence over those from
+  a configuration file. Within the configuration file, precedence is
+  given by specificity. This means that lines for a more specific command take
+  precedence over lines for a less specific command, with <code>common</code>
+  getting lowest precedence (for example, the <code>test</code> command inherits
+  all the options from the <code>build</code> command, so the line
+  <code>test --foo=bar</code> takes precedence over the line
+  <code>build --foo=baz</code>, regardless of which rc file or what order
+  these two lines are in). Two lines specifying options for the same command at
+  equal specificity are parsed in the order in which they appear within the file.
+  The user-specific configuration file takes precedence over the master file.
+</p>
+<p>
+  Because this precedence rule does not match the file order, we recommend
+  that the file follows the same order, with <code>common</code> options at the
+  top, and most-specific commands near the bottom. This way, the order in which
+  the options are read is the same as the order in which they are applied,
+  which is more intuitive.
+</p>
+<p>
+  The arguments specified on a line of an rc file may include arguments that are
+  not options, such as the names of build targets, and so on. These, like the
+  options specified in the same files, have lower precedence than their siblings
+  on the command line, and are always prepended to the explicit list of non-
+  option arguments.
+</p>
+<h5><code>--config</code></h5>
+<p>
+  In addition to setting option defaults, the rc file can be used to group
+  options and provide a shorthand for common groupings. This is done by adding
+  a <code>:name</code> suffix to the command. These options are ignored by
+  default, but will be included when the option
+  <code>--config=<var>name</var></code> is present, either on the command line
+  or in a <code>.bazelrc</code> file, recursively, even inside of another
+  config definition. The options specified by <code>command:name</code> will
+  only be expanded for applicable commands, in the precedence order described
+  above.
+</p>
+<p>
+  Note that configs can be defined in any <code>.bazelrc</code> file, and that
+  all lines of the form <code>command:name</code> (for applicable commands)
+  will be expanded, across the different rc files. In order to avoid name
+  conflicts, we suggest that configs defined in personal rc files start
+  with an underscore ('_') to avoid unintentional name sharing.
+</p>
+<p>
+  <code>--config=foo</code> expands to the options defined in the rc files
+  "in-place" so that the options specified for the config have the same
+  precedence that the <code>--config=foo</code> option had.
+</p>
+
+<h5>Example</h5>
+<p>
+  Here's an example <code>~/.bazelrc</code> file:
+</p>
+<pre>
+  # Bob's Bazel option defaults
+
+  startup --host_jvm_args=-XX:-UseParallelGC
+  import /home/bobs_project/bazelrc
+  build --show_timestamps --keep_going --jobs 600
+  build --color=yes
+  query --keep_going
+
+  # Definition of --config=memcheck
+  build:memcheck --strip=never --test_timeout=3600
+</pre>
+
+
+<h3 id='startup files'>
+  Other files governing Bazel's behavior
+</h3>
+
+<h4 id='.bazelignore'><code>.bazelignore</code></h4>
+<p>
+  You can specify directories within the workspace
+  that you want Bazel to ignore, such as related projects
+  that use other build systems. Place a file called
+  <code>.bazelignore</code> at the root of the workspace
+  and add the directories you want Bazel to ignore, one per
+  line. Entries are relative to the workspace root.
+</p>
 
 <h2 id='scripting'>Calling Bazel from scripts</h2>
 
