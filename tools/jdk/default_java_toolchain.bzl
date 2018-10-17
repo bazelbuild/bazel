@@ -110,7 +110,17 @@ def java_runtime_files(name, srcs):
 def _bootclasspath(ctx):
     host_javabase = ctx.attr.host_javabase[java_common.JavaRuntimeInfo]
 
-    class_dir = ctx.actions.declare_directory("%s_classes" % ctx.label.name)
+    # explicitly list output files instead of using TreeArtifact to work around
+    # https://github.com/bazelbuild/bazel/issues/6203
+    classes = [
+        "DumpPlatformClassPath.class",
+        "DumpPlatformClassPath$1.class",
+    ]
+
+    class_outputs = [
+        ctx.actions.declare_file("%s_classes/%s" % (ctx.label.name, clazz))
+        for clazz in classes
+    ]
 
     args = ctx.actions.args()
     args.add("-source")
@@ -121,26 +131,26 @@ def _bootclasspath(ctx):
     args.add("-cp")
     args.add("%s/lib/tools.jar" % host_javabase.java_home)
     args.add("-d")
-    args.add(class_dir.path)
+    args.add(class_outputs[0].dirname)
     args.add(ctx.file.src)
 
     ctx.actions.run(
         executable = "%s/bin/javac" % host_javabase.java_home,
         inputs = [ctx.file.src] + ctx.files.host_javabase,
-        outputs = [class_dir],
+        outputs = class_outputs,
         arguments = [args],
     )
 
     bootclasspath = ctx.outputs.jar
 
-    inputs = [class_dir] + ctx.files.host_javabase
+    inputs = class_outputs + ctx.files.host_javabase
 
     args = ctx.actions.args()
     args.add("-XX:+IgnoreUnrecognizedVMOptions")
     args.add("--add-exports=jdk.compiler/com.sun.tools.javac.platform=ALL-UNNAMED")
     args.add_joined(
         "-cp",
-        [class_dir.path, "%s/lib/tools.jar" % host_javabase.java_home],
+        [class_outputs[0].dirname, "%s/lib/tools.jar" % host_javabase.java_home],
         join_with = ctx.configuration.host_path_separator,
     )
     args.add("DumpPlatformClassPath")
