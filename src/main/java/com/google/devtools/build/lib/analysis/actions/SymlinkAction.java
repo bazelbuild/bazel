@@ -101,6 +101,8 @@ public class SymlinkAction extends AbstractAction {
   public SymlinkAction(
       ActionOwner owner, PathFragment inputPath, Artifact output, String progressMessage) {
     super(owner, Artifact.NO_ARTIFACTS, ImmutableList.of(output));
+    // Don't use this constructor except when the symlink points to an absolute path
+    Preconditions.checkState(inputPath.isAbsolute());
     this.inputPath = Preconditions.checkNotNull(inputPath);
     this.progressMessage = progressMessage;
   }
@@ -157,6 +159,20 @@ public class SymlinkAction extends AbstractAction {
   @Override
   public String getMnemonic() {
     return "Symlink";
+  }
+
+  @Override
+  public boolean isVolatile() {
+    return inputPath != null && inputPath.isAbsolute();
+  }
+
+  @Override
+  public boolean executeUnconditionally() {
+    // If the SymlinkAction points to an absolute path, we can't verify that its output artifact did
+    // not change purely by looking at the output tree. Thus, we re-execute the action just to be
+    // safe. Change pruning will take care of not re-running dependent actions and this is used only
+    // in very rare cases (only C++ FDO and even then, only twice per build at most) anyway.
+    return inputPath != null && inputPath.isAbsolute();
   }
 
   @Override
