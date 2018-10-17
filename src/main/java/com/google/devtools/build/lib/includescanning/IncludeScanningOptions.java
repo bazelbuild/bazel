@@ -62,18 +62,6 @@ public class IncludeScanningOptions extends OptionsBase {
   public boolean inMemoryIncludesFiles;
 
   @Option(
-      name = "experimental_dotincludes_files_in_tree",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
-      },
-      defaultValue = "false",
-      help = "Put remotely-extracted include files next to each source file.")
-  public boolean includesFilesInTree;
-
-  @Option(
       name = "experimental_remote_include_extraction_size_threshold",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {

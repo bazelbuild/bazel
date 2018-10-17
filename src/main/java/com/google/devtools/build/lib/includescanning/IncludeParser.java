@@ -528,17 +528,13 @@ class IncludeParser {
   /** The externally-scoped immutable hints helper that is shared by all scanners. */
   private final Hints hints;
 
-  /** If true, remotely extracted includes files are stored next to their source. */
-  private final boolean includesFilesInTree;
-
   /**
    * Constructs a new FileParser.
    *
    * @param hints regexps for converting computed includes into simple strings
    */
-  public IncludeParser(Hints hints, boolean includesFilesInTree) {
+  public IncludeParser(Hints hints) {
     this.hints = hints;
-    this.includesFilesInTree = includesFilesInTree;
   }
 
   /**
@@ -816,7 +812,6 @@ class IncludeParser {
       boolean isOutputFile)
       throws IOException, ExecException, InterruptedException {
     Collection<Inclusion> inclusions;
-    boolean placeNextToFile = isOutputFile && includesFilesInTree;
 
     if (remoteIncludeScanner != null
         && remoteIncludeScanner.shouldParseRemotely(file, actionExecutionContext)) {
@@ -827,7 +822,7 @@ class IncludeParser {
               actionExecutionContext,
               grepIncludes,
               getFileType(),
-              placeNextToFile);
+              isOutputFile);
     } else {
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.SCANNER, file.getExecPathString())) {
@@ -847,7 +842,7 @@ class IncludeParser {
                   actionExecutionContext,
                   grepIncludes,
                   getFileType(),
-                  placeNextToFile);
+                  isOutputFile);
         } else {
           throw e;
         }
