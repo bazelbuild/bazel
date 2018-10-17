@@ -96,6 +96,9 @@ public class ASTFileLookupFunction implements SkyFunction {
     if (fileValue == null) {
       return null;
     }
+    if (!fileValue.exists()) {
+      return ASTFileLookupValue.forMissingFile(fileLabel);
+    }
     if (!fileValue.isFile()) {
       return ASTFileLookupValue.forBadFile(fileLabel);
     }
