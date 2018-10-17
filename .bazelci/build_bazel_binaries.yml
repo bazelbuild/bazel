@@ -1,0 +1,22 @@
+---
+platforms:
+  ubuntu1404:
+    shell_commands:
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+      android_ndk_repository/android_ndk_repository/' WORKSPACE
+    - rm -f WORKSPACE.bak
+    build_targets:
+    - "//src:bazel"
+  macos:
+    shell_commands:
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+      android_ndk_repository/android_ndk_repository/' WORKSPACE
+    - rm -f WORKSPACE.bak
+    build_targets:
+    - "//src:bazel"
+  windows:
+    build_flags:
+    - "--copt=-w"
+    - "--host_copt=-w"
+    build_targets:
+    - "//src:bazel"
