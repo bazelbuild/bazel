@@ -105,7 +105,7 @@ def _impl(ctx):
   files = depset(...)
 
   # Bad, has to iterate over entire depset to get length
-  if len(files) == 0:
+  if len(files) != 0:
     args.add("--files")
     args.add_all(files)
 
