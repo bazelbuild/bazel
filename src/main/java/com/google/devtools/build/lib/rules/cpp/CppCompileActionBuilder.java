@@ -285,8 +285,6 @@ public class CppCompileActionBuilder {
     }
 
     NestedSet<Artifact> realMandatoryInputs = buildMandatoryInputs();
-    NestedSet<Artifact> allInputs = buildAllInputs(realMandatoryInputs);
-
     NestedSet<Artifact> prunableHeaders =
         NestedSetBuilder.fromNestedSet(cppSemantics.getAdditionalPrunableIncludes())
             .addAll(additionalPrunableHeaders)
@@ -302,7 +300,6 @@ public class CppCompileActionBuilder {
       action =
           new FakeCppCompileAction(
               owner,
-              allInputs,
               featureConfiguration,
               variables,
               sourceFile,
@@ -313,7 +310,7 @@ public class CppCompileActionBuilder {
               usePic,
               useHeaderModules,
               realMandatoryInputs,
-              inputsForInvalidation,
+              buildInputsForInvalidation(),
               getBuiltinIncludeFiles(),
               prunableHeaders,
               outputFile,
@@ -330,7 +327,6 @@ public class CppCompileActionBuilder {
       action =
           new CppCompileAction(
               owner,
-              allInputs,
               featureConfiguration,
               variables,
               sourceFile,
@@ -341,7 +337,7 @@ public class CppCompileActionBuilder {
               usePic,
               useHeaderModules,
               realMandatoryInputs,
-              inputsForInvalidation,
+              buildInputsForInvalidation(),
               getBuiltinIncludeFiles(),
               prunableHeaders,
               outputFile,
@@ -383,7 +379,6 @@ public class CppCompileActionBuilder {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
-    realMandatoryInputsBuilder.addAll(ccCompilationContext.getTransitiveCompilationPrerequisites());
     if (useHeaderModules() && !shouldPruneModules()) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getTransitiveModules(usePic));
     }
@@ -395,11 +390,9 @@ public class CppCompileActionBuilder {
     return realMandatoryInputsBuilder.build();
   }
 
-  /**
-   * Returns the list of all inputs for the {@link CppCompileAction} as configured.
-   */
-  NestedSet<Artifact> buildAllInputs(NestedSet<Artifact> mandatoryInputs) {
-    return NestedSetBuilder.fromNestedSet(mandatoryInputs).addAll(inputsForInvalidation).build();
+  Iterable<Artifact> buildInputsForInvalidation() {
+    return Iterables.concat(
+        this.inputsForInvalidation, ccCompilationContext.getTransitiveCompilationPrerequisites());
   }
 
   private boolean useHeaderModules() {

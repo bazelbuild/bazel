@@ -75,7 +75,10 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     this.categories = categories;
     this.actionOwner = actionOwner;
     this.mandatoryInputs = cppCompileActionBuilder.buildMandatoryInputs();
-    this.allInputs = cppCompileActionBuilder.buildAllInputs(this.mandatoryInputs);
+    this.allInputs =
+        NestedSetBuilder.fromNestedSet(mandatoryInputs)
+            .addAll(cppCompileActionBuilder.buildInputsForInvalidation())
+            .build();
   }
 
   @Override

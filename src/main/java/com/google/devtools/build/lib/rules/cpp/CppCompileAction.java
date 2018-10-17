@@ -167,7 +167,6 @@ public class CppCompileAction extends AbstractAction
    * Creates a new action to compile C/C++ source files.
    *
    * @param owner the owner of the action, usually the configured target that emitted it
-   * @param allInputs the list of all action inputs.
    * @param featureConfiguration TODO(bazel-team): Add parameter description.
    * @param variables TODO(bazel-team): Add parameter description.
    * @param sourceFile the source file that should be compiled. {@code mandatoryInputs} must contain
@@ -196,7 +195,6 @@ public class CppCompileAction extends AbstractAction
    */
   CppCompileAction(
       ActionOwner owner,
-      NestedSet<Artifact> allInputs,
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables variables,
       Artifact sourceFile,
@@ -227,7 +225,7 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact grepIncludes) {
     super(
         owner,
-        allInputs,
+        NestedSetBuilder.fromNestedSet(mandatoryInputs).addAll(inputsForInvalidation).build(),
         CollectionUtils.asSetWithoutNulls(
             outputFile,
             dotdFile == null ? null : dotdFile.artifact(),
