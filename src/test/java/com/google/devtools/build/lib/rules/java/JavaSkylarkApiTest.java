@@ -49,10 +49,11 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
       + "//tools/jdk:current_host_java_runtime";
 
   @Test
-  public void testJavaRuntimeProviderJavaExecutableAbsolute() throws Exception {
-    scratch.file("a/BUILD",
+  public void testJavaRuntimeProviderJavaAbsolute() throws Exception {
+    scratch.file(
+        "a/BUILD",
         "load(':rule.bzl', 'jrule')",
-        "java_runtime(name='jvm', srcs=[], java_home='/foo/bar/')",
+        "java_runtime(name='jvm', srcs=[], java_home='/foo/bar')",
         "java_runtime_alias(name='alias')",
         "jrule(name='r')");
 
@@ -61,24 +62,33 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
         "  return struct(",
-        "    java_executable = provider.java_executable_exec_path,",
-        "    java_runfiles = provider.java_executable_runfiles_path,",
-        ")",
+        "    java_home_exec_path = provider.java_home,",
+        "    java_executable_exec_path = provider.java_executable_exec_path,",
+        "    java_home_runfiles_path = provider.java_home_runfiles_path,",
+        "    java_executable_runfiles_path = provider.java_executable_runfiles_path,",
+        "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
     useConfiguration("--javabase=//a:jvm");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked") PathFragment javaExecutable =
-        (PathFragment) ct.get("java_executable");
-    assertThat(javaExecutable.getPathString()).startsWith("/foo/bar/bin/java");
-    @SuppressWarnings("unchecked") PathFragment javaRunfiles =
-        (PathFragment) ct.get("java_runfiles");
-    assertThat(javaRunfiles.getPathString()).startsWith("/foo/bar/bin/java");
+    @SuppressWarnings("unchecked")
+    PathFragment javaHomeExecPath = (PathFragment) ct.get("java_home_exec_path");
+    assertThat(javaHomeExecPath.getPathString()).isEqualTo("/foo/bar");
+    @SuppressWarnings("unchecked")
+    PathFragment javaExecutableExecPath = (PathFragment) ct.get("java_executable_exec_path");
+    assertThat(javaExecutableExecPath.getPathString()).startsWith("/foo/bar/bin/java");
+    @SuppressWarnings("unchecked")
+    PathFragment javaHomeRunfilesPath = (PathFragment) ct.get("java_home_runfiles_path");
+    assertThat(javaHomeRunfilesPath.getPathString()).isEqualTo("/foo/bar");
+    @SuppressWarnings("unchecked")
+    PathFragment javaExecutableRunfiles = (PathFragment) ct.get("java_executable_runfiles_path");
+    assertThat(javaExecutableRunfiles.getPathString()).startsWith("/foo/bar/bin/java");
   }
 
   @Test
-  public void testJavaRuntimeProviderJavaExecutableHermetic() throws Exception {
-    scratch.file("a/BUILD",
+  public void testJavaRuntimeProviderJavaHermetic() throws Exception {
+    scratch.file(
+        "a/BUILD",
         "load(':rule.bzl', 'jrule')",
         "java_runtime(name='jvm', srcs=[], java_home='foo/bar')",
         "java_runtime_alias(name='alias')",
@@ -89,26 +99,36 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
         "  return struct(",
-        "    java_executable = provider.java_executable_exec_path,",
-        "    java_runfiles = provider.java_executable_runfiles_path,",
-        ")",
+        "    java_home_exec_path = provider.java_home,",
+        "    java_executable_exec_path = provider.java_executable_exec_path,",
+        "    java_home_runfiles_path = provider.java_home_runfiles_path,",
+        "    java_executable_runfiles_path = provider.java_executable_runfiles_path,",
+        "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
     useConfiguration("--javabase=//a:jvm");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked") PathFragment javaExecutable =
-        (PathFragment) ct.get("java_executable");
-    assertThat(javaExecutable.getPathString()).startsWith("a/foo/bar/bin/java");
-    @SuppressWarnings("unchecked") PathFragment javaRunfiles =
-        (PathFragment) ct.get("java_runfiles");
-    assertThat(javaRunfiles.getPathString()).startsWith("a/foo/bar/bin/java");
+    @SuppressWarnings("unchecked")
+    PathFragment javaHomeExecPath = (PathFragment) ct.get("java_home_exec_path");
+    assertThat(javaHomeExecPath.getPathString()).isEqualTo("a/foo/bar");
+    @SuppressWarnings("unchecked")
+    PathFragment javaExecutableExecPath = (PathFragment) ct.get("java_executable_exec_path");
+    assertThat(javaExecutableExecPath.getPathString()).startsWith("a/foo/bar/bin/java");
+    @SuppressWarnings("unchecked")
+    PathFragment javaHomeRunfilesPath = (PathFragment) ct.get("java_home_runfiles_path");
+    assertThat(javaHomeRunfilesPath.getPathString()).isEqualTo("a/foo/bar");
+    @SuppressWarnings("unchecked")
+    PathFragment javaExecutableRunfiles = (PathFragment) ct.get("java_executable_runfiles_path");
+    assertThat(javaExecutableRunfiles.getPathString()).startsWith("a/foo/bar/bin/java");
   }
 
   @Test
-  public void testJavaRuntimeProviderJavaHome() throws Exception {
-    scratch.file("a/BUILD",
+  public void testJavaRuntimeProviderJavaGenerated() throws Exception {
+    scratch.file(
+        "a/BUILD",
         "load(':rule.bzl', 'jrule')",
-        "java_runtime(name='jvm', srcs=[], java_home='/foo/bar/')",
+        "genrule(name='gen', cmd='', outs=['foo/bar/bin/java'])",
+        "java_runtime(name='jvm', srcs=[], java='foo/bar/bin/java')",
         "java_runtime_alias(name='alias')",
         "jrule(name='r')");
 
@@ -117,15 +137,29 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
         "  return struct(",
-        "    java_home = provider.java_home",
-        ")",
+        "    java_home_exec_path = provider.java_home,",
+        "    java_executable_exec_path = provider.java_executable_exec_path,",
+        "    java_home_runfiles_path = provider.java_home_runfiles_path,",
+        "    java_executable_runfiles_path = provider.java_executable_runfiles_path,",
+        "  )",
         "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
 
     useConfiguration("--javabase=//a:jvm");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked") PathFragment javaHome =
-        (PathFragment) ct.get("java_home");
-    assertThat(javaHome.getPathString()).isEqualTo("/foo/bar");
+    @SuppressWarnings("unchecked")
+    PathFragment javaHomeExecPath = (PathFragment) ct.get("java_home_exec_path");
+    assertThat(javaHomeExecPath.getPathString())
+        .isEqualTo(getGenfilesArtifactWithNoOwner("a/foo/bar").getExecPathString());
+    @SuppressWarnings("unchecked")
+    PathFragment javaExecutableExecPath = (PathFragment) ct.get("java_executable_exec_path");
+    assertThat(javaExecutableExecPath.getPathString())
+        .startsWith(getGenfilesArtifactWithNoOwner("a/foo/bar/bin/java").getExecPathString());
+    @SuppressWarnings("unchecked")
+    PathFragment javaHomeRunfilesPath = (PathFragment) ct.get("java_home_runfiles_path");
+    assertThat(javaHomeRunfilesPath.getPathString()).isEqualTo("a/foo/bar");
+    @SuppressWarnings("unchecked")
+    PathFragment javaExecutableRunfiles = (PathFragment) ct.get("java_executable_runfiles_path");
+    assertThat(javaExecutableRunfiles.getPathString()).startsWith("a/foo/bar/bin/java");
   }
 
   @Test

@@ -35,11 +35,13 @@ public class JavaRuntimeInfoTest {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             PathFragment.create(""),
             PathFragment.create(""),
+            PathFragment.create(""),
             PathFragment.create(""));
     JavaRuntimeInfo b =
         JavaRuntimeInfo.create(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            PathFragment.create(""),
             PathFragment.create(""),
             PathFragment.create(""),
             PathFragment.create(""));

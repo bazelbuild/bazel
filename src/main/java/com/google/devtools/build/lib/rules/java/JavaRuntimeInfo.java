@@ -44,12 +44,14 @@ public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
       NestedSet<Artifact> javaBaseInputsMiddleman,
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
+      PathFragment javaHomeRunfilesPath,
       PathFragment javaBinaryRunfilesPath) {
     return new JavaRuntimeInfo(
         javaBaseInputs,
         javaBaseInputsMiddleman,
         javaHome,
         javaBinaryExecPath,
+        javaHomeRunfilesPath,
         javaBinaryRunfilesPath);
   }
 
@@ -94,6 +96,7 @@ public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
   private final NestedSet<Artifact> javaBaseInputsMiddleman;
   private final PathFragment javaHome;
   private final PathFragment javaBinaryExecPath;
+  private final PathFragment javaHomeRunfilesPath;
   private final PathFragment javaBinaryRunfilesPath;
 
   @AutoCodec.Instantiator
@@ -103,12 +106,14 @@ public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
       NestedSet<Artifact> javaBaseInputsMiddleman,
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
+      PathFragment javaHomeRunfilesPath,
       PathFragment javaBinaryRunfilesPath) {
     super(PROVIDER);
     this.javaBaseInputs = javaBaseInputs;
     this.javaBaseInputsMiddleman = javaBaseInputsMiddleman;
     this.javaHome = javaHome;
     this.javaBinaryExecPath = javaBinaryExecPath;
+    this.javaHomeRunfilesPath = javaHomeRunfilesPath;
     this.javaBinaryRunfilesPath = javaBinaryRunfilesPath;
   }
 
@@ -132,6 +137,12 @@ public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
   /** The execpath of the Java binary. */
   public PathFragment javaBinaryExecPath() {
     return javaBinaryExecPath;
+  }
+
+  /** The runfiles path of the root directory of the Java installation. */
+  @Override
+  public PathFragment javaHomeRunfilesPath() {
+    return javaHomeRunfilesPath;
   }
 
   @Override

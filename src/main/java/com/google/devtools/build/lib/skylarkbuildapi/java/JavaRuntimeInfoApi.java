@@ -32,22 +32,32 @@ public interface JavaRuntimeInfoApi extends StructApi {
   )
   public PathFragment javaHome();
 
+  /** The execpath of the Java binary. */
   @SkylarkCallable(
       name = "java_executable_exec_path",
       doc = "Returns the execpath of the Java executable.",
-      structField = true
-  )
-  /** The execpath of the Java binary. */
+      structField = true)
   public PathFragment javaBinaryExecPath();
 
+  /** The runfiles path of the JDK. */
+  @SkylarkCallable(
+      name = "java_home_runfiles_path",
+      doc =
+          "Returns the path of the Java installation in runfiles trees. This should only be used "
+              + "when one needs to access the JDK during the execution of a binary or a test built "
+              + "by Bazel. In particular, when one needs the JDK during an action, "
+              + "java_home should be used instead.",
+      structField = true)
+  public PathFragment javaHomeRunfilesPath();
+
+  /** The runfiles path of the Java binary. */
   @SkylarkCallable(
       name = "java_executable_runfiles_path",
-      doc = "Returns the path of the Java executable in runfiles trees. This should only be used "
-          + "when one needs to access the JVM during the execution of a binary or a test built "
-          + "by Bazel. In particular, when one needs to invoke the JVM during an action, "
-          + "java_executable_exec_path should be used instead.",
-      structField = true
-  )
-  /** The runfiles path of the Java binary. */
+      doc =
+          "Returns the path of the Java executable in runfiles trees. This should only be used "
+              + "when one needs to access the JVM during the execution of a binary or a test built "
+              + "by Bazel. In particular, when one needs to invoke the JVM during an action, "
+              + "java_executable_exec_path should be used instead.",
+      structField = true)
   public PathFragment javaBinaryRunfilesPath();
 }
