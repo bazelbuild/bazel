@@ -147,7 +147,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
                   actionExecutionContext.getVerboseFailures(),
                   spawn.getArguments(),
                   spawn.getEnvironment(),
-                  cwd);
+                  cwd,
+                  spawn.getExecutionPlatform());
       throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/false);
     }
     return ImmutableList.of(spawnResult);

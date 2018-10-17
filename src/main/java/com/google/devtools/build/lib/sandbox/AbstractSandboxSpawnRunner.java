@@ -125,16 +125,22 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         sandbox.getSandboxExecRoot().getPathFile());
       String failureMessage;
       if (sandboxOptions.sandboxDebug) {
-        failureMessage =
-            CommandFailureUtils.describeCommandFailure(
-                true, sandbox.getArguments(), sandbox.getEnvironment(), execRoot.getPathString());
+      failureMessage =
+          CommandFailureUtils.describeCommandFailure(
+              true,
+              sandbox.getArguments(),
+              sandbox.getEnvironment(),
+              execRoot.getPathString(),
+              null);
       } else {
-        failureMessage =
-            CommandFailureUtils.describeCommandFailure(
-                verboseFailures,
-                originalSpawn.getArguments(),
-                originalSpawn.getEnvironment(),
-                execRoot.getPathString()) + SANDBOX_DEBUG_SUGGESTION;
+      failureMessage =
+          CommandFailureUtils.describeCommandFailure(
+                  verboseFailures,
+                  originalSpawn.getArguments(),
+                  originalSpawn.getEnvironment(),
+                  execRoot.getPathString(),
+                  originalSpawn.getExecutionPlatform())
+              + SANDBOX_DEBUG_SUGGESTION;
       }
 
     long startTime = System.currentTimeMillis();
