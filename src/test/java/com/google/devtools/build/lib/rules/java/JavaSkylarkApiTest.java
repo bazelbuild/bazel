@@ -212,7 +212,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         .containsExactly("libdep.jar");
     assertThat(artifactFilesNames(transitiveCompileTimeJars.toCollection(Artifact.class)))
         .containsExactly("libdep-hjar.jar");
-    assertThat(transitiveCompileTimeJars.toCollection()).isEqualTo(compileJars.toCollection());
+    assertThat(transitiveCompileTimeJars.toCollection())
+        .containsExactlyElementsIn(compileJars.toCollection());
     assertThat(artifactFilesNames(fullCompileJars.toCollection(Artifact.class)))
         .containsExactly("libdep.jar");
     assertThat(artifactFilesNames(sourceJars)).containsExactly("libdep-src.jar");
