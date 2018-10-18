@@ -1292,8 +1292,10 @@ java_library(
 java_library(
     name = "server",
     srcs = [
+        "server/CommandManager.java",
         "server/GrpcServerImpl.java",
         "server/IdleServerTasks.java",
+        "server/ServerWatcherRunnable.java",
     ],
     deps = [
         ":runtime",
