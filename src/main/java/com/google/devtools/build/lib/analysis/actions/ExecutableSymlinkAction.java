@@ -33,7 +33,7 @@ public final class ExecutableSymlinkAction extends SymlinkAction {
 
   @AutoCodec.Instantiator
   public ExecutableSymlinkAction(ActionOwner owner, Artifact primaryInput, Artifact primaryOutput) {
-    super(owner, primaryInput, primaryOutput, "Symlinking " + owner.getLabel());
+    super(owner, null, primaryInput, primaryOutput, "Symlinking " + owner.getLabel(), false);
   }
 
   @Override

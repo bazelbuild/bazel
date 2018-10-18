@@ -34,57 +34,77 @@ import javax.annotation.Nullable;
 /** Action to create a symbolic link. */
 @AutoCodec
 public class SymlinkAction extends AbstractAction {
-  private static final String GUID = "349675b5-437c-4da8-891a-7fb98fba6ab5";
+  private static final String GUID = "7f4fab4d-d0a7-4f0f-8649-1d0337a21fee";
 
   /** Null when {@link #getPrimaryInput} is the target of the symlink. */
   @Nullable private final PathFragment inputPath;
+  @Nullable private final String progressMessage;
 
-  private final String progressMessage;
+  /** Whether the symlink points into a Fileset.
+   *
+   * <p>If this is set, the action also updates the mtime for its target thus forcing actions
+   * depending on it to be re-executed. This would not be necessary in an ideal world, but
+   * dependency checking for Filesets output trees is unsound because they are directories, so we
+   * need to force them to be considered changed this way. Yet Another Reason why Filests should go
+   * away.
+   */
+  private final boolean targetIsFileset;
 
   /**
-   * Creates a new SymlinkAction instance.
+   * Creates an action that creates a symlink pointing to an artifact.
    *
    * @param owner the action owner.
-   * @param input the Artifact that will be the src of the symbolic link.
-   * @param output the Artifact that will be created by executing this Action.
+   * @param input the {@link Artifact} the symlink will point to
+   * @param output the {@link Artifact} that will be created by executing this Action.
    * @param progressMessage the progress message.
    */
-  public SymlinkAction(ActionOwner owner, Artifact input, Artifact output,
+  public static SymlinkAction toArtifact(ActionOwner owner, Artifact input, Artifact output,
       String progressMessage) {
-    // These actions typically have only one input and one output, which
-    // become the sole and primary in their respective lists.
-    super(owner, ImmutableList.of(input), ImmutableList.of(output));
-    this.inputPath = null;
-    this.progressMessage = progressMessage;
+    return new SymlinkAction(owner, null, input, output, progressMessage, false);
   }
 
-  /**
-   * Creates a new SymlinkAction instance, where the inputPath may be different than that input
-   * artifact's path. This is only useful when dealing with runfiles trees where link target is a
-   * directory.
-   *
-   * NB: Only use in special cases where the target of the symlink differs from the input
-   * {@link Artifact}.
-   *
-   * @param owner the action owner.
-   * @param inputPath the Path that will be the src of the symbolic link.
-   * @param primaryInput the Artifact that is required to build the inputPath.
-   * @param primaryOutput the Artifact that will be created by executing this Action.
-   * @param progressMessage the progress message.
-   */
   @AutoCodec.Instantiator
-  public SymlinkAction(
+  protected SymlinkAction(
       ActionOwner owner,
       PathFragment inputPath,
       Artifact primaryInput,
       Artifact primaryOutput,
-      String progressMessage) {
+      String progressMessage,
+      boolean targetIsFileset) {
     super(
         owner,
         primaryInput != null ? ImmutableList.of(primaryInput) : Artifact.NO_ARTIFACTS,
         ImmutableList.of(primaryOutput));
     this.inputPath = inputPath;
     this.progressMessage = progressMessage;
+    this.targetIsFileset = targetIsFileset;
+  }
+
+  /**
+   * Creates a symlink to a Fileset.
+   *
+   * <p>This is different from a regular {@link SymlinkAction} in that the target is in the output
+   * tree but not an artifact and that when running this action, the mtime of its target is updated
+   * (necessary because dependency checking of Filesets is unsound). For more information, see the
+   * Javadoc of {@link #targetIsFileset}.
+   *
+   * <p><B>WARNING:</B>Do not use this for anything else other than Filesets.</p> If you do, your
+   * correctness will depend on a subtle interaction between various parts of Blaze.
+   *
+   * @param owner the action owner.
+   * @param execPath where the symlink will point to
+   * @param primaryInput the {@link Artifact} that is required to build the inputPath.
+   * @param primaryOutput the {@link Artifact} that will be created by executing this Action.
+   * @param progressMessage the progress message.
+   */
+  public static SymlinkAction toFileset(
+      ActionOwner owner,
+      PathFragment execPath,
+      Artifact primaryInput,
+      Artifact primaryOutput,
+      String progressMessage) {
+    Preconditions.checkState(!execPath.isAbsolute());
+    return new SymlinkAction(owner, execPath, primaryInput, primaryOutput, progressMessage, true);
   }
 
   /**
@@ -93,18 +113,19 @@ public class SymlinkAction extends AbstractAction {
    * tree. Currently, the only instance where this happens is for FDO builds where the profile file
    * is outside the exec root structure.
    *
+   * <p>Do <b>NOT</b> use this method unless there is no other way; unconditionally executed actions
+   * are costly: even if change pruning kicks in and downstream actions are not re-executed, they
+   * trigger unconditional Skyframe invalidation of their reverse dependencies.
+   *
    * @param owner the action owner.
-   * @param inputPath the Path that will be the src of the symbolic link.
+   * @param absolutePath where the symlink will point to
    * @param output the Artifact that will be created by executing this Action.
    * @param progressMessage the progress message.
    */
-  public SymlinkAction(
-      ActionOwner owner, PathFragment inputPath, Artifact output, String progressMessage) {
-    super(owner, Artifact.NO_ARTIFACTS, ImmutableList.of(output));
-    // Don't use this constructor except when the symlink points to an absolute path
-    Preconditions.checkState(inputPath.isAbsolute());
-    this.inputPath = Preconditions.checkNotNull(inputPath);
-    this.progressMessage = progressMessage;
+  public static SymlinkAction toAbsolutePath(ActionOwner owner, PathFragment absolutePath,
+      Artifact output, String progressMessage) {
+    Preconditions.checkState(absolutePath.isAbsolute());
+    return new SymlinkAction(owner, absolutePath, null, output, progressMessage, false);
   }
 
   public PathFragment getInputPath() {
@@ -132,7 +153,36 @@ public class SymlinkAction extends AbstractAction {
           + "' to '" + printInputs()
           + "' due to I/O error: " + e.getMessage(), e, this, false);
     }
+
+    updateInputMtimeIfNeeded(actionExecutionContext);
     return ActionResult.EMPTY;
+  }
+
+  private void updateInputMtimeIfNeeded(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
+    if (!targetIsFileset) {
+      return;
+    }
+
+    try {
+      // Update the mtime of the target of the symlink to force downstream re-execution of actions.
+      // This is needed because dependency checking of Fileset output trees is unsound (it's a
+      // directory).
+      // Note that utime() on a symlink actually changes the mtime of its target.
+      Path linkPath = getOutputPath(actionExecutionContext);
+      if (linkPath.exists()) {
+        // -1L means "use the current time".
+        linkPath.setLastModifiedTime(-1L);
+      } else {
+        // Should only happen if the Fileset included no links.
+        actionExecutionContext.getExecRoot().getRelative(getInputPath()).createDirectory();
+      }
+    } catch (IOException e) {
+      throw new ActionExecutionException("failed to touch symbolic link '"
+          + Iterables.getOnlyElement(getOutputs()).prettyPrint()
+          + "' to the '" + Iterables.getOnlyElement(getInputs()).prettyPrint()
+          + "' due to I/O error: " + e.getMessage(), e, this, false);
+    }
   }
 
   private String printInputs() {

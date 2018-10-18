@@ -952,12 +952,11 @@ public final class CcCompilationHelper {
         Artifact virtualHeader =
             ruleContext.getUniqueDirectoryArtifact(
                 "_virtual_includes", includePath, ruleContext.getBinOrGenfilesDirectory());
-        ruleContext.registerAction(
-            new SymlinkAction(
-                ruleContext.getActionOwner(),
-                originalHeader,
-                virtualHeader,
-                "Symlinking virtual headers for " + ruleContext.getLabel()));
+        ruleContext.registerAction(SymlinkAction.toArtifact(
+            ruleContext.getActionOwner(),
+            originalHeader,
+            virtualHeader,
+            "Symlinking virtual headers for " + ruleContext.getLabel()));
         moduleHeadersBuilder.add(virtualHeader);
       } else {
         moduleHeadersBuilder.add(originalHeader);

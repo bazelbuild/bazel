@@ -301,16 +301,16 @@ public abstract class NativeDepsHelper {
           // Since runtime library symlinks are underneath the target's output directory and
           // multiple targets may share the same output directory, we need to make sure this
           // symlink's generating action is only set once.
-          ruleContext.registerAction(
-              new SymlinkAction(ruleContext.getActionOwner(), runtimeInput, runtimeSymlink, null));
+          ruleContext.registerAction(SymlinkAction.toArtifact(
+              ruleContext.getActionOwner(), runtimeInput, runtimeSymlink, null));
           runtimeSymlinks.add(runtimeSymlink);
         }
       } else {
         runtimeSymlinks = ImmutableList.of();
       }
 
-      ruleContext.registerAction(
-          new SymlinkAction(ruleContext.getActionOwner(), linkerOutput, nativeDeps, null));
+      ruleContext.registerAction(SymlinkAction.toArtifact(
+          ruleContext.getActionOwner(), linkerOutput, nativeDeps, null));
       return new NativeDepsRunfiles(nativeDeps, runtimeSymlinks);
     }
 

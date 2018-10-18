@@ -199,13 +199,12 @@ public class CcToolchainProviderHelper {
             "fdo",
             prefetchHintsFile.getAbsolutePath().getBaseName(),
             ruleContext.getBinOrGenfilesDirectory());
-    ruleContext.registerAction(
-        new SymlinkAction(
-            ruleContext.getActionOwner(),
-            PathFragment.create(prefetchHintsFile.getAbsolutePath().getPathString()),
-            prefetchHintsArtifact,
-            "Symlinking LLVM Cache Prefetch Hints Profile "
-                + prefetchHintsFile.getAbsolutePath().getPathString()));
+    ruleContext.registerAction(SymlinkAction.toAbsolutePath(
+        ruleContext.getActionOwner(),
+        PathFragment.create(prefetchHintsFile.getAbsolutePath().getPathString()),
+        prefetchHintsArtifact,
+        "Symlinking LLVM Cache Prefetch Hints Profile "
+            + prefetchHintsFile.getAbsolutePath().getPathString()));
     return prefetchHintsArtifact;
   }
 
@@ -227,12 +226,11 @@ public class CcToolchainProviderHelper {
 
     // If the profile file is already in the desired format, symlink to it and return.
     if (CppFileTypes.LLVM_PROFILE.matches(fdoProfile)) {
-      ruleContext.registerAction(
-          new SymlinkAction(
-              ruleContext.getActionOwner(),
-              fdoProfile,
-              profileArtifact,
-              "Symlinking LLVM Profile " + fdoProfile.getPathString()));
+      ruleContext.registerAction(SymlinkAction.toAbsolutePath(
+          ruleContext.getActionOwner(),
+          fdoProfile,
+          profileArtifact,
+          "Symlinking LLVM Profile " + fdoProfile.getPathString()));
       return profileArtifact;
     }
 
@@ -260,12 +258,11 @@ public class CcToolchainProviderHelper {
       Artifact zipProfileArtifact =
           ruleContext.getUniqueDirectoryArtifact(
               "fdo", fdoProfile.getBaseName(), ruleContext.getBinOrGenfilesDirectory());
-      ruleContext.registerAction(
-          new SymlinkAction(
-              ruleContext.getActionOwner(),
-              PathFragment.create(fdoProfile.getPathString()),
-              zipProfileArtifact,
-              "Symlinking LLVM ZIP Profile " + fdoProfile.getPathString()));
+      ruleContext.registerAction(SymlinkAction.toAbsolutePath(
+          ruleContext.getActionOwner(),
+          fdoProfile,
+          zipProfileArtifact,
+          "Symlinking LLVM ZIP Profile " + fdoProfile.getPathString()));
 
       // Unzip the profile.
       ruleContext.registerAction(
@@ -292,12 +289,11 @@ public class CcToolchainProviderHelper {
               "fdo",
               getLLVMProfileFileName(fdoProfile, CppFileTypes.LLVM_PROFILE_RAW),
               ruleContext.getBinOrGenfilesDirectory());
-      ruleContext.registerAction(
-          new SymlinkAction(
-              ruleContext.getActionOwner(),
-              PathFragment.create(fdoProfile.getPathString()),
-              rawProfileArtifact,
-              "Symlinking LLVM Raw Profile " + fdoProfile.getPathString()));
+      ruleContext.registerAction(SymlinkAction.toAbsolutePath(
+          ruleContext.getActionOwner(),
+          PathFragment.create(fdoProfile.getPathString()),
+          rawProfileArtifact,
+          "Symlinking LLVM Raw Profile " + fdoProfile.getPathString()));
     }
 
     if (toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA) == null) {
@@ -555,12 +551,11 @@ public class CcToolchainProviderHelper {
       profileArtifact =
           ruleContext.getUniqueDirectoryArtifact(
               "fdo", fdoProfile.getBaseName(), ruleContext.getBinOrGenfilesDirectory());
-      ruleContext.registerAction(
-          new SymlinkAction(
-              ruleContext.getActionOwner(),
-              fdoProfile.asFragment(),
-              profileArtifact,
-              "Symlinking FDO profile " + fdoProfile.getPathString()));
+      ruleContext.registerAction(SymlinkAction.toAbsolutePath(
+          ruleContext.getActionOwner(),
+          fdoProfile.asFragment(),
+          profileArtifact,
+          "Symlinking FDO profile " + fdoProfile.getPathString()));
     }
 
     Artifact prefetchHintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);

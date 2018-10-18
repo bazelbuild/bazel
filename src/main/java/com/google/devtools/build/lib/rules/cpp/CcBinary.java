@@ -849,9 +849,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       if (!ruleContext.getLabel().getPackageName().equals(target.getOwner().getPackageName())) {
         // SymlinkAction on file is actually copy on Windows.
         Artifact copy = ruleContext.getBinArtifact(target.getFilename());
-        ruleContext.registerAction(
-            new SymlinkAction(
-                ruleContext.getActionOwner(), target, copy, "Copying Execution Dynamic Library"));
+        ruleContext.registerAction(SymlinkAction.toArtifact(
+            ruleContext.getActionOwner(), target, copy, "Copying Execution Dynamic Library"));
         result.add(copy);
       }
     }

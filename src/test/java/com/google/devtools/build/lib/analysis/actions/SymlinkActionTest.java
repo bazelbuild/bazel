@@ -59,7 +59,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     output = outputArtifact.getPath();
     FileSystemUtils.createDirectoryAndParents(output.getParentDirectory());
-    action = new SymlinkAction(NULL_ACTION_OWNER,
+    action = SymlinkAction.toArtifact(NULL_ACTION_OWNER,
         inputArtifact, outputArtifact, "Symlinking test");
   }
 

@@ -61,7 +61,7 @@ public class LipoSupport {
                       .build())
               .build(ruleContext));
     } else {
-      ruleContext.registerAction(new SymlinkAction(
+      ruleContext.registerAction(SymlinkAction.toArtifact(
           ruleContext.getActionOwner(),
           Iterables.getOnlyElement(inputBinaries),
           outputBinary,
