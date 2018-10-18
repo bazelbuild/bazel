@@ -114,9 +114,10 @@ public class GcovParserTest {
           "branch:35,nottaken",
           "lcount:36,1");
 
-  @Test(expected = IOException.class)
+  @Test
   public void testParseInvalidFile() throws IOException {
-    GcovParser.parse(new ByteArrayInputStream("Invalid gcov file".getBytes(UTF_8)));
+    assertThat(GcovParser.parse(new ByteArrayInputStream("Invalid gcov file".getBytes(UTF_8))))
+        .isEmpty();
   }
 
   @Test
