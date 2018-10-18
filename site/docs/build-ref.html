@@ -15,6 +15,20 @@ title: Concepts and Terminology
   <li><a href="#packages_targets">Workspace, Packages and Targets</a>
     <ul>
       <li><a href="#workspace">Workspace</a></li>
+      <li><a href="#packages">Packages</a></li>
+      <li><a href="#targets">Targets</a></li>
+      <li><a href="#labels">Labels</a></li>
+      <li><a href="#lexi">Lexical Specifications of a Label</a></li>
+      <li><a href="#rules">Rules</a></li>
+    </ul>
+  </li>
+  <li><a href="#BUILD_files">BUILD Files</a>
+    <ul>
+      <li><a href="#declaring_build_rules">Declaring Build Rules</a></li>
+    </ul>
+  </li>
+  <li><a href="#funcs">Types of Build Rules</a></li>
+
   <li><a href="#dependencies">Dependencies</a>
     <ul>
       <li><a href="#actual_and_declared_dependencies">Actual and Declared Dependencies</a></li>
@@ -50,13 +64,16 @@ title: Concepts and Terminology
   the <i>package</i>.  A package is a collection of related files and a
   specification of the dependencies among them.
 </p>
+
 <p>
   A package is defined as a directory containing a file
-  named <code>BUILD</code>, residing beneath the top-level directory in the
+  named <code>BUILD</code> or <code>BUILD.bazel</BUILD>,
+  residing beneath the top-level directory in the
   workspace.  A package includes all files in its directory, plus all
   subdirectories beneath it, except those which themselves contain a BUILD
   file.
 </p>
+
 <p>
   For example, in the following directory tree
   there are two packages, <code>my/app</code>,
@@ -351,12 +368,23 @@ testdata/input.txt
   the name of the executable produced by the build.
 </p>
 
+<pre>
+cc_binary(
+    name = "my_app",
+    srcs = ["my_app.cc"],
+    deps = [
+        "//absl/base",
+        "//absl/strings",
+    ],
+)
+</pre>
+
 <p>
   Every rule has a set of <i>attributes</i>; the applicable attributes
   for a given rule, and the significance and semantics of each
   attribute are a function of the rule's class; see
   the <a href='be/overview.html'>Build
-  Encyclopedia</a> for the full list of supported rules and their
+  Encyclopedia</a> for a list of rules and their
   corresponding attributes.  Each attribute has a name and a
   type.  Some of the common types an attribute can have are integer,
   label, list of labels, string, list of strings, output label,
@@ -403,23 +431,31 @@ testdata/input.txt
 
 <p>
   By definition, every package contains a BUILD file, which is a short
-  program.  Most BUILD files
-  appear to be little more than a series of declarations of build
-  rules; indeed, the declarative style is strongly encouraged when
-  writing BUILD files.
-</p>
-
-<p>
-  However, BUILD files are evaluated using an imperative language,
+  program.
+  BUILD files are evaluated using an imperative language,
   <a href="https://github.com/bazelbuild/starlark/">Starlark</a>.
 
-  BUILD files are interpreted as a sequential list of statements.
-  Build rule functions, such as <code>cc_library</code>, are procedures whose
-  side-effect is to create an abstract build rule inside the build tool.
+  They are interpreted as a sequential list of statements.
 </p>
 
 <p>
-  To encourage a clean separatation between code and data, BUILD files cannot
+  In general, order does matter: variables must be defined before they are used, for
+  example.  However, most BUILD files consist only of declarations of
+  build rules, and the relative order of these statements is
+  immaterial; all that matters is <em>which</em> rules were declared,
+  and with what values, by the time package evaluation completes.
+
+  When a build rule function, such as <code>cc_library</code>, is
+  executed, it creates a new target in the graph. This target can later be
+  referred using a label.
+
+  So, in simple BUILD files, rule declarations can be re-ordered
+  freely without changing the behavior.
+</p>
+
+
+<p>
+  To encourage a clean separation between code and data, BUILD files cannot
   contain function definitions, <code>for</code> statements or
   <code>if</code> statements (but list comprehensions and <code>if</code>
   expressions are allowed). Functions should be declared in <code>.bzl</code>
@@ -427,7 +463,7 @@ testdata/input.txt
 </p>
 
 <p>
-  Crucially, programs in Skylark are unable to perform
+  Crucially, programs in Starlark are unable to perform
   arbitrary I/O.  This invariant makes the
   interpretation of BUILD files hermetic, i.e. dependent only on a
   known set of inputs, which is essential for ensuring that builds are
@@ -440,32 +476,13 @@ testdata/input.txt
   character set.
 </p>
 
-<h3 id="declaring_build_rules">Declaring build rules</h3>
-
 <p>
-  BUILD files use an imperative language, so in general, order
-  does matter: variables must be defined before they are used, for
-  example.  However, most BUILD files consist only of declarations of
-  build rules, and the relative order of these statements is
-  immaterial; all that matters is <em>which</em> rules were declared,
-  and with what values, by the time package evaluation completes.
-
-  So, in simple BUILD files, rule declarations can be re-ordered
-  freely without changing the behavior.
-</p>
-
-<p>
-  BUILD file authors are encouraged to use comments liberally to
-  document the role of each build target, whether it is intended for
-  public use, and anything else that would help users and future
-  maintainers, including a comment at the top, explaining the role of the
-  package.
-</p>
-
-<p>
-  The Python comment syntax of <code>#...</code> is supported.
-  Triple-quoted string literals may span multiple lines, and can be used
-  for multi-line comments.
+  Since BUILD files need to be updated whenever the dependencies of the
+  underlying code change, they are typically maintained by multiple
+  people on a team. BUILD file authors are encouraged to use comments
+  liberally to document the role of each build target, whether or not it
+  is intended for public use, and to document the role of the package
+  itself.
 </p>
 
 <h2 id="funcs">Types of build rule</h2>
@@ -477,8 +494,9 @@ testdata/input.txt
   and <code>cc_test</code> are the build rules for C++ binaries,
   libraries, and tests, respectively.  Other languages use the same
   naming scheme, with a different prefix, e.g. <code>java_*</code> for
-  Java. These functions are all documented in the
-  <a href="be/overview.html">Build Encyclopedia</a>.
+  Java. Some of these functions are documented in the
+  <a href="be/overview.html">Build Encyclopedia</a>, but it is possible
+  for anyone to create new rules.
 </p>
 
 <ul>
@@ -533,7 +551,8 @@ testdata/input.txt
   A target <code>A</code> <i>depends upon</i> a target
   <code>B</code> if <code>B</code> is needed by <code>A</code> at
   build or execution time.  The <i>depends upon</i> relation induces a
-  directed acyclic graph (DAG) over targets, and we call this a
+  <a href="https://en.wikipedia.org/wiki/Directed_acyclic_graph">Directed
+  Acyclic Graph</a> (DAG) over targets, and we call this a
   <em>dependency graph</em>.
 
   A target's <em>direct</em> dependencies are those other targets
