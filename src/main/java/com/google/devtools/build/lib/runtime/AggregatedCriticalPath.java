@@ -56,7 +56,23 @@ public class AggregatedCriticalPath {
 
   @Override
   public String toString() {
-    return toString(false);
+    return toString(false, true);
+  }
+
+  private String toString(boolean summary, boolean remote) {
+    StringBuilder sb = new StringBuilder("Critical Path: ");
+    sb.append(String.format("%.2f", totalTime.toMillis() / 1000.0));
+    sb.append("s");
+    if (remote) {
+      sb.append(", Remote ");
+      sb.append(getSpawnMetrics().toString(totalTime(), summary));
+    }
+    if (summary || criticalPathComponents.isEmpty()) {
+      return sb.toString();
+    }
+    sb.append("\n  ");
+    Joiner.on("\n  ").appendTo(sb, criticalPathComponents);
+    return sb.toString();
   }
 
   /**
@@ -64,20 +80,15 @@ public class AggregatedCriticalPath {
    * to the user.
    */
   public String toStringSummary() {
-    return toString(true);
+    return toString(true, true);
   }
 
-  private String toString(boolean summary) {
-    StringBuilder sb = new StringBuilder("Critical Path: ");
-    sb.append(String.format("%.2f", totalTime.toMillis() / 1000.0));
-    sb.append("s, Remote ");
-    sb.append(getSpawnMetrics().toString(totalTime(), summary));
-    if (summary || criticalPathComponents.isEmpty()) {
-      return sb.toString();
-    }
-    sb.append("\n  ");
-    Joiner.on("\n  ").appendTo(sb, criticalPathComponents);
-    return sb.toString();
+  /**
+   * Same as toStringSummary but also omits remote stats. This is to be used in Bazel because
+   * currently the Remote stats are not calculated correctly.
+   */
+  public String toStringSummaryNoRemote() {
+    return toString(true, false);
   }
 }
 

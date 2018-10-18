@@ -105,7 +105,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
             Profiler.instance().profile(ProfilerTask.CRITICAL_PATH, "Critical path")) {
           AggregatedCriticalPath criticalPath =
               criticalPathComputer.aggregate();
-          items.add(criticalPath.toStringSummary());
+          items.add(criticalPath.toStringSummaryNoRemote());
           statistics.add(
               Pair.of("critical path", ByteString.copyFromUtf8(criticalPath.toString())));
           logger.info(criticalPath.toString());
