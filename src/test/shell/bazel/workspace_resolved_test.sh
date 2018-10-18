@@ -557,6 +557,45 @@ EOF
       || fail "Did not find the expected output"
 }
 
+test_label_resolved_value() {
+  # Verify that label arguments in a repository rule end up in the resolved
+  # file in a parsable form.
+  EXTREPODIR=`pwd`
+  mkdir ext
+  echo Hello World > ext/file.txt
+  zip ext.zip ext/*
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["file://${EXTREPODIR}/ext.zip"],
+  build_file="@//:exit.BUILD",
+)
+EOF
+  echo 'exports_files(["file.txt"])' > exit.BUILD
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  outs = ["local.txt"],
+  srcs = ["@ext//:file.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel sync --experimental_repository_resolved_file=resolved.bzl
+  rm WORKSPACE; touch WORKSPACE
+  echo; cat resolved.bzl; echo
+
+  bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
+        //:local || fail "Expected success"
+  grep World `bazel info bazel-genfiles`/local.txt \
+      || fail "target not built correctly"
+}
+
 test_resolved_file_not_remembered() {
   # Verify that the --experimental_resolved_file_instead_of_workspace option
   # does not leak into a subsequent sync
