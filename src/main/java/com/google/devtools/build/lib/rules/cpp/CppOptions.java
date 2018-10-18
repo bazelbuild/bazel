@@ -738,7 +738,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -919,6 +919,8 @@ public class CppOptions extends FragmentOptions {
     host.fdoProfiles = null;
     host.fdoProfileLabel = null;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
+
+    host.disableLegacyToolchainSkylarkApi = disableLegacyToolchainSkylarkApi;
 
     return host;
   }
