@@ -998,7 +998,7 @@ public class Parser {
   private Expression parseNotExpression(int prec) {
     int start = token.left;
     expect(TokenKind.NOT);
-    Expression expression = parseNonTupleExpression(prec + 1);
+    Expression expression = parseNonTupleExpression(prec);
     UnaryOperatorExpression notExpression =
         new UnaryOperatorExpression(UnaryOperator.NOT, expression);
     return setLocation(notExpression, start, expression);

@@ -22,6 +22,7 @@ assert_eq(0 and fail("do not execute"), 0)
 
 assert_eq(not 1, False)
 assert_eq(not "", True)
+assert_eq(not not 1, True)
 
 assert_eq(not 0 + 0, True)
 assert_eq(not 2 - 1, False)
