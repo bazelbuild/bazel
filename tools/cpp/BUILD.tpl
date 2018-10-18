@@ -56,7 +56,7 @@ cc_toolchain_suite(
 
 cc_toolchain(
     name = "cc-compiler-%{name}",
-    toolchain_identifier = "local",
+    toolchain_identifier = "%{cc_toolchain_identifier}",
     all_files = ":compiler_deps",
     compiler_files = ":compiler_deps",
     cpu = "%{name}",

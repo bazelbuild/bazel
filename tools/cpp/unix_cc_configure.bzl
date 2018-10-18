@@ -495,11 +495,13 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
     opt_content = _opt_content(repository_ctx, cc, darwin)
     dbg_content = _dbg_content()
+    cc_toolchain_identifier = get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False)
 
     repository_ctx.template(
         "BUILD",
         paths["@bazel_tools//tools/cpp:BUILD.tpl"],
         {
+            "%{cc_toolchain_identifier}": cc_toolchain_identifier,
             "%{name}": cpu_value,
             "%{supports_param_files}": "0" if darwin else "1",
             "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
@@ -529,17 +531,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         paths["@bazel_tools//tools/cpp:CROSSTOOL.tpl"],
         {
             "%{cpu}": escape_string(cpu_value),
-            "%{default_toolchain_name}": escape_string(
-                get_env_var(
-                    repository_ctx,
-                    "CC_TOOLCHAIN_NAME",
-                    "local",
-                    False,
-                ),
-            ),
-            "%{toolchain_name}": escape_string(
-                get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False),
-            ),
+            "%{default_toolchain_name}": escape_string(cc_toolchain_identifier),
+            "%{toolchain_name}": escape_string(cc_toolchain_identifier),
             "%{content}": _build_crosstool(crosstool_content) + "\n" +
                           _build_tool_path(tool_paths),
             "%{opt_content}": _build_crosstool(opt_content, "    "),
