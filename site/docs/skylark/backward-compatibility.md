@@ -141,7 +141,7 @@ depset1.union(depset2)  # deprecated
 The recommended solution is to use the `depset` constructor:
 
 ``` python
-depset(transtive=[depset1, depset2])
+depset(transtive = [depset1, depset2])
 ```
 
 See the [`depset documentation`](depsets.md) for more information.
@@ -310,7 +310,7 @@ For example, replace:
 ```python
 my_rule = rule(
     ...
-    attrs = { "out" : attr.output(default = "foo.txt") }
+    attrs = {"out" : attr.output(default = "foo.txt")}
     ...
 ```
 
@@ -320,11 +320,11 @@ with:
 # myrule.bzl
 my_rule = rule(
     ...
-    attrs = { "out" : attr.output() }
+    attrs = {"out" : attr.output()}
     ...
 
 # mymacro.bzl
-load(":myrule.bzl", _my_rule=”my_rule”)
+load(":myrule.bzl", _my_rule = "my_rule")
 
 def my_rule(name):
     _my_rule(
@@ -419,35 +419,35 @@ Example migration from deprecated `JavaInfo` arguments:
 ```python
 # Before
 provider = JavaInfo(
-  output_jar = my_jar,
-  use_ijar = True,
-  sources = my_sources,
-  deps = my_compile_deps,
-  runtime_deps = my_runtime_deps,
-  actions = ctx.actions,
-  java_toolchain = my_java_toolchain,
-  host_javabase = my_host_javabase,
+    output_jar = my_jar,
+    use_ijar = True,
+    sources = my_sources,
+    deps = my_compile_deps,
+    runtime_deps = my_runtime_deps,
+    actions = ctx.actions,
+    java_toolchain = my_java_toolchain,
+    host_javabase = my_host_javabase,
 )
 
 # After
 my_ijar = java_common.run_ijar(
-  ctx.actions,
-  jar = my_jar,
-  target_label = ctx.label,
-  java_toolchain, my_java_toolchain,
+    ctx.actions,
+    jar = my_jar,
+    target_label = ctx.label,
+    java_toolchain, my_java_toolchain,
 )
 my_source_jar = java_common.pack_sources(
-  ctx.actions,
-  sources = my_sources,
-  java_toolchain = my_java_toolchain,
-  host_javabase = my_host_javabase,
+    ctx.actions,
+    sources = my_sources,
+    java_toolchain = my_java_toolchain,
+    host_javabase = my_host_javabase,
 )
 provider = JavaInfo(
-  output_jar = my_jar,
-  compile_jar = my_ijar,
-  source_jar = my_source_jar,
-  deps = my_compile_deps,
-  runtime_deps = my_runtime_deps,
+    output_jar = my_jar,
+    compile_jar = my_ijar,
+    source_jar = my_source_jar,
+    deps = my_compile_deps,
+    runtime_deps = my_runtime_deps,
 )
 ```
 
@@ -505,13 +505,13 @@ handle directories on the command line), you can pass `expand_directories=False`
 to the `args.add_all()` or `args.add_joined()` call.
 
 ```
-d = ctx.action.declare_directory(“dir”)
-# ... Some action runs and produces [“dir/file1”, “dir/file2”] ...
-f = ctx.action.declare_file(“file”)
+d = ctx.action.declare_directory("dir")
+# ... Some action runs and produces ["dir/file1", "dir/file2"] ...
+f = ctx.action.declare_file("file")
 args = ctx.action.args()
 args.add_all([d, f])
-  -> Used to expand to ["dir", "file"]
-     Now expands to [“dir/file1”, “dir/file2”, “file”]
+#  -> Used to expand to ["dir", "file"]
+#     Now expands to ["dir/file1", "dir/file2", "file"]
 ```
 
 *   Flag: `--incompatible_expand_directories`
@@ -675,18 +675,18 @@ In order to not be affected by this change, one should add entries in the
 # Before
 cc_toolchain_suite(
     toolchains = {
-        'cpu1|compiler1' : ':cc_toolchain_label1',
-        'cpu2|compiler2' : ':cc_tolchain_label2',
+        "cpu1|compiler1": ":cc_toolchain_label1",
+        "cpu2|compiler2": ":cc_tolchain_label2",
     }
 )
 
 # After
 cc_toolchain_suite(
     toolchains = {
-        'cpu1|compiler1' : ':cc_toolchain_label1',
-        'cpu2|compiler2' : ':cc_toolchain_label2',
-        'cpu1' : ':cc_toolchain_label3',
-        'cpu2' : ':cc_tolchain_label4',
+        "cpu1|compiler1": ":cc_toolchain_label1",
+        "cpu2|compiler2": ":cc_toolchain_label2",
+        "cpu1": ":cc_toolchain_label3",
+        "cpu2": ":cc_tolchain_label4",
     }
 )
 ```
@@ -748,13 +748,13 @@ For genrules and other targets using C++ Make Variables:
 ```python
 # Before
 genrule(
-  cmd = '$(STRIP) file-to-be-stripped.o',
+    cmd = "$(STRIP) file-to-be-stripped.o",
 )
 
 # After
 genrule(
-  cmd = '$(STRIP) file-to-be-stripped.o',
-  toolchains = ['@bazel_tools//tools/cpp:current_cc_toolchain'],
+    cmd = "$(STRIP) file-to-be-stripped.o",
+    toolchains = ["@bazel_tools//tools/cpp:current_cc_toolchain"],
 )
 ```
 
@@ -763,25 +763,25 @@ For Starlark rules using C++ Make Variables:
 ```python
 # Before
 def _impl(ctx):
-  strip = ctx.vars['STRIP']
-  ...
+    strip = ctx.vars["STRIP"]
+    ...
 
 my_rule = rule(
-  implementation = _impl,
-  attrs = {
-  },
+    implementation = _impl,
+    attrs = {
+    },
 )
 
 # After
 def _impl(ctx):
-  strip = ctx.vars['STRIP']
-  ...
+    strip = ctx.vars["STRIP"]
+    ...
 
 my_rule = rule(
-  implementation = _impl,
-  attrs = {
-    '_toolchains': attr.label_list(default = [Label('@bazel_tools//tools/cpp:current_cc_toolchain')]),
-  },
+    implementation = _impl,
+    attrs = {
+        "_toolchains": attr.label_list(default = [Label("@bazel_tools//tools/cpp:current_cc_toolchain")]),
+    },
 )
 ```
 *   Flag: `--incompatible_disable_cc_configuration_make_variables`
@@ -800,8 +800,8 @@ via implicit attribute named `_cc_toolchain` (see example below). Use `find_cpp_
 ```python
 # Before
 def _impl(ctx):
-  ...
-  ctx.fragments.cpp.compiler_options()
+    ...
+    ctx.fragments.cpp.compiler_options()
 
 foo = rule(
     implementation = _impl,
@@ -813,15 +813,15 @@ foo = rule(
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 
 def _impl(ctx):
-  ...
-  cc_toolchain = find_cpp_toolchain(ctx)
-  cc_toolchain.compiler_options()
+    ...
+    cc_toolchain = find_cpp_toolchain(ctx)
+    cc_toolchain.compiler_options()
 
 foo = rule(
     implementation = _impl,
     attrs = {
         "_cc_toolchain": attr.label(
-            default=Label("@bazel_tools//tools/cpp:current_cc_toolchain")
+            default = Label("@bazel_tools//tools/cpp:current_cc_toolchain")
         ),
     },
 )
@@ -979,7 +979,7 @@ to ensure that it didn't cross a package boundary.
 For example, in
 
 ```python
-load('//a:b/c.bzl', 'doesntmatter')
+load("//a:b/c.bzl", "doesntmatter")
 ```
 
 if this flag is set to `true`, the above statement will be in error if `//a/b`
