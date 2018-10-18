@@ -40,6 +40,8 @@ public abstract class SkylarkSemantics {
   public enum FlagIdentifier {
     EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS(
         SkylarkSemantics::experimentalAnalysisTestingImprovements),
+    EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS(
+        SkylarkSemantics::experimentalEnableAndroidMigrationApis),
     EXPERIMENTAL_PLATFORM_API(SkylarkSemantics::experimentalPlatformsApi),
     INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
         SkylarkSemantics::incompatibleDisableObjcProviderResources),

@@ -548,7 +548,7 @@ public class BazelJavaSemantics implements JavaSemantics {
         ImmutableList.<CcLinkingInfo>builder()
             .addAll(AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER))
             .addAll(
-                Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.class))
+                Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER))
                     .map(JavaCcLinkParamsProvider::getCcLinkingInfo)
                     .collect(ImmutableList.toImmutableList()))
             .build();

@@ -14,24 +14,44 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCcLinkParamsProviderApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A target that provides C++ libraries to be linked into Java targets. */
 @Immutable
-@AutoCodec
-public final class JavaCcLinkParamsProvider implements TransitiveInfoProvider {
+public final class JavaCcLinkParamsProvider extends Info
+    implements JavaCcLinkParamsProviderApi<CcLinkingInfo> {
+  public static final String PROVIDER_NAME = "JavaCcLinkParamsInfo";
+  public static final Provider PROVIDER = new Provider();
+
   private final CcLinkingInfo ccLinkingInfo;
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
   public JavaCcLinkParamsProvider(CcLinkingInfo ccLinkingInfo) {
+    super(PROVIDER, Location.BUILTIN);
     this.ccLinkingInfo = ccLinkingInfo;
   }
 
+  @Override
   public CcLinkingInfo getCcLinkingInfo() {
     return ccLinkingInfo;
+  }
+
+  /** Provider class for {@link JavaCcLinkParamsProvider} objects. */
+  public static class Provider extends BuiltinProvider<JavaCcLinkParamsProvider>
+      implements JavaCcLinkParamsProviderApi.Provider<CcLinkingInfo> {
+    private Provider() {
+      super(PROVIDER_NAME, JavaCcLinkParamsProvider.class);
+    }
+
+    @Override
+    public JavaCcLinkParamsProviderApi<CcLinkingInfo> createInfo(CcLinkingInfo ccLinkingInfo)
+        throws EvalException {
+      return new JavaCcLinkParamsProvider(ccLinkingInfo);
+    }
   }
 }

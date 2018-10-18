@@ -831,7 +831,7 @@ public class AndroidCommon {
         ImmutableList.<CcLinkingInfo>builder()
             .add(linkOptsProvider)
             .addAll(
-                Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.class))
+                Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER))
                     .map(JavaCcLinkParamsProvider::getCcLinkingInfo)
                     .collect(ImmutableList.toImmutableList()))
             .addAll(

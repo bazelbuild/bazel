@@ -246,7 +246,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       }
 
       aspect.addProvider(generatedCompilationArgsProvider);
-      aspect.addProvider(createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps()));
+      aspect.addNativeDeclaredProvider(
+          createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps()));
 
       JavaSkylarkApiProvider skylarkApiProvider = JavaSkylarkApiProvider.fromRuleContext();
       aspect

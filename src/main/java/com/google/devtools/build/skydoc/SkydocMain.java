@@ -60,6 +60,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigGlobalLibrary;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigSkylarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcModule;
+import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCcLinkParamsProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
@@ -368,9 +369,12 @@ public class SkydocMain {
         new ConfigBootstrap(new FakeConfigSkylarkCommon(), new FakeConfigApi(),
             new FakeConfigGlobalLibrary());
     CcBootstrap ccBootstrap = new CcBootstrap(new FakeCcModule());
-    JavaBootstrap javaBootstrap = new JavaBootstrap(new FakeJavaCommon(),
-        new FakeJavaInfoProvider(),
-        new FakeJavaProtoCommon());
+    JavaBootstrap javaBootstrap =
+        new JavaBootstrap(
+            new FakeJavaCommon(),
+            new FakeJavaInfoProvider(),
+            new FakeJavaProtoCommon(),
+            new FakeJavaCcLinkParamsProvider.Provider());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     RepositoryBootstrap repositoryBootstrap = new RepositoryBootstrap(new FakeRepositoryModule());
     TestingBootstrap testingBootstrap = new TestingBootstrap(new FakeTestingModule(),

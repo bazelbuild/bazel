@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaToolchain;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
+import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JavaHostRuntimeAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
@@ -84,10 +85,12 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new ExtraActionRule());
     builder.addRuleDefinition(new ActionListenerRule());
 
-    builder.addSkylarkBootstrap(new JavaBootstrap(
-        new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE),
-        JavaInfo.PROVIDER,
-        new JavaProtoSkylarkCommon()));
+    builder.addSkylarkBootstrap(
+        new JavaBootstrap(
+            new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE),
+            JavaInfo.PROVIDER,
+            new JavaProtoSkylarkCommon(),
+            JavaCcLinkParamsProvider.PROVIDER));
 
     try {
       builder.addWorkspaceFileSuffix(

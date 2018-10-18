@@ -93,7 +93,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         .addOutputGroup(OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addNativeDeclaredProvider(getJavaLiteRuntimeSpec(ruleContext))
         .addNativeDeclaredProvider(javaInfo)
-        .addProvider(createCcLinkingInfo(ruleContext, ImmutableList.of()))
+        .addNativeDeclaredProvider(createCcLinkingInfo(ruleContext, ImmutableList.of()))
         .build();
   }
 

@@ -97,7 +97,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
             .addNativeDeclaredProvider(javaInfo);
 
     if (ruleContext.getFragment(JavaConfiguration.class).jplPropagateCcLinkParamsStore()) {
-      result.addProvider(createCcLinkingInfo(ruleContext, ImmutableList.of()));
+      result.addNativeDeclaredProvider(createCcLinkingInfo(ruleContext, ImmutableList.of()));
     }
 
     return result.build();
