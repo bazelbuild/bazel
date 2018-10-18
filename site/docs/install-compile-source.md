@@ -11,11 +11,15 @@ To build Bazel from source, you can do one of the following:
 
 *   Build it without an existing Bazel binary, which is known as _bootstraping_
 
-This document describes how to bootstrap Bazel.
+This document describes how to bootstrap Bazel:
+
+*   On [Ubuntu Linux, macOS, and other Unix-like systems](#unix-like)
+
+*   On [Windows](#windows)
+
+## Bootstrapping Bazel on Ubuntu Linux, macOS, and other Unix-like systems<a name="unix-like"></a>
 
 ### 1.  Install the prerequisites
-
-#### Ubuntu Linux, macOS, and other Unix-like systems
 
 Ensure you have installed:
 
@@ -36,7 +40,50 @@ For example on Ubuntu Linux you can install these requirements using the followi
 sudo apt-get install build-essential openjdk-8-jdk python zip unzip
 ```
 
-#### Windows
+### 2.  Download and unpack Bazel's source files (distribution archive)<a name="download-dist"></a>
+
+(This is the same for Windows.)
+
+Download `bazel-<version>-dist.zip` from [GitHub](https://github.com/bazelbuild/bazel/releases)
+(for example, `bazel-0.18.0-dist.zip`). If you want to build a development snapshot of
+Bazel, download the archive for the latest release before the snapshot
+you are interested in as you need to bootstrap that version of Bazel
+first in order to build the snapshot version.
+
+**Note:** There is a **single, architecture-independent** distribution archive. There are no
+architecture-specific or OS-specific distribution archives.
+
+**Note:** You have to use the distribution archive to build Bazel from source.
+You cannot use a source tree cloned from GitHub. (The distribution archive
+contains generated source files that are required for bootstrapping and are not
+part of the normal Git source tree.)
+
+We recommend to also verify the signature made by our
+[release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
+
+### 3.  Bootstrap Bazel
+
+1.  Open a shell or Terminal window.
+
+2.  Change into the directory where you unpacked the distribution archive.
+
+3.  Run the compilation script: `bash ./compile.sh`.
+
+The compiled output is placed into `output/bazel`. This is a self-contained
+Bazel binary, without an embedded JDK. You can copy it to a directory in the
+`PATH` variable (such as `/usr/local/bin` on Linux) or use it in-place.
+
+### 4. Development snapshots of Bazel<a name="dev-snapshot"></a>
+
+(This is the same for Windows.)
+
+Once you have a reasonably new working `bazel` binary, you can also build
+snapshot versions of Bazel by checking out the commit you're interested in
+and build a new version of Bazel by `bazel build //src:bazel`.
+
+## Bootstrapping Bazel on Windows
+
+### 1.  Install the prerequisites
 
 Ensure you have installed:
 
@@ -62,37 +109,9 @@ Ensure you have installed:
 
 ### 2.  Download and unpack Bazel's source files (distribution archive)
 
-Download `bazel-<version>-dist.zip` from [GitHub](https://github.com/bazelbuild/bazel/releases)
-(for example, `bazel-0.15.2-dist.zip`). If you want to build a development snapshot of
-Bazel, download the archive for the latest release before the snapshot
-you are interested in as you need to bootstrap that version of Bazel
-first in order to build the snapshot version.
-
-**Note:** There is a **single, architecture-independent** distribution archive. There are no architecture-specific or OS-specific distribution archives.
-
-**Note:** You have to use the distribution archive to build Bazel from source.
-You cannot use a source tree cloned from GitHub. (The distribution archive
-contains generated source files that are required for bootstrapping and are not
-part of the normal Git source tree.)
-
-We recommend to also verify the signature made by our
-[release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
+This step is the same as on Unix-like systems, [click here](#download-dist).
 
 ### 3.  Bootstrap Bazel
-
-#### Ubuntu Linux, macOS, and other Unix-like systems
-
-1.  Open a shell or Terminal window.
-
-2.  Change into the directory where you unpacked the distribution archive.
-
-3.  Run the compilation script: `bash ./compile.sh`.
-
-The compiled output is placed into `output/bazel`. This is a self-contained
-Bazel binary, without an embedded JDK. You can copy it to a directory in the
-`PATH` variable (such as `/usr/local/bin` on Linux) or use it in-place.
-
-#### Windows
 
 1.  Open the MSYS2 shell.
 
@@ -136,6 +155,4 @@ Command Prompt (`cmd.exe`) or PowerShell.
 
 ### 4. Development snapshots of Bazel
 
-Once you have a reasonably new working `bazel` binary, you can also build
-snapshot versions of Bazel by checking out the commit you're interested in
-and build a new version of Bazel by `bazel build //src:bazel`.
+This is the same as on Unix-like systems, [click here](#dev-snapshot).
