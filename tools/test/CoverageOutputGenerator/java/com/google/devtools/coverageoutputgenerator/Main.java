@@ -67,7 +67,7 @@ public class Main {
 
     if (flags.sourcesToReplaceFile() != null) {
       coverage.maybeReplaceSourcefileNames(
-          getReportedToOriginalSources(flags.sourcesToReplaceFile()));
+          getMapFromFile(flags.sourcesToReplaceFile()));
     }
 
     File profdataFile = getProfdataFileOrNull(filesInCoverageDir);
@@ -221,22 +221,29 @@ public class Main {
     return lcovTracefiles;
   }
 
-  private static ImmutableMap<String, String> getReportedToOriginalSources(String file) {
-    ImmutableMap.Builder<String, String> reportedToOriginalMap = ImmutableMap.builder();
-    try (FileInputStream inputStream = new FileInputStream(file)) {
+  /**
+   * Reads the content of the given file and returns a matching map.
+   *
+   * <p> It assumes the file contains lines in the form key:value. For each line it creates an entry
+   * in the map with the corresponding key and value.
+   */
+  private static ImmutableMap<String, String> getMapFromFile(String file) {
+    ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
+
+    try (FileInputStream inputStream = new FileInputStream(file);
       InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
-      BufferedReader reader = new BufferedReader(inputStreamReader);
-      for (String reportedToOriginal = reader.readLine();
-          reportedToOriginal != null; reportedToOriginal = reader.readLine()) {
-        String[] reportedAndOriginal = reportedToOriginal.split(":");
-        if (reportedAndOriginal.length == 2) {
-          reportedToOriginalMap.put(reportedAndOriginal[0], reportedAndOriginal[1]);
+      BufferedReader reader = new BufferedReader(inputStreamReader)) {
+      for (String keyToValueLine = reader.readLine();
+          keyToValueLine != null; keyToValueLine = reader.readLine()) {
+        String[] keyAndValue = keyToValueLine.split(":");
+        if (keyAndValue.length == 2) {
+          mapBuilder.put(keyAndValue[0], keyAndValue[1]);
         }
       }
     } catch (IOException e) {
       logger.log(Level.SEVERE, "Error reading file " + file + ": " + e.getMessage());
     }
-    return reportedToOriginalMap.build();
+    return mapBuilder.build();
   }
 
   private static Coverage parseFiles(List<File> files, Parser parser) {

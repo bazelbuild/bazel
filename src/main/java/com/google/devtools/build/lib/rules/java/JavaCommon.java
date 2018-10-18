@@ -707,7 +707,7 @@ public class JavaCommon {
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /*withBaselineCoverage*/ !TargetUtils.isTestRule(ruleContext.getTarget()),
-        ImmutableMap.of());
+        /*reportedToActualSources=*/ ImmutableMap.of());
   }
 
   public void addGenJarsProvider(

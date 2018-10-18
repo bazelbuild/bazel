@@ -133,9 +133,9 @@ LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
   --filter_sources=.*external/.+ \
   --source_file_manifest=${COVERAGE_MANIFEST}"
 
-if [[ $SOURCES_TO_REPLACE ]]; then
+if [[ $COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE ]]; then
   LCOV_MERGER_CMD="$LCOV_MERGER_CMD\
-  --sources_to_replace_file=$ROOT/$SOURCES_TO_REPLACE"
+  --sources_to_replace_file=$ROOT/$COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE"
 fi
 
 if [[ $DISPLAY_LCOV_CMD ]] ; then

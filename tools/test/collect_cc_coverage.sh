@@ -114,7 +114,6 @@ function gcov_coverage() {
   local output_file="${1}"; shift
 
   # We'll save the standard output of each the gcov command in this log.
-  touch $output_file
   local gcov_log="$output_file.gcov.log"
 
   # Copy .gcno files next to their corresponding .gcda files in $COVERAGE_DIR

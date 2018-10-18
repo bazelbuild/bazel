@@ -40,7 +40,7 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final NestedSet<Artifact> coverageSupportFiles;
   private final NestedSet<Pair<String, String>> coverageEnvironment;
-  private final ImmutableMap<String, String> sourcesToReplaceInReport;
+  private final ImmutableMap<String, String> reportedToActualSources;
 
   public InstrumentedFilesProviderImpl(
       NestedSet<Artifact> instrumentedFiles,
@@ -49,14 +49,14 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
       NestedSet<Artifact> baselineCoverageArtifacts,
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
-      ImmutableMap<String, String> sourcesToReplaceInReport) {
+      ImmutableMap<String, String> reportedToActualSources) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.baselineCoverageFiles = baselineCoverageFiles;
     this.baselineCoverageArtifacts = baselineCoverageArtifacts;
     this.coverageSupportFiles = coverageSupportFiles;
     this.coverageEnvironment = coverageEnvironment;
-    this.sourcesToReplaceInReport = sourcesToReplaceInReport;
+    this.reportedToActualSources = reportedToActualSources;
   }
 
   @Override
@@ -90,7 +90,7 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   }
 
   @Override
-  public ImmutableMap<String, String> getSourcesToReplaceInReport() {
-    return  sourcesToReplaceInReport;
+  public ImmutableMap<String, String> getReportedToActualSources() {
+    return reportedToActualSources;
   }
 }

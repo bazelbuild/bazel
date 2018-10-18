@@ -895,7 +895,7 @@ public class CompilationSupport {
         // The COVERAGE_GCOV_PATH environment variable is added in TestSupport#getExtraProviders()
         NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
         !isTestRule,
-        ImmutableMap.of());
+        /*reportedToActualSources=*/ ImmutableMap.of());
   }
 
   /**

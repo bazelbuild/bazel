@@ -133,9 +133,9 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
   }
 
   @Override
-  public ImmutableMap<String, String> getSourcesToReplaceInReport() {
+  public ImmutableMap<String, String> getReportedToActualSources() {
     return getProvider(InstrumentedFilesProvider.class, InstrumentedFilesProviderImpl.EMPTY)
-        .getSourcesToReplaceInReport();
+        .getReportedToActualSources();
   }
 
   /**

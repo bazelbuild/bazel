@@ -62,7 +62,11 @@ public final class TestActionBuilder {
   private static final String LCOV_MERGER = "LCOV_MERGER";
   // The coverage tool Bazel uses to generate a code coverage report for C++.
   private static final String BAZEL_CC_COVERAGE_TOOL = "BAZEL_CC_COVERAGE_TOOL";
-  private static final String SOURCES_TO_REPLACE = "SOURCES_TO_REPLACE";
+  // A file that contains a mapping between the reported source file path and the actual source
+  // file path, relative to the workspace directory, if the two values are different. If the
+  // reported source file is the same as the actual source path it will not be included in the file.
+  private static final String COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE =
+      "COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE";
 
   enum CcCoverageTool {
     GCOV,
@@ -268,24 +272,24 @@ public final class TestActionBuilder {
         extraTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
       }
 
-      if (!instrumentedFiles.getSourcesToReplaceInReport().isEmpty()) {
-        Artifact sourcesToReplaceArtifact =
-            ruleContext.getUniqueDirectoryArtifact("_coverage_helpers","source_to_replace.txt");
-        String sourcesToReplaceContents =
-            instrumentedFiles.getSourcesToReplaceInReport().entrySet().stream()
+      if (!instrumentedFiles.getReportedToActualSources().isEmpty()) {
+        Artifact reportedToActualSourcesArtifact =
+            ruleContext.getUniqueDirectoryArtifact("_coverage_helpers","reported_to_actual_sources.txt");
+        String reportedToActualSourcesFileContent =
+            instrumentedFiles.getReportedToActualSources().entrySet().stream()
                 .map(e -> e.getKey() + ":" + e.getValue())
                 .reduce((s1, s2) -> s1 + "\n" + s2).get();
 
         ruleContext.registerAction(FileWriteAction.create(
             ruleContext.getActionOwner(),
-            sourcesToReplaceArtifact,
-            sourcesToReplaceContents,
+            reportedToActualSourcesArtifact,
+            reportedToActualSourcesFileContent,
             /*makeExecutable=*/ false,
             Compression.DISALLOW
             )
         );
-        inputsBuilder.add(sourcesToReplaceArtifact);
-        extraTestEnv.put(SOURCES_TO_REPLACE, sourcesToReplaceArtifact.getExecPathString());
+        inputsBuilder.add(reportedToActualSourcesArtifact);
+        extraTestEnv.put(COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE, reportedToActualSourcesArtifact.getExecPathString());
       }
 
       // lcov is the default CC coverage tool unless otherwise specified on the command line.

@@ -62,5 +62,15 @@ public interface InstrumentedFilesProvider extends TransitiveInfoProvider {
    */
   NestedSet<Pair<String, String>> getCoverageEnvironment();
 
-  ImmutableMap<String, String> getSourcesToReplaceInReport();
+  /**
+   * A map from the reported source file path to the actual source file path, relative to the
+   * workspace directory, if the two values are different. If the reported source file is the same
+   * as the actual source path it will not be included in this map.
+   *
+   * <p> This is useful for virtual include paths in C++, which get reported at the include location
+   * and not the real source path. For example, the reported include source file can be
+   * "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h", but its
+   * actual source path is "include/common/strategy.h".
+   */
+  ImmutableMap<String, String> getReportedToActualSources();
 }

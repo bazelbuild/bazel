@@ -76,7 +76,8 @@ public class Filegroup implements RuleConfiguredTargetFactory {
         InstrumentedFilesCollector.collect(ruleContext,
             // what do *we* know about whether this is a source file or not
             new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
-            InstrumentedFilesCollector.NO_METADATA_COLLECTOR, filesToBuild, ImmutableMap.of());
+            InstrumentedFilesCollector.NO_METADATA_COLLECTOR, filesToBuild,
+            /*reportedToActualSources=*/ ImmutableMap.of());
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
         new Runfiles.Builder(

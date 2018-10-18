@@ -54,9 +54,9 @@ public final class InstrumentedFilesCollector {
     return collect(
         ruleContext,
         new InstrumentationSpec(FileTypeSet.NO_FILE).withDependencyAttributes(dependencyAttributes),
-        null,
-        null,
-        ImmutableMap.of());
+        /*localMetadataCollector=*/ null,
+        /*rootFiles=*/ null,
+        /*reportedToActualSources=*/ ImmutableMap.of());
   }
 
   public static InstrumentedFilesProvider collect(
@@ -64,12 +64,12 @@ public final class InstrumentedFilesCollector {
       InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector,
       Iterable<Artifact> rootFiles,
-      ImmutableMap<String, String> virtualToOriginalHeaders) {
+      ImmutableMap<String, String> reportedToActualSources) {
     return collect(ruleContext, spec, localMetadataCollector, rootFiles,
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.<Pair<String, String>>emptySet(Order.STABLE_ORDER),
         false,
-        virtualToOriginalHeaders);
+        reportedToActualSources);
   }
 
   /**
@@ -87,7 +87,7 @@ public final class InstrumentedFilesCollector {
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       boolean withBaselineCoverage,
-      ImmutableMap<String, String> sourcesToReplace) {
+      ImmutableMap<String, String> reportedToActualSources) {
     Preconditions.checkNotNull(ruleContext);
     Preconditions.checkNotNull(spec);
 
@@ -166,7 +166,7 @@ public final class InstrumentedFilesCollector {
         baselineCoverageArtifacts,
         coverageSupportFilesBuilder.build(),
         coverageEnvironmentBuilder.build(),
-        sourcesToReplace);
+        reportedToActualSources);
   }
 
   /**

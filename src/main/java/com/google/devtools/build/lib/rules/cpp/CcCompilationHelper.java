@@ -853,17 +853,17 @@ public final class CcCompilationHelper {
     private final ImmutableList<Artifact> headers;
     private final ImmutableList<Artifact> moduleMapHeaders;
     private final @Nullable PathFragment virtualIncludePath;
-    private final ImmutableMap<String, String> virtualHeaderToOriginalHeader;
+    private final ImmutableMap<String, String> virtualToOriginalHeaders;
 
     private PublicHeaders(
         ImmutableList<Artifact> headers,
         ImmutableList<Artifact> moduleMapHeaders,
         PathFragment virtualIncludePath,
-        ImmutableMap<String, String> virtualHeaderToOriginalHeader) {
+        ImmutableMap<String, String> virtualToOriginalHeaders) {
       this.headers = headers;
       this.moduleMapHeaders = moduleMapHeaders;
       this.virtualIncludePath = virtualIncludePath;
-      this.virtualHeaderToOriginalHeader = virtualHeaderToOriginalHeader;
+      this.virtualToOriginalHeaders = virtualToOriginalHeaders;
     }
 
     private ImmutableList<Artifact> getHeaders() {
@@ -920,8 +920,8 @@ public final class CcCompilationHelper {
       return new PublicHeaders(
           ImmutableList.copyOf(Iterables.concat(publicHeaders, nonModuleMapHeaders)),
           ImmutableList.copyOf(publicHeaders),
-          null,
-          ImmutableMap.of());
+          /*virtualIncludePath=*/ null,
+          /*virtualToOriginalHeaders=*/ ImmutableMap.of());
     }
 
     if (ruleContext.hasErrors()) {
@@ -1015,8 +1015,10 @@ public final class CcCompilationHelper {
     }
 
     if (configuration.isCodeCoverageEnabled()) {
+      // Populate the map only when code coverage collection is enabled, to report the actual source
+      // file name in the coverage output file.
       ccCompilationContextBuilder.addVirtualToOriginalHeaders(
-          publicHeaders.virtualHeaderToOriginalHeader);
+          publicHeaders.virtualToOriginalHeaders);
     }
 
     if (useDeps) {

@@ -104,6 +104,7 @@ java_library(
     deps = [
         ":Constants",
         ":SourceFileCoverage",
+        "//third_party:guava",
     ],
 )
 
