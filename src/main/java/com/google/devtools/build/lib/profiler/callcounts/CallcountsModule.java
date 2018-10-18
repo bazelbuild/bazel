@@ -76,5 +76,6 @@ public class CallcountsModule extends BlazeModule {
       }
     }
     Callcounts.reset();
+    this.reporter = null;
   }
 }
