@@ -71,7 +71,8 @@ public class GcovParser {
     }
     endSourceFile();
     if (malformedInput) {
-      throw new IOException("gcov intermediate input is malformed.");
+      logger.log(Level.WARNING, "gcov intermediate input was malformed, some lines might not have been parsed. "
+      + "Check the previous log entries for more information.");
     }
     return allSourceFiles;
   }
@@ -89,6 +90,9 @@ public class GcovParser {
   }
 
   private boolean parseLine(String line) {
+    if (line.isEmpty()) {
+      return true;
+    }
     if (line.startsWith(GCOV_FILE_MARKER)) {
       endSourceFile();
       return parseSource(line);
@@ -106,6 +110,7 @@ public class GcovParser {
       // Ignore these fields for now as they are not necessary.
       return true;
     }
+    logger.log(Level.WARNING, "Line <" + line + "> does not respect the gcov intermediate format and was ignored.");
     return false;
   }
 
