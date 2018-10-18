@@ -39,8 +39,8 @@ import java.util.regex.Pattern;
  */
 public class BuildRequestOptions extends OptionsBase {
   private static final Logger logger = Logger.getLogger(BuildRequestOptions.class.getName());
-  private static final int JOBS_TOO_HIGH_WARNING = 1500;
-  @VisibleForTesting public static final int MAX_JOBS = 3000;
+  private static final int JOBS_TOO_HIGH_WARNING = 2500;
+  @VisibleForTesting public static final int MAX_JOBS = 5000;
 
   /* "Execution": options related to the execution of a build: */
 
