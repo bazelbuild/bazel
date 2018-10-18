@@ -863,7 +863,6 @@ public final class AndroidRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("aapt_version", STRING)
-                  .undocumented("experimental, b/28819519")
                   .allowedValues(new AllowedValueSet(AndroidAaptVersion.getAttributeValues()))
                   .value(AndroidAaptVersion.getRuleAttributeDefault()))
           .add(
