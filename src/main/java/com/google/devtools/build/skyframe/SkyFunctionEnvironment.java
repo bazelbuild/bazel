@@ -72,7 +72,10 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private ErrorInfo errorInfo = null;
 
   private final FunctionHermeticity hermeticity;
-  @Nullable private Version maxChildOrInjectedVersion = null;
+  @Nullable private Version maxChildVersion = null;
+
+  /** If present, takes precedence over {@link #maxChildVersion}. */
+  @Nullable private Version injectedVersion = null;
 
   /**
    * This is not {@code null} only during cycle detection and error bubbling. The nullness of this
@@ -352,7 +355,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           triState == DependencyState.DONE, "%s %s %s", skyKey, triState, errorInfo);
       state.addTemporaryDirectDeps(GroupedListHelper.create(ErrorTransienceValue.KEY));
       state.signalDep();
-      maxChildOrInjectedVersion = evaluatorContext.getGraphVersion();
+      maxChildVersion = evaluatorContext.getGraphVersion();
     }
 
     this.errorInfo = Preconditions.checkNotNull(errorInfo, skyKey);
@@ -736,13 +739,16 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         oldDepEntry.removeReverseDep(skyKey);
       }
     }
-    Version evaluationVersion = maxChildOrInjectedVersion;
-    if (evaluatorContext.getEvaluationVersionBehavior() == EvaluationVersionBehavior.GRAPH_VERSION
-        || hermeticity == FunctionHermeticity.NONHERMETIC) {
-      evaluationVersion = evaluatorContext.getGraphVersion();
-    } else if (bubbleErrorInfo != null) {
+    Version evaluationVersion = maxChildVersion;
+    if (bubbleErrorInfo != null) {
       // Cycles can lead to a state where the versions of done children don't accurately reflect the
       // state that led to this node's value. Be conservative then.
+      evaluationVersion = evaluatorContext.getGraphVersion();
+    } else if (injectedVersion != null) {
+      evaluationVersion = injectedVersion;
+    } else if (evaluatorContext.getEvaluationVersionBehavior()
+            == EvaluationVersionBehavior.GRAPH_VERSION
+        || hermeticity == FunctionHermeticity.NONHERMETIC) {
       evaluationVersion = evaluatorContext.getGraphVersion();
     } else if (evaluationVersion == null) {
       Preconditions.checkState(
@@ -833,7 +839,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   @Override
   public void injectVersionForNonHermeticFunction(Version version) {
     Preconditions.checkState(hermeticity == FunctionHermeticity.NONHERMETIC, skyKey);
-    maxChildOrInjectedVersion = version;
+    injectedVersion = version;
   }
 
   private void maybeUpdateMaxChildVersion(NodeEntry depEntry) {
@@ -841,8 +847,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         && evaluatorContext.getEvaluationVersionBehavior()
             == EvaluationVersionBehavior.MAX_CHILD_VERSIONS) {
       Version depVersion = depEntry.getVersion();
-      if (maxChildOrInjectedVersion == null || maxChildOrInjectedVersion.atMost(depVersion)) {
-        maxChildOrInjectedVersion = depVersion;
+      if (maxChildVersion == null || maxChildVersion.atMost(depVersion)) {
+        maxChildVersion = depVersion;
       }
     }
   }
