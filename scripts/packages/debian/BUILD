@@ -77,7 +77,6 @@ pkg_deb(
     data = ":debian-data",
     depends = [
         # Keep in sync with Depends section in ./control
-        "google-jdk | java8-sdk-headless | java8-jdk | java8-sdk | oracle-java8-installer",
         "g++",
         "zlib1g-dev",
         "bash-completion",
@@ -88,6 +87,10 @@ pkg_deb(
     homepage = "http://bazel.build",
     maintainer = "The Bazel Authors <bazel-dev@googlegroups.com>",
     package = "bazel",
+    suggests = [
+        # Keep in sync with Suggests section in ./control
+        "google-jdk | java8-sdk-headless | java8-jdk | java8-sdk | oracle-java8-installer",
+    ],
     version_file = ":version.txt",
     visibility = ["//scripts/packages:__pkg__"],
 )
