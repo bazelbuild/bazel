@@ -30,6 +30,8 @@ To check if your code will be compatible with future releases you can:
 The following are the backward incompatible changes that are implemented and
 guarded behind flags in the current release:
 
+General Starlark
+
 *   [Dictionary concatenation](#dictionary-concatenation)
 *   [Load must appear at top of file](#load-must-appear-at-top-of-file)
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
@@ -38,27 +40,45 @@ guarded behind flags in the current release:
 *   [Integer division operator is //](#integer-division-operator-is)
 *   [Package name is a function](#package-name-is-a-function)
 *   [FileType is deprecated](#filetype-is-deprecated)
+*   [Static Name Resolution](#static-name-resolution)
+*   [Load label cannot cross package boundaries](#load-label-cannot-cross-package-boundaries)
+
+Starlark Rules
+
 *   [New actions API](#new-actions-api)
 *   [New args API](#new-args-api)
-*   [Disable objc provider resources](#disable-objc-provider-resources)
 *   [Disable output group field on Target](#disable-output-group-field-on-target)
 *   [Disable default parameter of output attributes](#disable-default-parameter-of-output-attributes)
-*   [Remove native git repository](#remove-native-git-repository)
-*   [Remove native http archive](#remove-native-http-archive)
-*   [New-style JavaInfo constructor](#new-style-java_info)
 *   [Disallow tools in action inputs](#disallow-tools-in-action-inputs)
 *   [Expand directories in Args](#expand-directories-in-args)
-*   [Static Name Resolution](#static-name-resolution)
-*   [Disable InMemory Tools Defaults Package](#disable-inmemory-tools-defaults-package)
 *   [Disable late bound option defaults](#disable-late-bound-option-defaults)
+*   [Disallow `cfg = "data"`](#disallow-cfg--data)
+
+Objc
+
+*   [Disable objc provider resources](#disable-objc-provider-resources)
+
+External repositories
+
+*   [Remove native git repository](#remove-native-git-repository)
+*   [Remove native http archive](#remove-native-http-archive)
+
+Java
+
+*   [New-style JavaInfo constructor](#new-style-java_info)
+
+Misc
+
+*   [Disable InMemory Tools Defaults Package](#disable-inmemory-tools-defaults-package)
+
+C++
+
 *   [Disable depsets in C++ toolchain API in user
     flags](#disable-depsets-in-c-toolchain-api-in-user-flags)
 *   [Disallow using CROSSTOOL to select the cc_toolchain label](#disallow-using-crosstool-to-select-the-cc_toolchain-label)
 *   [Disallow using C++ Specific Make Variables from the configuration](#disallow-using-c-specific-make-variables-from-the-configuration)
 *   [Disable legacy C++ configuration API](#disable-legacy-c-configuration-api)
 *   [Disable legacy C++ toolchain API](#disable-legacy-c-toolchain-api)
-*   [Disallow `cfg = "data"`](#disallow-cfg--data)
-*   [Load label cannot cross package boundaries](#load-label-cannot-cross-package-boundaries)
 
 
 ### Dictionary concatenation
