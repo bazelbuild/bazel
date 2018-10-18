@@ -16,7 +16,9 @@
 import gzip
 import hashlib
 from io import BytesIO
+import os
 import os.path
+import StringIO
 import sys
 import tarfile
 import textwrap
@@ -66,6 +68,10 @@ gflags.DEFINE_string('prerm', None,
 gflags.DEFINE_string('postrm', None,
                      'The postrm script (prefix with @ to provide a path).')
 
+# size of chunks for copying package content to final .deb file
+# This is a wild guess, but I am not convinced of the value of doing much work
+# to tune it.
+_COPY_CHUNK_SIZE = 1024 * 32
 
 # see
 # https://www.debian.org/doc/manuals/debian-faq/ch-pkg_basics.en.html#s-conffile
@@ -90,22 +96,33 @@ def MakeGflags():
 
 
 def AddArFileEntry(fileobj, filename,
-                   content='', timestamp=0,
+                   content='', content_len=-1, timestamp=0,
                    owner_id=0, group_id=0, mode=0o644):
   """Add a AR file entry to fileobj."""
+  # If we got the content as a string, turn it into a file like thing.
+  if isinstance(content, str):
+    if content_len < 0:
+      content_len = len(content)
+    content = StringIO.StringIO(content)
   inputs = [
       (filename + '/').ljust(16),  # filename (SysV)
       str(timestamp).ljust(12),  # timestamp
       str(owner_id).ljust(6),  # owner id
       str(group_id).ljust(6),  # group id
       oct(mode).ljust(8),  # mode
-      str(len(content)).ljust(10),  # size
+      str(content_len).ljust(10),  # size
       '\x60\x0a',  # end of file entry
   ]
   for i in inputs:
     fileobj.write(i.encode('ascii'))
-  fileobj.write(content)
-  if len(content) % 2 != 0:
+  size = 0
+  while True:
+    data = content.read(_COPY_CHUNK_SIZE)
+    if not data:
+      break
+    size += len(data)
+    fileobj.write(data)
+  if size % 2 != 0:
     fileobj.write(b'\n')  # 2-byte alignment padding
 
 
@@ -190,9 +207,9 @@ def CreateDeb(output,
       ext = '.'.join(ext)
       if ext not in ['tar.bz2', 'tar.gz', 'tar.xz', 'tar.lzma']:
         ext = 'tar'
+    data_size = os.stat(data).st_size
     with open(data, 'rb') as datafile:
-      data = datafile.read()
-    AddArFileEntry(f, 'data.' + ext, data)
+      AddArFileEntry(f, 'data.' + ext, datafile, content_len=data_size)
 
 
 def GetChecksumsFromFile(filename, hash_fns=None):
