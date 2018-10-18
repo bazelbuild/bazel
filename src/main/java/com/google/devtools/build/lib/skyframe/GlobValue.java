@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** A value corresponding to a glob. */
@@ -75,13 +74,13 @@ public final class GlobValue implements SkyValue {
   }
 
   /**
-   * Constructs a {@link SkyKey} for a glob lookup. {@code packageName} is assumed to be an existing
-   * package. Trying to glob into a non-package is undefined behavior.
+   * Constructs a {@link GlobDescriptor} for a glob lookup. {@code packageName} is assumed to be an
+   * existing package. Trying to glob into a non-package is undefined behavior.
    *
    * @throws InvalidGlobPatternException if the pattern is not valid.
    */
   @ThreadSafe
-  public static SkyKey key(
+  public static GlobDescriptor key(
       PackageIdentifier packageId,
       Root packageRoot,
       String pattern,
@@ -101,33 +100,18 @@ public final class GlobValue implements SkyValue {
   }
 
   /**
-   * Constructs a {@link SkyKey} for a glob lookup.
+   * Constructs a {@link GlobDescriptor} for a glob lookup.
    *
    * <p>Do not use outside {@code GlobFunction}.
    */
   @ThreadSafe
-  static SkyKey internalKey(
+  static GlobDescriptor internalKey(
       PackageIdentifier packageId,
       Root packageRoot,
       PathFragment subdir,
       String pattern,
       boolean excludeDirs) {
     return GlobDescriptor.create(packageId, packageRoot, subdir, pattern, excludeDirs);
-  }
-
-  /**
-   * Constructs a {@link SkyKey} for a glob lookup.
-   *
-   * <p>Do not use outside {@code GlobFunction}.
-   */
-  @ThreadSafe
-  static SkyKey internalKey(GlobDescriptor glob, String subdirName) {
-    return internalKey(
-        glob.getPackageId(),
-        glob.getPackageRoot(),
-        glob.getSubdir().getRelative(subdirName),
-        glob.getPattern(),
-        glob.excludeDirs());
   }
 
   /**

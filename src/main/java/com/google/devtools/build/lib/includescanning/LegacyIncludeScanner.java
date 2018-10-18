@@ -484,18 +484,16 @@ public class LegacyIncludeScanner implements IncludeScanner {
     Preconditions.checkArgument(mainSource == null || sources.contains(mainSource),
         "The main source '%s' is not part of '%s'", mainSource, sources);
     ImmutableSet.Builder<Artifact> pathHints = null;
+    SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
     if (parser.getHints() != null) {
       pathHints = ImmutableSet.builderWithExpectedSize(quoteIncludePaths.size());
-      SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
-      for (PathFragment path : quoteIncludePaths) {
-        Collection<Artifact> artifacts = parser.getHints().getPathLevelHintedInclusions(path, env);
-        if (env.valuesMissing()) {
-          break;
-        }
-        pathHints.addAll(Preconditions.checkNotNull(artifacts, path));
+      Collection<Artifact> artifacts =
+          parser.getHints().getPathLevelHintedInclusions(quoteIncludePaths, env);
+      if (!env.valuesMissing()) {
+        pathHints.addAll(Preconditions.checkNotNull(artifacts, quoteIncludePaths));
       }
     }
-    if (actionExecutionContext.getEnvironmentForDiscoveringInputs().valuesMissing()) {
+    if (env.valuesMissing()) {
       throw new MissingDepException();
     }
 
