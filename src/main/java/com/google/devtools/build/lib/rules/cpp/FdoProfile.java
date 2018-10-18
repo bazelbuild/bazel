@@ -31,7 +31,7 @@ public final class FdoProfile implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws RuleErrorException, ActionConflictException {
 
-    FdoInputFile inputFile = FdoInputFile.create(ruleContext);
+    FdoInputFile inputFile = FdoInputFile.fromProfileRule(ruleContext);
     if (ruleContext.hasErrors()) {
       return null;
     }

@@ -18,14 +18,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.util.FileType.HasFileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
 
-/**
- * Value object reused by fdo configurations that may be either an artifact or a path.
- */
+/** Value object reused by fdo configurations that may be either an artifact or a path. */
 @Immutable
-public final class FdoInputFile {
+public final class FdoInputFile implements HasFileType {
 
   private final Artifact artifact;
   private final PathFragment absolutePath;
@@ -43,6 +42,10 @@ public final class FdoInputFile {
 
   public PathFragment getAbsolutePath() {
     return absolutePath;
+  }
+
+  public String getBasename() {
+    return artifact != null ? artifact.getFilename() : absolutePath.getBaseName();
   }
 
   @Override
@@ -65,7 +68,15 @@ public final class FdoInputFile {
     return Objects.hash(artifact, absolutePath);
   }
 
-  public static FdoInputFile create(RuleContext ruleContext) {
+  public static FdoInputFile fromAbsolutePath(PathFragment absolutePath) {
+    return new FdoInputFile(null, absolutePath);
+  }
+
+  public static FdoInputFile fromArtifact(Artifact artifact) {
+    return new FdoInputFile(artifact, null);
+  }
+
+  public static FdoInputFile fromProfileRule(RuleContext ruleContext) {
 
     boolean isLabel = ruleContext.attributes().isAttributeValueExplicitlySpecified("profile");
     boolean isAbsolutePath =
@@ -99,5 +110,12 @@ public final class FdoInputFile {
       }
       return new FdoInputFile(null, absolutePath);
     }
+  }
+
+  @Override
+  public String filePathForFileTypeMatcher() {
+    return artifact != null
+        ? artifact.filePathForFileTypeMatcher()
+        : absolutePath.filePathForFileTypeMatcher();
   }
 }
