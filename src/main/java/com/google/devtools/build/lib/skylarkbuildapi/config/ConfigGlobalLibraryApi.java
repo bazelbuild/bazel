@@ -78,6 +78,16 @@ public interface ConfigGlobalLibraryApi {
               named = true,
               doc = "List of build settings that can be written by this transition. This must be "
                   + "a superset of the key set of the dictionary returned by this transition."),
+          @Param(
+              name = "for_analysis_testing",
+              type = Boolean.class,
+              positional = false,
+              named = true,
+              defaultValue = "False",
+              // TODO(cparsons): In this doc string, link to more extensive documentation regarding
+              // analysis test rules.
+              doc = "If true, this transition may only be used on attributes of rules with "
+                  + "analysis_test set to true."),
       },
       useLocation = true,
       useSkylarkSemantics = true)
@@ -86,6 +96,7 @@ public interface ConfigGlobalLibraryApi {
       BaseFunction implementation,
       List<String> inputs,
       List<String> outputs,
+      Boolean forAnalysisTesting,
       Location location,
       SkylarkSemantics semantics)
       throws EvalException;

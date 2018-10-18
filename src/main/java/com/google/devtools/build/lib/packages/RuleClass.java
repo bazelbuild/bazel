@@ -768,7 +768,7 @@ public class RuleClass {
                 .value(ImmutableList.of()));
       }
       if (skylark) {
-        assertSkylarkRuleClassProperFunctionTransitionUsage();
+        assertRuleClassProperStarlarkDefinedTransitionUsage();
       }
 
       return new RuleClass(
@@ -826,14 +826,20 @@ public class RuleClass {
           type);
     }
 
-    private void assertSkylarkRuleClassProperFunctionTransitionUsage() {
-      boolean hasFunctionTransitionAttribute =
-          attributes.entrySet()
-          .stream()
-          .map(entry -> entry.getValue().hasFunctionTransition())
-          .reduce(false, (a, b) -> a || b);
+    private void assertRuleClassProperStarlarkDefinedTransitionUsage() {
+      boolean hasStarlarkDefinedTransition = false;
+      boolean hasAnalysisTestTransitionAttribute = false;
+      for (Attribute attribute : attributes.values()) {
+        hasStarlarkDefinedTransition |= attribute.hasStarlarkDefinedTransition();
+        hasAnalysisTestTransitionAttribute |= attribute.hasAnalysisTestTransition();
+      }
 
-      if (hasFunctionTransitionAttribute) {
+      if (hasAnalysisTestTransitionAttribute) {
+        Preconditions.checkState(isAnalysisTest,
+            "Only rule definitions with analysis_test=True may have attributes with "
+                + "for_analysis_testing=True");
+      }
+      if (hasStarlarkDefinedTransition) {
         Preconditions.checkState(
             hasFunctionTransitionWhitelist,
             "Use of function based split transition without whitelist: %s %s",

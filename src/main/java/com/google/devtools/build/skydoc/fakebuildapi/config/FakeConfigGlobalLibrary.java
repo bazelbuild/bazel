@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import java.util.List;
 
@@ -28,7 +29,8 @@ public class FakeConfigGlobalLibrary implements ConfigGlobalLibraryApi {
 
   @Override
   public ConfigurationTransitionApi transition(BaseFunction implementation, List<String> inputs,
-      List<String> outputs, Location location, SkylarkSemantics semantics) {
+      List<String> outputs, Boolean forAnalysisTesting, Location location,
+      SkylarkSemantics semantics) throws EvalException {
     return new FakeConfigurationTransition();
   }
 }

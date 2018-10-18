@@ -25,9 +25,11 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 public class StarlarkDefinedConfigTransition implements ConfigurationTransitionApi {
 
   private final BaseFunction impl;
+  private final boolean forAnalysisTesting;
 
-  public StarlarkDefinedConfigTransition(BaseFunction impl) {
+  public StarlarkDefinedConfigTransition(BaseFunction impl, boolean forAnalysisTesting) {
     this.impl = impl;
+    this.forAnalysisTesting = forAnalysisTesting;
   }
 
   /**
@@ -38,6 +40,14 @@ public class StarlarkDefinedConfigTransition implements ConfigurationTransitionA
    */
   public BaseFunction getImplementation() {
     return impl;
+  }
+
+  /**
+   * Returns true if this transition is for analysis testing. If true, then only attributes of
+   * rules with {@code analysis_test=true} may use this transition object.
+   */
+  public Boolean isForAnalysisTesting() {
+    return forAnalysisTesting;
   }
 
   @Override

@@ -2189,6 +2189,100 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     // TODO(cparsons): Verify implicit action registration via AnalysisTestResultInfo.
   }
 
+  @Test
+  public void testAnalysisTestTransitionOnAnalysisTest() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_analysis_testing_improvements=true",
+        "--experimental_starlark_config_transitions=true");
+    useConfiguration("--strict_java_deps=OFF");
+
+    scratch.file(
+        "test/extension.bzl",
+        "MyInfo = provider()",
+        "MyDep = provider()",
+        "",
+        "def outer_rule_impl(ctx):",
+        "  return [MyInfo(strict_java_deps = ctx.fragments.java.strict_java_deps),",
+        "          MyDep(info = ctx.attr.dep[0][MyInfo])]",
+        "def inner_rule_impl(ctx):",
+        "  return [MyInfo(strict_java_deps = ctx.fragments.java.strict_java_deps)]",
+        "",
+        "def transition_func(settings):",
+        "  return { 'strict_java_deps' : 'WARN' }",
+        "my_transition = transition(",
+        "    implementation = transition_func,",
+        "    for_analysis_testing=True,",
+        "    inputs = [],",
+        "    outputs = [])",
+        "",
+        "inner_rule = rule(implementation = inner_rule_impl,",
+        "                  fragments = ['java'])",
+        "outer_rule = rule(",
+        "  implementation = outer_rule_impl,",
+        "  fragments = ['java'],",
+        "  analysis_test = True,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "  })");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'inner_rule', 'outer_rule')",
+        "",
+        "inner_rule(name = 'inner')",
+        "outer_rule(name = 'r', dep = ':inner')");
+
+    SkylarkKey myInfoKey =
+        new SkylarkKey(Label.parseAbsolute("//test:extension.bzl", ImmutableMap.of()), "MyInfo");
+    SkylarkKey myDepKey =
+        new SkylarkKey(Label.parseAbsolute("//test:extension.bzl", ImmutableMap.of()), "MyDep");
+
+    ConfiguredTarget outerTarget = getConfiguredTarget("//test:r");
+    StructImpl outerInfo = (StructImpl) outerTarget.get(myInfoKey);
+    StructImpl outerDepInfo = (StructImpl) outerTarget.get(myDepKey);
+    StructImpl innerInfo = (StructImpl) outerDepInfo.getValue("info");
+
+    assertThat(outerInfo.getValue("strict_java_deps")).isEqualTo("off");
+    assertThat(innerInfo.getValue("strict_java_deps")).isEqualTo("warn");
+  }
+
+  @Test
+  public void testAnalysisTestTransitionOnNonAnalysisTest() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_analysis_testing_improvements=true",
+        "--experimental_starlark_config_transitions=true");
+
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  return []",
+        "def transition_func(settings):",
+        "  return settings",
+        "my_transition = transition(",
+        "    implementation = transition_func,",
+        "    for_analysis_testing=True,",
+        "    inputs = [],",
+        "    outputs = [])",
+        "",
+        "custom_rule = rule(",
+        "  implementation = custom_rule_impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "  })");
+
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'r')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent("Only rule definitions with analysis_test=True may have attributes "
+        + "with for_analysis_testing=True");
+  }
+
   /**
    * Skylark integration test that forces inlining.
    */

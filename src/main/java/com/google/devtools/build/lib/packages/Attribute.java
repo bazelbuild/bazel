@@ -250,9 +250,16 @@ public final class Attribute implements Comparable<Attribute> {
     OUTPUT_LICENSES,
 
     /**
-     * Has a function-based split transition.
+     * Has a Starlark-defined configuration transition. Transitions for analysis testing are tracked
+     * separately: see {@link #HAS_ANALYSIS_TEST_TRANSITION}.
      */
-    HAS_FUNCTION_TRANSITION,
+    HAS_STARLARK_DEFINED_TRANSITION,
+
+    /**
+     * Has a Starlark-defined configuration transition designed specifically for rules which
+     * run analysis tests.
+     */
+    HAS_ANALYSIS_TEST_TRANSITION,
   }
 
   // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
@@ -598,11 +605,22 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Indicate the attribute uses function-based split transition.
+     * Indicate the attribute uses uses a starlark-defined (non-analysis-test) configuration
+     * transition. Transitions for analysis testing are tracked separately: see
+     * {@link #hasAnalysisTestTransition()}.
      */
-    public Builder<TYPE> hasFunctionTransition() {
-      return setPropertyFlag(PropertyFlag.HAS_FUNCTION_TRANSITION,
-          "function-based split transition");
+    public Builder<TYPE> hasStarlarkDefinedTransition() {
+      return setPropertyFlag(PropertyFlag.HAS_STARLARK_DEFINED_TRANSITION,
+          "starlark-defined split transition");
+    }
+
+    /**
+     * Indicate the attribute uses uses a starlark-defined analysis-test configuration transition.
+     * Such a configuration transition may only be applied on rules with {@code analysis_test=true}.
+     */
+    public Builder<TYPE> hasAnalysisTestTransition() {
+      return setPropertyFlag(PropertyFlag.HAS_ANALYSIS_TEST_TRANSITION,
+          "analysis-test split transition");
     }
 
     /**
@@ -2110,11 +2128,20 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns true if this attribute uses a function-based split transition provider.  See
-   * {@link FunctionSplitTransitionProvider}.
+   * Returns true if this attribute uses a starlark-defined, non analysis-test configuration
+   * transition. See {@link FunctionSplitTransitionProvider}. Starlark-defined analysis-test
+   * configuration transitions are handled separately. See {@link #hasAnalysisTestTransition}.
    */
-  public boolean hasFunctionTransition() {
-    return getPropertyFlag(PropertyFlag.HAS_FUNCTION_TRANSITION);
+  public boolean hasStarlarkDefinedTransition() {
+    return getPropertyFlag(PropertyFlag.HAS_STARLARK_DEFINED_TRANSITION);
+  }
+
+  /**
+   * Returns true if this attributes uses Starlark-defined configuration transition designed
+   * specifically for rules which run analysis tests.
+   */
+  public boolean hasAnalysisTestTransition() {
+    return getPropertyFlag(PropertyFlag.HAS_ANALYSIS_TEST_TRANSITION);
   }
 
   /**
