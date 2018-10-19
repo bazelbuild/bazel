@@ -145,7 +145,7 @@ public class CppCompileAction extends AbstractAction
    * Used only during input discovery, when input discovery requires other actions
    * to be executed first.
    */
-  private Set<Artifact> usedModules = null;
+  private Collection<Artifact> usedModules = null;
 
   /**
    * This field is set only for C++ module compiles (compiling .cppmap files into .pcm files). It
@@ -384,6 +384,12 @@ public class CppCompileAction extends AbstractAction
       ActionExecutionContext actionExecutionContext, Iterable<Artifact> headers) {
     Set<Artifact> undeclaredHeaders = Sets.newHashSet(headers);
 
+    // Remove all declared headers and find out which modules were used while at it.
+    CcCompilationContext.HeadersAndModules headersAndModules =
+        ccCompilationContext.computeDeclaredHeadersAndUsedModules(usePic, undeclaredHeaders);
+    usedModules = ImmutableList.copyOf(headersAndModules.modules);
+    undeclaredHeaders.removeAll(headersAndModules.headers);
+
     // Note that this (compared to validateInclusions) does not take mandatoryInputs into account.
     // The reason is that these by definition get added to the action input and thus are available
     // anyway. Not having to look at them here saves us from requiring and ArtifactExpander, which
@@ -392,7 +398,6 @@ public class CppCompileAction extends AbstractAction
     for (Artifact source : getIncludeScannerSources()) {
       undeclaredHeaders.remove(source);
     }
-    ccCompilationContext.removeDeclaredIncludes(undeclaredHeaders);
     for (Artifact header : additionalPrunableHeaders) {
       undeclaredHeaders.remove(header);
     }
@@ -448,10 +453,7 @@ public class CppCompileAction extends AbstractAction
       return additionalInputs;
     }
 
-    if (usedModules == null) {
-      usedModules =
-          ccCompilationContext.getUsedModules(usePic, ImmutableSet.copyOf(additionalInputs));
-    }
+    Preconditions.checkState(usedModules != null, "Should have computed used modules");
     Map<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
         computeTransitivelyUsedModules(
             actionExecutionContext.getEnvironmentForDiscoveringInputs(), usedModules);
@@ -1309,7 +1311,7 @@ public class CppCompileAction extends AbstractAction
    */
   @Nullable
   private static Map<Artifact, NestedSet<Artifact>> computeTransitivelyUsedModules(
-      SkyFunction.Environment env, Set<Artifact> usedModules) throws InterruptedException {
+      SkyFunction.Environment env, Collection<Artifact> usedModules) throws InterruptedException {
     // ActionLookupKey → ActionLookupValue
     Map<SkyKey, SkyValue> actionLookupValues =
         env.getValues(

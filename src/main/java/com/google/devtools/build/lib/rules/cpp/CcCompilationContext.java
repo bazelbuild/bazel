@@ -216,12 +216,45 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         Collections.unmodifiableSet(modularHeaders));
   }
 
-  /** Removes all declared headers from {@code includes}. */
-  public void removeDeclaredIncludes(Set<Artifact> includes) {
-    for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
-      removeArtifactsFromSet(includes, transitiveHeaderInfo.modularHeaders);
-      removeArtifactsFromSet(includes, transitiveHeaderInfo.textualHeaders);
+  /** Simple container for a collection of headers and corresponding modules. */
+  public static class HeadersAndModules {
+    public final Collection<Artifact> headers;
+    public final Collection<Artifact> modules;
+
+    HeadersAndModules(int expectedHeaderCount) {
+      headers = new HashSet<>(expectedHeaderCount);
+      modules = new LinkedHashSet<>();
     }
+  }
+
+  /**
+   * Returns a list of all headers from {@code includes} that are properly declared as well as all
+   * the modules that they are in.
+   */
+  public HeadersAndModules computeDeclaredHeadersAndUsedModules(
+      boolean usePic, Set<Artifact> includes) {
+    HeadersAndModules result = new HeadersAndModules(includes.size());
+    for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
+      Artifact module = transitiveHeaderInfo.getModule(usePic);
+      for (Artifact header : transitiveHeaderInfo.modularHeaders) {
+        if (includes.contains(header)) {
+          if (module != null) {
+            result.modules.add(module);
+          }
+          result.headers.add(header);
+        }
+      }
+      for (Artifact header : transitiveHeaderInfo.textualHeaders) {
+        if (includes.contains(header)) {
+          result.headers.add(header);
+        }
+      }
+    }
+    // Do not add the module of the current rule for both:
+    // 1. the module compile itself
+    // 2. compiles of other translation units of the same rule.
+    result.modules.remove(headerInfo.getModule(usePic));
+    return result;
   }
 
   private void removeArtifactsFromSet(Set<Artifact> set, Iterable<Artifact> artifacts) {
@@ -234,26 +267,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   public NestedSet<Artifact> getTransitiveModules(boolean usePic) {
     return usePic ? transitivePicModules : transitiveModules;
-  }
-
-  public ImmutableSet<Artifact> getUsedModules(boolean usePic, Set<Artifact> usedHeaders) {
-    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
-    for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
-      // Do not add the module of the current rule for both:
-      // 1. the module compile itself
-      // 2. compiles of other translation units of the same rule.
-      if (transitiveHeaderInfo.getModule(usePic) == null
-          || transitiveHeaderInfo.getModule(usePic).equals(headerInfo.getModule(usePic))) {
-        continue;
-      }
-      for (Artifact header : transitiveHeaderInfo.modularHeaders) {
-        if (usedHeaders.contains(header)) {
-          result.add(transitiveHeaderInfo.getModule(usePic));
-          break;
-        }
-      }
-    }
-    return result.build();
   }
 
   /**
