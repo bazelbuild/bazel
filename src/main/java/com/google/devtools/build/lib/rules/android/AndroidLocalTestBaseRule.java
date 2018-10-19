@@ -24,8 +24,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -134,6 +136,23 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         you will likely need to use <code>test_class</code> as well.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("custom_package", STRING))
+        /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(aapt_version) -->
+        Select the version of aapt for this rule.<br/>
+        Possible values:
+        <ul>
+            <li><code>aapt_version = "aapt"</code>: Use aapt. This is the current default
+              behaviour, and should be used for production binaries.</li>
+            <li><code>aapt_version = "aapt2"</code>: Use aapt2. This is the new resource
+             packaging system that provides improved incremental resource processing, smaller apks
+             and more.</li>
+            <li><code>aapt_version = "auto"</code>: aapt is controlled by the
+              --android_aapt flag.</li>
+        </ul>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("aapt_version", STRING)
+                .allowedValues(new AllowedValueSet(AndroidAaptVersion.getAttributeValues()))
+                .value(AndroidAaptVersion.getRuleAttributeDefault()))
         .build();
   }
 
