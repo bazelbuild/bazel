@@ -104,18 +104,6 @@ public abstract class CommandLine {
     }
   }
 
-  /**
-   * Returns a {@link CommandLine} that is constructed by prepending the {@code executableArgs} to
-   * {@code commandLine}.
-   */
-  public static CommandLine concat(
-      final ImmutableList<String> executableArgs, final CommandLine commandLine) {
-    if (executableArgs.isEmpty()) {
-      return commandLine;
-    }
-    return new PrefixedCommandLine(executableArgs, commandLine);
-  }
-
   @AutoCodec
   @VisibleForSerialization
   static class SuffixedCommandLine extends CommandLine {
@@ -138,6 +126,18 @@ public abstract class CommandLine {
         throws CommandLineExpansionException {
       return Iterables.concat(commandLine.arguments(artifactExpander), executableArgs);
     }
+  }
+
+  /**
+   * Returns a {@link CommandLine} that is constructed by prepending the {@code executableArgs} to
+   * {@code commandLine}.
+   */
+  public static CommandLine concat(
+      final ImmutableList<String> executableArgs, final CommandLine commandLine) {
+    if (executableArgs.isEmpty()) {
+      return commandLine;
+    }
+    return new PrefixedCommandLine(executableArgs, commandLine);
   }
 
   /**
