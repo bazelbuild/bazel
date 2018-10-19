@@ -93,7 +93,7 @@ public class SpawnActionTest extends BuildViewTestCase {
             .setMnemonic("Dummy")
             .setEnvironment(environmentVariables)
             .addCommandLine(CommandLine.of(arguments))
-            .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     return (SpawnAction) actions[0];
   }
@@ -123,7 +123,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         .addOutput(output)
         .setExecutable(scratch.file("/bin/xxx").asFragment())
         .setProgressMessage("Test")
-        .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+        .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
     assertThat(action.getOwner().getLabel())
@@ -141,7 +141,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     Action[] actions = builder()
         .setExecutable(welcomeArtifact)
         .addOutput(destinationArtifact)
-        .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+        .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
     assertThat(action.getArguments())
@@ -154,7 +154,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         .addOutput(destinationArtifact)
         .setJavaExecutable(scratch.file("/bin/java").asFragment(),
             jarArtifact, "MyMainClass", asList("-jvmarg"))
-        .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+        .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
     assertThat(action.getArguments())
@@ -180,7 +180,7 @@ public class SpawnActionTest extends BuildViewTestCase {
             .addCommandLine(
                 CustomCommandLine.builder().add("-X").build(),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-            .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     SpawnAction action = (SpawnAction) actions[0];
 
     // The action reports all arguments, including those inside the param file
@@ -227,7 +227,7 @@ public class SpawnActionTest extends BuildViewTestCase {
                 asList("-jvmarg"))
             .addExecutableArguments("execArg1", "execArg2")
             .addCommandLine(CustomCommandLine.builder().add("arg1").build())
-            .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
     assertThat(action.getArguments())
@@ -254,7 +254,7 @@ public class SpawnActionTest extends BuildViewTestCase {
             .setExecutable(scratch.file("/bin/xxx").asFragment())
             .addCommandLine(CommandLine.of(ImmutableList.of("arg1")))
             .addCommandLine(CommandLine.of(ImmutableList.of("arg2")))
-            .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     SpawnAction action = (SpawnAction) actions[0];
     assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2");
   }
@@ -275,7 +275,7 @@ public class SpawnActionTest extends BuildViewTestCase {
             .addCommandLine(
                 CommandLine.of(ImmutableList.of("arg2")),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-            .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     SpawnAction action = (SpawnAction) actions[0];
     // getArguments returns all arguments, regardless whether some go in parameter files or not
     assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2");
@@ -342,7 +342,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         .addOutput(getBinArtifactWithNoOwner("output"))
         .setExecutable(scratch.file("/bin/xxx").asFragment())
         .setProgressMessage("Test")
-        .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+        .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     SpawnAction action = (SpawnAction) actions[0];
     List<String> inputFiles = actionInputsToPaths(action.getSpawn().getInputFiles());
@@ -404,7 +404,7 @@ public class SpawnActionTest extends BuildViewTestCase {
 
             Action[] actions =
                 builder.build(
-                    ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+                    ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
             collectingAnalysisEnvironment.registerAction(actions);
             return actions[0];
           }
