@@ -174,6 +174,7 @@ java_library(
     name = "simple-log-handler",
     srcs = ["util/SimpleLogHandler.java"],
     deps = [
+        ":os_util",
         ":single-line-formatter",
         ":util",
         "//third_party:guava",

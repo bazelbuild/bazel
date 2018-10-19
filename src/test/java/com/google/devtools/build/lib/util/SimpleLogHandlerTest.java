@@ -187,15 +187,21 @@ public final class SimpleLogHandlerTest {
     Path symlinkPath = Paths.get(tmp.getRoot().toString(), "hello");
     Files.createFile(symlinkPath);
 
-    // Expected to delete the file at symlinkPath and replace with a symlink to the log.
-    SimpleLogHandler handler =
-        SimpleLogHandler.builder().setPrefix(symlinkPath.toString()).build();
+    // On non-Windows platforms, expect to delete the file at symlinkPath and replace with a symlink
+    // to the log.
+    SimpleLogHandler handler = SimpleLogHandler.builder().setPrefix(symlinkPath.toString()).build();
     handler.publish(new LogRecord(Level.SEVERE, "Hello world")); // To open the log file.
 
-    assertThat(handler.getSymbolicLinkPath().toString()).isEqualTo(symlinkPath.toString());
-    assertThat(Files.isSymbolicLink(handler.getSymbolicLinkPath())).isTrue();
-    assertThat(Files.readSymbolicLink(handler.getSymbolicLinkPath()).toString())
-        .isEqualTo(handler.getCurrentLogFilePath().get().getFileName().toString());
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // On Windows, by default, only administrator accounts can create symbolic links.
+      assertThat(handler.getSymbolicLinkPath()).isEmpty();
+    } else {
+      assertThat(handler.getSymbolicLinkPath()).isPresent();
+      assertThat(handler.getSymbolicLinkPath().get().toString()).isEqualTo(symlinkPath.toString());
+      assertThat(Files.isSymbolicLink(handler.getSymbolicLinkPath().get())).isTrue();
+      assertThat(Files.readSymbolicLink(handler.getSymbolicLinkPath().get()).toString())
+          .isEqualTo(handler.getCurrentLogFilePath().get().getFileName().toString());
+    }
   }
 
   @Test
@@ -203,28 +209,62 @@ public final class SimpleLogHandlerTest {
     SimpleLogHandler handler =
         SimpleLogHandler.builder()
             .setPrefix(tmp.getRoot() + File.separator + "hello")
-            .setSymlink("bye")
+            .setSymlinkName("bye")
             .build();
     handler.publish(new LogRecord(Level.SEVERE, "Hello world")); // To open the log file.
 
-    assertThat(handler.getSymbolicLinkPath().toString())
-        .isEqualTo(tmp.getRoot() + File.separator + "bye");
-    assertThat(Files.isSymbolicLink(handler.getSymbolicLinkPath())).isTrue();
-    assertThat(Files.readSymbolicLink(handler.getSymbolicLinkPath()).toString())
-        .isEqualTo(handler.getCurrentLogFilePath().get().getFileName().toString());
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // On Windows, by default, only administrator accounts can create symbolic links.
+      assertThat(handler.getSymbolicLinkPath()).isEmpty();
+    } else {
+      assertThat(handler.getSymbolicLinkPath()).isPresent();
+      assertThat(handler.getSymbolicLinkPath().get().toString())
+          .isEqualTo(tmp.getRoot() + File.separator + "bye");
+      assertThat(Files.isSymbolicLink(handler.getSymbolicLinkPath().get())).isTrue();
+      assertThat(Files.readSymbolicLink(handler.getSymbolicLinkPath().get()).toString())
+          .isEqualTo(handler.getCurrentLogFilePath().get().getFileName().toString());
+    }
+  }
+
+  @Test
+  public void testSymlinkEnabling() throws Exception {
+    SimpleLogHandler handler =
+        SimpleLogHandler.builder()
+            .setPrefix(tmp.getRoot() + File.separator + "hello")
+            .setSymlinkName("bye")
+            .setCreateSymlink(true)
+            .build();
+    assertThat(handler.getSymbolicLinkPath()).isPresent();
+  }
+
+  @Test
+  public void testSymlinkDisabling() throws Exception {
+    SimpleLogHandler handler =
+        SimpleLogHandler.builder()
+            .setPrefix(tmp.getRoot() + File.separator + "hello")
+            .setSymlinkName("bye")
+            .setCreateSymlink(false)
+            .build();
+    assertThat(handler.getSymbolicLinkPath()).isEmpty();
   }
 
   @Test
   public void testSymbolicLinkInvalidPath() throws Exception {
+    // "bye/bye" is invalid as a symlink path - it's not at the top level of log directory.
     SimpleLogHandler.Builder builder =
         SimpleLogHandler.builder()
             .setPrefix(tmp.getRoot() + File.separator + "hello")
-            .setSymlink("bye/bye"); // Invalid symlink path (not at top level of log directory).
+            .setSymlinkName("bye" + File.separator + "bye")
+            .setCreateSymlink(true);
     assertThrows(IllegalArgumentException.class, () -> builder.build());
   }
 
   @Test
   public void testSymbolicLinkInitiallyInvalidReplaced() throws Exception {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // On Windows, by default, only administrator accounts can create symbolic links.
+      return;
+    }
     Path symlinkPath = Paths.get(tmp.getRoot().toString(), "hello");
     Files.createSymbolicLink(symlinkPath, Paths.get("no-such-file"));
 
@@ -233,9 +273,9 @@ public final class SimpleLogHandlerTest {
         SimpleLogHandler.builder().setPrefix(symlinkPath.toString()).build();
     handler.publish(new LogRecord(Level.SEVERE, "Hello world")); // To open the log file.
 
-    assertThat(handler.getSymbolicLinkPath().toString()).isEqualTo(symlinkPath.toString());
-    assertThat(Files.isSymbolicLink(handler.getSymbolicLinkPath())).isTrue();
-    assertThat(Files.readSymbolicLink(handler.getSymbolicLinkPath()).toString())
+    assertThat(handler.getSymbolicLinkPath().get().toString()).isEqualTo(symlinkPath.toString());
+    assertThat(Files.isSymbolicLink(handler.getSymbolicLinkPath().get())).isTrue();
+    assertThat(Files.readSymbolicLink(handler.getSymbolicLinkPath().get()).toString())
         .isEqualTo(handler.getCurrentLogFilePath().get().getFileName().toString());
   }
 
@@ -302,7 +342,7 @@ public final class SimpleLogHandlerTest {
             .setRotateLimitBytes(16)
             .setClockForTesting(clock)
             .build();
-    Path symlinkPath = handler.getSymbolicLinkPath();
+    Optional<Path> symlinkPath = handler.getSymbolicLinkPath();
     handler.publish(new LogRecord(Level.SEVERE, "1234567" /* 8 bytes including "\n" */));
     Path firstLogPath = handler.getCurrentLogFilePath().get();
     clock.set(Instant.parse("2018-01-01T12:00:01Z")); // Ensure the next file has a different name.
@@ -311,9 +351,12 @@ public final class SimpleLogHandlerTest {
     handler.publish(new LogRecord(Level.SEVERE, "1234567" /* 8 bytes including "\n" */));
     handler.close();
 
-    assertThat(Files.isSymbolicLink(symlinkPath)).isTrue();
-    assertThat(Files.readSymbolicLink(symlinkPath).toString())
-        .isEqualTo(secondLogPath.getFileName().toString());
+    if (symlinkPath.isPresent()) {
+      // The symlink path is expected to be present on non-Windows platforms; see tests above.
+      assertThat(Files.isSymbolicLink(symlinkPath.get())).isTrue();
+      assertThat(Files.readSymbolicLink(symlinkPath.get()).toString())
+          .isEqualTo(secondLogPath.getFileName().toString());
+    }
     assertThat(Files.size(firstLogPath)).isEqualTo(16L /* including two "\n" */);
     assertThat(Files.size(secondLogPath)).isEqualTo(8L /* including "\n" */);
     try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(tmp.getRoot().toPath())) {
