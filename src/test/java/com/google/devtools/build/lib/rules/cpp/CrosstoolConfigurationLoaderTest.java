@@ -172,7 +172,13 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     // Need to clear out the android cpu options to avoid this split transition in Bazel.
     CppConfiguration toolchain =
-        create(loader, "--cpu=k8", "--host_cpu=k8", "--android_cpu=", "--fat_apk_cpu=");
+        create(
+            loader,
+            "--cpu=k8",
+            "--host_cpu=k8",
+            "--android_cpu=",
+            "--fat_apk_cpu=",
+            "--noincompatible_disable_legacy_flags_cc_toolchain_api");
     CcToolchainProvider ccProvider = getCcToolchainProvider(toolchain);
     assertThat(toolchain.getToolchainIdentifier()).isEqualTo("toolchain-identifier");
 
@@ -465,7 +471,13 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     // Need to clear out the android cpu options to avoid this split transition in Bazel.
     CppConfiguration toolchainA =
-        create(loader, "--cpu=piii", "--host_cpu=piii", "--android_cpu=", "--fat_apk_cpu=");
+        create(
+            loader,
+            "--cpu=piii",
+            "--host_cpu=piii",
+            "--android_cpu=",
+            "--fat_apk_cpu=",
+            "--noincompatible_disable_legacy_flags_cc_toolchain_api");
     ConfiguredTarget ccToolchainA = getCcToolchainTarget(toolchainA);
     CcToolchainProvider ccProviderA =
         (CcToolchainProvider) ccToolchainA.get(ToolchainInfo.PROVIDER);
@@ -585,7 +597,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "--cpu=piii",
             "--host_cpu=piii",
             "--android_cpu=",
-            "--fat_apk_cpu=");
+            "--fat_apk_cpu=",
+            "--noincompatible_disable_legacy_flags_cc_toolchain_api");
     CcToolchainProvider ccProviderC = getCcToolchainProvider(toolchainC);
     assertThat(toolchainC.getToolchainIdentifier()).isEqualTo("toolchain-identifier-C");
     assertThat(ccProviderC.getHostSystemName()).isEqualTo("host-system-name-C");

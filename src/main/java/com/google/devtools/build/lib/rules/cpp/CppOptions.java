@@ -768,7 +768,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_legacy_flags_cc_toolchain_api",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
