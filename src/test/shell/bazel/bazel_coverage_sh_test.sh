@@ -21,6 +21,25 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# Returns 0 if gcov is not installed or if a version before 7.0 was found.
+# Returns 1 otherwise.
+function is_gcov_missing_or_wrong_version() {
+  local -r gcov_location=$(which gcov)
+  if [[ ! -x ${gcov_location:-/usr/bin/gcov} ]]; then
+    echo "gcov not installed."
+    return 0
+  fi
+
+  "$gcov_location" -version | grep "LLVM" && \
+      echo "gcov LLVM version not supported." && return 0
+  # gcov -v | grep "gcov" outputs a line that looks like this:
+  # gcov (Debian 7.3.0-5) 7.3.0
+  local gcov_version="$(gcov -v | grep "gcov" | cut -d " " -f 4 | cut -d "." -f 1)"
+  [ "$gcov_version" -lt 7 ] \
+      && echo "gcov versions before 7.0 is not supported." && return 0
+  return 1
+}
+
 # Asserts if the given expected coverage result is included in the given output
 # file.
 #
