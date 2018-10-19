@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
  * Implementation of the {@code xcode_config_alias} rule.
  *
  * <p>This rule is an alias to the {@code xcode_config} rule currently in use, which is in turn
- * depends on the current configuration, in particular, the value of the {@code --xcode_config}
+ * depends on the current configuration, in particular, the value of the {@code --xcode_version_config}
  * flag.
  */
 public class XcodeConfigAlias implements RuleConfiguredTargetFactory {
@@ -56,7 +56,7 @@ public class XcodeConfigAlias implements RuleConfiguredTargetFactory {
    * Rule definition for the {@code xcode_config_alias} rule.
    *
    * <p>This rule is an alias to the {@code xcode_config} rule currently in use, which is in turn
-   * depends on the current configuration, in particular, the value of the {@code --xcode_config}
+   * depends on the current configuration, in particular, the value of the {@code --xcode_version_config}
    * flag.
    *
    * <p>This is intentionally undocumented for users; the workspace is expected to contain exactly

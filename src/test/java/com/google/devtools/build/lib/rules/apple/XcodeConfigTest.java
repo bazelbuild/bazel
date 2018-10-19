@@ -689,7 +689,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertContainsEvent("apple_bitcode mode 'embedded' is unsupported");
   }
 
-  // Verifies that the --xcode_config configuration value can be accessed via the
+  // Verifies that the --xcode_version_config configuration value can be accessed via the
   // configuration_field() skylark method and used in a skylark rule.
   @Test
   public void testConfigurationFieldForRule() throws Exception {
@@ -723,7 +723,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertXcodeVersion("2.0", "//x:provider_grabber");
   }
 
-  // Verifies that the --xcode_config configuration value can be accessed via the
+  // Verifies that the --xcode_version_config configuration value can be accessed via the
   // configuration_field() skylark method and used in a skylark aspect.
   @Test
   public void testConfigurationFieldForAspect() throws Exception {
