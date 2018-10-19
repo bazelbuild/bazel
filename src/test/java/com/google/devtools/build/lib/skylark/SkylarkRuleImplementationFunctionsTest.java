@@ -735,7 +735,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
     assertThat(argv).hasSize(2);
     assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
-    assertMatches("argv[1]", "^.*/resolve_me[.]script[.]sh$", argv.get(1));
+    assertMatches("argv[1]", "^.*/resolve_me[.][a-z0-9]+[.]script[.]sh$", argv.get(1));
   }
 
   @Test

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 package com.google.devtools.build.lib.analysis.skylark;
-  
+
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
@@ -1008,7 +1009,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
     List<String> argv =
         helper.buildCommandLine(
-            shExecutable, command, inputs, SCRIPT_SUFFIX, executionRequirements);
+            shExecutable,
+            command,
+            inputs,
+            // Hash the command-line to prevent multiple actions from the same rule invocation
+            // conflicting with each other.
+            "." + Hashing.murmur3_32().hashUnencodedChars(command).toString() + SCRIPT_SUFFIX,
+            executionRequirements);
     return Tuple.<Object>of(
         MutableList.copyOf(env, inputs),
         MutableList.copyOf(env, argv),
