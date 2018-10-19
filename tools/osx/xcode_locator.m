@@ -108,6 +108,24 @@ static NSString *ExpandVersion(NSString *version) {
   return version;
 }
 
+static NSURL *FindXcodeSelectXcode() {
+  NSTask *task = [NSTask new];
+  task.executableURL = [NSURL fileURLWithPath:@"/usr/bin/xcode-select"];
+  task.arguments =  @[@"--print-path"];
+  NSPipe *pipe = [NSPipe pipe];
+  task.standardOutput = pipe;
+  if (![task launchAndReturnError:nil]) {
+    return nil;
+  }
+
+  [task waitUntilExit];
+  NSData *data = [pipe.fileHandleForReading readDataToEndOfFile];
+  NSString *xcodePath = [[[[NSString alloc]
+    initWithData:data encoding:NSUTF8StringEncoding]
+    stringByDeletingLastPathComponent] stringByDeletingLastPathComponent];
+  return [NSURL fileURLWithPath:xcodePath];
+}
+
 // Searches for all available Xcodes in the system and returns a dictionary that
 // maps version identifiers of any form (X, X.Y, and X.Y.Z) to the directory
 // where the Xcode bundle lives.
@@ -122,12 +140,23 @@ static NSMutableDictionary<NSString *, XcodeVersionEntry *> *FindXcodes()
   NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict =
       [[NSMutableDictionary alloc] init];
   CFErrorRef cfError;
-  NSArray *array = CFBridgingRelease(LSCopyApplicationURLsForBundleIdentifier(
+  NSArray<NSURL *> *array =
+      CFBridgingRelease(LSCopyApplicationURLsForBundleIdentifier(
       cfBundleID, &cfError));
   if (array == nil) {
-    NSError *nsError = (__bridge NSError *)cfError;
-    fprintf(stderr, "error: %s\n", nsError.description.UTF8String);
-    return nil;
+    // If the machine has a version of Xcode with a higher
+    // `LSMinimumSystemVersion`, but the command line utilities still support
+    // the OS verison LSCopyApplicationURLsForBundleIdentifier will return
+    // nothing. In this case we can rely on the Xcode set with xcode-select as
+    // a fallback.
+    NSURL *fallbackXcode = FindXcodeSelectXcode();
+    if (fallbackXcode == nil) {
+      NSError *nsError = (__bridge NSError *)cfError;
+      fprintf(stderr, "error: %s\n", nsError.description.UTF8String);
+      return nil;
+    } else {
+      array = @[fallbackXcode];
+    }
   }
 
   // Scan all bundles but delay returning in case of errors until we are
