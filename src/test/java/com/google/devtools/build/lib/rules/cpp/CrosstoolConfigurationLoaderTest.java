@@ -964,26 +964,4 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(customLibsToolchain.getDynamicRuntimeLibsLabel())
         .isEqualTo(Label.create(ctTop, "dynamic-group"));
   }
-
-  /*
-   * Crosstools should load fine with or without 'gcov-tool'. Those that define 'gcov-tool'
-   * should also add a make variable.
-   */
-  @Test
-  public void testOptionalGcovTool() throws Exception {
-    // Crosstool with gcov-tool
-    CppConfigurationLoader loader =
-        loaderWithOptionalTool("  tool_path { name: \"gcov-tool\" path: \"path-to-gcov-tool\" }");
-    CppConfiguration cppConfig = create(loader, "--cpu=k8");
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    cppConfig.addGlobalMakeVariables(builder);
-    assertThat(builder.build().get("GCOVTOOL")).isNotNull();
-
-    // Crosstool without gcov-tool
-    loader = loaderWithOptionalTool("");
-    cppConfig = create(loader, "--cpu=k8");
-    builder = ImmutableMap.builder();
-    cppConfig.addGlobalMakeVariables(builder);
-    assertThat(builder.build()).doesNotContainKey("GCOVTOOL");
-  }
 }

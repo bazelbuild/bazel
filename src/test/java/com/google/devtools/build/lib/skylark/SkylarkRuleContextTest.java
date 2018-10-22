@@ -783,9 +783,10 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "vars/BUILD",
         "load(':vars.bzl', 'make_var_supplier', 'make_var_user')",
         "make_var_supplier(name = 'supplier', value = 'foo')",
+        "cc_toolchain_alias(name = 'current_cc_toolchain')",
         "make_var_user(",
         "    name = 'vars',",
-        "    toolchains = [':supplier'],",
+        "    toolchains = [':supplier', ':current_cc_toolchain'],",
         ")");
   }
 

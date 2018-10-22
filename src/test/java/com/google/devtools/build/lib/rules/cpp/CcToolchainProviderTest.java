@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -300,5 +302,101 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         .doesNotContain("-foo_dynamic_library_linker_flag");
     assertThat(ccToolchainProvider.getTestOnlyLinkOptions())
         .doesNotContain("-foo_test_only_linker_flag");
+  }
+
+  /*
+   * Crosstools should load fine with or without 'gcov-tool'. Those that define 'gcov-tool'
+   * should also add a make variable.
+   */
+  @Test
+  public void testOptionalGcovTool() throws Exception {
+    // Crosstool without gcov-tool
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain(",
+        "    name = 'a',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    proto=\"\"\"",
+        "      feature { name: 'no_legacy_features' }",
+        "      tool_path { name: 'gcc' path: 'path-to-gcc-tool' }",
+        "      tool_path { name: 'ar' path: 'ar' }",
+        "      tool_path { name: 'cpp' path: 'cpp' }",
+        "      tool_path { name: 'gcov' path: 'gcov' }",
+        "      tool_path { name: 'ld' path: 'ld' }",
+        "      tool_path { name: 'nm' path: 'nm' }",
+        "      tool_path { name: 'objdump' path: 'objdump' }",
+        "      tool_path { name: 'strip' path: 'strip' }",
+        "      toolchain_identifier: \"banana\"",
+        "      abi_version: \"banana\"",
+        "      abi_libc_version: \"banana\"",
+        "      compiler: \"banana\"",
+        "      host_system_name: \"banana\"",
+        "      target_system_name: \"banana\"",
+        "      target_cpu: \"banana\"",
+        "      target_libc: \"banana\"",
+        "    \"\"\")");
+
+    CcToolchainProvider ccToolchainProvider =
+        (CcToolchainProvider) getConfiguredTarget("//a:a").get(ToolchainInfo.PROVIDER);
+    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    ccToolchainProvider.addGlobalMakeVariables(builder);
+    assertThat(builder.build().get("GCOVTOOL")).isNull();
+
+    // Crosstool with gcov-tool
+    scratch.file(
+        "b/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    proto=\"\"\"",
+        "      feature { name: 'no_legacy_features' }",
+        "      tool_path { name: 'gcc' path: 'path-to-gcc-tool' }",
+        "      tool_path { name: 'gcov-tool' path: 'path-to-gcov-tool' }",
+        "      tool_path { name: 'ar' path: 'ar' }",
+        "      tool_path { name: 'cpp' path: 'cpp' }",
+        "      tool_path { name: 'gcov' path: 'gcov' }",
+        "      tool_path { name: 'ld' path: 'ld' }",
+        "      tool_path { name: 'nm' path: 'nm' }",
+        "      tool_path { name: 'objdump' path: 'objdump' }",
+        "      tool_path { name: 'strip' path: 'strip' }",
+        "      toolchain_identifier: \"banana\"",
+        "      abi_version: \"banana\"",
+        "      abi_libc_version: \"banana\"",
+        "      compiler: \"banana\"",
+        "      host_system_name: \"banana\"",
+        "      target_system_name: \"banana\"",
+        "      target_cpu: \"banana\"",
+        "      target_libc: \"banana\"",
+        "    \"\"\")");
+
+    ccToolchainProvider =
+        (CcToolchainProvider) getConfiguredTarget("//b:b").get(ToolchainInfo.PROVIDER);
+    builder = ImmutableMap.builder();
+    ccToolchainProvider.addGlobalMakeVariables(builder);
+    assertThat(builder.build().get("GCOVTOOL")).isNotNull();
   }
 }

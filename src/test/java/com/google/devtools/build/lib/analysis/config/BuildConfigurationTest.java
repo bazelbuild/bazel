@@ -118,12 +118,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testMakeEnvFlags() throws Exception {
-    BuildConfiguration config = create();
-    assertThat(config.getMakeEnvironment().get("STRIP")).contains("strip");
-  }
-
-  @Test
   public void testCaching() throws Exception {
     BuildConfiguration.Options a = Options.getDefaults(BuildConfiguration.Options.class);
     BuildConfiguration.Options b = Options.getDefaults(BuildConfiguration.Options.class);
