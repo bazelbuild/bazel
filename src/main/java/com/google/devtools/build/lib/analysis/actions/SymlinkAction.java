@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -33,22 +34,38 @@ import javax.annotation.Nullable;
 
 /** Action to create a symbolic link. */
 @AutoCodec
-public class SymlinkAction extends AbstractAction {
+public final class SymlinkAction extends AbstractAction {
   private static final String GUID = "7f4fab4d-d0a7-4f0f-8649-1d0337a21fee";
 
   /** Null when {@link #getPrimaryInput} is the target of the symlink. */
   @Nullable private final PathFragment inputPath;
   @Nullable private final String progressMessage;
 
-  /** Whether the symlink points into a Fileset.
-   *
-   * <p>If this is set, the action also updates the mtime for its target thus forcing actions
-   * depending on it to be re-executed. This would not be necessary in an ideal world, but
-   * dependency checking for Filesets output trees is unsound because they are directories, so we
-   * need to force them to be considered changed this way. Yet Another Reason why Filests should go
-   * away.
-   */
-  private final boolean targetIsFileset;
+  @VisibleForSerialization
+  enum TargetType {
+    /**
+     * The symlink points into a Fileset.
+     *
+     * <p>If this is set, the action also updates the mtime for its target thus forcing actions
+     * depending on it to be re-executed. This would not be necessary in an ideal world, but
+     * dependency checking for Filesets output trees is unsound because they are directories, so we
+     * need to force them to be considered changed this way. Yet Another Reason why Filests should
+     * go away.
+     */
+    FILESET,
+
+    /**
+     * The symlink should point to an executable.
+     *
+     * <p>Blaze will verify that the target is indeed executable.
+     */
+    EXECUTABLE,
+
+    /** Just a vanilla symlink. Don't do anything else other than creating the symlink. */
+    OTHER,
+  }
+
+  private final TargetType targetType;
 
   /**
    * Creates an action that creates a symlink pointing to an artifact.
@@ -60,9 +77,15 @@ public class SymlinkAction extends AbstractAction {
    */
   public static SymlinkAction toArtifact(ActionOwner owner, Artifact input, Artifact output,
       String progressMessage) {
-    return new SymlinkAction(owner, null, input, output, progressMessage, false);
+    return new SymlinkAction(owner, null, input, output, progressMessage, TargetType.OTHER);
   }
 
+  public static SymlinkAction toExecutable(
+      ActionOwner owner, Artifact input, Artifact output, String progressMessage) {
+    return new SymlinkAction(owner, null, input, output, progressMessage, TargetType.EXECUTABLE);
+  }
+
+  @VisibleForSerialization
   @AutoCodec.Instantiator
   protected SymlinkAction(
       ActionOwner owner,
@@ -70,14 +93,14 @@ public class SymlinkAction extends AbstractAction {
       Artifact primaryInput,
       Artifact primaryOutput,
       String progressMessage,
-      boolean targetIsFileset) {
+      TargetType targetType) {
     super(
         owner,
         primaryInput != null ? ImmutableList.of(primaryInput) : Artifact.NO_ARTIFACTS,
         ImmutableList.of(primaryOutput));
     this.inputPath = inputPath;
     this.progressMessage = progressMessage;
-    this.targetIsFileset = targetIsFileset;
+    this.targetType = targetType;
   }
 
   /**
@@ -86,9 +109,9 @@ public class SymlinkAction extends AbstractAction {
    * <p>This is different from a regular {@link SymlinkAction} in that the target is in the output
    * tree but not an artifact and that when running this action, the mtime of its target is updated
    * (necessary because dependency checking of Filesets is unsound). For more information, see the
-   * Javadoc of {@link #targetIsFileset}.
+   * Javadoc of {@code TargetType.FILESET}.
    *
-   * <p><B>WARNING:</B>Do not use this for anything else other than Filesets.</p> If you do, your
+   * <p><b>WARNING:</b>Do not use this for anything else other than Filesets. If you do, your
    * correctness will depend on a subtle interaction between various parts of Blaze.
    *
    * @param owner the action owner.
@@ -104,7 +127,8 @@ public class SymlinkAction extends AbstractAction {
       Artifact primaryOutput,
       String progressMessage) {
     Preconditions.checkState(!execPath.isAbsolute());
-    return new SymlinkAction(owner, execPath, primaryInput, primaryOutput, progressMessage, true);
+    return new SymlinkAction(
+        owner, execPath, primaryInput, primaryOutput, progressMessage, TargetType.FILESET);
   }
 
   /**
@@ -125,7 +149,7 @@ public class SymlinkAction extends AbstractAction {
   public static SymlinkAction toAbsolutePath(ActionOwner owner, PathFragment absolutePath,
       Artifact output, String progressMessage) {
     Preconditions.checkState(absolutePath.isAbsolute());
-    return new SymlinkAction(owner, absolutePath, null, output, progressMessage, false);
+    return new SymlinkAction(owner, absolutePath, null, output, progressMessage, TargetType.OTHER);
   }
 
   public PathFragment getInputPath() {
@@ -139,6 +163,8 @@ public class SymlinkAction extends AbstractAction {
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
+    maybeVerifyTargetIsExecutable(actionExecutionContext);
+
     Path srcPath;
     if (inputPath == null) {
       srcPath = actionExecutionContext.getInputPath(getPrimaryInput());
@@ -158,9 +184,48 @@ public class SymlinkAction extends AbstractAction {
     return ActionResult.EMPTY;
   }
 
+  private void maybeVerifyTargetIsExecutable(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
+    if (targetType != TargetType.EXECUTABLE) {
+      return;
+    }
+
+    Path inputPath = actionExecutionContext.getInputPath(getPrimaryInput());
+    try {
+      // Validate that input path is a file with the executable bit is set.
+      if (!inputPath.isFile()) {
+        throw new ActionExecutionException(
+            "'" + Iterables.getOnlyElement(getInputs()).prettyPrint() + "' is not a file",
+            this,
+            false);
+      }
+      if (!inputPath.isExecutable()) {
+        throw new ActionExecutionException(
+            "failed to create symbolic link '"
+                + Iterables.getOnlyElement(getOutputs()).prettyPrint()
+                + "': file '"
+                + Iterables.getOnlyElement(getInputs()).prettyPrint()
+                + "' is not executable",
+            this,
+            false);
+      }
+    } catch (IOException e) {
+      throw new ActionExecutionException(
+          "failed to create symbolic link '"
+              + Iterables.getOnlyElement(getOutputs()).prettyPrint()
+              + "' to the '"
+              + Iterables.getOnlyElement(getInputs()).prettyPrint()
+              + "' due to I/O error: "
+              + e.getMessage(),
+          e,
+          this,
+          false);
+    }
+  }
+
   private void updateInputMtimeIfNeeded(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
-    if (!targetIsFileset) {
+    if (targetType != TargetType.FILESET) {
       return;
     }
 
@@ -208,7 +273,7 @@ public class SymlinkAction extends AbstractAction {
 
   @Override
   public String getMnemonic() {
-    return "Symlink";
+    return targetType == TargetType.EXECUTABLE ? "ExecutableSymlink" : "Symlink";
   }
 
   @Override

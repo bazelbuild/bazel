@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.actions.ExecutableSymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
@@ -66,7 +66,8 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     // happens when srcs = ['x', 'y'] but 'x' is an empty filegroup?). This is a pervasive
     // problem in Blaze.
     ruleContext.registerAction(
-        new ExecutableSymlinkAction(ruleContext.getActionOwner(), src, symlink));
+        SymlinkAction.toExecutable(
+            ruleContext.getActionOwner(), src, symlink, "Symlinking " + ruleContext.getLabel()));
 
     NestedSetBuilder<Artifact> filesToBuildBuilder =
         NestedSetBuilder.<Artifact>stableOrder().add(src).add(symlink);
