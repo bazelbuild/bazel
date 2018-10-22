@@ -52,7 +52,7 @@ Starlark Rules
 *   [Disallow tools in action inputs](#disallow-tools-in-action-inputs)
 *   [Expand directories in Args](#expand-directories-in-args)
 *   [Disable late bound option defaults](#disable-late-bound-option-defaults)
-*   [Disallow `cfg = "data"`](#disallow-cfg--data)
+*   [Disallow `cfg = "data"`](#disallow-cfg-data)
 
 Objc
 
