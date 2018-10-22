@@ -167,6 +167,12 @@ py_test(
 )
 
 py_test(
+    name = "first_time_use_test",
+    srcs = ["first_time_use_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "query_test",
     size = "medium",
     srcs = ["query_test.py"],
