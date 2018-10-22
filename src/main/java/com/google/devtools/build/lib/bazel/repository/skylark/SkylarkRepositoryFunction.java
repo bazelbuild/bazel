@@ -131,7 +131,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           new RepositoryResolvedEvent(
               rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue);
       if (resolved.isNewInformationReturned()) {
-        env.getListener().handle(Event.info(resolved.getMessage()));
+        env.getListener().handle(Event.debug(resolved.getMessage()));
       }
 
       String ruleClass =
