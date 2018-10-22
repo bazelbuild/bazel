@@ -449,11 +449,16 @@ public class CppCompileAction extends AbstractAction
       }
     }
 
-    if (!shouldScanIncludes || !shouldPruneModules) {
+    if (usedModules == null) {
+      // There are two paths in which this can be reached:
+      // 1. This is not a modular compilation or one without include scanning. In either case, we
+      //    never compute used modules.
+      // 2. This function has completed on a previous execution, adding all used modules to
+      //    additionalInputs and resetting usedModules to null below.
+      // In either case, there is nothing more to do here.
       return additionalInputs;
     }
 
-    Preconditions.checkState(usedModules != null, "Should have computed used modules");
     Map<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
         computeTransitivelyUsedModules(
             actionExecutionContext.getEnvironmentForDiscoveringInputs(), usedModules);
@@ -465,7 +470,6 @@ public class CppCompileAction extends AbstractAction
     // used modules. Combining the NestedSets of transitive deps of the top-level modules also
     // gives us an effective way to compute and store discoveredModules.
     Set<Artifact> topLevel = new LinkedHashSet<>(usedModules);
-    usedModules = null;
     for (NestedSet<Artifact> transitive : transitivelyUsedModules.values()) {
       // It is better to iterate over each nested set here instead of creating a joint one and
       // iterating over it, as this makes use of NestedSet's memoization (each of them has likely
@@ -490,6 +494,7 @@ public class CppCompileAction extends AbstractAction
     if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
       this.discoveredModules = discoveredModules;
     }
+    usedModules = null;
     return additionalInputs;
   }
 
