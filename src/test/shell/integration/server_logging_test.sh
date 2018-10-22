@@ -67,7 +67,8 @@ fi
 #### TESTS #############################################################
 
 function test_log_file_uses_single_line_formatter() {
-  local client_log="$(bazel info output_base)/java.log"
+  local client_log
+  client_log="$(bazel info server_log)" || fail "bazel info failed"
 
   # Construct a regular expression to match a sample message in the log using
   # the single-line format.  More specifically, we expect the log entry's

@@ -79,13 +79,10 @@ function test_batch_mode() {
 }
 
 function test_batch_mode_with_logging_flag() {
-  LOG_FILE="$(bazel info output_base)/java.log"
-  if [ ! -f $LOG_FILE ]; then
-    mkdir -p log_out || fail "Could not create log_out"
-    GOOGLE_LOG_DIR=$(pwd)/log_out
-    LOG_FILE="log_out/blaze.INFO"
-  fi
   bazel --batch info --logging 6 >&$TEST_log || fail "Expected success"
+  LOG_FILE="$(grep -E "^server_log: .*" "${TEST_log}" \
+      | sed -e "s/server_log: //")" \
+      || fail "grep for server_log path failed"
 
   # strip extra lines printed by bazel.cc
   strip_lines_from_bazel_cc

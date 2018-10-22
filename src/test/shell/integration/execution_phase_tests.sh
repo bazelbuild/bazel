@@ -93,7 +93,8 @@ function assert_cache_stats() {
   local metric="${1}"; shift
   local exp_value="${1}"; shift
 
-  local java_log="$(bazel info output_base 2>/dev/null)/java.log"
+  local java_log
+  java_log="$(bazel info server_log 2>/dev/null)" || fail "bazel info failed"
   local last="$(grep "CacheFileDigestsModule" "${java_log}")"
   [ -n "${last}" ] || fail "Could not find cache stats in log"
   if ! echo "${last}" | grep -q "${metric}=${exp_value}"; then
@@ -233,7 +234,8 @@ function test_cache_computed_file_digests_ui() {
   echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >$pkg/package/BUILD
   echo "int foo(void) { return 0; }" >$pkg/package/foo.cc
 
-  local java_log="$(bazel info output_base 2>/dev/null)/java.log"
+  local java_log
+  java_log="$(bazel info server_log 2>/dev/null)" || fail "bazel info failed"
 
   bazel build $pkg/package:foo >>"${TEST_log}" 2>&1 || fail "Should build"
   assert_last_log "CacheFileDigestsModule" "Cache stats" "${java_log}" \
@@ -262,9 +264,9 @@ function do_threading_default_auto_test() {
 
   # The default value of the flag under test is only read if it is not set
   # explicitly.  Do not use a bazelrc here as it would break the test.
-  local output_base="$(bazel --nomaster_bazelrc --bazelrc=/dev/null info \
-      output_base 2>/dev/null)" || fail "bazel info should work"
-  local java_log="${output_base}/java.log"
+  local java_log
+  java_log="$(bazel --nomaster_bazelrc --bazelrc=/dev/null info server_log \
+      2>/dev/null)" || fail "bazel info should work"
   bazel --nomaster_bazelrc --bazelrc=/dev/null build $pkg/package:foo \
       >>"${TEST_log}" 2>&1 || fail "Should build"
 
