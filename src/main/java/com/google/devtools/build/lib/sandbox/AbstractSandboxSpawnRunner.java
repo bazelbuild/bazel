@@ -123,8 +123,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         sandbox.getArguments().toArray(new String[0]),
         sandbox.getEnvironment(),
         sandbox.getSandboxExecRoot().getPathFile());
-      String failureMessage;
-      if (sandboxOptions.sandboxDebug) {
+    String failureMessage;
+    if (sandboxOptions.sandboxDebug) {
       failureMessage =
           CommandFailureUtils.describeCommandFailure(
               true,
@@ -132,7 +132,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
               sandbox.getEnvironment(),
               execRoot.getPathString(),
               null);
-      } else {
+    } else {
       failureMessage =
           CommandFailureUtils.describeCommandFailure(
                   verboseFailures,
@@ -141,7 +141,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
                   execRoot.getPathString(),
                   originalSpawn.getExecutionPlatform())
               + SANDBOX_DEBUG_SUGGESTION;
-      }
+    }
 
     long startTime = System.currentTimeMillis();
     CommandResult commandResult;
