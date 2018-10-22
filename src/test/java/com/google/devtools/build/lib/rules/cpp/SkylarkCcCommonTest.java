@@ -4013,6 +4013,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "                abi_version = 'abi',",
         "                supports_gold_linker = True,",
         "                supports_start_end_lib = True,",
+        "                supports_embedded_runtimes = True,",
         "                tool_paths = [tool_path(name = 'name1', path = 'path1')],",
         "                cc_target_os = 'os',",
         "                compiler_flags = ['flag1', 'flag2', 'flag3'],",

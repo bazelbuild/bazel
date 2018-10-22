@@ -675,7 +675,7 @@ public class CcModule
             defaultValue = "False",
             named = true),
         @Param(
-            name = "supports_embedded_filegroup",
+            name = "supports_embedded_runtimes",
             positional = false,
             type = Boolean.class,
             defaultValue = "False",
