@@ -202,18 +202,6 @@ bootclasspath(
     target_javabase = "current_java_runtime",
 )
 
-# For use with host-targeting-host builds.
-#
-# The default host JDK is > 8 but we're using the Java 8 language level on the
-# host, so we have no choice but to use --release for host-targeting-host
-# builds.
-bootclasspath(
-    name = "platformclasspath8",
-    src = "DumpPlatformClassPath.java",
-    host_javabase = "current_java_runtime",
-    release = "8",
-)
-
 default_java_toolchain(
     name = "toolchain_hostjdk8",
     bootclasspath = [":platformclasspath"],
@@ -227,15 +215,6 @@ default_java_toolchain(
 default_java_toolchain(
     name = "toolchain",
     bootclasspath = [":platformclasspath"],
-    jvm_opts = JDK9_JVM_OPTS,
-    source_version = "8",
-    target_version = "8",
-)
-
-# The default --host_java_toolchain
-default_java_toolchain(
-    name = "toolchain_host",
-    bootclasspath = [":platformclasspath8"],
     jvm_opts = JDK9_JVM_OPTS,
     source_version = "8",
     target_version = "8",

@@ -97,7 +97,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
     name = "host_java_toolchain",
-    defaultValue = "@bazel_tools//tools/jdk:toolchain_host",
+    defaultValue = "@bazel_tools//tools/jdk:toolchain",
     converter = LabelConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
