@@ -103,5 +103,5 @@ sudo apt-get update && sudo apt-get install bazel
 Once installed, you can upgrade to a newer version of Bazel with the following command:
 
 ```bash
-sudo apt-get upgrade bazel
+sudo apt-get install --only-upgrade bazel
 ```
