@@ -196,8 +196,38 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_coverage_test",
-    srcs = ["bazel_coverage_test.sh"],
+    name = "bazel_coverage_cc_test_gcc",
+    srcs = ["bazel_coverage_cc_test_gcc.sh"],
+    data = [":test-deps"],
+    tags = [
+        "local",
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_coverage_cc_test_llvm",
+    srcs = ["bazel_coverage_cc_test_llvm.sh"],
+    data = [":test-deps"],
+    tags = [
+        "local",
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_coverage_java_test",
+    srcs = ["bazel_coverage_java_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "local",
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_coverage_sh_test",
+    srcs = ["bazel_coverage_sh_test.sh"],
     data = [":test-deps"],
     tags = [
         "local",
