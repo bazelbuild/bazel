@@ -126,6 +126,7 @@ http_archive(
     sha256 = "72e7843902b0395e2d30e1e9ad2a5f05f36a4bc62529828bcbc698d54aec6022",
     urls = [
         # When you update this, also update the link to the source-code above.
+        "https://mirror.bazel.build/openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz",
         "http://openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz",
     ],
     build_file = "@local_jdk//:BUILD.bazel",
@@ -170,6 +171,7 @@ http_archive(
     sha256 = "b7098b7aaf6ee1ffd4a2d0371a0be26c5a5c87f6aebbe46fe9a92c90583a84be",
     urls = [
         # When you update this, also update the link to the source-code above.
+        "https://mirror.bazel.build/openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz",
         "http://openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz",
     ],
     build_file = "@local_jdk//:BUILD.bazel",

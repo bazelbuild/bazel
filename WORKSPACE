@@ -161,6 +161,7 @@ http_file(
     sha256 = "72e7843902b0395e2d30e1e9ad2a5f05f36a4bc62529828bcbc698d54aec6022",
     urls = [
         # When you update this, also update the link to the source-code above.
+        "https://mirror.bazel.build/openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz",
         "http://openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz",
     ],
 )
