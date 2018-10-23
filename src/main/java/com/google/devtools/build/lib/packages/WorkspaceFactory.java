@@ -103,8 +103,6 @@ public class WorkspaceFactory {
   // List of top level variable bindings
   private ImmutableMap<String, Object> variableBindings = ImmutableMap.of();
 
-  private final SkylarkSemantics skylarkSemantics;
-
   // TODO(bazel-team): document installDir
   /**
    * @param builder a builder for the Workspace
@@ -123,8 +121,7 @@ public class WorkspaceFactory {
       boolean allowOverride,
       @Nullable Path installDir,
       @Nullable Path workspaceDir,
-      @Nullable Path defaultSystemJavabaseDir,
-      SkylarkSemantics skylarkSemantics) {
+      @Nullable Path defaultSystemJavabaseDir) {
     this.builder = builder;
     this.mutability = mutability;
     this.installDir = installDir;
@@ -135,7 +132,6 @@ public class WorkspaceFactory {
     this.ruleFactory = new RuleFactory(ruleClassProvider, AttributeContainer::new);
     this.workspaceFunctions = WorkspaceFactory.createWorkspaceFunctions(
         allowOverride, ruleFactory);
-    this.skylarkSemantics = skylarkSemantics;
   }
 
   /**
@@ -588,7 +584,7 @@ public class WorkspaceFactory {
         javaHome = javaHome.getParentFile();
       }
       workspaceEnv.update("DEFAULT_SERVER_JAVABASE", javaHome.toString());
-      workspaceEnv.update("DEFAULT_SYSTEM_JAVABASE", getDefaultSystemJavabase(javaHome));
+      workspaceEnv.update("DEFAULT_SYSTEM_JAVABASE", getDefaultSystemJavabase());
 
       for (EnvironmentExtension extension : environmentExtensions) {
         extension.updateWorkspace(workspaceEnv);
@@ -601,17 +597,9 @@ public class WorkspaceFactory {
     }
   }
 
-  private String getDefaultSystemJavabase(File embeddedJavabase) {
-    if (defaultSystemJavabaseDir != null) {
-      return defaultSystemJavabaseDir.toString();
-    }
-    if (skylarkSemantics.incompatibleNeverUseEmbeddedJDKForJavabase()) {
-      // --javabase is empty if there's no locally installed JDK
-      return "";
-    }
-    // legacy behaviour: fall back to using the embedded JDK as a --javabase
-    // TODO(cushon): delete this
-    return embeddedJavabase.toString();
+  private String getDefaultSystemJavabase() {
+    // --javabase is empty if there's no locally installed JDK
+    return defaultSystemJavabaseDir != null ? defaultSystemJavabaseDir.toString() : "";
   }
 
   private static ClassObject newNativeModule(

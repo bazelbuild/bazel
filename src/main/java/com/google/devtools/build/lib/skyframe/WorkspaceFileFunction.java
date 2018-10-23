@@ -105,8 +105,7 @@ public class WorkspaceFileFunction implements SkyFunction {
               key.getIndex() == 0,
               directories.getEmbeddedBinariesRoot(),
               directories.getWorkspace(),
-              directories.getLocalJavabase(),
-              skylarkSemantics);
+              directories.getLocalJavabase());
       if (key.getIndex() > 0) {
         prevValue =
             (WorkspaceFileValue)

@@ -154,7 +154,6 @@ function test_no_javabase() {
   write_javabase_files
 
   bazel build //javabase_test:a
-  bazel build --incompatible_never_use_embedded_jdk_for_javabase //javabase_test:a
 
   ($(bazel-bin/javabase_test/a --print_javabin) -version || true) >& $TEST_log
   expect_log "bazel-bin/javabase_test/a.runfiles/local_jdk/bin/java: No such file or directory"
@@ -167,24 +166,9 @@ function test_no_javabase() {
   write_javabase_files
 
   bazel --batch build //javabase_test:a
-  bazel --batch build --incompatible_never_use_embedded_jdk_for_javabase //javabase_test:a
 
   ($(bazel-bin/javabase_test/a --print_javabin) -version || true) >& $TEST_log
   expect_log "bazel-bin/javabase_test/a.runfiles/local_jdk/bin/java: No such file or directory"
-}
-
-function test_no_javabase_default_embedded() {
-  # Only run this test when there's no locally installed JDK.
-  which javac && return
-
-  write_javabase_files
-
-  bazel --batch build --noincompatible_never_use_embedded_jdk_for_javabase //javabase_test:a
-
-  echo $(bazel-bin/javabase_test/a --print_javabin) >& $TEST_log
-  expect_log "bazel-bin/javabase_test/a.runfiles/local_jdk/bin/java"
-  $(bazel-bin/javabase_test/a --print_javabin) -version >& $TEST_log
-  expect_log "Zulu"
 }
 
 function test_genrule() {
