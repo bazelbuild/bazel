@@ -37,8 +37,23 @@ execution phase to build the rule's outputs, if they are needed. Rules also
 produce and pass along information that may be useful to other rules, in the
 form of [providers](#providers).
 
+## Contents
 
-<!-- [TOC] -->
+*  [Rule creation](#rule-creation)
+*  [Attributes](#attributes)
+*  [Private Attributes and Implicit Dependencies](#private-attributes-and-implicit-dependencies)
+*  [Implementation function](#implementation-function)
+*  [Targets](#targets)
+*  [Files](#files)
+*  [Actions](#actions)
+*  [Configurations](#configurations)
+*  [Configuration Fragments](#configuration-fragments)
+*  [Providers](#providers)
+*  [Runfiles](#runfiles)
+*  [Requesting output files](#requesting-output-files)
+*  [Code coverage instrumentation](#code-coverage-instrumentation)
+*  [Executable rules and test rules](#executable-rules-and-test-rules)
+
 
 ## Rule creation
 
