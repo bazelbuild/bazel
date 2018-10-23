@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -94,13 +94,13 @@ public abstract class CommandLine {
 
     @Override
     public Iterable<String> arguments() throws CommandLineExpansionException {
-      return Iterables.concat(executableArgs, commandLine.arguments());
+      return IterablesChain.concat(executableArgs, commandLine.arguments());
     }
 
     @Override
     public Iterable<String> arguments(ArtifactExpander artifactExpander)
         throws CommandLineExpansionException {
-      return Iterables.concat(executableArgs, commandLine.arguments(artifactExpander));
+      return IterablesChain.concat(executableArgs, commandLine.arguments(artifactExpander));
     }
   }
 
@@ -118,13 +118,13 @@ public abstract class CommandLine {
 
     @Override
     public Iterable<String> arguments() throws CommandLineExpansionException {
-      return Iterables.concat(commandLine.arguments(), executableArgs);
+      return IterablesChain.concat(commandLine.arguments(), executableArgs);
     }
 
     @Override
     public Iterable<String> arguments(ArtifactExpander artifactExpander)
         throws CommandLineExpansionException {
-      return Iterables.concat(commandLine.arguments(artifactExpander), executableArgs);
+      return IterablesChain.concat(commandLine.arguments(artifactExpander), executableArgs);
     }
   }
 
@@ -137,6 +137,9 @@ public abstract class CommandLine {
     if (executableArgs.isEmpty()) {
       return commandLine;
     }
+    if (commandLine == EMPTY) {
+      return CommandLine.of(executableArgs);
+    }
     return new PrefixedCommandLine(executableArgs, commandLine);
   }
 
@@ -148,6 +151,9 @@ public abstract class CommandLine {
       final CommandLine commandLine, final ImmutableList<String> args) {
     if (args.isEmpty()) {
       return commandLine;
+    }
+    if (commandLine == EMPTY) {
+      return CommandLine.of(args);
     }
     return new SuffixedCommandLine(args, commandLine);
   }

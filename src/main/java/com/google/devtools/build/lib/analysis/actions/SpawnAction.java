@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -76,7 +75,6 @@ import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -569,9 +567,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private boolean isShellCommand = false;
     private boolean useDefaultShellEnvironment = false;
     protected boolean executeUnconditionally;
-    private PathFragment executable;
-    // executableArgs does not include the executable itself.
-    private List<String> executableArgs;
+    private CustomCommandLine.Builder executableArgs;
     private List<CommandLineAndParamFileInfo> commandLines = new ArrayList<>();
 
     private CharSequence progressMessage;
@@ -598,10 +594,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       this.executionInfo = other.executionInfo;
       this.isShellCommand = other.isShellCommand;
       this.useDefaultShellEnvironment = other.useDefaultShellEnvironment;
-      this.executable = other.executable;
-      this.executableArgs = (other.executableArgs != null)
-          ? Lists.newArrayList(other.executableArgs)
-          : null;
+      this.executableArgs = other.executableArgs;
       this.commandLines = new ArrayList<>(other.commandLines);
       this.progressMessage = other.progressMessage;
       this.mnemonic = other.mnemonic;
@@ -631,10 +624,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
     @VisibleForTesting @CheckReturnValue
     public Action[] build(ActionOwner owner, BuildConfiguration configuration) {
-      ImmutableList<String> executableArgs = buildExecutableArgs();
       Action[] actions = new Action[1];
       CommandLines.Builder result = CommandLines.builder();
-      result.addCommandLine(CommandLine.of(executableArgs));
+      result.addCommandLine(executableArgs.build());
       for (CommandLineAndParamFileInfo pair : this.commandLines) {
         result.addCommandLine(pair);
       }
@@ -653,8 +645,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     @CheckReturnValue
     SpawnAction buildForActionTemplate(ActionOwner owner) {
       CommandLines.Builder result = CommandLines.builder();
-      ImmutableList<String> executableArgs = buildExecutableArgs();
-      result.addCommandLine(CommandLine.of(executableArgs));
+      result.addCommandLine(executableArgs.build());
       for (CommandLineAndParamFileInfo pair : commandLines) {
         result.addCommandLine(pair.commandLine);
       }
@@ -747,16 +738,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           mnemonic,
           executeUnconditionally,
           extraActionInfoSupplier);
-    }
-
-    private ImmutableList<String> buildExecutableArgs() {
-      Preconditions.checkNotNull(executable);
-      Preconditions.checkNotNull(executableArgs);
-
-      return ImmutableList.<String>builder()
-          .add(executable.getPathString())
-          .addAll(executableArgs)
-          .build();
     }
 
     /**
@@ -934,8 +915,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * {@link #setShellCommand(String)}.
      */
     public Builder setExecutable(PathFragment executable) {
-      this.executable = executable;
-      this.executableArgs = Lists.newArrayList();
+      this.executableArgs = CustomCommandLine.builder().addPath(executable);
       this.isShellCommand = false;
       return this;
     }
@@ -982,11 +962,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
     private Builder setJavaExecutable(PathFragment javaExecutable, Artifact deployJar,
         List<String> jvmArgs, String... launchArgs) {
-      this.executable = javaExecutable;
-      this.executableArgs = Lists.newArrayList();
-      executableArgs.add("-Xverify:none");
-      executableArgs.addAll(jvmArgs);
-      Collections.addAll(executableArgs, launchArgs);
+      this.executableArgs =
+          CustomCommandLine.builder()
+              .addPath(javaExecutable)
+              .add("-Xverify:none")
+              .addAll(ImmutableList.copyOf(jvmArgs))
+              .addAll(ImmutableList.copyOf(launchArgs));
       toolsBuilder.add(deployJar);
       this.isShellCommand = false;
       return this;
@@ -1032,9 +1013,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * #setExecutable(Artifact)}, {@link #setJavaExecutable}, or {@link #setShellCommand(String)}.
      */
     public Builder setShellCommand(PathFragment shExecutable, String command) {
-      this.executable = shExecutable;
       // 0=shell command switch, 1=command
-      this.executableArgs = Lists.newArrayList("-c", command);
+      this.executableArgs =
+          CustomCommandLine.builder().addPath(shExecutable).add("-c").addDynamicString(command);
       this.isShellCommand = true;
       return this;
     }
@@ -1044,9 +1025,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * commands to be executed.
      */
     public Builder setShellCommand(Iterable<String> command) {
-      this.executable = PathFragment.create(Iterables.getFirst(command, null));
-      // The first item of the commands is the shell executable that should be used.
-      this.executableArgs = ImmutableList.copyOf(Iterables.skip(command, 1));
+      this.executableArgs = CustomCommandLine.builder().addAll(ImmutableList.copyOf(command));
       this.isShellCommand = true;
       return this;
     }
@@ -1062,22 +1041,26 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       return this;
     }
 
-    /**
-     * Appends the arguments to the list of executable arguments.
-     */
+    /** Returns a {@link CustomCommandLine.Builder} for executable arguments. */
+    public CustomCommandLine.Builder executableArguments() {
+      Preconditions.checkState(executableArgs != null);
+      return this.executableArgs;
+    }
+
+    /** Appends the arguments to the list of executable arguments. */
     public Builder addExecutableArguments(String... arguments) {
       Preconditions.checkState(executableArgs != null);
-      Collections.addAll(executableArgs, arguments);
+      this.executableArgs.addAll(ImmutableList.copyOf(arguments));
       return this;
     }
 
     /**
-     * Add multiple arguments in the order they are returned by the collection
-     * to the list of executable arguments.
+     * Add multiple arguments in the order they are returned by the collection to the list of
+     * executable arguments.
      */
     public Builder addExecutableArguments(Iterable<String> arguments) {
       Preconditions.checkState(executableArgs != null);
-      Iterables.addAll(executableArgs, arguments);
+      this.executableArgs.addAll(ImmutableList.copyOf(arguments));
       return this;
     }
 
