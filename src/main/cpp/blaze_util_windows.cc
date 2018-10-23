@@ -1437,7 +1437,6 @@ static string GetBinaryFromPath(const string& binary_name) {
     start = end + 1;
   } while (true);
 
-  BAZEL_LOG(ERROR) << binary_name.c_str() << " not found on PATH";
   return string();
 }
 
@@ -1447,7 +1446,11 @@ static string LocateBash() {
     return msys_bash;
   }
 
-  return GetBinaryFromPath("bash.exe");
+  string result = GetBinaryFromPath("bash.exe");
+  if (result.empty()) {
+    BAZEL_LOG(ERROR) << "bash.exe not found on PATH";
+  }
+  return result;
 }
 
 void DetectBashOrDie() {
