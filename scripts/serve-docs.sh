@@ -16,7 +16,7 @@
 set -eu
 
 readonly WORKING_DIR=$(mktemp -d)
-: ${HOST:=$(hostname)}
+: ${HOST:=localhost}
 : ${PORT:=12345}
 TARGET=
 SERVING_PREFIX=
