@@ -183,6 +183,16 @@ sh_test(
 )
 
 sh_test(
+    name = "analysis_test_test",
+    size = "medium",
+    srcs = ["analysis_test_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "aquery_test",
     size = "large",
     srcs = ["aquery_test.sh"],

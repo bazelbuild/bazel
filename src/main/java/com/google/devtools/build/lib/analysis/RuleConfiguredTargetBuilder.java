@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
+import com.google.devtools.build.lib.analysis.test.AnalysisTestActionBuilder;
+import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
@@ -147,13 +149,24 @@ public final class RuleConfiguredTargetBuilder {
     }
 
     TransitiveInfoProviderMap providers = providersBuilder.build();
-    AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-    GeneratingActions generatingActions =
-        Actions.filterSharedActionsAndThrowActionConflict(
-            analysisEnvironment.getActionKeyContext(), analysisEnvironment.getRegisteredActions());
+
     if (ruleContext.getRule().isAnalysisTest()) {
-      Preconditions.checkState(generatingActions.getActions().isEmpty());
+      // If the target is an analysis test that returned AnalysisTestResultInfo, register a
+      // test pass/fail action on behalf of the target.
+      AnalysisTestResultInfo testResultInfo =
+          providers.get(AnalysisTestResultInfo.SKYLARK_CONSTRUCTOR);
+
+      if (testResultInfo == null) {
+        ruleContext.ruleError(
+            "rules with analysis_test=true must return an instance of AnalysisTestResultInfo");
+        return null;
+      }
+
+      AnalysisTestActionBuilder.writeAnalysisTestAction(ruleContext, testResultInfo);
     }
+    AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
+    GeneratingActions generatingActions = Actions.filterSharedActionsAndThrowActionConflict(
+          analysisEnvironment.getActionKeyContext(), analysisEnvironment.getRegisteredActions());
     return new RuleConfiguredTarget(
         ruleContext,
         providers,

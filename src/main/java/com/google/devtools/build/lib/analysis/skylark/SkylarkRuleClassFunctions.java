@@ -285,6 +285,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               + "general use. It is subject to change at any time. It may be enabled by specifying "
               + "--experimental_analysis_testing_improvements");
     }
+    // analysis_test=true implies test=true.
+    test |= Boolean.TRUE.equals(analysisTest);
 
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
     RuleClass parent =

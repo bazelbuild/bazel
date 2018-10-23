@@ -2133,10 +2133,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "def custom_rule_impl(ctx):",
         "  return []",
         "",
-        "custom_rule = rule(implementation = custom_rule_impl, analysis_test = True)");
+        "custom_test = rule(implementation = custom_rule_impl, analysis_test = True)");
 
     scratch.file(
-        "test/BUILD", "load('//test:extension.bzl', 'custom_rule')", "", "custom_rule(name = 'r')");
+        "test/BUILD", "load('//test:extension.bzl', 'custom_test')", "", "custom_test(name = 'r')");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
@@ -2155,10 +2155,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  ctx.actions.write(output=out_file, content='hi')",
         "  return []",
         "",
-        "custom_rule = rule(implementation = custom_rule_impl, analysis_test = True)");
+        "custom_test = rule(implementation = custom_rule_impl, analysis_test = True)");
 
     scratch.file(
-        "test/BUILD", "load('//test:extension.bzl', 'custom_rule')", "", "custom_rule(name = 'r')");
+        "test/BUILD", "load('//test:extension.bzl', 'custom_test')", "", "custom_test(name = 'r')");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
@@ -2175,10 +2175,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "def custom_rule_impl(ctx):",
         "  return [AnalysisTestResultInfo(success = True, message = 'message contents')]",
         "",
-        "custom_rule = rule(implementation = custom_rule_impl, analysis_test = True)");
+        "custom_test = rule(implementation = custom_rule_impl, analysis_test = True)");
 
     scratch.file(
-        "test/BUILD", "load('//test:extension.bzl', 'custom_rule')", "", "custom_rule(name = 'r')");
+        "test/BUILD", "load('//test:extension.bzl', 'custom_test')", "", "custom_test(name = 'r')");
 
     ConfiguredTarget target = getConfiguredTarget("//test:r");
     AnalysisTestResultInfo info =
@@ -2203,7 +2203,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "",
         "def outer_rule_impl(ctx):",
         "  return [MyInfo(strict_java_deps = ctx.fragments.java.strict_java_deps),",
-        "          MyDep(info = ctx.attr.dep[0][MyInfo])]",
+        "          MyDep(info = ctx.attr.dep[0][MyInfo]),",
+        "          AnalysisTestResultInfo(success = True, message = 'message contents')]",
         "def inner_rule_impl(ctx):",
         "  return [MyInfo(strict_java_deps = ctx.fragments.java.strict_java_deps)]",
         "",
@@ -2217,7 +2218,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "",
         "inner_rule = rule(implementation = inner_rule_impl,",
         "                  fragments = ['java'])",
-        "outer_rule = rule(",
+        "outer_rule_test = rule(",
         "  implementation = outer_rule_impl,",
         "  fragments = ['java'],",
         "  analysis_test = True,",
@@ -2227,10 +2228,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test:extension.bzl', 'inner_rule', 'outer_rule')",
+        "load('//test:extension.bzl', 'inner_rule', 'outer_rule_test')",
         "",
         "inner_rule(name = 'inner')",
-        "outer_rule(name = 'r', dep = ':inner')");
+        "outer_rule_test(name = 'r', dep = ':inner')");
 
     SkylarkKey myInfoKey =
         new SkylarkKey(Label.parseAbsolute("//test:extension.bzl", ImmutableMap.of()), "MyInfo");

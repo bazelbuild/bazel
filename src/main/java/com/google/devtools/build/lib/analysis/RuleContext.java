@@ -93,6 +93,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -549,7 +550,31 @@ public final class RuleContext extends TargetContext
    * which this target (which must be an OutputFile or a Rule) is associated.
    */
   public Artifact createOutputArtifact() {
-    return internalCreateOutputArtifact(getTarget(), OutputFile.Kind.FILE);
+    Target target = getTarget();
+    PathFragment rootRelativePath = getPackageDirectory()
+        .getRelative(PathFragment.create(target.getName()));
+
+    return internalCreateOutputArtifact(rootRelativePath, target, OutputFile.Kind.FILE);
+  }
+
+  /**
+   * Returns an artifact beneath the root of either the "bin" or "genfiles"
+   * tree, whose path is based on the name of this target and the current
+   * configuration, with a script suffix appropriate for the current host platform. ({@code .cmd}
+   * for Windows, otherwise {@code .sh}). The choice of which tree to use is based on the rule with
+   * which this target (which must be an OutputFile or a Rule) is associated.
+   */
+  public Artifact createOutputArtifactScript() {
+    Target target = getTarget();
+    // TODO(laszlocsomor): Use the execution platform, not the host platform.
+    boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
+
+    String fileExtension = isExecutedOnWindows ? ".cmd" : ".sh";
+
+    PathFragment rootRelativePath = getPackageDirectory()
+        .getRelative(PathFragment.create(target.getName() + fileExtension));
+
+    return internalCreateOutputArtifact(rootRelativePath, target, OutputFile.Kind.FILE);
   }
 
   /**
@@ -558,7 +583,9 @@ public final class RuleContext extends TargetContext
    * @see #createOutputArtifact()
    */
   public Artifact createOutputArtifact(OutputFile out) {
-    return internalCreateOutputArtifact(out, out.getKind());
+    PathFragment packageRelativePath = getPackageDirectory()
+        .getRelative(PathFragment.create(out.getName()));
+    return internalCreateOutputArtifact(packageRelativePath, out, out.getKind());
   }
 
   /**
@@ -567,19 +594,19 @@ public final class RuleContext extends TargetContext
    * {@link #createOutputArtifact(OutputFile)} can have a more specific
    * signature.
    */
-  private Artifact internalCreateOutputArtifact(Target target, OutputFile.Kind outputFileKind) {
+  private Artifact internalCreateOutputArtifact(PathFragment rootRelativePath,
+      Target target, OutputFile.Kind outputFileKind) {
     Preconditions.checkState(
         target.getLabel().getPackageIdentifier().equals(getLabel().getPackageIdentifier()),
         "Creating output artifact for target '%s' in different package than the rule '%s' "
             + "being analyzed", target.getLabel(), getLabel());
     ArtifactRoot root = getBinOrGenfilesDirectory();
-    PathFragment packageRelativePath = getPackageDirectory()
-        .getRelative(PathFragment.create(target.getName()));
+
     switch (outputFileKind) {
       case FILE:
-        return getDerivedArtifact(packageRelativePath, root);
+        return getDerivedArtifact(rootRelativePath, root);
       case FILESET:
-        return getAnalysisEnvironment().getFilesetArtifact(packageRelativePath, root);
+        return getAnalysisEnvironment().getFilesetArtifact(rootRelativePath, root);
       default:
         throw new IllegalStateException();
     }

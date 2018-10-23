@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.skylark;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -489,6 +490,16 @@ public final class SkylarkRuleConfiguredTargetUtil {
                   executable.getRootRelativePathString())
           );
         }
+    }
+
+    if (context.getRuleContext().getRule().isAnalysisTest()) {
+      // The Starlark Build API should already throw exception if the rule implementation attempts
+      // to register any actions. This is just a sanity check of this invariant.
+      Preconditions.checkState(
+          context.getRuleContext().getAnalysisEnvironment().getRegisteredActions().isEmpty(),
+          "%s", context.getRuleContext().getLabel());
+
+      executable = context.getRuleContext().createOutputArtifactScript();
     }
 
     if (executable == null && context.isExecutable()) {
