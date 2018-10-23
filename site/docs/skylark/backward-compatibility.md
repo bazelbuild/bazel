@@ -857,24 +857,24 @@ List of all legacy fields and their corresponding `cc_toolchain` alternative:
 
 |`ctx.fragments.cpp` | `cc_toolchain`  |
 |---|---|
-| `ar_executable` |  `ar_executable()` |
+| `ar_executable` |  `ar_executable` |
 | `built_in_include_directories` |  `built_in_include_directories` |
 | `c_options` |  `c_options()` |
 | `compiler` |  `compiler` |
-| `compiler_executable` |  `compiler_executable()` |
+| `compiler_executable` |  `compiler_executable` |
 | `compiler_options(unused_arg)` |  `compiler_options()` |
 | `cpu` |  `cpu` |
 | `cxx_options(unused_arg)` |  `cxx_options()` |
 | `dynamic_link_options(unused_arg, bool)` |  `dynamic_link_options(bool)` |
 | `fully_static_link_options(unused_arg, True)` |  `fully_static_link_options(True)` |
-| `ld_executable` |  `ld_executable()` |
+| `ld_executable` |  `ld_executable` |
 | `link_options` |  `link_options_do_not_use` |
 | `mostly_static_link_options(unused_arg, bool)` |  `mostly_static_link_options(bool)` |
-| `nm_executable` |  `nm_executable()` |
-| `objcopy_executable` |  `objcopy_executable()` |
-| `objdump_executable` |  `objdump_executable()` |
-| `preprocessor_executable` |  `preprocessor_executable()` |
-| `strip_executable` |  `strip_executable()` |
+| `nm_executable` |  `nm_executable` |
+| `objcopy_executable` |  `objcopy_executable` |
+| `objdump_executable` |  `objdump_executable` |
+| `preprocessor_executable` |  `preprocessor_executable` |
+| `strip_executable` |  `strip_executable` |
 | `sysroot` |  `sysroot` |
 | `target_gnu_system_name` |  `target_gnu_system_name` |
 | `unfiltered_compiler_options(unused_arg)` |  `unfiltered_compiler_options(unused_arg)` |
