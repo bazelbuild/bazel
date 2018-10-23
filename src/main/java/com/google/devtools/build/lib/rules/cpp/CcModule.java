@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -1360,12 +1361,8 @@ public class CcModule
     }
 
     String extension =
-        getFieldFromSkylarkProvider(artifactNamePatternStruct, "extension", String.class);
-    if (extension == null || extension.isEmpty()) {
-      throw new EvalException(
-          artifactNamePatternStruct.getCreationLoc(),
-          "The 'extension' field of artifact_name_pattern must be a nonempty string.");
-    }
+        Strings.nullToEmpty(
+            getFieldFromSkylarkProvider(artifactNamePatternStruct, "extension", String.class));
     if (!foundCategory.getAllowedExtensions().contains(extension)) {
       throw new EvalException(
           artifactNamePatternStruct.getCreationLoc(),
@@ -1377,12 +1374,9 @@ public class CcModule
               foundCategory.getCategoryName()));
     }
 
-    String prefix = getFieldFromSkylarkProvider(artifactNamePatternStruct, "prefix", String.class);
-    if (prefix == null || prefix.isEmpty()) {
-      throw new EvalException(
-          artifactNamePatternStruct.getCreationLoc(),
-          "The 'prefix' field of artifact_name_pattern must be a nonempty string.");
-    }
+    String prefix =
+        Strings.nullToEmpty(
+            getFieldFromSkylarkProvider(artifactNamePatternStruct, "prefix", String.class));
     return new ArtifactNamePattern(foundCategory, prefix, extension);
   }
 

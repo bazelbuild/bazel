@@ -532,8 +532,8 @@ def artifact_name_pattern(category_name, prefix, extension):
         An ArtifactNamePatternInfo provider
     """
     _check_is_nonempty_string(category_name, "category_name", "artifact_name_pattern")
-    _check_is_nonempty_string(prefix, "prefix", "artifact_name_pattern")
-    _check_is_nonempty_string(extension, "extension", "artifact_name_pattern")
+    _check_is_none_or_right_type(prefix, "", "prefix", "artifact_name_pattern")
+    _check_is_none_or_right_type(extension, "", "extension", "artifact_name_pattern")
     return ArtifactNamePatternInfo(
         category_name = category_name,
         prefix = prefix,

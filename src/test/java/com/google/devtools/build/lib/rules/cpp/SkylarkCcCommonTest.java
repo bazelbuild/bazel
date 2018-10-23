@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
@@ -3900,41 +3901,30 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     }
 
     createCustomArtifactNamePatternRule(
-        "five", /* categoryName= */ "'static_library'", /* extension= */ "''", /* prefix= */ "'a'");
+        "five", /* categoryName= */ "'executable'", /* extension= */ "''", /* prefix= */ "''");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//five:a");
-      SkylarkInfo artifactNamePatternStruct = (SkylarkInfo) t.getValue("namepattern");
-      assertThat(artifactNamePatternStruct).isNotNull();
-      CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("The 'extension' field of artifact_name_pattern must be a nonempty string.");
-    }
+    ConfiguredTarget t = getConfiguredTarget("//five:a");
+    SkylarkInfo artifactNamePatternStruct = (SkylarkInfo) t.getValue("namepattern");
+    assertThat(artifactNamePatternStruct).isNotNull();
+    ArtifactNamePattern artifactNamePattern =
+        CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
+    assertThat(artifactNamePattern).isNotNull();
 
     createCustomArtifactNamePatternRule(
-        "six", /* categoryName= */ "'static_library'", /* extension= */ "'.a'", /* prefix= */ "''");
+        "six", /* categoryName= */ "'executable'", /* extension= */ "None", /* prefix= */ "None");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//six:a");
-      SkylarkInfo artifactNamePatternStruct = (SkylarkInfo) t.getValue("namepattern");
-      assertThat(artifactNamePatternStruct).isNotNull();
-      CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
-      fail("Should have failed because of empty string.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("The 'prefix' field of artifact_name_pattern must be a nonempty string.");
-    }
+    t = getConfiguredTarget("//six:a");
+    artifactNamePatternStruct = (SkylarkInfo) t.getValue("namepattern");
+    assertThat(artifactNamePatternStruct).isNotNull();
+    artifactNamePattern = CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
+    assertThat(artifactNamePattern).isNotNull();
 
     createCustomArtifactNamePatternRule(
         "seven", /* categoryName= */ "'unknown'", /* extension= */ "'.a'", /* prefix= */ "'a'");
 
     try {
-      ConfiguredTarget t = getConfiguredTarget("//seven:a");
-      SkylarkInfo artifactNamePatternStruct = (SkylarkInfo) t.getValue("namepattern");
+      t = getConfiguredTarget("//seven:a");
+      artifactNamePatternStruct = (SkylarkInfo) t.getValue("namepattern");
       assertThat(artifactNamePatternStruct).isNotNull();
       CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
       fail("Should have failed because of unrecognized category.");
@@ -3949,8 +3939,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* prefix= */ "'a'");
 
     try {
-      ConfiguredTarget t = getConfiguredTarget("//eight:a");
-      SkylarkInfo artifactNamePatternStruct = (SkylarkInfo) t.getValue("namepattern");
+      t = getConfiguredTarget("//eight:a");
+      artifactNamePatternStruct = (SkylarkInfo) t.getValue("namepattern");
       assertThat(artifactNamePatternStruct).isNotNull();
       CcModule.artifactNamePatternFromSkylark(artifactNamePatternStruct);
       fail("Should have failed because of unrecognized extension.");
