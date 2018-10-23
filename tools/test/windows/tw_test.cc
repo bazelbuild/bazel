@@ -17,6 +17,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <vector>
 
 #include "gtest/gtest.h"
 #include "src/main/cpp/util/path_platform.h"
@@ -31,8 +32,10 @@
 namespace {
 
 using bazel::tools::test_wrapper::FileInfo;
+using bazel::tools::test_wrapper::ZipEntryPaths;
 using bazel::tools::test_wrapper::testing::TestOnly_GetEnv;
 using bazel::tools::test_wrapper::testing::TestOnly_GetFileListRelativeTo;
+using bazel::tools::test_wrapper::testing::TestOnly_ToZipEntryPaths;
 
 class TestWrapperWindowsTest : public ::testing::Test {
  public:
@@ -85,10 +88,31 @@ void CompareFileInfos(std::vector<FileInfo> actual,
   }
 }
 
+// According to this StackOverflow post [1] `const` modifies what's on its
+// *left*, and "const char" is equivalent to "char const".
+// `ZipBuilder::EstimateSize`'s argument type is "char const* const*" meaning a
+// mutable array (right *) of const pointers (left *) to const data (char).
+//
+// [1] https://stackoverflow.com/a/8091846/7778502
+void CompareZipEntryPaths(char const *const * actual,
+                          std::vector<const char*> expected, int line) {
+  for (int i = 0; i < expected.size(); ++i) {
+    EXPECT_NE(actual[i], nullptr)
+        << __FILE__ << "(" << line << "): assertion failed here";
+    EXPECT_EQ(std::string(actual[i]), std::string(expected[i]))
+        << __FILE__ << "(" << line << "): assertion failed here";
+  }
+  EXPECT_EQ(actual[expected.size()], nullptr)
+      << __FILE__ << "(" << line << "): assertion failed here; value was ("
+      << actual[expected.size()] << ")";
+}
+
 #define GET_TEST_TMPDIR(result) GetTestTmpdir(result, __LINE__)
 #define CREATE_JUNCTION(name, target) CreateJunction(name, target, __LINE__)
 #define COMPARE_FILE_INFOS(actual, expected) \
   CompareFileInfos(actual, expected, __LINE__)
+#define COMPARE_ZIP_ENTRY_PATHS(actual, expected) \
+  CompareZipEntryPaths(actual, expected, __LINE__)
 
 #define TOSTRING1(x) #x
 #define TOSTRING(x) TOSTRING1(x)
@@ -132,6 +156,38 @@ TEST_F(TestWrapperWindowsTest, TestGetFileListRelativeTo) {
   expected = {{L"sub\\file1", 0}, {L"sub\\file2", 5},  {L"file1", 3},
               {L"file2", 6},      {L"junc\\file1", 0}, {L"junc\\file2", 5}};
   COMPARE_FILE_INFOS(actual, expected);
+}
+
+TEST_F(TestWrapperWindowsTest, TestToZipEntryPaths) {
+  // Pretend we already acquired a file list. The files don't have to exist.
+  std::wstring root = L"c:\\nul\\root";
+  std::vector<FileInfo> files = {
+      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
+      {L"foo\\file1", 3},       {L"foo\\file2", 6},
+      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+
+  ZipEntryPaths actual;
+  ASSERT_TRUE(TestOnly_ToZipEntryPaths(root, files, &actual));
+
+  std::vector<const char*> expected_abs_paths = {
+    "c:/nul/root/foo/sub/file1",
+    "c:/nul/root/foo/sub/file2",
+    "c:/nul/root/foo/file1",
+    "c:/nul/root/foo/file2",
+    "c:/nul/root/foo/junc/file1",
+    "c:/nul/root/foo/junc/file2",
+  };
+  COMPARE_ZIP_ENTRY_PATHS(actual.AbsPathPtrs(), expected_abs_paths);
+
+  std::vector<const char*> expected_entry_paths = {
+    "foo/sub/file1",
+    "foo/sub/file2",
+    "foo/file1",
+    "foo/file2",
+    "foo/junc/file1",
+    "foo/junc/file2",
+  };
+  COMPARE_ZIP_ENTRY_PATHS(actual.EntryPathPtrs(), expected_entry_paths);
 }
 
 }  // namespace

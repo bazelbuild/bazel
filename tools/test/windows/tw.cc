@@ -445,6 +445,30 @@ bool GetFileListRelativeTo(
                                 std::wstring(), result);
 }
 
+bool ToZipEntryPaths(
+    const Path& root,
+    const std::vector<bazel::tools::test_wrapper::FileInfo>& files,
+    ZipEntryPaths* result) {
+  std::string acp_root;
+  if (!WcsToAcp(AsMixedPath(root.Get()), &acp_root)) {
+    return false;
+  }
+
+  // Convert all UTF-16 paths to ANSI paths.
+  std::vector<std::string> acp_file_list;
+  acp_file_list.reserve(files.size());
+  for (const auto& e : files) {
+    std::string acp_path;
+    if (!WcsToAcp(AsMixedPath(e.rel_path), &acp_path)) {
+      return false;
+    }
+    acp_file_list.push_back(acp_path);
+  }
+
+  result->Create(acp_root, acp_file_list);
+  return true;
+}
+
 bool OpenFileForWriting(const std::wstring& path, HANDLE* result) {
   *result = CreateFileW(bazel::windows::HasUncPrefix(path.c_str())
                             ? path.c_str()
@@ -781,6 +805,62 @@ Path Path::Dirname() const {
 
 }  // namespace
 
+void ZipEntryPaths::Create(const std::string& root,
+                           const std::vector<std::string>& relative_paths) {
+  size_t total_size = 0;
+  for (const auto& e : relative_paths) {
+    // Increase total size for absolute paths by <root> + "/" + <path> +
+    // null-terminator.
+    total_size += root.size() + 1 + e.size() + 1;
+  }
+
+  // Store all absolute paths in one continuous char array.
+  abs_paths_.reset(new char[total_size]);
+
+  // Store pointers in two arrays. The pointers point into `abs_path`.
+  // We'll pass these paths to devtools_ijar::ZipBuilder::EstimateSize that
+  // expects an array of char pointers. The last element must be NULL, so
+  // allocate one extra pointer.
+  abs_path_ptrs_.reset(new char*[relative_paths.size() + 1]);
+  entry_path_ptrs_.reset(new char*[relative_paths.size() + 1]);
+
+  char* p = abs_paths_.get();
+  // Create all full paths (root + '/' + relative_paths[i] + '\0').
+  //
+  // If `root` is "c:/foo", then store the following:
+  //
+  // - Store each absolute path consecutively in `abs_paths_` (via `p`).
+  //   Store paths with forward slashes and not backslashes, because we use them
+  //   as zip entry paths, as well as paths we open with CreateFileA (which can
+  //   convert these paths internally to Windows-style).
+  //   Example: "c:/foo/bar.txt\0c:/foo/sub/baz.txt\0"
+  //
+  // - Store pointers in `abs_path_ptrs_`, pointing to the start of each
+  //   string inside `abs_paths_`.
+  //   Example: "c:/foo/bar.txt\0c:/foo/sub/baz.txt\0"
+  //             ^ here          ^ here
+  //
+  // - Store pointers in `entry_path_ptrs_`, pointing to the start of each
+  //   zip entry path inside `abs_paths_`, which is the part of each path
+  //   that's relative to `root`.
+  //   Example: "c:/foo/bar.txt\0c:/foo/sub/baz.txt\0"
+  //                    ^ here          ^ here
+  //
+  // - Because the ZipBuilder requires that the file paths and zip entry paths
+  //   are null-terminated arrays, we insert an extra null at their ends.
+  for (size_t i = 0; i < relative_paths.size(); ++i) {
+    abs_path_ptrs_.get()[i] = p;
+    strncpy(p, root.c_str(), root.size());
+    p += root.size();
+    *p++ = '/';
+    entry_path_ptrs_.get()[i] = p;
+    strncpy(p, relative_paths[i].c_str(), relative_paths[i].size() + 1);
+    p += relative_paths[i].size() + 1;
+  }
+  abs_path_ptrs_.get()[relative_paths.size()] = nullptr;
+  entry_path_ptrs_.get()[relative_paths.size()] = nullptr;
+}
+
 int Main(int argc, wchar_t** argv) {
   Path argv0;
   std::wstring test_path_arg;
@@ -815,6 +895,16 @@ bool TestOnly_GetFileListRelativeTo(const std::wstring& abs_root,
   Path root;
   return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
          GetFileListRelativeTo(root, result);
+}
+
+
+bool TestOnly_ToZipEntryPaths(
+    const std::wstring& abs_root,
+    const std::vector<bazel::tools::test_wrapper::FileInfo>& files,
+    ZipEntryPaths* result) {
+  Path root;
+  return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
+         ToZipEntryPaths(root, files, result);
 }
 
 }  // namespace testing
