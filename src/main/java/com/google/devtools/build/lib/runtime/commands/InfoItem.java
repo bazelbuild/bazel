@@ -624,13 +624,17 @@ public abstract class InfoItem {
       info.setPolicy(AllowedRuleClassInfo.AllowedRuleClasses.SPECIFIED);
       Predicate<RuleClass> filter = attr.getAllowedRuleClassesPredicate();
       for (RuleClass otherClass : Iterables.filter(ruleClasses, filter)) {
-        if (otherClass.isDocumented()) {
+        if (!isAbstractRule(otherClass)) {
           info.addAllowedRuleClass(otherClass.getName());
         }
       }
     }
 
     return info.build();
+  }
+
+  private static boolean isAbstractRule(RuleClass c) {
+    return c.getName().startsWith("$");
   }
 
   /**
@@ -640,17 +644,13 @@ public abstract class InfoItem {
     BuildLanguage.Builder resultPb = BuildLanguage.newBuilder();
     Collection<RuleClass> ruleClasses = provider.getRuleClassMap().values();
     for (RuleClass ruleClass : ruleClasses) {
-      if (!ruleClass.isDocumented()) {
+      if (isAbstractRule(ruleClass)) {
         continue;
       }
 
       RuleDefinition.Builder rulePb = RuleDefinition.newBuilder();
       rulePb.setName(ruleClass.getName());
       for (Attribute attr : ruleClass.getAttributes()) {
-        if (!attr.isDocumented()) {
-          continue;
-        }
-
         AttributeDefinition.Builder attrPb = AttributeDefinition.newBuilder();
         attrPb.setName(attr.getName());
         // The protocol compiler, in its infinite wisdom, generates the field as one of the
