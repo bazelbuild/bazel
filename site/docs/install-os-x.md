@@ -13,8 +13,8 @@ Install Bazel on macOS using one of the following methods:
 
 Bazel comes with two completion scripts. After installing Bazel, you can:
 
-*   Access the [bash completion script](install.md)
-*   Install the [zsh completion script](install.md)
+*   Access the [bash completion script](completion.md#bash)
+*   Install the [zsh completion script](completion.md#zsh)
 
 ## <a name="install-with-installer-mac-os-x"></a>Installing using binary installer
 
