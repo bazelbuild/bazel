@@ -59,4 +59,19 @@ public interface ConstraintCollectionApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   @Nullable
   ConstraintValueInfoT get(ConstraintSettingInfoT constraint);
+
+  @SkylarkCallable(
+      name = "has",
+      doc = "Returns whether the specific ConstraintSettingInfo is set.",
+      parameters = {
+        @Param(
+            name = "constraint",
+            type = ConstraintSettingInfoApi.class,
+            defaultValue = "None",
+            noneable = true,
+            named = true,
+            doc = "The constraint setting to check.")
+      },
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
+  boolean has(ConstraintSettingInfoT constraint);
 }

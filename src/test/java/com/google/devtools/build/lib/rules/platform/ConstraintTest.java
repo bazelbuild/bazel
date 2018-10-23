@@ -58,6 +58,7 @@ public class ConstraintTest extends BuildViewTestCase {
     assertThat(constraintSettingInfo).isNotNull();
     assertThat(constraintSettingInfo.label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic", ImmutableMap.of()));
+    assertThat(constraintSettingInfo.hasDefaultConstraintValue()).isFalse();
     assertThat(constraintSettingInfo.defaultConstraintValue()).isNull();
 
     ConfiguredTarget fooValue = getConfiguredTarget("//constraint:foo");
@@ -98,6 +99,7 @@ public class ConstraintTest extends BuildViewTestCase {
     assertThat(setting).isNotNull();
     ConstraintSettingInfo constraintSettingInfo = PlatformProviderUtils.constraintSetting(setting);
     assertThat(constraintSettingInfo).isNotNull();
+    assertThat(constraintSettingInfo.hasDefaultConstraintValue()).isTrue();
 
     ConfiguredTarget fooValue = getConfiguredTarget("//constraint_default:foo");
     assertThat(fooValue).isNotNull();
@@ -155,7 +157,11 @@ public class ConstraintTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]",
         "  default_value = constraint_setting.default_constraint_value",
-        "  return [result(default_value = default_value)]",
+        "  has_default_value = constraint_setting.has_default_constraint_value",
+        "  return [result(",
+        "    default_value = default_value,",
+        "    has_default_value = has_default_value,",
+        "  )]",
         "verify = rule(",
         "  implementation = _impl,",
         "  attrs = {",
@@ -185,6 +191,9 @@ public class ConstraintTest extends BuildViewTestCase {
         .isEqualTo(Label.parseAbsoluteUnchecked("//constraint_default:foo"));
     assertThat(defaultConstraintValue.constraint().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//constraint_default:basic"));
+
+    boolean hasConstraintValue = (boolean) info.getValue("has_default_value");
+    assertThat(hasConstraintValue).isTrue();
   }
 
   @Test
@@ -198,7 +207,11 @@ public class ConstraintTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]",
         "  default_value = constraint_setting.default_constraint_value",
-        "  return [result(default_value = default_value)]",
+        "  has_default_value = constraint_setting.has_default_constraint_value",
+        "  return [result(",
+        "    default_value = default_value,",
+        "    has_default_value = has_default_value,",
+        "  )]",
         "verify = rule(",
         "  implementation = _impl,",
         "  attrs = {",
@@ -221,5 +234,8 @@ public class ConstraintTest extends BuildViewTestCase {
                     Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
 
     assertThat(info.getValue("default_value")).isEqualTo(Runtime.NONE);
+
+    boolean hasConstraintValue = (boolean) info.getValue("has_default_value");
+    assertThat(hasConstraintValue).isFalse();
   }
 }

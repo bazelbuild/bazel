@@ -53,9 +53,10 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
   }
 
   @Test
-  public void testGet() throws Exception {
+  public void testConstraintValue() throws Exception {
     constraintBuilder("//foo:s1").addConstraintValue("value1").write();
     constraintBuilder("//foo:s2").addConstraintValue("value2").write();
+    constraintBuilder("//foo:unused").write();
     platformBuilder("//foo:my_platform").addConstraint("value1").addConstraint("value2").write();
 
     ConstraintCollection constraintCollection = fetchConstraintCollection("//foo:my_platform");
@@ -63,13 +64,18 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
 
     ConstraintSettingInfo setting =
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s1"));
+    assertThat(constraintCollection.has(setting)).isTrue();
     ConstraintValueInfo value = constraintCollection.get(setting);
     assertThat(value).isNotNull();
     assertThat(value.label()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:value1"));
+    assertThat(
+            constraintCollection.has(
+                ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:unused"))))
+        .isFalse();
   }
 
   @Test
-  public void testGet_starlark() throws Exception {
+  public void testConstraintValue_starlark() throws Exception {
     setSkylarkSemanticsOptions("--experimental_platforms_api=true");
     constraintBuilder("//foo:s1").addConstraintValue("value1").write();
     constraintBuilder("//foo:s2").addConstraintValue("value2").write();
@@ -85,10 +91,12 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
         "  value_from_index = constraint_collection[constraint_setting]",
         "  value_from_get = constraint_collection.get(constraint_setting)",
         "  used_constraints = constraint_collection.constraint_settings",
+        "  has_constraint = constraint_collection.has(constraint_setting)",
         "  return [result(",
         "    value_from_index = value_from_index,",
         "    value_from_get = value_from_get,",
         "    used_constraints = used_constraints,",
+        "    has_constraint = has_constraint,",
         "  )]",
         "verify = rule(",
         "  implementation = _impl,",
@@ -135,6 +143,9 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
         .containsExactly(
             ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s1")),
             ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s2")));
+
+    boolean hasConstraint = (boolean) info.getValue("has_constraint");
+    assertThat(hasConstraint).isTrue();
   }
 
   @Test
@@ -156,14 +167,17 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
     ConstraintCollection constraintCollectionWithDefault =
         fetchConstraintCollection("//constraint/default:plat_with_default");
     assertThat(constraintCollectionWithDefault).isNotNull();
+    assertThat(constraintCollectionWithDefault.has(basicConstraintSetting)).isTrue();
     assertThat(constraintCollectionWithDefault.get(basicConstraintSetting)).isNotNull();
     assertThat(constraintCollectionWithDefault.get(basicConstraintSetting).label())
         .isEqualTo(makeLabel("//constraint/default:foo"));
+    assertThat(constraintCollectionWithDefault.has(otherConstraintSetting)).isFalse();
     assertThat(constraintCollectionWithDefault.get(otherConstraintSetting)).isNull();
 
     ConstraintCollection constraintCollectionWithoutDefault =
         fetchConstraintCollection("//constraint/default:plat_without_default");
     assertThat(constraintCollectionWithoutDefault).isNotNull();
+    assertThat(constraintCollectionWithDefault.has(basicConstraintSetting)).isTrue();
     assertThat(constraintCollectionWithoutDefault.get(basicConstraintSetting)).isNotNull();
     assertThat(constraintCollectionWithoutDefault.get(basicConstraintSetting).label())
         .isEqualTo(makeLabel("//constraint/default:bar"));
