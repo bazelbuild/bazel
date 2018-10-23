@@ -89,7 +89,7 @@ with Python. A possible workaround is to use the `.update` method instead.
 
 *   Flag: `--incompatible_disallow_dict_plus`
 *   Default: `false`
-
+*   Tracking issue: [#6461](https://github.com/bazelbuild/bazel/issues/6461)
 
 ### Load must appear at top of file
 
@@ -99,6 +99,7 @@ appear at the beginning of the file, i.e. before any other non-`load` statement.
 
 *   Flag: `--incompatible_bzl_disallow_load_after_statement`
 *   Default: `false`
+*   Tracking issue: [#5815](https://github.com/bazelbuild/bazel/issues/5815)
 
 
 ### Depset is no longer iterable
@@ -125,6 +126,7 @@ sorted(deps.to_list())  # recommended
 
 *   Flag: `--incompatible_depset_is_not_iterable`
 *   Default: `false`
+*   Tracking issue: [#5816](https://github.com/bazelbuild/bazel/issues/5816)
 
 
 ### Depset union
@@ -148,6 +150,7 @@ See the [`depset documentation`](depsets.md) for more information.
 
 *   Flag: `--incompatible_depset_union`
 *   Default: `false`
+*   Tracking issue: [#5817](https://github.com/bazelbuild/bazel/issues/5817)
 
 
 ### String is no longer iterable
@@ -181,6 +184,7 @@ for i in range(len(my_string)):
 
 *   Flag: `--incompatible_string_is_not_iterable`
 *   Default: `false`
+*   Tracking issue: [#5830](https://github.com/bazelbuild/bazel/issues/5830)
 
 
 ### Integer division operator is `//`
@@ -196,6 +200,7 @@ x = 7 // 2  # x is 3
 
 *   Flag: `--incompatible_disallow_slash_operator`
 *   Default: `false`
+*   Tracking issue: [#5823](https://github.com/bazelbuild/bazel/issues/5823)
 
 
 ### Package name is a function
@@ -211,6 +216,7 @@ same flag.
 
 *   Flag: `--incompatible_package_name_is_a_function`
 *   Default: `false`
+*   Tracking issue: [#5827](https://github.com/bazelbuild/bazel/issues/5827)
 
 
 ### FileType is deprecated
@@ -222,6 +228,7 @@ rule accepts.
 
 *   Flag: `--incompatible_disallow_filetype`
 *   Default: `false`
+*   Tracking issue: [#5831](https://github.com/bazelbuild/bazel/issues/5831)
 
 
 ### New actions API
@@ -243,6 +250,7 @@ replacements are as follows.
 
 *   Flag: `--incompatible_new_actions_api`
 *   Default: `false`
+*   Tracking issue: [#5825](https://github.com/bazelbuild/bazel/issues/5825)
 
 
 ### New args API
@@ -258,6 +266,7 @@ or `add_joined()` instead.
 
 *   Flag: `--incompatible_disallow_old_style_args_add`
 *   Default: `false`
+*   Tracking issue: [#5822](https://github.com/bazelbuild/bazel/issues/5822)
 
 
 ### Python 3 range behavior.
@@ -267,6 +276,7 @@ supported and `range` slices are also lazy `range` instances.
 
 *   Flag: `--incompatible_range_type`
 *   Default: `false`
+*   Tracking issue: [#5264](https://github.com/bazelbuild/bazel/issues/5264)
 
 
 ### Disable objc provider resources
@@ -529,6 +539,8 @@ The proposal is not fully implemented yet.
 
 *   Flag: `--incompatible_static_name_resolution`
 *   Default: `false`
+*   Tracking issue: [#5637](https://github.com/bazelbuild/bazel/issues/5637)
+
 
 ### Disallow transitive loads
 
@@ -549,7 +561,7 @@ y = 1
 *   Flag: `--incompatible_no_transitive_loads`
 *   Default: `false`
 *   Introduced in: `0.19.0`
-*   Tracking issue: https://github.com/bazelbuild/bazel/issues/5636
+*   Tracking issue: [#5636](https://github.com/bazelbuild/bazel/issues/5636)
 
 
 ### Disable InMemory Tools Defaults Package
@@ -968,6 +980,7 @@ fail with an error.
 *   Flag: `--incompatible_disallow_data_transition`
 *   Default: `false`
 *   Introduced in: `0.16.0`
+*   Tracking issue: [#6153](https://github.com/bazelbuild/bazel/issues/6153)
 
 
 ### Load label cannot cross package boundaries
@@ -988,5 +1001,6 @@ would be `//a/b:c.bzl`.
 
 *   Flag: `--incompatible_disallow_load_labels_to_cross_package_boundaries`
 *   Default: `false`
+*   Tracking issue: [#6408](https://github.com/bazelbuild/bazel/issues/6408)
 
 <!-- Add new options here -->
