@@ -267,6 +267,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    @VisibleForTesting
+    public Builder clearWorkspaceFileSuffixForTesting() {
+      defaultWorkspaceFileSuffix.delete(0, defaultWorkspaceFileSuffix.length());
+      return this;
+    }
+
     public Builder setPrelude(String preludeLabelString) {
       try {
         this.preludeLabel = Label.parseAbsolute(preludeLabelString, ImmutableMap.of());

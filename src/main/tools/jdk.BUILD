@@ -1,5 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
+exports_files(["BUILD.bazel"])
+
 DEPRECATION_MESSAGE = ("Don't depend on targets in the JDK workspace;" +
                        " use @bazel_tools//tools/jdk:current_java_runtime instead" +
                        " (see https://github.com/bazelbuild/bazel/issues/5594)")

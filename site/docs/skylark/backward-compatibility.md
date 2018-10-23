@@ -357,7 +357,7 @@ be provided as a fully qualified label (usually starting with `@//`),
 for example: `build_file = "@//third_party:repo.BUILD"`.
 
 *   Flag: `--incompatible_remove_native_git_repository`
-*   Default: `false`
+*   Default: `true`
 
 
 ### Remove native http archive
@@ -378,7 +378,7 @@ provides `http_jar` and `http_file` (the latter only supports the `urls`
 parameter, not `url`).
 
 *   Flag: `--incompatible_remove_native_http_archive`
-*   Default: `false`
+*   Default: `true`
 
 ### New-style JavaInfo constructor
 

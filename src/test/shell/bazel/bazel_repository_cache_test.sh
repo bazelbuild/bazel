@@ -170,6 +170,8 @@ EOF
 
   if [[ $write_workspace = 0 ]]; then
     cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 http_archive(
     name = 'endangered',
     url = 'http://localhost:$nc_port/$repo2_name',

@@ -322,6 +322,7 @@ function test_jar_download() {
   serve_jar
 
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
 http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar')
 EOF
 
@@ -362,9 +363,10 @@ EOF
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(
     name = 'toto',
-    url = 'http://127.0.0.1:$nc_port/toto',
+    urls = ['http://127.0.0.1:$nc_port/toto'],
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826'
 )
 EOF
@@ -380,9 +382,10 @@ function test_http_404() {
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(
     name = 'toto',
-    url = 'http://127.0.0.1:$nc_port/toto',
+    urls = ['http://127.0.0.1:$nc_port/toto'],
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826'
 )
 EOF
@@ -403,29 +406,27 @@ EOF
   cd ${WORKSPACE_DIR}
 
   cat > WORKSPACE <<EOF
-http_file(name = 'toto', url = 'http://127.0.0.1:$nc_port/toto',
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(name = 'toto', urls = ['http://127.0.0.1:$nc_port/toto'],
     sha256 = '$sha256', executable = True)
 EOF
 
   mkdir -p test
-  cat > test/BUILD <<EOF
+  cat > test/BUILD <<'EOF'
 sh_binary(
     name = "test",
     srcs = ["test.sh"],
     data = ["@toto//file"],
 )
+
+genrule(
+  name = "test_sh",
+  outs = ["test.sh"],
+  srcs = ["@toto//file"],
+  cmd = "echo '#!/bin/sh' > $@ && echo $(location @toto//file) >> $@",
+)
 EOF
 
-  cat > test/test.sh <<EOF
-#!/bin/sh
-echo "symlink:"
-ls -l ../toto/file
-echo "dest:"
-ls -l \$(readlink -f ../toto/file/toto)
-../toto/file/toto
-EOF
-
-  chmod +x test/test.sh
   bazel run //test >& $TEST_log || echo "Expected run to succeed"
   kill_nc
   expect_log "Tra-la!"
@@ -441,25 +442,27 @@ function test_http_redirect() {
   serve_redirect "http://127.0.0.1:$nc_port/toto"
 
   cat > WORKSPACE <<EOF
-http_file(name = 'toto', url = 'http://127.0.0.1:$redirect_port/toto',
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(name = 'toto', urls = ['http://127.0.0.1:$redirect_port/toto'],
     sha256 = '$sha256')
 EOF
 
   mkdir -p test
-  cat > test/BUILD <<EOF
+  cat > test/BUILD <<'EOF'
 sh_binary(
     name = "test",
     srcs = ["test.sh"],
     data = ["@toto//file"],
 )
+
+genrule(
+  name = "test_sh",
+  outs = ["test.sh"],
+  srcs = ["@toto//file"],
+  cmd = "echo '#!/bin/sh' > $@ && echo cat $(location @toto//file) >> $@",
+)
 EOF
 
-  cat > test/test.sh <<EOF
-#!/bin/sh
-cat ../toto/file/toto
-EOF
-
-  chmod +x test/test.sh
   bazel run //test >& $TEST_log || echo "Expected run to succeed"
   kill_nc
   expect_log "Tra-la!"
@@ -474,11 +477,11 @@ function test_empty_file() {
 
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-new_http_archive(
+http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
-    build_file = "x.BUILD",
+    build_file = "@//:x.BUILD",
 )
 EOF
   cat > x.BUILD <<EOF
@@ -556,23 +559,26 @@ filegroup(
   "
 
   if [ "$1" = "build_file" ] ; then
+    touch BUILD
     echo ${build_file_content} > fox.BUILD
-    build_file_attr="build_file = 'fox.BUILD'"
+    build_file_attr="build_file = '@//:fox.BUILD'"
   else
     build_file_attr="build_file_content=\"\"\"${build_file_content}\"\"\""
   fi
 
   if [ "$1" = "workspace_file" ]; then
+    touch BUILD
     cat > fox.WORKSPACE <<EOF
 workspace(name="endangered-fox")
 EOF
-    workspace_file_attr="workspace_file = 'fox.WORKSPACE'"
+    workspace_file_attr="workspace_file = '@//:fox.WORKSPACE'"
   elif [ "$1" = "workspace_file_content" ]; then
     workspace_file_attr="workspace_file_content = 'workspace(name=\"endangered-fox\")'"
   fi
 
   cat > WORKSPACE <<EOF
-new_http_archive(
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
     name = 'endangered',
     url = 'http://127.0.0.1:$nc_port/repo.zip',
     sha256 = '$sha256',
@@ -645,12 +651,13 @@ function test_prefix_stripping_tar_gz() {
   serve_file x.tar.gz
 
   cat > WORKSPACE <<EOF
-new_http_archive(
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
     strip_prefix = "x/y/z",
-    build_file = "x.BUILD",
+    build_file = "@//:x.BUILD",
 )
 EOF
   cat > x.BUILD <<EOF
@@ -674,12 +681,13 @@ function test_prefix_stripping_zip() {
   serve_file x.zip
 
   cat > WORKSPACE <<EOF
-new_http_archive(
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.zip",
     sha256 = "$sha256",
     strip_prefix = "x/y/z",
-    build_file = "x.BUILD",
+    build_file = "@//:x.BUILD",
 )
 EOF
   cat > x.BUILD <<EOF
@@ -712,6 +720,7 @@ EOF
   serve_file x.zip
 
   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.zip",
@@ -731,13 +740,15 @@ function test_moving_build_file() {
   serve_file x.tar.gz
 
   cat > WORKSPACE <<EOF
-new_http_archive(
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
-    build_file = "x.BUILD",
+    build_file = "@//:x.BUILD",
 )
 EOF
+  touch BUILD
   cat > x.BUILD <<EOF
 genrule(
     name = "catter",
@@ -767,11 +778,12 @@ function test_changing_build_file() {
   serve_file x.tar.gz
 
   cat > WORKSPACE <<EOF
-new_http_archive(
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.tar.gz",
     sha256 = "$sha256",
-    build_file = "x.BUILD",
+    build_file = "@//:x.BUILD",
 )
 EOF
   cat > x.BUILD <<EOF
@@ -938,7 +950,7 @@ function test_same_name() {
   cd main
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-new_http_archive(
+http_archive(
   name="ext",
   strip_prefix="ext",
   url="file://${EXTREPODIR}/ext.zip",

@@ -67,19 +67,25 @@ public class TestRuleClassProvider {
     }
   }
 
-  /**
-   * Return a rule class provider.
-   */
-  public static ConfiguredRuleClassProvider getRuleClassProvider() {
+  /** Return a rule class provider. */
+  public static ConfiguredRuleClassProvider getRuleClassProvider(boolean clearSuffix) {
     if (ruleProvider == null) {
       ConfiguredRuleClassProvider.Builder builder =
           new ConfiguredRuleClassProvider.Builder();
       addStandardRules(builder);
       builder.addRuleDefinition(new TestingDummyRule());
       builder.addRuleDefinition(new MockToolchainRule());
+      if (clearSuffix) {
+        builder.clearWorkspaceFileSuffixForTesting();
+      }
       ruleProvider = builder.build();
     }
     return ruleProvider;
+  }
+
+  /** Return a rule class provider. */
+  public static ConfiguredRuleClassProvider getRuleClassProvider() {
+    return getRuleClassProvider(false);
   }
 
   /**

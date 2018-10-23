@@ -1,4 +1,5 @@
 workspace(name = "io_bazel")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 
 # Protobuf expects an //external:python_headers label which would contain the
 # Python headers if fast Python protos is enabled. Since we are not using fast
@@ -120,11 +121,12 @@ http_file(
     urls = [
         "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz",
     ],
+    downloaded_file_path="zulu-linux.tar.gz",
 )
 
 # Used by CI to test Bazel on platforms without an installed system JDK.
 # TODO(twerth): Migrate to @remotejdk when https://github.com/bazelbuild/bazel/pull/6216 is merged.
-new_http_archive(
+http_archive(
     name = "openjdk_linux_archive",
     sha256 = "f27cb933de4f9e7fe9a703486cf44c84bc8e9f138be0c270c9e5716a32367e87",
     urls = [
@@ -140,6 +142,7 @@ http_file(
     urls = [
         "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64-allmodules.tar.gz",
     ],
+    downloaded_file_path="zulu-macos.tar.gz",
 )
 
 http_file(
@@ -148,6 +151,7 @@ http_file(
     urls = [
         "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64-allmodules.zip",
     ],
+    downloaded_file_path="zulu-win.zip",
 )
 
 # The source-code for this OpenJDK can be found at:
@@ -186,7 +190,8 @@ http_archive(
 http_file(
     name = "mount_path_toolchain",
     sha256 = "dd8088d3543a86fd91a9ccde6e40102aff6eaf3d048aa73cc18eff05cc2053d5",
-    url = "https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz",
+    urls = ["https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz"],
+    downloaded_file_path="mount_path_toolchain.tar.gz",
 )
 
 http_archive(

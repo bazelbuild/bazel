@@ -61,13 +61,14 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def testNewHttpArchive(self):
     ip, port = self._http_server.server_address
     rule_definition = [
-        'new_http_archive(',
+        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        'http_archive(',
         '    name = "six_archive",',
         '    urls = ["http://%s:%s/six-1.10.0.tar.gz"],' % (ip, port),
         '    sha256 = '
         '"105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",',
         '    strip_prefix = "six-1.10.0",',
-        '    build_file = "//third_party:six.BUILD",',
+        '    build_file = "@//third_party:six.BUILD",',
         ')',
     ]
     build_file = [
@@ -81,14 +82,6 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile('third_party/BUILD')
     self.ScratchFile('third_party/six.BUILD', build_file)
 
-    exit_code, _, stderr = self.RunBazel(['build', '@six_archive//...'])
-    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
-
-    # Test specifying build_file as path
-    # TODO(pcloudy):
-    # Remove this after specifying build_file as path is no longer supported.
-    rule_definition[-2] = 'build_file = "third_party/six.BUILD"'
-    self.ScratchFile('WORKSPACE', rule_definition)
     exit_code, _, stderr = self.RunBazel(['build', '@six_archive//...'])
     self.assertEqual(exit_code, 0, os.linesep.join(stderr))
 
@@ -117,10 +110,11 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def testNewHttpArchiveWithSymlinks(self):
     ip, port = self._http_server.server_address
     self.ScratchFile('WORKSPACE', [
-        'new_http_archive(',
+        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        'http_archive(',
         '    name = "archive_with_symlink",',
         '    urls = ["http://%s:%s/archive_with_symlink.zip"],' % (ip, port),
-        '    build_file = "archive_with_symlink.BUILD",',
+        '    build_file = "@//:archive_with_symlink.BUILD",',
         ')',
     ])
     # In the archive, A is a symlink pointing to B

@@ -98,6 +98,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   public final void initializeSkyframeExecutor() throws Exception {
     workspace = rootDirectory;
     analysisMock = getAnalysisMock();
+
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     PathPackageLocator pkgLocator =
         new PathPackageLocator(
@@ -111,6 +112,21 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
+
+    mockToolsConfig = new MockToolsConfig(rootDirectory);
+    mockToolsConfig.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    mockToolsConfig.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
+    mockToolsConfig.create(
+        "/bazel_tools_workspace/tools/build_defs/repo/http.bzl",
+        "def http_archive(**kwargs):",
+        "  pass",
+        "",
+        "def http_file(**kwargs):",
+        "  pass");
+
+    analysisMock.setupMockClient(mockToolsConfig);
+    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
+
     pkgFactory =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
