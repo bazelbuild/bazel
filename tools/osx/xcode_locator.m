@@ -191,8 +191,6 @@ static NSMutableDictionary<NSString *, XcodeVersionEntry *> *FindXcodes()
 static void DumpAsVersionsOnly(
   FILE *output,
   NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict) {
-  NSSet<XcodeVersionEntry *> *distinctValues =
-      [[NSSet alloc] initWithArray:dict.allValues];
   NSMutableDictionary<NSString *, NSMutableSet <NSString *> *> *aliasDict =
       [[NSMutableDictionary alloc] init];
   [dict enumerateKeysAndObjectsUsingBlock:^(NSString *aliasVersion,
