@@ -111,4 +111,15 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 the <code>proto.transitive_descriptor_sets</code> Skylark provider.
 See documentation in <code>ProtoSourcesProvider.java</code>.</p>
 
+<p>Recommended code organization:</p>
+
+<ul>
+<li> One <code>proto_library</code> rule per <code>.proto</code> file.
+<li> A file named <code>foo.proto</code> will be in a rule named <code>foo_proto</code>, which
+   is located in the same package.
+<li> A <code>[language]_proto_library</code> that wraps a <code>proto_library</code> named
+  <code>foo_proto</code> should be called
+   <code>foo_[language]_proto</code>, and be located in the same package.
+</ul>
+
 <!-- #END_BLAZE_RULE -->*/

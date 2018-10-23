@@ -255,3 +255,40 @@ ls $(bazel info output_base)/external
 
 Note that running `bazel clean` will not actually delete the external
 directory. To remove all external artifacts, use `bazel clean --expunge`.
+
+
+## Best practices
+
+### Repository rules
+
+Prefer `http_archive` and `new_http_archive` to `git_repository`, `new_git_repository`, and
+`maven_jar`.
+
+`git_repository` depends on jGit, which has several unpleasant bugs, and `maven_jar` uses Maven's
+internal API, which generally works but is less optimized for Bazel than `http_archive`'s
+downloader logic. Track the following issues filed to remediate these problems:
+
+-  [Use `http_archive` as `git_repository`'s
+   backend.](https://github.com/bazelbuild/bazel/issues/2147)
+-  [Improve `maven_jar`'s backend.](https://github.com/bazelbuild/bazel/issues/1752)
+
+Do not use `bind()`.  See "[Consider removing
+bind](https://github.com/bazelbuild/bazel/issues/1952)" for a long discussion of its issues and
+alternatives.
+
+### Custom BUILD files
+
+When using a `new_` repository rule, prefer to specify `build_file_content`, not `build_file`.
+
+### Repository rules
+
+A repository rule should generally be responsible for:
+
+-  Detecting system settings and writing them to files.
+-  Finding resources elsewhere on the system.
+-  Downloading resources from URLs.
+-  Generating or symlinking BUILD files into the external repository directory.
+
+Avoid using `repository_ctx.execute` when possible.  For example, when using a non-Bazel C++
+library that has a build using Make, it is preferable to use `repository_ctx.download()` and then
+write a BUILD file that builds it, instead of running `ctx.execute(["make"])`.
