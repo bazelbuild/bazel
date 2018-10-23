@@ -21,6 +21,8 @@ platforms:
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
     - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
+    - "-//src/test/shell/bazel:workspace_resolved_test"
   ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -42,6 +44,8 @@ platforms:
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
     - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
+    - "-//src/test/shell/bazel:workspace_resolved_test"
   ubuntu1804:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -63,6 +67,8 @@ platforms:
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
     - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
+    - "-//src/test/shell/bazel:workspace_resolved_test"
   ubuntu1804_nojava:
     build_flags:
     - "--javabase=@openjdk_linux_archive//:runtime"
@@ -116,6 +122,8 @@ platforms:
     - "-//src/test/shell/integration:output_filter_test"
     - "-//src/test/shell/integration:stub_finds_runfiles_test"
     - "-//src/test/shell/integration:test_test"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
+    - "-//src/test/shell/bazel:workspace_resolved_test"
   ubuntu1804_java9:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -137,6 +145,8 @@ platforms:
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
     - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
+    - "-//src/test/shell/bazel:workspace_resolved_test"
   ubuntu1804_java10:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -158,6 +168,8 @@ platforms:
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
     - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
+    - "-//src/test/shell/bazel:workspace_resolved_test"
   macos:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -190,6 +202,8 @@ platforms:
     - "-//src/test/shell/bazel/android:android_integration_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
     - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
+    - "-//src/test/shell/bazel:workspace_resolved_test"
   windows:
     build_flags:
     - "--copt=-w"
@@ -210,6 +224,8 @@ platforms:
     - "//src:all_windows_tests"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
     - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
+    - "-//src/test/shell/bazel:workspace_resolved_test"
   rbe_ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
