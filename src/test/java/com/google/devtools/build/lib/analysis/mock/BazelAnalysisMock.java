@@ -93,6 +93,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  genclass = ['GenClass_deploy.jar'],",
         "  ijar = ['ijar'],",
         ")",
+        "alias(name = 'toolchain_host', actual = ':toolchain')",
         "java_runtime(name = 'jdk', srcs = [])",
         "java_runtime(name = 'host_jdk', srcs = [])",
         "java_runtime(name = 'remote_jdk', srcs = [])",
