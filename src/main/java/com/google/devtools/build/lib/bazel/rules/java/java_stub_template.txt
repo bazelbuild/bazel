@@ -305,9 +305,8 @@ function create_and_run_classpath_jar() {
   done
   unset IFS
 
-  RAND_ID=$(cat /dev/urandom | head -c 128 | md5func)
   # Create manifest file
-  MANIFEST_FILE="${self}-${RAND_ID}.jar_manifest"
+  MANIFEST_FILE=$(mktemp)
 
   (
     echo "Manifest-Version: 1.0"
@@ -325,7 +324,7 @@ function create_and_run_classpath_jar() {
   ) >$MANIFEST_FILE
 
   # Create classpath JAR file
-  MANIFEST_JAR_FILE="${self}-${RAND_ID}-classpath.jar"
+  MANIFEST_JAR_FILE=$(mktemp)
   if is_windows; then
     MANIFEST_JAR_FILE="$(cygpath --windows "$MANIFEST_JAR_FILE")"
     MANIFEST_FILE="$(cygpath --windows "$MANIFEST_FILE")"
