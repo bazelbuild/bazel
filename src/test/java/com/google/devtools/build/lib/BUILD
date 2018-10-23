@@ -1,6 +1,6 @@
 package(
     default_visibility = [
-        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+        ":__subpackages__",
         "//tools/test:__pkg__",
     ],
 )
@@ -798,6 +798,7 @@ java_test(
         ":analysis_testutil",
         ":foundations_testutil",
         ":guava_junit_truth",
+        ":packages_testutil",
         ":test_runner",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
@@ -823,7 +824,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:testutil",
         "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//third_party:auto_value",
@@ -947,6 +947,7 @@ java_test(
         ":guava_junit_truth",
         ":packages_testutil",
         ":test_runner",
+        ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:io",
@@ -957,7 +958,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:jsr305",
     ],
 )
@@ -1192,9 +1192,11 @@ java_test(
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
+        ":actions_testutil",
         ":analysis_testutil",
         ":foundations_testutil",
         ":guava_junit_truth",
+        ":packages_testutil",
         ":test_runner",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
@@ -1216,8 +1218,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:crosstool_config_java_proto",
-        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
-        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//src/test/java/com/google/devtools/build/lib/rules/android:AndroidLocalTestTest",
     ],
 )
@@ -1230,6 +1230,7 @@ java_test(
     ]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
+        ":actions_testutil",
         ":foundations_testutil",
         ":guava_junit_truth",
         ":test_runner",
@@ -1257,7 +1258,6 @@ java_test(
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
-        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/common/options:testutils",
         "//third_party:mockito",
     ],
@@ -1314,9 +1314,9 @@ java_library(
     testonly = 1,
     srcs = ["sandbox/BaseSandboxfsProcessTest.java"],
     deps = [
+        ":testutil",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -1449,6 +1449,7 @@ java_test(
     deps = [
         ":analysis_testutil",
         ":guava_junit_truth",
+        ":testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:unix",
@@ -1462,7 +1463,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/tools:process-wrapper",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/test/shell/integration:spend_cpu_time",
         "//third_party:mockito",
         "//third_party:truth8",
@@ -1543,6 +1543,8 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":guava_junit_truth",
+        ":packages_testutil",
+        ":testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
@@ -1554,8 +1556,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:auto_value",
     ],
 )

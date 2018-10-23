@@ -127,6 +127,7 @@ public class CommandFailureUtils {
   private static final DescribeCommandImpl describeCommandImpl =
       OS.getCurrent() == OS.WINDOWS ? new WindowsDescribeCommandImpl()
                                     : new LinuxDescribeCommandImpl();
+  private static final int APPROXIMATE_MAXIMUM_MESSAGE_LENGTH = 200;
 
   private CommandFailureUtils() {} // Prevent instantiation.
 
@@ -147,7 +148,6 @@ public class CommandFailureUtils {
       @Nullable String cwd) {
 
     Preconditions.checkNotNull(form);
-    final int APPROXIMATE_MAXIMUM_MESSAGE_LENGTH = 200;
     StringBuilder message = new StringBuilder();
     int size = commandLineElements.size();
     int numberRemaining = size;
@@ -203,8 +203,8 @@ public class CommandFailureUtils {
     }
 
     for (String commandElement : commandLineElements) {
-      if (form == CommandDescriptionForm.ABBREVIATED &&
-          message.length() + commandElement.length() > APPROXIMATE_MAXIMUM_MESSAGE_LENGTH) {
+      if (form == CommandDescriptionForm.ABBREVIATED
+          && message.length() + commandElement.length() > APPROXIMATE_MAXIMUM_MESSAGE_LENGTH) {
         message.append(
             " ... (remaining " + numberRemaining + " argument(s) skipped)");
         break;
@@ -256,8 +256,9 @@ public class CommandFailureUtils {
     String commandName = commandLineElements.iterator().next();
     // Extract the part of the command name after the last "/", if any.
     String shortCommandName = new File(commandName).getName();
-    return shortCommandName + " failed: " +
-        describeCommandError(verbose, commandLineElements, env, cwd);
+    return shortCommandName
+        + " failed: "
+        + describeCommandError(verbose, commandLineElements, env, cwd);
   }
 
 }

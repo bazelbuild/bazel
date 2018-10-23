@@ -74,9 +74,9 @@ public class CommandUtils {
     if (exception instanceof AbnormalTerminationException) {
       CommandResult result = ((AbnormalTerminationException) exception).getResult();
       try {
-        return message + "\n" +
-            new String(result.getStdout()) +
-            new String(result.getStderr());
+        return message + "\n"
+            + new String(result.getStdout())
+            + new String(result.getStderr());
       } catch (IllegalStateException e) {
         // This can happen if the command didn't save stdout/stderr,
         // so ignore this exception and fall through to the ordinary case.
