@@ -37,6 +37,7 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -63,6 +64,11 @@ public final class DependencyModule {
     /** Fail the build when transitive dependencies are used directly. */
     ERROR
   }
+
+  private static final ImmutableSet<String> SJD_EXEMPT_PROCESSORS =
+      ImmutableSet.of(
+          // Relax strict deps for dagger-generated code (b/17979436).
+          "dagger.internal.codegen.ComponentProcessor");
 
   private final StrictJavaDeps strictJavaDeps;
   private final FixTool fixDepsTool;
@@ -332,7 +338,7 @@ public final class DependencyModule {
     private Path outputDepsProtoFile;
     private boolean strictClasspathMode = false;
     private FixMessage fixMessage = new DefaultFixMessage();
-    private final Set<String> exemptGenerators = new HashSet<>();
+    private final Set<String> exemptGenerators = new LinkedHashSet<>(SJD_EXEMPT_PROCESSORS);
 
     private static class DefaultFixMessage implements FixMessage {
       @Override
