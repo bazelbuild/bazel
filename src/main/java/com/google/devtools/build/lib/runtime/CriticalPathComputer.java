@@ -42,6 +42,9 @@ import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BinaryOperator;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -56,6 +59,13 @@ public class CriticalPathComputer {
   private static final int LARGEST_MEMORY_COMPONENTS_SIZE = 20;
   private static final int LARGEST_INPUT_SIZE_COMPONENTS_SIZE = 20;
 
+  /** Selects and returns the longer of two components (the first may be {@code null}). */
+  private static final BinaryOperator<CriticalPathComponent> SELECT_LONGER_COMPONENT =
+      (a, b) ->
+          a == null || a.getAggregatedElapsedTime().compareTo(b.getAggregatedElapsedTime()) < 0
+              ? b
+              : a;
+
   private final AtomicInteger idGenerator = new AtomicInteger();
   // outputArtifactToComponent is accessed from multiple event handlers.
   protected final ConcurrentMap<Artifact, CriticalPathComponent> outputArtifactToComponent =
@@ -63,7 +73,7 @@ public class CriticalPathComputer {
   private final ActionKeyContext actionKeyContext;
 
   /** Maximum critical path found. */
-  private CriticalPathComponent maxCriticalPath;
+  private final AtomicReference<CriticalPathComponent> maxCriticalPath;
   private final Clock clock;
   protected final boolean discardActions;
 
@@ -78,6 +88,18 @@ public class CriticalPathComputer {
           SLOWEST_COMPONENTS_SIZE,
           (o1, o2) -> Long.compare(o1.getElapsedTimeNanos(), o2.getElapsedTimeNanos()));
 
+  /**
+   * Duration of the fastest of the slowestComponents, if we have reached SLOWEST_COMPONENTS_SIZE
+   * and -1 otherwise. This means, we have found a new slowest component if its duration is longer
+   * than this.
+   *
+   * <p>This variable by itself is only used as a cache for the fast path. Thus, multiple threads
+   * might concurrently test against that variable and decide that they have found a slower slow
+   * component. However, then slowestComponents is updated under a lock and remains the source of
+   * truth. This variable is only inserted on a successful update.
+   */
+  private final AtomicLong fastestSlowComponentMs = new AtomicLong(-1L);
+
   private final Object lock = new Object();
 
   protected CriticalPathComputer(
@@ -85,7 +107,7 @@ public class CriticalPathComputer {
     this.actionKeyContext = actionKeyContext;
     this.clock = clock;
     this.discardActions = discardActions;
-    maxCriticalPath = null;
+    maxCriticalPath = new AtomicReference<>();
   }
 
   /**
@@ -328,9 +350,7 @@ public class CriticalPathComputer {
 
   /** Maximum critical path component found during the build. */
   protected CriticalPathComponent getMaxCriticalPath() {
-    synchronized (lock) {
-      return maxCriticalPath;
-    }
+    return maxCriticalPath.get();
   }
 
   /**
@@ -352,19 +372,18 @@ public class CriticalPathComputer {
     }
 
     boolean updated = component.finishActionExecution(startTimeNanos, clock.nanoTime());
-    synchronized (lock) {
-      if (isBiggestCriticalPath(component)) {
-        maxCriticalPath = component;
-      }
-
-      // We do not want to fill slow components list with the same component.
-      //
-      // This might still insert a second copy of the component but only if the new self elapsed
-      // time is greater than the old time. That said, in practice this is not important, since
-      // this would happen when we have two concurrent shared actions and one is a cache hit
-      // because of the other one. In this case, the cache hit would not appear in the 30 slowest
-      // actions or we had a very fast build, so we do not care :).
-      if (updated) {
+    maxCriticalPath.accumulateAndGet(component, SELECT_LONGER_COMPONENT);
+    if (updated && component.getElapsedTime().toMillis() > fastestSlowComponentMs.get()) {
+      // Multiple threads can get here concurrently, but that's ok as slowestComponents remains the
+      // source of truth. More details in the comment on fastestSlowComponentMs.
+      synchronized (lock) {
+        // We do not want to fill slow components list with the same component.
+        //
+        // This might still insert a second copy of the component but only if the new self elapsed
+        // time is greater than the old time. That said, in practice this is not important, since
+        // this would happen when we have two concurrent shared actions and one is a cache hit
+        // because of the other one. In this case, the cache hit would not appear in the 30 slowest
+        // actions or we had a very fast build, so we do not care :).
         if (slowestComponents.size() == SLOWEST_COMPONENTS_SIZE) {
           // The new component is faster than any of the slow components, avoid insertion.
           if (slowestComponents.peek().getElapsedTimeNanos() >= component.getElapsedTimeNanos()) {
@@ -372,19 +391,10 @@ public class CriticalPathComputer {
           }
           // Remove the head element to make space (The fastest component in the queue).
           slowestComponents.remove();
+          fastestSlowComponentMs.set(slowestComponents.peek().getElapsedTime().toMillis());
         }
         slowestComponents.add(component);
       }
-    }
-  }
-
-  private boolean isBiggestCriticalPath(CriticalPathComponent newCriticalPath) {
-    synchronized (lock) {
-      return maxCriticalPath == null
-          || maxCriticalPath
-                  .getAggregatedElapsedTime()
-                  .compareTo(newCriticalPath.getAggregatedElapsedTime())
-              < 0;
     }
   }
 
