@@ -24,7 +24,7 @@ title: Concepts and Terminology
   </li>
   <li><a href="#BUILD_files">BUILD Files</a>
     <ul>
-      <li><a href="#declaring_build_rules">Declaring Build Rules</a></li>
+      <li><a href="#load">Loading an extension</a></li>
     </ul>
   </li>
   <li><a href="#funcs">Types of Build Rules</a></li>
@@ -484,6 +484,50 @@ cc_binary(
   is intended for public use, and to document the role of the package
   itself.
 </p>
+
+<h3 id="load">Loading an extension</h3>
+
+Bazel extensions are files ending in <code>.bzl</code>. Use
+the <code>load</code> statement to import a symbol from an extension.
+
+<pre>
+load("//foo/bar:file.bzl", "some_library")
+<pre>
+
+This code will load the file <code>foo/bar/file.bzl</code> and add the
+<code>some_library</code> symbol to the environment. This can be used to load
+new rules, functions or constants (e.g. a string, a list, etc.). Multiple
+symbols can be imported by using additional arguments to the call
+to <code>load</code>. Arguments must be string literals (no variable)
+and <code>load</code> statements must appear at top-level, i.e. they cannot be
+in a function body.
+
+The first argument of <code>load</code> is a <a href="#labels">label</a>
+identifying a <code>.bzl</code> file. If it is a relative label, it is resolved
+with respect to the package (not directory) containing the current
+<code>bzl</code> file. Relative labels in <code>load</code> statements should
+use a leading <code>:</code>.
+
+<code>load</code> also supports aliases, i.e. you can assign different names to
+the imported symbols.
+
+<pre>
+load("//foo/bar:file.bzl", library_alias = "some_library")
+</pre>
+
+You can define multiple aliases within one <code>load</code> statement.
+Moreover, the argument list can contain both aliases and regular symbol names.
+The following example is perfectly legal (please note when to use quotation
+marks).
+
+<pre>
+load(":my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
+</pre>
+
+In a <code>.bzl</code> file, symbols starting with <code>_</code> are not
+exported and cannot be loaded from another file. Visibility doesn't affect
+loading (yet): you don't need to use <code>exports_files</code> to make
+a <code>.bzl</code> file visible.
 
 <h2 id="funcs">Types of build rule</h2>
 

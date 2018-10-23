@@ -7,45 +7,9 @@ title: Extension Overview
 
 <!-- [TOC] -->
 
-## Loading an extension
-
-Bazel extensions are files ending in `.bzl`. Use the `load` statement to
-import a symbol from an extension.
-
-```python
-load("//build_tools/rules:maprule.bzl", "maprule")
-```
-
-This code will load the file `build_tools/rules/maprule.bzl` and add the
-`maprule` symbol to the environment. This can be used to load new rules,
-functions or constants (e.g. a string, a list, etc.). Multiple symbols can be
-imported by using additional arguments to the call to `load`. Arguments must
-be string literals (no variable) and `load` statements must appear at
-top-level, i.e. they cannot be in a function body.
-
-The first argument of `load` is a [label](https://docs.bazel.build/versions/master/build-ref.html#labels)
-identifying a `.bzl` file. If it is a relative label, it is resolved with
-respect to the package (not directory) containing the current `.bzl` file.
-Relative labels in `load` statements should use a leading `:`.
-
-`load` also supports aliases, i.e. you can assign different names to the
-imported symbols.
-
-```python
-load("//build_tools/rules:maprule.bzl", maprule_alias = "maprule")
-```
-
-You can define multiple aliases within one `load` statement. Moreover, the
-argument list can contain both aliases and regular symbol names. The following
-example is perfectly legal (please note when to use quotation marks).
-
-```python
-load(":my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
-```
-
-In a `.bzl` file, symbols starting with `_` are not exported and cannot be loaded
-from another file. Visibility doesn't affect loading (yet): you don't need to
-use `exports_files` to make a `.bzl` file visible.
+Bazel extensions are files ending in `.bzl`. Use a
+[load statement](https://docs.bazel.build/versions/master/build-ref.html#labels)
+to import a symbol from an extension.
 
 ## Macros and rules
 
