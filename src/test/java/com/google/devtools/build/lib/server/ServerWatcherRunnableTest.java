@@ -25,7 +25,10 @@ import static org.mockito.Mockito.when;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unix.ProcMeminfoParser;
+import com.google.devtools.build.lib.util.OS;
 import io.grpc.Server;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Test;
@@ -57,7 +60,7 @@ public class ServerWatcherRunnableTest {
             invocation -> {
               checkIdleCounter.incrementAndGet();
               verify(mockServer, never()).shutdown();
-              clock.advanceMillis(5 * 1000L);
+              clock.advanceMillis(Duration.ofSeconds(5).toMillis());
               return null;
             })
         .when(mockCommands)
@@ -68,5 +71,69 @@ public class ServerWatcherRunnableTest {
 
     verify(mockServer).shutdown();
     assertThat(checkIdleCounter.get()).isEqualTo(2);
+  }
+
+  @Test
+  public void runLowAbsoluteHighPercentageMemoryCheck() throws Exception {
+    if (!usingLinux()) {
+      return;
+    }
+    assertThat(doesIdleLowMemoryCheckShutdown(/*freeRamKb=*/ 5000, /*totalRamKb=*/ 10000))
+        .isFalse();
+  }
+
+  @Test
+  public void runHighAbsoluteLowPercentageMemoryCheck() throws Exception {
+    if (!usingLinux()) {
+      return;
+    }
+    assertThat(doesIdleLowMemoryCheckShutdown(/*freeRamKb=*/ 1L << 21, /*totalRamKb=*/ 1L << 30))
+        .isFalse();
+  }
+
+  @Test
+  public void runLowAsboluteLowPercentageMemoryCheck() throws Exception {
+    if (!usingLinux()) {
+      return;
+    }
+    assertThat(doesIdleLowMemoryCheckShutdown(/*freeRamKb=*/ 5000, /*totalRamKb=*/ 1000000))
+        .isTrue();
+  }
+
+  private boolean doesIdleLowMemoryCheckShutdown(long freeRamKb, long totalRamKb) throws Exception {
+    CommandManager mockCommandManager = mock(CommandManager.class);
+    ProcMeminfoParser mockParser = mock(ProcMeminfoParser.class);
+    ServerWatcherRunnable underTest =
+        new ServerWatcherRunnable(
+            mockServer,
+            // Shut down after an hour if we see no memory issues.
+            /*maxIdleSeconds=*/ Duration.ofHours(1).getSeconds(),
+            mockCommandManager,
+            () -> mockParser);
+    Thread thread = new Thread(underTest);
+    when(mockCommandManager.isEmpty()).thenReturn(true);
+    AtomicInteger serverWatcherLoopCounter = new AtomicInteger();
+
+    when(mockParser.getFreeRamKb()).thenReturn(freeRamKb);
+    when(mockParser.getTotalKb()).thenReturn(totalRamKb);
+    doAnswer(
+            invocation -> {
+              serverWatcherLoopCounter.incrementAndGet();
+              clock.advanceMillis(Duration.ofMinutes(1).toMillis());
+              return null;
+            })
+        .when(mockCommandManager)
+        .waitForChange(Duration.ofSeconds(5).toMillis());
+
+    thread.start();
+    thread.join(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    verify(mockServer).shutdown();
+
+    // If we shut down due to memory pressure, it will only be after 5 minutes of being idle.
+    return serverWatcherLoopCounter.get() == 5;
+  }
+
+  private boolean usingLinux() {
+    return OS.getCurrent() == OS.LINUX;
   }
 }

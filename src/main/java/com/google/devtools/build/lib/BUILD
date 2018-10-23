@@ -1301,6 +1301,7 @@ java_library(
     deps = [
         ":exitcode-external",
         ":io",
+        ":os_util",
         ":runtime",
         ":unix",
         ":util",
