@@ -482,12 +482,22 @@ sh_test(
     tags = ["no_windows"],
 )
 
+filegroup(
+    name = "jdk_WORKSPACE",
+    srcs = [
+        "@jdk_WORKSPACE_files//:archives",
+    ],
+)
+
 sh_test(
     name = "workspace_resolved_test",
-    size = "medium",
+    size = "large",
     srcs = ["workspace_resolved_test.sh"],
-    data = [":test-deps"],
-    shard_count = 13,
+    data = [
+        ":jdk_WORKSPACE",
+        ":test-deps",
+    ],
+    shard_count = 14,
     tags = ["no_windows"],
 )
 
