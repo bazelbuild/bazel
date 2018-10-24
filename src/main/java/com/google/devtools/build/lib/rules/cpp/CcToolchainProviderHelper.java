@@ -672,7 +672,7 @@ public class CcToolchainProviderHelper {
       if (configInfo != null) {
         try {
           return CppToolchainInfo.create(
-              ruleContext.getRepository().getPathUnderExecRoot(),
+              ruleContext.getLabel().getPackageIdentifier().getPathUnderExecRoot(),
               ruleContext.getLabel(),
               configInfo,
               cppConfiguration.disableLegacyCrosstoolFields(),
