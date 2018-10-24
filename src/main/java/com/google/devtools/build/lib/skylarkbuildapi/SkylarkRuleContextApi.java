@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -370,91 +371,60 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       throws EvalException, FuncallException;
 
   @SkylarkCallable(
-    name = "new_file",
-    doc =
-        "DEPRECATED. Use <a href=\"actions.html#declare_file\">ctx.actions.declare_file</a>. <br>"
-            + "Creates a file object with the given filename, in the current package. "
-            + DOC_NEW_FILE_TAIL,
-    parameters = {
-      @Param(
-        name = "filename",
-        type = String.class,
-        doc = "The path of the new file, relative to the current package."
-      )
-    }
+      name = "new_file",
+      doc =
+          "DEPRECATED. Use <a href=\"actions.html#declare_file\">ctx.actions.declare_file</a>. <br>"
+              + "Creates a file object. There are four possible signatures to this method:<br><ul>"
+              + ""
+              + "<li>new_file(filename): Creates a file object with the given filename in the "
+              + "current package.</li>"
+              + ""
+              + "<li>new_file(file_root, filename): Creates a file object with the given "
+              + "filename under the given file root.</li>"
+              + ""
+              + "<li>new_file(sibling_file, filename): Creates a file object in the same "
+              + "directory as the given sibling file.</li>"
+              + ""
+              + "<li>new_file(file_root, sibling_file, suffix): Creates a file object with same "
+              + "base name of the sibling_file but with different given suffix, under the given "
+              + "file root.</li></ul> <br>"
+              + DOC_NEW_FILE_TAIL,
+      parameters = {
+          @Param(
+              name = "var1",
+              allowedTypes = {
+                  @ParamType(type = String.class),
+                  @ParamType(type = FileRootApi.class),
+                  @ParamType(type = FileApi.class),
+              },
+              doc = ""
+          ),
+          @Param(
+              name = "var2",
+              allowedTypes = {
+                  @ParamType(type = String.class),
+                  @ParamType(type = FileApi.class),
+                  @ParamType(type = UnboundMarker.class)
+              },
+              defaultValue = "unbound",
+              doc = ""
+          ),
+          @Param(
+              name = "var3",
+              allowedTypes = {
+                  @ParamType(type = String.class),
+                  @ParamType(type = UnboundMarker.class)
+              },
+              defaultValue = "unbound",
+              doc = ""
+          )
+      },
+      useLocation = true
   )
-  public FileApi newFileFromFilename(String filename) throws EvalException;
-
-  @SkylarkCallable(name = "new_file",
-    documented = false,
-    parameters = {
-      @Param(
-        name = "root",
-        positional = true,
-        named = false,
-        type = FileRootApi.class,
-        doc = "The file root."
-      ),
-      @Param(
-        name = "filename",
-        positional = true,
-        named = false,
-        type = String.class,
-        doc = "The file name."
-      ),
-    }
-  )
-  public FileApi newFileFromRoot(FileRootApi root, String filename) throws EvalException;
-
-  @SkylarkCallable(
-    name = "new_file",
-    doc =
-        "Creates a new file object in the same directory as the original file. "
-            + DOC_NEW_FILE_TAIL,
-    parameters = {
-      @Param(
-        name = "sibling_file",
-        type = FileApi.class,
-        doc = "A file that lives in the same directory as the newly created file."
-      ),
-      @Param(
-        name = "basename",
-        type = String.class,
-        doc = "The base name of the newly created file."
-      )
-    }
-  )
-  public FileApi newFileFromBaseFile(FileApi baseArtifact, String newBaseName) throws EvalException;
-
-  @SkylarkCallable(
-    name = "new_file",
-    documented = false,
-    parameters = {
-      @Param(
-        name = "root",
-        positional = true,
-        named = false,
-        type = FileRootApi.class,
-        doc = "The file root."
-      ),
-      @Param(
-        name = "base_file",
-        positional = true,
-        named = false,
-        type = FileApi.class,
-        doc = "The base file."
-      ),
-      @Param(
-        name = "suffix",
-        positional = true,
-        named = false,
-        type = String.class,
-        doc = "The filename suffix."
-      ),
-    }
-  )
-  public FileApi newFileFromRootAndBase(FileRootApi root, FileApi baseArtifact, String suffix)
-      throws EvalException;
+  public FileApi newFile(Object var1,
+      Object var2,
+      Object var3,
+      Location loc) throws EvalException;
 
   @SkylarkCallable(
     name = "experimental_new_directory",

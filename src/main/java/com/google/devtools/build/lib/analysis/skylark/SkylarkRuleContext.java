@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
@@ -698,35 +697,60 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public Artifact newFileFromFilename(String filename) throws EvalException {
+  public Artifact newFile(Object var1,
+      Object var2,
+      Object fileSuffix,
+      Location loc) throws EvalException {
     checkDeprecated("ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
-    return actionFactory.declareFile(filename, Runtime.NONE);
+
+    // Determine which of new_file's four signatures is being used. Yes, this is terrible.
+    // It's one major reason that this method is deprecated.
+    if (fileSuffix != Runtime.UNBOUND) {
+      // new_file(file_root, sibling_file, suffix)
+      ArtifactRoot root =
+          assertTypeForNewFile(var1, ArtifactRoot.class, loc,
+              "expected first param to be of type 'root'");
+      Artifact siblingFile =
+          assertTypeForNewFile(var2, Artifact.class, loc,
+              "expected second param to be of type 'File'");
+      PathFragment original = siblingFile.getRootRelativePath();
+      PathFragment fragment = original.replaceName(original.getBaseName() + fileSuffix);
+      return ruleContext.getDerivedArtifact(fragment, root);
+
+    } else if (var2 == Runtime.UNBOUND) {
+      // new_file(filename)
+      String filename =
+          assertTypeForNewFile(var1, String.class, loc,
+              "expected first param to be of type 'string'");
+      return actionFactory.declareFile(filename, Runtime.NONE);
+
+    } else {
+      String filename = assertTypeForNewFile(var2, String.class, loc,
+          "expected second param to be of type 'string'");
+      if (var1 instanceof ArtifactRoot) {
+        // new_file(root, filename)
+        ArtifactRoot root = (ArtifactRoot) var1;
+
+        return ruleContext.getPackageRelativeArtifact(filename, root);
+      } else {
+        // new_file(sibling_file, filename)
+        Artifact siblingFile =
+            assertTypeForNewFile(var1, Artifact.class, loc,
+                "expected first param to be of type 'File' or 'root'");
+
+        return actionFactory.declareFile(filename, siblingFile);
+      }
+    }
   }
 
-  // Kept for compatibility with old code.
-  @Override
-  public Artifact newFileFromRoot(FileRootApi root, String filename) throws EvalException {
-    checkMutable("new_file");
-    return ruleContext.getPackageRelativeArtifact(filename, (ArtifactRoot) root);
-  }
-
-  @Override
-  public Artifact newFileFromBaseFile(FileApi baseArtifact, String newBaseName)
-      throws EvalException {
-    checkDeprecated("ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
-    checkMutable("new_file");
-    return actionFactory.declareFile(newBaseName, baseArtifact);
-  }
-
-  // Kept for compatibility with old code.
-  @Override
-  public Artifact newFileFromRootAndBase(FileRootApi root, FileApi baseArtifact, String suffix)
-      throws EvalException {
-    checkMutable("new_file");
-    PathFragment original = ((Artifact) baseArtifact).getRootRelativePath();
-    PathFragment fragment = original.replaceName(original.getBaseName() + suffix);
-    return ruleContext.getDerivedArtifact(fragment, (ArtifactRoot) root);
+  private static <T> T assertTypeForNewFile(Object obj, Class<T> type, Location loc,
+      String errorMessage) throws EvalException {
+    if (type.isInstance(obj)) {
+      return (T) obj;
+    } else {
+      throw new EvalException(loc, errorMessage);
+    }
   }
 
   @Override
