@@ -52,7 +52,8 @@ public class Platform implements RuleConfiguredTargetFactory {
 
     if (parentPlatforms.size() > 1) {
       throw ruleContext.throwWithAttributeError(
-          PlatformRule.PARENTS_PLATFORM_ATTR, "parents attribute must have a single value");
+          PlatformRule.PARENTS_PLATFORM_ATTR,
+          PlatformRule.PARENTS_PLATFORM_ATTR + " attribute must have a single value");
     }
     PlatformInfo parentPlatform = Iterables.getFirst(parentPlatforms, null);
     platformBuilder.setParent(parentPlatform);
