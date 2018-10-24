@@ -434,8 +434,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, new ClientEnvironmentFunction(clientEnv));
     map.put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction());
     map.put(FileStateValue.FILE_STATE, newFileStateFunction());
-    map.put(SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(externalFilesHelper));
+    map.put(SkyFunctions.DIRECTORY_LISTING_STATE, newDirectoryListingStateFunction());
     map.put(SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS,
         new FileSymlinkCycleUniquenessFunction());
     map.put(SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
@@ -580,6 +579,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newFileStateFunction() {
     return new FileStateFunction(tsgm, externalFilesHelper);
+  }
+
+  protected SkyFunction newDirectoryListingStateFunction() {
+    return new DirectoryListingStateFunction(externalFilesHelper);
   }
 
   protected SkyFunction newGlobFunction() {
