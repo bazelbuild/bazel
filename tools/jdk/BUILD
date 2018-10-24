@@ -203,7 +203,6 @@ bootclasspath(
     name = "platformclasspath",
     src = "DumpPlatformClassPath.java",
     host_javabase = "current_java_runtime",
-    release = "8",  # fall-back only
     target_javabase = "current_java_runtime",
 )
 

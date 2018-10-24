@@ -21,12 +21,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -42,7 +39,6 @@ import java.util.jar.JarOutputStream;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import javax.tools.JavaFileManager;
-import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardJavaFileManager;
@@ -56,24 +52,19 @@ import javax.tools.StandardLocation;
 public class DumpPlatformClassPath {
 
   public static void main(String[] args) throws Exception {
-    if (args.length < 2 || args.length > 3) {
-      System.err.println(
-          "usage: DumpPlatformClassPath <release version> <output jar> <path to target JDK>?");
+    if (args.length != 2) {
+      System.err.println("usage: DumpPlatformClassPath <output jar> <path to target JDK>");
       System.exit(1);
     }
-    int release = Integer.parseInt(args[0]);
-    Path output = Paths.get(args[1]);
-    Path targetJavabase = null;
-    if (args.length == 3) {
-      targetJavabase = Paths.get(args[2]);
-    }
+    Path output = Paths.get(args[0]);
+    Path targetJavabase = Paths.get(args[1]);
 
     int hostMajorVersion = hostMajorVersion();
     boolean ok;
     if (hostMajorVersion == 8) {
-      ok = dumpJDK8BootClassPath(release, output, targetJavabase);
+      ok = dumpJDK8BootClassPath(output, targetJavabase);
     } else {
-      ok = dumpJDK9AndNewerBootClassPath(hostMajorVersion, release, output, targetJavabase);
+      ok = dumpJDK9AndNewerBootClassPath(hostMajorVersion, output, targetJavabase);
     }
     System.exit(ok ? 0 : 1);
   }
@@ -81,22 +72,8 @@ public class DumpPlatformClassPath {
   // JDK 8 bootclasspath handling.
   // * JDK 8 represents a bootclasspath as a search path of jars (rt.jar, etc.).
   // * It does not support --release or --system.
-  static boolean dumpJDK8BootClassPath(int release, Path output, Path targetJavabase)
-      throws IOException {
-    if (release != 8) {
-      System.err.printf("error: --release=%s is not supported on --host_javabase=8\n", release);
-      return false;
-    }
-    List<Path> bootClassPathJars;
-    if (targetJavabase != null) {
-      bootClassPathJars = getBootClassPathJars(targetJavabase);
-    } else {
-      Path hostJavabase = Paths.get(System.getProperty("java.home"));
-      if (hostJavabase.endsWith("jre")) {
-        hostJavabase = hostJavabase.getParent();
-      }
-      bootClassPathJars = getBootClassPathJars(hostJavabase);
-    }
+  static boolean dumpJDK8BootClassPath(Path output, Path targetJavabase) throws IOException {
+    List<Path> bootClassPathJars = getBootClassPathJars(targetJavabase);
     writeClassPathJars(output, bootClassPathJars);
     return true;
   }
@@ -104,7 +81,7 @@ public class DumpPlatformClassPath {
   // JDK > 8 --host_javabase bootclasspath handling.
   // (The default --host_javabase is currently JDK 9.)
   static boolean dumpJDK9AndNewerBootClassPath(
-      int hostMajorVersion, int release, Path output, Path targetJavabase) throws IOException {
+      int hostMajorVersion, Path output, Path targetJavabase) throws IOException {
 
     // JDK 9 and newer support cross-compiling to older platform versions using the --system
     // and --release flags.
@@ -115,26 +92,14 @@ public class DumpPlatformClassPath {
 
     // Since --system only supports JDK >= 9, first check of the target JDK defines a JDK 8
     // bootclasspath.
-    if (targetJavabase != null) {
-      List<Path> bootClassPathJars = getBootClassPathJars(targetJavabase);
-      if (!bootClassPathJars.isEmpty()) {
-        writeClassPathJars(output, bootClassPathJars);
-        return true;
-      }
-      if (release == 8) {
-        System.err.printf(
-            "warning: could not find a JDK 8 bootclasspath in %s, falling back to --release\n",
-            targetJavabase);
-      }
+    List<Path> bootClassPathJars = getBootClassPathJars(targetJavabase);
+    if (!bootClassPathJars.isEmpty()) {
+      writeClassPathJars(output, bootClassPathJars);
+      return true;
     }
 
-    // Initialize a FileManager to process the --release or --system arguments, and then read the
+    // Initialize a FileManager to process the --system argument, and then read the
     // initialized bootclasspath data back out.
-
-    List<String> javacOptions =
-        targetJavabase != null
-            ? Arrays.asList("--system", String.valueOf(targetJavabase))
-            : Arrays.asList("--release", String.valueOf(release));
 
     Context context = new Context();
     JavacTool.create()
@@ -142,7 +107,7 @@ public class DumpPlatformClassPath {
             /* out = */ null,
             /* fileManager = */ null,
             /* diagnosticListener = */ null,
-            /* options = */ javacOptions,
+            /* options = */ Arrays.asList("--system", String.valueOf(targetJavabase)),
             /* classes = */ null,
             /* compilationUnits = */ null,
             context);
@@ -150,37 +115,15 @@ public class DumpPlatformClassPath {
         (StandardJavaFileManager) context.get(JavaFileManager.class);
 
     SortedMap<String, InputStream> entries = new TreeMap<>();
-    if (hostMajorVersion == 9 && targetJavabase == null && release == 8) {
-      // Work-around: when running on a JDK 9 host_javabase with --release 8, the ct.sym
-      // handling isn't compatible with the FileManager#list code path in the branch below.
-      for (Path path : getLocationAsPaths(fileManager)) {
-        Files.walkFileTree(
-            path,
-            new SimpleFileVisitor<Path>() {
-              @Override
-              public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-                  throws IOException {
-                if (file.getFileName().toString().endsWith(".sig")) {
-                  String outputPath = path.relativize(file).toString();
-                  outputPath =
-                      outputPath.substring(0, outputPath.length() - ".sig".length()) + ".class";
-                  entries.put(outputPath, Files.newInputStream(file));
-                }
-                return FileVisitResult.CONTINUE;
-              }
-            });
-      }
-    } else {
-      for (JavaFileObject fileObject :
-          fileManager.list(
-              StandardLocation.PLATFORM_CLASS_PATH,
-              "",
-              EnumSet.of(Kind.CLASS),
-              /* recurse= */ true)) {
-        String binaryName =
-            fileManager.inferBinaryName(StandardLocation.PLATFORM_CLASS_PATH, fileObject);
-        entries.put(binaryName.replace('.', '/') + ".class", fileObject.openInputStream());
-      }
+    for (JavaFileObject fileObject :
+        fileManager.list(
+            StandardLocation.PLATFORM_CLASS_PATH,
+            "",
+            EnumSet.of(Kind.CLASS),
+            /* recurse= */ true)) {
+      String binaryName =
+          fileManager.inferBinaryName(StandardLocation.PLATFORM_CLASS_PATH, fileObject);
+      entries.put(binaryName.replace('.', '/') + ".class", fileObject.openInputStream());
     }
     writeEntries(output, entries);
     return true;
@@ -286,22 +229,6 @@ public class DumpPlatformClassPath {
       boas.write(buffer, 0, r);
     }
     return boas.toByteArray();
-  }
-
-  /**
-   * Reflectively calls {@code StandardJavaFileManager#getLocationAsPaths}, which is only available
-   * in JDK 9 and newer.
-   */
-  @SuppressWarnings("unchecked")
-  private static Iterable<Path> getLocationAsPaths(StandardJavaFileManager fileManager) {
-    try {
-      return (Iterable<Path>)
-          StandardJavaFileManager.class
-              .getMethod("getLocationAsPaths", Location.class)
-              .invoke(fileManager, StandardLocation.PLATFORM_CLASS_PATH);
-    } catch (ReflectiveOperationException e) {
-      throw new LinkageError(e.getMessage(), e);
-    }
   }
 
   /**

@@ -115,7 +115,6 @@ def _bootclasspath(ctx):
     # https://github.com/bazelbuild/bazel/issues/6203
     classes = [
         "DumpPlatformClassPath.class",
-        "DumpPlatformClassPath$1.class",
     ]
 
     class_outputs = [
@@ -155,7 +154,6 @@ def _bootclasspath(ctx):
         join_with = ctx.configuration.host_path_separator,
     )
     args.add("DumpPlatformClassPath")
-    args.add(ctx.attr.release)
     args.add(bootclasspath)
 
     if ctx.attr.target_javabase:
@@ -176,7 +174,6 @@ bootclasspath = rule(
             cfg = "host",
             providers = [java_common.JavaRuntimeInfo],
         ),
-        "release": attr.string(),
         "src": attr.label(
             cfg = "host",
             allow_single_file = True,
