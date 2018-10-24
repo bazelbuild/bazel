@@ -42,9 +42,8 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
 
   @Test
   public void testThatHostCrosstoolTopCommandLineArgumentWorks() throws Exception {
-
     scratch.file(
-        "t/BUILD",
+        "b/BUILD",
         "cc_toolchain_suite(",
         "  name = 'my_custom_toolchain_suite',",
         "  toolchains = {",
@@ -52,13 +51,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "    'k8|compiler': '//b:toolchain_b',",
         "    'x64_windows|windows_msys64': '//b:toolchain_b',",
         "    'darwin|compiler': '//b:toolchain_b',",
-
-        "})");
-
-    scratch.file("t/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
-
-    scratch.file(
-        "b/BUILD",
+        "})",
         "cc_toolchain(",
         "    name = 'toolchain_b',",
         "    cpu = 'ED-E',",
@@ -72,9 +65,11 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "    objcopy_files = ':empty',",
         "    dynamic_runtime_libs = [':empty'],",
         "    static_runtime_libs = [':empty'])");
+    scratch.file("b/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
+
     scratch.file("a/BUILD", "cc_host_toolchain_alias(name='current_cc_host_toolchain')");
 
-    useConfiguration("--host_crosstool_top=//t:my_custom_toolchain_suite");
+    useConfiguration("--host_crosstool_top=//b:my_custom_toolchain_suite");
     ConfiguredTarget target = getConfiguredTarget("//a:current_cc_host_toolchain");
 
     assertThat(target.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//b:toolchain_b"));

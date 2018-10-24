@@ -404,12 +404,12 @@ public class CcToolchainProviderHelper {
 
     // Is there a toolchain proto available on the target directly?
     CToolchain toolchain = parseToolchainFromAttributes(ruleContext, attributes);
-    Label ccToolchainSuiteLabelIfNeeded = null;
+    PackageIdentifier packageWithCrosstoolInIt = null;
     if (toolchain == null && cppConfiguration.getCrosstoolFromCcToolchainProtoAttribute() == null) {
-      ccToolchainSuiteLabelIfNeeded = cppConfiguration.getCrosstoolTop();
+      packageWithCrosstoolInIt = ruleContext.getLabel().getPackageIdentifier();
     }
 
-    SkyKey ccSupportKey = CcSkyframeSupportValue.key(fdoZip, ccToolchainSuiteLabelIfNeeded);
+    SkyKey ccSupportKey = CcSkyframeSupportValue.key(fdoZip, packageWithCrosstoolInIt);
 
     SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     CcSkyframeSupportValue ccSkyframeSupportValue;
