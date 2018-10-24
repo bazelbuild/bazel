@@ -78,19 +78,19 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
     super(SKYLARK_CONSTRUCTOR);
     this.xcodeVersion = Optional.fromNullable(xcodeVersion);
     this.defaultIosSdkVersion =
-        (Strings.isNullOrEmpty(defaultIosSdkVersion))
+        Strings.isNullOrEmpty(defaultIosSdkVersion)
             ? DottedVersion.fromString(DEFAULT_IOS_SDK_VERSION)
             : DottedVersion.fromString(defaultIosSdkVersion);
     this.defaultWatchosSdkVersion =
-        (Strings.isNullOrEmpty(defaultWatchosSdkVersion))
+        Strings.isNullOrEmpty(defaultWatchosSdkVersion)
             ? DottedVersion.fromString(DEFAULT_WATCHOS_SDK_VERSION)
             : DottedVersion.fromString(defaultWatchosSdkVersion);
     this.defaultTvosSdkVersion =
-        (Strings.isNullOrEmpty(defaultTvosSdkVersion))
+        Strings.isNullOrEmpty(defaultTvosSdkVersion)
             ? DottedVersion.fromString(DEFAULT_TVOS_SDK_VERSION)
             : DottedVersion.fromString(defaultTvosSdkVersion);
     this.defaultMacosSdkVersion =
-        (Strings.isNullOrEmpty(defaultMacosSdkVersion))
+        Strings.isNullOrEmpty(defaultMacosSdkVersion)
             ? DottedVersion.fromString(DEFAULT_MACOS_SDK_VERSION)
             : DottedVersion.fromString(defaultMacosSdkVersion);
   }
