@@ -1,4 +1,4 @@
-:: Copyright 2017 The Bazel Authors. All rights reserved.
+:: Copyright 2018 The Bazel Authors. All rights reserved.
 ::
 :: Licensed under the Apache License, Version 2.0 (the "License");
 :: you may not use this file except in compliance with the License.
@@ -15,10 +15,9 @@
 @echo OFF
 
 echo. 1>&2
-echo The target you are compiling requires Visual C++ build tools. 1>&2
-echo Bazel couldn't find a valid Visual C++ build tools installation on your machine. 1>&2
-%{vc_error_message}
-echo Please check your installation following https://docs.bazel.build/versions/master/windows.html#using 1>&2
+echo The target you are compiling requires MSYS gcc / MINGW gcc. 1>&2
+echo Bazel couldn't find gcc installation on your machine. 1>&2
+echo Please install MSYS gcc / MINGW gcc and set BAZEL_SH environment variable 1>&2
 echo. 1>&2
 
 exit /b 1

@@ -31,20 +31,24 @@ def _auto_configure_warning_maybe(repository_ctx, msg):
         auto_configure_warning(msg)
 
 def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = False):
-    """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
-    bazel_sh = get_env_var(repository_ctx, "BAZEL_SH").replace("\\", "/").lower()
+    """Return the content of msys crosstool."""
+    bazel_sh = get_env_var(repository_ctx, "BAZEL_SH", "", False).replace("\\", "/").lower()
     tokens = bazel_sh.rsplit("/", 1)
-    prefix = "mingw64" if use_mingw else "usr"
-    msys_root = None
+    msys_root = ""
     if tokens[0].endswith("/usr/bin"):
         msys_root = tokens[0][:len(tokens[0]) - len("usr/bin")]
     elif tokens[0].endswith("/bin"):
         msys_root = tokens[0][:len(tokens[0]) - len("bin")]
-    if not msys_root:
-        auto_configure_fail(
-            "Could not determine MSYS/Cygwin root from BAZEL_SH (%s)" % bazel_sh,
-        )
-    escaped_msys_root = escape_string(msys_root)
+    prefix = "mingw64" if use_mingw else "usr"
+    tool_path_prefix = escape_string(msys_root) + prefix
+    tool_path = {}
+
+    for tool in ["ar", "compat-ld", "cpp", "dwp", "gcc", "gcov", "ld", "nm", "objcopy", "objdump", "strip"]:
+        if msys_root:
+            tool_path[tool] = tool_path_prefix + "/bin/" + tool
+        else:
+            tool_path[tool] = "msys_gcc_installation_error.bat"
+
     return (((
                 '   abi_version: "local"\n' +
                 '   abi_libc_version: "local"\n' +
@@ -56,23 +60,23 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
                 '   target_cpu: "x64_windows"\n' +
                 '   target_system_name: "local"\n'
             ) if not use_mingw else "") +
-            '   tool_path { name: "ar" path: "%s%s/bin/ar" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "compat-ld" path: "%s%s/bin/ld" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "cpp" path: "%s%s/bin/cpp" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "dwp" path: "%s%s/bin/dwp" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "gcc" path: "%s%s/bin/gcc" }\n' % (escaped_msys_root, prefix) +
+            '   tool_path { name: "ar" path: "%s" }\n' % tool_path["ar"] +
+            '   tool_path { name: "compat-ld" path: "%s" }\n' % tool_path["ld"] +
+            '   tool_path { name: "cpp" path: "%s" }\n' % tool_path["cpp"] +
+            '   tool_path { name: "dwp" path: "%s" }\n' % tool_path["dwp"] +
+            '   tool_path { name: "gcc" path: "%s" }\n' % tool_path["gcc"] +
+            '   tool_path { name: "gcov" path: "%s" }\n' % tool_path["gcov"] +
+            '   tool_path { name: "ld" path: "%s" }\n' % tool_path["ld"] +
+            '   tool_path { name: "nm" path: "%s" }\n' % tool_path["nm"] +
+            '   tool_path { name: "objcopy" path: "%s" }\n' % tool_path["objcopy"] +
+            '   tool_path { name: "objdump" path: "%s" }\n' % tool_path["objdump"] +
+            '   tool_path { name: "strip" path: "%s" }\n' % tool_path["strip"] +
+            ((' cxx_builtin_include_directory: "%s/"\n' % tool_path_prefix) if msys_root else "") +
             '   artifact_name_pattern { category_name: "executable" prefix: "" extension: ".exe"}\n' +
             '   cxx_flag: "-std=gnu++0x"\n' +
             '   linker_flag: "-lstdc++"\n' +
-            '   cxx_builtin_include_directory: "%s%s/"\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "gcov" path: "%s%s/bin/gcov" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "ld" path: "%s%s/bin/ld" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "nm" path: "%s%s/bin/nm" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "objcopy" path: "%s%s/bin/objcopy" }\n' % (escaped_msys_root, prefix) +
             '   objcopy_embed_flag: "-I"\n' +
             '   objcopy_embed_flag: "binary"\n' +
-            '   tool_path { name: "objdump" path: "%s%s/bin/objdump" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "strip" path: "%s%s/bin/strip" }' % (escaped_msys_root, prefix) +
             '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }' +
             '   feature { name: "copy_dynamic_libraries_to_binary" }')
 
@@ -264,9 +268,14 @@ def configure_windows_toolchain(repository_ctx):
         "@bazel_tools//tools/cpp:CROSSTOOL",
         "@bazel_tools//tools/cpp:CROSSTOOL.tpl",
         "@bazel_tools//tools/cpp:vc_installation_error.bat.tpl",
+        "@bazel_tools//tools/cpp:msys_gcc_installation_error.bat",
     ])
 
     repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.windows"], "BUILD")
+    repository_ctx.symlink(
+        paths["@bazel_tools//tools/cpp:msys_gcc_installation_error.bat"],
+        "msys_gcc_installation_error.bat",
+    )
 
     vc_path = find_vc_path(repository_ctx)
     missing_tools = None
