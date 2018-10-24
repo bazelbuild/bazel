@@ -66,6 +66,7 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
     "forcibly_disable_header_compilation": 0,
     "genclass": ["@bazel_tools//tools/jdk:genclass"],
     "header_compiler": ["@bazel_tools//tools/jdk:turbine"],
+    "header_compiler_direct": ["@bazel_tools//tools/jdk:turbine_direct"],
     "ijar": ["@bazel_tools//tools/jdk:ijar"],
     "javabuilder": ["@bazel_tools//tools/jdk:javabuilder"],
     "javac": ["@bazel_tools//third_party/java/jdk/langtools:javac_jar"],
