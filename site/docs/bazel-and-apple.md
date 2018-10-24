@@ -56,4 +56,3 @@ when building your macOS and iOS projects:
 *  Providers:
 
    *  [`ObjcProvider`](skylark/lib/ObjcProvider.html)
-   *  [`XcTestAppProvider`](skylark/lib/XcTestAppProvider.html)
