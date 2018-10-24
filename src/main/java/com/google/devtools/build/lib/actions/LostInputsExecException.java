@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -29,7 +30,8 @@ public class LostInputsExecException extends ExecException {
     this.lostInputs = lostInputs;
   }
 
-  private ImmutableList<ActionInput> getLostInputs() {
+  @VisibleForTesting
+  public ImmutableList<ActionInput> getLostInputs() {
     return lostInputs;
   }
 
