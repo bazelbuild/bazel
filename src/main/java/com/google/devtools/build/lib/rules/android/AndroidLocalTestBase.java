@@ -205,15 +205,19 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             javaRuleOutputJarsProviderBuilder,
             javaSourceJarsProviderBuilder);
 
-    String mainClass =
-        getMainClass(
-            ruleContext,
-            javaSemantics,
-            helper,
-            executable,
-            instrumentationMetadata,
-            javaArtifactsBuilder,
-            attributesBuilder);
+    String mainClass = javaSemantics.getTestRunnerMainClass();
+    String originalMainClass = mainClass;
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      mainClass = addCoverageSupport(
+          ruleContext,
+          javaSemantics,
+          helper,
+          executable,
+          instrumentationMetadata,
+          javaArtifactsBuilder,
+          attributesBuilder,
+          mainClass);
+    }
 
     // JavaCompilationHelper.getAttributes() builds the JavaTargetAttributes, after which the
     // JavaTargetAttributes becomes immutable. This is an extra safety check to avoid inconsistent
@@ -259,6 +263,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         getJvmFlags(ruleContext, testClass),
         executable,
         mainClass,
+        originalMainClass,
+        filesToBuildBuilder,
         javaExecutable);
 
     Artifact oneVersionOutputArtifact = null;
@@ -550,15 +556,21 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   protected abstract ImmutableList<String> getJvmFlags(RuleContext ruleContext, String testClass)
       throws RuleErrorException;
 
-  /** Return the testrunner main class */
-  protected abstract String getMainClass(
+  /**
+   * Enables coverage support for Android and Java targets: adds instrumented jar to the classpath
+   * and modifies main class.
+   *
+   * @return new main class
+   */
+  protected abstract String addCoverageSupport(
       RuleContext ruleContext,
       JavaSemantics javaSemantics,
       JavaCompilationHelper helper,
       Artifact executable,
       Artifact instrumentationMetadata,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
-      JavaTargetAttributes.Builder attributesBuilder)
+      JavaTargetAttributes.Builder attributesBuilder,
+      String mainClass)
       throws InterruptedException, RuleErrorException;
 
   /**

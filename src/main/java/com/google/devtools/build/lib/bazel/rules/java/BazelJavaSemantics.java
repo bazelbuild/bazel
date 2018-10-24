@@ -117,6 +117,11 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
 
+  @Override
+  public String getTestRunnerMainClass() {
+    return BAZEL_TEST_RUNNER_MAIN_CLASS;
+  }
+
   @Nullable
   private String getMainClassInternal(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     if (!ruleContext.attributes().get("create_executable", Type.BOOLEAN)) {

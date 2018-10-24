@@ -277,6 +277,8 @@ public interface JavaSemantics {
    */
   ImmutableList<Artifact> collectResources(RuleContext ruleContext);
 
+  String getTestRunnerMainClass();
+
   /**
    * Constructs the command line to call SingleJar to join all artifacts from {@code classpath}
    * (java code) and {@code resources} into {@code output}.
