@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -390,11 +389,6 @@ public class Artifact
     return fileType.matches(this);
   }
 
-  /** Checks whether this artifact is any of the supplied file types. */
-  public boolean isAnyFileType(FileTypeSet fileTypeSet) {
-    return fileTypeSet.matches(filePathForFileTypeMatcher());
-  }
-
   @Override
   public String filePathForFileTypeMatcher() {
     return getExecPath().filePathForFileTypeMatcher();
@@ -498,11 +492,6 @@ public class Artifact
     return false;
   }
 
-  /** Only callable if isSourceArtifact() is true. */
-  public SourceArtifact asSourceArtifact() {
-    throw new IllegalStateException("Not a source artifact!");
-  }
-
   /** {@link Artifact#isSourceArtifact() is true.
    *
    * <p>Source artifacts have the property that unlike for output artifacts, direct file system
@@ -514,11 +503,6 @@ public class Artifact
     @VisibleForTesting
     public SourceArtifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
       super(root, execPath, owner);
-    }
-
-    @Override
-    public SourceArtifact asSourceArtifact() {
-      return this;
     }
 
     /**
@@ -831,16 +815,6 @@ public class Artifact
   }
 
   /**
-   * Lazily converts artifacts into absolute path strings. Middleman artifacts are ignored by
-   * this method.
-   */
-  public static Iterable<String> toAbsolutePaths(Iterable<Artifact> artifacts) {
-    return Iterables.transform(
-        Iterables.filter(artifacts, MIDDLEMAN_FILTER),
-        artifact -> artifact.getPath().getPathString());
-  }
-
-  /**
    * Lazily converts artifacts into root-relative path strings. Middleman artifacts are ignored by
    * this method.
    */
@@ -944,30 +918,6 @@ public class Artifact
     for (Artifact artifact : artifacts) {
       output.add(outputFormatter.apply(artifact));
     }
-  }
-
-  /**
-   * Converts a collection of artifacts into execution-time path strings, and
-   * returns those as a list. Middleman artifacts are expanded once. The
-   * returned list is mutable.
-   */
-  public static List<String> asExpandedExecPathStrings(Iterable<Artifact> artifacts,
-                                                       ArtifactExpander artifactExpander) {
-    List<String> result = new ArrayList<>();
-    addExpandedExecPathStrings(artifacts, result, artifactExpander);
-    return result;
-  }
-
-  /**
-   * Converts a collection of artifacts into execution-time path fragments, and
-   * returns those as a list. Middleman artifacts are expanded once. The
-   * returned list is mutable.
-   */
-  public static List<PathFragment> asExpandedExecPaths(Iterable<Artifact> artifacts,
-                                                       ArtifactExpander artifactExpander) {
-    List<PathFragment> result = new ArrayList<>();
-    addExpandedExecPaths(artifacts, result, artifactExpander);
-    return result;
   }
 
   /**
