@@ -67,10 +67,10 @@ public class CcSkyframeSupportFunction implements SkyFunction {
     }
 
     CrosstoolRelease crosstoolRelease = null;
-    if (key.getCcToolchainSuiteLabel() != null) {
+    if (key.getPackageWithCrosstoolInIt() != null) {
       try {
         // 1. Lookup the package to handle multiple package roots (PackageLookupValue)
-        PackageIdentifier packageIdentifier = key.getCcToolchainSuiteLabel().getPackageIdentifier();
+        PackageIdentifier packageIdentifier = key.getPackageWithCrosstoolInIt();
         PackageLookupValue crosstoolPackageValue =
             (PackageLookupValue) env.getValue(PackageLookupValue.key(packageIdentifier));
         if (env.valuesMissing()) {

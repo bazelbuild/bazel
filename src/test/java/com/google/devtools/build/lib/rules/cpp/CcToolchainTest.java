@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
@@ -265,6 +266,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = ':empty',",
         "    dynamic_runtime_libs = [':empty'],",
         "    static_runtime_libs = [':empty'])");
+    scratch.file("a/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
 
     // Check defaults.
     useConfiguration();
@@ -529,6 +531,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "fdo/BUILD",
         "exports_files(['my_profile.afdo'])",
         "fdo_profile(name = 'fdo', profile = ':my_profile.profdata')");
+    scratch.file("a/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
 
     useConfiguration();
     assertThat(getPrerequisites(getConfiguredTarget("//a:b"), ":zipper")).isEmpty();
@@ -670,10 +673,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "cc_toolchain_config_rule(name = 'toolchain_config')",
         "filegroup(",
         "   name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    cpu = 'banana',",
@@ -688,6 +687,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    dynamic_runtime_libs = [':empty'],",
         "    static_runtime_libs = [':empty'],",
         "    toolchain_config = ':toolchain_config')");
+    scratch.file("a/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
 
     scratch.file(
         "a/crosstool_rule.bzl",
@@ -887,10 +887,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "a/BUILD",
         "filegroup(",
         "    name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    cpu = 'banana',",
