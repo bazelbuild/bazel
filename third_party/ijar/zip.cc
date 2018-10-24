@@ -41,6 +41,7 @@
 
 #define LOCAL_FILE_HEADER_SIGNATURE   0x04034b50
 #define CENTRAL_FILE_HEADER_SIGNATURE 0x02014b50
+#define UNIX_ZIP_FILE_VERSION 0x0300
 #define DIGITAL_SIGNATURE             0x05054b50
 #define ZIP64_EOCD_SIGNATURE          0x06064b50
 #define ZIP64_EOCD_LOCATOR_SIGNATURE  0x07064b50
@@ -893,7 +894,7 @@ void OutputZipFile::WriteCentralDirectory() {
   for (size_t ii = 0; ii < entries_.size(); ++ii) {
     LocalFileEntry *entry = entries_[ii];
     put_u4le(q, CENTRAL_FILE_HEADER_SIGNATURE);
-    put_u2le(q, 0);  // version made by
+    put_u2le(q, UNIX_ZIP_FILE_VERSION);
 
     put_u2le(q, ZIP_VERSION_TO_EXTRACT);  // version to extract
     put_u2le(q, 0);  // general purpose bit flag
@@ -924,7 +925,7 @@ void OutputZipFile::WriteCentralDirectory() {
     put_u4le(q, ZIP64_EOCD_SIGNATURE);
     // signature and size field doesn't count towards size
     put_u8le(q, ZIP64_EOCD_FIXED_SIZE - 12);
-    put_u2le(q, 0);  // version made by
+    put_u2le(q, UNIX_ZIP_FILE_VERSION);  // version made by
     put_u2le(q, 0);  // version needed to extract
     put_u4le(q, 0);  // number of this disk
     put_u4le(q, 0);  // # of the disk with the start of the central directory
