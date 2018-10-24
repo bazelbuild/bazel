@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.In
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 
@@ -64,10 +63,8 @@ public interface PythonSemantics {
   Collection<Artifact> precompiledPythonFiles(
       RuleContext ruleContext, Collection<Artifact> sources, PyCommon common);
 
-  /**
-   * Returns a list of PathFragments for the import paths specified in the imports attribute.
-   */
-  List<PathFragment> getImports(RuleContext ruleContext);
+  /** Returns a list of PathFragments for the import paths specified in the imports attribute. */
+  List<String> getImports(RuleContext ruleContext);
 
   /**
    * Create the actual executable artifact.
@@ -78,7 +75,7 @@ public interface PythonSemantics {
       RuleContext ruleContext,
       PyCommon common,
       CcLinkingInfo ccLinkingInfo,
-      NestedSet<PathFragment> imports)
+      NestedSet<String> imports)
       throws InterruptedException, RuleErrorException;
 
   /**
