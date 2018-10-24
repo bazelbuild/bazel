@@ -23,6 +23,7 @@ java_library(
         ":query-engine",
         ":query-output",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:command-utils",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:util",

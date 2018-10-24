@@ -17,6 +17,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:command-utils",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",

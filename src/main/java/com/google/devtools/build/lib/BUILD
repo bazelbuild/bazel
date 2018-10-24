@@ -182,11 +182,28 @@ java_library(
     ],
 )
 
+COMMAND_UTILS_SRCS = [
+    "util/CommandFailureUtils.java",
+    "util/CommandUtils.java",
+]
+
+java_library(
+    name = "command-utils",
+    srcs = COMMAND_UTILS_SRCS,
+    deps = [
+        ":util",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
 java_library(
     name = "util",
     srcs = glob(
         ["util/*.java"],
-        exclude = [
+        exclude = COMMAND_UTILS_SRCS + [
             "util/BlazeClock.java",
             "util/Clock.java",
             "util/ExitCode.java",
@@ -580,6 +597,7 @@ java_library(
     deps = [
         ":base-util",
         ":build-request-options",
+        ":command-utils",
         ":events",
         ":exitcode-external",
         ":io",
@@ -1343,6 +1361,7 @@ java_library(
     deps = [
         ":build-base",
         ":build-request-options",
+        ":command-utils",
         ":events",
         ":exitcode-external",
         ":io",

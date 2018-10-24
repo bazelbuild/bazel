@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -48,8 +47,8 @@ public class CommandUtils {
    * bar baz".
    */
   public static String describeCommandError(boolean verbose, Command command) {
-    return CommandFailureUtils.describeCommandError(verbose, commandLine(command), env(command),
-                                                    cwd(command));
+    return CommandFailureUtils.describeCommandError(
+        verbose, commandLine(command), env(command), cwd(command), null);
   }
 
   /**
@@ -58,8 +57,8 @@ public class CommandUtils {
    * command /dir/foo bar baz".
    */
   public static String describeCommandFailure(boolean verbose, Command command) {
-    return CommandFailureUtils.describeCommandFailure(verbose, commandLine(command), env(command),
-                                                      cwd(command));
+    return CommandFailureUtils.describeCommandFailure(
+        verbose, commandLine(command), env(command), cwd(command), null);
   }
 
   /**
