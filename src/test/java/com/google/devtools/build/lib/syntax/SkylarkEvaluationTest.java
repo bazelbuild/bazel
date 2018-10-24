@@ -2218,7 +2218,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .testIfExactError(
             // TODO(bazel-team): This should probably match the error above better.
-            "struct has no method 'nonexistent_method'", "v = val.nonexistent_method()");
+            "type 'SkylarkClassObjectWithSkylarkCallables' has no method nonexistent_method()",
+            "v = val.nonexistent_method()");
   }
 
   @Test

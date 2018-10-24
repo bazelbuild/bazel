@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.io.IOException;
-import java.util.Optional;
 
 /** Syntax node for a dot expression. e.g. obj.field, but not obj.method() */
 public final class DotExpression extends Expression {
@@ -118,24 +116,19 @@ public final class DotExpression extends Expression {
   public static Object eval(Object objValue, String name,
       Location loc, Environment env) throws EvalException, InterruptedException {
 
-    Iterable<MethodDescriptor> methods =
+    MethodDescriptor method =
         objValue instanceof Class<?>
-            ? FuncallExpression.getMethods(env.getSemantics(), (Class<?>) objValue, name)
-            : FuncallExpression.getMethods(env.getSemantics(), objValue.getClass(), name);
+            ? FuncallExpression.getMethod(env.getSemantics(), (Class<?>) objValue, name)
+            : FuncallExpression.getMethod(env.getSemantics(), objValue.getClass(), name);
 
-    if (methods != null) {
-      Optional<MethodDescriptor> method =
-          Streams.stream(methods).filter(MethodDescriptor::isStructField).findFirst();
-      if (method.isPresent() && method.get().isStructField()) {
-        return method
-            .get()
-            .call(
-                objValue,
-                FuncallExpression.extraInterpreterArgs(method.get(), /* ast = */ null, loc, env)
-                    .toArray(),
-                loc,
-                env);
-      }
+    if (method != null && method.isStructField()) {
+      return method
+          .call(
+              objValue,
+              FuncallExpression.extraInterpreterArgs(method, /* ast = */ null, loc, env)
+                  .toArray(),
+              loc,
+              env);
     }
 
     if (objValue instanceof SkylarkClassObject) {

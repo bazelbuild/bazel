@@ -2042,7 +2042,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     checkError(
         "test/skylark",
         "r",
-        "struct has no method 'output_group'",
+        "type 'Target' has no method output_group()",
         "load('//test/skylark:extension.bzl',  'my_rule')",
         "cc_binary(name = 'lib', data = ['a.txt'])",
         "my_rule(name='r', dep = ':lib')");

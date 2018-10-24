@@ -305,4 +305,14 @@ public final class SkylarkCallableProcessorTest {
             "Only one of @SkylarkCallable.enablingFlag and @SkylarkCallable.disablingFlag may be "
                 + "specified.");
   }
+
+  @Test
+  public void testConflictingMethodNames() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ConflictingMethodNames.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining("Containing class has more than one method with name "
+            + "'conflicting_method' defined");
+  }
 }

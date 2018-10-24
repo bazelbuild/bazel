@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
@@ -39,7 +38,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -126,18 +124,19 @@ public final class FuncallExpression extends Expression {
                 }
               });
 
-  private static final LoadingCache<MethodDescriptorKey, Map<String, List<MethodDescriptor>>>
+  private static final LoadingCache<MethodDescriptorKey, Map<String, MethodDescriptor>>
       methodCache =
           CacheBuilder.newBuilder()
               .build(
-                  new CacheLoader<MethodDescriptorKey, Map<String, List<MethodDescriptor>>>() {
+                  new CacheLoader<MethodDescriptorKey, Map<String, MethodDescriptor>>() {
 
                     @Override
-                    public Map<String, List<MethodDescriptor>> load(MethodDescriptorKey key)
+                    public Map<String, MethodDescriptor> load(MethodDescriptorKey key)
                         throws Exception {
                       Class<?> keyClass = key.getClazz();
                       SkylarkSemantics semantics = key.getSemantics();
-                      Map<String, List<MethodDescriptor>> methodMap = new HashMap<>();
+                      ImmutableMap.Builder<String, MethodDescriptor> methodMap =
+                          ImmutableMap.builder();
                       for (Method method : keyClass.getMethods()) {
                         // Synthetic methods lead to false multiple matches
                         if (method.isSynthetic()) {
@@ -153,16 +152,10 @@ public final class FuncallExpression extends Expression {
                         }
                         if (semantics.isFeatureEnabledBasedOnTogglingFlags(
                             callable.enableOnlyWithFlag(), callable.disableWithFlag())) {
-                          String name = callable.name();
-                          if (methodMap.containsKey(name)) {
-                            methodMap.get(name).add(MethodDescriptor.of(method, callable));
-                          } else {
-                            methodMap.put(
-                                name, Lists.newArrayList(MethodDescriptor.of(method, callable)));
-                          }
+                          methodMap.put(callable.name(), MethodDescriptor.of(method, callable));
                         }
                       }
-                      return ImmutableMap.copyOf(methodMap);
+                      return methodMap.build();
                     }
                   });
 
@@ -178,7 +171,6 @@ public final class FuncallExpression extends Expression {
                   HashSet<String> fieldNamesForCollisions = new HashSet<>();
                   List<MethodDescriptor> fieldMethods =
                       methodCache.get(key).values().stream()
-                          .flatMap(List::stream)
                           .filter(MethodDescriptor::isStructField)
                           .collect(Collectors.toList());
 
@@ -385,12 +377,12 @@ public final class FuncallExpression extends Expression {
    * @deprecated use {@link #getMethods(SkylarkSemantics, Class, String)} instead
    */
   @Deprecated
-  public static List<MethodDescriptor> getMethods(Class<?> objClass, String methodName) {
-    return getMethods(SkylarkSemantics.DEFAULT_SEMANTICS, objClass, methodName);
+  public static MethodDescriptor getMethod(Class<?> objClass, String methodName) {
+    return getMethod(SkylarkSemantics.DEFAULT_SEMANTICS, objClass, methodName);
   }
 
   /** Returns the list of Skylark callable Methods of objClass with the given name. */
-  public static List<MethodDescriptor> getMethods(
+  public static MethodDescriptor getMethod(
       SkylarkSemantics semantics, Class<?> objClass, String methodName) {
     try {
       return methodCache
@@ -465,13 +457,13 @@ public final class FuncallExpression extends Expression {
    */
   public static BuiltinCallable getBuiltinCallable(Object obj, String methodName) {
     Class<?> objClass = obj.getClass();
-    List<MethodDescriptor> methodDescriptors = getMethods(objClass, methodName);
-    if (methodDescriptors.size() != 1) {
+    MethodDescriptor methodDescriptor = getMethod(objClass, methodName);
+    if (methodDescriptor == null) {
       throw new IllegalStateException(String.format(
-          "Expected exactly 1 method named '%s' in %s, but found %s",
-          methodName, objClass, methodDescriptors.size()));
+          "Expected a method named '%s' in %s, but found none",
+          methodName, objClass));
     }
-    return new BuiltinCallable(methodName, obj, methodDescriptors.get(0));
+    return new BuiltinCallable(methodName, obj, methodDescriptor);
   }
 
   /**
@@ -499,10 +491,7 @@ public final class FuncallExpression extends Expression {
     return methodDescriptor.call(obj, new Object[0], Location.BUILTIN, null);
   }
 
-  // TODO(bazel-team): If there's exactly one usable method, this works. If there are multiple
-  // matching methods, it still can be a problem. Figure out how the Java compiler does it
-  // exactly and copy that behaviour.
-  // Throws an EvalException when it cannot find a matching function.
+  // Throws an EvalException when there is no function matching the given name and arguments.
   private Pair<MethodDescriptor, List<Object>> findJavaMethod(
       Class<?> objClass,
       String methodName,
@@ -510,57 +499,36 @@ public final class FuncallExpression extends Expression {
       Map<String, Object> kwargs,
       Environment environment)
       throws EvalException {
-    Pair<MethodDescriptor, List<Object>> matchingMethod = null;
-    List<MethodDescriptor> methods = getMethods(environment.getSemantics(), objClass, methodName);
+    MethodDescriptor method = getMethod(environment.getSemantics(), objClass, methodName);
     ArgumentListConversionResult argumentListConversionResult = null;
-    if (methods != null) {
-      for (MethodDescriptor method : methods) {
-        if (method.isStructField()) {
-          // This indicates a built-in structField which returns a function which may have
-          // one or more arguments itself. For example, foo.bar('baz'), where foo.bar is a
-          // structField returning a function. Calling the "bar" callable of foo should
-          // not have 'baz' propagated, though extra interpreter arguments should be supplied.
-          return new Pair<>(method, extraInterpreterArgs(method, null, getLocation(), environment));
+    if (method != null) {
+      if (method.isStructField()) {
+        // This indicates a built-in structField which returns a function which may have
+        // one or more arguments itself. For example, foo.bar('baz'), where foo.bar is a
+        // structField returning a function. Calling the "bar" callable of foo should
+        // not have 'baz' propagated, though extra interpreter arguments should be supplied.
+        return new Pair<>(method, extraInterpreterArgs(method, null, getLocation(), environment));
+      } else {
+        argumentListConversionResult = convertArgumentList(args, kwargs, method, environment);
+
+        if (argumentListConversionResult.getArguments() != null) {
+          return new Pair<>(method, argumentListConversionResult.getArguments());
         } else {
-          argumentListConversionResult = convertArgumentList(args, kwargs, method, environment);
-          if (argumentListConversionResult.getArguments() != null) {
-            if (matchingMethod == null) {
-              matchingMethod = new Pair<>(method, argumentListConversionResult.getArguments());
-            } else {
-              throw new EvalException(
-                  getLocation(),
-                  String.format(
-                      "type '%s' has multiple matches for function %s",
-                      EvalUtils.getDataTypeNameFromClass(objClass),
-                      formatMethod(objClass, methodName, args, kwargs)));
-            }
-          }
+          throw new EvalException(getLocation(),
+              String.format(
+                  "%s, in method call %s of '%s'",
+                  argumentListConversionResult.getError(),
+                  formatMethod(objClass, methodName, args, kwargs),
+                  EvalUtils.getDataTypeNameFromClass(objClass)));
         }
       }
+    } else { // method == null
+      throw new EvalException(getLocation(),
+          String.format(
+              "type '%s' has no method %s",
+              EvalUtils.getDataTypeNameFromClass(objClass),
+              formatMethod(objClass, methodName, args, kwargs)));
     }
-    if (matchingMethod == null) {
-      String errorMessage;
-      if (ClassObject.class.isAssignableFrom(objClass)) {
-        errorMessage = String.format("struct has no method '%s'", methodName);
-      } else if (argumentListConversionResult == null
-          || argumentListConversionResult.getError() == null) {
-        errorMessage =
-            String.format(
-                "type '%s' has no method %s",
-                EvalUtils.getDataTypeNameFromClass(objClass),
-                formatMethod(objClass, methodName, args, kwargs));
-
-      } else {
-        errorMessage =
-            String.format(
-                "%s, in method call %s of '%s'",
-                argumentListConversionResult.getError(),
-                formatMethod(objClass, methodName, args, kwargs),
-                EvalUtils.getDataTypeNameFromClass(objClass));
-      }
-      throw new EvalException(getLocation(), errorMessage);
-    }
-    return matchingMethod;
   }
 
   /**
