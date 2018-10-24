@@ -109,14 +109,14 @@ public class ActionExecutionValue implements SkyValue {
       OutputStore outputStore,
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
       @Nullable NestedSet<Artifact> discoveredModules,
-      boolean notifyOnActionCacheHitAction) {
+      boolean actionDependsOnBuildId) {
     return create(
         outputStore.getAllArtifactData(),
         outputStore.getAllTreeArtifactData(),
         outputStore.getAllAdditionalOutputData(),
         outputSymlinks,
         discoveredModules,
-        notifyOnActionCacheHitAction);
+        actionDependsOnBuildId);
   }
 
   static ActionExecutionValue create(
@@ -125,8 +125,8 @@ public class ActionExecutionValue implements SkyValue {
       Map<Artifact, FileArtifactValue> additionalOutputData,
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
       @Nullable NestedSet<Artifact> discoveredModules,
-      boolean notifyOnActionCacheHitAction) {
-    return notifyOnActionCacheHitAction
+      boolean actionDependsOnBuildId) {
+    return actionDependsOnBuildId
         ? new CrossServerUnshareableActionExecutionValue(
             artifactData, treeArtifactData, additionalOutputData, outputSymlinks, discoveredModules)
         : new ActionExecutionValue(

@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.CodedInputStream;
@@ -577,6 +578,11 @@ public class Artifact
     @Nullable
     public PathFragment getParentRelativePath() {
       return null;
+    }
+
+    @Override
+    public ShareabilityOfValue getShareabilityOfValue() {
+      return isConstantMetadata() ? ShareabilityOfValue.NEVER : super.getShareabilityOfValue();
     }
   }
 

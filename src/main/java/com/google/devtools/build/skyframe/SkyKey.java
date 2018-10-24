@@ -32,4 +32,8 @@ public interface SkyKey extends Serializable {
   default Object argument() {
     return this;
   }
+
+  default ShareabilityOfValue getShareabilityOfValue() {
+    return functionName().getShareabilityOfValue();
+  }
 }
