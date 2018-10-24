@@ -435,7 +435,17 @@ public abstract class AndroidSkylarkData
               manifestValues,
               AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString));
 
-      return getNativeInfosFrom(resourceApk, ctx.getLabel());
+      ImmutableMap.Builder<Provider, NativeInfo> builder = ImmutableMap.builder();
+      builder.putAll(getNativeInfosFrom(resourceApk, ctx.getLabel()));
+      builder.put(
+          AndroidBinaryDataInfo.PROVIDER,
+          AndroidBinaryDataInfo.of(
+              resourceApk.getArtifact(),
+              resourceApk.getResourceProguardConfig(),
+              resourceApk.toResourceInfo(ctx.getLabel()),
+              resourceApk.toAssetsInfo(ctx.getLabel()),
+              resourceApk.toManifestInfo().get()));
+      return SkylarkDict.copyOf(/* env = */ null, builder.build());
     } catch (RuleErrorException e) {
       throw new EvalException(Location.BUILTIN, e);
     }

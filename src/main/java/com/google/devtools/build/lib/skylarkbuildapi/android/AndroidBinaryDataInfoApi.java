@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
@@ -29,4 +31,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
             + "binaries",
     documented = false,
     category = SkylarkModuleCategory.PROVIDER)
-public interface AndroidBinaryDataInfoApi extends StructApi {}
+public interface AndroidBinaryDataInfoApi<FileT extends FileApi> extends StructApi {
+
+  @SkylarkCallable(
+      name = "resource_apk",
+      structField = true,
+      doc = "The resource apk.",
+      documented = false)
+  FileT getApk();
+}
