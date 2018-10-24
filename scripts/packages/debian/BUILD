@@ -9,12 +9,12 @@ load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar", "pkg_deb")
 pkg_tar(
     name = "bazel-bin",
     srcs = [
-        "//scripts/packages:without-jdk/bazel",
-        "//scripts/packages:without-jdk/bazel-real",
+        "//scripts/packages:with-jdk/bazel",
+        "//scripts/packages:with-jdk/bazel-real",
     ],
     mode = "0755",
     package_dir = "/usr/bin",
-    strip_prefix = "/scripts/packages/without-jdk",
+    strip_prefix = "/scripts/packages/with-jdk",
 )
 
 pkg_tar(
