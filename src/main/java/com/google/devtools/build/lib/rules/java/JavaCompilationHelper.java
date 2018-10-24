@@ -246,7 +246,7 @@ public final class JavaCompilationHelper {
         attributes.getTargetLabel() == null
             ? ruleContext.getLabel() : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
-    getAnalysisEnvironment().registerAction(builder.build(ruleContext, semantics));
+    builder.build(ruleContext, semantics);
   }
 
   private ImmutableMap<String, String> getExecutionInfo() {
