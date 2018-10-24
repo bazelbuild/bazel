@@ -12,7 +12,6 @@
 :: See the License for the specific language governing permissions and
 :: limitations under the License.
 
-:: Invoke the python script under pydir with the same basename
 @echo OFF
 
 echo. 1>&2
@@ -22,4 +21,4 @@ echo Bazel couldn't find a valid Visual C++ build tools installation on your mac
 echo Please check your installation following https://docs.bazel.build/versions/master/windows.html#using 1>&2
 echo. 1>&2
 
-exit -1
+exit /b 1

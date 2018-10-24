@@ -44,10 +44,10 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
     tool_path = {}
 
     for tool in ["ar", "compat-ld", "cpp", "dwp", "gcc", "gcov", "ld", "nm", "objcopy", "objdump", "strip"]:
-        if not msys_root:
-            tool_path[tool] = "msys_gcc_installation_error.bat"
-        else:
+        if msys_root:
             tool_path[tool] = tool_path_prefix + "/bin/" + tool
+        else:
+            tool_path[tool] = "msys_gcc_installation_error.bat"
 
     return (((
                 '   abi_version: "local"\n' +
