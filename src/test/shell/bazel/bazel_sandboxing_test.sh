@@ -658,6 +658,7 @@ EOF
   # Replace the target_root_placeholder with the actual target_root
   sed -i "s|target_root_placeholder|$target_root|g" downloaded_toolchain/CROSSTOOL
   sed -i "s|name = 'cc-compiler-k8',|name = 'cc-compiler-k8', toolchain_identifier = 'linux_gnu_x86',|g" downloaded_toolchain/BUILD
+  sed -i "s/k8|gcc/k8/g" downloaded_toolchain/BUILD
 
   # Prepare the bazel command flags
   flags="--crosstool_top=@x86_64_unknown_linux_gnu//:toolchain --host_crosstool_top=@bazel_tools//tools/cpp:toolchain --verbose_failures --spawn_strategy=sandboxed"

@@ -69,16 +69,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     return loader(
         "major_version: \"12\""
             + "minor_version: \"0\""
-            + "default_target_cpu: \"k8\""
-            + "default_toolchain {"
-            + "  cpu: \"k8\""
-            + "  toolchain_identifier: \"toolchain-identifier\""
-            + "}"
             + "toolchain {"
             + "  toolchain_identifier: \"toolchain-identifier\""
             + "  host_system_name: \"host-system-name\""
             + "  target_system_name: \"target-system-name\""
-            + "  target_cpu: \"piii\""
+            + "  target_cpu: \"k8\""
             + "  target_libc: \"target-libc\""
             + "  compiler: \"compiler\""
             + "  abi_version: \"abi-version\""
@@ -185,7 +180,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProvider.getHostSystemName()).isEqualTo("host-system-name");
     assertThat(ccProvider.getCompiler()).isEqualTo("compiler");
     assertThat(ccProvider.getTargetLibc()).isEqualTo("target-libc");
-    assertThat(ccProvider.getTargetCpu()).isEqualTo("piii");
+    assertThat(ccProvider.getTargetCpu()).isEqualTo("k8");
     assertThat(ccProvider.getTargetGnuSystemName()).isEqualTo("target-system-name");
 
     assertThat(toolchain.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("path-to-ar"));
@@ -254,28 +249,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             // Needs to include \n's; as a single line it hits a parser limitation.
             "major_version: \"12\"\n"
                 + "minor_version: \"0\"\n"
-                + "default_target_cpu: \"piii\"\n"
-                + "default_toolchain {\n"
-                + "  cpu: \"piii\"\n"
-                + "  toolchain_identifier: \"toolchain-identifier-A\"\n"
-                + "}\n"
-                + "default_toolchain {\n"
-                + "  cpu: \"k8\"\n"
-                + "  toolchain_identifier: \"toolchain-identifier-B\"\n"
-                + "}\n"
-                + "default_toolchain {\n"
-                + "  cpu: \"darwin\"\n"
-                + "  toolchain_identifier: \"toolchain-identifier-A\"\n"
-                + "}\n"
-                + "default_toolchain {\n"
-                + "  cpu: \"x64_windows\"\n"
-                + "  toolchain_identifier: \"toolchain-identifier-A\"\n"
-                + "}\n"
                 + "toolchain {\n"
                 + "  toolchain_identifier: \"toolchain-identifier-A\"\n"
                 + "  host_system_name: \"host-system-name-A\"\n"
                 + "  target_system_name: \"target-system-name-A\"\n"
-                + "  target_cpu: \"piii\"\n"
+                + "  target_cpu: \"k8\"\n"
                 + "  target_libc: \"target-libc-A\"\n"
                 + "  compiler: \"compiler-A\"\n"
                 + "  abi_version: \"abi-version-A\"\n"
@@ -360,7 +338,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  toolchain_identifier: \"toolchain-identifier-B\"\n"
                 + "  host_system_name: \"host-system-name-B\"\n"
                 + "  target_system_name: \"target-system-name-B\"\n"
-                + "  target_cpu: \"piii\"\n"
+                + "  target_cpu: \"k8\"\n"
                 + "  target_libc: \"target-libc-B\"\n"
                 + "  compiler: \"compiler-B\"\n"
                 + "  abi_version: \"abi-version-B\"\n"
@@ -445,7 +423,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  toolchain_identifier: \"toolchain-identifier-C\"\n"
                 + "  host_system_name: \"host-system-name-C\"\n"
                 + "  target_system_name: \"target-system-name-C\"\n"
-                + "  target_cpu: \"piii\"\n"
+                + "  target_cpu: \"k8\"\n"
                 + "  target_libc: \"target-libc-C\"\n"
                 + "  compiler: \"compiler-C\"\n"
                 + "  abi_version: \"abi-version-C\"\n"
@@ -473,8 +451,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     CppConfiguration toolchainA =
         create(
             loader,
-            "--cpu=piii",
-            "--host_cpu=piii",
+            "--cpu=k8",
+            "--host_cpu=k8",
             "--android_cpu=",
             "--fat_apk_cpu=",
             "--noincompatible_disable_legacy_flags_cc_toolchain_api");
@@ -485,7 +463,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(toolchainA.getToolchainIdentifier()).isEqualTo("toolchain-identifier-A");
     assertThat(ccProviderA.getHostSystemName()).isEqualTo("host-system-name-A");
     assertThat(ccProviderA.getTargetGnuSystemName()).isEqualTo("target-system-name-A");
-    assertThat(ccProviderA.getTargetCpu()).isEqualTo("piii");
+    assertThat(ccProviderA.getTargetCpu()).isEqualTo("k8");
     assertThat(ccProviderA.getTargetLibc()).isEqualTo("target-libc-A");
     assertThat(ccProviderA.getCompiler()).isEqualTo("compiler-A");
     assertThat(ccProviderA.getAbi()).isEqualTo("abi-version-A");
@@ -584,8 +562,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     // Cursory testing of the "B" toolchain only; assume that if none of
     // toolchain B bled through into toolchain A, the reverse also didn't occur. And
     // we test more of it with the "C" toolchain below.
-    checkToolchainB(loader, "--cpu=k8");
-    checkToolchainB(loader, "--cpu=k8", "--compilation_mode=opt");
+    checkToolchainB(loader, "--cpu=k8", "--host_cpu=k8", "--compiler=compiler-B");
+    checkToolchainB(
+        loader, "--cpu=k8", "--host_cpu=k8", "--compiler=compiler-B", "--compilation_mode=opt");
 
     // Make sure nothing bled through to the nearly-empty "C" toolchain. This is also testing for
     // all the defaults.
@@ -594,8 +573,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         create(
             loader,
             "--compiler=compiler-C",
-            "--cpu=piii",
-            "--host_cpu=piii",
+            "--cpu=k8",
+            "--host_cpu=k8",
             "--android_cpu=",
             "--fat_apk_cpu=",
             "--noincompatible_disable_legacy_flags_cc_toolchain_api");
@@ -603,7 +582,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(toolchainC.getToolchainIdentifier()).isEqualTo("toolchain-identifier-C");
     assertThat(ccProviderC.getHostSystemName()).isEqualTo("host-system-name-C");
     assertThat(ccProviderC.getTargetGnuSystemName()).isEqualTo("target-system-name-C");
-    assertThat(ccProviderC.getTargetCpu()).isEqualTo("piii");
+    assertThat(ccProviderC.getTargetCpu()).isEqualTo("k8");
     assertThat(ccProviderC.getTargetLibc()).isEqualTo("target-libc-C");
     assertThat(ccProviderC.getCompiler()).isEqualTo("compiler-C");
     assertThat(ccProviderC.getAbi()).isEqualTo("abi-version-C");
@@ -673,30 +652,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             // Needs to include \n's; as a single line it hits a parser limitation.
             "major_version: \"12\"\n"
                 + "minor_version: \"0\"\n"
-                + "default_target_cpu: \"k8\"\n"
-                + "default_toolchain {\n"
-                + "  cpu: \"piii\"\n"
-                + "  toolchain_identifier: \"toolchain-identifier-A-piii\"\n"
-                + "}\n"
-                + "default_toolchain {\n"
-                + "  cpu: \"k8\"\n"
-                + "  toolchain_identifier: \"toolchain-identifier-B\"\n"
-                + "}\n"
                 + "toolchain {\n"
                 + "  toolchain_identifier: \"toolchain-identifier-A\"\n"
                 + "  host_system_name: \"host-system-name-A\"\n"
                 + "  target_system_name: \"target-system-name-A\"\n"
-                + "  target_cpu: \"k8\"\n"
-                + "  target_libc: \"target-libc-A\"\n"
-                + "  compiler: \"compiler-A\"\n"
-                + "  abi_version: \"abi-version-A\"\n"
-                + "  abi_libc_version: \"abi-libc-version-A\"\n"
-                + "}\n"
-                + "toolchain {\n"
-                + "  toolchain_identifier: \"toolchain-identifier-A-duplicate\"\n"
-                + "  host_system_name: \"host-system-name-A\"\n"
-                + "  target_system_name: \"target-system-name-A\"\n"
-                + "  target_cpu: \"k8\"\n"
+                + "  target_cpu: \"banana_cpu\"\n"
                 + "  target_libc: \"target-libc-A\"\n"
                 + "  compiler: \"compiler-A\"\n"
                 + "  abi_version: \"abi-version-A\"\n"
@@ -706,27 +666,27 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  toolchain_identifier: \"toolchain-identifier-C\"\n"
                 + "  host_system_name: \"host-system-name-C\"\n"
                 + "  target_system_name: \"target-system-name-C\"\n"
-                + "  target_cpu: \"k8\"\n"
+                + "  target_cpu: \"banana_cpu\"\n"
                 + "  target_libc: \"target-libc-C\"\n"
                 + "  compiler: \"compiler-C\"\n"
                 + "  abi_version: \"abi-version-C\"\n"
                 + "  abi_libc_version: \"abi-libc-version-C\"\n"
                 + "}\n"
                 + "toolchain {\n"
-                + "  toolchain_identifier: \"toolchain-identifier-A-piii\"\n"
+                + "  toolchain_identifier: \"toolchain-identifier-A-avocado_cpu\"\n"
                 + "  host_system_name: \"host-system-name-A\"\n"
                 + "  target_system_name: \"target-system-name-A\"\n"
-                + "  target_cpu: \"piii\"\n"
+                + "  target_cpu: \"avocado_cpu\"\n"
                 + "  target_libc: \"target-libc-A\"\n"
                 + "  compiler: \"compiler-A\"\n"
                 + "  abi_version: \"abi-version-A\"\n"
                 + "  abi_libc_version: \"abi-libc-version-A\"\n"
                 + "}\n"
                 + "toolchain {\n"
-                + "  toolchain_identifier: \"toolchain-identifier-B-piii\"\n"
+                + "  toolchain_identifier: \"toolchain-identifier-B-avocado_cpu\"\n"
                 + "  host_system_name: \"host-system-name-A\"\n"
                 + "  target_system_name: \"target-system-name-A\"\n"
-                + "  target_cpu: \"piii\"\n"
+                + "  target_cpu: \"avocado_cpu\"\n"
                 + "  target_libc: \"target-libc-A\"\n"
                 + "  compiler: \"compiler-B\"\n"
                 + "  abi_version: \"abi-version-A\"\n"
@@ -736,54 +696,41 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  toolchain_identifier: \"toolchain-identifier-B\"\n"
                 + "  host_system_name: \"host-system-name-B\"\n"
                 + "  target_system_name: \"target-system-name-B\"\n"
-                + "  target_cpu: \"k8\"\n"
+                + "  target_cpu: \"banana_cpu\"\n"
                 + "  target_libc: \"target-libc-A\"\n"
                 + "  compiler: \"compiler-B\"\n"
                 + "  abi_version: \"abi-version-B\"\n"
                 + "  abi_libc_version: \"abi-libc-version-A\"\n"
                 + "}");
 
-    // Uses the default toolchain for k8.
-    assertThat(create(loader, "--cpu=k8").getToolchainIdentifier())
-        .isEqualTo("toolchain-identifier-B");
-    // Does not default to --cpu=k8; if no --cpu flag is present, Bazel defaults to the host cpu!
-    assertThat(create(loader, "--cpu=k8", "--compiler=compiler-C").getToolchainIdentifier())
-        .isEqualTo("toolchain-identifier-C");
-    // Uses the default toolchain for piii.
-    assertThat(create(loader, "--cpu=piii").getToolchainIdentifier())
-        .isEqualTo("toolchain-identifier-A-piii");
+    // Uses banana_cpu alone in cc_toolchain_suite.toolchains.
+    assertThat(create(loader, "--cpu=banana_cpu").getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-A");
+    // Uses avocado_cpu alone in cc_toolchain_suite.toolchains
+    assertThat(create(loader, "--cpu=avocado_cpu").getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-A-avocado_cpu");
 
-    // We can select the unique piii toolchain with its compiler.
-    assertThat(create(loader, "--cpu=piii", "--compiler=compiler-B").getToolchainIdentifier())
-        .isEqualTo("toolchain-identifier-B-piii");
+    // We can select the unique avocado_cpu toolchain with its compiler.
+    assertThat(
+            create(loader, "--cpu=avocado_cpu", "--compiler=compiler-B").getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-B-avocado_cpu");
 
     try {
-      create(loader, "--cpu=k8", "--compiler=nonexistent-compiler");
+      create(loader, "--cpu=banana_cpu", "--compiler=nonexistent-compiler");
       fail("Expected an error that no toolchain matched.");
     } catch (InvalidConfigurationException e) {
-      assertThat(e)
-          .hasMessage(
-              "No toolchain found for --cpu='k8' --compiler='nonexistent-compiler'. "
-                  + "Valid toolchains are: [\n"
-                  + "  toolchain-identifier-A: --cpu='k8' --compiler='compiler-A',\n"
-                  + "  toolchain-identifier-A-duplicate: --cpu='k8' --compiler='compiler-A',\n"
-                  + "  toolchain-identifier-C: --cpu='k8' --compiler='compiler-C',\n"
-                  + "  toolchain-identifier-A-piii: --cpu='piii' --compiler='compiler-A',\n"
-                  + "  toolchain-identifier-B-piii: --cpu='piii' --compiler='compiler-B',\n"
-                  + "  toolchain-identifier-B: --cpu='k8' --compiler='compiler-B',\n"
-                  + "]");
-    }
-
-    try {
-      create(loader, "--cpu=k8", "--compiler=compiler-A");
-      fail("Expected an error that multiple toolchains matched.");
-    } catch (InvalidConfigurationException e) {
-      assertThat(e)
-          .hasMessage(
-              "Multiple toolchains found for --cpu='k8' --compiler='compiler-A': [\n"
-                  + "  toolchain-identifier-A: --cpu='k8' --compiler='compiler-A',\n"
-                  + "  toolchain-identifier-A-duplicate: --cpu='k8' --compiler='compiler-A',\n"
-                  + "]");
+      String message =
+          "No toolchain found for --cpu='banana_cpu' --compiler='nonexistent-compiler'. "
+              + "Valid toolchains are: [\n"
+              + "  toolchain-identifier-A: --cpu='banana_cpu' --compiler='compiler-A',\n"
+              + "  toolchain-identifier-C: --cpu='banana_cpu' --compiler='compiler-C',\n"
+              + "  toolchain-identifier-A-avocado_cpu: --cpu='avocado_cpu' "
+              + "--compiler='compiler-A',\n"
+              + "  toolchain-identifier-B-avocado_cpu: --cpu='avocado_cpu' "
+              + "--compiler='compiler-B',\n"
+              + "  toolchain-identifier-B: --cpu='banana_cpu' --compiler='compiler-B',\n"
+              + "]";
+      assertThat(e).hasMessage(message);
     }
   }
 
@@ -816,16 +763,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         new StringBuilder(
             "major_version: \"12\""
                 + "minor_version: \"0\""
-                + "default_target_cpu: \"k8\""
-                + "default_toolchain {"
-                + "  cpu: \"k8\""
-                + "  toolchain_identifier: \"toolchain-identifier\""
-                + "}"
                 + "toolchain {"
                 + "  toolchain_identifier: \"toolchain-identifier\""
                 + "  host_system_name: \"host-system-name\""
                 + "  target_system_name: \"target-system-name\""
-                + "  target_cpu: \"piii\""
+                + "  target_cpu: \"banana_cpu\""
                 + "  target_libc: \"target-libc\""
                 + "  compiler: \"compiler\""
                 + "  abi_version: \"abi-version\""
@@ -848,7 +790,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   public void testConfigWithMissingToolDefs() throws Exception {
     CppConfigurationLoader loader = loader(getConfigWithMissingToolDef(Tool.STRIP));
     try {
-      create(loader, "--cpu=k8");
+      create(loader, "--cpu=banana_cpu");
       fail();
     } catch (IllegalArgumentException e) {
       assertThat(e).hasMessageThat().contains("Tool path for 'strip' is missing");
@@ -863,7 +805,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     CppConfigurationLoader loader =
         loader(getConfigWithMissingToolDef(Tool.DWP, "supports_fission: true"));
     try {
-      create(loader, "--cpu=k8");
+      create(loader, "--cpu=banana_cpu");
       fail("Expected failed check on 'dwp' tool path");
     } catch (IllegalArgumentException e) {
       assertThat(e).hasMessageThat().contains("Tool path for 'dwp' is missing");
@@ -878,7 +820,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     CppConfigurationLoader loader =
         loader(getConfigWithMissingToolDef(Tool.DWP, "supports_fission: false"));
     // The following line throws an IllegalArgumentException if an expected tool path is missing.
-    create(loader, "--cpu=k8");
+    create(loader, "--cpu=banana_cpu");
   }
 
   @Test
@@ -904,28 +846,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         loader(
             "major_version: \"v17\""
                 + "minor_version: \"0\""
-                + "default_target_cpu: \"k8\""
-                + "default_toolchain {"
-                + "  cpu: \"piii\""
-                + "  toolchain_identifier: \"default-libs\""
-                + "}"
-                + "default_toolchain {"
-                + "  cpu: \"k8\""
-                + "  toolchain_identifier: \"custom-libs\""
-                + "}"
-                + "default_toolchain {"
-                + "  cpu: \"darwin\""
-                + "  toolchain_identifier: \"custom-libs\""
-                + "}"
-                + "default_toolchain {"
-                + "  cpu: \"x64_windows\""
-                + "  toolchain_identifier: \"custom-libs\""
-                + "}"
                 + "toolchain {" // "default-libs": runtime libraries in default locations.
                 + "  toolchain_identifier: \"default-libs\""
                 + "  host_system_name: \"host-system-name\""
                 + "  target_system_name: \"target-system-name\""
-                + "  target_cpu: \"piii\""
+                + "  target_cpu: \"k8\""
                 + "  target_libc: \"target-libc\""
                 + "  compiler: \"compiler\""
                 + "  abi_version: \"abi-version\""
@@ -936,7 +861,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  toolchain_identifier: \"custom-libs\""
                 + "  host_system_name: \"host-system-name\""
                 + "  target_system_name: \"target-system-name\""
-                + "  target_cpu: \"k8\""
+                + "  target_cpu: \"piii\""
                 + "  target_libc: \"target-libc\""
                 + "  compiler: \"compiler\""
                 + "  abi_version: \"abi-version\""
@@ -950,14 +875,14 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     if (ctTop.getRepository().isDefault()) {
       ctTop = PackageIdentifier.createInMainRepo(ctTop.getPackageFragment());
     }
-    CppConfiguration defaultLibs = create(loader, "--cpu=piii");
+    CppConfiguration defaultLibs = create(loader, "--cpu=k8", "--host_cpu=k8");
     CcToolchainProvider defaultLibsToolchain = getCcToolchainProvider(defaultLibs);
     assertThat(defaultLibsToolchain.getStaticRuntimeLibsLabel())
-        .isEqualTo(Label.create(ctTop, "static-runtime-libs-piii"));
+        .isEqualTo(Label.create(ctTop, "static-runtime-libs-k8"));
     assertThat(defaultLibsToolchain.getDynamicRuntimeLibsLabel())
-        .isEqualTo(Label.create(ctTop, "dynamic-runtime-libs-piii"));
+        .isEqualTo(Label.create(ctTop, "dynamic-runtime-libs-k8"));
 
-    CppConfiguration customLibs = create(loader, "--cpu=k8");
+    CppConfiguration customLibs = create(loader, "--cpu=piii", "--host_cpu=k8");
     CcToolchainProvider customLibsToolchain = getCcToolchainProvider(customLibs);
     assertThat(customLibsToolchain.getStaticRuntimeLibsLabel())
         .isEqualTo(Label.create(ctTop, "static-group"));

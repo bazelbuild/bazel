@@ -832,7 +832,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_cc_toolchain_label_from_crosstool_proto",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
       metadataTags = {
