@@ -223,7 +223,7 @@ public final class NativeLibs {
     Map<String, BuildConfiguration> configurationMap = new LinkedHashMap<>();
     for (Map.Entry<Optional<String>, ? extends List<ConfiguredTargetAndData>> entry :
         ruleContext
-            .getSplitPrerequisiteConfiguredTargetAndTargets(":cc_toolchain_split")
+            .getSplitPrerequisiteConfiguredTargetAndTargets("$cc_toolchain_split")
             .entrySet()) {
       String cpu = entry.getKey().or(AndroidCommon.getAndroidConfig(ruleContext).getCpu());
       configurationMap.put(cpu, Iterables.getOnlyElement(entry.getValue()).getConfiguration());
@@ -234,7 +234,7 @@ public final class NativeLibs {
   private static Map<String, CcToolchainProvider> getToolchainsByCpu(RuleContext ruleContext) {
     Map<String, CcToolchainProvider> toolchainMap = new LinkedHashMap<>();
     for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
-        ruleContext.getSplitPrerequisites(":cc_toolchain_split").entrySet()) {
+        ruleContext.getSplitPrerequisites("$cc_toolchain_split").entrySet()) {
       String cpu = entry.getKey().or(AndroidCommon.getAndroidConfig(ruleContext).getCpu());
       TransitiveInfoCollection dep = Iterables.getOnlyElement(entry.getValue());
       CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext, dep);
