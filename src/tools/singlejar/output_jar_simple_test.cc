@@ -28,7 +28,7 @@
 #include "googletest/include/gtest/gtest.h"
 
 #ifdef _WIN32
-const char JAR_TOOL_PATH[] = "%JAVABASE%\bin\jar.exe";
+const char JAR_TOOL_PATH[] = "%JAVABASE%\\bin\\jar.exe";
 #define unlink _unlink
 #define CMD_SEPARATOR "&&"
 #else
@@ -494,19 +494,11 @@ TEST_F(OutputJarSimpleTest, Normalize) {
   string out_path = OutputFilePath("out.jar");
   string testjar_path = OutputFilePath("testinput.jar");
   {
-<<<<<<< Updated upstream
-    std::string jar_tool_path = runfiles->Rlocation(JAR_TOOL_PATH);
-=======
->>>>>>> Stashed changes
     string textfile_path = CreateTextFile("jar_testinput.txt", "jar_inputtext");
     string classfile_path = CreateTextFile("JarTestInput.class", "Dummy");
     unlink(testjar_path.c_str());
     ASSERT_EQ(
-<<<<<<< Updated upstream
-        0, RunCommand(jar_tool_path.c_str(), "-cf", testjar_path.c_str(),
-=======
         0, RunCommand(JAR_TOOL_PATH, "-cf", testjar_path.c_str(),
->>>>>>> Stashed changes
                       textfile_path.c_str(), classfile_path.c_str(), nullptr));
   }
 
