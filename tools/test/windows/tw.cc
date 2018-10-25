@@ -34,6 +34,9 @@
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
+#include "third_party/ijar/common.h"
+#include "third_party/ijar/platform_utils.h"
+#include "third_party/ijar/zip.h"
 #include "tools/cpp/runfiles/runfiles.h"
 #include "tools/test/windows/tw.h"
 
@@ -148,7 +151,7 @@ bool WcsToAcp(const std::wstring& wcs, std::string* acp) {
 // letter) but uses forward slashes as directory separators.
 // We must export envvars as mixed style path because some tools confuse the
 // backslashes in Windows paths for Unix-style escape characters.
-inline std::wstring AsMixedPath(const std::wstring& path) {
+std::wstring AsMixedPath(const std::wstring& path) {
   std::wstring value = path;
   std::replace(value.begin(), value.end(), L'\\', L'/');
   return value;
@@ -450,7 +453,15 @@ bool ToZipEntryPaths(
     const std::vector<bazel::tools::test_wrapper::FileInfo>& files,
     ZipEntryPaths* result) {
   std::string acp_root;
-  if (!WcsToAcp(AsMixedPath(root.Get()), &acp_root)) {
+  if (!WcsToAcp(
+        AsMixedPath(
+            bazel::windows::HasUncPrefix(root.Get().c_str())
+                ? root.Get().substr(4)
+                : root.Get()),
+        &acp_root)) {
+    LogError(__LINE__,
+             (std::wstring(L"Failed to convert path \"") + root.Get() +
+                  L"\"").c_str());
     return false;
   }
 
@@ -460,12 +471,44 @@ bool ToZipEntryPaths(
   for (const auto& e : files) {
     std::string acp_path;
     if (!WcsToAcp(AsMixedPath(e.rel_path), &acp_path)) {
+      LogError(__LINE__,
+               (std::wstring(L"Failed to convert path ") + e.rel_path +
+                    L"\"").c_str());
       return false;
     }
     acp_file_list.push_back(acp_path);
   }
 
   result->Create(acp_root, acp_file_list);
+  return true;
+}
+
+bool CreateZipBuilder(const Path& zip, const ZipEntryPaths& entry_paths,
+                      std::unique_ptr<devtools_ijar::ZipBuilder>* result) {
+  const devtools_ijar::u8 estimated_size =
+      devtools_ijar::ZipBuilder::EstimateSize(
+          entry_paths.AbsPathPtrs(), entry_paths.EntryPathPtrs(),
+          entry_paths.Size());
+
+  if (estimated_size == 0) {
+    LogError(__LINE__, "Failed to estimate zip size");
+    return false;
+  }
+
+  std::string acp_zip;
+  if (!WcsToAcp(zip.Get(), &acp_zip)) {
+    LogError(__LINE__,
+             (std::wstring(L"Failed to convert path ") + zip.Get() +
+                  L"\"").c_str());
+    return false;
+  }
+
+  result->reset(
+      devtools_ijar::ZipBuilder::Create(acp_zip.c_str(), estimated_size));
+  if (result->get() == nullptr) {
+    LogErrorWithValue(__LINE__, "Failed to create zip builder", errno);
+    return false;
+  }
   return true;
 }
 
@@ -483,12 +526,47 @@ bool OpenFileForWriting(const std::wstring& path, HANDLE* result) {
   return true;
 }
 
+bool OpenExistingFileForRead(const Path& abs_path, HANDLE* result) {
+  *result = CreateFileW(bazel::windows::HasUncPrefix(abs_path.Get().c_str())
+                            ? abs_path.Get().c_str()
+                            : (L"\\\\?\\" + abs_path.Get()).c_str(),
+                        GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
+                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (*result == INVALID_HANDLE_VALUE) {
+    DWORD err = GetLastError();
+    LogErrorWithArgAndValue(__LINE__, "Failed to open file",
+                            abs_path.Get().c_str(), err);
+    return false;
+  }
+  return true;
+}
+
 bool TouchFile(const std::wstring& path) {
   HANDLE handle;
   if (!OpenFileForWriting(path, &handle)) {
     return false;
   }
   CloseHandle(handle);
+  return true;
+}
+
+bool ReadCompleteFile(HANDLE handle, uint8_t* dest, DWORD max_read_bytes) {
+  if (max_read_bytes == 0) {
+    return true;
+  }
+
+  const DWORD max_read = std::min(
+      max_read_bytes, /* 100 MB */ static_cast<DWORD>(100000000));
+  DWORD total_read = 0;
+  DWORD read = 0;
+  do {
+    if (!ReadFile(handle, dest + total_read, max_read, &read, NULL)) {
+      DWORD err = GetLastError();
+      LogErrorWithValue(__LINE__, "Failed to read file", err);
+      return false;
+    }
+    total_read += read;
+  } while (read > 0);
   return true;
 }
 
@@ -505,6 +583,91 @@ bool ExportXmlPath(const Path& cwd) {
          SetEnv(L"GUNIT_OUTPUT", L"xml:" + unix_result) &&
          CreateDirectories(result.Dirname()) &&
          TouchFile(result.Get() + L".log");
+}
+
+devtools_ijar::u4 GetZipAttr(const FileInfo& info) {
+  devtools_ijar::Stat file_stat;
+  file_stat.total_size = info.size;
+  file_stat.is_directory = false;
+  // Set 0777 permission mask inside the zip for sake of simplicity.
+  file_stat.file_mode = S_IFREG | 0777;
+  return devtools_ijar::stat_to_zipattr(file_stat);
+}
+
+bool GetZipEntryPtr(devtools_ijar::ZipBuilder* zip_builder,
+                    const char* entry_name, const devtools_ijar::u4 attr,
+                    devtools_ijar::u1** result) {
+  *result = zip_builder->NewFile(entry_name, attr);
+  if (*result == nullptr) {
+    LogError(__LINE__, (std::string("Failed to add new zip entry for file \"") +
+                        entry_name + "\": " + zip_builder->GetError())
+                           .c_str());
+    return false;
+  }
+  return true;
+}
+
+bool CreateZip(const Path& root, const std::vector<FileInfo>& files,
+               const Path& abs_zip) {
+  bool restore_oem_api = false;
+  if (!AreFileApisANSI()) {
+    // devtools_ijar::ZipBuilder uses the ANSI file APIs so we must set the
+    // active code page to ANSI.
+    SetFileApisToANSI();
+    restore_oem_api = true;
+  }
+  Defer restore_file_apis([restore_oem_api]() {
+    if (restore_oem_api) {
+      SetFileApisToOEM();
+    }
+  });
+
+  ZipEntryPaths zip_entry_paths;
+  if (!ToZipEntryPaths(root, files, &zip_entry_paths)) {
+    LogError(__LINE__, "Failed to create zip entry paths");
+    return false;
+  }
+
+  std::unique_ptr<devtools_ijar::ZipBuilder> zip_builder;
+  if (!CreateZipBuilder(abs_zip, zip_entry_paths, &zip_builder)) {
+    LogError(__LINE__, "Failed to create zip builder");
+    return false;
+  }
+
+  for (size_t i = 0; i < files.size(); ++i) {
+    HANDLE handle;
+    Path path;
+    if (!path.Set(root.Get() + L"\\" + files[i].rel_path) ||
+        !OpenExistingFileForRead(path, &handle)) {
+      LogError(__LINE__, (std::wstring(L"Failed to open file \"") + path.Get() +
+                          L"\"").c_str());
+      return false;
+    }
+    Defer close_file([handle]() { CloseHandle(handle); });
+    devtools_ijar::u1* dest;
+    if (!GetZipEntryPtr(zip_builder.get(), zip_entry_paths.EntryPathPtrs()[i],
+                        GetZipAttr(files[i]), &dest) ||
+        !ReadCompleteFile(handle, dest, files[i].size)) {
+      LogError(__LINE__, (std::wstring(L"Failed to dump file \"") + path.Get() +
+                          + L"\" into zip").c_str());
+      return false;
+    }
+
+    if (zip_builder->FinishFile(files[i].size, /* compress */ false,
+                                /* compute_crc */ true) == -1) {
+      LogError(__LINE__, (std::wstring(L"Failed to finish writing file \"") +
+                          path.Get() + L"\" to zip").c_str());
+      return false;
+    }
+  }
+
+  if (zip_builder->Finish() == -1) {
+    LogError(__LINE__, (std::string("Failed to add file to zip: ") +
+                        zip_builder->GetError()).c_str());
+    return false;
+  }
+
+  return true;
 }
 
 bool GetAndUnexportUndeclaredOutputsEnvvars(const Path& cwd,
@@ -579,6 +742,9 @@ bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
   if (!blaze_util::IsAbsolute(test_path)) {
     std::string argv0_acp;
     if (!WcsToAcp(argv0.Get(), &argv0_acp)) {
+      LogError(__LINE__,
+               (std::wstring(L"Failed to convert path ") + argv0.Get() +
+                    L"\"").c_str());
       return false;
     }
 
@@ -807,6 +973,8 @@ Path Path::Dirname() const {
 
 void ZipEntryPaths::Create(const std::string& root,
                            const std::vector<std::string>& relative_paths) {
+  size_ = relative_paths.size();
+
   size_t total_size = 0;
   for (const auto& e : relative_paths) {
     // Increase total size for absolute paths by <root> + "/" + <path> +
@@ -904,6 +1072,22 @@ bool TestOnly_ToZipEntryPaths(
   Path root;
   return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
          ToZipEntryPaths(root, files, result);
+}
+
+bool TestOnly_CreateZip(
+    const std::wstring& abs_root, const std::vector<FileInfo>& files,
+    const std::wstring& abs_zip) {
+  Path root, zip;
+  return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
+         blaze_util::IsAbsolute(abs_zip) && zip.Set(abs_zip) &&
+         CreateZip(root, files, zip);
+}
+
+bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result) {
+  return WcsToAcp(
+        AsMixedPath(
+            bazel::windows::HasUncPrefix(path.c_str()) ? path.substr(4) : path),
+        result);
 }
 
 }  // namespace testing

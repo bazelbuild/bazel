@@ -37,6 +37,11 @@ cc_library(
         "//conditions:default": [
         ],
     }),
+    visibility = [
+        "//src:__subpackages__",
+        "//third_party/ijar:__subpackages__",
+        "//tools/test:__pkg__",
+    ],
 )
 
 cc_library(
