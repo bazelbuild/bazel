@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
@@ -61,8 +62,8 @@ public class TerminalTestResultNotifierTest {
     int numOfFailedCases = random.nextInt(numOfTotalTestCases);
     int numOfSuccessfulTestCases = numOfTotalTestCases - numOfFailedCases;
 
-    TerminalTestResultNotifier terminalTestResultNotifier =
-        new TerminalTestResultNotifier(ansiTerminalPrinter, optionsParsingResult);
+    TerminalTestResultNotifier terminalTestResultNotifier = new TerminalTestResultNotifier(
+        ansiTerminalPrinter, Path::getPathString, optionsParsingResult);
 
     TestSummary testSummary = Mockito.mock(TestSummary.class);
     when(testSummary.getTotalTestCases()).thenReturn(numOfTotalTestCases);

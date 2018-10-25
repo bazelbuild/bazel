@@ -1238,6 +1238,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @SuppressWarnings("unchecked")
   private void setPackageLocator(PathPackageLocator pkgLocator) {
+    EventBus eventBus = this.eventBus.get();
+    if (eventBus != null) {
+      eventBus.post(pkgLocator);
+    }
+
     PathPackageLocator oldLocator = this.pkgLocator.getAndSet(pkgLocator);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(injectable(), pkgLocator);
 

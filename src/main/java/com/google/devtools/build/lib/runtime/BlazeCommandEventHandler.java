@@ -241,6 +241,16 @@ public class BlazeCommandEventHandler implements EventHandler {
         help = "Make the experimental UI deduplicate messages to have a cleaner scroll-back log.")
     public boolean experimentalUiDeduplicate;
 
+    @Option(
+        name = "experimental_ui_attempt_to_print_relative_paths",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help =
+            "When printing the location part of messages, attempt to use a path relative to the "
+                + "workspace directory or one of the directories specified by --package_path.")
+    public boolean experimentalUiAttemptToPrintRelativePaths;
+
     public boolean useColor() {
       return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isStderrATty);
     }

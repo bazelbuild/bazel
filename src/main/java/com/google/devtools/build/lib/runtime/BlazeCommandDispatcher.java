@@ -609,8 +609,13 @@ public class BlazeCommandDispatcher {
       OutErr outErr, BlazeCommandEventHandler.Options eventOptions) {
     EventHandler eventHandler;
     if (eventOptions.experimentalUi) {
-      // The experimental event handler is not to be rate limited.
-      return new ExperimentalEventHandler(outErr, eventOptions, runtime.getClock());
+      // The experimental event handler is not to be rate limited, so don't wrap it in a
+      // RateLimitingEventHandler.
+      return new ExperimentalEventHandler(
+          outErr,
+          eventOptions,
+          runtime.getClock(),
+          runtime.getWorkspace().getDirectories().getWorkspace());
     } else if ((eventOptions.useColor() || eventOptions.useCursorControl())) {
       eventHandler = new FancyTerminalEventHandler(outErr, eventOptions);
     } else {

@@ -204,4 +204,32 @@ EOF
   expect_log "//$pkg:test_b"
 }
 
+function test_print_relative_test_log_paths() {
+  # The symlink resolution done by PathPrettyPrinter doesn't seem to work on
+  # Windows.
+  # TODO(nharmata): Fix this.
+  [[ "$is_windows" == "true" ]] && return 0
+
+  local -r pkg="$FUNCNAME"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg failed"
+  cat > "$pkg"/BUILD <<'EOF'
+sh_test(name = 'fail', srcs = ['fail.sh'])
+EOF
+  cat > "$pkg"/fail.sh <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+  chmod +x "$pkg"/fail.sh
+
+  local testlogs_dir=$(bazel info ${PRODUCT_NAME}-testlogs 2> /dev/null)
+
+  bazel test --print_relative_test_log_paths=false //"$pkg":fail &> $TEST_log \
+    && fail "expected failure"
+  expect_log "^  $testlogs_dir/$pkg/fail/test.log$"
+
+  bazel test --print_relative_test_log_paths=true //"$pkg":fail &> $TEST_log \
+    && fail "expected failure"
+  expect_log "^  ${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
+}
+
 run_suite "test tests"

@@ -187,7 +187,7 @@ public abstract class Location implements Serializable {
     return printWithPath(getPath());
   }
 
-  private String printWithPath(PathFragment path) {
+  public String printWithPath(PathFragment path) {
     StringBuilder buf = new StringBuilder();
     if (path != null) {
       buf.append(path).append(':');
