@@ -233,7 +233,7 @@ targets.
 #### <a name="guava-2"></a>Guava project example: start with one BUILD file
 
 When migrating the Guava project to Bazel, initially one BUILD file is used
-to build the enitre project. Here are the contents of this initial `BUILD`
+to build the entire project. Here are the contents of this initial `BUILD`
 file in the workspace directory:
 
 ```bash
