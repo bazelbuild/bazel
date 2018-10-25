@@ -211,8 +211,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
 
     @Override
     public String toString() {
-      return String.format(
-          "%s @ %s -> %s", label, location, (cause == null) ? "null" : cause.toString());
+      return String.format("%s @ %s -> %s", label, location, String.valueOf(cause));
     }
   }
 

@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -199,7 +200,7 @@ public final class Environment implements Freezable, Debuggable {
 
     private MutableLexicalFrame(Mutability mutability, int initialCapacity) {
       this.mutability = mutability;
-      this.bindings = new LinkedHashMap<>(initialCapacity);
+      this.bindings = Maps.newLinkedHashMapWithExpectedSize(initialCapacity);
     }
 
     private MutableLexicalFrame(Mutability mutability) {

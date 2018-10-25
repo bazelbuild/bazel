@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -491,7 +492,7 @@ public class MethodLibrary {
 
         @Nullable
         private String getIntegerPrefix(String value) {
-          value = value.toLowerCase();
+          value = Ascii.toLowerCase(value);
           for (String prefix : intPrefixes.keySet()) {
             if (value.startsWith(prefix)) {
               return prefix;

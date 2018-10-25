@@ -452,8 +452,12 @@ public abstract class Type<T> {
               || valueLabelClass == LabelClass.NONE
               || keyLabelClass == valueLabelClass,
           "A DictType's keys and values must be the same class of label if both contain labels, "
-          + "but the key type " + keyType + " contains " + keyLabelClass + " labels, while "
-          + "the value type " + valueType + " contains " + valueLabelClass + " labels.");
+              + "but the key type %s contains %s labels, while "
+              + "the value type %s contains %s labels.",
+          keyType,
+          keyLabelClass,
+          valueType,
+          valueLabelClass);
       LabelClass labelClass = (keyLabelClass != LabelClass.NONE) ? keyLabelClass : valueLabelClass;
 
       return new DictType<>(keyType, valueType, labelClass);

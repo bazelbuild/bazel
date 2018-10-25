@@ -41,7 +41,7 @@ public final class LoadStatement extends Statement {
   }
 
   public ImmutableList<Identifier> getSymbols() {
-    return ImmutableList.copyOf(symbolMap.keySet());
+    return symbolMap.keySet().asList();
   }
 
   public StringLiteral getImport() {

@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -53,7 +53,7 @@ public final class ListLiteral extends Expression {
 
   /** A new literal for an empty list, onto which a new location can be specified */
   public static ListLiteral emptyList() {
-    return makeList(Collections.emptyList());
+    return makeList(ImmutableList.of());
   }
 
   public Kind getKind() {

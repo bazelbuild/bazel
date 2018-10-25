@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
@@ -63,7 +64,7 @@ public abstract class SkylarkSemantics {
      * would return 'experimental_foo'.
      */
     public String getFlagName() {
-      return this.name().toLowerCase();
+      return Ascii.toLowerCase(this.name());
     }
   }
 

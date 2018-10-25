@@ -22,7 +22,7 @@ import java.util.Arrays;
 /** A value class for storing {@link Param} metadata to avoid using Java proxies. */
 public final class ParamDescriptor {
 
-  private String name;
+  private final String name;
   private final String defaultValue;
   private final Class<?> type;
   private final ImmutableList<ParamTypeDescriptor> allowedTypes;
@@ -36,12 +36,10 @@ public final class ParamDescriptor {
 
   private ParamDescriptor(
       String name,
-      String doc,
       String defaultValue,
       Class<?> type,
       ImmutableList<ParamTypeDescriptor> allowedTypes,
       Class<?> generic1,
-      boolean callbackEnabled,
       boolean noneable,
       boolean named,
       boolean legacyNamed,
@@ -68,12 +66,10 @@ public final class ParamDescriptor {
     boolean noneable = param.noneable();
     return new ParamDescriptor(
         param.name(),
-        param.doc(),
         param.defaultValue(),
         type,
         allowedTypes,
         generic,
-        param.callbackEnabled(),
         noneable,
         param.named(),
         param.legacyNamed(),

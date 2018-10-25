@@ -317,9 +317,12 @@ public class SkylarkSignatureProcessor {
         SkylarkSignature annotation = field.getAnnotation(SkylarkSignature.class);
         Object value = null;
         try {
-          value = Preconditions.checkNotNull(field.get(null),
-              String.format(
-                  "Error while trying to configure %s.%s: its value is null", type, field));
+          value =
+              Preconditions.checkNotNull(
+                  field.get(null),
+                  "Error while trying to configure %s.%s: its value is null",
+                  type,
+                  field);
           builtins.registerBuiltin(type, field.getName(), value);
           if (BaseFunction.class.isAssignableFrom(field.getType())) {
             BaseFunction function = (BaseFunction) value;
