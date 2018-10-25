@@ -489,7 +489,7 @@ toolchain {
     flag_set {
       action: "c++-link-executable"
       flag_group {
-        flag: "-pie"
+        flag: "-Wl,-pie"
       }
       expand_if_all_available: "force_pic"
     }
@@ -2135,7 +2135,7 @@ toolchain {
     flag_set {
       action: "c++-link-executable"
       flag_group {
-        flag: "-pie"
+        flag: "-Wl,-pie"
       }
       expand_if_all_available: "force_pic"
     }
@@ -3788,7 +3788,7 @@ toolchain {
     flag_set {
       action: "c++-link-executable"
       flag_group {
-        flag: "-pie"
+        flag: "-Wl,-pie"
       }
       expand_if_all_available: "force_pic"
     }
@@ -5438,7 +5438,7 @@ toolchain {
     flag_set {
       action: "c++-link-executable"
       flag_group {
-        flag: "-pie"
+        flag: "-Wl,-pie"
       }
       expand_if_all_available: "force_pic"
     }
@@ -7088,7 +7088,7 @@ toolchain {
     flag_set {
       action: "c++-link-executable"
       flag_group {
-        flag: "-pie"
+        flag: "-Wl,-pie"
       }
       expand_if_all_available: "force_pic"
     }
@@ -8732,7 +8732,7 @@ toolchain {
     flag_set {
       action: "c++-link-executable"
       flag_group {
-        flag: "-pie"
+        flag: "-Wl,-pie"
       }
       expand_if_all_available: "force_pic"
     }
@@ -10415,7 +10415,7 @@ toolchain {
     flag_set {
       action: "c++-link-executable"
       flag_group {
-        flag: "-pie"
+        flag: "-Wl,-pie"
       }
       expand_if_all_available: "force_pic"
     }
@@ -12068,7 +12068,7 @@ toolchain {
     flag_set {
       action: "c++-link-executable"
       flag_group {
-        flag: "-pie"
+        flag: "-Wl,-pie"
       }
       expand_if_all_available: "force_pic"
     }
@@ -13709,7 +13709,7 @@ toolchain {
     flag_set {
       action: "c++-link-executable"
       flag_group {
-        flag: "-pie"
+        flag: "-Wl,-pie"
       }
       expand_if_all_available: "force_pic"
     }
@@ -15353,7 +15353,7 @@ toolchain {
     flag_set {
       action: "c++-link-executable"
       flag_group {
-        flag: "-pie"
+        flag: "-Wl,-pie"
       }
       expand_if_all_available: "force_pic"
     }

@@ -820,7 +820,12 @@ public class CppActionConfigs {
                     "    expand_if_all_available: 'force_pic'",
                     "    action: 'c++-link-executable'",
                     "    flag_group {",
-                    "      flag: '-pie'",
+                    ifLinux(
+                        platform,
+                        "      flag: '-pie'"),
+                    ifMac(
+                        platform,
+                        "      flag: '-Wl,-pie'"),
                     "    }",
                     "  }",
                     "}"),
