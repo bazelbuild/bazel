@@ -20,6 +20,7 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -171,8 +172,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     EvaluationResult<RegisteredToolchainsValue> result =
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
-    assertToolchainLabels(result.get(toolchainsKey))
-        .containsAllOf(
+    assertToolchainLabels(result.get(toolchainsKey), PackageIdentifier.createInMainRepo("extra"))
+        .containsExactly(
             makeLabel("//extra:extra_toolchain1_impl"),
             makeLabel("//extra:extra_toolchain2_impl"),
             makeLabel("//extra/more:more_toolchain_impl"));
