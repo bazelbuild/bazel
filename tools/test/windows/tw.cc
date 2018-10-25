@@ -550,23 +550,22 @@ bool TouchFile(const std::wstring& path) {
   return true;
 }
 
-bool ReadCompleteFile(HANDLE handle, uint8_t* dest, DWORD max_read_bytes) {
-  if (max_read_bytes == 0) {
+bool ReadCompleteFile(HANDLE handle, uint8_t* dest, DWORD max_read) {
+  if (max_read == 0) {
     return true;
   }
 
-  const DWORD max_read = std::min(
-      max_read_bytes, /* 100 MB */ static_cast<DWORD>(100000000));
   DWORD total_read = 0;
   DWORD read = 0;
   do {
-    if (!ReadFile(handle, dest + total_read, max_read, &read, NULL)) {
+    if (!ReadFile(handle, dest + total_read, max_read - total_read, &read,
+                  NULL)) {
       DWORD err = GetLastError();
       LogErrorWithValue(__LINE__, "Failed to read file", err);
       return false;
     }
     total_read += read;
-  } while (read > 0);
+  } while (read > 0 && total_read < max_read);
   return true;
 }
 
