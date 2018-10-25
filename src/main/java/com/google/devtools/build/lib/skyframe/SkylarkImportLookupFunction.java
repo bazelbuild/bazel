@@ -27,7 +27,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
@@ -453,18 +452,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
     private SkylarkImportFailedException(String errorMessage, Exception cause) {
       super(errorMessage, cause);
-    }
-
-    private SkylarkImportFailedException(InconsistentFilesystemException e) {
-      this(e.getMessage(), e);
-    }
-
-    private SkylarkImportFailedException(BuildFileNotFoundException e) {
-      this(e.getMessage(), e);
-    }
-
-    private SkylarkImportFailedException(LabelSyntaxException e) {
-      this(e.getMessage(), e);
     }
 
     static SkylarkImportFailedException errors(PathFragment file) {
