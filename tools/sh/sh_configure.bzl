@@ -31,6 +31,9 @@ def _sh_config_impl(repository_ctx):
         if _is_windows(repository_ctx):
             sh_path = repository_ctx.which("bash.exe")
             if sh_path:
+                # repository_ctx.which returns a path object, convert that to
+                # string so we can call string.startswith on it.
+                sh_path = str(sh_path)
                 # When the Windows Subsystem for Linux is installed there's a
                 # bash.exe under %WINDIR%\system32\bash.exe that launches Ubuntu
                 # Bash which cannot run native Windows programs so it's not what
