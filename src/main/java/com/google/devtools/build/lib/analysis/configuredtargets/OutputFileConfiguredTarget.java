@@ -133,7 +133,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
   }
 
   @Override
-  public ImmutableMap<String, String> getReportedToActualSources() {
+  public NestedSet<Pair<String, String>> getReportedToActualSources() {
     return getProvider(InstrumentedFilesProvider.class, InstrumentedFilesProviderImpl.EMPTY)
         .getReportedToActualSources();
   }

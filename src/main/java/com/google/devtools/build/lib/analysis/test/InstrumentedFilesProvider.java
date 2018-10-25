@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -63,14 +62,14 @@ public interface InstrumentedFilesProvider extends TransitiveInfoProvider {
   NestedSet<Pair<String, String>> getCoverageEnvironment();
 
   /**
-   * A map from the reported source file path to the actual source file path, relative to the
+   * A set of pairs of reported source file path and the actual source file path, relative to the
    * workspace directory, if the two values are different. If the reported source file is the same
-   * as the actual source path it will not be included in this map.
+   * as the actual source path it will not be included in this set.
    *
    * <p> This is useful for virtual include paths in C++, which get reported at the include location
    * and not the real source path. For example, the reported include source file can be
    * "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h", but its
    * actual source path is "include/common/strategy.h".
    */
-  ImmutableMap<String, String> getReportedToActualSources();
+  NestedSet<Pair<String, String>> getReportedToActualSources();
 }

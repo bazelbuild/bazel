@@ -16,6 +16,7 @@ package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.devtools.coverageoutputgenerator.Constants.CC_EXTENSIONS;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import java.util.List;
@@ -91,7 +92,8 @@ class Coverage {
    * Replaces the source file names in the current coverage with their mapping in the given
    * map, if it exists.
    */
-  void maybeReplaceSourcefileNames(ImmutableMap<String, String> reportedToOriginalSources) {
+  void maybeReplaceSourceFileNames(ImmutableMap<String, String> reportedToOriginalSources) {
+    Preconditions.checkNotNull(reportedToOriginalSources);
     if (reportedToOriginalSources == null) {
       throw new IllegalArgumentException("reportedToOriginalSources should not be null.");
     }

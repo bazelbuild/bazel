@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -853,13 +854,13 @@ public final class CcCompilationHelper {
     private final ImmutableList<Artifact> headers;
     private final ImmutableList<Artifact> moduleMapHeaders;
     private final @Nullable PathFragment virtualIncludePath;
-    private final ImmutableMap<String, String> virtualToOriginalHeaders;
+    private final NestedSet<Pair<String, String>> virtualToOriginalHeaders;
 
     private PublicHeaders(
         ImmutableList<Artifact> headers,
         ImmutableList<Artifact> moduleMapHeaders,
         PathFragment virtualIncludePath,
-        ImmutableMap<String, String> virtualToOriginalHeaders) {
+        NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
       this.headers = headers;
       this.moduleMapHeaders = moduleMapHeaders;
       this.virtualIncludePath = virtualIncludePath;
@@ -921,15 +922,20 @@ public final class CcCompilationHelper {
           ImmutableList.copyOf(Iterables.concat(publicHeaders, nonModuleMapHeaders)),
           ImmutableList.copyOf(publicHeaders),
           /*virtualIncludePath=*/ null,
-          /*virtualToOriginalHeaders=*/ ImmutableMap.of());
+          /* virtualToOriginalHeaders= */ NestedSetBuilder.create(Order.STABLE_ORDER));
     }
 
     if (ruleContext.hasErrors()) {
-      return new PublicHeaders(ImmutableList.of(), ImmutableList.of(), null, ImmutableMap.of());
+      return new PublicHeaders(
+          ImmutableList.of(),
+          ImmutableList.of(),
+          null,
+          NestedSetBuilder.create(Order.STABLE_ORDER));
     }
 
     ImmutableList.Builder<Artifact> moduleHeadersBuilder = ImmutableList.builder();
-    ImmutableMap.Builder<String, String> virtualToOriginalHeaders = ImmutableMap.builder();
+    NestedSetBuilder<Pair<String, String>> virtualToOriginalHeaders =
+        NestedSetBuilder.stableOrder();
     for (Artifact originalHeader : publicHeaders) {
       if (!originalHeader.getRootRelativePath().startsWith(stripPrefix)) {
         ruleContext.ruleError(
@@ -955,8 +961,8 @@ public final class CcCompilationHelper {
             "Symlinking virtual headers for " + ruleContext.getLabel()));
         moduleHeadersBuilder.add(virtualHeader);
         if (configuration.isCodeCoverageEnabled()) {
-          virtualToOriginalHeaders.put(
-              virtualHeader.getExecPathString(), originalHeader.getExecPathString());
+          virtualToOriginalHeaders.add(
+             Pair.of(virtualHeader.getExecPathString(), originalHeader.getExecPathString()));
         }
       } else {
         moduleHeadersBuilder.add(originalHeader);

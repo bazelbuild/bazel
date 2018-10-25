@@ -56,7 +56,7 @@ public final class InstrumentedFilesCollector {
         new InstrumentationSpec(FileTypeSet.NO_FILE).withDependencyAttributes(dependencyAttributes),
         /*localMetadataCollector=*/ null,
         /*rootFiles=*/ null,
-        /*reportedToActualSources=*/ ImmutableMap.of());
+        /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
   public static InstrumentedFilesProvider collect(
@@ -64,7 +64,7 @@ public final class InstrumentedFilesCollector {
       InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector,
       Iterable<Artifact> rootFiles,
-      ImmutableMap<String, String> reportedToActualSources) {
+      NestedSet<Pair<String, String>> reportedToActualSources) {
     return collect(ruleContext, spec, localMetadataCollector, rootFiles,
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.<Pair<String, String>>emptySet(Order.STABLE_ORDER),
@@ -87,7 +87,7 @@ public final class InstrumentedFilesCollector {
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       boolean withBaselineCoverage,
-      ImmutableMap<String, String> reportedToActualSources) {
+      NestedSet<Pair<String, String>> reportedToActualSources) {
     Preconditions.checkNotNull(ruleContext);
     Preconditions.checkNotNull(spec);
 

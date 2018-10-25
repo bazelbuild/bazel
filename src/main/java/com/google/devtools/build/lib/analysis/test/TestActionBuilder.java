@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -31,9 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction.Compression;
+import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfPairAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
@@ -50,7 +47,6 @@ import com.google.devtools.common.options.EnumConverter;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -275,21 +271,17 @@ public final class TestActionBuilder {
       if (!instrumentedFiles.getReportedToActualSources().isEmpty()) {
         Artifact reportedToActualSourcesArtifact =
             ruleContext.getUniqueDirectoryArtifact("_coverage_helpers","reported_to_actual_sources.txt");
-        String reportedToActualSourcesFileContent =
-            instrumentedFiles.getReportedToActualSources().entrySet().stream()
-                .map(e -> e.getKey() + ":" + e.getValue())
-                .reduce((s1, s2) -> s1 + "\n" + s2).get();
-
-        ruleContext.registerAction(FileWriteAction.create(
-            ruleContext.getActionOwner(),
-            reportedToActualSourcesArtifact,
-            reportedToActualSourcesFileContent,
-            /*makeExecutable=*/ false,
-            Compression.DISALLOW
+        ruleContext.registerAction(
+            new LazyWriteNestedSetOfPairAction(
+                ruleContext.getActionOwner(),
+                reportedToActualSourcesArtifact,
+                instrumentedFiles.getReportedToActualSources()
             )
         );
         inputsBuilder.add(reportedToActualSourcesArtifact);
-        extraTestEnv.put(COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE, reportedToActualSourcesArtifact.getExecPathString());
+        extraTestEnv.put(
+            COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE,
+            reportedToActualSourcesArtifact.getExecPathString());
       }
 
       // lcov is the default CC coverage tool unless otherwise specified on the command line.

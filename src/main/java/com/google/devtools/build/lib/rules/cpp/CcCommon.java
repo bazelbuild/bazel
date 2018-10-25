@@ -698,7 +698,7 @@ public final class CcCommon {
   public InstrumentedFilesProvider getInstrumentedFilesProvider(
       Iterable<Artifact> files,
       boolean withBaselineCoverage,
-      ImmutableMap<String, String> virtualToOriginalHeaders) {
+      NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
     return InstrumentedFilesCollector.collect(
         ruleContext,
         CppRuleClasses.INSTRUMENTATION_SPEC,

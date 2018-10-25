@@ -66,7 +66,7 @@ public class Main {
             parseFiles(getGcovInfoFiles(filesInCoverageDir), GcovParser::parse));
 
     if (flags.sourcesToReplaceFile() != null) {
-      coverage.maybeReplaceSourcefileNames(
+      coverage.maybeReplaceSourceFileNames(
           getMapFromFile(flags.sourcesToReplaceFile()));
     }
 

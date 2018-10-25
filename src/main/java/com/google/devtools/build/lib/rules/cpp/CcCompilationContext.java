@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Collections;
@@ -81,14 +82,14 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   private final CppConfiguration.HeadersCheckingMode headersCheckingMode;
 
-  // Maps the Bazel generated paths of virtual include headers back to their original path relative
-  // to the workspace directory.
+  // Each pair maps the Bazel generated paths of virtual include headers back to their original path
+  // relative to the workspace directory.
   // For example it can map
   // "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h"
   // back to the path of the header in the workspace directory "include/common/strategy.h".
   // This is needed only when code coverage collection is enabled, to report the actual source file
   // name in the coverage output file.
-  private final ImmutableMap<String, String> virtualToOriginalHeaders;
+  private final NestedSet<Pair<String, String>> virtualToOriginalHeaders;
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
@@ -107,7 +108,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput,
       CppConfiguration.HeadersCheckingMode headersCheckingMode,
-      ImmutableMap<String, String> virtualToOriginalHeaders) {
+      NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
     this.declaredIncludeDirs = declaredIncludeDirs;
@@ -400,7 +401,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     return builder.build();
   }
 
-  public ImmutableMap<String, String> getVirtualToOriginalHeaders() {
+  public NestedSet<Pair<String, String>> getVirtualToOriginalHeaders() {
     return virtualToOriginalHeaders;
   }
 
@@ -453,7 +454,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private boolean propagateModuleMapAsActionInput = true;
     private CppConfiguration.HeadersCheckingMode headersCheckingMode =
         CppConfiguration.HeadersCheckingMode.STRICT;
-    private Map<String, String> virtualToOriginalHeaders = new HashMap<>();
+    private NestedSetBuilder<Pair<String, String>> virtualToOriginalHeaders =
+        NestedSetBuilder.stableOrder();
 
     /** The rule that owns the context */
     private final RuleContext ruleContext;
@@ -514,7 +516,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       }
 
       defines.addAll(otherCcCompilationContext.getDefines());
-      virtualToOriginalHeaders.putAll(otherCcCompilationContext.getVirtualToOriginalHeaders());
+      virtualToOriginalHeaders.addTransitive(
+          otherCcCompilationContext.getVirtualToOriginalHeaders());
       return this;
     }
 
@@ -672,8 +675,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
-    public Builder addVirtualToOriginalHeaders(Map<String, String> virtualToOriginalHeaders) {
-      this.virtualToOriginalHeaders.putAll(virtualToOriginalHeaders);
+    public Builder addVirtualToOriginalHeaders(
+        NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
+      this.virtualToOriginalHeaders.addTransitive(virtualToOriginalHeaders);
       return this;
     }
 
@@ -714,7 +718,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           verificationModuleMap,
           propagateModuleMapAsActionInput,
           headersCheckingMode,
-          ImmutableMap.copyOf(virtualToOriginalHeaders));
+          virtualToOriginalHeaders.build());
     }
 
     /**
