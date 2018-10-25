@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.includescanning.IncludeParser.GrepIncludesFileType;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -362,10 +363,28 @@ public class SpawnIncludeScanner {
 
     actionExecutionContext.maybeReportSubcommand(spawn);
 
+    // Don't share the originalOutErr across spawnGrep calls. Doing so would not be thread-safe.
+    FileOutErr originalOutErr = actionExecutionContext.getFileOutErr();
+    FileOutErr grepOutErr = originalOutErr.childOutErr();
     SpawnActionContext context = actionExecutionContext.getContext(SpawnActionContext.class);
-    List<SpawnResult> results = context.exec(spawn, actionExecutionContext);
+    List<SpawnResult> results;
+    try {
+      results = context.exec(spawn, actionExecutionContext.withFileOutErr(grepOutErr));
+      dump(actionExecutionContext, grepOutErr, originalOutErr);
+    } catch (ExecException e) {
+      dump(actionExecutionContext, grepOutErr, originalOutErr);
+      throw e;
+    }
 
     SpawnResult result = Iterables.getLast(results);
     return result.getInMemoryOutput(output);
+  }
+
+  private static void dump(ActionExecutionContext parentContext, FileOutErr from, FileOutErr to) {
+    if (from.hasRecordedOutput()) {
+      synchronized (parentContext) {
+        FileOutErr.dump(from, to);
+      }
+    }
   }
 }
