@@ -94,9 +94,6 @@ class Coverage {
    */
   void maybeReplaceSourceFileNames(ImmutableMap<String, String> reportedToOriginalSources) {
     Preconditions.checkNotNull(reportedToOriginalSources);
-    if (reportedToOriginalSources == null) {
-      throw new IllegalArgumentException("reportedToOriginalSources should not be null.");
-    }
     if (reportedToOriginalSources.isEmpty()) {
       // nothing to replace
       return;
@@ -110,9 +107,8 @@ class Coverage {
 
   static Coverage filterOutMatchingSources(Coverage coverage, List<String> regexes)
       throws IllegalArgumentException {
-    if (coverage == null || regexes == null) {
-      throw new IllegalArgumentException("Coverage and regex should not be null.");
-    }
+    Preconditions.checkNotNull(coverage);
+    Preconditions.checkNotNull(regexes);
     if (regexes.isEmpty()) {
       return coverage;
     }
