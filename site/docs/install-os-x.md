@@ -3,7 +3,7 @@ layout: documentation
 title: Installing Bazel on macOS
 ---
 
-# <a name="mac-os-x"></a>Installing Bazel on macOS
+<h1 id="mac-os-x">Installing Bazel on macOS</h1>
 
 Install Bazel on macOS using one of the following methods:
 
@@ -13,10 +13,10 @@ Install Bazel on macOS using one of the following methods:
 
 Bazel comes with two completion scripts. After installing Bazel, you can:
 
-*   Access the [bash completion script](install.md)
-*   Install the [zsh completion script](install.md)
+*   Access the [bash completion script](completion.md#bash)
+*   Install the [zsh completion script](completion.md#zsh)
 
-## <a name="install-with-installer-mac-os-x"></a>Installing using binary installer
+<h2 id="install-with-installer-mac-os-x">Installing using binary installer</h2>
 
 The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
@@ -74,7 +74,7 @@ bazel version
 ```
 To update to a newer release of Bazel, download and install the desired version.
 
-## <a name="install-on-mac-os-x-homebrew"></a>Installing using Homebrew
+<h2 id="install-on-mac-os-x-homebrew">Installing using Homebrew</h2>
 
 ### Step 1: Install Homebrew on macOS
 

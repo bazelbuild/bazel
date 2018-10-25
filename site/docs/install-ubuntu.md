@@ -3,7 +3,7 @@ layout: documentation
 title: Installing Bazel on Ubuntu
 ---
 
-# <a name="ubuntu"></a>Installing Bazel on Ubuntu
+<h1 id="ubuntu">Installing Bazel on Ubuntu</h1>
 
 Supported Ubuntu Linux platforms:
 
@@ -18,10 +18,10 @@ Install Bazel on Ubuntu using one of the following methods:
 
 Bazel comes with two completion scripts. After installing Bazel, you can:
 
-*   Access the [bash completion script](install.md)
-*   Install the [zsh completion script](install.md)
+*   Access the [bash completion script](completion.md#bash)
+*   Install the [zsh completion script](completion.md#zsh)
 
-## <a name="install-with-installer-ubuntu"></a>Installing using binary installer
+<h2 id="install-with-installer-ubuntu">Installing using binary installer</h2>
 
 The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
@@ -66,7 +66,7 @@ export PATH="$PATH:$HOME/bin"
 
 You can also add this command to your `~/.bashrc` file.
 
-## <a name="install-on-ubuntu"></a> Using Bazel custom APT repository
+<h2 id="install-on-ubuntu"> Using Bazel custom APT repository</h2>
 
 ### Step 1: Install the JDK
 
