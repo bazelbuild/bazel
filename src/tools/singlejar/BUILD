@@ -103,6 +103,10 @@ cc_test(
         "//third_party/zlib",
         "@com_google_googletest//:gtest_main",
     ],
+    tags = [
+        # https://github.com/bazelbuild/bazel/issues/6512
+        "no_windows",
+    ],
 )
 
 cc_test(
@@ -119,6 +123,11 @@ cc_test(
         "//src/main/cpp/util",
         "@com_google_googletest//:gtest_main",
     ],
+    tags = [
+        # TODO(@rongjiecomputer): make this work on Windows as part of
+        # https://github.com/bazelbuild/bazel/issues/2241
+        "no_windows",
+    ],
 )
 
 cc_test(
@@ -134,6 +143,11 @@ cc_test(
         ":test_util",
         "//src/main/cpp/util",
         "@com_google_googletest//:gtest_main",
+    ],
+    tags = [
+        # TODO(@rongjiecomputer): make this work on Windows as part of
+        # https://github.com/bazelbuild/bazel/issues/2241
+        "no_windows",
     ],
 )
 
@@ -234,6 +248,11 @@ cc_test(
         ":test_util",
         "//src/main/cpp/util",
         "@com_google_googletest//:gtest_main",
+    ],
+    tags = [
+        # TODO(@rongjiecomputer): make this work on Windows as part of
+        # https://github.com/bazelbuild/bazel/issues/2241
+        "no_windows",
     ],
 )
 
@@ -488,4 +507,21 @@ genrule(
     cmd = "$(JAVABASE)/bin/jar -0cf \"$@\" $(location :output_jar.cc)",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src:__pkg__"],
 )
