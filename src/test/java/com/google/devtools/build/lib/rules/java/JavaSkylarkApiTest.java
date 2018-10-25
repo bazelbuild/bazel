@@ -716,7 +716,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     try {
       getConfiguredTarget("//java/test:custom");
     } catch (AssertionError e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .contains("source_jars, sources and exports cannot be simultaneous empty");
     }
   }
@@ -1875,8 +1876,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     Iterator<Artifact> iterator = artifacts.iterator();
     Iterator<Artifact> otherIterator = otherArtifacts.iterator();
     while (iterator.hasNext() && otherIterator.hasNext()) {
-      Artifact artifact = (Artifact) iterator.next();
-      Artifact otherArtifact = (Artifact) otherIterator.next();
+      Artifact artifact = iterator.next();
+      Artifact otherArtifact = otherIterator.next();
       if (!artifact
           .getPath()
           .getParentDirectory()

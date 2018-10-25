@@ -107,7 +107,7 @@ public final class JavaCompileActionBuilder {
     /** The compiler options to pass to javac. */
     private final ImmutableList<String> javacOpts;
 
-    private CommandLine commandLine;
+    private final CommandLine commandLine;
 
     JavaCompileExtraActionInfoSupplier(
         Artifact outputJar,
@@ -132,15 +132,16 @@ public final class JavaCompileActionBuilder {
 
     @Override
     public void extend(ExtraActionInfo.Builder builder) {
-      JavaCompileInfo.Builder info = JavaCompileInfo.newBuilder();
-      info.addAllSourceFile(Artifact.toExecPaths(sourceFiles));
-      info.addAllClasspath(Artifact.toExecPaths(classpathEntries));
-      info.addAllBootclasspath(Artifact.toExecPaths(bootclasspathEntries));
-      info.addAllSourcepath(Artifact.toExecPaths(sourceJars));
-      info.addAllJavacOpt(javacOpts);
-      info.addAllProcessor(processorNames);
-      info.addAllProcessorpath(Artifact.toExecPaths(processorPath));
-      info.setOutputjar(outputJar.getExecPathString());
+      JavaCompileInfo.Builder info =
+          JavaCompileInfo.newBuilder()
+              .addAllSourceFile(Artifact.toExecPaths(sourceFiles))
+              .addAllClasspath(Artifact.toExecPaths(classpathEntries))
+              .addAllBootclasspath(Artifact.toExecPaths(bootclasspathEntries))
+              .addAllSourcepath(Artifact.toExecPaths(sourceJars))
+              .addAllJavacOpt(javacOpts)
+              .addAllProcessor(processorNames)
+              .addAllProcessorpath(Artifact.toExecPaths(processorPath))
+              .setOutputjar(outputJar.getExecPathString());
       try {
         info.addAllArgument(commandLine.arguments());
       } catch (CommandLineExpansionException e) {
