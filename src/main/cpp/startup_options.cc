@@ -80,6 +80,7 @@ StartupOptions::StartupOptions(const string &product_name,
       batch(false),
       batch_cpu_scheduling(false),
       io_nice_level(-1),
+      shutdown_on_low_sys_mem(false),
       oom_more_eagerly(false),
       oom_more_eagerly_threshold(100),
       write_command_log(true),
@@ -136,6 +137,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions");
   RegisterNullaryStartupFlag("host_jvm_debug");
   RegisterNullaryStartupFlag("idle_server_tasks");
+  RegisterNullaryStartupFlag("shutdown_on_low_sys_mem");
   RegisterNullaryStartupFlag("ignore_all_rc_files");
   RegisterNullaryStartupFlag("unlimit_coredumps");
   RegisterNullaryStartupFlag("watchfs");
@@ -289,6 +291,12 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["max_idle_secs"] = rcfile;
+  } else if (GetNullaryOption(arg, "--shutdown_on_low_sys_mem")) {
+    shutdown_on_low_sys_mem = true;
+    option_sources["shutdown_on_low_sys_mem"] = rcfile;
+  } else if (GetNullaryOption(arg, "--noshutdown_on_low_sys_mem")) {
+    shutdown_on_low_sys_mem = false;
+    option_sources["shutdown_on_low_sys_mem"] = rcfile;
   } else if (GetNullaryOption(arg, "--experimental_oom_more_eagerly")) {
     oom_more_eagerly = true;
     option_sources["experimental_oom_more_eagerly"] = rcfile;

@@ -249,6 +249,8 @@ class StartupOptions {
 
   int max_idle_secs;
 
+  bool shutdown_on_low_sys_mem;
+
   bool oom_more_eagerly;
 
   int oom_more_eagerly_threshold;

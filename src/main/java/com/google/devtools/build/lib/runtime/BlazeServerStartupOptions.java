@@ -202,6 +202,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public int maxIdleSeconds;
 
   @Option(
+      name = "shutdown_on_low_sys_mem",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If max_idle_secs is set and the build server has been idle for a while, shut down the "
+              + "server when the system is low on free RAM. Linux only.")
+  public boolean shutdownOnLowSysMem;
+
+  @Option(
       name = "batch",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,

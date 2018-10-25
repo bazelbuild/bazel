@@ -102,6 +102,7 @@ import java.util.logging.Logger;
  */
 public class GrpcServerImpl implements RPCServer {
   private static final Logger logger = Logger.getLogger(GrpcServerImpl.class.getName());
+  private final boolean shutdownOnLowSysMem;
 
   /**
    * Factory class. Instantiated by reflection.
@@ -116,10 +117,17 @@ public class GrpcServerImpl implements RPCServer {
         int port,
         Path serverDirectory,
         int maxIdleSeconds,
+        boolean shutdownOnLowSysMem,
         boolean idleServerTasks)
         throws IOException {
       return new GrpcServerImpl(
-          dispatcher, clock, port, serverDirectory, maxIdleSeconds, idleServerTasks);
+          dispatcher,
+          clock,
+          port,
+          serverDirectory,
+          maxIdleSeconds,
+          shutdownOnLowSysMem,
+          idleServerTasks);
     }
   }
 
@@ -475,7 +483,7 @@ public class GrpcServerImpl implements RPCServer {
   private final int port;
 
   private Server server;
-  boolean serving;
+  private boolean serving;
 
   public GrpcServerImpl(
       BlazeCommandDispatcher dispatcher,
@@ -483,6 +491,7 @@ public class GrpcServerImpl implements RPCServer {
       int port,
       Path serverDirectory,
       int maxIdleSeconds,
+      boolean shutdownOnLowSysMem,
       boolean doIdleServerTasks)
       throws IOException {
     Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -504,6 +513,7 @@ public class GrpcServerImpl implements RPCServer {
     this.serverDirectory = serverDirectory;
     this.port = port;
     this.maxIdleSeconds = maxIdleSeconds;
+    this.shutdownOnLowSysMem = shutdownOnLowSysMem;
     this.serving = false;
 
     this.streamExecutorPool =
@@ -593,7 +603,9 @@ public class GrpcServerImpl implements RPCServer {
 
     if (maxIdleSeconds > 0) {
       Thread timeoutAndMemoryCheckingThread =
-          new Thread(new ServerWatcherRunnable(server, maxIdleSeconds, commandManager));
+          new Thread(
+              new ServerWatcherRunnable(
+                  server, maxIdleSeconds, shutdownOnLowSysMem, commandManager));
       timeoutAndMemoryCheckingThread.setName("grpc-timeout-and-memory");
       timeoutAndMemoryCheckingThread.setDaemon(true);
       timeoutAndMemoryCheckingThread.start();

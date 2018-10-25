@@ -44,15 +44,21 @@ class ServerWatcherRunnable implements Runnable {
   private final long maxIdleSeconds;
   private final CommandManager commandManager;
   private final ProcMeminfoParserSupplier procMeminfoParserSupplier;
+  private final boolean shutdownOnLowSysMem;
 
-  ServerWatcherRunnable(Server server, long maxIdleSeconds, CommandManager commandManager) {
-    this(server, maxIdleSeconds, commandManager, ProcMeminfoParser::new);
+  ServerWatcherRunnable(
+      Server server,
+      long maxIdleSeconds,
+      boolean shutdownOnLowSysMem,
+      CommandManager commandManager) {
+    this(server, maxIdleSeconds, shutdownOnLowSysMem, commandManager, ProcMeminfoParser::new);
   }
 
   @VisibleForTesting
   ServerWatcherRunnable(
       Server server,
       long maxIdleSeconds,
+      boolean shutdownOnLowSysMem,
       CommandManager commandManager,
       ProcMeminfoParserSupplier procMeminfoParserSupplier) {
     Preconditions.checkArgument(
@@ -63,6 +69,7 @@ class ServerWatcherRunnable implements Runnable {
     this.maxIdleSeconds = maxIdleSeconds;
     this.commandManager = commandManager;
     this.procMeminfoParserSupplier = procMeminfoParserSupplier;
+    this.shutdownOnLowSysMem = shutdownOnLowSysMem;
   }
 
   @Override
@@ -81,7 +88,7 @@ class ServerWatcherRunnable implements Runnable {
       try {
         if (idle) {
           Verify.verify(shutdownTimeNanos > 0);
-          if (exitOnLowMemoryCheck(lastIdleTimeNanos)) {
+          if (shutdownOnLowSysMem && exitOnLowMemoryCheck(lastIdleTimeNanos)) {
             logger.log(Level.SEVERE, "Available RAM is low. Shutting down idle server...");
             break;
           }

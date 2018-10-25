@@ -52,7 +52,8 @@ public class ServerWatcherRunnableTest {
   public void testBasicIdleCheck() throws Exception {
     CommandManager mockCommands = mock(CommandManager.class);
     ServerWatcherRunnable underTest =
-        new ServerWatcherRunnable(mockServer, /*maxIdleSeconds=*/ 10, mockCommands);
+        new ServerWatcherRunnable(
+            mockServer, /*maxIdleSeconds=*/ 10, /*shutdownOnLowSysMem=*/ false, mockCommands);
     Thread thread = new Thread(underTest);
     when(mockCommands.isEmpty()).thenReturn(true);
     AtomicInteger checkIdleCounter = new AtomicInteger();
@@ -100,7 +101,23 @@ public class ServerWatcherRunnableTest {
         .isTrue();
   }
 
+  @Test
+  public void testshutdownOnLowSysMemDisabled() throws Exception {
+    if (!usingLinux()) {
+      return;
+    }
+    assertThat(
+            doesIdleLowMemoryCheckShutdown(
+                /*freeRamKb=*/ 5000, /*totalRamKb=*/ 1000000, /*shutdownOnLowSysMem=*/ false))
+        .isFalse();
+  }
+
   private boolean doesIdleLowMemoryCheckShutdown(long freeRamKb, long totalRamKb) throws Exception {
+    return doesIdleLowMemoryCheckShutdown(freeRamKb, totalRamKb, /*shutdownOnLowSysMem=*/ true);
+  }
+
+  private boolean doesIdleLowMemoryCheckShutdown(
+      long freeRamKb, long totalRamKb, boolean shutdownOnLowSysMem) throws Exception {
     CommandManager mockCommandManager = mock(CommandManager.class);
     ProcMeminfoParser mockParser = mock(ProcMeminfoParser.class);
     ServerWatcherRunnable underTest =
@@ -108,6 +125,7 @@ public class ServerWatcherRunnableTest {
             mockServer,
             // Shut down after an hour if we see no memory issues.
             /*maxIdleSeconds=*/ Duration.ofHours(1).getSeconds(),
+            shutdownOnLowSysMem,
             mockCommandManager,
             () -> mockParser);
     Thread thread = new Thread(underTest);

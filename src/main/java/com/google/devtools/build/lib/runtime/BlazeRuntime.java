@@ -974,6 +974,7 @@ public final class BlazeRuntime {
                 startupOptions.commandPort,
                 runtime.getServerDirectory(),
                 startupOptions.maxIdleSeconds,
+                startupOptions.shutdownOnLowSysMem,
                 startupOptions.idleServerTasks);
       } catch (ReflectiveOperationException | IllegalArgumentException e) {
         throw new AbruptExitException("gRPC server not compiled in", ExitCode.BLAZE_INTERNAL_ERROR);

@@ -499,6 +499,8 @@ static vector<string> GetArgumentArray(
   if (!globals->options->batch) {
     result.push_back("--max_idle_secs=" +
                      ToString(globals->options->max_idle_secs));
+    result.push_back("--shutdown_on_low_sys_mem=" +
+                     ToString(globals->options->shutdown_on_low_sys_mem));
   } else {
     // --batch must come first in the arguments to Java main() because
     // the code expects it to be at args[0] if it's been set.

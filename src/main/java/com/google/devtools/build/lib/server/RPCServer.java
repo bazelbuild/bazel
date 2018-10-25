@@ -34,6 +34,7 @@ public interface RPCServer {
         int port,
         Path serverDirectory,
         int maxIdleSeconds,
+        boolean shutdownOnLowSysMem,
         boolean idleServerTasks)
         throws IOException;
   }

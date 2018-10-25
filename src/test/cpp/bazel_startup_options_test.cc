@@ -87,6 +87,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsNullaryOption(options, "fatal_event_bus_exceptions");
   ExpectIsNullaryOption(options, "home_rc");
   ExpectIsNullaryOption(options, "host_jvm_debug");
+  ExpectIsNullaryOption(options, "shutdown_on_low_sys_mem");
   ExpectIsNullaryOption(options, "ignore_all_rc_files");
   ExpectIsNullaryOption(options, "master_bazelrc");
   ExpectIsNullaryOption(options, "system_rc");
