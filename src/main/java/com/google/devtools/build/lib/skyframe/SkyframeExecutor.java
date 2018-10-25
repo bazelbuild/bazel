@@ -152,6 +152,7 @@ import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
@@ -670,8 +671,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // We evaluate in keepGoing mode because in the case that the graph does not store its
       // edges, nokeepGoing builds are not allowed, whereas keepGoing builds are always
       // permitted.
-      EvaluationResult<SkyValue> result =
-          buildDriver.evaluate(
+      EvaluationResult result =
+          evaluate(
               ImmutableList.of(key), true, ResourceUsage.getAvailableProcessors(), eventHandler);
       if (!result.hasError()) {
         return Preconditions.checkNotNull(result.get(key), "%s %s", result, key);
@@ -965,7 +966,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throws InterruptedException {
     // Should already be present, unless the user didn't request any targets for analysis.
     EvaluationResult<WorkspaceStatusValue> result =
-        buildDriver.evaluate(
+        evaluate(
             ImmutableList.of(WorkspaceStatusValue.BUILD_INFO_KEY),
             /*keepGoing=*/ true,
             /*numThreads=*/ 1,
@@ -1002,10 +1003,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     EvaluationResult<ContainingPackageLookupValue> result;
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(true)
+            .setNumThreads(1)
+            .setEventHander(eventHandler)
+            .build();
     synchronized (valueLookupLock) {
-      result =
-          buildDriver.evaluate(
-              packageKeys.values(), /*keepGoing=*/ true, /*numThreads=*/ 1, eventHandler);
+      result = buildDriver.evaluate(packageKeys.values(), evaluationContext);
     }
 
     if (result.hasError()) {
@@ -1376,11 +1381,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Iterable<SkyKey> testKeys =
           TestCompletionValue.keys(
               parallelTests, topLevelArtifactContext, /*exclusiveTesting=*/ false);
+      EvaluationContext evaluationContext =
+          EvaluationContext.newBuilder()
+              .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
+              .setNumThreads(options.getOptions(BuildRequestOptions.class).getJobs())
+              .setEventHander(reporter)
+              .build();
       return buildDriver.evaluate(
-          Iterables.concat(artifactsToBuild, targetKeys, aspectKeys, testKeys),
-          options.getOptions(KeepGoingOption.class).keepGoing,
-          options.getOptions(BuildRequestOptions.class).getJobs(),
-          reporter);
+          Iterables.concat(artifactsToBuild, targetKeys, aspectKeys, testKeys), evaluationContext);
     } finally {
       progressReceiver.executionProgressReceiver = null;
       // Also releases thread locks.
@@ -1414,10 +1422,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Iterable<SkyKey> testKeys =
           TestCompletionValue.keys(
               ImmutableSet.of(exclusiveTest), topLevelArtifactContext, /*exclusiveTesting=*/ true);
-      return buildDriver.evaluate(
+      return evaluate(
           testKeys,
-          options.getOptions(KeepGoingOption.class).keepGoing,
-          options.getOptions(BuildRequestOptions.class).getJobs(),
+          /*keepGoing=*/ options.getOptions(KeepGoingOption.class).keepGoing,
+          /*numThreads=*/ options.getOptions(BuildRequestOptions.class).getJobs(),
           reporter);
     } finally {
       progressReceiver.executionProgressReceiver = null;
@@ -1441,7 +1449,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler)
       throws InterruptedException {
     checkActive();
-    return buildDriver.evaluate(patternSkyKeys, keepGoing, numThreads, eventHandler);
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(keepGoing)
+            .setNumThreads(numThreads)
+            .setEventHander(eventHandler)
+            .build();
+    return buildDriver.evaluate(patternSkyKeys, evaluationContext);
   }
 
   @VisibleForTesting
@@ -1850,19 +1864,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       final boolean keepGoing) {
     EvaluationResult<SkyValue> result;
     try {
-      result = callUninterruptibly(new Callable<EvaluationResult<SkyValue>>() {
-        @Override
-        public EvaluationResult<SkyValue> call() throws Exception {
-          synchronized (valueLookupLock) {
-            try {
-              skyframeBuildView.enableAnalysis(true);
-              return buildDriver.evaluate(skyKeys, keepGoing, DEFAULT_THREAD_COUNT, eventHandler);
-            } finally {
-              skyframeBuildView.enableAnalysis(false);
-            }
-          }
-        }
-      });
+      result =
+          callUninterruptibly(
+              new Callable<EvaluationResult<SkyValue>>() {
+                @Override
+                public EvaluationResult<SkyValue> call() throws Exception {
+                  synchronized (valueLookupLock) {
+                    try {
+                      skyframeBuildView.enableAnalysis(true);
+                      return evaluate(
+                          skyKeys, keepGoing, /*numThreads=*/ DEFAULT_THREAD_COUNT, eventHandler);
+                    } finally {
+                      skyframeBuildView.enableAnalysis(false);
+                    }
+                  }
+                }
+              });
     } catch (Exception e) {
       throw new IllegalStateException(e);  // Should never happen.
     }
@@ -1882,8 +1899,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     SkyKey key =
         BuildConfigurationValue.key(
             fragments, BuildOptions.diffForReconstruction(defaultBuildOptions, options));
-    BuildConfigurationValue result = (BuildConfigurationValue) buildDriver
-        .evaluate(ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, eventHandler).get(key);
+    BuildConfigurationValue result =
+        (BuildConfigurationValue)
+            evaluate(
+                    ImmutableList.of(key),
+                    /*keepGoing=*/ false,
+                    /*numThreads=*/ DEFAULT_THREAD_COUNT,
+                    eventHandler)
+                .get(key);
     return result.getConfiguration();
   }
 
@@ -1968,12 +1991,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       keys.add(aspectKey);
     }
     eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
-    EvaluationResult<ActionLookupValue> result =
-        buildDriver.evaluate(
-            keys,
-            keepGoing,
-            () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads),
-            eventHandler);
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(keepGoing)
+            .setExecutorServiceSupplier(
+                () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads))
+            .setEventHander(eventHandler)
+            .build();
+    EvaluationResult<ActionLookupValue> result = buildDriver.evaluate(keys, evaluationContext);
     // Get rid of any memory retained by the cache -- all loading is done.
     perBuildSyscallCache.clear();
     return result;
@@ -1993,8 +2018,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.BAD_ACTIONS.set(injectable(), badActions);
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
     EvaluationResult<PostConfiguredTargetValue> result =
-        buildDriver.evaluate(PostConfiguredTargetValue.keys(values), keepGoing,
-            ResourceUsage.getAvailableProcessors(), eventHandler);
+        evaluate(
+            PostConfiguredTargetValue.keys(values),
+            keepGoing,
+            /*numThreads=*/ ResourceUsage.getAvailableProcessors(),
+            eventHandler);
 
     // Remove all post-configured target values immediately for memory efficiency. We are OK with
     // this mini-phase being non-incremental as the failure mode of action conflict is rare.
@@ -2024,7 +2052,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       for (Label label : labelsToVisit) {
         valueNames.add(TransitiveTargetKey.of(label));
       }
-      return buildDriver.evaluate(valueNames, keepGoing, parallelThreads, eventHandler);
+      EvaluationContext evaluationContext =
+          EvaluationContext.newBuilder()
+              .setKeepGoing(keepGoing)
+              .setNumThreads(parallelThreads)
+              .setEventHander(eventHandler)
+              .build();
+      return buildDriver.evaluate(valueNames, evaluationContext);
     }
   }
 
@@ -2038,10 +2072,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   @Override
   public EvaluationResult<SkyValue> prepareAndGet(
-      Set<SkyKey> roots, int numThreads, ExtendedEventHandler eventHandler)
-      throws InterruptedException {
+      Set<SkyKey> roots, EvaluationContext evaluationContext) throws InterruptedException {
     EvaluationResult<SkyValue> evaluationResult =
-        buildDriver.evaluate(roots, true, numThreads, eventHandler);
+        buildDriver.evaluate(
+            roots,
+            EvaluationContext.newBuilder().copyFrom(evaluationContext).setKeepGoing(true).build());
     return evaluationResult;
   }
 
@@ -2081,9 +2116,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // analysis) after a failed --nokeep_going analysis in which the configured target that
       // failed was a (transitive) dependency of the configured target that should generate
       // this action. We don't expect callers to query generating actions in such cases.
-      EvaluationResult<ActionLookupValue> result = buildDriver.evaluate(
-          ImmutableList.of(actionLookupKey), false, ResourceUsage.getAvailableProcessors(),
-          eventHandler);
+      EvaluationResult<ActionLookupValue> result =
+          evaluate(
+              ImmutableList.of(actionLookupKey),
+              /*keepGoing=*/ false,
+              /*numThreads=*/ ResourceUsage.getAvailableProcessors(),
+              eventHandler);
       return result.hasError()
           ? null
           : result.get(actionLookupKey).getGeneratingActionDangerousReadJavadoc(artifact);
@@ -2145,8 +2183,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // keep_going build, since otherwise the build would have failed during loading. Thus
         // we set keepGoing=true unconditionally.
         EvaluationResult<PackageValue> result =
-            buildDriver.evaluate(ImmutableList.of(key), /*keepGoing=*/true,
-                DEFAULT_THREAD_COUNT, eventHandler);
+            evaluate(
+                ImmutableList.of(key),
+                /*keepGoing=*/ true,
+                /*numThreads=*/ DEFAULT_THREAD_COUNT,
+                eventHandler);
         ErrorInfo error = result.getError(key);
         if (error != null) {
           if (!Iterables.isEmpty(error.getCycleInfo())) {
@@ -2358,9 +2399,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             TestFilter.forOptions(options, eventHandler, pkgFactory.getRuleClassNames()));
     EvaluationResult<TargetPatternPhaseValue> evalResult;
     eventHandler.post(new LoadingPhaseStartedEvent(packageProgress));
-    evalResult =
-        buildDriver.evaluate(
-            ImmutableList.of(key), keepGoing, threadCount, eventHandler);
+    evalResult = evaluate(ImmutableList.of(key), keepGoing, threadCount, eventHandler);
     if (evalResult.hasError()) {
       ErrorInfo errorInfo = evalResult.getError(key);
       TargetParsingException exc;
@@ -2418,11 +2457,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             BuildOptions.diffForReconstruction(defaultBuildOptions, buildOptions),
             multiCpu,
             labels);
-    EvaluationResult<PrepareAnalysisPhaseValue> evalResult;
-    evalResult =
-        buildDriver.evaluate(
+    EvaluationResult<PrepareAnalysisPhaseValue> evalResult =
+        evaluate(
             ImmutableList.of(key),
-            /* keepGoing= */ true,
+            /*keepGoing=*/ true,
             /*numThreads=*/ DEFAULT_THREAD_COUNT,
             eventHandler);
     if (evalResult.hasError()) {
@@ -2512,5 +2550,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     int result = modifiedFilesDuringPreviousBuild;
     modifiedFilesDuringPreviousBuild = 0;
     return result;
+  }
+
+  private <T extends SkyValue> EvaluationResult<T> evaluate(
+      Iterable<? extends SkyKey> roots,
+      boolean keepGoing,
+      int numThreads,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException {
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(keepGoing)
+            .setNumThreads(numThreads)
+            .setEventHander(eventHandler)
+            .build();
+    return buildDriver.evaluate(roots, evaluationContext);
   }
 }

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -218,14 +219,14 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     ImmutableList<SkyKey> singletonTargetPattern = ImmutableList.of(independentTarget);
 
     // When PrepareDepsOfPatternsFunction completes evaluation,
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(keepGoing)
+            .setNumThreads(100)
+            .setEventHander(new Reporter(new EventBus(), eventCollector))
+            .build();
     EvaluationResult<SkyValue> evaluationResult =
-        skyframeExecutor
-            .getDriverForTesting()
-            .evaluate(
-                singletonTargetPattern,
-                keepGoing,
-                /*numThreads=*/ 100,
-                new Reporter(new EventBus(), eventCollector));
+        skyframeExecutor.getDriverForTesting().evaluate(singletonTargetPattern, evaluationContext);
     // The evaluation has no errors if success was expected.
     assertThat(evaluationResult.hasError()).isNotEqualTo(successExpected);
     return Preconditions.checkNotNull(evaluationResult.getWalkableGraph());

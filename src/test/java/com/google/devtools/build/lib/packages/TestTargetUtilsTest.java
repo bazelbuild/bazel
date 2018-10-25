@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
@@ -218,10 +219,16 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
         ImmutableSet.copyOf(Iterables.transform(expected, TO_LABEL));
     ImmutableSet<Label> suiteLabels = ImmutableSet.copyOf(Iterables.transform(suites, TO_LABEL));
     SkyKey key = TestSuiteExpansionValue.key(suiteLabels);
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(1)
+            .setEventHander(reporter)
+            .build();
     EvaluationResult<TestSuiteExpansionValue> result =
         getSkyframeExecutor()
             .getDriverForTesting()
-            .evaluate(ImmutableList.of(key), false, 1, reporter);
+            .evaluate(ImmutableList.of(key), evaluationContext);
     ResolvedTargets<Label> actual = result.get(key).getLabels();
     assertThat(actual.hasError()).isFalse();
     assertThat(actual.getTargets()).containsExactlyElementsIn(expectedLabels);

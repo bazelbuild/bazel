@@ -89,6 +89,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -301,7 +302,14 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         } catch (ActionConflictException e) {
           throw new IllegalStateException(e);
         }
-        EvaluationResult<SkyValue> result = driver.evaluate(keys, keepGoing, threadCount, reporter);
+
+        EvaluationContext evaluationContext =
+            EvaluationContext.newBuilder()
+                .setKeepGoing(keepGoing)
+                .setNumThreads(threadCount)
+                .setEventHander(reporter)
+                .build();
+        EvaluationResult<SkyValue> result = driver.evaluate(keys, evaluationContext);
 
         if (result.hasError()) {
           boolean hasCycles = false;

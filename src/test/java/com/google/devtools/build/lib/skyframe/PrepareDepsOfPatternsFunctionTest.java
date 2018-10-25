@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -203,14 +204,16 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     ImmutableList<SkyKey> singletonTargetPattern = ImmutableList.of(independentTarget);
 
     // When PrepareDepsOfPatternsFunction completes evaluation,
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(keepGoing)
+            .setNumThreads(LOADING_PHASE_THREADS)
+            .setEventHander(new Reporter(new EventBus(), eventCollector))
+            .build();
     EvaluationResult<SkyValue> evaluationResult =
         getSkyframeExecutor()
             .getDriverForTesting()
-            .evaluate(
-                singletonTargetPattern,
-                keepGoing,
-                LOADING_PHASE_THREADS,
-                new Reporter(new EventBus(), eventCollector));
+            .evaluate(singletonTargetPattern, evaluationContext);
     // Currently all callers either expect success or pass keepGoing=true, which implies success,
     // since PrepareDepsOfPatternsFunction swallows all errors. Will need to be changed if a test
     // that evaluates with keepGoing=false and expects errors is added.

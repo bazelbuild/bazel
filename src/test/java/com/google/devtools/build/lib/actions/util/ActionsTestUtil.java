@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -217,12 +218,13 @@ public final class ActionsTestUtil {
       EvaluationResult<SkyValue> evaluationResult;
       Map<SkyKey, ValueOrUntypedException> result = new HashMap<>();
       try {
-        evaluationResult =
-            driver.evaluate(
-                depKeys, /*keepGoing=*/
-                false,
-                ResourceUsage.getAvailableProcessors(),
-                new Reporter(new EventBus(), eventHandler));
+        EvaluationContext evaluationContext =
+            EvaluationContext.newBuilder()
+                .setKeepGoing(false)
+                .setNumThreads(ResourceUsage.getAvailableProcessors())
+                .setEventHander(new Reporter(new EventBus(), eventHandler))
+                .build();
+        evaluationResult = driver.evaluate(depKeys, evaluationContext);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         for (SkyKey key : depKeys) {

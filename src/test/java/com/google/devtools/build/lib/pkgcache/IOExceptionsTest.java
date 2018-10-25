@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -64,8 +65,10 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
 
   private boolean visitTransitively(Label label) throws InterruptedException {
     SkyKey key = TransitiveTargetKey.of(label);
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder().setNumThreads(5).setEventHander(reporter).build();
     EvaluationResult<SkyValue> result =
-        skyframeExecutor.prepareAndGet(ImmutableSet.of(key), /*numThreads=*/ 5, reporter);
+        skyframeExecutor.prepareAndGet(ImmutableSet.of(key), evaluationContext);
     TransitiveTargetValue value = (TransitiveTargetValue) result.get(key);
     System.out.println(value);
     boolean hasTransitiveError = (value == null) || value.getTransitiveRootCauses() != null;

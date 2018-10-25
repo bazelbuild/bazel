@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.skyframe.WorkspaceFileValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -75,11 +76,13 @@ public final class SyncCommand implements BlazeCommand {
 
       // Obtain the key for the top-level WORKSPACE file
       SkyKey packageLookupKey = PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+      EvaluationContext evaluationContext =
+          EvaluationContext.newBuilder()
+              .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+              .setEventHander(env.getReporter())
+              .build();
       EvaluationResult<SkyValue> packageLookupValue =
-          skyframeExecutor.prepareAndGet(
-              ImmutableSet.of(packageLookupKey),
-              SkyframeExecutor.DEFAULT_THREAD_COUNT,
-              env.getReporter());
+          skyframeExecutor.prepareAndGet(ImmutableSet.of(packageLookupKey), evaluationContext);
       if (packageLookupValue.hasError()) {
         reportError(env, packageLookupValue);
         return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
@@ -93,10 +96,7 @@ public final class SyncCommand implements BlazeCommand {
       WorkspaceFileValue fileValue = null;
       while (workspace != null) {
         EvaluationResult<SkyValue> value =
-            skyframeExecutor.prepareAndGet(
-                ImmutableSet.of(workspace),
-                SkyframeExecutor.DEFAULT_THREAD_COUNT,
-                env.getReporter());
+            skyframeExecutor.prepareAndGet(ImmutableSet.of(workspace), evaluationContext);
         if (value.hasError()) {
           reportError(env, value);
           return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
@@ -119,11 +119,7 @@ public final class SyncCommand implements BlazeCommand {
         }
       }
       EvaluationResult<SkyValue> fetchValue;
-      fetchValue =
-          skyframeExecutor.prepareAndGet(
-              repositoriesToFetch.build(),
-              SkyframeExecutor.DEFAULT_THREAD_COUNT,
-              env.getReporter());
+      fetchValue = skyframeExecutor.prepareAndGet(repositoriesToFetch.build(), evaluationContext);
       if (fetchValue.hasError()) {
         reportError(env, fetchValue);
         return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);

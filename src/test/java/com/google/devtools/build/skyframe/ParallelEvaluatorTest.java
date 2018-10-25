@@ -2127,7 +2127,13 @@ public class ParallelEvaluatorTest {
     tester.set("d2", new StringValue("2"));
     tester.set("d3", new StringValue("3"));
 
-    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), false, 200, reporter);
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(200)
+            .setEventHander(reporter)
+            .build();
+    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
     assertThat(enqueuedValues).containsExactlyElementsIn(
         GraphTester.toSkyKeys("top1", "d1", "d2"));
     assertThat(evaluatedValues).containsExactlyElementsIn(
@@ -2135,13 +2141,13 @@ public class ParallelEvaluatorTest {
     enqueuedValues.clear();
     evaluatedValues.clear();
 
-    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top2")), false, 200, reporter);
+    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top2")), evaluationContext);
     assertThat(enqueuedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top2", "d3"));
     assertThat(evaluatedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top2", "d3"));
     enqueuedValues.clear();
     evaluatedValues.clear();
 
-    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), false, 200, reporter);
+    driver.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
     assertThat(enqueuedValues).isEmpty();
     assertThat(evaluatedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top1"));
   }

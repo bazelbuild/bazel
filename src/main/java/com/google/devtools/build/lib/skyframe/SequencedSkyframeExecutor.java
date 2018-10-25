@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
@@ -463,8 +464,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
     // have actually been invalidated (recall that invalidation happens at the beginning of the
     // next evaluate() call), because checking those is a waste of time.
-    buildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
-        DEFAULT_THREAD_COUNT, eventHandler);
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(DEFAULT_THREAD_COUNT)
+            .setEventHander(eventHandler)
+            .build();
+    buildDriver.evaluate(ImmutableList.<SkyKey>of(), evaluationContext);
 
     FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, null);
     // We need to manually check for changes to known files. This entails finding all dirty file
@@ -877,14 +883,20 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     // Run the invalidator to actually delete the values.
     try {
       progressReceiver.ignoreInvalidations = true;
-      Uninterruptibles.callUninterruptibly(new Callable<Void>() {
-        @Override
-        public Void call() throws InterruptedException {
-          buildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
-              ResourceUsage.getAvailableProcessors(), eventHandler);
-          return null;
-        }
-      });
+      Uninterruptibles.callUninterruptibly(
+          new Callable<Void>() {
+            @Override
+            public Void call() throws InterruptedException {
+              EvaluationContext evaluationContext =
+                  EvaluationContext.newBuilder()
+                      .setKeepGoing(false)
+                      .setNumThreads(ResourceUsage.getAvailableProcessors())
+                      .setEventHander(eventHandler)
+                      .build();
+              buildDriver.evaluate(ImmutableList.<SkyKey>of(), evaluationContext);
+              return null;
+            }
+          });
     } catch (Exception e) {
       throw new IllegalStateException(e);
     } finally {

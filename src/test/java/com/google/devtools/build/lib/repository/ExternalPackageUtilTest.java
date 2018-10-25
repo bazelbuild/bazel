@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -81,6 +82,12 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link ExternalPackageUtil}. */
 @RunWith(JUnit4.class)
 public class ExternalPackageUtilTest extends BuildViewTestCase {
+  private static final EvaluationContext EVALUATION_OPTIONS =
+      EvaluationContext.newBuilder()
+          .setKeepGoing(false)
+          .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+          .setEventHander(NullEventHandler.INSTANCE)
+          .build();
 
   private SequentialBuildDriver driver;
 
@@ -170,11 +177,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
   }
 
   EvaluationResult<GetRuleByNameValue> getRuleByName(SkyKey key) throws InterruptedException {
-    return driver.<GetRuleByNameValue>evaluate(
-        ImmutableList.of(key),
-        false,
-        SkyframeExecutor.DEFAULT_THREAD_COUNT,
-        NullEventHandler.INSTANCE);
+    return driver.<GetRuleByNameValue>evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
   }
 
   @Test
@@ -212,11 +215,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
   EvaluationResult<GetRegisteredToolchainsValue> getRegisteredToolchains(SkyKey key)
       throws InterruptedException {
-    return driver.<GetRegisteredToolchainsValue>evaluate(
-        ImmutableList.of(key),
-        false,
-        SkyframeExecutor.DEFAULT_THREAD_COUNT,
-        NullEventHandler.INSTANCE);
+    return driver.<GetRegisteredToolchainsValue>evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
   }
 
   @Test
@@ -238,10 +237,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
   EvaluationResult<GetRegisteredExecutionPlatformsValue> getRegisteredExecutionPlatforms(SkyKey key)
       throws InterruptedException {
     return driver.<GetRegisteredExecutionPlatformsValue>evaluate(
-        ImmutableList.of(key),
-        false,
-        SkyframeExecutor.DEFAULT_THREAD_COUNT,
-        NullEventHandler.INSTANCE);
+        ImmutableList.of(key), EVALUATION_OPTIONS);
   }
 
   // HELPER SKYFUNCTIONS

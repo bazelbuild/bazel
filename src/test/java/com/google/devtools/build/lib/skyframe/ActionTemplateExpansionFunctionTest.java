@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.Actio
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -199,12 +200,14 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
     differencer.inject(CTKEY, ctValue);
     ActionTemplateExpansionKey templateKey = ActionTemplateExpansionValue.key(CTKEY, 0);
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setEventHander(NullEventHandler.INSTANCE)
+            .build();
     EvaluationResult<ActionTemplateExpansionValue> result =
-        driver.evaluate(
-            ImmutableList.of(templateKey),
-            false,
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            NullEventHandler.INSTANCE);
+        driver.evaluate(ImmutableList.of(templateKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
     }

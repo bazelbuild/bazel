@@ -96,6 +96,7 @@ import com.google.devtools.build.lib.skyframe.TraversalInfoRootPackageExtractor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InterruptibleSupplier;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -243,7 +244,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
     EvaluationResult<SkyValue> result;
     try (AutoProfiler p = AutoProfiler.logged("evaluation and walkable graph", logger)) {
-      result = graphFactory.prepareAndGet(roots, loadingPhaseThreads, universeEvalEventHandler);
+      EvaluationContext evaluationContext =
+          EvaluationContext.newBuilder()
+              .setNumThreads(loadingPhaseThreads)
+              .setEventHander(universeEvalEventHandler)
+              .build();
+      result = graphFactory.prepareAndGet(roots, evaluationContext);
     }
 
     if (graph == null || graph != result.getWalkableGraph()) {

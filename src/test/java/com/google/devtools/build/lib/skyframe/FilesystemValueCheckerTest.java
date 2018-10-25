@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.Differencer.Diff;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -91,6 +92,12 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class FilesystemValueCheckerTest {
+  private static final EvaluationContext EVALUATION_OPTIONS =
+      EvaluationContext.newBuilder()
+          .setKeepGoing(false)
+          .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+          .setEventHander(NullEventHandler.INSTANCE)
+          .build();
 
   private RecordingDifferencer differencer;
   private MemoizingEvaluator evaluator;
@@ -176,11 +183,7 @@ public class FilesystemValueCheckerTest {
         FileStateValue.key(
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo")));
     EvaluationResult<SkyValue> result =
-        driver.evaluate(
-            ImmutableList.of(skyKey),
-            false,
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            NullEventHandler.INSTANCE);
+        driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
 
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
@@ -192,12 +195,7 @@ public class FilesystemValueCheckerTest {
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), skyKey);
 
     differencer.invalidate(ImmutableList.of(skyKey));
-    result =
-        driver.evaluate(
-            ImmutableList.of(skyKey),
-            false,
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            NullEventHandler.INSTANCE);
+    result = driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
@@ -236,9 +234,7 @@ public class FilesystemValueCheckerTest {
     Iterable<SkyKey> allKeys = ImmutableList.of(symlinkKey, fooKey);
 
     // First build -- prime the graph.
-    EvaluationResult<FileValue> result =
-        driver.evaluate(
-            allKeys, false, SkyframeExecutor.DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
+    EvaluationResult<FileValue> result = driver.evaluate(allKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     FileValue symlinkValue = result.get(symlinkKey);
     FileValue fooValue = result.get(fooKey);
@@ -253,12 +249,7 @@ public class FilesystemValueCheckerTest {
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), sym1FileStateKey);
 
     differencer.invalidate(ImmutableList.of(sym1FileStateKey));
-    result =
-        driver.evaluate(
-            ImmutableList.<SkyKey>of(),
-            false,
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            NullEventHandler.INSTANCE);
+    result = driver.evaluate(ImmutableList.<SkyKey>of(), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), sym1FileStateKey);
 
@@ -270,9 +261,7 @@ public class FilesystemValueCheckerTest {
     FileSystemUtils.writeContentAsLatin1(symlink, "new symlink contents");
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), symlinkFileStateKey);
     differencer.invalidate(ImmutableList.of(symlinkFileStateKey));
-    result =
-        driver.evaluate(
-            allKeys, false, SkyframeExecutor.DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
+    result = driver.evaluate(allKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     symlinkValue = result.get(symlinkKey);
     assertWithMessage(symlinkValue.toString()).that(symlinkValue.isSymlink()).isFalse();
@@ -298,9 +287,7 @@ public class FilesystemValueCheckerTest {
         FileStateValue.key(
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo2")));
     Iterable<SkyKey> skyKeys = ImmutableList.of(key1, key2);
-    EvaluationResult<SkyValue> result =
-        driver.evaluate(
-            skyKeys, false, SkyframeExecutor.DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
+    EvaluationResult<SkyValue> result = driver.evaluate(skyKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
 
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
@@ -320,9 +307,7 @@ public class FilesystemValueCheckerTest {
     assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), key1, key2);
 
     differencer.invalidate(skyKeys);
-    result =
-        driver.evaluate(
-            skyKeys, false, SkyframeExecutor.DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
+    result = driver.evaluate(skyKeys, EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
@@ -338,11 +323,7 @@ public class FilesystemValueCheckerTest {
         FileStateValue.key(
             RootedPath.toRootedPath(Root.fromPath(pkgRoot), PathFragment.create("foo")));
     EvaluationResult<SkyValue> result =
-        driver.evaluate(
-            ImmutableList.of(fileKey),
-            false,
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            NullEventHandler.INSTANCE);
+        driver.evaluate(ImmutableList.of(fileKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isTrue();
 
     fs.readlinkThrowsIoException = false;
@@ -363,11 +344,7 @@ public class FilesystemValueCheckerTest {
     SkyKey fileKey1 = FileValue.key(RootedPath.toRootedPath(Root.fromPath(pkgRoot), path1));
 
     EvaluationResult<SkyValue> result =
-        driver.evaluate(
-            ImmutableList.of(fileKey1),
-            false,
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            NullEventHandler.INSTANCE);
+        driver.evaluate(ImmutableList.of(fileKey1), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isTrue();
 
     FilesystemValueChecker checker = new FilesystemValueChecker(null, null);
@@ -404,11 +381,13 @@ public class FilesystemValueCheckerTest {
                     new TestAction(
                         Runnables.doNothing(), ImmutableSet.<Artifact>of(), ImmutableSet.of(out2)),
                     forceDigests)));
-    assertThat(
-            driver
-                .evaluate(ImmutableList.<SkyKey>of(), false, 1, NullEventHandler.INSTANCE)
-                .hasError())
-        .isFalse();
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(1)
+            .setEventHander(NullEventHandler.INSTANCE)
+            .build();
+    assertThat(driver.evaluate(ImmutableList.<SkyKey>of(), evaluationContext).hasError()).isFalse();
     assertThat(new FilesystemValueChecker(null, null).getDirtyActionValues(evaluator.getValues(),
         batchStatter, ModifiedFileSet.EVERYTHING_MODIFIED)).isEmpty();
 
@@ -487,11 +466,13 @@ public class FilesystemValueCheckerTest {
             actionKeyLast,
             actionValueWithEmptyDirectory(last)));
 
-    assertThat(
-            driver
-                .evaluate(ImmutableList.<SkyKey>of(), false, 1, NullEventHandler.INSTANCE)
-                .hasError())
-        .isFalse();
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(1)
+            .setEventHander(NullEventHandler.INSTANCE)
+            .build();
+    assertThat(driver.evaluate(ImmutableList.<SkyKey>of(), evaluationContext).hasError()).isFalse();
     assertThat(new FilesystemValueChecker(null, null).getDirtyActionValues(evaluator.getValues(),
         batchStatter, ModifiedFileSet.EVERYTHING_MODIFIED)).isEmpty();
 
@@ -810,8 +791,7 @@ public class FilesystemValueCheckerTest {
         ImmutableList.of(
             FileValue.key(
                 RootedPath.toRootedPath(Root.fromPath(pkgRoot), PathFragment.create("foo"))));
-    driver.evaluate(
-        values, false, SkyframeExecutor.DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
+    driver.evaluate(values, EVALUATION_OPTIONS);
     FilesystemValueChecker checker = new FilesystemValueChecker(null, null);
 
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));

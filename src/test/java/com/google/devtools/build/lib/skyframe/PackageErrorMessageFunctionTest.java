@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.PackageErrorMessageValue.Result;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -72,14 +73,14 @@ public class PackageErrorMessageFunctionTest extends BuildViewTestCase {
   private PackageErrorMessageValue getPackageErrorMessageValue(boolean keepGoing)
       throws InterruptedException {
     SkyKey key = PackageErrorMessageValue.key(PackageIdentifier.createInMainRepo("a"));
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(keepGoing)
+            .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setEventHander(reporter)
+            .build();
     EvaluationResult<SkyValue> result =
-        skyframeExecutor
-            .getDriverForTesting()
-            .evaluate(
-                ImmutableList.of(key),
-                /*keepGoing=*/ keepGoing,
-                SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT,
-                reporter);
+        skyframeExecutor.getDriverForTesting().evaluate(ImmutableList.of(key), evaluationContext);
     assertThat(result.hasError()).isFalse();
     SkyValue value = result.get(key);
     assertThat(value).isInstanceOf(PackageErrorMessageValue.class);

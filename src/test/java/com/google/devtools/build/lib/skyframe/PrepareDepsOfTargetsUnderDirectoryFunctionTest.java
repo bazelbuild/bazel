@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.BuildDriver;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -80,12 +81,14 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
 
   private EvaluationResult<?> getEvaluationResult(SkyKey... keys) throws InterruptedException {
     BuildDriver driver = skyframeExecutor.getDriverForTesting();
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setEventHander(reporter)
+            .build();
     EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> evaluationResult =
-        driver.evaluate(
-            ImmutableList.copyOf(keys),
-            /*keepGoing=*/ false,
-            SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT,
-            reporter);
+        driver.evaluate(ImmutableList.copyOf(keys), evaluationContext);
     Preconditions.checkState(!evaluationResult.hasError());
     return evaluationResult;
   }

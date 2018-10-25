@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -80,6 +81,13 @@ import org.junit.runners.JUnit4;
  * Tests for {@link GlobFunction}.
  */
 public abstract class GlobFunctionTest {
+  private static final EvaluationContext EVALUATION_OPTIONS =
+      EvaluationContext.newBuilder()
+          .setKeepGoing(false)
+          .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+          .setEventHander(NullEventHandler.INSTANCE)
+          .build();
+
   @RunWith(JUnit4.class)
   public static class GlobFunctionAlwaysUseDirListingTest extends GlobFunctionTest {
     @Override
@@ -427,11 +435,7 @@ public abstract class GlobFunctionTest {
         GlobValue.key(
             PKG_ID, Root.fromPath(root), pattern, excludeDirs, PathFragment.EMPTY_FRAGMENT);
     EvaluationResult<SkyValue> result =
-        driver.evaluate(
-            ImmutableList.of(skyKey),
-            false,
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            NullEventHandler.INSTANCE);
+        driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
     if (result.hasError()) {
       throw result.getError().getException();
     }
@@ -657,11 +661,7 @@ public abstract class GlobFunctionTest {
     SkyKey skyKey =
         GlobValue.key(PKG_ID, Root.fromPath(root), "*/foo", false, PathFragment.EMPTY_FRAGMENT);
     EvaluationResult<GlobValue> result =
-        driver.evaluate(
-            ImmutableList.of(skyKey),
-            false,
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            NullEventHandler.INSTANCE);
+        driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
@@ -685,11 +685,7 @@ public abstract class GlobFunctionTest {
     SkyKey skyKey =
         GlobValue.key(PKG_ID, Root.fromPath(root), "**/wiz", false, PathFragment.EMPTY_FRAGMENT);
     EvaluationResult<GlobValue> result =
-        driver.evaluate(
-            ImmutableList.of(skyKey),
-            false,
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            NullEventHandler.INSTANCE);
+        driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
@@ -760,11 +756,7 @@ public abstract class GlobFunctionTest {
         GlobValue.key(
             PKG_ID, Root.fromPath(root), "foo/bar/wiz/*", false, PathFragment.EMPTY_FRAGMENT);
     EvaluationResult<GlobValue> result =
-        driver.evaluate(
-            ImmutableList.of(skyKey),
-            false,
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            NullEventHandler.INSTANCE);
+        driver.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);

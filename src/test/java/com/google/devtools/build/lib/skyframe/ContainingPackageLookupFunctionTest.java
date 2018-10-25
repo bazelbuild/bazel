@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
@@ -169,12 +170,14 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
   private ContainingPackageLookupValue lookupContainingPackage(PackageIdentifier packageIdentifier)
       throws InterruptedException {
     SkyKey key = ContainingPackageLookupValue.key(packageIdentifier);
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setEventHander(NullEventHandler.INSTANCE)
+            .build();
     return driver
-        .<ContainingPackageLookupValue>evaluate(
-            ImmutableList.of(key),
-            false,
-            SkyframeExecutor.DEFAULT_THREAD_COUNT,
-            NullEventHandler.INSTANCE)
+        .<ContainingPackageLookupValue>evaluate(ImmutableList.of(key), evaluationContext)
         .get(key);
   }
 
