@@ -48,10 +48,11 @@ public class DeployArchiveBuilder {
    * the JVM tends to kill the process with an OOM long before we're at the limit. In the most
    * recent example, 400 MB of memory was enough for about 500,000 entries.
    */
-  private static final String SINGLEJAR_MAX_MEMORY = "-Xmx1600m";
+  private static final int SINGLEJAR_MEMORY_MB = 1600;
+  private static final String SINGLEJAR_MAX_MEMORY = "-Xmx" + SINGLEJAR_MEMORY_MB + "m";
 
   private static final ResourceSet DEPLOY_ACTION_RESOURCE_SET =
-      ResourceSet.createWithRamCpuIo(/*memoryMb = */ 200.0, /*cpuUsage = */ .2, /*ioUsage=*/ .2);
+      ResourceSet.createWithRamCpu(/*memoryMb = */ SINGLEJAR_MEMORY_MB, /*cpuUsage = */ 1);
 
   private final RuleContext ruleContext;
 

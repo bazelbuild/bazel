@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.genrule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -39,11 +39,7 @@ import java.util.List;
  */
 @AutoCodec
 public class GenRuleAction extends SpawnAction {
-
   public static final String MNEMONIC = "Genrule";
-  private static final ResourceSet GENRULE_RESOURCES =
-      // Not chosen scientifically/carefully.  300MB memory, 100% CPU, no I/O.
-      ResourceSet.createWithRamCpuIo(300, 1.0, 0.0);
 
   public GenRuleAction(
       ActionOwner owner,
@@ -61,7 +57,7 @@ public class GenRuleAction extends SpawnAction {
         inputs,
         outputs,
         Iterables.getFirst(outputs, null),
-        GENRULE_RESOURCES,
+        AbstractAction.DEFAULT_RESOURCE_SET,
         commandLines,
         CommandLineLimits.UNLIMITED,
         false,

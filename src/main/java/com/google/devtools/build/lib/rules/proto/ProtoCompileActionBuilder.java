@@ -25,13 +25,13 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.CapturingMapFn;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -62,8 +62,6 @@ public class ProtoCompileActionBuilder {
       "--direct_dependencies_violation_msg=" + StrictProtoDepsViolationMessage.MESSAGE;
 
   private static final String MNEMONIC = "GenProto";
-  private static final ResourceSet GENPROTO_RESOURCE_SET =
-      ResourceSet.createWithRamCpuIo(100, .1, .0);
   private static final Action[] NO_ACTIONS = new Action[0];
 
   private RuleContext ruleContext;
@@ -247,7 +245,7 @@ public class ProtoCompileActionBuilder {
 
     result
         .addOutputs(outputs)
-        .setResources(GENPROTO_RESOURCE_SET)
+        .setResources(AbstractAction.DEFAULT_RESOURCE_SET)
         .useDefaultShellEnvironment()
         .setExecutable(compilerTarget)
         .addCommandLine(
@@ -513,7 +511,7 @@ public class ProtoCompileActionBuilder {
 
     result
         .addOutputs(outputs)
-        .setResources(GENPROTO_RESOURCE_SET)
+        .setResources(AbstractAction.DEFAULT_RESOURCE_SET)
         .useDefaultShellEnvironment()
         .setExecutable(compilerTarget)
         .addCommandLine(

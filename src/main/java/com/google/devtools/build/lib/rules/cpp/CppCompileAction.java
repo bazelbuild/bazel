@@ -980,10 +980,7 @@ public class CppCompileAction extends AbstractAction
    * Estimate resource consumption when this action is executed locally.
    */
   public ResourceSet estimateResourceConsumptionLocal() {
-    // We use a local compile, so much of the time is spent waiting for IO,
-    // but there is still significant CPU; hence we estimate 50% cpu usage.
-    return ResourceSet.createWithRamCpuIo(
-        /* memoryMb= */ 200, /* cpuUsage= */ 0.5, /* ioUsage= */ 0.0);
+    return AbstractAction.DEFAULT_RESOURCE_SET;
   }
 
   @Override

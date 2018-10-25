@@ -87,8 +87,10 @@ public class AndroidCommon {
 
   private static final ImmutableSet<String> TRANSITIVE_ATTRIBUTES =
       ImmutableSet.of("deps", "exports");
+
+  private static final int DEX_THREADS = 5;
   private static final ResourceSet DEX_RESOURCE_SET =
-      ResourceSet.createWithRamCpuIo(4096.0, 5.0, 0.0);
+      ResourceSet.createWithRamCpu(/* memoryMb= */ 4096.0, /* cpuUsage= */ DEX_THREADS);
 
   public static final <T extends TransitiveInfoProvider> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, Mode mode, final Class<T> classType) {
@@ -217,7 +219,7 @@ public class AndroidCommon {
       // Multithreaded dex tends to run faster, but only up to about 5 threads (at which point the
       // law of diminishing returns kicks in). This was determined experimentally, with 5-thread dex
       // performing about 25% faster than 1-thread dex.
-      commandLine.add("--num-threads=5");
+      commandLine.add("--num-threads=" + DEX_THREADS);
     }
 
     commandLine.addAll(dexOptions);
@@ -239,6 +241,7 @@ public class AndroidCommon {
             .setProgressMessage("Converting %s to dex format", jarToDex.getExecPathString())
             .setMnemonic("AndroidDexer")
             .addCommandLine(commandLine.build())
+            // TODO(ulfjack): Use 1 CPU if multidex is true?
             .setResources(DEX_RESOURCE_SET);
     if (mainDexList != null) {
       builder.addInput(mainDexList);

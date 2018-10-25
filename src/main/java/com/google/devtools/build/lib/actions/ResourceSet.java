@@ -58,6 +58,15 @@ public class ResourceSet {
   }
 
   /**
+   * Returns a new ResourceSet with the provided values for memoryMb and cpuUsage, and with 0.0 for
+   * ioUsage and localTestCount. Use this method in action resource definitions when they aren't
+   * local tests.
+   */
+  public static ResourceSet createWithRamCpu(double memoryMb, int cpuUsage) {
+    return createWithRamCpuIo(memoryMb, cpuUsage, 0);
+  }
+
+  /**
    * Returns a new ResourceSet with the provided values for memoryMb, cpuUsage, and ioUsage, and
    * with 0.0 for localTestCount. Use this method in action resource definitions when they aren't
    * local tests.

@@ -44,10 +44,10 @@ public class TestTargetProperties {
    * <p>When changing these values, remember to update the documentation at
    * attributes/test/size.html.
    */
-  private static final ResourceSet SMALL_RESOURCES = ResourceSet.create(20, 0.9, 0.00, 1);
-  private static final ResourceSet MEDIUM_RESOURCES = ResourceSet.create(100, 0.9, 0.1, 1);
-  private static final ResourceSet LARGE_RESOURCES = ResourceSet.create(300, 0.8, 0.1, 1);
-  private static final ResourceSet ENORMOUS_RESOURCES = ResourceSet.create(800, 0.7, 0.4, 1);
+  private static final ResourceSet SMALL_RESOURCES = ResourceSet.create(20, 1, 0.00, 1);
+  private static final ResourceSet MEDIUM_RESOURCES = ResourceSet.create(100, 1, 0.1, 1);
+  private static final ResourceSet LARGE_RESOURCES = ResourceSet.create(300, 1, 0.1, 1);
+  private static final ResourceSet ENORMOUS_RESOURCES = ResourceSet.create(800, 1, 0.4, 1);
   private static final ResourceSet LOCAL_TEST_JOBS_BASED_RESOURCES =
       ResourceSet.createWithLocalTestCount(1);
 

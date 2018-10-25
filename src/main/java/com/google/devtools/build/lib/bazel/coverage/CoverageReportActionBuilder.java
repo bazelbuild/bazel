@@ -82,7 +82,7 @@ import java.util.List;
 public final class CoverageReportActionBuilder {
 
   private static final ResourceSet LOCAL_RESOURCES =
-      ResourceSet.createWithRamCpuIo(750 /*MB*/, 0.5 /*CPU*/, 0.0 /*IO*/);
+      ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpuUsage= */ 1);
 
   private static final ActionOwner ACTION_OWNER = ActionOwner.SYSTEM_ACTION_OWNER;
 

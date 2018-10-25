@@ -336,13 +336,11 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
               .setExecutionInfo(constraints)
               .setExecutable(unifiedLauncher)
               // Boot resource estimation:
-              // CPU: 100% - the emulator will peg a single cpu during boot because it's a very
-              //   computation intensive part of the lifecycle.
               // RAM: the emulator will use as much ram as has been requested in the device rule
               //   (there is a slight overhead for qemu's internals, but this is miniscule).
-              // IO: 15% Process is IO light until the very end when the booted files are flushed to
-              //   disk.
-              .setResources(ResourceSet.createWithRamCpuIo(ram, 1, .0))
+              // CPU: 100% - the emulator will peg a single cpu during boot because it's a very
+              //   computation intensive part of the lifecycle.
+              .setResources(ResourceSet.createWithRamCpu(ram, 1))
               .addExecutableArguments(
                   "--action=boot",
                   "--density=" + density,

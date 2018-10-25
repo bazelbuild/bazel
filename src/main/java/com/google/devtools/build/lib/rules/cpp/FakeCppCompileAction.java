@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -265,6 +266,6 @@ public class FakeCppCompileAction extends CppCompileAction {
 
   @Override
   public ResourceSet estimateResourceConsumptionLocal() {
-    return ResourceSet.createWithRamCpuIo(/*memoryMb=*/1, /*cpuUsage=*/0.1, /*ioUsage=*/0.0);
+    return AbstractAction.DEFAULT_RESOURCE_SET;
   }
 }

@@ -57,10 +57,15 @@ import javax.annotation.concurrent.GuardedBy;
 @ThreadSafe
 public abstract class AbstractAction implements Action, ActionApi {
   /**
-   * An arbitrary default resource set. Currently 250MB of memory, 50% CPU and 0% of total I/O.
+   * An arbitrary default resource set. We assume that a typical subprocess is single-threaded
+   * (i.e., uses one CPU core) and CPU-bound, and uses a small-ish amount of memory. In the past,
+   * we've seen that assuming less than one core can lead to local overload. Unless you have data
+   * indicating otherwise (for example, we've observed in the past that C++ linking can use large
+   * amounts of memory), we suggest to use this default set.
    */
+  // TODO(ulfjack): Collect actual data to confirm that this is an acceptable approximation.
   public static final ResourceSet DEFAULT_RESOURCE_SET =
-      ResourceSet.createWithRamCpuIo(250, 0.5, 0);
+      ResourceSet.createWithRamCpu(250, 1);
 
   /**
    * The owner/inputs/outputs attributes below should never be directly accessed even within

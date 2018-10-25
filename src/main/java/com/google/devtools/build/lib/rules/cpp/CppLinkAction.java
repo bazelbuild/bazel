@@ -122,22 +122,21 @@ public final class CppLinkAction extends AbstractAction
 
   private final Iterable<Artifact> mandatoryInputs;
 
-  // Linking uses a lot of memory; estimate 1 MB per input file, min 1.5 Gib.
-  // It is vital to not underestimate too much here,
-  // because running too many concurrent links can
-  // thrash the machine to the point where it stops
-  // responding to keystrokes or mouse clicks.
-  // CPU and IO do not scale similarly and still use the static minimum estimate.
+  // Linking uses a lot of memory; estimate 1 MB per input file, min 1.5 Gib. It is vital to not
+  // underestimate too much here, because running too many concurrent links can thrash the machine
+  // to the point where it stops responding to keystrokes or mouse clicks. This is primarily a
+  // problem with memory consumption, not CPU or I/O usage.
   public static final ResourceSet LINK_RESOURCES_PER_INPUT =
-      ResourceSet.createWithRamCpuIo(1, 0, 0);
+      ResourceSet.createWithRamCpu(1, 0);
 
   // This defines the minimum of each resource that will be reserved.
+  // TODO(ulfjack): Setting IO usage to 0.3 prevents more than 3 of these being run in parallel.
   public static final ResourceSet MIN_STATIC_LINK_RESOURCES =
       ResourceSet.createWithRamCpuIo(1536, 1, 0.3);
 
   // Dynamic linking should be cheaper than static linking.
   public static final ResourceSet MIN_DYNAMIC_LINK_RESOURCES =
-      ResourceSet.createWithRamCpuIo(1024, 0.3, 0.2);
+      ResourceSet.createWithRamCpuIo(1024, 1, 0.2);
 
   /**
    * Use {@link CppLinkActionBuilder} to create instances of this class. Also see there for the
