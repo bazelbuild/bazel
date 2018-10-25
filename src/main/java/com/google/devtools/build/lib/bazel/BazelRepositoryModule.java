@@ -288,6 +288,8 @@ public class BazelRepositoryModule extends BlazeModule {
                             ? filesystem.getPath(path)
                             : env.getBlazeWorkspace().getWorkspace().getRelative(path))
                 .collect(Collectors.toList()));
+      } else {
+        httpDownloader.setDistdir(ImmutableList.<Path>of());
       }
 
       if (repoOptions.repositoryOverrides != null) {

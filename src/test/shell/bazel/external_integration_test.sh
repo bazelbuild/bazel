@@ -668,6 +668,7 @@ genrule(
     srcs = ["w"],
 )
 EOF
+  touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
   assert_contains "abc" bazel-genfiles/external/x/catter.out
@@ -698,6 +699,7 @@ genrule(
     srcs = ["w"],
 )
 EOF
+  touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
   assert_contains "abc" bazel-genfiles/external/x/catter.out
@@ -1586,6 +1588,59 @@ genrule(
 EOF
 
   bazel build //:local || fail "Expected success"
+}
+
+function test_distdir_option_not_sticky() {
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+  mkdir ext
+  cat > ext/BUILD <<'EOF'
+genrule(
+  name="foo",
+  outs=["foo.txt"],
+  cmd="echo Hello World > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+  zip ext.zip ext/*
+  rm -rf ext
+  sha256=$(sha256sum ext.zip | head -c 64)
+
+  mkdir distfiles
+  mv ext.zip distfiles
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  urls=["http://doesnotexist.example.com/outdatedpath/ext.zip"],
+  sha256="${sha256}",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  srcs = ["@ext//:foo"],
+  outs = ["local.txt"],
+  cmd = "cp $< $@",
+)
+
+genrule(
+  name = "unrelated",
+  outs = ["unrelated.txt"],
+  cmd = "echo Something > $@",
+)
+EOF
+
+  bazel clean --expunge
+  bazel build --distdir="../distfiles" //:unrelated \
+    || fail "expected success"
+  # As no --distdir option is given and upstream not available,
+  # we expect the build to fail
+  bazel build //:local && fail "Expected failure" || :
 }
 
 function test_bad_symlinks() {

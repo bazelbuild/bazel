@@ -316,7 +316,7 @@ sh_test(
     size = "large",
     srcs = ["external_integration_test.sh"],
     data = [":test-deps"],
-    shard_count = 12,
+    shard_count = 15,
     tags = ["no_windows"],
 )
 
