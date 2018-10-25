@@ -258,6 +258,22 @@ public class Package {
   }
 
   /**
+   * Returns the full map of repository mappings collected so far.
+   *
+   * @throws UnsupportedOperationException if called from a package other than the //external
+   *     package
+   */
+  public ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
+      getExternalPackageRepositoryMappings() {
+    if (!packageIdentifier.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
+      throw new UnsupportedOperationException(
+          "Can only access the external package repository"
+              + "mappings from the //external package");
+    }
+    return this.externalPackageRepositoryMappings;
+  }
+
+  /**
    * Package initialization: part 2 of 3: sets this package's default header
    * strictness checking.
    *
