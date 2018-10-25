@@ -51,6 +51,9 @@ import java.util.Map;
  * Currently the implementation ignores the attributes provided by the containing function.
  */
 public class FunctionSplitTransitionProvider implements SplitTransitionProvider {
+
+  private static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
+
   private final BaseFunction transitionFunction;
   private final SkylarkSemantics semantics;
   private final EventHandler eventHandler;
@@ -107,6 +110,26 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
     }
 
     /**
+     * Given a label-like string representing a command line option, returns the command line
+     * option string that it represents. This is a temporary measure to support command line
+     * options with strings that look "label-like", so that migrating users using this
+     * experimental syntax is easier later.
+     *
+     * @throws EvalException if the given string is not a valid format to represent to
+     *     a command line option
+     */
+    private String commandLineOptionLabelToOption(String label) throws EvalException {
+      if (label.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+        return label.substring(COMMAND_LINE_OPTION_PREFIX.length());
+      } else {
+        throw new EvalException(transitionFunction.getLocation(),
+            String.format("Option key '%s' is of invalid form. "
+                   + "Expected command line option to begin with %s",
+                label, COMMAND_LINE_OPTION_PREFIX));
+      }
+    }
+
+    /**
      * For all the options in the BuildOptions, build a map from option name to its information.
      */
     private Map<String, OptionInfo> buildOptionInfo(BuildOptions buildOptions) {
@@ -147,6 +170,7 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
 
         for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {
           String optionName = entry.getKey();
+          String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
           OptionInfo optionInfo = entry.getValue();
 
           try {
@@ -154,7 +178,7 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
             FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
             Object optionValue = field.get(options);
 
-            dict.put(optionName, optionValue, null, mutability);
+            dict.put(optionKey, optionValue, null, mutability);
           } catch (IllegalAccessException | EvalException e) {
             // These exceptions should not happen, but if they do, throw a RuntimeException.
             throw new RuntimeException(e);
@@ -243,7 +267,11 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
         Map<String, OptionInfo> optionInfoMap)
         throws EvalException {
       for (Map.Entry<String, Object> entry : transition.entrySet()) {
-        String optionName = entry.getKey();
+        String optionKey = entry.getKey();
+
+        // TODO(juliexxia): Handle keys which correspond to build_setting target labels instead
+        // of assuming every key is for a command line option.
+        String optionName = commandLineOptionLabelToOption(optionKey);
         Object optionValue = entry.getValue();
 
         try {

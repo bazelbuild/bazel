@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
@@ -50,8 +51,8 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
         "test/skylark/my_rule.bzl",
         "def transition_func(settings):",
         "  return {",
-        "      't0': {'cpu': 'k8'},",
-        "      't1': {'cpu': 'armeabi-v7a'},",
+        "      't0': {'//command_line_option:cpu': 'k8'},",
+        "      't1': {'//command_line_option:cpu': 'armeabi-v7a'},",
         "  }",
         "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
         "def impl(ctx): ",
@@ -188,9 +189,9 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
         "test/skylark/my_rule.bzl",
         "def transition_func(settings):",
         "  transitions = {}",
-        "  for cpu in settings['fat_apk_cpu']:",
+        "  for cpu in settings['//command_line_option:fat_apk_cpu']:",
         "    transitions[cpu] = {",
-        "      'cpu': cpu,",
+        "      '//command_line_option:cpu': cpu,",
         "    }",
         "  return transitions",
         "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
@@ -241,9 +242,9 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
         "test/skylark/my_rule.bzl",
         "def transition_func(settings):",
         "  return {",
-        "    'cpu': 'armeabi-v7a',",
-        "    'dynamic_mode': 'off',",
-        "    'crosstool_top': '//android/crosstool:everything',",
+        "    '//command_line_option:cpu': 'armeabi-v7a',",
+        "    '//command_line_option:dynamic_mode': 'off',",
+        "    '//command_line_option:crosstool_top': '//android/crosstool:everything',",
         "  }",
         "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
         "def impl(ctx): ",
@@ -276,6 +277,81 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
         (Map<String, ConfiguredTarget>) target.get("split_attr_dep");
     assertThat(splitDep).containsKey("armeabi-v7a");
     assertThat(getConfiguration(splitDep.get("armeabi-v7a")).getCpu()).isEqualTo("armeabi-v7a");
+  }
+
+  @Test
+  public void testInvalidOptionKey() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    writeWhitelistFile();
+
+    scratch.file(
+        "test/skylark/my_rule.bzl",
+        "def transition_func(settings):",
+        "  return {'cpu': 'k8'}",
+        "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
+        "def impl(ctx): ",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':main1')",
+        "cc_binary(name = 'main1', srcs = ['main1.c'])");
+
+    try {
+      getConfiguredTarget("//test/skylark:test");
+      fail("Expected failure");
+    } catch (IllegalStateException expected) {
+      // TODO(bazel-team): Register a failure event instead of throwing a RuntimeException.
+      assertThat(expected).hasCauseThat().hasCauseThat().hasMessageThat()
+          .contains("Option key 'cpu' is of invalid form. Expected command line option to "
+              + "begin with //command_line_option:");
+    }
+  }
+
+  @Test
+  public void testInvalidOptionValue() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    writeWhitelistFile();
+
+    scratch.file(
+        "test/skylark/my_rule.bzl",
+        "def transition_func(settings):",
+        "  return {'//command_line_option:cpu': 1}",
+        "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
+        "def impl(ctx): ",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':main1')",
+        "cc_binary(name = 'main1', srcs = ['main1.c'])");
+
+    try {
+      getConfiguredTarget("//test/skylark:test");
+      fail("Expected failure");
+    } catch (IllegalStateException expected) {
+      // TODO(bazel-team): Register a failure event instead of throwing a RuntimeException.
+      assertThat(expected).hasCauseThat().hasCauseThat().hasMessageThat()
+          .contains("Invalid value type for option 'cpu'");
+    }
   }
 
   @Test

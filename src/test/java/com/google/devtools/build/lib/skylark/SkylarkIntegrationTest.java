@@ -2209,7 +2209,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  return [MyInfo(strict_java_deps = ctx.fragments.java.strict_java_deps)]",
         "",
         "def transition_func(settings):",
-        "  return { 'strict_java_deps' : 'WARN' }",
+        "  return { '//command_line_option:strict_java_deps' : 'WARN' }",
         "my_transition = transition(",
         "    implementation = transition_func,",
         "    for_analysis_testing=True,",
