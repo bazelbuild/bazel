@@ -195,15 +195,36 @@ public class HttpDownloader {
       }
 
       for (Path dir : distdir) {
-        Path candidate = dir.getRelative(destination.getBaseName());
-        if (RepositoryCache.getChecksum(KeyType.SHA256, candidate).equals(sha256)) {
-          // Found the archive in one of the distdirs, no need to download.
-          if (isCachingByProvidedSha256) {
-            repositoryCache.put(sha256, candidate, KeyType.SHA256);
+        if (!dir.exists()) {
+          // This is not a warning (and probably we even should drop the message); it is
+          // perfectly fine to have a common rc-file pointing to a volume that is sometimes,
+          // but not always mounted.
+          eventHandler.handle(Event.info("non-existent distir " + dir));
+        } else if (!dir.isDirectory()) {
+          eventHandler.handle(Event.warn("distdir " + dir + " is not a directory"));
+        } else {
+          boolean match = false;
+          Path candidate = dir.getRelative(destination.getBaseName());
+          try {
+            match = RepositoryCache.getChecksum(KeyType.SHA256, candidate).equals(sha256);
+          } catch (IOException e) {
+            // Not finding anything in a distdir is a normal case, so handle it absolutely
+            // quietly. In fact, it is not uncommon to specify a whole list of dist dirs,
+            // with the asumption that only one will contain an entry.
           }
-          FileSystemUtils.createDirectoryAndParents(destination.getParentDirectory());
-          FileSystemUtils.copyFile(candidate, destination);
-          return destination;
+          if (match) {
+            if (isCachingByProvidedSha256) {
+              try {
+                repositoryCache.put(sha256, candidate, KeyType.SHA256);
+              } catch (IOException e) {
+                eventHandler.handle(
+                    Event.warn("Failed to copy " + candidate + " to repository cache: " + e));
+              }
+            }
+            FileSystemUtils.createDirectoryAndParents(destination.getParentDirectory());
+            FileSystemUtils.copyFile(candidate, destination);
+            return destination;
+          }
         }
       }
     }
