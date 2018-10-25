@@ -468,7 +468,7 @@ public interface CcModuleApi<
       parameters = {
         @Param(
             name = "ctx",
-            doc = "Skylark rule context.",
+            doc = "Starlark rule context.",
             positional = false,
             named = true,
             type = SkylarkRuleContext.class),
@@ -497,7 +497,7 @@ public interface CcModuleApi<
       parameters = {
         @Param(
             name = "ctx",
-            doc = "Skylark rule context.",
+            doc = "Starlark rule context.",
             positional = false,
             named = true,
             type = SkylarkRuleContext.class),
@@ -581,7 +581,7 @@ public interface CcModuleApi<
         // TODO(plf): Make this parameter mandatory. Change cc_embed_data.bzl first.
         @Param(
             name = "ctx",
-            doc = "Skylark rule context.",
+            doc = "Starlark rule context.",
             positional = false,
             named = true,
             noneable = true,

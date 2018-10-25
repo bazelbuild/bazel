@@ -789,7 +789,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           OptionEffectTag.EAGERNESS_TO_EXIT,
         },
         help =
-            "If enabled, strict usage of the Skylark migration tag is enabled for android rules.")
+            "If enabled, strict usage of the Starlark migration tag is enabled for android rules.")
     public boolean checkForMigrationTag;
 
     // TODO(eaftan): enable this by default and delete it

@@ -150,7 +150,7 @@ public class SkylarkImports {
 
   @VisibleForTesting
   static final String EXTERNAL_PKG_NOT_ALLOWED_MSG =
-      "Skylark files may not be loaded from the //external package";
+      "Starlark files may not be loaded from the //external package";
 
   @VisibleForTesting
   static final String INVALID_PATH_SYNTAX =

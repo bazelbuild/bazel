@@ -177,7 +177,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   public void resetCache() {
     if (skylarkImportLookupValueCache != null) {
       logger.info(
-          "Skylark inlining cache stats from earlier build: "
+          "Starlark inlining cache stats from earlier build: "
               + skylarkImportLookupValueCache.stats());
     }
     skylarkImportLookupValueCache =
@@ -293,7 +293,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
         ImmutableList<Label> cycle =
             CycleUtils.splitIntoPathAndChain(Predicates.equalTo(fileLabel), alreadyVisited.keySet())
                 .second;
-        throw new SkylarkImportFailedException("Skylark import cycle: " + cycle);
+        throw new SkylarkImportFailedException("Starlark import cycle: " + cycle);
       }
       alreadyVisited.put(fileLabel, null);
       skylarkImportMap = Maps.newHashMapWithExpectedSize(imports.size());
@@ -308,7 +308,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
             this.computeWithInlineCallsInternal(importLookupKey, strippedEnv, alreadyVisited);
         if (cachedValue == null) {
           Preconditions.checkState(
-              env.valuesMissing(), "no skylark import value for %s", importLookupKey);
+              env.valuesMissing(), "no starlark import value for %s", importLookupKey);
           // We continue making inline calls even if some requested values are missing, to maximize
           // the number of dependent (non-inlined) SkyFunctions that are requested, thus avoiding a
           // quadratic number of restarts.

@@ -186,8 +186,10 @@ public class EvalUtilsTest extends EvaluationTestCase {
         assertThrows(
             IllegalArgumentException.class,
             () -> EvalUtils.getSkylarkType(NonSkylarkValueSubclass.class));
-    assertThat(expected).hasMessageThat().contains(
-        "class com.google.devtools.build.lib.syntax.EvalUtilsTest$NonSkylarkValueSubclass "
-            + "is not allowed as a Skylark value");
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "class com.google.devtools.build.lib.syntax.EvalUtilsTest$NonSkylarkValueSubclass "
+                + "is not allowed as a Starlark value");
   }
 }

@@ -244,7 +244,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "<a href=\"ctx.html#created_actions\">ctx.created_actions()</a>."
                     + "<br/><br/>"
                     + "This should only be used for testing the analysis-time behavior of "
-                    + "Skylark rules. This flag may be removed in the future."),
+                    + "Starlark rules. This flag may be removed in the future."),
         @Param(
             name = "toolchains",
             type = SkylarkList.class,

@@ -29,7 +29,7 @@ public final class SkylarkDebuggerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "If true, Blaze will open the Skylark debug server at the start of the build "
+          "If true, Blaze will open the Starlark debug server at the start of the build "
               + "invocation, and wait for a debugger to attach before running the build.")
   public boolean debugSkylark;
 
@@ -39,7 +39,7 @@ public final class SkylarkDebuggerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "The port on which the Skylark debug server will listen for connections.")
+      help = "The port on which the Starlark debug server will listen for connections.")
   public int debugServerPort;
 
   @Option(

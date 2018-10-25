@@ -23,13 +23,12 @@ import com.google.devtools.common.options.OptionsBase;
 public class RepositoryResolvedOptions extends OptionsBase {
 
   @Option(
-    name = "experimental_repository_resolved_file",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "If non-empty, write a Skylark value with the resolved information of all Skylark"
-            + " respository rules that were executed."
-  )
+      name = "experimental_repository_resolved_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If non-empty, write a Skylark value with the resolved information of all Starlark"
+              + " repository rules that were executed.")
   public String repositoryResolvedFile;
 }

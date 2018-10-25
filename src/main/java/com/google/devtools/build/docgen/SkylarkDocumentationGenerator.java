@@ -40,7 +40,7 @@ public class SkylarkDocumentationGenerator {
 
   public static void main(String[] args) {
     if (checkArgs(args)) {
-      System.out.println("Generating Skylark documentation...");
+      System.out.println("Generating Starlark documentation...");
       try {
         SkylarkDocumentationProcessor.generateDocumentation(
             args[0],

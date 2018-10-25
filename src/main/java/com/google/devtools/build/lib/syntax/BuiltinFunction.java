@@ -225,7 +225,7 @@ public class BuiltinFunction extends BaseFunction {
         String.format(
             "%s%s (%s)\n"
                 + "while calling %s with args %s\n"
-                + "Java parameter types: %s\nSkylark type checks: %s",
+                + "Java parameter types: %s\nStarlark type checks: %s",
             (loc == null) ? "" : loc + ": ",
             Arrays.asList(args),
             e.getClass().getName(),

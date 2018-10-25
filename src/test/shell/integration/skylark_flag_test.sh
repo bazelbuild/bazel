@@ -98,7 +98,7 @@ EOF
       --internal_skylark_flag_test_canary \
       &>"$TEST_log" || fail "bazel build failed";
   expect_log "In BUILD: $MARKER" \
-      "Skylark flags are not propagating to BUILD file evaluation"
+      "Starlark flags are not propagating to BUILD file evaluation"
 }
 
 function test_bzl_file_and_macro() {
@@ -132,9 +132,9 @@ EOF
       --internal_skylark_flag_test_canary \
       &>"$TEST_log" || fail "bazel build failed";
   expect_log "In bzl: $MARKER" \
-      "Skylark flags are not propagating to .bzl file evaluation"
+      "Starlark flags are not propagating to .bzl file evaluation"
   expect_log "In macro: $MARKER" \
-      "Skylark flags are not propagating to macro evaluation"
+      "Starlark flags are not propagating to macro evaluation"
 }
 
 function test_rule() {
@@ -166,7 +166,7 @@ EOF
       --internal_skylark_flag_test_canary \
       &>"$TEST_log" || fail "bazel build failed";
   expect_log "In rule: $MARKER" \
-      "Skylark flags are not propagating to rule implementation function evaluation"
+      "Starlark flags are not propagating to rule implementation function evaluation"
 }
 
 # TODO(brandjon): Once we're no long dropping print() output in computed default
@@ -211,7 +211,7 @@ EOF
       --internal_skylark_flag_test_canary \
       &>"$TEST_log" || fail "bazel build failed";
   expect_log "In aspect: $MARKER" \
-      "Skylark flags are not propagating to aspect implementation function evaluation"
+      "Starlark flags are not propagating to aspect implementation function evaluation"
 }
 
 

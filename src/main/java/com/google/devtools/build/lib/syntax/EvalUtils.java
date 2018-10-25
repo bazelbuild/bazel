@@ -188,8 +188,10 @@ public final class EvalUtils {
     if (parent != null) {
       return parent;
     }
-    Preconditions.checkArgument(SkylarkValue.class.isAssignableFrom(c),
-        "%s is not allowed as a Skylark value (getSkylarkType() failed)", c);
+    Preconditions.checkArgument(
+        SkylarkValue.class.isAssignableFrom(c),
+        "%s is not allowed as a Starlark value (getSkylarkType() failed)",
+        c);
     return c;
   }
 

@@ -592,8 +592,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         throws EvalException, InterruptedException, ConversionException {
       SkylarkUtils.checkLoadingPhase(env, getName(), ast.getLocation());
       if (ruleClass == null) {
-        throw new EvalException(ast.getLocation(),
-            "Invalid rule class hasn't been exported by a Skylark file");
+        throw new EvalException(
+            ast.getLocation(), "Invalid rule class hasn't been exported by a bzl file");
       }
 
       for (Attribute attribute : ruleClass.getAttributes()) {

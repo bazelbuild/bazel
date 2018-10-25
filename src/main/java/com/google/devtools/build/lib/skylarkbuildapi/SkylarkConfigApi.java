@@ -20,32 +20,34 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
-
 /**
- *  The "config" module of the Build API.
+ * The "config" module of the Build API.
  *
- *  This exposes methods to describe what kind of build setting (if any) a skylark rule is using
- *  the {@code build_setting} attr of the {@code rule(...)} function.
+ * <p>This exposes methods to describe what kind of build setting (if any) a skylark rule is using
+ * the {@code build_setting} attr of the {@code rule(...)} function.
  */
 @SkylarkModule(
     name = "config",
     namespace = true,
     category = SkylarkModuleCategory.BUILTIN,
-    doc = "Note: This API is experimental and may change at any time."
-        + ""
-        + "<p>This is a top-level module for creating build setting descriptors which describe "
-        + "what kind of build setting (if any) a skylark rule is. "
-        + ""
-        + "<p>ex: the following rule is marked as a build setting by setting the "
-        + "<code>build_setting</code> parameter of the <code>rule()</code> function. Specifically "
-        + "it is a build setting of type <code>int</code> and is a <code>flag</code> which means "
-        + "this build setting is callable on the command line.<br><pre class=language-python>"
-        + "  my_rule = rule(\n"
-        + "    implementation = _impl,\n"
-        + "    build_setting = config.int(flag = True),\n"
-        + "    ...\n"
-        + "  )</pre>")
-//TODO(juliexxia): Create formal documentation for skylark build configuration efforts (b/112545834)
+    doc =
+        "Note: This API is experimental and may change at any time."
+            + ""
+            + "<p>This is a top-level module for creating build setting descriptors which describe "
+            + "what kind of build setting (if any) a rule is. "
+            + ""
+            + "<p>ex: the following rule is marked as a build setting by setting the "
+            + "<code>build_setting</code> parameter of the <code>rule()</code> function. "
+            + "Specifically it is a build setting of type <code>int</code> and is a "
+            + "<code>flag</code> which means "
+            + "this build setting is callable on the command line.<br><pre class=language-python>"
+            + "  my_rule = rule(\n"
+            + "    implementation = _impl,\n"
+            + "    build_setting = config.int(flag = True),\n"
+            + "    ...\n"
+            + "  )</pre>")
+// TODO(juliexxia): Create formal documentation for skylark build configuration efforts
+// (b/112545834)
 public interface SkylarkConfigApi extends SkylarkValue {
 
   static final String FLAG_ARG = "flag";

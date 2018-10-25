@@ -94,8 +94,11 @@ public final class Runtime {
     }
   }
 
-  @SkylarkSignature(name = "<unbound>", returnType = UnboundMarker.class, documented = false,
-      doc = "Marker for unbound values in cases where neither Skylark None nor Java null can do.")
+  @SkylarkSignature(
+      name = "<unbound>",
+      returnType = UnboundMarker.class,
+      documented = false,
+      doc = "Marker for unbound values in cases where neither Starlark None nor Java null can do.")
   public static final UnboundMarker UNBOUND = new UnboundMarker();
 
   @SkylarkSignature(name = "None", returnType = NoneType.class,

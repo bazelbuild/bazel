@@ -247,7 +247,7 @@ public class SkylarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundDe
       if (resolver == null) {
         SkylarkModule moduleAnnotation = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
         if (moduleAnnotation == null) {
-          throw new AssertionError("fragment class must have a valid skylark name");
+          throw new AssertionError("fragment class must have a valid Starlark name");
         }
         throw new InvalidConfigurationFieldException(
             String.format("invalid configuration field name '%s' on fragment '%s'",

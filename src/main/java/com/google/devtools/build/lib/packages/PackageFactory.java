@@ -1024,8 +1024,7 @@ public final class PackageFactory {
     // We are explicit about types we don't understand so we minimize changes to existing callers
     // if we add more types that we can represent.
     throw new NotRepresentableException(
-        String.format(
-            "cannot represent %s (%s) in skylark", val.toString(), val.getClass().toString()));
+        String.format("cannot represent %s (%s) in Starlark", val, val.getClass()));
   }
 
 

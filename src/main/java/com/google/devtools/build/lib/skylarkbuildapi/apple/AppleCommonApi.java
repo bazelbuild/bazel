@@ -30,14 +30,12 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
-/**
- * Interface for a module with useful functions for creating apple-related rule implementations.
- */
+/** Interface for a module with useful functions for creating apple-related rule implementations. */
 @SkylarkModule(
     name = "apple_common",
-    doc = "Functions for skylark to access internals of the apple rule implementations."
-)
-public interface AppleCommonApi<FileApiT extends FileApi,
+    doc = "Functions for Starlark to access internals of the apple rule implementations.")
+public interface AppleCommonApi<
+    FileApiT extends FileApi,
     ObjcProviderApiT extends ObjcProviderApi<?>,
     XcodeConfigProviderApiT extends XcodeConfigProviderApi<?, ?>,
     ApplePlatformApiT extends ApplePlatformApi> {
@@ -367,7 +365,7 @@ public interface AppleCommonApi<FileApiT extends FileApi,
           "Links a (potentially multi-architecture) binary targeting Apple platforms. This "
               + "method comprises a bulk of the logic of the <code>apple_binary</code> rule, and "
               + "is exposed as an API to iterate on migration of <code>apple_binary</code> to "
-              + "Skylark.\n"
+              + "Starlark.\n"
               + "<p>This API is <b>highly experimental</b> and subject to change at any time. Do "
               + "not depend on the stability of this function at this time.",
       parameters = {
@@ -376,7 +374,7 @@ public interface AppleCommonApi<FileApiT extends FileApi,
             type = SkylarkRuleContextApi.class,
             named = true,
             positional = false,
-            doc = "The Skylark rule context."),
+            doc = "The Starlark rule context."),
       },
       useEnvironment = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.

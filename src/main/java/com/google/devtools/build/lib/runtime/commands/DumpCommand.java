@@ -264,7 +264,7 @@ public class DumpCommand implements BlazeCommand {
         try {
           dumpSkylarkHeap(env.getBlazeWorkspace(), dumpOptions.skylarkMemory, out);
         } catch (IOException e) {
-          env.getReporter().error(null, "Could not dump skylark memory", e);
+          env.getReporter().error(null, "Could not dump Starlark memory", e);
         }
       }
 
@@ -444,12 +444,12 @@ public class DumpCommand implements BlazeCommand {
     AllocationTracker allocationTracker = workspace.getAllocationTracker();
     if (allocationTracker == null) {
       out.println(
-          "Cannot dump skylark heap without running in memory tracking mode. "
+          "Cannot dump Starlark heap without running in memory tracking mode. "
               + "Please refer to the user manual for the dump commnd "
               + "for information how to turn on memory tracking.");
       return;
     }
-    out.println("Dumping skylark heap to: " + path);
+    out.println("Dumping Starlark heap to: " + path);
     allocationTracker.dumpSkylarkAllocations(path);
   }
 }

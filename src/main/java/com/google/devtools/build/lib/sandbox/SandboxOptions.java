@@ -85,14 +85,13 @@ public class SandboxOptions extends OptionsBase {
   public boolean ignoreUnsupportedSandboxing;
 
   @Option(
-    name = "sandbox_debug",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Let the sandbox print debug information on execution. This might help developers of "
-            + "Bazel or Skylark rules with debugging failures due to missing input files, etc."
-  )
+      name = "sandbox_debug",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Let the sandbox print debug information on execution. This might help developers of "
+              + "Bazel or Starlark rules with debugging failures due to missing input files, etc.")
   public boolean sandboxDebug;
 
   @Option(

@@ -75,7 +75,7 @@ public class OptionFilterDescriptions {
             "Options that affect the signing outputs of a build")
         .put(
             OptionDocumentationCategory.SKYLARK_SEMANTICS,
-            "This option affects semantics of the skylark language or the build API accessible to "
+            "This option affects semantics of the Starlark language or the build API accessible to "
                 + "BUILD files, .bzl files, or WORKSPACE files.")
         .put(
             OptionDocumentationCategory.TESTING,

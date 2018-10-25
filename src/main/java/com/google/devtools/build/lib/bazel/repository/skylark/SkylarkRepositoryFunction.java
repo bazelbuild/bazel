@@ -84,7 +84,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     }
     Map<String, String> resolvedHashes = resolvedHashesValue.getHashes();
 
-    try (Mutability mutability = Mutability.create("skylark repository")) {
+    try (Mutability mutability = Mutability.create("Starlark repository")) {
       com.google.devtools.build.lib.syntax.Environment buildEnv =
           com.google.devtools.build.lib.syntax.Environment.builder(mutability)
               .setSemantics(skylarkSemantics)

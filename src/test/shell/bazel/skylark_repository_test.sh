@@ -249,7 +249,7 @@ EOF
   [ $exitCode != 0 ] || fail "building @foo//:data.txt succeed while expected failure"
 
   expect_not_log "PACKAGE"
-  expect_log "Failed to load Skylark extension '@foo//:ext.bzl'"
+  expect_log "Failed to load Starlark extension '@foo//:ext.bzl'"
   expect_log "Maybe repository 'foo' was defined later in your WORKSPACE file?"
 }
 
@@ -268,7 +268,7 @@ EOF
   [ $exitCode != 0 ] || fail "building //... succeed while expected failure"
 
   expect_not_log "PACKAGE"
-  expect_log "Failed to load Skylark extension '@does_not_exist//:random.bzl'"
+  expect_log "Failed to load Starlark extension '@does_not_exist//:random.bzl'"
   expect_log "Maybe repository 'does_not_exist' was defined later in your WORKSPACE file?"
 
   # Retest with query //...
@@ -277,7 +277,7 @@ EOF
   [ $exitCode != 0 ] || fail "querying //... succeed while expected failure"
 
   expect_not_log "PACKAGE"
-  expect_log "Failed to load Skylark extension '@does_not_exist//:random.bzl'"
+  expect_log "Failed to load Starlark extension '@does_not_exist//:random.bzl'"
   expect_log "Maybe repository 'does_not_exist' was defined later in your WORKSPACE file?"
 }
 
@@ -360,7 +360,7 @@ EOF
   bazel build @foo//:bar --internal_skylark_flag_test_canary >& $TEST_log \
     || fail "Expected build to succeed"
   expect_log "In repo rule: $MARKER" \
-      "Skylark flags are not propagating to repository rule implementation \
+      "Starlark flags are not propagating to repository rule implementation \
       function evaluation"
 }
 

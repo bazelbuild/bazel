@@ -1208,7 +1208,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     if (cppOptions.disableLegacyCompilationApi || cppOptions.disableLegacyFlagsCcToolchainApi) {
       throw new EvalException(
           null,
-          "Skylark APIs accessing compilation flags has been removed. "
+          "Starlark APIs accessing compilation flags has been removed. "
               + "Use the new API on cc_common (see "
               + "--incompatible_disable_legacy_flags_cc_toolchain_api on"
               + "https://docs.bazel.build/versions/master/skylark/backward-compatibility.html"
@@ -1220,7 +1220,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     if (cppOptions.disableLegacyLinkingApi || cppOptions.disableLegacyFlagsCcToolchainApi) {
       throw new EvalException(
           null,
-          "Skylark APIs accessing linking flags has been removed. "
+          "Starlark APIs accessing linking flags has been removed. "
               + "Use the new API on cc_common (see "
               + "--incompatible_disable_legacy_flags_cc_toolchain_api on"
               + "https://docs.bazel.build/versions/master/skylark/backward-compatibility.html"

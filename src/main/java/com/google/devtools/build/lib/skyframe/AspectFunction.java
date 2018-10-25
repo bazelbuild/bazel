@@ -147,8 +147,7 @@ public final class AspectFunction implements SkyFunction {
     if (!(skylarkAspect instanceof SkylarkDefinedAspect)) {
       throw new AspectCreationException(
           String.format(
-              "%s from %s is not a skylark-defined aspect",
-              skylarkValueName, extensionLabel.toString()),
+              "%s from %s is not a Starlark-defined aspect", skylarkValueName, extensionLabel),
           extensionLabel);
     } else {
       return (SkylarkDefinedAspect) skylarkAspect;
@@ -181,7 +180,7 @@ public final class AspectFunction implements SkyFunction {
       }
       if (skylarkImportLookupValue == null) {
         Preconditions.checkState(
-            env.valuesMissing(), "no skylark import value for %s", importFileKey);
+            env.valuesMissing(), "no Starlark import value for %s", importFileKey);
         return null;
       }
 

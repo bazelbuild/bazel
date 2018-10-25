@@ -229,26 +229,28 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   public BuildConfigurationApi getHostConfiguration() throws EvalException;
 
   @SkylarkCallable(
-    name = "coverage_instrumented",
-    doc = "Returns whether code coverage instrumentation should be generated when performing "
-        + "compilation actions for this rule or, if <code>target</code> is provided, the rule "
-        + "specified by that Target. (If a non-rule or a Skylark rule Target is provided, this "
-        + "returns False.) Checks if the sources of the current rule (if no Target is provided) or "
-        + "the sources of Target should be instrumented based on the --instrumentation_filter and "
-        + "--instrument_test_targets config settings. "
-        + "This differs from <code>coverage_enabled</code> in the <a href=\"configuration.html\">"
-        + "configuration</a>, which notes whether coverage data collection is enabled for the "
-        + "entire run, but not whether a specific target should be instrumented.",
-    parameters = {
-      @Param(
-          name = "target",
-          type = TransitiveInfoCollectionApi.class,
-          defaultValue = "None",
-          noneable = true,
-          named = true,
-          doc = "A Target specifying a rule. If not provided, defaults to the current rule.")
-    }
-  )
+      name = "coverage_instrumented",
+      doc =
+          "Returns whether code coverage instrumentation should be generated when performing "
+              + "compilation actions for this rule or, if <code>target</code> is provided, the "
+              + "rule specified by that Target. (If a non-rule or a Starlark rule Target is "
+              + "provided, this returns False.) Checks if the sources of the current rule "
+              + "(if no Target is provided) or the sources of Target should be instrumented "
+              + "based on the --instrumentation_filter and "
+              + "--instrument_test_targets config settings. "
+              + "This differs from <code>coverage_enabled</code> in the"
+              + "<a href=\"configuration.html\">configuration</a>, which notes whether coverage "
+              + "data collection is enabled for the entire run, but not whether a specific "
+              + "target should be instrumented.",
+      parameters = {
+        @Param(
+            name = "target",
+            type = TransitiveInfoCollectionApi.class,
+            defaultValue = "None",
+            noneable = true,
+            named = true,
+            doc = "A Target specifying a rule. If not provided, defaults to the current rule.")
+      })
   public boolean instrumentCoverage(Object targetUnchecked) throws EvalException;
 
   @SkylarkCallable(

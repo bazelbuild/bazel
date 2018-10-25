@@ -123,14 +123,13 @@ public class PlatformOptions extends FragmentOptions {
   public List<String> toolchainResolutionOverrides;
 
   @Option(
-    name = "toolchain_resolution_debug",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help =
-        "Print debug information while finding toolchains for a rule. This might help developers "
-            + "of Bazel or Skylark rules with debugging failures due to missing toolchains."
-  )
+      name = "toolchain_resolution_debug",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Print debug information while finding toolchains for a rule. This might help developers "
+              + "of Bazel or Starlark rules with debugging failures due to missing toolchains.")
   public boolean toolchainResolutionDebug;
 
   @Option(

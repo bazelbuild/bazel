@@ -627,8 +627,10 @@ public abstract class SkylarkType implements Serializable {
     if (!isTypeAllowedInSkylark(object)) {
       throw new EvalException(
           loc,
-          "internal error: type '" + object.getClass().getSimpleName() + "' is not allowed as a "
-              + "Skylark value (checkTypeAllowedInSkylark() failed)");
+          "internal error: type '"
+              + object.getClass().getSimpleName()
+              + "' is not allowed as a "
+              + "Starlark value (checkTypeAllowedInSkylark() failed)");
     }
   }
 

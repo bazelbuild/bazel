@@ -91,7 +91,8 @@ public final class AdvertisedProviderSet {
     if (canHaveAnyProvider()) {
       return "Any Provider";
     }
-    return String.format("allowed native providers=%s, allowed skylark providers=%s",
+    return String.format(
+        "allowed native providers=%s, allowed Starlark providers=%s",
         getNativeProviders(), getSkylarkProviders());
   }
 

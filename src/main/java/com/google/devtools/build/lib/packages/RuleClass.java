@@ -821,7 +821,7 @@ public class RuleClass {
                   || type == RuleClassType.TEST
                   || type == RuleClassType.PLACEHOLDER)
               == (ruleDefinitionEnvironmentLabel != null),
-          "Concrete Skylark rule classes can't have null labels: %s %s",
+          "Concrete Starlark rule classes can't have null labels: %s %s",
           ruleDefinitionEnvironmentLabel,
           type);
     }
@@ -926,7 +926,7 @@ public class RuleClass {
     }
 
     public Builder setSkylarkTestable() {
-      Preconditions.checkState(skylark, "Cannot set skylarkTestable on a non-Skylark rule");
+      Preconditions.checkState(skylark, "Cannot set skylarkTestable on a non-Starlark rule");
       skylarkTestable = true;
       return this;
     }

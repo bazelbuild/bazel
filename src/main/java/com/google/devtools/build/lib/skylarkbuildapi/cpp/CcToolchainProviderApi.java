@@ -183,7 +183,7 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       doc =
           "Path to the linker binary. \n WARNING: This method is only added to allow incremental"
               + "migration of existing users. Please do not use in new code. Will be removed soon"
-              + "as part of the new Skylark API to the C++ toolchain.")
+              + "as part of the new Starlark API to the C++ toolchain.")
   public String getLdExecutableForSkylark();
 
   @SkylarkCallable(
@@ -191,7 +191,7 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       doc =
           "Path to GNU binutils 'objcopy' binary. \n WARNING: This method is only added to allow"
               + "incremental migration of existing users. Please do not use in new code. Will be"
-              + "removed soon as part of the new Skylark API to the C++ toolchain.")
+              + "removed soon as part of the new Starlark API to the C++ toolchain.")
   public String getObjCopyExecutableForSkylark();
 
   @SkylarkCallable(
@@ -199,7 +199,7 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       doc =
           "Path to C/C++ compiler binary. \n WARNING: This method is only added to allow "
               + "incremental migration of existing users. Please do not use in new code. Will be"
-              + "removed soon as part of the new Skylark API to the C++ toolchain.")
+              + "removed soon as part of the new Starlark API to the C++ toolchain.")
   public String getCppExecutableForSkylark();
 
   @SkylarkCallable(
@@ -207,7 +207,7 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       doc =
           "Path to C/C++ preprocessor binary. \n WARNING: This method is only added to allow"
               + "incremental migration of existing users. Please do not use in new code. Will be "
-              + "removed soon as part of the new Skylark API to the C++ toolchain.")
+              + "removed soon as part of the new Starlark API to the C++ toolchain.")
   public String getCpreprocessorExecutableForSkylark();
 
   @SkylarkCallable(
@@ -215,7 +215,7 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       doc =
           "Path to GNU binutils 'nm' binary. \n WARNING: This method is only added to allow"
               + "incremental migration of existing users. Please do not use in new code. Will be "
-              + "removed soon as part of the new Skylark API to the C++ toolchain.")
+              + "removed soon as part of the new Starlark API to the C++ toolchain.")
   public String getNmExecutableForSkylark();
 
   @SkylarkCallable(
@@ -223,7 +223,7 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       doc =
           "Path to GNU binutils 'objdump' binary. \n WARNING: This method is only added to allow"
               + "incremental migration of existing users. Please do not use in new code. Will be "
-              + "removed soon as part of the new Skylark API to the C++ toolchain.")
+              + "removed soon as part of the new Starlark API to the C++ toolchain.")
   public String getObjdumpExecutableForSkylark();
 
   @SkylarkCallable(
@@ -231,7 +231,7 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       doc =
           "Path to GNU binutils 'ar' binary. \n WARNING: This method is only added to allow"
               + "incremental migration of existing users. Please do not use in new code. Will be "
-              + "removed soon as part of the new Skylark API to the C++ toolchain.")
+              + "removed soon as part of the new Starlark API to the C++ toolchain.")
   public String getArExecutableForSkylark();
 
   @SkylarkCallable(
@@ -239,6 +239,6 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       doc =
           "Path to GNU binutils 'strip' binary. \n WARNING: This method is only added to allow"
               + "incremental migration of existing users. Please do not use in new code. Will be "
-              + "removed soon as part of the new Skylark API to the C++ toolchain.")
+              + "removed soon as part of the new Starlark API to the C++ toolchain.")
   public String getStripExecutableForSkylark();
 }

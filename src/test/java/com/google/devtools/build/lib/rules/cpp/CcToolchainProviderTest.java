@@ -154,7 +154,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     invalidatePackages();
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:target");
-    assertContainsEvent("Skylark APIs accessing linking flags has been removed.");
+    assertContainsEvent("Starlark APIs accessing linking flags has been removed.");
   }
 
   @Test
@@ -205,7 +205,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     invalidatePackages();
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:target");
-    assertContainsEvent("Skylark APIs accessing compilation flags has been removed.");
+    assertContainsEvent("Starlark APIs accessing compilation flags has been removed.");
   }
 
   @Test

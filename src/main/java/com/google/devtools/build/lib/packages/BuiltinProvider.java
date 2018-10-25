@@ -96,7 +96,7 @@ public abstract class BuiltinProvider<T extends InfoInterface> implements Provid
    */
   protected T throwUnsupportedConstructorException(Location loc) throws EvalException {
     throw new EvalException(
-        loc, String.format("'%s' cannot be constructed from Skylark", getPrintableName()));
+        loc, String.format("'%s' cannot be constructed from Starlark", getPrintableName()));
   }
 
   /**

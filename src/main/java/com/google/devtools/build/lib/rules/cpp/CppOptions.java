@@ -754,7 +754,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, C++ Skylark API exposing linking flags will be disabled.")
+      help = "If true, C++ Starlark API exposing linking flags will be disabled.")
   public boolean disableLegacyLinkingApi;
 
   @Option(
@@ -763,7 +763,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, C++ Skylark API exposing compilation flags will be disabled.")
+      help = "If true, C++ Starlark API exposing compilation flags will be disabled.")
   public boolean disableLegacyCompilationApi;
 
   @Option(
@@ -776,7 +776,7 @@ public class CppOptions extends FragmentOptions {
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "Flag for disabling the legacy cc_toolchain Skylark API for accessing legacy "
+          "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
               + "CROSSTOOL fields.")
   public boolean disableLegacyFlagsCcToolchainApi;
 
@@ -874,7 +874,7 @@ public class CppOptions extends FragmentOptions {
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "If true, C++ toolchain Skylark API will not accept depset in `user_compile_flags` "
+          "If true, C++ toolchain Starlark API will not accept depset in `user_compile_flags` "
               + "param of `create_compile_variables`, and in `user_link_flags` of "
               + "`create_link_variables`. Use list instead.")
   public boolean disableDepsetInUserFlags;

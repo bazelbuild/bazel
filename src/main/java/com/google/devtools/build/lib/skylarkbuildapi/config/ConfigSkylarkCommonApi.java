@@ -18,13 +18,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
-/**
- * Helper utility containing functions regarding configurations.ss
- */
+/** Helper utility containing functions regarding configurations.ss */
 @SkylarkModule(
-  name = "config_common",
-  doc = "Functions for Skylark to interact with Blaze's configurability APIs."
-)
+    name = "config_common",
+    doc = "Functions for Starlark to interact with Blaze's configurability APIs.")
 public interface ConfigSkylarkCommonApi {
 
   @SkylarkCallable(

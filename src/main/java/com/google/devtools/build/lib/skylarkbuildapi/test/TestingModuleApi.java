@@ -19,13 +19,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 
-/**
- * Helper module for accessing test infrastructure.
- */
+/** Helper module for accessing test infrastructure. */
 @SkylarkModule(
     name = "testing",
-    doc = "Helper methods for skylark to access testing infrastructure."
-)
+    doc = "Helper methods for Starlark to access testing infrastructure.")
 public interface TestingModuleApi {
 
   // TODO(bazel-team): Change this function to be the actual ExecutionInfo.PROVIDER.

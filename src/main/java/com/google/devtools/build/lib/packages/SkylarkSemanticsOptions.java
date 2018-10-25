@@ -66,15 +66,9 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       name = "experimental_analysis_testing_improvements",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
-      effectTags = {
-          OptionEffectTag.BUILD_FILE_SEMANTICS,
-          OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      metadataTags = {
-          OptionMetadataTag.EXPERIMENTAL
-      },
-      help = "If true, enables pieces of experimental Skylark API for analysis-phase testing."
-  )
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, enables pieces of experimental Starlark API for analysis-phase testing.")
   public boolean experimentalAnalysisTestingImprovements;
 
   @Option(
@@ -85,7 +79,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "Passes list of packages that can use the C++ Skylark API. Don't enable this flag yet, "
+          "Passes list of packages that can use the C++ Starlark API. Don't enable this flag yet, "
               + "we will be making breaking changes.")
   public List<String> experimentalCcSkylarkApiEnabledPackages;
 
@@ -188,13 +182,12 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
           "If set to true, disable the deprecated parameters 'single_file' and 'non_empty' on "
-              + "skylark attribute definition methods, such as attr.label()."
-  )
+              + "attribute definition methods, such as attr.label().")
   public boolean incompatibleDisableDeprecatedAttrParams;
 
   @Option(
@@ -453,7 +446,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "If set to true, the native git_repository rules are disabled; only the skylark version "
+          "If set to true, the native git_repository rules are disabled; only the Starlark version "
               + "will be available")
   public boolean incompatibleRemoveNativeGitRepository;
 
@@ -467,7 +460,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "If set to true, the native http_archive rules are disabled; only the skylark version "
+          "If set to true, the native http_archive rules are disabled; only the Starlark version "
               + "will be available")
   public boolean incompatibleRemoveNativeHttpArchive;
 

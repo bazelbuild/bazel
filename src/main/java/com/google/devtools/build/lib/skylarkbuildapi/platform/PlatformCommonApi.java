@@ -19,13 +19,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 
-/**
- * Module containing functions to interact with the platform APIs.
- */
+/** Module containing functions to interact with the platform APIs. */
 @SkylarkModule(
     name = "platform_common",
-    doc = "Functions for Skylark to interact with the platform APIs."
-)
+    doc = "Functions for Starlark to interact with the platform APIs.")
 public interface PlatformCommonApi {
   @SkylarkCallable(
       name = "TemplateVariableInfo",

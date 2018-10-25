@@ -224,7 +224,7 @@ public final class CcCommon {
     throw new EvalException(
         location,
         String.format(
-            "the C++ Skylark API is for the time being only allowed for rules in '%s'; "
+            "the C++ Starlark API is for the time being only allowed for rules in '%s'; "
                 + "but this is defined in '%s'. You can try it out by passing "
                 + "--experimental_cc_skylark_api_enabled_packages=<list of packages>. Beware that "
                 + "we will be making breaking changes to this API without prior warning.",

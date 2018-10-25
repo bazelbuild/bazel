@@ -131,7 +131,7 @@ public abstract class NativeProvider<V extends InfoInterface> extends ProviderFr
   protected InfoInterface createInstanceFromSkylark(Object[] args, Environment env, Location loc)
       throws EvalException {
     throw new EvalException(
-        loc, String.format("'%s' cannot be constructed from Skylark", getPrintableName()));
+        loc, String.format("'%s' cannot be constructed from Starlark", getPrintableName()));
   }
 
   public static Pair<String, String> getSerializedRepresentationForNativeKey(NativeKey key) {

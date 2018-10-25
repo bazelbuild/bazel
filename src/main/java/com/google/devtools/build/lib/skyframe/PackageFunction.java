@@ -609,7 +609,7 @@ public class PackageFunction implements SkyFunction {
                   importLookupKey, env, importLookupKeys.size());
           if (skyValue == null) {
             Preconditions.checkState(
-                env.valuesMissing(), "no skylark import value for %s", importLookupKey);
+                env.valuesMissing(), "no starlark import value for %s", importLookupKey);
             // We continue making inline calls even if some requested values are missing, to
             // maximize the number of dependent (non-inlined) SkyFunctions that are requested, thus
             // avoiding a quadratic number of restarts.

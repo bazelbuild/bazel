@@ -238,7 +238,7 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
                 + a.getName()
                 + " of type "
                 + type
-                + " to a Skylark object");
+                + " to a Starlark object");
       }
     }
 
