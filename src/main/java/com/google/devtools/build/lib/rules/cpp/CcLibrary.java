@@ -418,9 +418,13 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     targetBuilder
         .setFilesToBuild(filesToBuild)
-        .addProviders(compilationInfo.getProviders())
+        .addProvider(compilationInfo.getCppDebugFileProvider())
         .addProvider(ccNativeLibraryProvider)
-        .addNativeDeclaredProvider(ccLinkingInfo)
+        .addNativeDeclaredProvider(
+            CcInfo.builder()
+                .setCcCompilationContext(compilationInfo.getCcCompilationContext())
+                .setCcLinkingInfo(ccLinkingInfo)
+                .build())
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .addOutputGroups(
             CcCommon.mergeOutputGroups(

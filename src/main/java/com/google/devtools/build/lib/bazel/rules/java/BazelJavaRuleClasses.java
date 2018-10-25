@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
@@ -75,7 +75,7 @@ public class BazelJavaRuleClasses {
           JavaSemantics.JAVA_LIBRARY_SOURCE_JAR);
 
   public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_CC_LINK_PARAMS =
-      ImmutableList.of(SkylarkProviderIdentifier.forKey(CcLinkingInfo.PROVIDER.getKey()));
+      ImmutableList.of(SkylarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()));
 
   /**
    * Meant to be the value of {@code mandatoryProvidersLists} in order for the rule to provide only

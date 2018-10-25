@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
@@ -107,9 +107,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             .addDeclaredIncludeSrcs(common.getTextualHdrs())
             .build();
 
-    CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
-    ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
-
     CcLinkParams ccLinkParams = buildCcLinkParams(common);
     CcLinkingInfo ccLinkingInfo =
         CcLinkingInfo.Builder.create()
@@ -121,13 +118,16 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(common.getObjcProvider())
-        .addNativeDeclaredProvider(ccCompilationInfoBuilder.build())
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addProvider(
             InstrumentedFilesProvider.class,
             compilationSupport.getInstrumentedFilesProvider(objectFilesCollector.build()))
-        .addNativeDeclaredProvider(ccLinkingInfo)
+        .addNativeDeclaredProvider(
+            CcInfo.builder()
+                .setCcCompilationContext(ccCompilationContext)
+                .setCcLinkingInfo(ccLinkingInfo)
+                .build())
         .addOutputGroups(outputGroupCollector)
         .build();
   }

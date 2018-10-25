@@ -108,7 +108,7 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
   private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
   @Nullable private final Artifact dynamicRuntimeLinkMiddleman;
   private final PathFragment dynamicRuntimeSolibDir;
-  private final CcCompilationInfo ccCompilationInfo;
+  private final CcInfo ccInfo;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
   private final CcToolchainVariables buildVariables;
@@ -189,8 +189,11 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
     this.dynamicRuntimeLinkInputs = Preconditions.checkNotNull(dynamicRuntimeLinkInputs);
     this.dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddleman;
     this.dynamicRuntimeSolibDir = Preconditions.checkNotNull(dynamicRuntimeSolibDir);
-    this.ccCompilationInfo =
-        new CcCompilationInfo(Preconditions.checkNotNull(ccCompilationContext));
+    this.ccInfo =
+        CcInfo.builder()
+            .setCcCompilationContext(Preconditions.checkNotNull(ccCompilationContext))
+            .setCcLinkingInfo(CcLinkingInfo.EMPTY)
+            .build();
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
     this.buildVariables = buildVariables;
@@ -493,12 +496,12 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
 
   /** Returns the {@code CcCompilationContext} for the toolchain. */
   public CcCompilationContext getCcCompilationContext() {
-    return ccCompilationInfo.getCcCompilationContext();
+    return ccInfo.getCcCompilationContext();
   }
 
-  /** Returns the {@code CcCompilationContext} for the toolchain. */
-  public CcCompilationInfo getCcCompilationInfo() {
-    return ccCompilationInfo;
+  /** Returns the {@code CcInfo} for the toolchain. */
+  public CcInfo getCcInfo() {
+    return ccInfo;
   }
 
   /**

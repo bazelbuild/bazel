@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.In
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
@@ -72,10 +72,7 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public void collectRunfilesForBinary(
-      RuleContext ruleContext,
-      Runfiles.Builder builder,
-      PyCommon common,
-      CcLinkingInfo ccLinkingInfo) {
+      RuleContext ruleContext, Runfiles.Builder builder, PyCommon common, CcInfo ccInfo) {
     addRuntime(ruleContext, builder);
   }
 
@@ -131,10 +128,7 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public Artifact createExecutable(
-      RuleContext ruleContext,
-      PyCommon common,
-      CcLinkingInfo ccLinkingInfo,
-      NestedSet<String> imports)
+      RuleContext ruleContext, PyCommon common, CcInfo ccInfo, NestedSet<String> imports)
       throws InterruptedException {
     String main = common.determineMainExecutableSource(/*withWorkspaceName=*/ true);
     Artifact executable = common.getExecutable();
@@ -361,18 +355,17 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   @Override
-  public CcLinkingInfo buildCcLinkingInfoProvider(
-      Iterable<? extends TransitiveInfoCollection> deps) {
-    ImmutableList<CcLinkingInfo> ccLinkingInfos =
-        ImmutableList.<CcLinkingInfo>builder()
-            .addAll(AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER))
+  public CcInfo buildCcInfoProvider(Iterable<? extends TransitiveInfoCollection> deps) {
+    ImmutableList<CcInfo> ccInfos =
+        ImmutableList.<CcInfo>builder()
+            .addAll(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
             .addAll(
                 Streams.stream(AnalysisUtils.getProviders(deps, PyCcLinkParamsProvider.PROVIDER))
-                    .map(PyCcLinkParamsProvider::getCcLinkingInfo)
+                    .map(PyCcLinkParamsProvider::getCcInfo)
                     .collect(ImmutableList.toImmutableList()))
             .build();
 
     // TODO(plf): return empty CcLinkingInfo.
-    return CcLinkingInfo.merge(ccLinkingInfos);
+    return CcInfo.merge(ccInfos);
   }
 }

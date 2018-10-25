@@ -35,7 +35,7 @@ public interface BazelCcModuleApi<
         CcToolchainProviderT extends CcToolchainProviderApi,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationInfoT extends CompilationInfoApi,
-        CcCompilationInfoT extends CcCompilationInfoApi,
+        CcCompilationContextT extends CcCompilationContextApi,
         CcCompilationOutputsT extends CcCompilationOutputsApi,
         LinkingInfoT extends LinkingInfoApi,
         CcLinkingInfoT extends CcLinkingInfoApi,
@@ -110,8 +110,8 @@ public interface BazelCcModuleApi<
               @ParamType(type = NoneType.class)
             }),
         @Param(
-            name = "cc_compilation_infos",
-            doc = "cc_compilation_info instances affecting compilation, e.g. from dependencies",
+            name = "compilation_contexts",
+            doc = "compilation_context instances affecting compilation, e.g. from dependencies",
             positional = false,
             named = true,
             defaultValue = "[]",
@@ -125,7 +125,7 @@ public interface BazelCcModuleApi<
       SkylarkList<Artifact> headers,
       Object skylarkIncludes,
       Object skylarkCopts,
-      SkylarkList<CcCompilationInfoT> ccCompilationInfos)
+      SkylarkList<CcCompilationContextT> ccCompilationContexts)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
@@ -177,8 +177,8 @@ public interface BazelCcModuleApi<
             noneable = true,
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Artifact.class)}),
         @Param(
-            name = "cc_linking_infos",
-            doc = "cc_linking_info instances affecting linking, e.g. from dependencies",
+            name = "linking_contexts",
+            doc = "linking_context instances affecting linking, e.g. from dependencies",
             positional = false,
             named = true,
             noneable = true,

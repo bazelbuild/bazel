@@ -14,25 +14,24 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.java;
 
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Fake implementation of {@link JavaCcLinkParamsProvider}. */
-public class FakeJavaCcLinkParamsProvider implements JavaCcLinkParamsProviderApi<CcLinkingInfoApi> {
+public class FakeJavaCcLinkParamsProvider implements JavaCcLinkParamsProviderApi<CcInfoApi> {
 
   @Override
-  public CcLinkingInfoApi getCcLinkingInfo() {
+  public CcInfoApi getCcInfo() {
     return null;
   }
 
   /** Fake implementation of {@link JavaCcLinkParamsProvider#Provider}. */
-  public static class Provider implements JavaCcLinkParamsProviderApi.Provider<CcLinkingInfoApi> {
+  public static class Provider implements JavaCcLinkParamsProviderApi.Provider<CcInfoApi> {
 
     @Override
-    public FakeJavaCcLinkParamsProvider createInfo(CcLinkingInfoApi ccLinkingInfoApi)
-        throws EvalException {
+    public FakeJavaCcLinkParamsProvider createInfo(CcInfoApi ccInfoApi) throws EvalException {
       return new FakeJavaCcLinkParamsProvider();
     }
 

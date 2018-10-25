@@ -14,21 +14,17 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/**
- * Wrapper for every C++ linking provider.
- */
+/** Wrapper for every C++ linking provider. */
 @SkylarkModule(
-  name = "cc_linking_info",
-  documented = false,
-  category = SkylarkModuleCategory.PROVIDER,
-  doc = "Wrapper for every C++ linking provider"
-)
-public interface CcLinkingInfoApi extends StructApi {
+    name = "CcLinkingContext",
+    documented = false,
+    category = SkylarkModuleCategory.PROVIDER,
+    doc = "Wrapper for every C++ linking provider")
+public interface CcLinkingInfoApi {
 
   @SkylarkCallable(
       name = "static_mode_params_for_dynamic_library",

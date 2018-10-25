@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,16 +46,15 @@ public class JplCcLinkParams {
         ruleContext.getPrerequisites("deps", RuleConfiguredTarget.Mode.TARGET)) {
       providers.add(t.get(JavaCcLinkParamsProvider.PROVIDER));
     }
-    ImmutableList<CcLinkingInfo> ccLinkingInfos =
-        ImmutableList.<CcLinkingInfo>builder()
+    ImmutableList<CcInfo> ccInfos =
+        ImmutableList.<CcInfo>builder()
             .addAll(
-                providers
-                    .stream()
-                    .map(JavaCcLinkParamsProvider::getCcLinkingInfo)
+                providers.stream()
+                    .map(JavaCcLinkParamsProvider::getCcInfo)
                     .collect(ImmutableList.toImmutableList()))
-            .addAll(AnalysisUtils.getProviders(protoRuntimes, CcLinkingInfo.PROVIDER))
+            .addAll(AnalysisUtils.getProviders(protoRuntimes, CcInfo.PROVIDER))
             .build();
 
-    return new JavaCcLinkParamsProvider(CcLinkingInfo.merge(ccLinkingInfos));
+    return new JavaCcLinkParamsProvider(CcInfo.merge(ccInfos));
   }
 }

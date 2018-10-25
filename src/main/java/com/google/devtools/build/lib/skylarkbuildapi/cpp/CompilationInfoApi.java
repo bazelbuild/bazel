@@ -30,12 +30,12 @@ import java.util.Map;
     doc = "Helper class containing CC compilation providers."
 )
 public interface CompilationInfoApi {
-  @SkylarkCallable(name = "cc_output_groups", documented = false)
+  @SkylarkCallable(name = "cc_output_groups", structField = true, documented = false)
   public Map<String, SkylarkNestedSet> getSkylarkOutputGroups();
 
-  @SkylarkCallable(name = "cc_compilation_outputs", documented = false)
+  @SkylarkCallable(name = "cc_compilation_outputs", structField = true, documented = false)
   public CcCompilationOutputsApi getCcCompilationOutputs();
 
-  @SkylarkCallable(name = "cc_compilation_info", documented = false)
-  public CcCompilationInfoApi getCcCompilationInfo();
+  @SkylarkCallable(name = "compilation_context", structField = true, documented = false)
+  public CcCompilationContextApi getCcCompilationContext();
 }

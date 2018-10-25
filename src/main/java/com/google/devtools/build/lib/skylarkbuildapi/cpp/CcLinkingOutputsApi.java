@@ -26,12 +26,12 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
     documented = false,
     doc = "Helper class containing CC compilation outputs.")
 public interface CcLinkingOutputsApi {
-  @SkylarkCallable(name = "dynamic_libraries_for_linking", documented = false)
+  @SkylarkCallable(name = "dynamic_libraries_for_linking", structField = true, documented = false)
   SkylarkList<LibraryToLinkApi> getSkylarkDynamicLibrariesForLinking();
 
-  @SkylarkCallable(name = "static_libraries", documented = false)
+  @SkylarkCallable(name = "static_libraries", structField = true, documented = false)
   SkylarkList<LibraryToLinkApi> getSkylarkStaticLibraries();
 
-  @SkylarkCallable(name = "pic_static_libraries", documented = false)
+  @SkylarkCallable(name = "pic_static_libraries", structField = true, documented = false)
   SkylarkList<LibraryToLinkApi> getSkylarkPicStaticLibraries();
 }

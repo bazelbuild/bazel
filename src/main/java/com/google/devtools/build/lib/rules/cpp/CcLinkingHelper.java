@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -26,8 +27,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -64,21 +63,17 @@ public final class CcLinkingHelper {
   // TODO(plf): Only used by Skylark API. Remove after migrating.
   @Deprecated
   public static final class LinkingInfo implements LinkingInfoApi {
-    private final TransitiveInfoProviderMap providers;
+    private final CcLinkingInfo ccLinkingInfo;
     private final CcLinkingOutputs linkingOutputs;
 
-    public LinkingInfo(TransitiveInfoProviderMap providers, CcLinkingOutputs linkingOutputs) {
-      this.providers = providers;
+    public LinkingInfo(CcLinkingInfo ccLinkingInfo, CcLinkingOutputs linkingOutputs) {
+      this.ccLinkingInfo = ccLinkingInfo;
       this.linkingOutputs = linkingOutputs;
-    }
-
-    public TransitiveInfoProviderMap getProviders() {
-      return providers;
     }
 
     @Override
     public CcLinkingInfo getCcLinkingInfo() {
-      return (CcLinkingInfo) providers.get(CcLinkingInfo.PROVIDER.getKey());
+      return ccLinkingInfo;
     }
 
     @Override
@@ -196,7 +191,10 @@ public final class CcLinkingHelper {
    * (like from a "deps" attribute) and also implicit dependencies on runtime libraries.
    */
   public CcLinkingHelper addDeps(Iterable<? extends TransitiveInfoCollection> deps) {
-    Iterables.addAll(this.ccLinkingInfos, AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER));
+    this.ccLinkingInfos.addAll(
+        Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
+            .map(CcInfo::getCcLinkingInfo)
+            .collect(ImmutableList.toImmutableList()));
     Iterables.addAll(this.deps, deps);
     return this;
   }
@@ -373,10 +371,6 @@ public final class CcLinkingHelper {
       CcLinkingOutputs ccLinkingOutputs, CcCompilationContext ccCompilationContext) {
     Preconditions.checkNotNull(ccCompilationContext);
 
-    // Be very careful when adding new providers here - it can potentially affect a lot of rules.
-    // We should consider merging most of these providers into a single provider.
-    TransitiveInfoProviderMapBuilder providers = new TransitiveInfoProviderMapBuilder();
-
     final CcLinkingOutputs ccLinkingOutputsFinalized = ccLinkingOutputs;
     BiFunction<Boolean, Boolean, CcLinkParams> createParams =
         (staticMode, forDynamicLibrary) -> {
@@ -416,7 +410,6 @@ public final class CcLinkingHelper {
                 createParams.apply(/* staticMode= */ false, /* forDynamicLibrary= */ true))
             .setDynamicModeParamsForExecutable(
                 createParams.apply(/* staticMode= */ false, /* forDynamicLibrary= */ false));
-    providers.put(ccLinkingInfoBuilder.build());
     return ccLinkingInfoBuilder.build();
   }
 

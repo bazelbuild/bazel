@@ -998,18 +998,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         "def _impl(ctx):",
-        "  cc_compilation_info = CcCompilationInfo(headers=depset([ctx.file._header]),",
+        "  compilation_context = cc_common.create_compilation_context(",
+        "    ctx=ctx,",
+        "    headers=depset([ctx.file._header]),",
         "    system_includes=depset([ctx.attr._include]), defines=depset([ctx.attr._define]))",
-        "  cc_compilation_infos = [cc_compilation_info]",
+        "  cc_infos = [CcInfo(compilation_context=compilation_context)]",
         "  for dep in ctx.attr._deps:",
-        "      cc_compilation_infos.append(dep[CcCompilationInfo])",
-        "  merged_cc_compilation_info=cc_common.merge_cc_compilation_infos(",
-        "      cc_compilation_infos=cc_compilation_infos)",
+        "      cc_infos.append(dep[CcInfo])",
+        "  merged_cc_info=cc_common.merge_cc_infos(cc_infos=cc_infos)",
         "  return struct(",
-        "    providers=[cc_compilation_info, cc_common.create_cc_skylark_info(ctx=ctx)],",
-        "    merged_headers=merged_cc_compilation_info.headers,",
-        "    merged_system_includes=merged_cc_compilation_info.system_includes,",
-        "    merged_defines=merged_cc_compilation_info.defines",
+        "    providers=[merged_cc_info, cc_common.create_cc_skylark_info(ctx=ctx)],",
+        "    merged_headers=merged_cc_info.compilation_context.headers,",
+        "    merged_system_includes=merged_cc_info.compilation_context.system_includes,",
+        "    merged_defines=merged_cc_info.compilation_context.defines",
         "  )",
         "crule = rule(",
         "  _impl,",
@@ -1024,16 +1025,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     ConfiguredTarget lib = getConfiguredTarget("//a:lib");
     @SuppressWarnings("unchecked")
-    CcCompilationContext ccCompilationContext =
-        lib.get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
+    CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(
-            ccCompilationContext
-                .getDeclaredIncludeSrcs()
-                .toCollection()
-                .stream()
+            ccCompilationContext.getDeclaredIncludeSrcs().toCollection().stream()
                 .map(Artifact::getFilename)
                 .collect(ImmutableList.toImmutableList()))
-        .containsExactly("lib.h", "header.h");
+        .containsExactly("lib.h", "header.h", "dep1.h", "dep2.h");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
 
@@ -1280,20 +1277,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "  se = _create(ctx, [liba], [], ['-static_for_executable'])",
         "  dd = _create(ctx, [libso], [ctx.file.libso], ['-dynamic_for_dynamic'])",
         "  de = _create(ctx, [libso], [ctx.file.libso], ['-dynamic_for_executable'])",
-        "  cc_linking_info = CcLinkingInfo(",
+        "  linking_context = cc_common.create_linking_context(ctx=ctx,",
         "    static_mode_params_for_dynamic_library=sd, static_mode_params_for_executable=se,",
         "    dynamic_mode_params_for_dynamic_library=dd, dynamic_mode_params_for_executable=de)",
-        "  cc_linking_infos = [cc_linking_info]",
+        "  cc_infos = [CcInfo(linking_context=linking_context)]",
         "  for dep in ctx.attr._deps:",
-        "      cc_linking_infos.append(dep[CcLinkingInfo])",
-        "  merged_cc_linking_info = cc_common.merge_cc_linking_infos(",
-        "      cc_linking_infos=cc_linking_infos)",
-        "  sd = merged_cc_linking_info.static_mode_params_for_dynamic_library",
-        "  se = merged_cc_linking_info.static_mode_params_for_executable",
-        "  dd = merged_cc_linking_info.dynamic_mode_params_for_dynamic_library",
-        "  de = merged_cc_linking_info.dynamic_mode_params_for_executable",
+        "      cc_infos.append(dep[CcInfo])",
+        "  merged_cc_info = cc_common.merge_cc_infos(cc_infos=cc_infos)",
+        "  sd = merged_cc_info.linking_context.static_mode_params_for_dynamic_library",
+        "  se = merged_cc_info.linking_context.static_mode_params_for_executable",
+        "  dd = merged_cc_info.linking_context.dynamic_mode_params_for_dynamic_library",
+        "  de = merged_cc_info.linking_context.dynamic_mode_params_for_executable",
         "  return struct(",
-        "    cc_linking_info = cc_linking_info,",
+        "    cc_info = merged_cc_info,",
         "    sd_linkopts = sd.user_link_flags,",
         "    se_linkopts = se.user_link_flags,",
         "    dd_linkopts = dd.user_link_flags,",
@@ -1391,9 +1387,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcLinkingInfos() throws Exception {
+  public void testCcLinkingContexts() throws Exception {
     SkylarkCcCommonTestHelper.createFilesForTestingLinking(
-        scratch, "tools/build_defs/foo", "cc_linking_infos=dep_cc_linking_infos");
+        scratch, "tools/build_defs/foo", "linking_contexts=dep_linking_contexts");
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
     CppLinkAction action =
@@ -1409,22 +1405,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testNeverlinkFalse() throws Exception {
     assertThat(setUpNeverlinkTest("False").getArguments()).contains("-NEVERLINK_OPTION");
-  }
-
-  @Test
-  public void testEmptyCcLinkingInfoError() throws Exception {
-    scratch.file("a/BUILD", "load('//tools/build_defs/cc:rule.bzl', 'crule')", "crule(name='r')");
-    scratch.file("tools/build_defs/cc/BUILD", "");
-    scratch.file(
-        "tools/build_defs/cc/rule.bzl",
-        "def _impl(ctx):",
-        "  return [CcLinkingInfo()]",
-        "crule = rule(",
-        "  _impl,",
-        ");");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:r");
-    assertContainsEvent("Every CcLinkParams parameter must be passed to CcLinkingInfo.");
   }
 
   private CppLinkAction setUpNeverlinkTest(String value) throws Exception {

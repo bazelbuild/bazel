@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
@@ -549,18 +549,18 @@ public class BazelJavaSemantics implements JavaSemantics {
     // TODO(plf): Figure out whether we can remove support for C++ dependencies in Bazel.
     ImmutableList<? extends TransitiveInfoCollection> deps =
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH);
-    ImmutableList<CcLinkingInfo> ccLinkingInfos =
-        ImmutableList.<CcLinkingInfo>builder()
-            .addAll(AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER))
+    ImmutableList<CcInfo> ccInfos =
+        ImmutableList.<CcInfo>builder()
+            .addAll(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
             .addAll(
                 Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER))
-                    .map(JavaCcLinkParamsProvider::getCcLinkingInfo)
+                    .map(JavaCcLinkParamsProvider::getCcInfo)
                     .collect(ImmutableList.toImmutableList()))
             .build();
 
     // TODO(plf): return empty CcLinkingInfo because deps= in Java targets should not contain C++
     // targets. We need to make sure that no one uses this functionality, though.
-    ruleBuilder.addNativeDeclaredProvider(CcLinkingInfo.merge(ccLinkingInfos));
+    ruleBuilder.addNativeDeclaredProvider(CcInfo.merge(ccInfos));
   }
 
   // TODO(dmarting): simplify that logic when we remove the legacy Bazel java_test behavior.

@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
@@ -80,9 +80,9 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configToObjcAvoidDepsMap =
         ruleContext.getPrerequisitesByConfiguration(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
             Mode.SPLIT, ObjcProvider.SKYLARK_CONSTRUCTOR);
-    ImmutableListMultimap<BuildConfiguration, CcLinkingInfo> configToCcAvoidDepsMap =
+    ImmutableListMultimap<BuildConfiguration, CcInfo> configToCcAvoidDepsMap =
         ruleContext.getPrerequisitesByConfiguration(
-            AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.SPLIT, CcLinkingInfo.PROVIDER);
+            AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.SPLIT, CcInfo.PROVIDER);
     Iterable<ObjcProtoProvider> avoidProtoProviders =
         ruleContext.getPrerequisites(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.TARGET,
             ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
@@ -138,8 +138,13 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               nullToEmptyList(configToCTATDepsCollectionMap.get(childConfig)),
               protosObjcProvider);
       ObjcProvider objcProvider =
-          common.getObjcProvider().subtractSubtrees(configToObjcAvoidDepsMap.get(childConfig),
-              configToCcAvoidDepsMap.get(childConfig));
+          common
+              .getObjcProvider()
+              .subtractSubtrees(
+                  configToObjcAvoidDepsMap.get(childConfig),
+                  configToCcAvoidDepsMap.get(childConfig).stream()
+                      .map(CcInfo::getCcLinkingInfo)
+                      .collect(ImmutableList.toImmutableList()));
 
       librariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureLibrary());
 

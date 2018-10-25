@@ -17,40 +17,39 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A target that provides C++ libraries to be linked into Android targets. */
 @Immutable
 public final class AndroidCcLinkParamsProvider extends NativeInfo
-    implements AndroidCcLinkParamsProviderApi<CcLinkingInfo> {
+    implements AndroidCcLinkParamsProviderApi<CcInfo> {
   public static final String PROVIDER_NAME = "AndroidCcLinkParamsInfo";
   public static final Provider PROVIDER = new Provider();
 
-  private final CcLinkingInfo ccLinkingInfo;
+  private final CcInfo ccInfo;
 
-  public AndroidCcLinkParamsProvider(CcLinkingInfo ccLinkingInfo) {
+  public AndroidCcLinkParamsProvider(CcInfo ccInfo) {
     super(PROVIDER);
-    this.ccLinkingInfo = ccLinkingInfo;
+    this.ccInfo = CcInfo.builder().setCcLinkingInfo(ccInfo.getCcLinkingInfo()).build();
   }
 
   @Override
-  public CcLinkingInfo getLinkParams() {
-    return ccLinkingInfo;
+  public CcInfo getLinkParams() {
+    return ccInfo;
   }
 
   /** Provider class for {@link AndroidCcLinkParamsProvider} objects. */
   public static class Provider extends BuiltinProvider<AndroidCcLinkParamsProvider>
-      implements AndroidCcLinkParamsProviderApi.Provider<CcLinkingInfo> {
+      implements AndroidCcLinkParamsProviderApi.Provider<CcInfo> {
     private Provider() {
       super(PROVIDER_NAME, AndroidCcLinkParamsProvider.class);
     }
 
     @Override
-    public AndroidCcLinkParamsProviderApi<CcLinkingInfo> createInfo(CcLinkingInfo ccLinkingInfo)
-        throws EvalException {
-      return new AndroidCcLinkParamsProvider(ccLinkingInfo);
+    public AndroidCcLinkParamsProviderApi<CcInfo> createInfo(CcInfo ccInfo) throws EvalException {
+      return new AndroidCcLinkParamsProvider(ccInfo);
     }
   }
 }

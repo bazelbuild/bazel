@@ -23,5 +23,5 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     name = "cc_skylark_info",
     category = SkylarkModuleCategory.PROVIDER,
     doc = "Temporary provider to mark C++ Skylark rules")
-// TODO(b/77669139): Delete this class. Use {@link CcCompilationInfo} instead.
+// TODO(b/77669139): Delete this class. Use {@link CcInfo} instead.
 public interface CcSkylarkInfoApi extends StructApi {}

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
@@ -33,18 +33,18 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
             + "Information about the c++ libraries to be linked into Java targets.",
     documented = true,
     category = SkylarkModuleCategory.PROVIDER)
-public interface JavaCcLinkParamsProviderApi<CcLinkingInfoApiT extends CcLinkingInfoApi> {
+public interface JavaCcLinkParamsProviderApi<CcInfoApiT extends CcInfoApi> {
   /** Name of this info object. */
   public static String NAME = "JavaCcLinkParamsInfo";
 
   /** Returns the cc linking info */
   @SkylarkCallable(
-      name = "cc_linking_info",
+      name = "cc_info",
       structField = true,
       doc = "Returns the CcLinkingInfo provider.",
       documented = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
-  CcLinkingInfoApiT getCcLinkingInfo();
+  CcInfoApiT getCcInfo();
 
   /** The provider implementing this can construct the JavaCcLinkParamsInfo provider. */
   @SkylarkModule(
@@ -53,7 +53,7 @@ public interface JavaCcLinkParamsProviderApi<CcLinkingInfoApiT extends CcLinking
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = true)
-  public interface Provider<CcLinkingInfoApiT extends CcLinkingInfoApi> extends ProviderApi {
+  public interface Provider<CcInfoApiT extends CcInfoApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
@@ -63,14 +63,14 @@ public interface JavaCcLinkParamsProviderApi<CcLinkingInfoApiT extends CcLinking
         parameters = {
           @Param(
               name = "store",
-              doc = "The CcLinkingInfo provider.",
+              doc = "The CcInfo provider.",
               positional = true,
               named = false,
-              type = CcLinkingInfoApi.class),
+              type = CcInfoApi.class),
         },
         selfCall = true)
     @SkylarkConstructor(objectType = JavaCcLinkParamsProviderApi.class, receiverNameForDoc = NAME)
-    public JavaCcLinkParamsProviderApi<CcLinkingInfoApiT> createInfo(CcLinkingInfoApiT store)
+    public JavaCcLinkParamsProviderApi<CcInfoApiT> createInfo(CcInfoApiT store)
         throws EvalException;
   }
 }

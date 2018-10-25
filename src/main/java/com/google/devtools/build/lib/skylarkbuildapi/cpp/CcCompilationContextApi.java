@@ -14,18 +14,40 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Interface for a store of information needed for C++ compilation aggregated across dependencies.
  */
 @SkylarkModule(
-    name = "cc_compilation_context",
+    name = "CcCompilationContext",
     documented = false,
     category = SkylarkModuleCategory.PROVIDER,
     doc =
         "Immutable store of information needed for C++ compilation that is aggregated across "
-            + "dependencies."
-)
-public interface CcCompilationContextApi {}
+            + "dependencies.")
+public interface CcCompilationContextApi {
+  @SkylarkCallable(
+      name = "defines",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  SkylarkNestedSet getSkylarkDefines();
+
+  @SkylarkCallable(
+      name = "headers",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  SkylarkNestedSet getSkylarkHeaders();
+
+  @SkylarkCallable(
+      name = "system_includes",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  SkylarkNestedSet getSkylarkDeclaredIncludeDirs();
+}

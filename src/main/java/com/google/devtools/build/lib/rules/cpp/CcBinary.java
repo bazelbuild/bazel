@@ -923,12 +923,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         ccCompilationOutputs.getFilesToCompile(
             cppConfiguration.processHeadersInDependencies(), toolchain.usePicForDynamicLibraries());
 
-    CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
-    ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
-
     builder
         .setFilesToBuild(filesToBuild)
-        .addNativeDeclaredProvider(ccCompilationInfoBuilder.build())
+        .addNativeDeclaredProvider(
+            CcInfo.builder().setCcCompilationContext(ccCompilationContext).build())
         .addProvider(
             CcNativeLibraryProvider.class,
             new CcNativeLibraryProvider(

@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 )
 public interface LinkingInfoApi {
 
-  @SkylarkCallable(name = "cc_linking_info", documented = false)
+  @SkylarkCallable(name = "linking_context", structField = true, documented = false)
   CcLinkingInfoApi getCcLinkingInfo();
 
-  @SkylarkCallable(name = "cc_linking_outputs", documented = false)
+  @SkylarkCallable(name = "cc_linking_outputs", structField = true, documented = false)
   CcLinkingOutputsApi getCcLinkingOutputs();
 }

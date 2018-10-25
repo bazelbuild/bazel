@@ -22,7 +22,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHea
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Collections;
@@ -109,6 +112,28 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     this.compilationPrerequisites = compilationPrerequisites;
     this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
     this.headersCheckingMode = headersCheckingMode;
+  }
+
+  @Override
+  public SkylarkNestedSet getSkylarkDefines() {
+    return SkylarkNestedSet.of(
+        String.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getDefines()));
+  }
+
+  @Override
+  public SkylarkNestedSet getSkylarkHeaders() {
+    return SkylarkNestedSet.of(Artifact.class, getDeclaredIncludeSrcs());
+  }
+
+  @Override
+  public SkylarkNestedSet getSkylarkDeclaredIncludeDirs() {
+    return SkylarkNestedSet.of(
+        String.class,
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            getSystemIncludeDirs().stream()
+                .map(PathFragment::getPathString)
+                .collect(ImmutableList.toImmutableList())));
   }
 
   /**
@@ -343,6 +368,23 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   public CppConfiguration.HeadersCheckingMode getHeadersCheckingMode() {
     return headersCheckingMode;
+  }
+
+  public static ImmutableList<CcCompilationContext> getCcCompilationContexts(
+      Iterable<? extends TransitiveInfoCollection> deps) {
+    ImmutableList.Builder<CcCompilationContext> ccCompilationContextsBuilder =
+        ImmutableList.builder();
+    for (CcInfo ccInfo : AnalysisUtils.getProviders(deps, CcInfo.PROVIDER)) {
+      ccCompilationContextsBuilder.add(ccInfo.getCcCompilationContext());
+    }
+    return ccCompilationContextsBuilder.build();
+  }
+
+  public static CcCompilationContext merge(Collection<CcCompilationContext> ccCompilationContexts) {
+    CcCompilationContext.Builder builder =
+        new CcCompilationContext.Builder(/* ruleContext= */ null);
+    builder.mergeDependentCcCompilationContexts(ccCompilationContexts);
+    return builder.build();
   }
 
   /**

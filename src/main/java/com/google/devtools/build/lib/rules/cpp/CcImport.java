@@ -104,8 +104,12 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
                 targetWindows));
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProviders(compilationInfo.getProviders())
-        .addNativeDeclaredProvider(ccLinkingInfo)
+        .addProvider(compilationInfo.getCppDebugFileProvider())
+        .addNativeDeclaredProvider(
+            CcInfo.builder()
+                .setCcCompilationContext(compilationInfo.getCcCompilationContext())
+                .setCcLinkingInfo(ccLinkingInfo)
+                .build())
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .addOutputGroups(compilationInfo.getOutputGroups())
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))

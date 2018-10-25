@@ -64,10 +64,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -256,27 +255,24 @@ public final class ObjcCommon {
     Builder addDeps(List<ConfiguredTargetAndData> deps) {
       ImmutableList.Builder<ObjcProvider> propagatedObjcDeps =
           ImmutableList.<ObjcProvider>builder();
-      ImmutableList.Builder<CcCompilationInfo> cppDeps = ImmutableList.builder();
+      ImmutableList.Builder<CcInfo> cppDeps = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingInfo> cppDepLinkParams = ImmutableList.builder();
 
       for (ConfiguredTargetAndData dep : deps) {
         ConfiguredTarget depCT = dep.getConfiguredTarget();
         addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
-        addAnyProviders(cppDeps, depCT, CcCompilationInfo.PROVIDER);
+        addAnyProviders(cppDeps, depCT, CcInfo.PROVIDER);
         if (isCcLibrary(dep)) {
-          cppDepLinkParams.add(depCT.get(CcLinkingInfo.PROVIDER));
+          cppDepLinkParams.add(depCT.get(CcInfo.PROVIDER).getCcLinkingInfo());
           CcCompilationContext ccCompilationContext =
-              depCT.get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
+              depCT.get(CcInfo.PROVIDER).getCcCompilationContext();
           addDefines(ccCompilationContext.getDefines());
         }
       }
       ImmutableList.Builder<CcCompilationContext> ccCompilationContextBuilder =
           ImmutableList.builder();
-      for (CcCompilationInfo ccCompilationInfo : cppDeps.build()) {
-        CcCompilationContext ccCompilationContext = ccCompilationInfo.getCcCompilationContext();
-        if (ccCompilationContext != null) {
-          ccCompilationContextBuilder.add(ccCompilationContext);
-        }
+      for (CcInfo ccInfo : cppDeps.build()) {
+        ccCompilationContextBuilder.add(ccInfo.getCcCompilationContext());
       }
       addDepObjcProviders(propagatedObjcDeps.build());
       this.depCcHeaderProviders =
@@ -299,18 +295,6 @@ public final class ObjcCommon {
       this.runtimeDepObjcProviders = Iterables.concat(
           this.runtimeDepObjcProviders, propagatedDeps.build());
       return this;
-    }
-
-    @Deprecated // Use the BuiltinProvider method instead.
-    private <T extends Info> ImmutableList.Builder<T> addAnyProviders(
-        ImmutableList.Builder<T> listBuilder,
-        TransitiveInfoCollection collection,
-        NativeProvider<T> providerClass) {
-      T provider = collection.get(providerClass);
-      if (provider != null) {
-        listBuilder.add(provider);
-      }
-      return listBuilder;
     }
 
     private <T extends Info> ImmutableList.Builder<T> addAnyProviders(

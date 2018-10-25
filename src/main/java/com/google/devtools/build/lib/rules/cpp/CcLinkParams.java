@@ -291,9 +291,9 @@ public final class CcLinkParams implements CcLinkParamsApi {
      * anything.
      */
     public Builder addTransitiveTarget(TransitiveInfoCollection target) {
-      CcLinkingInfo ccLinkingInfo = target.get(CcLinkingInfo.PROVIDER);
-      if (ccLinkingInfo != null) {
-        add(ccLinkingInfo);
+      CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+      if (ccInfo != null) {
+        add(ccInfo.getCcLinkingInfo());
       }
       return this;
     }
@@ -409,7 +409,13 @@ public final class CcLinkParams implements CcLinkParamsApi {
     /** Processes typical dependencies of a C/C++ library. */
     public Builder addCcLibrary(RuleContext context) {
       addTransitiveTargets(
-          context.getPrerequisites("deps", Mode.TARGET), x -> x.get(CcLinkingInfo.PROVIDER));
+          context.getPrerequisites("deps", Mode.TARGET),
+          x -> {
+            if (x.get(CcInfo.PROVIDER) == null) {
+              return null;
+            }
+            return x.get(CcInfo.PROVIDER).getCcLinkingInfo();
+          });
       return this;
     }
   }

@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkParamsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
@@ -41,7 +41,7 @@ public class FakeCcModule
         CcToolchainProviderApi,
         FeatureConfigurationApi,
         CompilationInfoApi,
-        CcCompilationInfoApi,
+        CcCompilationContextApi,
         CcCompilationOutputsApi,
         LinkingInfoApi,
         CcLinkingInfoApi,
@@ -147,7 +147,7 @@ public class FakeCcModule
       SkylarkList<Artifact> headers,
       Object skylarkIncludes,
       Object skylarkCopts,
-      SkylarkList<CcCompilationInfoApi> ccCompilationInfos) {
+      SkylarkList<CcCompilationContextApi> ccCompilationContexts) {
     return null;
   }
 

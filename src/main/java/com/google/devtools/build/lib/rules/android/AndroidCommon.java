@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.DataBinding.DataBindingContext;
 import com.google.devtools.build.lib.rules.android.ZipFilterBuilder.CheckHashMismatchMode;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
@@ -810,16 +811,16 @@ public class AndroidCommon {
     return asNeverLink;
   }
 
-  public CcLinkingInfo getCcLinkingInfo() {
-    return getCcLinkingInfo(
+  public CcInfo getCcInfo() {
+    return getCcInfo(
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH), ImmutableList.<String>of());
   }
 
-  public static CcLinkingInfo getCcLinkingInfo(
+  public static CcInfo getCcInfo(
       final Iterable<? extends TransitiveInfoCollection> deps, final Collection<String> linkOpts) {
 
     CcLinkParams linkOptsParams = CcLinkParams.builder().addLinkOpts(linkOpts).build();
-    CcLinkingInfo linkOptsProvider =
+    CcLinkingInfo linkOptsCcLinkingInfo =
         CcLinkingInfo.Builder.create()
             .setStaticModeParamsForDynamicLibrary(linkOptsParams)
             .setStaticModeParamsForExecutable(linkOptsParams)
@@ -827,22 +828,24 @@ public class AndroidCommon {
             .setDynamicModeParamsForExecutable(linkOptsParams)
             .build();
 
-    ImmutableList<CcLinkingInfo> ccLinkingInfos =
-        ImmutableList.<CcLinkingInfo>builder()
-            .add(linkOptsProvider)
+    CcInfo linkoptsCcInfo = CcInfo.builder().setCcLinkingInfo(linkOptsCcLinkingInfo).build();
+
+    ImmutableList<CcInfo> ccInfos =
+        ImmutableList.<CcInfo>builder()
+            .add(linkoptsCcInfo)
             .addAll(
                 Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER))
-                    .map(JavaCcLinkParamsProvider::getCcLinkingInfo)
+                    .map(JavaCcLinkParamsProvider::getCcInfo)
                     .collect(ImmutableList.toImmutableList()))
             .addAll(
                 Streams.stream(
                         AnalysisUtils.getProviders(deps, AndroidCcLinkParamsProvider.PROVIDER))
                     .map(AndroidCcLinkParamsProvider::getLinkParams)
                     .collect(ImmutableList.toImmutableList()))
-            .addAll(AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER))
+            .addAll(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
             .build();
 
-    return CcLinkingInfo.merge(ccLinkingInfos);
+    return CcInfo.merge(ccInfos);
   }
 
   /** Returns {@link AndroidConfiguration} in given context. */

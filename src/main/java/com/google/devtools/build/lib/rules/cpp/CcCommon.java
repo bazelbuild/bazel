@@ -809,7 +809,7 @@ public final class CcCommon {
       // cc_toolchain rule.
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
     }
-    if (toolchain.getCcCompilationInfo().getCcCompilationContext().getCppModuleMap() == null) {
+    if (toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
     if (enableStaticLinkCppRuntimesFeature(requestedFeatures, unsupportedFeatures, toolchain)) {

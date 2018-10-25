@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
@@ -217,8 +218,12 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
 
       ccLibraryProviders =
           new TransitiveInfoProviderMapBuilder()
-              .addAll(compilationInfo.getProviders())
-              .put(ccLinkingInfo)
+              .add(compilationInfo.getCppDebugFileProvider())
+              .put(
+                  CcInfo.builder()
+                      .setCcCompilationContext(compilationInfo.getCcCompilationContext())
+                      .setCcLinkingInfo(ccLinkingInfo)
+                      .build())
               .add(ccNativeLibraryProvider)
               .build();
       outputGroups = ImmutableMap.copyOf(compilationInfo.getOutputGroups());

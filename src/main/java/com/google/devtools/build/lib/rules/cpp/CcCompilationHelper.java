@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -32,8 +33,6 @@ import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
@@ -190,8 +189,8 @@ public final class CcCompilationHelper {
   }
 
   /** Function for extracting module maps from CppCompilationDependencies. */
-  private static final Function<CcCompilationInfo, CppModuleMap> CPP_DEPS_TO_MODULES =
-      ccCompilationInfo -> ccCompilationInfo.getCcCompilationContext().getCppModuleMap();
+  private static final Function<CcCompilationContext, CppModuleMap> CPP_DEPS_TO_MODULES =
+      ccCompilationContext -> ccCompilationContext.getCppModuleMap();
 
   /**
    * Contains the providers as well as the {@code CcCompilationOutputs} and the {@code
@@ -201,25 +200,28 @@ public final class CcCompilationHelper {
   // merging
   // this class with {@code CcCompilationOutputs}.
   public static final class CompilationInfo implements CompilationInfoApi {
-    private final TransitiveInfoProviderMap providers;
+    private final CcCompilationContext ccCompilationContext;
+    private final CppDebugFileProvider cppDebugFileProvider;
     private final Map<String, NestedSet<Artifact>> outputGroups;
     private final CcCompilationOutputs compilationOutputs;
 
     private CompilationInfo(
-        TransitiveInfoProviderMap providers,
+        CcCompilationContext ccCompilationContext,
+        CppDebugFileProvider cppDebugFileProvider,
         Map<String, NestedSet<Artifact>> outputGroups,
         CcCompilationOutputs compilationOutputs) {
-      this.providers = providers;
+      this.ccCompilationContext = ccCompilationContext;
+      this.cppDebugFileProvider = cppDebugFileProvider;
       this.outputGroups = outputGroups;
       this.compilationOutputs = compilationOutputs;
     }
 
-    public TransitiveInfoProviderMap getProviders() {
-      return providers;
-    }
-
     public Map<String, NestedSet<Artifact>> getOutputGroups() {
       return outputGroups;
+    }
+
+    public CppDebugFileProvider getCppDebugFileProvider() {
+      return cppDebugFileProvider;
     }
 
     @Override
@@ -238,13 +240,8 @@ public final class CcCompilationHelper {
     }
 
     @Override
-    public CcCompilationInfo getCcCompilationInfo() {
-      return (CcCompilationInfo) providers.get(CcCompilationInfo.PROVIDER.getKey());
-    }
-
     public CcCompilationContext getCcCompilationContext() {
-      return ((CcCompilationInfo) providers.get(CcCompilationInfo.PROVIDER.getKey()))
-          .getCcCompilationContext();
+      return ccCompilationContext;
     }
   }
 
@@ -269,7 +266,7 @@ public final class CcCompilationHelper {
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<TransitiveInfoCollection> deps = new ArrayList<>();
-  private final List<CcCompilationInfo> ccCompilationInfos = new ArrayList<>();
+  private final List<CcCompilationContext> ccCompilationContexts = new ArrayList<>();
   private Set<PathFragment> looseIncludeDirs = ImmutableSet.of();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> includeDirs = new ArrayList<>();
@@ -625,15 +622,18 @@ public final class CcCompilationHelper {
    * (like from a "deps" attribute) and also implicit dependencies on runtime libraries.
    */
   public CcCompilationHelper addDeps(Iterable<? extends TransitiveInfoCollection> deps) {
-    Iterables.addAll(
-        this.ccCompilationInfos, AnalysisUtils.getProviders(deps, CcCompilationInfo.PROVIDER));
+    this.ccCompilationContexts.addAll(
+        Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
+            .map(CcInfo::getCcCompilationContext)
+            .collect(ImmutableList.toImmutableList()));
     Iterables.addAll(this.deps, deps);
     return this;
   }
 
   /** For adding CC compilation infos that affect compilation, e.g: from dependencies. */
-  public CcCompilationHelper addCcCompilationInfos(Iterable<CcCompilationInfo> ccCompilationInfos) {
-    Iterables.addAll(this.ccCompilationInfos, Preconditions.checkNotNull(ccCompilationInfos));
+  public CcCompilationHelper addCcCompilationContexts(
+      Iterable<CcCompilationContext> ccCompilationContexts) {
+    Iterables.addAll(this.ccCompilationContexts, Preconditions.checkNotNull(ccCompilationContexts));
     return this;
   }
 
@@ -829,16 +829,8 @@ public final class CcCompilationHelper {
             /*ltoBackendArtifactsUsePic=*/ false,
             /*ltoBackendArtifacts=*/ ImmutableList.of());
 
-    // Be very careful when adding new providers here - it can potentially affect a lot of rules.
-    // We should consider merging most of these providers into a single provider.
-    TransitiveInfoProviderMapBuilder providers =
-        new TransitiveInfoProviderMapBuilder()
-            .add(
-                new CppDebugFileProvider(
-                    dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()));
-    CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
-    ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
-    providers.put(ccCompilationInfoBuilder.build());
+    CppDebugFileProvider cppDebugFileProvider =
+        new CppDebugFileProvider(dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts());
 
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
     outputGroups.put(OutputGroupInfo.TEMP_FILES, ccOutputs.getTemps());
@@ -853,7 +845,7 @@ public final class CcCompilationHelper {
           CcCommon.collectCompilationPrerequisites(ruleContext, ccCompilationContext));
     }
 
-    return new CompilationInfo(providers.build(), outputGroups, ccOutputs);
+    return new CompilationInfo(ccCompilationContext, cppDebugFileProvider, outputGroups, ccOutputs);
   }
 
   @Immutable
@@ -1014,13 +1006,7 @@ public final class CcCompilationHelper {
     }
 
     if (useDeps) {
-      ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
-          CcCompilationInfo.getCcCompilationContexts(deps));
-      ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
-          ccCompilationInfos
-              .stream()
-              .map(CcCompilationInfo::getCcCompilationContext)
-              .collect(ImmutableList.toImmutableList()));
+      ccCompilationContextBuilder.mergeDependentCcCompilationContexts(ccCompilationContexts);
     }
     mergeToolchainDependentCcCompilationContext(
         ruleContext, ccToolchain, ccCompilationContextBuilder);
@@ -1179,17 +1165,18 @@ public final class CcCompilationHelper {
   private Iterable<CppModuleMap> collectModuleMaps() {
     // Cpp module maps may be null for some rules. We filter the nulls out at the end.
     List<CppModuleMap> result =
-        ccCompilationInfos.stream().map(CPP_DEPS_TO_MODULES).collect(toCollection(ArrayList::new));
+        ccCompilationContexts.stream()
+            .map(CPP_DEPS_TO_MODULES)
+            .collect(toCollection(ArrayList::new));
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
-      CcCompilationInfo stl =
-          ruleContext.getPrerequisite(":stl", Mode.TARGET, CcCompilationInfo.PROVIDER);
+      CcInfo stl = ruleContext.getPrerequisite(":stl", Mode.TARGET, CcInfo.PROVIDER);
       if (stl != null) {
         result.add(stl.getCcCompilationContext().getCppModuleMap());
       }
     }
 
     if (ccToolchain != null) {
-      result.add(ccToolchain.getCcCompilationInfo().getCcCompilationContext().getCppModuleMap());
+      result.add(ccToolchain.getCcInfo().getCcCompilationContext().getCppModuleMap());
     }
     for (CppModuleMap additionalCppModuleMap : additionalCppModuleMaps) {
       result.add(additionalCppModuleMap);
@@ -1968,9 +1955,8 @@ public final class CcCompilationHelper {
       //    implementation (with caching results of this method) to avoid O(N^2) slowdown.
       if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
         for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
-          CcCompilationInfo ccCompilationInfo = dep.get(CcCompilationInfo.PROVIDER);
-          if (ccCompilationInfo != null
-              && ccCompilationInfo.getCcCompilationContext() != null
+          CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
+          if (ccInfo != null
               && InstrumentedFilesCollector.shouldIncludeLocalSources(configuration, dep)) {
             return true;
           }
@@ -2082,9 +2068,9 @@ public final class CcCompilationHelper {
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
       if (stl != null) {
-        CcCompilationInfo ccCompilationInfo = stl.get(CcCompilationInfo.PROVIDER);
+        CcInfo ccInfo = stl.get(CcInfo.PROVIDER);
         CcCompilationContext ccCompilationContext =
-            ccCompilationInfo != null ? ccCompilationInfo.getCcCompilationContext() : null;
+            ccInfo != null ? ccInfo.getCcCompilationContext() : null;
         if (ccCompilationContext == null) {
           ruleContext.ruleError(
               "Unable to merge the STL '" + stl.getLabel() + "' and toolchain contexts");

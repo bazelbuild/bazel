@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
@@ -44,7 +44,7 @@ public class BazelCcModule extends CcModule
         CcToolchainProvider,
         FeatureConfiguration,
         CompilationInfo,
-        CcCompilationInfo,
+        CcCompilationContext,
         CcCompilationOutputs,
         LinkingInfo,
         CcLinkingInfo,
@@ -62,7 +62,7 @@ public class BazelCcModule extends CcModule
       SkylarkList<Artifact> headers,
       Object skylarkIncludes,
       Object skylarkCopts,
-      SkylarkList<CcCompilationInfo> ccCompilationInfos)
+      SkylarkList<CcCompilationContext> ccCompilationContexts)
       throws EvalException, InterruptedException {
     return BazelCcModule.compile(
         BazelCppSemantics.INSTANCE,
@@ -77,7 +77,7 @@ public class BazelCcModule extends CcModule
         /* generatePicOutputs= */ "conditionally",
         /* skylarkAdditionalCompilationInputs= */ Runtime.NONE,
         /* skylarkAdditionalIncludeScanningRoots= */ Runtime.NONE,
-        ccCompilationInfos,
+        ccCompilationContexts,
         /* purpose= */ Runtime.NONE);
   }
 

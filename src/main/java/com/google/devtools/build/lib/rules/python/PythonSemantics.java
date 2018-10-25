@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import java.util.Collection;
 import java.util.List;
 
@@ -39,10 +39,7 @@ public interface PythonSemantics {
 
   /** Extends for the default and data runfiles of {@code py_binary} rules with custom elements. */
   void collectRunfilesForBinary(
-      RuleContext ruleContext,
-      Runfiles.Builder builder,
-      PyCommon common,
-      CcLinkingInfo ccLinkingInfo)
+      RuleContext ruleContext, Runfiles.Builder builder, PyCommon common, CcInfo ccInfo)
       throws InterruptedException;
 
   /** Extends the default runfiles of {@code py_binary} rules with custom elements. */
@@ -72,10 +69,7 @@ public interface PythonSemantics {
    * <p>This should create a generating action for {@code common.getExecutable()}.
    */
   Artifact createExecutable(
-      RuleContext ruleContext,
-      PyCommon common,
-      CcLinkingInfo ccLinkingInfo,
-      NestedSet<String> imports)
+      RuleContext ruleContext, PyCommon common, CcInfo ccInfo, NestedSet<String> imports)
       throws InterruptedException, RuleErrorException;
 
   /**
@@ -85,5 +79,5 @@ public interface PythonSemantics {
   void postInitBinary(RuleContext ruleContext, RunfilesSupport runfilesSupport,
       PyCommon common) throws InterruptedException;
 
-  CcLinkingInfo buildCcLinkingInfoProvider(Iterable<? extends TransitiveInfoCollection> deps);
+  CcInfo buildCcInfoProvider(Iterable<? extends TransitiveInfoCollection> deps);
 }

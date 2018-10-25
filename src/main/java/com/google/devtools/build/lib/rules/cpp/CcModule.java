@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -399,36 +398,123 @@ public class CcModule
   }
 
   @SkylarkCallable(
-      name = "merge_cc_linking_infos",
+      name = "merge_cc_infos",
       documented = false,
       parameters = {
         @Param(
-            name = "cc_linking_infos",
-            doc = "cc_linking_infos to be merged.",
+            name = "cc_infos",
+            doc = "cc_infos to be merged.",
             positional = false,
             named = true,
             defaultValue = "[]",
             type = SkylarkList.class)
       })
-  public CcLinkingInfo mergeCcLinkingInfos(SkylarkList<CcLinkingInfo> ccLinkingInfos) {
-    return CcLinkingInfo.merge(ccLinkingInfos);
+  public CcInfo mergeCcInfos(SkylarkList<CcInfo> ccInfos) {
+    return CcInfo.merge(ccInfos);
   }
 
   @SkylarkCallable(
-      name = "merge_cc_compilation_infos",
+      name = "create_compilation_context",
       documented = false,
       parameters = {
         @Param(
-            name = "cc_compilation_infos",
-            doc = "cc_compilation_infos to be merged.",
+            name = "ctx",
             positional = false,
             named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class)
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+        @Param(
+            name = "headers",
+            doc = "the set of headers needed to compile this target",
+            positional = false,
+            named = true,
+            defaultValue = "depset([])",
+            type = SkylarkNestedSet.class),
+        @Param(
+            name = "system_includes",
+            doc =
+                "set of  search paths for headers file referenced by angle brackets, i.e. "
+                    + "<header>.They can be either relative to the exec root or absolute",
+            positional = false,
+            named = true,
+            defaultValue = "depset([])",
+            type = SkylarkNestedSet.class),
+        @Param(
+            name = "defines",
+            doc = "the set of defines needed to compile this target. Each define is a string",
+            positional = false,
+            named = true,
+            defaultValue = "depset([])",
+            type = SkylarkNestedSet.class)
       })
-  public CcCompilationInfo mergeCcCompilationInfos(
-      SkylarkList<CcCompilationInfo> ccCompilationInfos) {
-    return CcCompilationInfo.merge(ccCompilationInfos);
+  public CcCompilationContext createCcCompilationContext(
+      SkylarkRuleContext skylarkRuleContext,
+      SkylarkNestedSet headers,
+      SkylarkNestedSet systemIncludes,
+      SkylarkNestedSet defines)
+      throws EvalException, InterruptedException {
+    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
+    CcCompilationContext.Builder ccCompilationContext =
+        new CcCompilationContext.Builder(/* ruleContext= */ null);
+    ccCompilationContext.addDeclaredIncludeSrcs(headers.getSet(Artifact.class));
+    ccCompilationContext.addSystemIncludeDirs(
+        systemIncludes.getSet(String.class).toList().stream()
+            .map(x -> PathFragment.create(x))
+            .collect(ImmutableList.toImmutableList()));
+    ccCompilationContext.addDefines(defines.getSet(String.class));
+    return ccCompilationContext.build();
+  }
+
+  @SkylarkCallable(
+      name = "create_linking_context",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+        @Param(
+            name = "static_mode_params_for_dynamic_library",
+            positional = false,
+            named = true,
+            type = CcLinkParams.class,
+            doc = "Parameters for linking a dynamic library statically."),
+        @Param(
+            name = "static_mode_params_for_executable",
+            doc = "Parameters for linking an executable statically",
+            positional = false,
+            named = true,
+            type = CcLinkParams.class),
+        @Param(
+            name = "dynamic_mode_params_for_dynamic_library",
+            doc = "Parameters for linking a dynamic library dynamically",
+            positional = false,
+            named = true,
+            type = CcLinkParams.class),
+        @Param(
+            name = "dynamic_mode_params_for_executable",
+            doc = "Parameters for linking an executable dynamically",
+            positional = false,
+            named = true,
+            type = CcLinkParams.class)
+      })
+  public CcLinkingInfo createCcLinkingInfo(
+      SkylarkRuleContext skylarkRuleContext,
+      CcLinkParams staticModeParamsForDynamicLibrary,
+      CcLinkParams staticModeParamsForExecutable,
+      CcLinkParams dynamicModeParamsForDynamicLibrary,
+      CcLinkParams dynamicModeParamsForExecutable)
+      throws EvalException, InterruptedException {
+    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
+    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
+    ccLinkingInfoBuilder
+        .setStaticModeParamsForDynamicLibrary(staticModeParamsForDynamicLibrary)
+        .setStaticModeParamsForExecutable(staticModeParamsForExecutable)
+        .setDynamicModeParamsForDynamicLibrary(dynamicModeParamsForDynamicLibrary)
+        .setDynamicModeParamsForExecutable(dynamicModeParamsForExecutable);
+    return ccLinkingInfoBuilder.build();
   }
 
   protected static CompilationInfo compile(
@@ -444,7 +530,7 @@ public class CcModule
       String generatePicOutputs,
       Object skylarkAdditionalCompilationInputs,
       Object skylarkAdditionalIncludeScanningRoots,
-      SkylarkList<CcCompilationInfo> ccCompilationInfos,
+      SkylarkList<CcCompilationContext> ccCompilationContexts,
       Object purpose)
       throws EvalException, InterruptedException {
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
@@ -469,13 +555,12 @@ public class CcModule
                 fdoProvider)
             .addPublicHeaders(headers)
             .addIncludeDirs(
-                includeDirs
-                    .stream()
+                includeDirs.stream()
                     .map(PathFragment::create)
                     .collect(ImmutableList.toImmutableList()))
             .addPrivateHeaders(separatedHeadersAndSources.first)
             .addSources(separatedHeadersAndSources.second)
-            .addCcCompilationInfos(ccCompilationInfos)
+            .addCcCompilationContexts(ccCompilationContexts)
             .setPurpose(convertFromNoneable(purpose, null));
 
     SkylarkNestedSet additionalCompilationInputs =
@@ -555,9 +640,7 @@ public class CcModule
       }
       CcLinkingInfo ccLinkingInfo =
           helper.buildCcLinkingInfo(ccLinkingOutputs, CcCompilationContext.EMPTY);
-      TransitiveInfoProviderMapBuilder providers = new TransitiveInfoProviderMapBuilder();
-      providers.put(ccLinkingInfo);
-      return new LinkingInfo(providers.build(), ccLinkingOutputs);
+      return new LinkingInfo(ccLinkingInfo, ccLinkingOutputs);
     } catch (RuleErrorException e) {
       throw new EvalException(ruleContext.getRule().getLocation(), e);
     }

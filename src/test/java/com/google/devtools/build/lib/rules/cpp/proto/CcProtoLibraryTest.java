@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -115,9 +115,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
 
     CcCompilationContext ccCompilationContext =
-        getConfiguredTarget("//x:foo_cc_proto")
-            .get(CcCompilationInfo.PROVIDER)
-            .getCcCompilationContext();
+        getConfiguredTarget("//x:foo_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("x/foo.pb.h");
   }
@@ -131,9 +129,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
 
     CcCompilationContext ccCompilationContext =
-        getConfiguredTarget("//x:foo_cc_proto")
-            .get(CcCompilationInfo.PROVIDER)
-            .getCcCompilationContext();
+        getConfiguredTarget("//x:foo_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("x/foo.pb.h", "x/bar.pb.h");
   }
@@ -192,7 +188,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
                 ruleClassProvider.getNativeAspectClass(BazelCcProtoAspect.class.getSimpleName()),
                 AspectParameters.EMPTY));
     CcCompilationContext ccCompilationContext =
-        target.get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
+        target.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs()).containsExactly(headerFile);
   }
 

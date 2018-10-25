@@ -16,90 +16,16 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Collection;
-import javax.annotation.Nullable;
 
 /** Wrapper for every C++ linking provider. */
 @Immutable
 @AutoCodec
-public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi {
-
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.of(
-              /* numMandatoryPositionals= */ 0,
-              /* numOptionalPositionals= */ 0,
-              // TODO(plf): Make CcLinkParams parameters mandatory once existing rules have been
-              // migrated.
-              /* numMandatoryNamedOnly= */ 0,
-              /* starArg= */ false,
-              /* kwArg= */ false,
-              "static_mode_params_for_dynamic_library",
-              "static_mode_params_for_executable",
-              "dynamic_mode_params_for_dynamic_library",
-              "dynamic_mode_params_for_executable"),
-          /* defaultValues= */ ImmutableList.of(
-              Runtime.NONE, Runtime.NONE, Runtime.NONE, Runtime.NONE),
-          /* types= */ ImmutableList.of(
-              SkylarkType.of(CcLinkParams.class),
-              SkylarkType.of(CcLinkParams.class),
-              SkylarkType.of(CcLinkParams.class),
-              SkylarkType.of(CcLinkParams.class)));
-
-  @Nullable
-  private static Object nullIfNone(Object object) {
-    return nullIfNone(object, Object.class);
-  }
-
-  @Nullable
-  private static <T> T nullIfNone(Object object, Class<T> type) {
-    return object != Runtime.NONE ? type.cast(object) : null;
-  }
-
-  public static final NativeProvider<CcLinkingInfo> PROVIDER =
-      new NativeProvider<CcLinkingInfo>(CcLinkingInfo.class, "CcLinkingInfo", SIGNATURE) {
-        @Override
-        @SuppressWarnings("unchecked")
-        protected CcLinkingInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) throws EvalException {
-          CcCommon.checkLocationWhitelisted(
-              env.getSemantics(),
-              loc,
-              env.getGlobals().getTransitiveLabel().getPackageIdentifier().toString());
-          int i = 0;
-          CcLinkParams staticModeParamsForDynamicLibrary = (CcLinkParams) nullIfNone(args[i++]);
-          CcLinkParams staticModeParamsForExecutable = (CcLinkParams) nullIfNone(args[i++]);
-          CcLinkParams dynamicModeParamsForDynamicLibrary = (CcLinkParams) nullIfNone(args[i++]);
-          CcLinkParams dynamicModeParamsForExecutable = (CcLinkParams) nullIfNone(args[i++]);
-          CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-          if (staticModeParamsForDynamicLibrary == null
-              || staticModeParamsForExecutable == null
-              || dynamicModeParamsForDynamicLibrary == null
-              || dynamicModeParamsForExecutable == null) {
-            throw new EvalException(
-                loc, "Every CcLinkParams parameter must be passed to CcLinkingInfo.");
-          }
-          ccLinkingInfoBuilder
-              .setStaticModeParamsForDynamicLibrary(staticModeParamsForDynamicLibrary)
-              .setStaticModeParamsForExecutable(staticModeParamsForExecutable)
-              .setDynamicModeParamsForDynamicLibrary(dynamicModeParamsForDynamicLibrary)
-              .setDynamicModeParamsForExecutable(dynamicModeParamsForExecutable);
-          return ccLinkingInfoBuilder.build();
-        }
-      };
+public final class CcLinkingInfo implements CcLinkingInfoApi {
 
   public static final CcLinkingInfo EMPTY =
       CcLinkingInfo.Builder.create()
@@ -121,7 +47,6 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
       CcLinkParams staticModeParamsForDynamicLibrary,
       CcLinkParams dynamicModeParamsForExecutable,
       CcLinkParams dynamicModeParamsForDynamicLibrary) {
-    super(PROVIDER);
     this.staticModeParamsForExecutable = staticModeParamsForExecutable;
     this.staticModeParamsForDynamicLibrary = staticModeParamsForDynamicLibrary;
     this.dynamicModeParamsForExecutable = dynamicModeParamsForExecutable;
