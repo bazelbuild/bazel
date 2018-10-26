@@ -130,13 +130,12 @@ public final class CppLinkAction extends AbstractAction
       ResourceSet.createWithRamCpu(1, 0);
 
   // This defines the minimum of each resource that will be reserved.
-  // TODO(ulfjack): Setting IO usage to 0.3 prevents more than 3 of these being run in parallel.
   public static final ResourceSet MIN_STATIC_LINK_RESOURCES =
-      ResourceSet.createWithRamCpuIo(1536, 1, 0.3);
+      ResourceSet.createWithRamCpu(1536, 1);
 
   // Dynamic linking should be cheaper than static linking.
   public static final ResourceSet MIN_DYNAMIC_LINK_RESOURCES =
-      ResourceSet.createWithRamCpuIo(1024, 1, 0.2);
+      ResourceSet.createWithRamCpu(1024, 1);
 
   /**
    * Use {@link CppLinkActionBuilder} to create instances of this class. Also see there for the
@@ -495,13 +494,10 @@ public final class CppLinkAction extends AbstractAction
 
     final int inputSize = Iterables.size(getLinkCommandLine().getLinkerInputArtifacts());
 
-    return ResourceSet.createWithRamCpuIo(
-        Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getMemoryMb(),
-            minLinkResources.getMemoryMb()),
-        Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getCpuUsage(),
-            minLinkResources.getCpuUsage()),
-        Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getIoUsage(),
-            minLinkResources.getIoUsage())
+    return ResourceSet.createWithRamCpu(
+        Math.max(
+            inputSize * LINK_RESOURCES_PER_INPUT.getMemoryMb(), minLinkResources.getMemoryMb()),
+        Math.max(inputSize * LINK_RESOURCES_PER_INPUT.getCpuUsage(), minLinkResources.getCpuUsage())
     );
   }
 

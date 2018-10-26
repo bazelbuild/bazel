@@ -274,7 +274,7 @@ public class LocalSpawnRunnerTest {
     // Prevent any subprocess execution at all.
     SubprocessBuilder.setSubprocessFactory(new SubprocessInterceptor());
     resourceManager.setAvailableResources(
-        ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*ioUsage=*/1, /*localTestCount=*/1));
+        ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*localTestCount=*/1));
     return new InMemoryFileSystem();
   }
 

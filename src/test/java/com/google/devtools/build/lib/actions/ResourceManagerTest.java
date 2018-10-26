@@ -48,25 +48,24 @@ public class ResourceManagerTest {
   public final void configureResourceManager() throws Exception  {
     rm.setRamUtilizationPercentage(100);
     rm.setAvailableResources(
-        ResourceSet.create(
-            /*memoryMb=*/ 1000.0, /*cpuUsage=*/ 1.0, /*ioUsage=*/ 1.0, /* localTestCount= */ 2));
+        ResourceSet.create(/*memoryMb=*/ 1000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
     counter = new AtomicInteger(0);
     sync = new CyclicBarrier(2);
     sync2 = new CyclicBarrier(2);
     rm.resetResourceUsage();
   }
 
-  private ResourceHandle acquire(double ram, double cpu, double io, int tests)
+  private ResourceHandle acquire(double ram, double cpu, int tests)
       throws InterruptedException {
-    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, io, tests));
+    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
   }
 
-  private ResourceHandle acquireNonblocking(double ram, double cpu, double io, int tests) {
-    return rm.tryAcquire(resourceOwner, ResourceSet.create(ram, cpu, io, tests));
+  private ResourceHandle acquireNonblocking(double ram, double cpu, int tests) {
+    return rm.tryAcquire(resourceOwner, ResourceSet.create(ram, cpu, tests));
   }
 
-  private void release(double ram, double cpu, double io, int tests) {
-    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, io, tests));
+  private void release(double ram, double cpu, int tests) {
+    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
   }
 
   private void validate(int count) {
@@ -80,34 +79,27 @@ public class ResourceManagerTest {
     // When nothing is consuming RAM,
     // Then Resource Manager will successfully acquire an over-budget request for RAM:
     double bigRam = 10000.0;
-    acquire(bigRam, 0, 0, 0);
+    acquire(bigRam, 0, 0);
     // When RAM is consumed,
     // Then Resource Manager will be "in use":
     assertThat(rm.inUse()).isTrue();
-    release(bigRam, 0, 0, 0);
+    release(bigRam, 0, 0);
     // When that RAM is released,
     // Then Resource Manager will not be "in use":
     assertThat(rm.inUse()).isFalse();
 
     // Ditto, for CPU:
     double bigCpu = 10.0;
-    acquire(0, bigCpu, 0, 0);
+    acquire(0, bigCpu, 0);
     assertThat(rm.inUse()).isTrue();
-    release(0, bigCpu, 0, 0);
-    assertThat(rm.inUse()).isFalse();
-
-    // Ditto, for IO:
-    double bigIo = 10.0;
-    acquire(0, 0, bigIo, 0);
-    assertThat(rm.inUse()).isTrue();
-    release(0, 0, bigIo, 0);
+    release(0, bigCpu, 0);
     assertThat(rm.inUse()).isFalse();
 
     // Ditto, for tests:
     int bigTests = 10;
-    acquire(0, 0, 0, bigTests);
+    acquire(0, 0, bigTests);
     assertThat(rm.inUse()).isTrue();
-    release(0, 0, 0, bigTests);
+    release(0, 0, bigTests);
     assertThat(rm.inUse()).isFalse();
   }
 
@@ -116,7 +108,7 @@ public class ResourceManagerTest {
     assertThat(rm.inUse()).isFalse();
 
     // Given CPU is partially acquired:
-    acquire(0, 0.5, 0, 0);
+    acquire(0, 0.5, 0);
 
     // When a request for CPU is made that would slightly overallocate CPU,
     // Then the request succeeds:
@@ -124,7 +116,7 @@ public class ResourceManagerTest {
         new TestThread() {
           @Override
           public void runTest() throws Exception {
-            assertThat(acquireNonblocking(0, 0.6, 0, 0)).isNotNull();
+            assertThat(acquireNonblocking(0, 0.6, 0)).isNotNull();
           }
         };
     thread1.start();
@@ -136,7 +128,7 @@ public class ResourceManagerTest {
     assertThat(rm.inUse()).isFalse();
 
     // Given that CPU has a small initial allocation:
-    acquire(0, 0.099, 0, 0);
+    acquire(0, 0.099, 0);
 
     // When a request for a large CPU allocation is made,
     // Then the request succeeds:
@@ -144,20 +136,20 @@ public class ResourceManagerTest {
         new TestThread() {
           @Override
           public void runTest() throws Exception {
-            assertThat(acquireNonblocking(0, 0.99, 0, 0)).isNotNull();
+            assertThat(acquireNonblocking(0, 0.99, 0)).isNotNull();
             // Cleanup
-            release(0, 0.99, 0, 0);
+            release(0, 0.99, 0);
           }
         };
     thread1.start();
     thread1.joinAndAssertState(10000);
 
     // Cleanup
-    release(0, 0.099, 0, 0);
+    release(0, 0.099, 0);
     assertThat(rm.inUse()).isFalse();
 
     // Given that CPU has a large initial allocation:
-    acquire(0, 0.99, 0, 0);
+    acquire(0, 0.99, 0);
 
     // When a request for a small CPU allocation is made,
     // Then the request fails:
@@ -165,7 +157,7 @@ public class ResourceManagerTest {
         new TestThread() {
           @Override
           public void runTest() throws Exception {
-            assertThat(acquireNonblocking(0, 0.099, 0, 0)).isNull();
+            assertThat(acquireNonblocking(0, 0.099, 0)).isNull();
           }
         };
     thread2.start();
@@ -178,7 +170,7 @@ public class ResourceManagerTest {
     assertThat(rm.inUse()).isFalse();
 
     // Given RAM is partially acquired:
-    acquire(500, 0, 0, 0);
+    acquire(500, 0, 0);
 
     // When a request for RAM is made that would slightly overallocate RAM,
     // Then the request fails:
@@ -186,27 +178,7 @@ public class ResourceManagerTest {
         new TestThread() {
           @Override
           public void runTest() throws Exception {
-            assertThat(acquireNonblocking(600, 0, 0, 0)).isNull();
-          }
-        };
-    thread1.start();
-    thread1.joinAndAssertState(10000);
-  }
-
-  @Test
-  public void testThatIOCannotBeOverallocated() throws Exception {
-    assertThat(rm.inUse()).isFalse();
-
-    // Given IO is partially acquired:
-    acquire(0, 0, 0.5, 0);
-
-    // When a request for IO is made that would slightly overallocate IO,
-    // Then the request fails:
-    TestThread thread1 =
-        new TestThread() {
-          @Override
-          public void runTest() throws Exception {
-            assertThat(acquireNonblocking(0, 0, 0.6, 0)).isNull();
+            assertThat(acquireNonblocking(600, 0, 0)).isNull();
           }
         };
     thread1.start();
@@ -218,7 +190,7 @@ public class ResourceManagerTest {
     assertThat(rm.inUse()).isFalse();
 
     // Given test count is partially acquired:
-    acquire(0, 0, 0, 1);
+    acquire(0, 0, 1);
 
     // When a request for tests is made that would slightly overallocate tests,
     // Then the request fails:
@@ -226,7 +198,7 @@ public class ResourceManagerTest {
         new TestThread() {
           @Override
           public void runTest() throws Exception {
-            assertThat(acquireNonblocking(0, 0, 0, 2)).isNull();
+            assertThat(acquireNonblocking(0, 0, 2)).isNull();
           }
         };
     thread1.start();
@@ -237,7 +209,7 @@ public class ResourceManagerTest {
   public void testHasResources() throws Exception {
     assertThat(rm.inUse()).isFalse();
     assertThat(rm.threadHasResources()).isFalse();
-    acquire(1.0, 0.1, 0.1, 1);
+    acquire(1, 0.1, 1);
     assertThat(rm.threadHasResources()).isTrue();
 
     // We have resources in this thread - make sure other threads
@@ -247,28 +219,24 @@ public class ResourceManagerTest {
           @Override
           public void runTest() throws Exception {
             assertThat(rm.threadHasResources()).isFalse();
-            acquire(1.0, 0, 0, 0);
+            acquire(1, 0, 0);
             assertThat(rm.threadHasResources()).isTrue();
-            release(1.0, 0, 0, 0);
+            release(1, 0, 0);
             assertThat(rm.threadHasResources()).isFalse();
-            acquire(0, 0.1, 0, 0);
+            acquire(0, 0.1, 0);
             assertThat(rm.threadHasResources()).isTrue();
-            release(0, 0.1, 0, 0);
+            release(0, 0.1, 0);
             assertThat(rm.threadHasResources()).isFalse();
-            acquire(0, 0, 0.1, 0);
+            acquire(0, 0, 1);
             assertThat(rm.threadHasResources()).isTrue();
-            release(0, 0, 0.1, 0);
-            assertThat(rm.threadHasResources()).isFalse();
-            acquire(0, 0, 0, 1);
-            assertThat(rm.threadHasResources()).isTrue();
-            release(0, 0, 0, 1);
+            release(0, 0, 1);
             assertThat(rm.threadHasResources()).isFalse();
           }
         };
     thread1.start();
     thread1.joinAndAssertState(10000);
 
-    release(1.0, 0.1, 0.1, 1);
+    release(1, 0.1, 1);
     assertThat(rm.threadHasResources()).isFalse();
     assertThat(rm.inUse()).isFalse();
   }
@@ -280,7 +248,7 @@ public class ResourceManagerTest {
         new TestThread() {
           @Override
           public void runTest() throws Exception {
-            acquire(2000, 2, 0, 0);
+            acquire(2000, 2, 0);
             sync.await();
             validate(1);
             sync.await();
@@ -288,11 +256,11 @@ public class ResourceManagerTest {
             while (rm.getWaitCount() == 0) {
               Thread.yield();
             }
-            release(2000, 2, 0, 0);
+            release(2000, 2, 0);
             assertThat(rm.getWaitCount()).isEqualTo(0);
-            acquire(2000, 2, 0, 0); // Will be blocked by the thread2.
+            acquire(2000, 2, 0); // Will be blocked by the thread2.
             validate(3);
-            release(2000, 2, 0, 0);
+            release(2000, 2, 0);
           }
         };
     TestThread thread2 =
@@ -300,15 +268,15 @@ public class ResourceManagerTest {
           @Override
           public void runTest() throws Exception {
             sync2.await();
-            assertThat(rm.isAvailable(2000, 2, 0, 0)).isFalse();
-            acquire(2000, 2, 0, 0); // Will be blocked by the thread1.
+            assertThat(rm.isAvailable(2000, 2, 0)).isFalse();
+            acquire(2000, 2, 0); // Will be blocked by the thread1.
             validate(2);
             sync2.await();
             // Wait till other thread will be locked.
             while (rm.getWaitCount() == 0) {
               Thread.yield();
             }
-            release(2000, 2, 0, 0);
+            release(2000, 2, 0);
           }
         };
 
@@ -334,7 +302,7 @@ public class ResourceManagerTest {
         new TestThread() {
           @Override
           public void runTest() throws InterruptedException {
-            acquire(1, 0, 0, 0);
+            acquire(1, 0, 0);
           }
         };
     smallThread.start();
@@ -345,7 +313,7 @@ public class ResourceManagerTest {
           public void runTest() {
             Thread.currentThread().interrupt();
             try {
-              acquire(1999, 0, 0, 0);
+              acquire(1999, 0, 0);
               fail("Didn't throw interrupted exception");
             } catch (InterruptedException e) {
               // Expected.
@@ -357,14 +325,13 @@ public class ResourceManagerTest {
     // This should process the queue. If the request from above is still present, it will take all
     // the available memory. But it shouldn't.
     rm.setAvailableResources(
-        ResourceSet.create(
-            /*memoryMb=*/ 2000.0, /*cpuUsage=*/ 1.0, /*ioUsage=*/ 1.0, /* localTestCount= */ 2));
+        ResourceSet.create(/*memoryMb=*/ 2000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
     TestThread thread2 =
         new TestThread() {
           @Override
           public void runTest() throws InterruptedException {
-            acquire(1999, 0, 0, 0);
-            release(1999, 0, 0, 0);
+            acquire(1999, 0, 0);
+            release(1999, 0, 0);
           }
         };
     thread2.start();
@@ -381,9 +348,9 @@ public class ResourceManagerTest {
     TestThread thread1 = new TestThread () {
       @Override public void runTest() throws Exception {
         sync.await();
-        acquire(900, 0.5, 0, 0); // Will be blocked by the main thread.
+        acquire(900, 0.5, 0); // Will be blocked by the main thread.
         validate(5);
-        release(900, 0.5, 0, 0);
+        release(900, 0.5, 0);
         sync.await();
       }
     };
@@ -394,14 +361,14 @@ public class ResourceManagerTest {
         while (rm.getWaitCount() == 0) {
           Thread.yield();
         }
-        acquire(100, 0.1, 0, 0);
+        acquire(100, 0.1, 0);
         validate(2);
-        release(100, 0.1, 0, 0);
+        release(100, 0.1, 0);
         sync2.await();
-        acquire(200, 0.5, 0, 0);
+        acquire(200, 0.5, 0);
         validate(4);
         sync2.await();
-        release(200, 0.5, 0, 0);
+        release(200, 0.5, 0);
       }
     };
 
@@ -409,10 +376,10 @@ public class ResourceManagerTest {
         new TestThread() {
           @Override
           public void runTest() throws Exception {
-            acquire(100, 0.4, 0, 0);
+            acquire(100, 0.4, 0);
             sync3.await();
             sync3.await();
-            release(100, 0.4, 0, 0);
+            release(100, 0.4, 0);
           }
         };
 
@@ -420,16 +387,16 @@ public class ResourceManagerTest {
         new TestThread() {
           @Override
           public void runTest() throws Exception {
-            acquire(750, 0.3, 0, 0);
+            acquire(750, 0.3, 0);
             sync4.await();
             sync4.await();
-            release(750, 0.3, 0, 0);
+            release(750, 0.3, 0);
           }
         };
 
     // Lock 900 MB, 0.9 CPU in total (spread over three threads so that we can individually release
     // parts of it).
-    acquire(50, 0.2, 0, 0);
+    acquire(50, 0.2, 0);
     thread3.start();
     thread4.start();
     sync3.await(1, TimeUnit.SECONDS);
@@ -461,7 +428,7 @@ public class ResourceManagerTest {
     sync.await(1, TimeUnit.SECONDS);
 
     // Release all remaining resources.
-    release(50, 0.2, 0, 0);
+    release(50, 0.2, 0);
     thread1.join();
     thread2.join();
     thread3.join();

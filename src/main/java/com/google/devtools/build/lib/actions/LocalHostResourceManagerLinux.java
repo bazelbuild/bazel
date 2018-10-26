@@ -49,7 +49,6 @@ public class LocalHostResourceManagerLinux {
       return ResourceSet.create(
           ramMb,
           logicalCpuCount,
-          1.0,
           Integer.MAX_VALUE);
     } catch (IOException | ProcMeminfoParser.KeywordNotFoundException e) {
       return null;

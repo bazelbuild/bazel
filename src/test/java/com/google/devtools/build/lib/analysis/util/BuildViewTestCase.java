@@ -338,7 +338,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected ResourceSet getStartingResources() {
     // Effectively disable ResourceManager by default.
-    return ResourceSet.createWithRamCpuIo(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);
+    return ResourceSet.createWithRamCpu(Double.MAX_VALUE, Double.MAX_VALUE);
   }
 
   protected final BuildConfigurationCollection createConfigurations(String... args)

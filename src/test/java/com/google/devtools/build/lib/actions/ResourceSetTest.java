@@ -41,7 +41,6 @@ public class ResourceSetTest {
     ResourceSet resources = converter.convert("1,0.5,2");
     assertThat(resources.getMemoryMb()).isWithin(0.01).of(1.0);
     assertThat(resources.getCpuUsage()).isWithin(0.01).of(0.5);
-    assertThat(resources.getIoUsage()).isWithin(0.01).of(2.0);
     assertThat(resources.getLocalTestCount()).isEqualTo(Integer.MAX_VALUE);
   }
 

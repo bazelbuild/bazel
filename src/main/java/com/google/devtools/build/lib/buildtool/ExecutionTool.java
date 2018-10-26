@@ -634,7 +634,6 @@ public class ExecutionTool {
     resourceMgr.setAvailableResources(ResourceSet.create(
         resources.getMemoryMb(),
         resources.getCpuUsage(),
-        resources.getIoUsage(),
         request.getExecutionOptions().usingLocalTestJobs()
             ? request.getExecutionOptions().localTestJobs : Integer.MAX_VALUE
     ));

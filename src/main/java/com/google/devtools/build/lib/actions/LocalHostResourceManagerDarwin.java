@@ -44,7 +44,6 @@ public class LocalHostResourceManagerDarwin {
       return ResourceSet.create(
           ramMb,
           logicalCpuCount,
-          1.0,
           Integer.MAX_VALUE);
     } catch (IOException e) {
       return null;

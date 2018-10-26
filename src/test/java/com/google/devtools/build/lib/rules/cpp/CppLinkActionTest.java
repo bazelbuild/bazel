@@ -466,14 +466,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
         .isAtLeast(CppLinkAction.MIN_STATIC_LINK_RESOURCES.getMemoryMb());
     assertThat(resources.getCpuUsage())
         .isAtLeast(CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage());
-    assertThat(resources.getIoUsage())
-        .isAtLeast(CppLinkAction.MIN_STATIC_LINK_RESOURCES.getIoUsage());
 
     final int linkSize = Iterables.size(linkAction.getLinkCommandLine().getLinkerInputArtifacts());
-    ResourceSet scaledSet = ResourceSet.createWithRamCpuIo(
+    ResourceSet scaledSet = ResourceSet.createWithRamCpu(
         CppLinkAction.LINK_RESOURCES_PER_INPUT.getMemoryMb() * linkSize,
-        CppLinkAction.LINK_RESOURCES_PER_INPUT.getCpuUsage() * linkSize,
-        CppLinkAction.LINK_RESOURCES_PER_INPUT.getIoUsage() * linkSize
+        CppLinkAction.LINK_RESOURCES_PER_INPUT.getCpuUsage() * linkSize
     );
 
     // Ensure that anything above the minimum is properly scaled.
@@ -481,8 +478,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
         || resources.getMemoryMb() == scaledSet.getMemoryMb()).isTrue();
     assertThat(resources.getCpuUsage() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage()
         || resources.getCpuUsage() == scaledSet.getCpuUsage()).isTrue();
-    assertThat(resources.getIoUsage() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getIoUsage()
-        || resources.getIoUsage() == scaledSet.getIoUsage()).isTrue();
   }
 
   private CppLinkActionBuilder createLinkBuilder(

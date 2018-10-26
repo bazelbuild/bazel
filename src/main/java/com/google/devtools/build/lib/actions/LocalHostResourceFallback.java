@@ -27,7 +27,6 @@ public class LocalHostResourceFallback {
       ResourceSet.create(
           3.0 * (Runtime.getRuntime().maxMemory() >> 20),
           Runtime.getRuntime().availableProcessors(),
-          1.0,
           Integer.MAX_VALUE);
 
   public static ResourceSet getLocalHostResources() {
