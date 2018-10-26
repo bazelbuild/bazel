@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -28,12 +29,13 @@ import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.syntax.Type;
 
@@ -41,7 +43,7 @@ import com.google.devtools.build.lib.syntax.Type;
  * Provider encapsulating all the information from the cc_toolchain rule that affects creation of
  * {@link CcToolchainProvider}
  */
-public class CcToolchainAttributesProvider extends NativeInfo {
+public class CcToolchainAttributesProvider extends ToolchainInfo implements HasCcToolchainLabel {
 
   public static final NativeProvider<CcToolchainAttributesProvider> PROVIDER =
       new NativeProvider<CcToolchainAttributesProvider>(
@@ -93,7 +95,7 @@ public class CcToolchainAttributesProvider extends NativeInfo {
       RuleContext ruleContext,
       boolean isAppleToolchain,
       CcToolchainVariables additionalBuildVariables) {
-    super(PROVIDER);
+    super(ImmutableMap.of(), Location.BUILTIN);
     this.ccToolchainLabel = ruleContext.getLabel();
     this.toolchainIdentifier = ruleContext.attributes().get("toolchain_identifier", Type.STRING);
     this.cpu = ruleContext.attributes().get("cpu", Type.STRING);
@@ -406,4 +408,13 @@ public class CcToolchainAttributesProvider extends NativeInfo {
     }
     return builder.build();
   }
+}
+
+/**
+ * Temporary interface to cover common interface of {@link CcToolchainAttributesProvider} and {@link
+ * CcToolchainProvider}.
+ */
+// TODO(b/113849758): Remove once behavior is migrated.
+interface HasCcToolchainLabel {
+  Label getCcToolchainLabel();
 }

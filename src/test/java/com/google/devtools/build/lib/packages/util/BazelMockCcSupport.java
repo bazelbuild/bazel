@@ -114,6 +114,16 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
         ")",
         // No toolchain entry for cc-compiler-local so it can't be selected by toolchain resolution.
+        "toolchain(name = 'cc-toolchain-local',",
+        // Needs to be compatible with all execution environments for tests to work properly.
+        "    exec_compatible_with = [],",
+        "    target_compatible_with = [",
+        "        '@bazel_tools//platforms:x86_64',",
+        "        '@bazel_tools//platforms:linux',",
+        "    ],",
+        "    toolchain = ':cc-compiler-local',",
+        "    toolchain_type = ':toolchain_type',",
+        ")",
         "cc_toolchain(name = 'cc-compiler-k8', all_files = ':empty', compiler_files = ':empty',",
         "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    cpu = 'k8',",

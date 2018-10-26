@@ -195,8 +195,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final PathFragment fdoPath;
   private final Label fdoOptimizeLabel;
 
-  // TODO(bazel-team): All these labels (except for ccCompilerRuleLabel) can be removed once the
-  // transition to the cc_compiler rule is complete.
+  // TODO(b/113849758): Remove once it's not needed for toolchain selection in CppConfiguration.
   private final Label ccToolchainLabel;
   private final Label stlLabel;
 
@@ -471,7 +470,11 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       defaultLabel = "//tools/cpp:crosstool",
       defaultInToolRepository = true)
   public Label getRuleProvidingCcToolchainProvider() {
-    return ccToolchainLabel;
+    if (provideCcToolchainInfoFromCcToolchainSuite()) {
+      return crosstoolTop;
+    } else {
+      return ccToolchainLabel;
+    }
   }
 
   /**
@@ -1167,6 +1170,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableMakeVariables;
   }
 
+  public boolean disableCcToolchainFromCrosstool() {
+    return cppOptions.disableCcToolchainFromCrosstool;
+  }
   /**
    * cc_toolchain_suite allows to override CROSSTOOL by using proto attribute. This attribute value
    * is stored here so cc_toolchain can access it in the analysis. Don't use this for anything, it
@@ -1248,5 +1254,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    */
   public Label getLibcTopLabel() {
     return cppOptions.libcTopLabel;
+  }
+
+  public boolean provideCcToolchainInfoFromCcToolchainSuite() {
+    return cppOptions.provideCcToolchainInfoFromCcToolchainSuite;
   }
 }

@@ -390,20 +390,22 @@ public class CcToolchainProviderHelper {
       packageWithCrosstoolInIt = ruleContext.getLabel().getPackageIdentifier();
     }
 
-    SkyKey ccSupportKey = CcSkyframeSupportValue.key(fdoZip, packageWithCrosstoolInIt);
+    CcSkyframeSupportValue ccSkyframeSupportValue = null;
+    if (packageWithCrosstoolInIt != null || fdoZip != null) {
+      SkyKey ccSupportKey = CcSkyframeSupportValue.key(fdoZip, packageWithCrosstoolInIt);
 
-    SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-    CcSkyframeSupportValue ccSkyframeSupportValue;
-    try {
-      ccSkyframeSupportValue =
-          (CcSkyframeSupportValue)
-              skyframeEnv.getValueOrThrow(ccSupportKey, CcSkyframeSupportException.class);
-    } catch (CcSkyframeSupportException e) {
-      ruleContext.throwWithRuleError(e.getMessage());
-      throw new IllegalStateException("Should not be reached");
-    }
-    if (skyframeEnv.valuesMissing()) {
-      return null;
+      SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
+      try {
+        ccSkyframeSupportValue =
+            (CcSkyframeSupportValue)
+                skyframeEnv.getValueOrThrow(ccSupportKey, CcSkyframeSupportException.class);
+      } catch (CcSkyframeSupportException e) {
+        ruleContext.throwWithRuleError(e.getMessage());
+        throw new IllegalStateException("Should not be reached");
+      }
+      if (skyframeEnv.valuesMissing()) {
+        return null;
+      }
     }
 
     if (fdoZip != null) {
@@ -626,7 +628,8 @@ public class CcToolchainProviderHelper {
             allowInference),
         cppConfiguration.useLLVMCoverageMapFormat(),
         configuration.isCodeCoverageEnabled(),
-        configuration.isHostConfiguration());
+        configuration.isHostConfiguration(),
+        attributes.getLicensesProvider());
   }
 
   private static FdoInputFile fdoInputFileFromArtifacts(

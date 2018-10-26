@@ -879,6 +879,21 @@ public class CppOptions extends FragmentOptions {
               + "`create_link_variables`. Use list instead.")
   public boolean disableDepsetInUserFlags;
 
+  @Option(
+      name = "incompatible_provide_cc_toolchain_info_from_cc_toolchain_suite",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, cc_toolchain will no longer provide CcToolchainInfo when using legacy "
+              + "toolchain selection. CcToolchainInfo will be provided by CcToolchainSuite "
+              + "instead.")
+  public boolean provideCcToolchainInfoFromCcToolchainSuite;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
