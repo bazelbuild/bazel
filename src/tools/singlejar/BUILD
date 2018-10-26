@@ -164,9 +164,9 @@ cc_test(
         "//conditions:default": ["-DJAR_TOOL_PATH=\\\"io_bazel/$(JAVABASE)/bin/jar\\\""],
     }),
     data = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     deps = [
         ":input_jar",
         ":test_util",
