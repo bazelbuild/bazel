@@ -58,6 +58,10 @@ public final class EvalUtils {
   public static final Ordering<Object> SKYLARK_COMPARATOR =
       new Ordering<Object>() {
         private int compareLists(SkylarkList o1, SkylarkList o2) {
+          if (o1 instanceof RangeList || o2 instanceof RangeList) {
+            throw new ComparisonException("Cannot compare range objects");
+          }
+
           for (int i = 0; i < Math.min(o1.size(), o2.size()); i++) {
             int cmp = compare(o1.get(i), o2.get(i));
             if (cmp != 0) {

@@ -547,9 +547,15 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("str(range(0, 10, 2)[::-2])", "range(8, -2, -4)")
         .testStatement("str(range(5)[1::-1])", "range(1, -1, -1)")
         .testIfErrorContains("step cannot be 0", "range(2, 3, 0)")
-        .testIfErrorContains(
-            "unsupported operand type(s) for *: 'range' and 'int'", "range(3) * 3");
-    ;
+        .testIfErrorContains("unsupported operand type(s) for *: 'range' and 'int'", "range(3) * 3")
+        .testIfErrorContains("Cannot compare range objects", "range(3) < range(5)")
+        .testIfErrorContains("Cannot compare range objects", "range(4) > [1]")
+        .testStatement("4 in range(1, 10)", true)
+        .testStatement("4 in range(1, 3)", false)
+        .testStatement("4 in range(0, 8, 2)", true)
+        .testStatement("4 in range(1, 8, 2)", false)
+        .testStatement("range(0, 5, 10) == range(0, 5, 11)", true)
+        .testStatement("range(0, 5, 2) == [0, 2, 4]", false);
   }
 
   /**
