@@ -275,7 +275,7 @@ a `list`. Because of this repetitions using `*` operator are no longer
 supported and `range` slices are also lazy `range` instances.
 
 *   Flag: `--incompatible_range_type`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5264](https://github.com/bazelbuild/bazel/issues/5264)
 
 

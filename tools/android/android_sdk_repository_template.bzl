@@ -292,7 +292,7 @@ def create_system_images_filegroups(system_image_dirs):
     system_images = [
         (tag, str(api), arch)
         for tag in ["android", "google"]
-        for api in [10] + range(15, 20) + range(21, 29)
+        for api in [10] + list(range(15, 20)) + list(range(21, 29))
         for arch in ("x86", "arm")
     ]
     tv_images = [

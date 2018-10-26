@@ -471,7 +471,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testRange() throws Exception {
-    new BothModesTest()
+    new BothModesTest("--incompatible_range_type=false")
         .testStatement("str(range(5))", "[0, 1, 2, 3, 4]")
         .testStatement("str(range(0))", "[]")
         .testStatement("str(range(1))", "[0]")
@@ -564,14 +564,14 @@ public class MethodLibraryTest extends EvaluationTestCase {
    */
   private void runRangeIsListAssertions(String range3expr) throws Exception {
     // Check stringifications.
-    new BothModesTest()
+    new BothModesTest("--incompatible_range_type=false")
         .setUp("a = " + range3expr)
         .testStatement("str(a)", "[0, 1, 2]")
         .testStatement("repr(a)", "[0, 1, 2]")
         .testStatement("type(a)", "list");
 
     // Check comparisons.
-    new BothModesTest()
+    new BothModesTest("--incompatible_range_type=false")
         .setUp("a = " + range3expr)
         .setUp("b = range(0, 3, 1)")
         .setUp("c = range(1, 4)")
@@ -587,10 +587,10 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains("Cannot compare list with tuple", "a < T");
 
     // Check mutations.
-    new BothModesTest()
+    new BothModesTest("--incompatible_range_type=false")
         .setUp("a = " + range3expr)
         .testStatement("a.append(3); str(a)", "[0, 1, 2, 3]");
-    new SkylarkTest()
+    new SkylarkTest("--incompatible_range_type=false")
         .testStatement(
             "def f():\n"
             + "  a = " + range3expr + "\n"
@@ -601,7 +601,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "[0, 1, 2, 3]");
 
     // Check concatenations.
-    new BothModesTest()
+    new BothModesTest("--incompatible_range_type=false")
         .setUp("a = " + range3expr)
         .setUp("b = range(3, 4)")
         .setUp("L = [3]")
