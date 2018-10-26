@@ -46,13 +46,13 @@ Large?</a></li></ul></li>
 <li><a href="#What_are_the_tests_beneath_foo_t">What are the tests beneath <code>foo</code> that match a
 pattern?</a></li>
 <li><a href="#What_package_contains_file_java_">What package contains file
-<code>//path/to/file/bar.java</code>?
+<code>path/to/file/bar.java</code>?
 </a></li>
 <li><a href="#What_is_the_build_label_for_java">What is the build label for
-<code>//path/to/file/bar.java</code>?
+<code>path/to/file/bar.java</code>?
 </a></li>
 <li><a href="#What_build_rule_contains_file_ja">What build rule contains file
-<code>//path/to/file/bar.java</code> as a
+<code>path/to/file/bar.java</code> as a
 source?</a></li></ul></li>
 <li><a href="#What_package_dependencies_exist_">What package dependencies exist ...</a>
 <ul><li><a href="#What_packages_does_foo_depend_on">What packages does <code>foo</code> depend on? (What do I need to check out
@@ -256,22 +256,22 @@ bazel query 'attr(size, large, tests(//foo:smoke_tests))'
 
 <p><a name="What_package_contains_file_java_"></a></p>
 
-<h4>What package contains file //path/to/file/bar.java`?</h4>
+<h4>What package contains file <code>path/to/file/bar.java</code>?</h4>
 
-<pre> bazel query 'buildfiles(//path/to/file/bar.java)' --output=package</pre>
+<pre> bazel query path/to/file/bar.java --output=package</pre>
 
 <p><a name="What_is_the_build_label_for_java"></a></p>
 
-<h4>What is the build label for //path/to/file/bar.java?</h4>
+<h4>What is the build label for <code>path/to/file/bar.java?</code></h4>
 
-<pre>bazel query //path/to/file/bar.java</pre>
+<pre>bazel query path/to/file/bar.java</pre>
 
 <p><a name="What_build_rule_contains_file_ja"></a></p>
 
-<h4>What rule target(s) contain file <code>//path/to/file/bar.java</code> as a source?</h4>
+<h4>What rule target(s) contain file <code>path/to/file/bar.java</code> as a source?</h4>
 
 <pre>
-fullname=$(bazel query //path/to/file/bar.java)
+fullname=$(bazel query path/to/file/bar.java)
 bazel query "attr('srcs', $fullname, ${fullname//:*/}:*)"
 </pre>
 
