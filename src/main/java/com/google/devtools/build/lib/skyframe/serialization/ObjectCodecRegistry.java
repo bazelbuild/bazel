@@ -447,6 +447,13 @@ public class ObjectCodecRegistry {
   }
 
   private static int hashClass(Class<?> clazz) {
+    if (LambdaCodec.isProbablyLambda(clazz)) {
+      String name = clazz.getName();
+      int indexOfLambda = name.lastIndexOf("$$Lambda$");
+      if (indexOfLambda > -1) {
+        return name.substring(0, indexOfLambda + 9).hashCode();
+      }
+    }
     return clazz.getName().hashCode();
   }
 }
