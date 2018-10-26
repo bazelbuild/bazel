@@ -700,8 +700,12 @@ public class CppLinkActionBuilder {
                 output,
                 linkType.getLinkerOutput(),
                 libraryIdentifier,
-                combinedObjectArtifacts,
-                ltoBitcodeFiles,
+                linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
+                    ? combinedObjectArtifacts
+                    : ImmutableSet.of(),
+                linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
+                    ? ltoBitcodeFiles
+                    : ImmutableMap.of(),
                 createSharedNonLtoArtifacts(isLtoIndexing));
     final LibraryToLink interfaceOutputLibrary =
         (interfaceOutput == null)
