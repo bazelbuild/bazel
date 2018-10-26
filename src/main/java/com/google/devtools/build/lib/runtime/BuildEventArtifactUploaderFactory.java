@@ -12,20 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.buildeventstream;
+package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 
 /** A factory for {@link BuildEventArtifactUploader}. */
 public interface BuildEventArtifactUploaderFactory {
 
   BuildEventArtifactUploaderFactory LOCAL_FILES_UPLOADER_FACTORY =
-      (OptionsParsingResult options) -> new LocalFilesArtifactUploader();
+      (CommandEnvironment env) -> new LocalFilesArtifactUploader();
 
   /**
    * Returns a new instance of a {@link BuildEventArtifactUploader}. The call is responsible for
    * calling {@link BuildEventArtifactUploader#shutdown()} on the returned instance.
    */
-  BuildEventArtifactUploader create(OptionsParsingResult options);
+  BuildEventArtifactUploader create(CommandEnvironment env);
 }
 

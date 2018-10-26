@@ -12,19 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.buildeventstream.transports;
+package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactoryMap;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
+import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
+import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
+import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
+import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.function.Consumer;
 
@@ -103,29 +105,28 @@ public enum BuildEventTransportFactory {
    * Creates a {@link ImmutableSet} of {@link BuildEventTransport} based on the specified {@link
    * BuildEventStreamOptions}.
    *
-   * @param options Options used configure and create the returned BuildEventTransports.
    * @return A {@link ImmutableSet} of BuildEventTransports. This set may be empty.
    * @throws IOException Exception propagated from a {@link BuildEventTransport} creation failure.
    */
   public static ImmutableSet<BuildEventTransport> createFromOptions(
-      OptionsParsingResult options,
-      BuildEventArtifactUploaderFactoryMap artifactUploaders,
-      Consumer<AbruptExitException> exitFunc)
-      throws IOException {
+      CommandEnvironment env, Consumer<AbruptExitException> exitFunc) throws IOException {
     BuildEventStreamOptions bepOptions =
         checkNotNull(
-            options.getOptions(BuildEventStreamOptions.class),
+            env.getOptions().getOptions(BuildEventStreamOptions.class),
             "Could not get BuildEventStreamOptions.");
     BuildEventProtocolOptions protocolOptions =
         checkNotNull(
-            options.getOptions(BuildEventProtocolOptions.class),
+            env.getOptions().getOptions(BuildEventProtocolOptions.class),
             "Could not get BuildEventProtocolOptions.");
     ImmutableSet.Builder<BuildEventTransport> buildEventTransportsBuilder = ImmutableSet.builder();
     for (BuildEventTransportFactory transportFactory : BuildEventTransportFactory.values()) {
       if (transportFactory.enabled(bepOptions)) {
         BuildEventArtifactUploader uploader =
             transportFactory.usePathConverter(bepOptions)
-                ? artifactUploaders.select(protocolOptions.buildEventUploadStrategy).create(options)
+                ? env.getRuntime()
+                    .getBuildEventArtifactUploaderFactoryMap()
+                    .select(protocolOptions.buildEventUploadStrategy)
+                    .create(env)
                 : new LocalFilesArtifactUploader();
         buildEventTransportsBuilder.add(
             transportFactory.create(bepOptions, protocolOptions, uploader, exitFunc));

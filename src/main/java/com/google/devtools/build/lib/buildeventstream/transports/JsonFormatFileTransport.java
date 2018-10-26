@@ -30,7 +30,7 @@ import java.util.function.Consumer;
  * representation of the events to a file.
  */
 public final class JsonFormatFileTransport extends FileTransport {
-  JsonFormatFileTransport(
+  public JsonFormatFileTransport(
       String path,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,

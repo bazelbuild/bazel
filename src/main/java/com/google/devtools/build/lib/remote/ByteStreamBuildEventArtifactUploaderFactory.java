@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactory;
-import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import io.grpc.Context;
 import javax.annotation.Nullable;
 
@@ -40,7 +40,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
   }
 
   @Override
-  public BuildEventArtifactUploader create(OptionsParsingResult options) {
+  public BuildEventArtifactUploader create(CommandEnvironment env) {
     return new ByteStreamBuildEventArtifactUploader(uploader.retain(), remoteServerName, ctx,
         remoteInstanceName);
   }

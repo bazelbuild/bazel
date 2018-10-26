@@ -15,13 +15,13 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
+import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
+import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactoryMap;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -33,12 +33,11 @@ import org.junit.runners.JUnit4;
 public final class BuildEventArtifactUploaderFactoryMapTest {
   private BuildEventArtifactUploaderFactoryMap uploaderFactories;
   private BuildEventArtifactUploaderFactory noConversionUploaderFactory;
-  private final OptionsParser optionsParser = OptionsParser.newOptionsParser(ImmutableList.of());
 
   @Before
   public void setUp() {
     noConversionUploaderFactory =
-        (OptionsParsingResult options) ->
+        (CommandEnvironment env) ->
             new BuildEventArtifactUploader() {
               @Override
               public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
@@ -61,13 +60,13 @@ public final class BuildEventArtifactUploaderFactoryMapTest {
   public void testEmptyUploaders() throws Exception {
     BuildEventArtifactUploaderFactoryMap emptyUploader =
         new BuildEventArtifactUploaderFactoryMap.Builder().build();
-    assertThat(emptyUploader.select(null).create(optionsParser).getClass())
+    assertThat(emptyUploader.select(null).create(null).getClass())
         .isEqualTo(LocalFilesArtifactUploader.class);
   }
 
   @Test
   public void testAlphabeticalOrder() {
-    assertThat(uploaderFactories.select(null).create(optionsParser).getClass())
+    assertThat(uploaderFactories.select(null).create(null).getClass())
         .isEqualTo(LocalFilesArtifactUploader.class);
   }
 

@@ -31,7 +31,7 @@ import java.util.function.Consumer;
  */
 public final class BinaryFormatFileTransport extends FileTransport {
 
-  BinaryFormatFileTransport(
+  public BinaryFormatFileTransport(
       String path,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,

@@ -31,7 +31,7 @@ import java.util.function.Consumer;
  * <p>This class is used for debugging.
  */
 public final class TextFormatFileTransport extends FileTransport {
-  TextFormatFileTransport(
+  public TextFormatFileTransport(
       String path,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
