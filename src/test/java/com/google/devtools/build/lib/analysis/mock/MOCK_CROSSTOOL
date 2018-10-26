@@ -4,6 +4,38 @@
 
 major_version: "1"
 minor_version: "42"
+default_target_cpu: "k8"
+
+# TODO(bazel-team): We should change these identifiers to match what everyone
+# else is using, but that requires rewriting a lot of our tests.
+default_toolchain {
+  cpu: "k8"
+  toolchain_identifier: "k8"
+}
+default_toolchain {
+  cpu: "piii"
+  toolchain_identifier: "piii"
+}
+default_toolchain {
+  cpu: "darwin"
+  toolchain_identifier: "local_darwin"
+}
+default_toolchain {
+  cpu: "ios_x86_64"
+  toolchain_identifier: "local_ios"
+}
+default_toolchain {
+  cpu: "x64_windows"
+  toolchain_identifier: "local_windows_msys64"
+}
+default_toolchain {
+  cpu: "ppc"
+  toolchain_identifier: "local_linux"
+}
+default_toolchain {
+  cpu: "aarch64"
+  toolchain_identifier: "local_linux"
+}
 
 toolchain {
   abi_version: "local"
@@ -21,7 +53,7 @@ toolchain {
   target_libc: "local"
   target_cpu: "ppc"
   target_system_name: "local"
-  toolchain_identifier: "toolchain-identifier-ppc"
+  toolchain_identifier: "local_linux"
 
   tool_path { name: "ar" path: "/usr/bin/ar" }
   tool_path { name: "compat-ld" path: "/usr/bin/ld" }
@@ -126,7 +158,7 @@ toolchain {
 }
 
 toolchain {
-  toolchain_identifier: "toolchain-identifier-k8"
+  toolchain_identifier: "k8"
 
   host_system_name: "local"
   target_system_name: "local"
@@ -470,6 +502,13 @@ toolchain {
   builtin_sysroot: ""
 
   supports_interface_shared_objects: true
+}
+
+# For Android rules where no Android NDK is specified
+
+default_toolchain {
+  cpu: "armeabi-v7a"
+  toolchain_identifier: "stub_armeabi-v7a"
 }
 
 toolchain {

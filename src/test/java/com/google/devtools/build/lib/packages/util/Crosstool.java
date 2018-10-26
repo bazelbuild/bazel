@@ -15,14 +15,13 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -114,60 +113,59 @@ final class Crosstool {
     CrosstoolConfig.CrosstoolRelease.Builder configBuilder =
         CrosstoolConfig.CrosstoolRelease.newBuilder();
     TextFormat.merge(crosstoolFileContents, configBuilder);
-
-    List<CToolchain> toolchainList = configBuilder.build().getToolchainList();
-    Set<String> seenCpus = new LinkedHashSet<>();
     StringBuilder compilerMap = new StringBuilder();
-    for (CToolchain toolchain : toolchainList) {
-      // Generate entry to cc_toolchain_suite.toolchains
-      if (seenCpus.add(toolchain.getTargetCpu())) {
+    // Remove duplicates
+    Set<Pair<String, String>> keys = new LinkedHashSet<>();
+    for (CrosstoolConfig.CToolchain toolchain : configBuilder.build().getToolchainList()) {
+      Pair<String, String> key = Pair.of(toolchain.getTargetCpu(), toolchain.getCompiler());
+      if (!keys.contains(key)) {
+        keys.add(key);
         compilerMap.append(
             String.format(
-                "'%s': ':cc-compiler-%s-%s',\n",
-                toolchain.getTargetCpu(), toolchain.getTargetCpu(), toolchain.getCompiler()));
+                "'%s|%s': ':cc-compiler-%s-%s',\n", key.first, key.second, key.first, key.second));
       }
-      compilerMap.append(
-          String.format(
-              "'%s|%s': ':cc-compiler-%s-%s',\n",
-              toolchain.getTargetCpu(),
-              toolchain.getCompiler(),
-              toolchain.getTargetCpu(),
-              toolchain.getCompiler()));
+    }
 
-      // Generate cc_toolchain target
-      compilationTools.append(
+    for (Pair<String, String> key : keys) {
+      String cpu = key.first;
+      String compiler = key.second;
+      String compilerRule;
+      String staticRuntimesString =
+          staticRuntimesLabel == null ? "" : ", '" + staticRuntimesLabel + "'";
+      String dynamicRuntimesString =
+          dynamicRuntimesLabel == null ? "" : ", '" + dynamicRuntimesLabel + "'";
+
+      compilerRule =
           Joiner.on("\n")
               .join(
                   "cc_toolchain(",
-                  "  name = 'cc-compiler-"
-                      + toolchain.getTargetCpu()
-                      + "-"
-                      + toolchain.getCompiler()
-                      + "',",
-                  "  toolchain_identifier = '" + toolchain.getToolchainIdentifier() + "',",
-                  "  output_licenses = ['unencumbered'],",
+                  "    name = 'cc-compiler-" + cpu + "-" + compiler + "',",
+                  "    output_licenses = ['unencumbered'],",
                   addModuleMap ? "    module_map = 'crosstool.cppmap'," : "",
-                  "  cpu = '" + toolchain.getTargetCpu() + "',",
-                  "  compiler = '" + toolchain.getCompiler() + "',",
-                  "  ar_files = 'ar-" + toolchain.getTargetCpu() + "',",
-                  "  as_files = 'as-" + toolchain.getTargetCpu() + "',",
-                  "  compiler_files = 'compile-" + toolchain.getTargetCpu() + "',",
-                  "  dwp_files = 'dwp-" + toolchain.getTargetCpu() + "',",
-                  "  linker_files = 'link-" + toolchain.getTargetCpu() + "',",
-                  "  strip_files = ':every-file',",
-                  "  objcopy_files = 'objcopy-" + toolchain.getTargetCpu() + "',",
-                  "  all_files = ':every-file',",
-                  "  licenses = ['unencumbered'],",
+                  "    cpu = '" + cpu + "',",
+                  "    compiler = '" + compiler + "',",
+                  "    ar_files = 'ar-" + cpu + "',",
+                  "    as_files = 'as-" + cpu + "',",
+                  "    compiler_files = 'compile-" + cpu + "',",
+                  "    dwp_files = 'dwp-" + cpu + "',",
+                  "    linker_files = 'link-" + cpu + "',",
+                  "    strip_files = ':every-file',",
+                  "    objcopy_files = 'objcopy-" + cpu + "',",
+                  "    all_files = ':every-file',",
+                  "    licenses = ['unencumbered'],",
                   supportsHeaderParsing ? "    supports_header_parsing = 1," : "",
-                  "  dynamic_runtime_libs = [",
-                  "    'dynamic-runtime-libs-" + toolchain.getTargetCpu() + "',",
-                  "    " + dynamicRuntimesLabel == null ? "" : "'" + dynamicRuntimesLabel + "',",
-                  "  ],",
-                  "  static_runtime_libs = [",
-                  "    'static-runtime-libs-" + toolchain.getTargetCpu() + "',",
-                  "    " + staticRuntimesLabel == null ? "" : "'" + staticRuntimesLabel + "',",
-                  "])",
-                  ""));
+                  "    dynamic_runtime_libs = ['dynamic-runtime-libs-"
+                      + cpu
+                      + "'"
+                      + dynamicRuntimesString
+                      + "],",
+                  "    static_runtime_libs = ['static-runtime-libs-"
+                      + cpu
+                      + "'"
+                      + staticRuntimesString
+                      + "])");
+
+      compilationTools.append(compilerRule + "\n");
     }
 
     String build =

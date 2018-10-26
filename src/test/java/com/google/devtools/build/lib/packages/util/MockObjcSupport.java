@@ -25,8 +25,6 @@ import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 /**
  * Creates mock BUILD files required for the objc rules.
@@ -225,23 +223,10 @@ public final class MockObjcSupport {
 
       // Create special lines specifying the compiler map entry for
       // each toolchain.
-      StringBuilder compilerMap =
-          new StringBuilder()
-              .append("'k8': ':cc-compiler-darwin_x86_64',\n")
-              .append("'aarch64': ':cc-compiler-darwin_x86_64',\n")
-              .append("'darwin': ':cc-compiler-darwin_x86_64',\n");
-      Set<String> seenCpus = new LinkedHashSet<>();
+      StringBuilder compilerMap = new StringBuilder();
       for (CToolchain toolchain : configBuilder.build().getToolchainList()) {
-        if (seenCpus.add(toolchain.getTargetCpu())) {
-          compilerMap.append(
-              String.format(
-                  "'%s': ':cc-compiler-%s',\n",
-                  toolchain.getTargetCpu(), toolchain.getTargetCpu()));
-        }
-        compilerMap.append(
-            String.format(
-                "'%s|%s': ':cc-compiler-%s',\n",
-                toolchain.getTargetCpu(), toolchain.getCompiler(), toolchain.getTargetCpu()));
+        compilerMap.append(String.format("'%s|%s': ':cc-compiler-%s',\n",
+            toolchain.getTargetCpu(), toolchain.getCompiler(), toolchain.getTargetCpu()));
       }
 
       // Create the test BUILD file.
@@ -275,6 +260,11 @@ public final class MockObjcSupport {
 
       for (String arch :
           ImmutableList.of(
+              // TODO(b/64492583): Remove 'darwin', as this is legacy and redundant with
+              // darwin_x86_64.
+              "darwin",
+              // TODO(b/36471772): Remove 'k8' once unit tests do not require a host configuration
+              // transition from the apple crosstool configuration.
               "x64_windows",
               "ios_x86_64",
               "ios_i386",
@@ -284,11 +274,13 @@ public final class MockObjcSupport {
               "watchos_i386",
               "watchos_armv7k",
               "tvos_x86_64",
-              "tvos_arm64")) {
+              "tvos_arm64",
+              // TODO(b/36471772): Remove 'k8' once unit tests do not require a host configuration
+              // transition from the apple crosstool configuration.
+              "k8")) {
         crosstoolBuild.add(
             "apple_cc_toolchain(",
             "    name = 'cc-compiler-" + arch + "',",
-            "    toolchain_identifier = '" + arch + "',",
             "    all_files = ':empty',",
             "    ar_files = ':empty',",
             "    as_files = ':empty',",

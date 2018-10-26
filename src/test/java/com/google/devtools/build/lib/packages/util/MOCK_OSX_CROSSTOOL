@@ -12,6 +12,59 @@
 
 major_version: "1"
 minor_version: "0"
+default_target_cpu: "ios_x86_64"
+default_toolchain {
+  cpu: "darwin"
+  toolchain_identifier: "darwin_x86_64"
+}
+default_toolchain {
+  cpu: "darwin_x86_64"
+  toolchain_identifier: "darwin_x86_64"
+}
+default_toolchain {
+  cpu: "k8"
+  toolchain_identifier: "darwin_x86_64"
+}
+default_toolchain {
+  cpu: "x64_windows"
+  toolchain_identifier: "darwin_x86_64"
+}
+default_toolchain {
+  cpu: "ios_x86_64"
+  toolchain_identifier: "ios_x86_64"
+}
+default_toolchain {
+  cpu: "ios_i386"
+  toolchain_identifier: "ios_i386"
+}
+default_toolchain {
+  cpu: "ios_armv7"
+  toolchain_identifier: "ios_armv7"
+}
+default_toolchain {
+  cpu: "ios_arm64"
+  toolchain_identifier: "ios_arm64"
+}
+default_toolchain {
+  cpu: "watchos_i386"
+  toolchain_identifier: "watchos_i386"
+}
+default_toolchain {
+  cpu: "watchos_armv7k"
+  toolchain_identifier: "watchos_armv7k"
+}
+default_toolchain {
+  cpu: "tvos_x86_64"
+  toolchain_identifier: "tvos_x86_64"
+}
+default_toolchain {
+  cpu: "tvos_arm64"
+  toolchain_identifier: "tvos_arm64"
+}
+default_toolchain {
+  cpu: "aarch64"
+  toolchain_identifier: "darwin_x86_64"
+}
 toolchain {
   toolchain_identifier: "darwin_x86_64"
   host_system_name: "x86_64-apple-macosx"
@@ -1768,45 +1821,45 @@ toolchain {
   cc_target_os: "apple"
 }
 toolchain {
-  toolchain_identifier: "x64_windows"
+  toolchain_identifier: "darwin_x86_64"
   host_system_name: "x86_64-apple-macosx"
   target_system_name: "x86_64-apple-macosx"
-  target_cpu: "x64_windows"
+  target_cpu: "k8"
   target_libc: "macosx"
   compiler: "compiler"
   abi_version: "darwin_x86_64"
   abi_libc_version: "darwin_x86_64"
   tool_path {
     name: "ar"
-    path: "<tool_dir>/ar_wrapper"
+    path: "mac/ar_wrapper"
   }
   tool_path {
     name: "compat-ld"
-    path: "<tool_dir>/ld"
+    path: "mac/ld"
   }
   tool_path {
     name: "cpp"
-    path: "<tool_dir>/cpp"
+    path: "mac/cpp"
   }
   tool_path {
     name: "gcov"
-    path: "<tool_dir>/gcov"
+    path: "mac/gcov"
   }
   tool_path {
     name: "gcc"
-    path: "<tool_dir>/clang"
+    path: "mac/clang"
   }
   tool_path {
     name: "ld"
-    path: "<tool_dir>/ld"
+    path: "mac/ld"
   }
   tool_path {
     name: "nm"
-    path: "<tool_dir>/nm"
+    path: "mac/nm"
   }
   tool_path {
     name: "strip"
-    path: "<tool_dir>/strip"
+    path: "mac/strip"
   }
   tool_path {
     name: "dwp"
@@ -1820,7 +1873,7 @@ toolchain {
   compiler_flag: "-DCOMPILER_GCC3"
   compiler_flag: "-DCOMPILER_GCC4"
   compiler_flag: "-Dunix"
-  compiler_flag: "-DOS_IOS"
+  compiler_flag: "-DOS_MACOSX"
   compiler_flag: "-DU_HAVE_NL_LANGINFO_CODESET=0"
   compiler_flag: "-DU_HAVE_STD_STRING"
   compiler_flag: "-D__STDC_FORMAT_MACROS"
@@ -1837,19 +1890,37 @@ toolchain {
     mode: OPT
     compiler_flag: "-Os"
     compiler_flag: "-DNDEBUG"
-    compiler_flag: "-DNS_BLOCK_ASSERTIONS=1"
   }
   compilation_mode_flags {
     mode: DBG
     compiler_flag: "-g"
     compiler_flag: "-DDEBUG"
   }
+  linking_mode_flags {
+    mode: DYNAMIC
+    linker_flag: "-undefined"
+    linker_flag: "dynamic_lookup"
+  }
   make_variable {
     name: "STACK_FRAME_UNLIMITED"
     value: "-Wframe-larger-than=100000000 -Wno-vla"
   }
-  cxx_builtin_include_directory: "/Applications/<xcode_version>/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
-  cxx_builtin_include_directory: "/Applications/<xcode_version>/Contents/Developer/Platforms/<platform>.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.3.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.3.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
   cxx_builtin_include_directory: "/usr/include"
   builtin_sysroot: ""
   unfiltered_cxx_flag: "-no-canonical-prefixes"
@@ -2387,7 +2458,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-DOS_IOS"
+        flag: "-DOS_MACOSX"
         flag: "-fno-autolink"
       }
     }
@@ -2525,7 +2596,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-m<platform_for_version_min>-version-min=%{version_min}"
+        flag: "-mmacosx-version-min=%{version_min}"
       }
     }
   }
@@ -2838,12 +2909,18 @@ toolchain {
       action: "objc++-executable"
       flag_group {
         flag: "-framework Foundation"
-        flag: "-framework UIKit"
       }
     }
   }
   feature {
     name: "link_cocoa"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Cocoa"
+      }
+    }
   }
   feature {
     name: "apply_simulator_compiler_flags"
@@ -3014,7 +3091,7 @@ toolchain {
     config_name: "strip"
     action_name: "strip"
     tool {
-      tool_path: "<tool_dir>/strip"
+      tool_path: "mac/strip"
     }
     flag_set {
       flag_group {
@@ -3035,12 +3112,12 @@ toolchain {
     config_name: "c-compile"
     action_name: "c-compile"
     tool {
-      tool_path: "<tool_dir>/wrapped_clang"
+      tool_path: "mac/wrapped_clang"
       execution_requirement: "requires-darwin"
     }
     flag_set {
       flag_group {
-        flag: "-arch <architecture>"
+        flag: "-arch x86_64"
       }
     }
     implies: "preprocessor_defines"
@@ -3060,12 +3137,12 @@ toolchain {
     config_name: "c++-compile"
     action_name: "c++-compile"
     tool {
-      tool_path: "<tool_dir>/wrapped_clang"
+      tool_path: "mac/wrapped_clang"
       execution_requirement: "requires-darwin"
     }
     flag_set {
       flag_group {
-        flag: "-arch <architecture>"
+        flag: "-arch x86_64"
       }
     }
     implies: "preprocessor_defines"
@@ -3085,12 +3162,12 @@ toolchain {
     config_name: "linkstamp-compile"
     action_name: "linkstamp-compile"
     tool {
-      tool_path: "<tool_dir>/wrapped_clang"
+      tool_path: "mac/wrapped_clang"
       execution_requirement: "requires-darwin"
     }
     flag_set {
       flag_group {
-        flag: "-arch <architecture>"
+        flag: "-arch x86_64"
       }
     }
     implies: "preprocessor_defines"
@@ -3110,7 +3187,7 @@ toolchain {
     config_name: "c++-module-compile"
     action_name: "c++-module-compile"
     tool {
-      tool_path: "<tool_dir>/wrapped_clang"
+      tool_path: "mac/wrapped_clang"
       execution_requirement: "requires-darwin"
     }
     implies: "preprocessor_defines"
@@ -3130,7 +3207,7 @@ toolchain {
     config_name: "c++-header-parsing"
     action_name: "c++-header-parsing"
     tool {
-      tool_path: "<tool_dir>/wrapped_clang"
+      tool_path: "mac/wrapped_clang"
       execution_requirement: "requires-darwin"
     }
     implies: "preprocessor_defines"
@@ -3150,12 +3227,12 @@ toolchain {
     config_name: "objc-compile"
     action_name: "objc-compile"
     tool {
-      tool_path: "<tool_dir>/wrapped_clang"
+      tool_path: "mac/wrapped_clang"
       execution_requirement: "requires-darwin"
     }
     flag_set {
       flag_group {
-        flag: "-arch <architecture>"
+        flag: "-arch x86_64"
       }
     }
     implies: "objc_actions"
@@ -3179,12 +3256,12 @@ toolchain {
     config_name: "objc++-compile"
     action_name: "objc++-compile"
     tool {
-      tool_path: "<tool_dir>/wrapped_clang"
+      tool_path: "mac/wrapped_clang"
       execution_requirement: "requires-darwin"
     }
     flag_set {
       flag_group {
-        flag: "-arch <architecture>"
+        flag: "-arch x86_64"
         flag: "-stdlib=libc++"
         flag: "-std=gnu++11"
       }
@@ -3209,7 +3286,7 @@ toolchain {
     config_name: "assemble"
     action_name: "assemble"
     tool {
-      tool_path: "<tool_dir>/wrapped_clang"
+      tool_path: "mac/wrapped_clang"
       execution_requirement: "requires-darwin"
     }
     implies: "objc_arc"
@@ -3227,7 +3304,7 @@ toolchain {
     config_name: "preprocess-assemble"
     action_name: "preprocess-assemble"
     tool {
-      tool_path: "<tool_dir>/wrapped_clang"
+      tool_path: "mac/wrapped_clang"
       execution_requirement: "requires-darwin"
     }
     implies: "preprocessor_defines"
@@ -3247,7 +3324,7 @@ toolchain {
     config_name: "objc-archive"
     action_name: "objc-archive"
     tool {
-      tool_path: "<tool_dir>/libtool"
+      tool_path: "mac/libtool"
       execution_requirement: "requires-darwin"
     }
     flag_set {
@@ -3256,7 +3333,7 @@ toolchain {
         flag: "-filelist"
         flag: "%{obj_list_path}"
         flag: "-arch_only"
-        flag: "<architecture>"
+        flag: "x86_64"
         flag: "-syslibroot"
         flag: "%{sdk_dir}"
         flag: "-o"
@@ -3269,12 +3346,12 @@ toolchain {
     config_name: "objc-executable"
     action_name: "objc-executable"
     tool {
-      tool_path: "<tool_dir>/wrapped_clang"
+      tool_path: "mac/wrapped_clang"
       execution_requirement: "requires-darwin"
     }
     flag_set {
       flag_group {
-        flag: "-arch <architecture>"
+        flag: "-arch x86_64"
       }
       flag_group {
         flag: "-Xlinker"
@@ -3330,7 +3407,7 @@ toolchain {
     config_name: "objc++-executable"
     action_name: "objc++-executable"
     tool {
-      tool_path: "<tool_dir>/wrapped_clang++"
+      tool_path: "mac/wrapped_clang++"
       execution_requirement: "requires-darwin"
     }
     flag_set {
@@ -3339,7 +3416,7 @@ toolchain {
         flag: "-std=gnu++11"
       }
       flag_group {
-        flag: "-arch <architecture>"
+        flag: "-arch x86_64"
       }
       flag_group {
         flag: "-Xlinker"
@@ -3395,7 +3472,7 @@ toolchain {
     config_name: "c++-link-executable"
     action_name: "c++-link-executable"
     tool {
-      tool_path: "<tool_dir>/clang"
+      tool_path: "mac/clang"
       execution_requirement: "requires-darwin"
     }
     implies: "symbol_counts"
@@ -3416,7 +3493,7 @@ toolchain {
     config_name: "c++-link-dynamic-library"
     action_name: "c++-link-dynamic-library"
     tool {
-      tool_path: "<tool_dir>/clang"
+      tool_path: "mac/clang"
       execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
@@ -3438,7 +3515,7 @@ toolchain {
     config_name: "c++-link-nodeps-dynamic-library"
     action_name: "c++-link-nodeps-dynamic-library"
     tool {
-      tool_path: "<tool_dir>/clang"
+      tool_path: "mac/clang"
       execution_requirement: "requires-darwin"
     }
     implies: "has_configured_linker_path"
@@ -3460,7 +3537,7 @@ toolchain {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
     tool {
-      tool_path: "<tool_dir>/ar_wrapper"
+      tool_path: "mac/ar_wrapper"
       execution_requirement: "requires-darwin"
     }
     implies: "runtime_root_flags"
@@ -3473,14 +3550,3524 @@ toolchain {
     config_name: "objc-fully-link"
     action_name: "objc-fully-link"
     tool {
-      tool_path: "<tool_dir>/libtool"
+      tool_path: "mac/libtool"
       execution_requirement: "requires-darwin"
     }
     flag_set {
       flag_group {
         flag: "-static"
         flag: "-arch_only"
-        flag: "<architecture>"
+        flag: "x86_64"
+        flag: "-syslibroot"
+        flag: "%{sdk_dir}"
+        flag: "-o"
+        flag: "%{fully_linked_archive_path}"
+      }
+      flag_group {
+        flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
+      }
+      flag_group {
+        flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
+      }
+      flag_group {
+        flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
+      }
+    }
+    implies: "apple_env"
+  }
+  cc_target_os: "apple"
+}
+toolchain {
+  toolchain_identifier: "darwin_x86_64"
+  host_system_name: "x86_64-apple-macosx"
+  target_system_name: "x86_64-apple-macosx"
+  target_cpu: "x64_windows"
+  target_libc: "macosx"
+  compiler: "compiler"
+  abi_version: "darwin_x86_64"
+  abi_libc_version: "darwin_x86_64"
+  tool_path {
+    name: "ar"
+    path: "mac/ar_wrapper"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "mac/ld"
+  }
+  tool_path {
+    name: "cpp"
+    path: "mac/cpp"
+  }
+  tool_path {
+    name: "gcov"
+    path: "mac/gcov"
+  }
+  tool_path {
+    name: "gcc"
+    path: "mac/clang"
+  }
+  tool_path {
+    name: "ld"
+    path: "mac/ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "mac/nm"
+  }
+  tool_path {
+    name: "strip"
+    path: "mac/strip"
+  }
+  tool_path {
+    name: "dwp"
+    path: "/usr/bin/dwp"
+  }
+  tool_path {
+    name: "objdump"
+    path: "/usr/bin/objdump"
+  }
+  needsPic: false
+  compiler_flag: "-DCOMPILER_GCC3"
+  compiler_flag: "-DCOMPILER_GCC4"
+  compiler_flag: "-Dunix"
+  compiler_flag: "-DOS_MACOSX"
+  compiler_flag: "-DU_HAVE_NL_LANGINFO_CODESET=0"
+  compiler_flag: "-DU_HAVE_STD_STRING"
+  compiler_flag: "-D__STDC_FORMAT_MACROS"
+  compiler_flag: "-fcolor-diagnostics"
+  cxx_flag: "-std=gnu++11"
+  cxx_flag: "-stdlib=libc++"
+  linker_flag: "-lc++"
+  compilation_mode_flags {
+    mode: FASTBUILD
+    compiler_flag: "-O0"
+    compiler_flag: "-DDEBUG"
+  }
+  compilation_mode_flags {
+    mode: OPT
+    compiler_flag: "-Os"
+    compiler_flag: "-DNDEBUG"
+  }
+  compilation_mode_flags {
+    mode: DBG
+    compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+  }
+  make_variable {
+    name: "STACK_FRAME_UNLIMITED"
+    value: "-Wframe-larger-than=100000000 -Wno-vla"
+  }
+  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.3.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.3.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/usr/include"
+  builtin_sysroot: ""
+  unfiltered_cxx_flag: "-no-canonical-prefixes"
+  unfiltered_cxx_flag: "-pthread"
+  supports_normalizing_ar: false
+  default_python_version: "python2.7"
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
+  }
+  feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+      }
+    }
+  }
+  feature {
+    name: "no_generate_debug_symbols"
+  }
+  feature {
+    name: "generate_linkmap"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-Xlinker -map"
+        flag: "-Xlinker %{linkmap_exec_path}"
+      }
+    }
+  }
+  feature {
+    name: "objc_actions"
+    implies: "objc-compile"
+    implies: "objc++-compile"
+    implies: "objc-fully-link"
+    implies: "objc-archive"
+    implies: "objc-executable"
+    implies: "objc++-executable"
+    implies: "assemble"
+    implies: "preprocess-assemble"
+    implies: "c-compile"
+    implies: "c++-compile"
+    implies: "c++-link-static-library"
+    implies: "c++-link-dynamic-library"
+    implies: "c++-link-nodeps-dynamic-library"
+    implies: "c++-link-executable"
+  }
+  feature {
+    name: "strip_debug_symbols"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-Wl,-S"
+        expand_if_all_available: "strip_debug_symbols"
+      }
+    }
+  }
+  feature {
+    name: "symbol_counts"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+      }
+      expand_if_all_available: "symbol_counts_output"
+    }
+  }
+  feature {
+    name: "shared_flag"
+    flag_set {
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-shared"
+      }
+    }
+  }
+  feature {
+    name: "linkstamps"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
+      }
+      expand_if_all_available: "linkstamp_paths"
+    }
+  }
+  feature {
+    name: "output_execpath_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_execpath}"
+      }
+      expand_if_all_available: "output_execpath"
+    }
+  }
+  feature {
+    name: "runtime_root_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        iterate_over: "runtime_library_search_directories"
+      }
+      expand_if_all_available: "runtime_library_search_directories"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
+      }
+      expand_if_all_available: "runtime_root_flags"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
+      }
+      expand_if_all_available: "runtime_root_entries"
+    }
+  }
+  feature {
+    name: "archiver_flags"
+    flag_set {
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "rcs"
+        flag: "%{output_execpath}"
+      }
+      expand_if_all_available: "output_execpath"
+    }
+  }
+  feature {
+    name: "input_param_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "-L%{library_search_directories}"
+        iterate_over: "library_search_directories"
+      }
+      expand_if_all_available: "library_search_directories"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "%{libopts}"
+        iterate_over: "libopts"
+      }
+      expand_if_all_available: "libopts"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
+      }
+      expand_if_all_available: "whole_archive_linker_params"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
+      }
+      expand_if_all_available: "linker_input_params"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag_group {
+          flag: "-Wl,--start-lib"
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "object_file_group"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "%{libraries_to_link.object_files}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,%{libraries_to_link.object_files}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          iterate_over: "libraries_to_link.object_files"
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "object_file_group"
+          }
+        }
+        flag_group {
+          flag: "-Wl,--end-lib"
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "object_file_group"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "%{libraries_to_link.name}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,%{libraries_to_link.name}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "object_file"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "%{libraries_to_link.name}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,%{libraries_to_link.name}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "interface_library"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "%{libraries_to_link.name}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,%{libraries_to_link.name}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "static_library"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "-l%{libraries_to_link.name}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,-l%{libraries_to_link.name}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "dynamic_library"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "-l:%{libraries_to_link.name}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,-l:%{libraries_to_link.name}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "versioned_dynamic_library"
+          }
+        }
+        iterate_over: "libraries_to_link"
+      }
+      expand_if_all_available: "libraries_to_link"
+    }
+  }
+  feature {
+    name: "force_pic_flags"
+    flag_set {
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-pie"
+      }
+      expand_if_all_available: "force_pic"
+    }
+  }
+  feature {
+    name: "pch"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-include"
+        flag: "%{pch_file}"
+      }
+    }
+  }
+  feature {
+    name: "module_maps"
+  }
+  feature {
+    name: "use_objc_modules"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fmodule-name=%{module_name}"
+        flag: "-iquote"
+        flag: "%{module_maps_dir}"
+        flag: "-fmodules-cache-path=%{modules_cache_path}"
+      }
+    }
+  }
+  feature {
+    name: "no_enable_modules"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fmodule-maps"
+      }
+    }
+    requires {
+      feature: "use_objc_modules"
+    }
+  }
+  feature {
+    name: "apply_default_warnings"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-Wshorten-64-to-32"
+        flag: "-Wbool-conversion"
+        flag: "-Wconstant-conversion"
+        flag: "-Wduplicate-method-match"
+        flag: "-Wempty-body"
+        flag: "-Wenum-conversion"
+        flag: "-Wint-conversion"
+        flag: "-Wunreachable-code"
+        flag: "-Wmismatched-return-types"
+        flag: "-Wundeclared-selector"
+        flag: "-Wuninitialized"
+        flag: "-Wunused-function"
+        flag: "-Wunused-variable"
+      }
+    }
+  }
+  feature {
+    name: "preprocessor_defines"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
+      }
+    }
+  }
+  feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
+    name: "xcode_5.8"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
+      }
+    }
+  }
+  feature {
+    name: "framework_paths"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "apply_default_compiler_flags"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DOS_MACOSX"
+        flag: "-fno-autolink"
+      }
+    }
+  }
+  feature {
+    name: "include_system_dirs"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-header-parsing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      action: "assemble"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-isysroot"
+        flag: "%{sdk_dir}"
+      }
+    }
+  }
+  feature {
+    name: "objc_arc"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-header-parsing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fobjc-arc"
+      }
+      expand_if_all_available: "objc_arc"
+    }
+  }
+  feature {
+    name: "no_objc_arc"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-header-parsing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fno-objc-arc"
+      }
+      expand_if_all_available: "no_objc_arc"
+    }
+  }
+  feature {
+    name: "apple_env"
+    env_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-header-parsing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-archive"
+      action: "objc-fully-link"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      env_entry {
+        key: "XCODE_VERSION_OVERRIDE"
+        value: "%{xcode_version_override_value}"
+      }
+      env_entry {
+        key: "APPLE_SDK_VERSION_OVERRIDE"
+        value: "%{apple_sdk_version_override_value}"
+      }
+      env_entry {
+        key: "APPLE_SDK_PLATFORM"
+        value: "%{apple_sdk_platform_value}"
+      }
+    }
+  }
+  feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
+    name: "legacy_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{legacy_link_flags}"
+        iterate_over: "legacy_link_flags"
+      }
+      expand_if_all_available: "legacy_link_flags"
+    }
+  }
+  feature {
+    name: "version_min"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-mmacosx-version-min=%{version_min}"
+      }
+    }
+  }
+  feature {
+    name: "dead_strip"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
+      }
+      with_feature {
+        feature: "is_not_test_target"
+      }
+    }
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    requires {
+      feature: "opt"
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
+    name: "asan"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-O1"
+        flag: "-gmlt"
+        flag: "-fsanitize=address,bool,float-cast-overflow,integer-divide-by-zero,return,returns-nonnull-attribute,shift-exponent,unreachable,vla-bound"
+        flag: "-fno-sanitize-recover=all"
+        flag: "-DHEAPCHECK_DISABLE"
+        flag: "-DADDRESS_SANITIZER"
+        flag: "-D_GLIBCXX_ADDRESS_SANITIZER_ANNOTATIONS"
+        flag: "-fno-omit-frame-pointer"
+      }
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fsanitize=address,bool,float-cast-overflow,integer-divide-by-zero,return,returns-nonnull-attribute,shift-exponent,unreachable,vla-bound"
+        flag: "-fsanitize-link-c++-runtime"
+      }
+    }
+  }
+  feature {
+    name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+        flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-lgcov"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "cpp_linker_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+      }
+    }
+  }
+  feature {
+    name: "apply_implicit_frameworks"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Foundation"
+      }
+    }
+  }
+  feature {
+    name: "link_cocoa"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Cocoa"
+      }
+    }
+  }
+  feature {
+    name: "apply_simulator_compiler_flags"
+  }
+  feature {
+    name: "unfiltered_cxx_flags"
+  }
+  feature {
+    name: "bitcode_embedded_markers"
+  }
+  feature {
+    name: "bitcode_embedded"
+  }
+  feature {
+    name: "user_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
+      }
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
+    }
+  }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-S"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
+      }
+    }
+  }
+  feature {
+    name: "dbg_only_flag"
+    flag_set {
+      action: "objc-compile"
+      flag_group {
+        flag: "--DBG_ONLY_FLAG"
+      }
+    }
+  }
+  feature {
+    name: "fastbuild_only_flag"
+    flag_set {
+      action: "objc-compile"
+      flag_group {
+        flag: "--FASTBUILD_ONLY_FLAG"
+      }
+    }
+  }
+  feature {
+    name: "opt_only_flag"
+    flag_set {
+      action: "objc-compile"
+      flag_group {
+        flag: "--OPT_ONLY_FLAG"
+      }
+    }
+  }
+  action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "mac/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
+      }
+    }
+  }
+  action_config {
+    config_name: "c-compile"
+    action_name: "c-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+      }
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "c++-compile"
+    action_name: "c++-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+      }
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+      }
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "c++-module-compile"
+    action_name: "c++-module-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "c++-header-parsing"
+    action_name: "c++-header-parsing"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "objc-compile"
+    action_name: "objc-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+      }
+    }
+    implies: "objc_actions"
+    implies: "apply_default_compiler_flags"
+    implies: "apply_default_warnings"
+    implies: "framework_paths"
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "objc++-compile"
+    action_name: "objc++-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+        flag: "-stdlib=libc++"
+        flag: "-std=gnu++11"
+      }
+    }
+    implies: "apply_default_compiler_flags"
+    implies: "apply_default_warnings"
+    implies: "framework_paths"
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "assemble"
+    action_name: "assemble"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "include_system_dirs"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "preprocess-assemble"
+    action_name: "preprocess-assemble"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "objc-archive"
+    action_name: "objc-archive"
+    tool {
+      tool_path: "mac/libtool"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-static"
+        flag: "-filelist"
+        flag: "%{obj_list_path}"
+        flag: "-arch_only"
+        flag: "x86_64"
+        flag: "-syslibroot"
+        flag: "%{sdk_dir}"
+        flag: "-o"
+        flag: "%{archive_path}"
+      }
+    }
+    implies: "apple_env"
+  }
+  action_config {
+    config_name: "objc-executable"
+    action_name: "objc-executable"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+      }
+      flag_group {
+        flag: "-Xlinker"
+        flag: "-objc_abi_version"
+        flag: "-Xlinker"
+        flag: "2"
+        flag: "-Xlinker"
+        flag: "-rpath"
+        flag: "-Xlinker"
+        flag: "@executable_path/Frameworks"
+        flag: "-fobjc-link-runtime"
+        flag: "-ObjC"
+      }
+      flag_group {
+        flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
+      }
+      flag_group {
+        flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
+      }
+      flag_group {
+        flag: "-l%{library_names}"
+        iterate_over: "library_names"
+      }
+      flag_group {
+        flag: "-filelist %{filelist}"
+      }
+      flag_group {
+        flag: "-o %{linked_binary}"
+      }
+      flag_group {
+        flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
+      }
+      flag_group {
+        flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
+      }
+      flag_group {
+        flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
+      }
+    }
+    implies: "include_system_dirs"
+    implies: "framework_paths"
+    implies: "version_min"
+    implies: "legacy_link_flags"
+    implies: "apple_env"
+    implies: "apply_implicit_frameworks"
+  }
+  action_config {
+    config_name: "objc++-executable"
+    action_name: "objc++-executable"
+    tool {
+      tool_path: "mac/wrapped_clang++"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-stdlib=libc++"
+        flag: "-std=gnu++11"
+      }
+      flag_group {
+        flag: "-arch x86_64"
+      }
+      flag_group {
+        flag: "-Xlinker"
+        flag: "-objc_abi_version"
+        flag: "-Xlinker"
+        flag: "2"
+        flag: "-Xlinker"
+        flag: "-rpath"
+        flag: "-Xlinker"
+        flag: "@executable_path/Frameworks"
+        flag: "-fobjc-link-runtime"
+        flag: "-ObjC"
+      }
+      flag_group {
+        flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
+      }
+      flag_group {
+        flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
+      }
+      flag_group {
+        flag: "-l%{library_names}"
+        iterate_over: "library_names"
+      }
+      flag_group {
+        flag: "-filelist %{filelist}"
+      }
+      flag_group {
+        flag: "-o %{linked_binary}"
+      }
+      flag_group {
+        flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
+      }
+      flag_group {
+        flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
+      }
+      flag_group {
+        flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
+      }
+    }
+    implies: "include_system_dirs"
+    implies: "framework_paths"
+    implies: "version_min"
+    implies: "legacy_link_flags"
+    implies: "apple_env"
+    implies: "apply_implicit_frameworks"
+  }
+  action_config {
+    config_name: "c++-link-executable"
+    action_name: "c++-link-executable"
+    tool {
+      tool_path: "mac/clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "symbol_counts"
+    implies: "linkstamps"
+    implies: "output_execpath_flags"
+    implies: "runtime_root_flags"
+    implies: "input_param_flags"
+    implies: "force_pic_flags"
+    implies: "legacy_link_flags"
+    implies: "strip_debug_symbols"
+    implies: "linker_param_file"
+    implies: "version_min"
+    implies: "apple_env"
+    implies: "cpp_linker_flags"
+    implies: "sysroot"
+  }
+  action_config {
+    config_name: "c++-link-dynamic-library"
+    action_name: "c++-link-dynamic-library"
+    tool {
+      tool_path: "mac/clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "has_configured_linker_path"
+    implies: "symbol_counts"
+    implies: "shared_flag"
+    implies: "linkstamps"
+    implies: "output_execpath_flags"
+    implies: "runtime_root_flags"
+    implies: "input_param_flags"
+    implies: "legacy_link_flags"
+    implies: "strip_debug_symbols"
+    implies: "linker_param_file"
+    implies: "version_min"
+    implies: "apple_env"
+    implies: "cpp_linker_flags"
+    implies: "sysroot"
+  }
+  action_config {
+    config_name: "c++-link-nodeps-dynamic-library"
+    action_name: "c++-link-nodeps-dynamic-library"
+    tool {
+      tool_path: "mac/clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "has_configured_linker_path"
+    implies: "symbol_counts"
+    implies: "shared_flag"
+    implies: "linkstamps"
+    implies: "output_execpath_flags"
+    implies: "runtime_root_flags"
+    implies: "input_param_flags"
+    implies: "legacy_link_flags"
+    implies: "strip_debug_symbols"
+    implies: "linker_param_file"
+    implies: "version_min"
+    implies: "apple_env"
+    implies: "cpp_linker_flags"
+    implies: "sysroot"
+  }
+  action_config {
+    config_name: "c++-link-static-library"
+    action_name: "c++-link-static-library"
+    tool {
+      tool_path: "mac/ar_wrapper"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "runtime_root_flags"
+    implies: "archiver_flags"
+    implies: "input_param_flags"
+    implies: "linker_param_file"
+    implies: "apple_env"
+  }
+  action_config {
+    config_name: "objc-fully-link"
+    action_name: "objc-fully-link"
+    tool {
+      tool_path: "mac/libtool"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-static"
+        flag: "-arch_only"
+        flag: "x86_64"
+        flag: "-syslibroot"
+        flag: "%{sdk_dir}"
+        flag: "-o"
+        flag: "%{fully_linked_archive_path}"
+      }
+      flag_group {
+        flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
+      }
+      flag_group {
+        flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
+      }
+      flag_group {
+        flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
+      }
+    }
+    implies: "apple_env"
+  }
+  cc_target_os: "apple"
+}
+toolchain {
+  toolchain_identifier: "darwin_x86_64"
+  host_system_name: "x86_64-apple-macosx"
+  target_system_name: "x86_64-apple-macosx"
+  target_cpu: "darwin"
+  target_libc: "macosx"
+  compiler: "compiler"
+  abi_version: "darwin_x86_64"
+  abi_libc_version: "darwin_x86_64"
+  tool_path {
+    name: "ar"
+    path: "mac/ar_wrapper"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "mac/ld"
+  }
+  tool_path {
+    name: "cpp"
+    path: "mac/cpp"
+  }
+  tool_path {
+    name: "gcov"
+    path: "mac/gcov"
+  }
+  tool_path {
+    name: "gcc"
+    path: "mac/clang"
+  }
+  tool_path {
+    name: "ld"
+    path: "mac/ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "mac/nm"
+  }
+  tool_path {
+    name: "strip"
+    path: "mac/strip"
+  }
+  tool_path {
+    name: "dwp"
+    path: "/usr/bin/dwp"
+  }
+  tool_path {
+    name: "objdump"
+    path: "/usr/bin/objdump"
+  }
+  needsPic: false
+  compiler_flag: "-DCOMPILER_GCC3"
+  compiler_flag: "-DCOMPILER_GCC4"
+  compiler_flag: "-Dunix"
+  compiler_flag: "-DOS_MACOSX"
+  compiler_flag: "-DU_HAVE_NL_LANGINFO_CODESET=0"
+  compiler_flag: "-DU_HAVE_STD_STRING"
+  compiler_flag: "-D__STDC_FORMAT_MACROS"
+  compiler_flag: "-fcolor-diagnostics"
+  cxx_flag: "-std=gnu++11"
+  cxx_flag: "-stdlib=libc++"
+  linker_flag: "-lc++"
+  compilation_mode_flags {
+    mode: FASTBUILD
+    compiler_flag: "-O0"
+    compiler_flag: "-DDEBUG"
+  }
+  compilation_mode_flags {
+    mode: OPT
+    compiler_flag: "-Os"
+    compiler_flag: "-DNDEBUG"
+  }
+  compilation_mode_flags {
+    mode: DBG
+    compiler_flag: "-g"
+    compiler_flag: "-DDEBUG"
+  }
+  make_variable {
+    name: "STACK_FRAME_UNLIMITED"
+    value: "-Wframe-larger-than=100000000 -Wno-vla"
+  }
+  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.3.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/"
+  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode-beta.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_7.3.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/usr/include"
+  builtin_sysroot: ""
+  unfiltered_cxx_flag: "-no-canonical-prefixes"
+  unfiltered_cxx_flag: "-pthread"
+  supports_normalizing_ar: false
+  default_python_version: "python2.7"
+  feature {
+    name: "no_legacy_features"
+  }
+  feature {
+    name: "fastbuild"
+    implies: "fastbuild_only_flag"
+  }
+  feature {
+    name: "opt"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g0"
+      }
+      with_feature {
+        feature: "no_generate_debug_symbols"
+      }
+    }
+    implies: "opt_only_flag"
+  }
+  feature {
+    name: "dbg"
+    implies: "dbg_only_flag"
+  }
+  feature {
+    name: "compile_all_modules"
+  }
+  feature {
+    name: "exclude_private_headers_in_module_maps"
+  }
+  feature {
+    name: "has_configured_linker_path"
+  }
+  feature {
+    name: "only_doth_headers_in_module_maps"
+  }
+  feature {
+    name: "is_not_test_target"
+  }
+  feature {
+    name: "legacy_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{legacy_compile_flags}"
+        iterate_over: "legacy_compile_flags"
+      }
+      expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "generate_dsym_file"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "DSYM_HINT_LINKED_BINARY=%{linked_binary}"
+        flag: "DSYM_HINT_DSYM_PATH=%{dsym_path}"
+      }
+    }
+  }
+  feature {
+    name: "no_generate_debug_symbols"
+  }
+  feature {
+    name: "generate_linkmap"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-Xlinker -map"
+        flag: "-Xlinker %{linkmap_exec_path}"
+      }
+    }
+  }
+  feature {
+    name: "objc_actions"
+    implies: "objc-compile"
+    implies: "objc++-compile"
+    implies: "objc-fully-link"
+    implies: "objc-archive"
+    implies: "objc-executable"
+    implies: "objc++-executable"
+    implies: "assemble"
+    implies: "preprocess-assemble"
+    implies: "c-compile"
+    implies: "c++-compile"
+    implies: "c++-link-static-library"
+    implies: "c++-link-dynamic-library"
+    implies: "c++-link-nodeps-dynamic-library"
+    implies: "c++-link-executable"
+  }
+  feature {
+    name: "strip_debug_symbols"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-Wl,-S"
+        expand_if_all_available: "strip_debug_symbols"
+      }
+    }
+  }
+  feature {
+    name: "symbol_counts"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+      }
+      expand_if_all_available: "symbol_counts_output"
+    }
+  }
+  feature {
+    name: "shared_flag"
+    flag_set {
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-shared"
+      }
+    }
+  }
+  feature {
+    name: "linkstamps"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
+      }
+      expand_if_all_available: "linkstamp_paths"
+    }
+  }
+  feature {
+    name: "output_execpath_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-o"
+        flag: "%{output_execpath}"
+      }
+      expand_if_all_available: "output_execpath"
+    }
+  }
+  feature {
+    name: "runtime_root_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
+        iterate_over: "runtime_library_search_directories"
+      }
+      expand_if_all_available: "runtime_library_search_directories"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
+      }
+      expand_if_all_available: "runtime_root_flags"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
+      }
+      expand_if_all_available: "runtime_root_entries"
+    }
+  }
+  feature {
+    name: "archiver_flags"
+    flag_set {
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "rcs"
+        flag: "%{output_execpath}"
+      }
+      expand_if_all_available: "output_execpath"
+    }
+  }
+  feature {
+    name: "input_param_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "-L%{library_search_directories}"
+        iterate_over: "library_search_directories"
+      }
+      expand_if_all_available: "library_search_directories"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "%{libopts}"
+        iterate_over: "libopts"
+      }
+      expand_if_all_available: "libopts"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
+      }
+      expand_if_all_available: "whole_archive_linker_params"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
+      }
+      expand_if_all_available: "linker_input_params"
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      flag_group {
+        flag_group {
+          flag: "-Wl,--start-lib"
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "object_file_group"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "%{libraries_to_link.object_files}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,%{libraries_to_link.object_files}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          iterate_over: "libraries_to_link.object_files"
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "object_file_group"
+          }
+        }
+        flag_group {
+          flag: "-Wl,--end-lib"
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "object_file_group"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "%{libraries_to_link.name}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,%{libraries_to_link.name}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "object_file"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "%{libraries_to_link.name}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,%{libraries_to_link.name}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "interface_library"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "%{libraries_to_link.name}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,%{libraries_to_link.name}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "static_library"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "-l%{libraries_to_link.name}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,-l%{libraries_to_link.name}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "dynamic_library"
+          }
+        }
+        flag_group {
+          flag_group {
+            flag: "-l:%{libraries_to_link.name}"
+            expand_if_false: "libraries_to_link.is_whole_archive"
+          }
+          flag_group {
+            flag: "-Wl,-force_load,-l:%{libraries_to_link.name}"
+            expand_if_true: "libraries_to_link.is_whole_archive"
+          }
+          expand_if_equal {
+            variable: "libraries_to_link.type"
+            value: "versioned_dynamic_library"
+          }
+        }
+        iterate_over: "libraries_to_link"
+      }
+      expand_if_all_available: "libraries_to_link"
+    }
+  }
+  feature {
+    name: "force_pic_flags"
+    flag_set {
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-pie"
+      }
+      expand_if_all_available: "force_pic"
+    }
+  }
+  feature {
+    name: "pch"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-include"
+        flag: "%{pch_file}"
+      }
+    }
+  }
+  feature {
+    name: "module_maps"
+  }
+  feature {
+    name: "use_objc_modules"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fmodule-name=%{module_name}"
+        flag: "-iquote"
+        flag: "%{module_maps_dir}"
+        flag: "-fmodules-cache-path=%{modules_cache_path}"
+      }
+    }
+  }
+  feature {
+    name: "no_enable_modules"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fmodule-maps"
+      }
+    }
+    requires {
+      feature: "use_objc_modules"
+    }
+  }
+  feature {
+    name: "apply_default_warnings"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-Wshorten-64-to-32"
+        flag: "-Wbool-conversion"
+        flag: "-Wconstant-conversion"
+        flag: "-Wduplicate-method-match"
+        flag: "-Wempty-body"
+        flag: "-Wenum-conversion"
+        flag: "-Wint-conversion"
+        flag: "-Wunreachable-code"
+        flag: "-Wmismatched-return-types"
+        flag: "-Wundeclared-selector"
+        flag: "-Wuninitialized"
+        flag: "-Wunused-function"
+        flag: "-Wunused-variable"
+      }
+    }
+  }
+  feature {
+    name: "preprocessor_defines"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
+      }
+    }
+  }
+  feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
+    name: "xcode_5.8"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
+      }
+    }
+  }
+  feature {
+    name: "framework_paths"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "apply_default_compiler_flags"
+    flag_set {
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DOS_MACOSX"
+        flag: "-fno-autolink"
+      }
+    }
+  }
+  feature {
+    name: "include_system_dirs"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-header-parsing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      action: "assemble"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-isysroot"
+        flag: "%{sdk_dir}"
+      }
+    }
+  }
+  feature {
+    name: "objc_arc"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-header-parsing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fobjc-arc"
+      }
+      expand_if_all_available: "objc_arc"
+    }
+  }
+  feature {
+    name: "no_objc_arc"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-header-parsing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fno-objc-arc"
+      }
+      expand_if_all_available: "no_objc_arc"
+    }
+  }
+  feature {
+    name: "apple_env"
+    env_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-header-parsing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-archive"
+      action: "objc-fully-link"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      env_entry {
+        key: "XCODE_VERSION_OVERRIDE"
+        value: "%{xcode_version_override_value}"
+      }
+      env_entry {
+        key: "APPLE_SDK_VERSION_OVERRIDE"
+        value: "%{apple_sdk_version_override_value}"
+      }
+      env_entry {
+        key: "APPLE_SDK_PLATFORM"
+        value: "%{apple_sdk_platform_value}"
+      }
+    }
+  }
+  feature {
+    name: "user_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{user_link_flags}"
+        iterate_over: "user_link_flags"
+      }
+      expand_if_all_available: "user_link_flags"
+    }
+    enabled: true
+  }
+  feature {
+    name: "legacy_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "%{legacy_link_flags}"
+        iterate_over: "legacy_link_flags"
+      }
+      expand_if_all_available: "legacy_link_flags"
+    }
+  }
+  feature {
+    name: "version_min"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-mmacosx-version-min=%{version_min}"
+      }
+    }
+  }
+  feature {
+    name: "dead_strip"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
+      }
+      with_feature {
+        feature: "is_not_test_target"
+      }
+    }
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-g"
+      }
+    }
+    requires {
+      feature: "opt"
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
+    name: "includes"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "clif-match"
+      flag_group {
+        flag: "-include"
+        flag: "%{includes}"
+        iterate_over: "includes"
+        expand_if_all_available: "includes"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
+    name: "asan"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-O1"
+        flag: "-gmlt"
+        flag: "-fsanitize=address,bool,float-cast-overflow,integer-divide-by-zero,return,returns-nonnull-attribute,shift-exponent,unreachable,vla-bound"
+        flag: "-fno-sanitize-recover=all"
+        flag: "-DHEAPCHECK_DISABLE"
+        flag: "-DADDRESS_SANITIZER"
+        flag: "-D_GLIBCXX_ADDRESS_SANITIZER_ANNOTATIONS"
+        flag: "-fno-omit-frame-pointer"
+      }
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fsanitize=address,bool,float-cast-overflow,integer-divide-by-zero,return,returns-nonnull-attribute,shift-exponent,unreachable,vla-bound"
+        flag: "-fsanitize-link-c++-runtime"
+      }
+    }
+  }
+  feature {
+    name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+        flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-lgcov"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "cpp_linker_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+      }
+    }
+  }
+  feature {
+    name: "apply_implicit_frameworks"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Foundation"
+      }
+    }
+  }
+  feature {
+    name: "link_cocoa"
+    flag_set {
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-framework Cocoa"
+      }
+    }
+  }
+  feature {
+    name: "apply_simulator_compiler_flags"
+  }
+  feature {
+    name: "unfiltered_cxx_flags"
+  }
+  feature {
+    name: "bitcode_embedded_markers"
+  }
+  feature {
+    name: "bitcode_embedded"
+  }
+  feature {
+    name: "user_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
+      }
+      expand_if_all_available: "user_compile_flags"
+    }
+  }
+  feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-parsing"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "clif-match"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+      }
+      expand_if_all_available: "sysroot"
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+      }
+      expand_if_all_available: "unfiltered_compile_flags"
+    }
+  }
+  feature {
+    name: "linker_param_file"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-Wl,@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+    flag_set {
+      action: "c++-link-static-library"
+      flag_group {
+        flag: "@%{linker_param_file}"
+      }
+      expand_if_all_available: "linker_param_file"
+    }
+  }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-c"
+        flag: "%{source_file}"
+      }
+      expand_if_all_available: "source_file"
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "linkstamp-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-S"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "-E"
+        expand_if_all_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "-o"
+        flag: "%{output_file}"
+        expand_if_all_available: "output_file"
+      }
+    }
+  }
+  feature {
+    name: "dbg_only_flag"
+    flag_set {
+      action: "objc-compile"
+      flag_group {
+        flag: "--DBG_ONLY_FLAG"
+      }
+    }
+  }
+  feature {
+    name: "fastbuild_only_flag"
+    flag_set {
+      action: "objc-compile"
+      flag_group {
+        flag: "--FASTBUILD_ONLY_FLAG"
+      }
+    }
+  }
+  feature {
+    name: "opt_only_flag"
+    flag_set {
+      action: "objc-compile"
+      flag_group {
+        flag: "--OPT_ONLY_FLAG"
+      }
+    }
+  }
+  action_config {
+    config_name: "strip"
+    action_name: "strip"
+    tool {
+      tool_path: "mac/strip"
+    }
+    flag_set {
+      flag_group {
+        flag: "-S"
+        flag: "-o"
+        flag: "%{output_file}"
+      }
+      flag_group {
+        flag: "%{stripopts}"
+        iterate_over: "stripopts"
+      }
+      flag_group {
+        flag: "%{input_file}"
+      }
+    }
+  }
+  action_config {
+    config_name: "c-compile"
+    action_name: "c-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+      }
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "c++-compile"
+    action_name: "c++-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+      }
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "linkstamp-compile"
+    action_name: "linkstamp-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+      }
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "c++-module-compile"
+    action_name: "c++-module-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "c++-header-parsing"
+    action_name: "c++-header-parsing"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "objc-compile"
+    action_name: "objc-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+      }
+    }
+    implies: "objc_actions"
+    implies: "apply_default_compiler_flags"
+    implies: "apply_default_warnings"
+    implies: "framework_paths"
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "objc++-compile"
+    action_name: "objc++-compile"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+        flag: "-stdlib=libc++"
+        flag: "-std=gnu++11"
+      }
+    }
+    implies: "apply_default_compiler_flags"
+    implies: "apply_default_warnings"
+    implies: "framework_paths"
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "assemble"
+    action_name: "assemble"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "include_system_dirs"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "preprocess-assemble"
+    action_name: "preprocess-assemble"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "preprocessor_defines"
+    implies: "include_system_dirs"
+    implies: "version_min"
+    implies: "objc_arc"
+    implies: "no_objc_arc"
+    implies: "apple_env"
+    implies: "legacy_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+  }
+  action_config {
+    config_name: "objc-archive"
+    action_name: "objc-archive"
+    tool {
+      tool_path: "mac/libtool"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-static"
+        flag: "-filelist"
+        flag: "%{obj_list_path}"
+        flag: "-arch_only"
+        flag: "x86_64"
+        flag: "-syslibroot"
+        flag: "%{sdk_dir}"
+        flag: "-o"
+        flag: "%{archive_path}"
+      }
+    }
+    implies: "apple_env"
+  }
+  action_config {
+    config_name: "objc-executable"
+    action_name: "objc-executable"
+    tool {
+      tool_path: "mac/wrapped_clang"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-arch x86_64"
+      }
+      flag_group {
+        flag: "-Xlinker"
+        flag: "-objc_abi_version"
+        flag: "-Xlinker"
+        flag: "2"
+        flag: "-Xlinker"
+        flag: "-rpath"
+        flag: "-Xlinker"
+        flag: "@executable_path/Frameworks"
+        flag: "-fobjc-link-runtime"
+        flag: "-ObjC"
+      }
+      flag_group {
+        flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
+      }
+      flag_group {
+        flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
+      }
+      flag_group {
+        flag: "-l%{library_names}"
+        iterate_over: "library_names"
+      }
+      flag_group {
+        flag: "-filelist %{filelist}"
+      }
+      flag_group {
+        flag: "-o %{linked_binary}"
+      }
+      flag_group {
+        flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
+      }
+      flag_group {
+        flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
+      }
+      flag_group {
+        flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
+      }
+    }
+    implies: "include_system_dirs"
+    implies: "framework_paths"
+    implies: "version_min"
+    implies: "legacy_link_flags"
+    implies: "apple_env"
+    implies: "apply_implicit_frameworks"
+  }
+  action_config {
+    config_name: "objc++-executable"
+    action_name: "objc++-executable"
+    tool {
+      tool_path: "mac/wrapped_clang++"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-stdlib=libc++"
+        flag: "-std=gnu++11"
+      }
+      flag_group {
+        flag: "-arch x86_64"
+      }
+      flag_group {
+        flag: "-Xlinker"
+        flag: "-objc_abi_version"
+        flag: "-Xlinker"
+        flag: "2"
+        flag: "-Xlinker"
+        flag: "-rpath"
+        flag: "-Xlinker"
+        flag: "@executable_path/Frameworks"
+        flag: "-fobjc-link-runtime"
+        flag: "-ObjC"
+      }
+      flag_group {
+        flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
+      }
+      flag_group {
+        flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
+      }
+      flag_group {
+        flag: "-l%{library_names}"
+        iterate_over: "library_names"
+      }
+      flag_group {
+        flag: "-filelist %{filelist}"
+      }
+      flag_group {
+        flag: "-o %{linked_binary}"
+      }
+      flag_group {
+        flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
+      }
+      flag_group {
+        flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
+      }
+      flag_group {
+        flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
+      }
+    }
+    implies: "include_system_dirs"
+    implies: "framework_paths"
+    implies: "version_min"
+    implies: "legacy_link_flags"
+    implies: "apple_env"
+    implies: "apply_implicit_frameworks"
+  }
+  action_config {
+    config_name: "c++-link-executable"
+    action_name: "c++-link-executable"
+    tool {
+      tool_path: "mac/clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "symbol_counts"
+    implies: "linkstamps"
+    implies: "output_execpath_flags"
+    implies: "runtime_root_flags"
+    implies: "input_param_flags"
+    implies: "force_pic_flags"
+    implies: "legacy_link_flags"
+    implies: "strip_debug_symbols"
+    implies: "linker_param_file"
+    implies: "version_min"
+    implies: "apple_env"
+    implies: "cpp_linker_flags"
+    implies: "sysroot"
+  }
+  action_config {
+    config_name: "c++-link-dynamic-library"
+    action_name: "c++-link-dynamic-library"
+    tool {
+      tool_path: "mac/clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "has_configured_linker_path"
+    implies: "symbol_counts"
+    implies: "shared_flag"
+    implies: "linkstamps"
+    implies: "output_execpath_flags"
+    implies: "runtime_root_flags"
+    implies: "input_param_flags"
+    implies: "legacy_link_flags"
+    implies: "strip_debug_symbols"
+    implies: "linker_param_file"
+    implies: "version_min"
+    implies: "apple_env"
+    implies: "cpp_linker_flags"
+    implies: "sysroot"
+  }
+  action_config {
+    config_name: "c++-link-nodeps-dynamic-library"
+    action_name: "c++-link-nodeps-dynamic-library"
+    tool {
+      tool_path: "mac/clang"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "has_configured_linker_path"
+    implies: "symbol_counts"
+    implies: "shared_flag"
+    implies: "linkstamps"
+    implies: "output_execpath_flags"
+    implies: "runtime_root_flags"
+    implies: "input_param_flags"
+    implies: "legacy_link_flags"
+    implies: "strip_debug_symbols"
+    implies: "linker_param_file"
+    implies: "version_min"
+    implies: "apple_env"
+    implies: "cpp_linker_flags"
+    implies: "sysroot"
+  }
+  action_config {
+    config_name: "c++-link-static-library"
+    action_name: "c++-link-static-library"
+    tool {
+      tool_path: "mac/ar_wrapper"
+      execution_requirement: "requires-darwin"
+    }
+    implies: "runtime_root_flags"
+    implies: "archiver_flags"
+    implies: "input_param_flags"
+    implies: "linker_param_file"
+    implies: "apple_env"
+  }
+  action_config {
+    config_name: "objc-fully-link"
+    action_name: "objc-fully-link"
+    tool {
+      tool_path: "mac/libtool"
+      execution_requirement: "requires-darwin"
+    }
+    flag_set {
+      flag_group {
+        flag: "-static"
+        flag: "-arch_only"
+        flag: "x86_64"
         flag: "-syslibroot"
         flag: "%{sdk_dir}"
         flag: "-o"

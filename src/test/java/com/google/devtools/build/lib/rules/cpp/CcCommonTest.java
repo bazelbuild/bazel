@@ -481,7 +481,7 @@ public class CcCommonTest extends BuildViewTestCase {
     useConfiguration("--cpu=k8", "--build_test_dwp", "--dynamic_mode=off", "--fission=yes");
     ConfiguredTarget target =
         scratchConfiguredTarget(
-            "mypackage", "mytest", "cc_test(name = 'mytest', srcs = ['mytest.cc'])");
+            "mypackage", "mytest", "cc_test(name = 'mytest', ", "         srcs = ['mytest.cc'])");
 
     Iterable<Artifact> runfiles = collectRunfiles(target);
     assertThat(baseArtifactNames(runfiles)).contains("mytest.dwp");
