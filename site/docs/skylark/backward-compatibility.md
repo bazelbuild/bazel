@@ -749,11 +749,17 @@ The list of Make variables is:
 * ABI\_GLIBC\_VERSION
 * ABI
 
-In order to not be affected by this change, one should add a
-C++ toolchain to the `toolchains` attribute for targets, or to the
-`_toolchains` attribute for Starlark rules. The best choice for this value is
+In order to not be affected by this change, add a C++ toolchain to the
+`toolchains` attribute for targets, or to the`_toolchains` attribute for
+Starlark rules. The best choice for this value is
 the alias target `@bazel_tools//tools/cpp:current_cc_toolchain`, which will
 always resolve to the currently selected C++ toolchain.
+
+Genrules will still have access to these Make variables for the time
+being because that information is plumbed not through CppConfiguration, but
+through an implicit dependency on the C++ toolchain. That will also be
+removed at some point in the future, so it's considered good practice to add an
+explicit dependency on the toolchain as demonstrated below.
 
 For genrules and other targets using C++ Make Variables:
 
