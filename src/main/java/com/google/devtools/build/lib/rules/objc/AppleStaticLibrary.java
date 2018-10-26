@@ -21,6 +21,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -74,15 +75,23 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
     PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
 
-    ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
-        configToCTATDepsCollectionMap =
-            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration("deps", Mode.SPLIT);
-    ImmutableListMultimap<BuildConfiguration, ObjcProvider> configToObjcAvoidDepsMap =
-        ruleContext.getPrerequisitesByConfiguration(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-            Mode.SPLIT, ObjcProvider.SKYLARK_CONSTRUCTOR);
-    ImmutableListMultimap<BuildConfiguration, CcInfo> configToCcAvoidDepsMap =
-        ruleContext.getPrerequisitesByConfiguration(
-            AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.SPLIT, CcInfo.PROVIDER);
+    ImmutableListMultimap<String, ConfiguredTargetAndData> cpuToCTATDepsCollectionMap =
+        MultiArchBinarySupport.transformMap(
+            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration(
+                "deps", Mode.SPLIT));
+
+    ImmutableListMultimap<String, ObjcProvider> cpuToObjcAvoidDepsMap =
+        MultiArchBinarySupport.transformMap(
+            ruleContext.getPrerequisitesByConfiguration(
+                AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
+                Mode.SPLIT,
+                ObjcProvider.SKYLARK_CONSTRUCTOR));
+
+    ImmutableListMultimap<String, CcInfo> cpuToCcAvoidDepsMap =
+        MultiArchBinarySupport.transformMap(
+            ruleContext.getPrerequisitesByConfiguration(
+                AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.SPLIT, CcInfo.PROVIDER));
+
     Iterable<ObjcProtoProvider> avoidProtoProviders =
         ruleContext.getPrerequisites(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.TARGET,
             ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
@@ -90,7 +99,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains =
         MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
-
     IntermediateArtifacts ruleIntermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
 
@@ -103,46 +111,49 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics());
 
-    ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersMap =
-        ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT,
-            ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersByConfig =
+        ruleContext.getPrerequisitesByConfiguration(
+            "deps", Mode.SPLIT, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    Multimap<String, ObjcProtoProvider> objcProtoProvidersMap =
+        MultiArchBinarySupport.transformMap(objcProtoProvidersByConfig);
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
-    for (Map.Entry<BuildConfiguration, CcToolchainProvider> childConfigAndToolchain :
+    for (Map.Entry<BuildConfiguration, CcToolchainProvider> entry :
         childConfigurationsAndToolchains.entrySet()) {
-      BuildConfiguration childConfig = childConfigAndToolchain.getKey();
-      CcToolchainProvider childToolchain = childConfigAndToolchain.getValue();
-      Iterable<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childConfig);
+      BuildConfiguration childToolchainConfig = entry.getKey();
+      String childCpu = entry.getKey().getCpu();
+      CcToolchainProvider childToolchain = entry.getValue();
+      Iterable<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childCpu);
       ProtobufSupport protoSupport =
           new ProtobufSupport(
                   ruleContext,
-                  childConfig,
+                  childToolchainConfig,
                   protosToAvoid,
                   ImmutableList.<ProtoSourcesProvider>of(),
                   objcProtoProviders,
                   ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders),
-                  childConfigurationsAndToolchains.get(childConfig))
+                  childToolchain)
               .registerGenerationActions()
               .registerCompilationActions();
 
       Optional<ObjcProvider> protosObjcProvider = protoSupport.getObjcProvider();
 
       IntermediateArtifacts intermediateArtifacts =
-          ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig);
+          ObjcRuleClasses.intermediateArtifacts(ruleContext, childToolchainConfig);
 
       ObjcCommon common =
           common(
               ruleContext,
-              childConfig,
+              childToolchainConfig,
               intermediateArtifacts,
-              nullToEmptyList(configToCTATDepsCollectionMap.get(childConfig)),
+              nullToEmptyList(cpuToCTATDepsCollectionMap.get(childCpu)),
               protosObjcProvider);
       ObjcProvider objcProvider =
           common
               .getObjcProvider()
               .subtractSubtrees(
-                  configToObjcAvoidDepsMap.get(childConfig),
-                  configToCcAvoidDepsMap.get(childConfig).stream()
+                  cpuToObjcAvoidDepsMap.get(childCpu),
+                  cpuToCcAvoidDepsMap.get(childCpu).stream()
                       .map(CcInfo::getCcLinkingInfo)
                       .collect(ImmutableList.toImmutableList()));
 
@@ -151,20 +162,18 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       CompilationSupport compilationSupport =
           new CompilationSupport.Builder()
               .setRuleContext(ruleContext)
-              .setConfig(childConfig)
+              .setConfig(childToolchainConfig)
               .setToolchainProvider(childToolchain)
               .setOutputGroupCollector(outputGroupCollector)
               .build();
 
       compilationSupport
           .registerCompileAndArchiveActions(
-              common.getCompilationArtifacts().get(),
-              objcProvider,
-              childConfigurationsAndToolchains.get(childConfig))
+              common.getCompilationArtifacts().get(), objcProvider, childToolchain)
           .registerFullyLinkAction(
               objcProvider,
               intermediateArtifacts.strippedSingleArchitectureLibrary(),
-              childConfigurationsAndToolchains.get(childConfig),
+              childToolchain,
               childToolchain.getFdoProvider())
           .validateAttributes();
       ruleContext.assertNoErrors();
