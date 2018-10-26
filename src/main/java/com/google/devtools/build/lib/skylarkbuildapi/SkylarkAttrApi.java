@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 
 /**
@@ -979,6 +980,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false,
             doc = MANDATORY_DOC)
       },
+      disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_ATTR_LICENSE,
       useAst = true,
       useEnvironment = true)
   public Descriptor licenseAttribute(

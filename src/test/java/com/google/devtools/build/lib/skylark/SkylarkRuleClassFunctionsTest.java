@@ -644,6 +644,19 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testNoAttrLicense() throws Exception {
+    ev =
+        createEvaluationTestCase(
+            SkylarkSemantics.DEFAULT_SEMANTICS.toBuilder().incompatibleNoAttrLicense(true).build());
+    ev.initialize();
+
+    EvalException expected = assertThrows(EvalException.class, () -> eval("attr.license()"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("type 'attr (a language module)' has no method license()");
+  }
+
+  @Test
   public void testAttrDocValueBadType() throws Exception {
     checkErrorContains(
         "expected value of type 'string' for parameter 'doc', "

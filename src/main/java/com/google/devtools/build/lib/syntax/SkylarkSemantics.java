@@ -48,6 +48,7 @@ public abstract class SkylarkSemantics {
         SkylarkSemantics::incompatibleDisableObjcProviderResources),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(
         SkylarkSemantics::incompatibleNoTargetOutputGroup),
+    INCOMPATIBLE_NO_ATTR_LICENSE(SkylarkSemantics::incompatibleNoAttrLicense),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -152,6 +153,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleNewActionsApi();
 
+  public abstract boolean incompatibleNoAttrLicense();
+
   public abstract boolean incompatibleNoOutputAttrDefault();
 
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
@@ -212,6 +215,7 @@ public abstract class SkylarkSemantics {
           .incompatibleExpandDirectories(false)
           .incompatibleGenerateJavaCommonSourceJar(false)
           .incompatibleNewActionsApi(false)
+          .incompatibleNoAttrLicense(false)
           .incompatibleNoOutputAttrDefault(false)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
@@ -275,6 +279,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleGenerateJavaCommonSourceJar(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
+
+    public abstract Builder incompatibleNoAttrLicense(boolean value);
 
     public abstract Builder incompatibleNoOutputAttrDefault(boolean value);
 
