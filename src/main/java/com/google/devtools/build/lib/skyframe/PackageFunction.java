@@ -552,6 +552,8 @@ public class PackageFunction implements SkyFunction {
       PathFragment buildFilePath,
       PackageIdentifier packageId,
       BuildFileAST buildFileAST,
+      int workspaceChunk,
+      @Nullable RootedPath workspacePath,
       Environment env,
       SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
       throws NoSuchPackageException, InterruptedException {
@@ -577,7 +579,8 @@ public class PackageFunction implements SkyFunction {
     List<SkyKey> importLookupKeys = Lists.newArrayListWithExpectedSize(importLabels.size());
     boolean inWorkspace = buildFilePath.getBaseName().endsWith("WORKSPACE");
     for (Label importLabel : importLabels) {
-      importLookupKeys.add(SkylarkImportLookupValue.key(importLabel, inWorkspace));
+      // shouldn't be -1 here
+      importLookupKeys.add(SkylarkImportLookupValue.key(importLabel, inWorkspace, workspaceChunk, workspacePath));
     }
     Map<SkyKey, SkyValue> skylarkImportMap = Maps.newHashMapWithExpectedSize(importPathMap.size());
     boolean valuesMissing = false;
@@ -635,7 +638,8 @@ public class PackageFunction implements SkyFunction {
     for (Map.Entry<String, Label> importEntry : importPathMap.entrySet()) {
       String importString = importEntry.getKey();
       Label importLabel = importEntry.getValue();
-      SkyKey keyForLabel = SkylarkImportLookupValue.key(importLabel, inWorkspace);
+      // should not be -1
+      SkyKey keyForLabel = SkylarkImportLookupValue.key(importLabel, inWorkspace, workspaceChunk, workspacePath);
       SkylarkImportLookupValue importLookupValue =
           (SkylarkImportLookupValue) skylarkImportMap.get(keyForLabel);
       importMap.put(importString, importLookupValue.getEnvironmentExtension());
@@ -1158,6 +1162,8 @@ public class PackageFunction implements SkyFunction {
                   buildFilePath.getRootRelativePath(),
                   packageId,
                   astParseResult.ast,
+                  /* workspaceChunk = */ -1,
+                  /* workspacePath = */ null,
                   env,
                   skylarkImportLookupFunctionForInlining);
         } catch (NoSuchPackageException e) {

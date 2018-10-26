@@ -121,7 +121,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       BuildFileAST ast = workspaceASTValue.getASTs().get(key.getIndex());
       PackageFunction.SkylarkImportResult importResult =
           PackageFunction.fetchImportsFromBuildFile(
-              repoWorkspace.asPath().asFragment(), rootPackage, ast, env, null);
+              repoWorkspace.asPath().asFragment(), rootPackage, ast, key.getIndex(), key.getPath(), env,  null);
       if (importResult == null) {
         return null;
       }

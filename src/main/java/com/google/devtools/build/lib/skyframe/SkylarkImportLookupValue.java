@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -76,18 +77,24 @@ public class SkylarkImportLookupValue implements SkyValue {
 
     public final Label importLabel;
     public final boolean inWorkspace;
+    // a workspaceChunk = -1 means inWorkspace is false
+    public final int workspaceChunk;
+    // a null rooted workspace path means inWorkspace is false
+    public final RootedPath workspacePath;
 
-    private SkylarkImportLookupKey(Label importLabel, boolean inWorkspace) {
+    private SkylarkImportLookupKey(Label importLabel, boolean inWorkspace, int workspaceChunk, RootedPath workspacePath) {
       Preconditions.checkNotNull(importLabel);
       Preconditions.checkArgument(!importLabel.getPackageIdentifier().getRepository().isDefault());
       this.importLabel = importLabel;
       this.inWorkspace = inWorkspace;
+      this.workspaceChunk = workspaceChunk;
+      this.workspacePath = workspacePath;
     }
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static SkylarkImportLookupKey create(Label importLabel, boolean inWorkspace) {
-      return interner.intern(new SkylarkImportLookupKey(importLabel, inWorkspace));
+    static SkylarkImportLookupKey create(Label importLabel, boolean inWorkspace, int workspaceChunk, RootedPath workspacePath) {
+      return interner.intern(new SkylarkImportLookupKey(importLabel, inWorkspace, workspaceChunk, workspacePath));
     }
 
     @Override
@@ -110,17 +117,21 @@ public class SkylarkImportLookupValue implements SkyValue {
       }
       SkylarkImportLookupKey other = (SkylarkImportLookupKey) obj;
       return importLabel.equals(other.importLabel)
-          && inWorkspace == other.inWorkspace;
+          && inWorkspace == other.inWorkspace
+          && workspaceChunk == other.workspaceChunk
+          // note this might break if workspacePath can be nullable
+          // actually, can skykeys contain null values??
+          && workspacePath.equals(other.workspacePath);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(importLabel, inWorkspace);
+      return Objects.hash(importLabel, inWorkspace, workspaceChunk, workspacePath);
     }
   }
 
-  static SkyKey key(Label importLabel, boolean inWorkspace) {
-    return SkylarkImportLookupKey.create(importLabel, inWorkspace);
+  static SkyKey key(Label importLabel, boolean inWorkspace, int workspaceChunk, RootedPath workspacePath) {
+    return SkylarkImportLookupKey.create(importLabel, inWorkspace, workspaceChunk, workspacePath);
   }
 
   @Override
