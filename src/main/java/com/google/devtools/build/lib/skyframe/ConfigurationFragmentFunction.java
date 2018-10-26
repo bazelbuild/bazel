@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfigurationFragmentValue.ConfigurationFragmentKey;
 import com.google.devtools.build.lib.vfs.Path;
@@ -41,13 +40,10 @@ import java.io.IOException;
  */
 public final class ConfigurationFragmentFunction implements SkyFunction {
   private final Supplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments;
-  private final RuleClassProvider ruleClassProvider;
 
   public ConfigurationFragmentFunction(
-      Supplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments,
-      RuleClassProvider ruleClassProvider) {
+      Supplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments) {
     this.configurationFragments = configurationFragments;
-    this.ruleClassProvider = ruleClassProvider;
   }
 
   @Override
@@ -59,7 +55,7 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
     ConfigurationFragmentFactory factory = getFactory(configurationFragmentKey.getFragmentType());
     try {
       PackageProviderForConfigurations packageProvider =
-          new SkyframePackageLoaderWithValueEnvironment(env, ruleClassProvider);
+          new SkyframePackageLoaderWithValueEnvironment(env);
       ConfigurationEnvironment confEnv = new ConfigurationBuilderEnvironment(packageProvider);
       Fragment fragment = factory.create(confEnv, buildOptions);
 
@@ -119,11 +115,6 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
       return result;
     }
 
-    @Override
-    public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
-        throws InvalidConfigurationException, InterruptedException {
-      return packageProvider.getFragment(buildOptions, fragmentType);
-    }
   }
 
   /**

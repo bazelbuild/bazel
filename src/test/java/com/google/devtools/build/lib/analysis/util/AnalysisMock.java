@@ -42,7 +42,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -108,8 +107,6 @@ public abstract class AnalysisMock extends LoadingMock {
 
   @Override
   public abstract ConfiguredRuleClassProvider createRuleClassProvider();
-
-  public abstract Collection<String> getOptionOverrides();
 
   public abstract boolean isThisBazel();
 
@@ -189,11 +186,6 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public MockPythonSupport pySupport() {
       return delegate.pySupport();
-    }
-
-    @Override
-    public Collection<String> getOptionOverrides() {
-      return delegate.getOptionOverrides();
     }
 
     @Override

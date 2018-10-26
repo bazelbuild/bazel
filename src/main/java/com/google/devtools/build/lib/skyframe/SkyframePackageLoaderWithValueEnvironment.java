@@ -14,9 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -25,7 +22,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -41,12 +37,9 @@ import java.io.IOException;
  */
 class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForConfigurations {
   private final SkyFunction.Environment env;
-  private final RuleClassProvider ruleClassProvider;
 
-  SkyframePackageLoaderWithValueEnvironment(
-      SkyFunction.Environment env, RuleClassProvider ruleClassProvider) {
+  SkyframePackageLoaderWithValueEnvironment(SkyFunction.Environment env) {
     this.env = env;
-    this.ruleClassProvider = ruleClassProvider;
   }
 
   @Override
@@ -80,18 +73,6 @@ class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForCon
     if (result != null && !result.exists()) {
       throw new IOException();
     }
-  }
-
-  @Override
-  public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
-      throws InvalidConfigurationException, InterruptedException {
-    ConfigurationFragmentValue fragmentNode = (ConfigurationFragmentValue) env.getValueOrThrow(
-        ConfigurationFragmentValue.key(buildOptions, fragmentType, ruleClassProvider),
-        InvalidConfigurationException.class);
-    if (fragmentNode == null) {
-      return null;
-    }
-    return fragmentType.cast(fragmentNode.getFragment());
   }
 
   @Override
