@@ -96,6 +96,10 @@ cc_test(
         ":zip_headers",
         ":zlib_interface",
     ],
+    tags = [
+        # https://github.com/bazelbuild/bazel/issues/6512
+        "no_windows",
+    ],
     deps = [
         ":combiners",
         ":desugar_checking",
@@ -113,6 +117,11 @@ cc_test(
     data = [
         "data/empty.zip",
     ],
+    tags = [
+        # TODO(@rongjiecomputer): make this work on Windows as part of
+        # https://github.com/bazelbuild/bazel/issues/2241
+        "no_windows",
+    ],
     deps = [
         ":input_jar",
         ":test_util",
@@ -128,6 +137,11 @@ cc_test(
     ],
     data = [
         ":test1",
+    ],
+    tags = [
+        # TODO(@rongjiecomputer): make this work on Windows as part of
+        # https://github.com/bazelbuild/bazel/issues/2241
+        "no_windows",
     ],
     deps = [
         ":input_jar",
@@ -224,6 +238,11 @@ cc_test(
         ":test1",
         ":test2",
         "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
+    tags = [
+        # TODO(@rongjiecomputer): make this work on Windows as part of
+        # https://github.com/bazelbuild/bazel/issues/2241
+        "no_windows",
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     deps = [
@@ -488,4 +507,21 @@ genrule(
     cmd = "$(JAVABASE)/bin/jar -0cf \"$@\" $(location :output_jar.cc)",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+    ],
+    visibility = ["//src:__pkg__"],
 )

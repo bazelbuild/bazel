@@ -409,6 +409,7 @@ test_suite(
         "//src/test/py/bazel:all_windows_tests",
         "//src/test/shell:all_windows_tests",
         "//src/tools/launcher:all_windows_tests",
+        "//src/tools/singlejar:all_windows_tests",
         "//third_party/def_parser:all_windows_tests",
         "//tools:all_windows_tests",
     ],
