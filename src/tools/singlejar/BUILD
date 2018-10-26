@@ -430,11 +430,6 @@ cc_library(
     testonly = 1,
     srcs = ["test_util.cc"],
     hdrs = ["test_util.h"],
-    copts = select({
-        "//src/conditions:windows": ["-DJAR_TOOL_DEFINE=\\\"io_bazel/$(JAVABASE)/bin/jar.exe\\\""],
-        "//conditions:default": ["-DJAR_TOOL_DEFINE=\\\"io_bazel/$(JAVABASE)/bin/jar\\\""],
-    }),
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     deps = [
         "//src/main/cpp/util",
         # TODO(laszlocsomor) Use @bazel_tools//tools/cpp/runfiles after Bazel is
