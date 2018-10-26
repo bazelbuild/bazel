@@ -60,8 +60,7 @@ public final class LazyWriteNestedSetOfPairAction extends AbstractFileWriteActio
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
-    fp.addString(GUID);
-    fp.addString(getContents());
+    actionKeyContext.addNestedSetToFingerprint(fp, pairsToWrite);
   }
 
   private String getContents() {

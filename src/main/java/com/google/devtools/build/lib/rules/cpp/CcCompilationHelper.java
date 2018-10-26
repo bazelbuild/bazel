@@ -927,10 +927,10 @@ public final class CcCompilationHelper {
 
     if (ruleContext.hasErrors()) {
       return new PublicHeaders(
-          ImmutableList.of(),
-          ImmutableList.of(),
-          null,
-          NestedSetBuilder.create(Order.STABLE_ORDER));
+          /* headers= */ ImmutableList.of(),
+          /* moduleMapHeaders */ ImmutableList.of(),
+          /* virtualIncludePath */ null,
+          /* virtualToOriginalHeaders */ NestedSetBuilder.create(Order.STABLE_ORDER));
     }
 
     ImmutableList.Builder<Artifact> moduleHeadersBuilder = ImmutableList.builder();

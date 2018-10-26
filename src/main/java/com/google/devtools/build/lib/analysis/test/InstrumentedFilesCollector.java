@@ -54,8 +54,8 @@ public final class InstrumentedFilesCollector {
     return collect(
         ruleContext,
         new InstrumentationSpec(FileTypeSet.NO_FILE).withDependencyAttributes(dependencyAttributes),
-        /*localMetadataCollector=*/ null,
-        /*rootFiles=*/ null,
+        /* localMetadataCollector= */ null,
+        /* rootFiles= */ null,
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
