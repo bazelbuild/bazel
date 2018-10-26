@@ -47,6 +47,9 @@ class ZipEntryPaths {
   // `files` must be relative, Unix-style paths.
   void Create(const std::string& root, const std::vector<std::string>& files);
 
+  // Returns the number of paths in `AbsPathPtrs` and `EntryPathPtrs`.
+  size_t Size() const { return size_; }
+
   // Returns a mutable array of const pointers to const char data.
   // Each pointer points to an absolute path: the file to archive.
   // The pointers are owned by this object and become invalid when the object is
@@ -62,6 +65,7 @@ class ZipEntryPaths {
   char const* const* EntryPathPtrs() const { return entry_path_ptrs_.get(); }
 
  private:
+  size_t size_;
   std::unique_ptr<char[]> abs_paths_;
   std::unique_ptr<char*[]> abs_path_ptrs_;
   std::unique_ptr<char*[]> entry_path_ptrs_;
@@ -85,6 +89,13 @@ bool TestOnly_ToZipEntryPaths(
     const std::wstring& abs_root,
     const std::vector<bazel::tools::test_wrapper::FileInfo>& files,
     ZipEntryPaths* result);
+
+// Archives `files` into a zip file at `abs_zip` (absolute path to the zip).
+bool TestOnly_CreateZip(const std::wstring& abs_root,
+                        const std::vector<FileInfo>& files,
+                        const std::wstring& abs_zip);
+
+bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result);
 
 }  // namespace testing
 

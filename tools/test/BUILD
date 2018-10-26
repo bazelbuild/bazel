@@ -72,6 +72,7 @@ cc_library(
             "//src/main/cpp/util:filesystem",
             "//src/main/cpp/util:strings",
             "//src/main/native/windows:lib-file",
+            "//third_party/ijar:zip",
             "@bazel_tools//tools/cpp/runfiles",
         ],
         "//conditions:default": [],
@@ -92,6 +93,7 @@ cc_test(
     ] + select({
         "@bazel_tools//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
+            "//third_party/ijar:zip",
         ],
         "//conditions:default": [],
     }),

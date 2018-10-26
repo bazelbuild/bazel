@@ -24,6 +24,11 @@ cc_library(
         "mapped_file.h",
         "zip.h",
     ],
+    visibility = [
+        "//src:__subpackages__",
+        "//third_party/ijar:__subpackages__",
+        "//tools/test:__pkg__",
+    ],
     deps = [
         ":platform_utils",
         ":zlib_client",
