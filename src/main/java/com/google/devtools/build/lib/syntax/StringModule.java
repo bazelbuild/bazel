@@ -483,8 +483,8 @@ public final class StringModule {
   @SkylarkCallable(
       name = "capitalize",
       doc =
-          "Returns a copy of the string with its first character capitalized and the rest "
-              + "lowercased. This method does not support non-ascii characters.",
+          "Returns a copy of the string with its first character (if any) capitalized and the rest "
+              + "lowercased. This method does not support non-ascii characters. ",
       parameters = {@Param(name = "self", type = String.class, doc = "This string.")})
   public String capitalize(String self) throws EvalException {
     if (self.isEmpty()) {
