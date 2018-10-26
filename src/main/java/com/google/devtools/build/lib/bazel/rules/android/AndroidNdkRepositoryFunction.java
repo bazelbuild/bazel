@@ -264,7 +264,9 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       for (CToolchain toolchain : crosstool.getToolchainList()) {
         toolchainMap.append(
             String.format(
-                "      \"%s|%s\": \":%s\",\n",
+                "      '%s': ':%s',\n      '%s|%s': ':%s',\n",
+                toolchain.getTargetCpu(),
+                toolchain.getToolchainIdentifier(),
                 toolchain.getTargetCpu(),
                 toolchain.getCompiler(),
                 toolchain.getToolchainIdentifier()));
