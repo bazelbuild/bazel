@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -523,11 +524,19 @@ public class RunCommand implements BlazeCommand  {
       String cmd) {
     Path scriptPath = env.getWorkingDirectory().getRelative(scriptPathFrag);
     try {
-      FileSystemUtils.writeContent(
-          scriptPath,
-          StandardCharsets.ISO_8859_1,
-          "#!" + shellExecutable.getPathString() + "\n" + cmd + " \"$@\"");
-      scriptPath.setExecutable(true);
+      if (OS.getCurrent() == OS.WINDOWS) {
+        FileSystemUtils.writeContent(
+            scriptPath,
+            StandardCharsets.ISO_8859_1,
+            "@echo off\n" + cmd + " %*");
+        scriptPath.setExecutable(true);
+      } else {
+        FileSystemUtils.writeContent(
+            scriptPath,
+            StandardCharsets.ISO_8859_1,
+            "#!" + shellExecutable.getPathString() + "\n" + cmd + " \"$@\"");
+        scriptPath.setExecutable(true);
+      }
     } catch (IOException e) {
       env.getReporter().handle(Event.error("Error writing run script:" + e.getMessage()));
       return false;
