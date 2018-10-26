@@ -21,22 +21,20 @@
 
 #include "src/tools/singlejar/input_jar_scan_entries_test.h"
 
-#ifdef _WIN32
-const char JAR_TOOL_PATH[] = "%JAVABASE%\\bin\\jar.exe";
-#else
-const char JAR_TOOL_PATH[] = "$(JAVABASE)/bin/jar";
-#endif
-
 using bazel::tools::cpp::runfiles::Runfiles;
 
 class JartoolCreator {
  public:
-  static void SetUpTestCase() {}
+  static void SetUpTestCase() {
+    std::unique_ptr<Runfiles> runfiles(Runfiles::CreateForTest());
+    static std::string jar_path_str = runfiles->Rlocation(JAR_TOOL_PATH);
+    jar_path_ = jar_path_str.c_str();
+  }
 
   static void TearDownTestCase() {}
 
   static int Jar(bool compress, const char *output_jar, ...) {
-    std::string command(JAR_TOOL_PATH);
+    std::string command(jar_path_);
     if (access(output_jar, F_OK) == 0) {
       command += compress ? " -uf " : " -u0f ";
     } else {
@@ -52,7 +50,10 @@ class JartoolCreator {
     }
     return system(command.c_str());
   }
+  static const char* jar_path_;
 };
+
+const char* JartoolCreator::jar_path_ = nullptr;
 
 typedef testing::Types<JartoolCreator> Creators;
 INSTANTIATE_TYPED_TEST_CASE_P(Jartool, InputJarScanEntries, Creators);
