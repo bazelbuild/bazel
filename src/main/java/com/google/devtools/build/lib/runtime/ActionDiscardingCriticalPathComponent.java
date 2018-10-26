@@ -56,9 +56,8 @@ class ActionDiscardingCriticalPathComponent extends CriticalPathComponent {
   }
 
   @Override
-  public synchronized boolean finishActionExecution(long startNanos, long finishNanos) {
-    boolean result = super.finishActionExecution(startNanos, finishNanos);
+  public synchronized void finishActionExecution(long startNanos, long finishNanos) {
+    super.finishActionExecution(startNanos, finishNanos);
     this.action = null;
-    return result;
   }
 }

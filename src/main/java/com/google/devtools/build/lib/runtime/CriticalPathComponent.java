@@ -89,14 +89,12 @@ public class CriticalPathComponent {
    * necessarily use the correct getElapsedTimeNanos(). But we do not want to block action execution
    * because of this. So in certain conditions we might see another path as the critical path.
    */
-  public synchronized boolean finishActionExecution(long startNanos, long finishNanos) {
+  public synchronized void finishActionExecution(long startNanos, long finishNanos) {
     if (isRunning || finishNanos - startNanos > getElapsedTimeNanos()) {
       this.startNanos = startNanos;
       this.finishNanos = finishNanos;
       isRunning = false;
-      return true;
     }
-    return false;
   }
 
   /**
