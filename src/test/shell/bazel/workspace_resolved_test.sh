@@ -454,7 +454,9 @@ EOF
   expect_log '//does/not:exist.bzl'
 }
 
-test_sync_debug_and_errors_printed() {
+test_sync_reporting() {
+  # Verify that debug and error messages in starlark functions are reported.
+  # Also verify that the fact that the repository is fetched is reported as well.
   EXTREPODIR=`pwd`
   tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
 
@@ -477,7 +479,8 @@ load("//:rule.bzl", "broken_rule")
 
 broken_rule(name = "broken")
 EOF
-  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  bazel sync --curses=yes --experimental_ui_actions_shown=100 --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  expect_log 'Fetching @broken'
   expect_log "DEBUG-message"
   expect_log "Failure-message"
 }
