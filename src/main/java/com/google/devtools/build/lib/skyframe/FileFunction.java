@@ -30,7 +30,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.TreeSet;
@@ -69,7 +68,7 @@ public class FileFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env)
+  public FileValue compute(SkyKey skyKey, Environment env)
       throws FileFunctionException, InterruptedException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
     RootedPath realRootedPath = null;
