@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.TrackSourceDirectoriesFlag;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 
@@ -74,7 +75,9 @@ public class GenRuleAction extends SpawnAction {
   protected List<SpawnResult> internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     EventHandler reporter = actionExecutionContext.getEventHandler();
-    checkInputsForDirectories(reporter, actionExecutionContext.getMetadataProvider());
+    if (!TrackSourceDirectoriesFlag.trackSourceDirectories()) {
+      checkInputsForDirectories(reporter, actionExecutionContext.getMetadataProvider());
+    }
     List<SpawnResult> spawnResults = ImmutableList.of();
     try {
       spawnResults = super.internalExecute(actionExecutionContext);

@@ -248,6 +248,10 @@ public abstract class FileArtifactValue implements SkyValue {
     return createNormalFile(digest, /*proxy=*/ null, size);
   }
 
+  public static FileArtifactValue createDirectoryWithHash(byte[] digest) {
+    return new HashedDirectoryArtifactValue(digest);
+  }
+
   public static FileArtifactValue createDirectory(long mtime) {
     return new DirectoryArtifactValue(mtime);
   }
@@ -297,6 +301,65 @@ public abstract class FileArtifactValue implements SkyValue {
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this).add("mtime", mtime).toString();
+    }
+  }
+
+  private static final class HashedDirectoryArtifactValue extends FileArtifactValue {
+    private final byte[] digest;
+
+    private HashedDirectoryArtifactValue(byte[] digest) {
+      this.digest = digest;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.DIRECTORY;
+    }
+
+    @Nullable
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      return 0;
+    }
+
+    @Override
+    public long getSize() {
+      return 0;
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+      // TODO(ulfjack): Ideally, we'd attempt to detect intra-build modifications here. I'm
+      // consciously deferring work here as this code will most likely change again, and we're
+      // already doing better than before by detecting inter-build modifications.
+      return false;
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("digest", digest).toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof HashedDirectoryArtifactValue)) {
+        return false;
+      }
+      HashedDirectoryArtifactValue r = (HashedDirectoryArtifactValue) o;
+      return Arrays.equals(digest, r.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(digest);
     }
   }
 

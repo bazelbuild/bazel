@@ -33,10 +33,16 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
+import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -72,6 +78,8 @@ class ArtifactFunction implements SkyFunction {
         // The error is not necessarily truly transient, but we mark it as such because we have
         // the above side effect of posting an event to the EventBus. Importantly, that event
         // is potentially used to report root causes.
+        throw new ArtifactFunctionException(e, Transience.TRANSIENT);
+      } catch (IOException e) {
         throw new ArtifactFunctionException(e, Transience.TRANSIENT);
       }
     }
@@ -217,9 +225,9 @@ class ArtifactFunction implements SkyFunction {
   }
 
   private FileArtifactValue createSourceValue(Artifact artifact, boolean mandatory, Environment env)
-      throws MissingInputFileException, InterruptedException {
-    SkyKey fileSkyKey =
-        FileValue.key(RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getPath()));
+      throws MissingInputFileException, IOException, InterruptedException {
+    RootedPath path = RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getPath());
+    SkyKey fileSkyKey = FileValue.key(path);
     FileValue fileValue;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
@@ -235,6 +243,45 @@ class ArtifactFunction implements SkyFunction {
       } else {
         throw makeMissingInputFileException(artifact, mandatory, null, env.getListener());
       }
+    }
+    // For directory artifacts that are not Filesets, we initiate a directory traversal here, and
+    // compute a hash from the directory structure.
+    if (fileValue.isDirectory() && TrackSourceDirectoriesFlag.trackSourceDirectories()) {
+      // We rely on the guarantees of RecursiveFilesystemTraversalFunction for correctness.
+      //
+      // This approach may have unexpected interactions with --package_path. In particular, the exec
+      // root is setup from the loading / analysis phase, and it is now too late to change it;
+      // therefore, this may traverse a different set of files depending on which targets are built
+      // at the same time and what the package-path layout is (this may be moot if there is only one
+      // entry). Or this may return a set of files that's inconsistent with those actually available
+      // to the action (for local execution).
+      //
+      // In the future, we need to make this result the source of truth for the files available to
+      // the action so that we at least have consistency.
+      TraversalRequest request = TraversalRequest.create(
+          DirectTraversalRoot.forRootedPath(path),
+          /*isRootGenerated=*/ false,
+          PackageBoundaryMode.CROSS,
+          /*strictOutputFiles=*/ true,
+          /*skipTestingForSubpackage=*/ true,
+          /*errorInfo=*/ null);
+      RecursiveFilesystemTraversalValue value;
+      try {
+        value =
+            (RecursiveFilesystemTraversalValue) env.getValueOrThrow(
+                request, RecursiveFilesystemTraversalException.class);
+      } catch (RecursiveFilesystemTraversalException e) {
+        throw new IOException(e);
+      }
+      if (value == null) {
+        return null;
+      }
+      Fingerprint fp = new Fingerprint();
+      for (ResolvedFile file : value.getTransitiveFiles()) {
+        fp.addString(file.getNameInSymlinkTree().getPathString());
+        fp.addInt(file.getMetadata().hashCode());
+      }
+      return FileArtifactValue.createDirectoryWithHash(fp.digestAndReset());
     }
     try {
       return FileArtifactValue.create(artifact, fileValue);
