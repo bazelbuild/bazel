@@ -159,6 +159,7 @@ public class CriticalPathComputer {
 
   /** Adds spawn metrics to the action stats. */
   @Subscribe
+  @AllowConcurrentEvents
   public void spawnExecuted(SpawnExecutedEvent event) {
     ActionAnalysisMetadata action = event.getActionMetadata();
     Artifact primaryOutput = action.getPrimaryOutput();
