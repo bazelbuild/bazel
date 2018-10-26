@@ -97,7 +97,8 @@ cc_test(
         ":zlib_interface",
     ],
     tags = [
-        # https://github.com/bazelbuild/bazel/issues/6512
+        # TODO(laszlocsomor) Enable this test when BuildKite uses Bazel that includes
+        # https://github.com/bazelbuild/bazel/commit/914b4ce14624171a97ff8b41f9202058f10d15b2
         "no_windows",
     ],
     deps = [
@@ -117,11 +118,6 @@ cc_test(
     data = [
         "data/empty.zip",
     ],
-    tags = [
-        # TODO(@rongjiecomputer): make this work on Windows as part of
-        # https://github.com/bazelbuild/bazel/issues/2241
-        "no_windows",
-    ],
     deps = [
         ":input_jar",
         ":test_util",
@@ -138,11 +134,6 @@ cc_test(
     ],
     data = [
         ":test1",
-    ],
-    tags = [
-        # TODO(@rongjiecomputer): make this work on Windows as part of
-        # https://github.com/bazelbuild/bazel/issues/2241
-        "no_windows",
     ],
     deps = [
         ":input_jar",
@@ -243,11 +234,6 @@ cc_test(
         ":test1",
         ":test2",
         "@bazel_tools//tools/jdk:current_java_runtime",
-    ],
-    tags = [
-        # TODO(@rongjiecomputer): make this work on Windows as part of
-        # https://github.com/bazelbuild/bazel/issues/2241
-        "no_windows",
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     deps = [
