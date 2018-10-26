@@ -740,6 +740,7 @@ class ExperimentalStateTracker {
     int count = 0;
     long nanoTime = clock.nanoTime();
     int downloadCount = runningDownloads.size();
+    String suffix = AND_MORE + " (" + downloadCount + " fetches)";
     for (String url : runningDownloads) {
       if (count >= sampleSize) {
         break;
@@ -751,11 +752,11 @@ class ExperimentalStateTracker {
           nanoTime,
           targetWidth
               - FETCH_PREFIX.length()
-              - ((count >= sampleSize && count < downloadCount) ? AND_MORE.length() : 0),
+              - ((count >= sampleSize && count < downloadCount) ? suffix.length() : 0),
           terminalWriter);
     }
     if (count < downloadCount) {
-      terminalWriter.append(AND_MORE);
+      terminalWriter.append(suffix);
     }
   }
 

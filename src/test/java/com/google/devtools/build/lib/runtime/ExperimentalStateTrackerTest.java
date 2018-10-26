@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
@@ -1065,5 +1066,47 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     BuildEventTransport transport = Mockito.mock(BuildEventTransport.class);
     when(transport.name()).thenReturn(name);
     return transport;
+  }
+
+  @Test
+  public void testTotalFetchesReported() throws IOException {
+    ManualClock clock = new ManualClock();
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 80);
+
+    stateTracker.buildStarted(null);
+    for (int i = 0; i < 30; i++) {
+      stateTracker.downloadProgress(new FetchEvent("@repoFoo" + i));
+    }
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(7));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+    assertThat(output, containsString("@repoFoo"));
+    assertThat(output, containsString("7s"));
+    assertThat(output, containsString("30 fetches"));
+  }
+
+  private static class FetchEvent implements FetchProgress {
+    private final String id;
+
+    FetchEvent(String id) {
+      this.id = id;
+    }
+
+    @Override
+    public String getResourceIdentifier() {
+      return id;
+    }
+
+    @Override
+    public String getProgress() {
+      return "working...";
+    }
+
+    @Override
+    public boolean isFinished() {
+      return false;
+    }
   }
 }
