@@ -255,6 +255,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    srcs = ['banana1', 'banana2'])",
         "cc_toolchain(",
         "    name = 'b',",
+        "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    cpu = 'banana',",
         "    all_files = ':banana',",
         "    ar_files = ':empty',",
@@ -401,9 +402,12 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testModuleMapAttribute() throws Exception {
-    scratchConfiguredTarget("modules/map", "c",
+    scratchConfiguredTarget(
+        "modules/map",
+        "c",
         "cc_toolchain(",
         "    name = 'c',",
+        "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    module_map = 'map',",
         "    cpu = 'cherry',",
         "    ar_files = 'ar-cherry',",
@@ -421,9 +425,12 @@ public class CcToolchainTest extends BuildViewTestCase {
   
   @Test
   public void testModuleMapAttributeOptional() throws Exception {
-    scratchConfiguredTarget("modules/map", "c",
+    scratchConfiguredTarget(
+        "modules/map",
+        "c",
         "cc_toolchain(",
         "    name = 'c',",
+        "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    cpu = 'cherry',",
         "    ar_files = 'ar-cherry',",
         "    as_files = 'as-cherry',",
@@ -434,15 +441,19 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
         "    dynamic_runtime_libs = ['dynamic-runtime-libs-cherry'],",
-        "    static_runtime_libs = ['static-runtime-libs-cherry'])");    
+        "    static_runtime_libs = ['static-runtime-libs-cherry'])");
   }
 
   @Test
   public void testFailWithMultipleModuleMaps() throws Exception {
-    checkError("modules/multiple", "c", "expected a single artifact",
+    checkError(
+        "modules/multiple",
+        "c",
+        "expected a single artifact",
         "filegroup(name = 'multiple-maps', srcs = ['a.cppmap', 'b.cppmap'])",
         "cc_toolchain(",
         "    name = 'c',",
+        "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    module_map = ':multiple-maps',",
         "    cpu = 'cherry',",
         "    ar_files = 'ar-cherry',",
@@ -515,6 +526,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "   name='empty')",
         "cc_toolchain(",
         "    name = 'b',",
+        "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    cpu = 'banana',",
         "    all_files = ':empty',",
         "    ar_files = ':empty',",

@@ -451,10 +451,12 @@ public class LicensingTests extends BuildViewTestCase {
 
   @Test
   public void testCcToolchainLicenseOverride() throws Exception {
-    scratch.file("c/BUILD",
+    scratch.file(
+        "c/BUILD",
         "filegroup(name = 'dynamic-runtime-libs-cherry', srcs = [], licenses = ['restricted'])",
         "cc_toolchain(",
         "    name = 'c',",
+        "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    output_licenses = ['notice'],",
         "    cpu = 'cherry',",
         "    ar_files = 'ar-cherry',",

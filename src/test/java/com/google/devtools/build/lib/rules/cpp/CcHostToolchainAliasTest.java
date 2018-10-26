@@ -47,6 +47,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "cc_toolchain_suite(",
         "  name = 'my_custom_toolchain_suite',",
         "  toolchains = {",
+        "    'k8': '//b:toolchain_b',",
         "    'k8|gcc-4.4.0': '//b:toolchain_b',",
         "    'k8|compiler': '//b:toolchain_b',",
         "    'x64_windows|windows_msys64': '//b:toolchain_b',",
@@ -54,6 +55,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "})",
         "cc_toolchain(",
         "    name = 'toolchain_b',",
+        "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    cpu = 'ED-E',",
         "    all_files = ':banana',",
         "    ar_files = ':empty',",
@@ -69,7 +71,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
 
     scratch.file("a/BUILD", "cc_host_toolchain_alias(name='current_cc_host_toolchain')");
 
-    useConfiguration("--host_crosstool_top=//b:my_custom_toolchain_suite");
+    useConfiguration("--host_crosstool_top=//b:my_custom_toolchain_suite", "--host_cpu=k8");
     ConfiguredTarget target = getConfiguredTarget("//a:current_cc_host_toolchain");
 
     assertThat(target.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//b:toolchain_b"));

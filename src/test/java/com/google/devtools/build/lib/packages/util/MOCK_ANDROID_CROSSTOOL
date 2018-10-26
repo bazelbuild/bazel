@@ -1,16 +1,5 @@
 major_version: "18"
 minor_version: "0"
-default_target_cpu: "armeabi-v7a"
-
-default_toolchain {
-  cpu: "armeabi-v7a"
-  toolchain_identifier: "armeabi-v7a"
-}
-
-default_toolchain {
-  cpu: "x86"
-  toolchain_identifier: "x86"
-}
 
 toolchain {
   toolchain_identifier: "armeabi-v7a"

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CTool
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import javax.annotation.Nullable;
 
 /**
@@ -211,18 +210,11 @@ public class CToolchainSelectionUtils {
     }
 
     if (selectedIdentifier == null) {
-      HashSet<String> seenCpus = new HashSet<>();
       StringBuilder errorMessageBuilder = new StringBuilder();
       errorMessageBuilder
           .append("No toolchain found for cpu '")
           .append(config.getCpu())
-          .append("'. Valid cpus from default_toolchain entries are: [\n");
-      for (CrosstoolConfig.DefaultCpuToolchain selector : release.getDefaultToolchainList()) {
-        if (seenCpus.add(selector.getCpu())) {
-          errorMessageBuilder.append("  ").append(selector.getCpu()).append(",\n");
-        }
-      }
-      errorMessageBuilder.append("]. Valid toolchains are: ");
+          .append("'. Valid toolchains are: ");
       describeToolchainList(errorMessageBuilder, release.getToolchainList());
       throw new InvalidConfigurationException(errorMessageBuilder.toString());
     }
