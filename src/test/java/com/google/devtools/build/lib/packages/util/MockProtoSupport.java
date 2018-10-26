@@ -28,7 +28,7 @@ public final class MockProtoSupport {
    */
   public static void setup(MockToolsConfig config) throws IOException {
     createNetProto2(config);
-    createJavascriptClosureProto2(config);
+    createJavascriptJspb(config);
   }
 
   /**
@@ -190,15 +190,30 @@ public final class MockProtoSupport {
         "           srcs = [ 'metadata.go' ])");
   }
 
-  /**
-   * Create a dummy "javascript/closure/proto2" package.
-   */
-  private static void createJavascriptClosureProto2(MockToolsConfig config) throws IOException {
+  /** Create a dummy jspb support package. */
+  private static void createJavascriptJspb(MockToolsConfig config) throws IOException {
     config.create(
-        "javascript/closure/proto2/BUILD",
+        "net/proto2/compiler/js/internal/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "cc_binary(name = 'protoc-gen-js',",
+        "    srcs = ['plugin.cc'])");
+    config.create(
+        "javascript/apps/jspb/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "js_library(name = 'message',",
-        "           srcs = ['message.js'],",
-        "           deps_mgmt = 'legacy')");
+        "    srcs = ['message.js'],",
+        "    deps_mgmt = 'legacy')");
+    config.create(
+        "javascript/closure/array/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "js_library(name = 'array',",
+        "    srcs = ['array.js'],",
+        "    deps_mgmt = 'legacy')");
+    config.create(
+        "javascript/apps/xid/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "js_library(name = 'xid',",
+        "    srcs = ['xid.js'],",
+        "    deps_mgmt = 'legacy')");
   }
 }
