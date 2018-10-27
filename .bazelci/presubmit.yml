@@ -11,16 +11,7 @@ platforms:
     - "--test_timeout=1200"
     test_targets:
     - "--"
-    - "//scripts/..."
-    - "//src/test/..."
-    - "//third_party/ijar/..."
-    - "//tools/android/..."
-    # Disable Slow Tests
-    - "-//src/test/shell/bazel:bazel_determinism_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
-    - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
+    - "//src/test/shell/bazel/android:android_ndk_integration_test"
   ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -32,16 +23,7 @@ platforms:
     - "--test_timeout=1200"
     test_targets:
     - "--"
-    - "//scripts/..."
-    - "//src/test/..."
-    - "//third_party/ijar/..."
-    - "//tools/android/..."
-    # Disable Slow Tests
-    - "-//src/test/shell/bazel:bazel_determinism_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
-    - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
+    - "//src/test/shell/bazel/android:android_ndk_integration_test"
   ubuntu1804:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -53,69 +35,7 @@ platforms:
     - "--test_timeout=1200"
     test_targets:
     - "--"
-    - "//scripts/..."
-    - "//src/test/..."
-    - "//third_party/ijar/..."
-    - "//tools/android/..."
-    # Disable Slow Tests
-    - "-//src/test/shell/bazel:bazel_determinism_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
-    - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
-  ubuntu1804_nojava:
-    build_flags:
-    - "--javabase=@openjdk_linux_archive//:runtime"
-    build_targets:
-    - "//src:bazel"
-    test_flags:
-    - "--javabase=@openjdk_linux_archive//:runtime"
-    - "--test_timeout=1200"
-    test_targets:
-    - "--"
-    - "//scripts/..."
-    - "//src/test/..."
-    - "//third_party/ijar/..."
-    # Disable Slow Tests
-    - "-//src/test/shell/bazel:bazel_determinism_test"
-    # We can't run Android tests without an installed Android SDK / NDK.
-    - "-//src/test/java/com/google/devtools/build/android/..."
-    - "-//src/test/shell/bazel/android/..."
-    # Currently broken tests on this platform.
-    # These tests do not work without an installed system JDK:
-    # (see https://github.com/bazelbuild/bazel/issues/6214#issuecomment-424813868)
-    # TODO(philwo): Use tags instead of an explicit blacklist.
-    - "-//src/test/py/bazel:launcher_test"
-    - "-//src/test/py/bazel:runfiles_test"
-    - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-    - "-//src/test/shell/bazel:bazel_coverage_cc_test_gcc"
-    - "-//src/test/shell/bazel:bazel_coverage_cc_test_llvm"
-    - "-//src/test/shell/bazel:bazel_coverage_java_test"
-    - "-//src/test/shell/bazel:bazel_coverage_sh_test"
-    - "-//src/test/shell/bazel:bazel_determinism_test"
-    - "-//src/test/shell/bazel:bazel_example_test"
-    - "-//src/test/shell/bazel:bazel_java_test"
-    - "-//src/test/shell/bazel:bazel_random_characters_test"
-    - "-//src/test/shell/bazel:bazel_repository_cache_test"
-    - "-//src/test/shell/bazel:bazel_rules_test"
-    - "-//src/test/shell/bazel:bazel_sandboxing_test"
-    - "-//src/test/shell/bazel:bazel_test_test"
-    - "-//src/test/shell/bazel:empty_package_test"
-    - "-//src/test/shell/bazel:external_integration_test"
-    - "-//src/test/shell/bazel:java_launcher_test"
-    - "-//src/test/shell/bazel:local_repository_test"
-    - "-//src/test/shell/bazel:maven_test"
-    - "-//src/test/shell/bazel:runfiles_test"
-    - "-//src/test/shell/integration:bazel_java_test"
-    - "-//src/test/shell/integration:bazel_sandboxed_worker_test"
-    - "-//src/test/shell/integration:bazel_worker_test"
-    - "-//src/test/shell/integration:discard_analysis_cache_test"
-    - "-//src/test/shell/integration:discard_graph_edges_test"
-    - "-//src/test/shell/integration:java_integration_test"
-    - "-//src/test/shell/integration:nonincremental_builds_test"
-    - "-//src/test/shell/integration:output_filter_test"
-    - "-//src/test/shell/integration:stub_finds_runfiles_test"
-    - "-//src/test/shell/integration:test_test"
+    - "//src/test/shell/bazel/android:android_ndk_integration_test"
   ubuntu1804_java9:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -127,16 +47,7 @@ platforms:
     - "--test_timeout=1200"
     test_targets:
     - "--"
-    - "//scripts/..."
-    - "//src/test/..."
-    - "//third_party/ijar/..."
-    - "//tools/android/..."
-    # Disable Slow Tests
-    - "-//src/test/shell/bazel:bazel_determinism_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
-    - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
+    - "//src/test/shell/bazel/android:android_ndk_integration_test"
   ubuntu1804_java10:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -148,16 +59,7 @@ platforms:
     - "--test_timeout=1200"
     test_targets:
     - "--"
-    - "//scripts/..."
-    - "//src/test/..."
-    - "//third_party/ijar/..."
-    - "//tools/android/..."
-    # Disable Slow Tests
-    - "-//src/test/shell/bazel:bazel_determinism_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
-    - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
+    - "//src/test/shell/bazel/android:android_ndk_integration_test"
   macos:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -169,51 +71,4 @@ platforms:
     - "--test_timeout=1200"
     test_targets:
     - "--"
-    - "//scripts/..."
-    - "//src/test/..."
-    - "//third_party/ijar/..."
-    - "//tools/android/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
-    - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # The below tests have been disabled because they are too slow on macOS.
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4684
-    - "-//src/test/shell/bazel:bazel_determinism_test"
-    - "-//src/test/shell/bazel:bazel_java_test"
-    - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-    - "-//src/test/shell/bazel/remote:remote_execution_test"
-    - "-//src/test/shell/bazel/remote:remote_execution_http_test"
-    - "-//src/test/shell/bazel:skylark_git_repository_test"
-    - "-//src/test/shell/bazel:external_path_test"
-    - "-//src/test/py/bazel:runfiles_test"
-    - "-//src/test/shell/bazel:git_repository_test"
-    - "-//src/test/shell/bazel/android:aar_integration_test"
-    - "-//src/test/shell/bazel/android:android_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
-  windows:
-    build_flags:
-    - "--copt=-w"
-    - "--host_copt=-w"
-    build_targets:
-    - "//src:bazel"
-    test_flags:
-    - "--copt=-w"
-    - "--host_copt=-w"
-    - "--test_env=JAVA_HOME"
-    # TODO(pcloudy): Need this for WindowsSubprocessTest.java.
-    # Remove this when release version Bazel sets SYSTEMDRIVE
-    # on Windows by default.
-    - "--test_env=SYSTEMDRIVE"
-    - "--test_timeout=1200"
-    test_targets:
-    - "--"
-    - "//src:all_windows_tests"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
-  rbe_ubuntu1604:
-    shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-      android_ndk_repository/android_ndk_repository/' WORKSPACE
-    - rm -f WORKSPACE.bak
-    build_targets:
-    - "//src:bazel"
+    - "//src/test/shell/bazel/android:android_ndk_integration_test"

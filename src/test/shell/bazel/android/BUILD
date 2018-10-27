@@ -91,6 +91,7 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     shard_count = 6,
+    tags = ["no-cache"],
 )
 
 sh_test(
