@@ -44,7 +44,7 @@ def _pkg_tar_impl(ctx):
                 file_inputs += run_files
 
     args += [
-        "--file=%s=%s" % (f.path, dest_path(f, data_path))
+        "--file=%s:%s" % (f.path, dest_path(f, data_path))
         for f in file_inputs
     ]
     for target, f_dest_path in ctx.attr.files.items():
@@ -52,14 +52,14 @@ def _pkg_tar_impl(ctx):
         if len(target_files) != 1:
             fail("Inputs to pkg_tar.files_map must describe exactly one file.")
         file_inputs += [target_files[0]]
-        args += ["--file=%s=%s" % (target_files[0].path, f_dest_path)]
+        args += ["--file=%s:%s" % (target_files[0].path, f_dest_path)]
     if ctx.attr.modes:
-        args += ["--modes=%s=%s" % (key, ctx.attr.modes[key]) for key in ctx.attr.modes]
+        args += ["--modes=%s:%s" % (key, ctx.attr.modes[key]) for key in ctx.attr.modes]
     if ctx.attr.owners:
-        args += ["--owners=%s=%s" % (key, ctx.attr.owners[key]) for key in ctx.attr.owners]
+        args += ["--owners=%s:%s" % (key, ctx.attr.owners[key]) for key in ctx.attr.owners]
     if ctx.attr.ownernames:
         args += [
-            "--owner_names=%s=%s" % (key, ctx.attr.ownernames[key])
+            "--owner_names=%s:%s" % (key, ctx.attr.ownernames[key])
             for key in ctx.attr.ownernames
         ]
     if ctx.attr.empty_files:

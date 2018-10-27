@@ -106,6 +106,7 @@ function get_changes() {
 
 function assert_content() {
   local listing="./
+./a=b
 ./etc/
 ./etc/nsswitch.conf
 ./usr/
@@ -113,8 +114,10 @@ function assert_content() {
 ./usr/bin/
 ./usr/bin/java -> /path/to/bin/java"
   check_eq "$listing" "$(get_tar_listing $1)"
+  check_eq "-rw-r--r--" "$(get_tar_permission $1 ./a=b)"
   check_eq "-rwxr-xr-x" "$(get_tar_permission $1 ./usr/titi)"
   check_eq "-rw-r--r--" "$(get_tar_permission $1 ./etc/nsswitch.conf)"
+  check_eq "42/24" "$(get_numeric_tar_owner $1 ./a=b)"
   check_eq "24/42" "$(get_numeric_tar_owner $1 ./etc/)"
   check_eq "24/42" "$(get_numeric_tar_owner $1 ./etc/nsswitch.conf)"
   check_eq "42/24" "$(get_numeric_tar_owner $1 ./usr/)"
@@ -129,6 +132,7 @@ function assert_content() {
 
 function test_tar() {
   local listing="./
+./a=b
 ./etc/
 ./etc/nsswitch.conf
 ./usr/
@@ -171,6 +175,7 @@ function test_deb() {
     return 0
   fi
   local listing="./
+./a=b
 ./etc/
 ./etc/nsswitch.conf
 ./usr/
@@ -180,6 +185,7 @@ function test_deb() {
   check_eq "$listing" "$(get_deb_listing test-deb.deb)"
   check_eq "-rwxr-xr-x" "$(get_deb_permission test-deb.deb ./usr/titi)"
   check_eq "-rw-r--r--" "$(get_deb_permission test-deb.deb ./etc/nsswitch.conf)"
+  check_eq "-rw-r--r--" "$(get_deb_permission test-deb.deb ./a=b)"
   get_deb_description test-deb.deb >$TEST_log
   expect_log "Description: toto"
   expect_log "Package: titi"

@@ -266,7 +266,7 @@ def main(unused_argv):
   mode_map = {}
   if FLAGS.modes:
     for filemode in FLAGS.modes:
-      (f, mode) = filemode.split('=', 1)
+      (f, mode) = filemode.split(':', 1)
       if f[0] == '/':
         f = f[1:]
       mode_map[f] = int(mode, 8)
@@ -277,7 +277,7 @@ def main(unused_argv):
   names_map = {}
   if FLAGS.owner_names:
     for file_owner in FLAGS.owner_names:
-      (f, owner) = file_owner.split('=', 1)
+      (f, owner) = file_owner.split(':', 1)
       (user, group) = owner.split('.', 1)
       if f[0] == '/':
         f = f[1:]
@@ -288,7 +288,7 @@ def main(unused_argv):
   ids_map = {}
   if FLAGS.owners:
     for file_owner in FLAGS.owners:
-      (f, owner) = file_owner.split('=', 1)
+      (f, owner) = file_owner.split(':', 1)
       (user, group) = owner.split('.', 1)
       if f[0] == '/':
         f = f[1:]
@@ -312,7 +312,7 @@ def main(unused_argv):
       }
 
     for f in FLAGS.file:
-      (inf, tof) = f.split('=', 1)
+      (inf, tof) = f.split(':', 1)
       output.add_file(inf, tof, **file_attributes(tof))
     for f in FLAGS.empty_file:
       output.add_empty_file(f, **file_attributes(f))

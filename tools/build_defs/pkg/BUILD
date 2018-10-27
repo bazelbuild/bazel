@@ -96,6 +96,7 @@ genrule(
     outs = [
         "etc/nsswitch.conf",
         "usr/titi",
+        "a=b",
     ],
     cmd = "for i in $(OUTS); do echo 1 >$$i; done",
 )
@@ -103,6 +104,7 @@ genrule(
 [pkg_tar(
     name = "test-tar-%s" % ext[1:],
     srcs = [
+        ":a=b",
         ":etc/nsswitch.conf",
         ":usr/titi",
     ],
