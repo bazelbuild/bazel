@@ -22,7 +22,6 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -57,8 +56,6 @@ import javax.annotation.Nullable;
 
 /** Pluggable Java compilation semantics. */
 public interface JavaSemantics {
-  LibraryLanguage LANGUAGE = new LibraryLanguage("Java");
-
   SafeImplicitOutputsFunction JAVA_LIBRARY_CLASS_JAR =
       fromTemplates("lib%{name}.jar");
   SafeImplicitOutputsFunction JAVA_LIBRARY_SOURCE_JAR =
