@@ -71,7 +71,7 @@ public final class CcToolchainRule implements RuleDefinition {
           null,
           (rule, attributes, cppConfig) -> {
             Label cppConfigSysrootLabel =
-                cppConfig.disableSystoolfromConfiguration() ? null : cppConfig.getSysrootLabel();
+                cppConfig.disableSysrootfromConfiguration() ? null : cppConfig.getSysrootLabel();
             // This avoids analyzing the label from the CROSSTOOL if the attribute is set.
             return getLabel(attributes, "libc_top", cppConfigSysrootLabel);
           });
