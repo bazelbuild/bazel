@@ -27,10 +27,10 @@ import com.google.protobuf.Message;
 import com.google.protobuf.MessageLite;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -54,34 +54,34 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
     this(
         filename,
         new BufferedOutputStream( // Use a buffer of 100 kByte, scientifically chosen at random.
-            new FileOutputStream(new File(filename), /*append=*/ false), 100000));
+            Files.newOutputStream(Paths.get(filename)), 100000));
   }
 
   @VisibleForTesting
   AsynchronousFileOutputStream(String name, OutputStream out) {
-    writerThread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        try {
-          byte[] data;
-          while ((data = queue.take()) != POISON_PILL) {
-            out.write(data);
-          }
-        } catch (InterruptedException e) {
-          // Exit quietly.
-        } catch (Exception e) {
-          exception.set(e);
-          closeFuture.setException(e);
-        } finally {
-          try {
-            out.close();
-            closeFuture.set(null);
-          } catch (Exception e) {
-            closeFuture.setException(e);
-          }
-        }
-      }
-    }, "async-file-writer:" + name);
+    writerThread =
+        new Thread(
+            () -> {
+              try {
+                byte[] data;
+                while ((data = queue.take()) != POISON_PILL) {
+                  out.write(data);
+                }
+              } catch (InterruptedException e) {
+                // Exit quietly.
+              } catch (Exception e) {
+                exception.set(e);
+                closeFuture.setException(e);
+              } finally {
+                try {
+                  out.close();
+                  closeFuture.set(null);
+                } catch (Exception e) {
+                  closeFuture.setException(e);
+                }
+              }
+            },
+            "async-file-writer:" + name);
     writerThread.start();
   }
 

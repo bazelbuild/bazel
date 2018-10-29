@@ -36,14 +36,13 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
@@ -61,8 +60,7 @@ import javax.annotation.concurrent.ThreadSafe;
  * Non-blocking file transport.
  *
  * <p>Implementors of this class need to implement {@code #sendBuildEvent(BuildEvent)} which
- * serializes the build event and writes it to file using {@link
- * AsynchronousFileOutputStream#write}.
+ * serializes the build event and writes it to a file.
  */
 abstract class FileTransport implements BuildEventTransport {
   private static final Logger logger = Logger.getLogger(FileTransport.class.getName());
@@ -109,8 +107,8 @@ abstract class FileTransport implements BuildEventTransport {
         Consumer<AbruptExitException> exitFunc,
         BuildEventArtifactUploader uploader) {
       try {
-        this.out = new BufferedOutputStream(new FileOutputStream(path));
-      } catch (FileNotFoundException e) {
+        this.out = new BufferedOutputStream(Files.newOutputStream(Paths.get(path)));
+      } catch (IOException e) {
         this.out = new ByteArrayOutputStream(0);
         closeNow();
         exitFunc.accept(
