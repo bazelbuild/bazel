@@ -52,7 +52,7 @@ public class TargetPatternUtil {
 
   /**
    * Expand the given {@code targetPatterns}, using the {@code filteringPolicy}. This handles the
-   * needed underlying Skyframe calls (via {@code env}), and no will return {@code null} to signal a
+   * needed underlying Skyframe calls (via {@code env}), and will return {@code null} to signal a
    * Skyframe restart.
    */
   @Nullable
