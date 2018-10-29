@@ -53,6 +53,7 @@ Starlark Rules
 *   [Expand directories in Args](#expand-directories-in-args)
 *   [Disable late bound option defaults](#disable-late-bound-option-defaults)
 *   [Disallow `cfg = "data"`](#disallow-cfg-data)
+*   [Disallow conflicting providers](#disallow-conflicting-providers)
 
 Objc
 
@@ -997,6 +998,17 @@ fail with an error.
 *   Default: `false`
 *   Introduced in: `0.16.0`
 *   Tracking issue: [#6153](https://github.com/bazelbuild/bazel/issues/6153)
+
+
+### Disallow conflicting providers
+
+If set to true, disallow rule implementation functions from returning multiple
+instances of the same type of provider. If false, only the last in the list will
+be used.
+
+*   Flag: `incompatible_disallow_conflicting_providers`
+*   Default: `true`
+*   Tracking issue: [#5902](https://github.com/bazelbuild/bazel/issues/5902)
 
 
 ### Load label cannot cross package boundaries
