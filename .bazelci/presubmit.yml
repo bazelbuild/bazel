@@ -19,8 +19,6 @@ platforms:
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
   ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -40,8 +38,6 @@ platforms:
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
   ubuntu1804:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -61,8 +57,6 @@ platforms:
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
   ubuntu1804_nojava:
     build_flags:
     - "--javabase=@openjdk_linux_archive//:runtime"
@@ -135,8 +129,6 @@ platforms:
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
   ubuntu1804_java10:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -156,8 +148,6 @@ platforms:
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
   macos:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -188,8 +178,6 @@ platforms:
     - "-//src/test/shell/bazel:git_repository_test"
     - "-//src/test/shell/bazel/android:aar_integration_test"
     - "-//src/test/shell/bazel/android:android_integration_test"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
   windows:
     build_flags:
     - "--copt=-w"
@@ -208,8 +196,6 @@ platforms:
     test_targets:
     - "--"
     - "//src:all_windows_tests"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
   rbe_ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#

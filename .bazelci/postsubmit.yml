@@ -15,8 +15,6 @@ platforms:
     - "//src/test/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
     - "-//src/test/shell/bazel:workspace_resolved_test"
   ubuntu1604:
@@ -34,8 +32,6 @@ platforms:
     - "//src/test/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
     - "-//src/test/shell/bazel:workspace_resolved_test"
   ubuntu1804:
@@ -53,8 +49,6 @@ platforms:
     - "//src/test/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
     - "-//src/test/shell/bazel:workspace_resolved_test"
   ubuntu1804_nojava:
@@ -125,8 +119,6 @@ platforms:
     - "//src/test/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
     - "-//src/test/shell/bazel:workspace_resolved_test"
   ubuntu1804_java10:
@@ -144,8 +136,6 @@ platforms:
     - "//src/test/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
     - "-//src/test/shell/bazel:workspace_resolved_test"
   macos:
@@ -163,8 +153,6 @@ platforms:
     - "//src/test/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
     - "-//src/test/shell/bazel:workspace_resolved_test"
   windows:
@@ -185,8 +173,6 @@ platforms:
     test_targets:
     - "--"
     - "//src:all_windows_tests"
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
-    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/6479
     - "-//src/test/shell/bazel:workspace_resolved_test"
   rbe_ubuntu1604:
