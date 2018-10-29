@@ -2696,7 +2696,7 @@ adb -s deadbeef install ...
 <p>
   This option specifies how long, in seconds, the Bazel server process
   should wait after the last client request, before it exits.  The
-  default value is 10800 (3 hours).
+  default value is 10800 (3 hours). To disable the feature, set `--max_idle_secs=0`.
 </p>
 <p>
   This option may be used by scripts that invoke Bazel to ensure that
@@ -2714,6 +2714,17 @@ adb -s deadbeef install ...
   there was already a server running, that server will continue to run
   until it has been idle for the usual time.  Of course, the existing
   server's idle timer will be reset.
+</p>
+<h4 id='flag--shutdown_on_low_sys_mem'><code class='flag'>--[no]shutdown_on_low_sys_mem</code></h4>
+<p>
+  If enabled and <code class='flag'>--max_idle_secs</code> is set to a positive duration,
+  after the build server has been idle for a while, shut down the server when the system is
+  low on memory. Linux only.
+</p>
+<p>
+  In addition to running an idle check corresponding to max_idle_secs, the build server will
+  starts monitoring available system memory after the server has been idle for some time.
+  If the available system memory becomes critically low, the server will exit.
 </p>
 
 <h4 id='flag--block_for_lock'><code class='flag'>--[no]block_for_lock</code></h4>
