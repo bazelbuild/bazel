@@ -22,12 +22,13 @@ import io.netty.handler.codec.http.HttpServerCodec;
 
 /** The initializer used by the HttpCacheServerHandler. */
 public class HttpCacheServerInitializer extends ChannelInitializer<SocketChannel> {
+  private final HttpCacheServerHandler handler = new HttpCacheServerHandler();
 
   @Override
   protected void initChannel(SocketChannel ch) {
     ChannelPipeline p = ch.pipeline();
     p.addLast(new HttpServerCodec());
     p.addLast(new HttpObjectAggregator(100 * 1024 * 1024));
-    p.addLast(new HttpCacheServerHandler());
+    p.addLast(handler);
   }
 }

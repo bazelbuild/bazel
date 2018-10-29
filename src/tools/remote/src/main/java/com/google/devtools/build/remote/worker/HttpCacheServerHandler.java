@@ -17,6 +17,7 @@ package com.google.devtools.build.remote.worker;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
@@ -32,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /** A simple HTTP REST in-memory cache used during testing the LRE. */
+@Sharable
 public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
   final ConcurrentMap<String, byte[]> cache = new ConcurrentHashMap<>();
@@ -43,9 +45,9 @@ public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttp
       return;
     }
 
-    if (request.method() == HttpMethod.GET) {
+    if (request.method().equals(HttpMethod.GET)) {
       handleGet(ctx, request);
-    } else if (request.method() == HttpMethod.PUT) {
+    } else if (request.method().equals(HttpMethod.PUT)) {
       handlePut(ctx, request);
     } else {
       sendError(ctx, request, HttpResponseStatus.METHOD_NOT_ALLOWED);
