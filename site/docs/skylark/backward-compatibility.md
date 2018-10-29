@@ -307,6 +307,7 @@ dep_bin = ctx.attr.dep[OutputGroupInfo].bin
 
 *   Flag: `--incompatible_no_target_output_group`
 *   Default: `false`
+*   Tracking issue: [#6241](https://github.com/bazelbuild/bazel/issues/6241)
 
 
 ### Disable default parameter of output attributes
@@ -350,6 +351,8 @@ same package would conflict.)
 
 *   Flag: `--incompatible_no_output_attr_default`
 *   Default: `false`
+*   Tracking issue: [#6241](https://github.com/bazelbuild/bazel/issues/6241)
+
 
 ### Remove native git repository
 
@@ -644,6 +647,7 @@ config_setting(
 *   Flag: `--incompatible_disable_late_bound_option_defaults`
 *   Default: `false`
 *   Introduced in: `0.18.0`
+*   Tracking issue: [#6384](https://github.com/bazelbuild/bazel/issues/6384)
 
 ### Disable depsets in C++ toolchain API in user flags
 
@@ -656,6 +660,7 @@ Use plain lists instead.
 *   Flag: `--incompatible_disable_depset_in_cc_user_flags`
 *   Default: `false`
 *   Introduced in: `0.18.0`
+*   Tracking issue: [#6383](https://github.com/bazelbuild/bazel/issues/6383)
 
 ### Disallow using CROSSTOOL to select the cc_toolchain label
 
@@ -722,6 +727,7 @@ future.
 *   Flag: `--incompatible_disable_cc_toolchain_label_from_crosstool_proto`
 *   Default: `false`
 *   Introduced in: `0.18.0`
+*   Tracking issue: [#6382](https://github.com/bazelbuild/bazel/issues/6382)
 
 ### Disallow using C++ Specific Make Variables from the configuration
 
@@ -805,6 +811,7 @@ my_rule = rule(
 *   Flag: `--incompatible_disable_cc_configuration_make_variables`
 *   Default: `false`
 *   Introduced in: `0.18.0`
+*   Tracking issue: [#6381](https://github.com/bazelbuild/bazel/issues/6381)
 
 ### Disable legacy C++ configuration API
 
@@ -874,6 +881,7 @@ List of all legacy fields and their corresponding `cc_toolchain` alternative:
 *   Flag: `--incompatible_disable_legacy_cpp_toolchain_skylark_api`
 *   Default: `false`
 *   Introduced in: `0.18.0`
+*   Tracking issue: [#6380](https://github.com/bazelbuild/bazel/issues/6380)
 
 ### Disable legacy C++ toolchain API
 
@@ -956,6 +964,8 @@ def _impl(ctx):
 *   Flag: `--incompatible_disable_legacy_flags_cc_toolchain_api`
 *   Default: `false`
 *   Introduced in: `0.19.0`
+*   Tracking issue: [#6434](https://github.com/bazelbuild/bazel/issues/6434)
+
 
 ### Disallow `cfg = "data"`
 
