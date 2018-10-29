@@ -72,6 +72,13 @@ public class SkylarkImports {
       return Objects.equals(getClass(), that.getClass())
           && Objects.equals(importString, ((SkylarkImportImpl) that).importString);
     }
+
+    // public abstract void updatePackageIdentifier(RepositoryName repositoryName);
+    //
+    // public SkylarkImport createSkylarkImportWithUpdatedPackageIdentifier(RepositoryName repositoryName) {
+    //   return null;
+    // }
+
   }
 
   @VisibleForSerialization

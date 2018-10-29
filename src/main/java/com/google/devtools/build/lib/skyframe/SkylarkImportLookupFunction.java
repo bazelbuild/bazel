@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
+import com.google.devtools.build.lib.syntax.SkylarkImports;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -265,7 +267,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     // Process the load statements in the file.
     ImmutableList<SkylarkImport> unRemappedImports = ast.getImports();
     // here go over the imports and remap them
-    ImmutableList<SkylarkImport> imports = remapImports(unRemappedImports, workspaceChunk, workspacePath, env);
+    ImmutableList<SkylarkImport> imports = remapImports(unRemappedImports, workspaceChunk, workspacePath, fileLabel, env);
     ImmutableMap<String, Label> labelsForImports = getLabelsForLoadStatements(imports, fileLabel);
     ImmutableCollection<Label> importLabels = labelsForImports.values();
 
@@ -361,13 +363,25 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     return result;
   }
 
-  private ImmutableList<SkylarkImport> remapImports(ImmutableList<SkylarkImport> unRemappedImports, int workspaceChunk, RootedPath workspacePath, Environment env) {
-    //WorkspaceFileValue.key("", workspaceChunk-1);
-    // 1. get the workspace file value (for chunk-1)
-    // 2. get the mappings from that value
-    // 3. loop through the list of imports and remap all imports that need to be remapped
-    // 4. create new list and return that list
-    return null;
+  private ImmutableList<SkylarkImport> remapImports(ImmutableList<SkylarkImport> unRemappedImports, int workspaceChunk, RootedPath workspacePath, Label enclosingFileLabel, Environment env) {
+    SkyKey workspaceFileKey = WorkspaceFileValue.key(workspacePath, workspaceChunk);
+    ImmutableList.Builder<SkylarkImport> builder = ImmutableList.builder();
+    try {
+      WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = workspaceFileValue.getRepositoryMapping().get(enclosingFileLabel.getPackageIdentifier().getRepository());
+      for (SkylarkImport notRemappedImport : unRemappedImports) {
+        SkylarkImport newImport = SkylarkImports.create(notRemappedImport.getImportString(), repositoryMapping);
+        builder.add(newImport);
+        // RepositoryName notRemappedName = notRemappedImport.getLabel(enclosingFileLabel).getPackageIdentifier().getRepository();
+        // RepositoryName remappedName = repositoryMapping.getOrDefault(notRemappedName, notRemappedName);
+        // SkylarkImport skylarkImport
+      }
+    }
+    catch (Exception e) {
+      System.out.print(e);
+    }
+
+    return builder.build();
   }
 
   /**
