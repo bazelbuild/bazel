@@ -2191,9 +2191,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestTransitionOnAnalysisTest() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_analysis_testing_improvements=true",
-        "--experimental_starlark_config_transitions=true");
+    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
     useConfiguration("--strict_java_deps=OFF");
 
     scratch.file(
@@ -2249,9 +2247,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestTransitionOnNonAnalysisTest() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_analysis_testing_improvements=true",
-        "--experimental_starlark_config_transitions=true");
+    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
 
     scratch.file(
         "test/extension.bzl",

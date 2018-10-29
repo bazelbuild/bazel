@@ -34,10 +34,23 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
   public ConfigurationTransitionApi transition(BaseFunction implementation, List<String> inputs,
       List<String> outputs, Boolean forAnalysisTesting,
       Location location, SkylarkSemantics semantics) throws EvalException {
-    if (!semantics.experimentalStarlarkConfigTransitions()) {
-      throw new EvalException(location, "transition() is experimental and disabled by default. "
-          + "This API is in development and subject to change at any time. Use "
-          + "--experimental_starlark_config_transitions to use this experimental API.");
+    if (forAnalysisTesting) {
+      if (!semantics.experimentalAnalysisTestingImprovements()) {
+        throw new EvalException(
+            location,
+            "transition(for_analysis_testing=True) is experimental "
+                + "and disabled by default. This API is in development and subject to change at "
+                + "any time. Use --experimental_analysis_testing_improvements to use this "
+                + "experimental API.");
+      }
+    } else {
+      if (!semantics.experimentalStarlarkConfigTransitions()) {
+        throw new EvalException(
+            location,
+            "transition() is experimental and disabled by default. "
+                + "This API is in development and subject to change at any time. Use "
+                + "--experimental_starlark_config_transitions to use this experimental API.");
+      }
     }
     return new StarlarkDefinedConfigTransition(implementation, forAnalysisTesting);
   }
