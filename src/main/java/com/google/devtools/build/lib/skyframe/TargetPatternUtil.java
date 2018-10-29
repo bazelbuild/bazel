@@ -40,7 +40,7 @@ public class TargetPatternUtil {
 
   /**
    * Expand the given {@code targetPatterns}. This handles the needed underlying Skyframe calls (via
-   * {@code env}), and no will return {@code null} to signal a Skyframe restart.
+   * {@code env}), and will return {@code null} to signal a Skyframe restart.
    */
   @Nullable
   public static ImmutableList<Label> expandTargetPatterns(
