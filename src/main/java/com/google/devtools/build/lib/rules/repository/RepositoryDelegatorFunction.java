@@ -216,15 +216,17 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       RepositoryDirectoryValue.Builder result =
           handler.fetch(rule, repoRoot, directories, env, markerData);
       if (env.valuesMissing()) {
+        env.getListener()
+            .post(new RepositoryFetching(repositoryName.getName(), false, "Restarting."));
         return null;
       }
+      env.getListener().post(new RepositoryFetching(repositoryName.getName(), true));
 
       // No new Skyframe dependencies must be added between calling the repository implementation
       // and writing the marker file because if they aren't computed, it would cause a Skyframe
       // restart thus calling the possibly very slow (networking, decompression...) fetch()
       // operation again. So we write the marker file here immediately.
       byte[] digest = writeMarkerFile(markerPath, markerData, ruleKey);
-      env.getListener().post(new RepositoryFetching(repositoryName.getName(), true));
       return result.setDigest(digest).build();
     }
 
@@ -419,10 +421,18 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private class RepositoryFetching implements FetchProgress {
     final String id;
     final boolean finished;
+    final String message;
 
     RepositoryFetching(String name, boolean finished) {
       this.id = name;
       this.finished = finished;
+      this.message = finished ? "finished." : "fetching";
+    }
+
+    RepositoryFetching(String name, boolean finished, String message) {
+      this.id = name;
+      this.finished = finished;
+      this.message = message;
     }
 
     @Override
@@ -432,11 +442,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     @Override
     public String getProgress() {
-      if (finished) {
-        return "finished.";
-      } else {
-        return "fetching...";
-      }
+      return message;
     }
 
     @Override
