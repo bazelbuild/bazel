@@ -894,6 +894,22 @@ public class CppOptions extends FragmentOptions {
               + "instead.")
   public boolean provideCcToolchainInfoFromCcToolchainSuite;
 
+  // TODO(--incompatible_disable_systool_from_configration): Deprecate the feature and remove.
+  @Option(
+      name = "incompatible_disable_systool_from_configration",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, cc_toolchain will no longer determine the systool from the CROSSTOOL "
+              + "(default_grte_top property_ during configuration, instead only using the "
+              + "libc_top attribute.")
+  public boolean disableSystoolfromConfiguration;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -936,6 +952,7 @@ public class CppOptions extends FragmentOptions {
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
     host.disableLegacyToolchainSkylarkApi = disableLegacyToolchainSkylarkApi;
+    host.disableSystoolfromConfiguration = disableSystoolfromConfiguration;
 
     return host;
   }

@@ -1259,4 +1259,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public boolean provideCcToolchainInfoFromCcToolchainSuite() {
     return cppOptions.provideCcToolchainInfoFromCcToolchainSuite;
   }
+
+  public boolean disableSystoolfromConfiguration() {
+    return cppOptions.disableSystoolfromConfiguration;
+  }
 }

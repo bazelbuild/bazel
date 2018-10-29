@@ -875,6 +875,25 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSysroot_fromCrosstool_unset() throws Exception {
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
+    scratch.file("libc1/header1.h", "#define FOO 1");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder().clearDefaultGrteTop().buildPartial());
+    useConfiguration();
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+
+    assertThat(toolchainProvider.getSysroot()).isEqualTo("/usr/grte/v1");
+  }
+
+  @Test
   public void testSysroot_fromCrosstool() throws Exception {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
@@ -891,6 +910,25 @@ public class CcToolchainTest extends BuildViewTestCase {
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
     assertThat(toolchainProvider.getSysroot()).isEqualTo("libc1");
+  }
+
+  @Test
+  public void testSysroot_fromCrosstool_disabled() throws Exception {
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+    scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
+    scratch.file("libc1/header1.h", "#define FOO 1");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder().setDefaultGrteTop("//libc1").buildPartial());
+    useConfiguration("--incompatible_disable_systool_from_configration");
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+
+    assertThat(toolchainProvider.getSysroot()).isEqualTo("/usr/grte/v1");
   }
 
   @Test
