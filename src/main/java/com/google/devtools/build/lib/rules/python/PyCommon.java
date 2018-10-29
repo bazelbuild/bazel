@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.PythonInfo;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -246,8 +245,6 @@ public final class PyCommon {
       }
     }
 
-    LanguageDependentFragment.Checker.depsSupportsLanguage(
-        ruleContext, PyRuleClasses.LANGUAGE, ImmutableList.of("deps"));
     return convertedFiles != null
         ? ImmutableList.copyOf(convertedFiles.values())
         : sourceFiles;

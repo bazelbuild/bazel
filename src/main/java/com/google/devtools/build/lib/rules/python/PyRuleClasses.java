@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.util.FileType;
 public class PyRuleClasses {
 
   public static final FileType PYTHON_SOURCE = FileType.of(".py", ".py3");
-  public static final LibraryLanguage LANGUAGE = new LibraryLanguage("Python");
 
   /**
    * Input for {@link RuleClass.Builder#cfg(RuleTransitionFactory)}: if
