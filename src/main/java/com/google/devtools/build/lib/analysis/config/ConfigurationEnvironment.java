@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -69,6 +70,10 @@ public interface ConfigurationEnvironment {
    */
   @Deprecated
   Path getPath(Package pkg, String fileName) throws InterruptedException;
+
+  /** Returns fragment based on fragment class and build options. */
+  <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
+      throws InvalidConfigurationException, InterruptedException;
   /**
    * An implementation backed by a {@link PackageProvider} instance.
    */
@@ -89,6 +94,11 @@ public interface ConfigurationEnvironment {
     @Override
     public Path getPath(Package pkg, String fileName) {
       return pkg.getPackageDirectory().getRelative(fileName);
+    }
+
+    @Override
+    public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType) {
+      throw new UnsupportedOperationException();
     }
   }
 }

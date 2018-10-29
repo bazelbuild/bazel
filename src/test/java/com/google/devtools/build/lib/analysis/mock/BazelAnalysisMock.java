@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 public final class BazelAnalysisMock extends AnalysisMock {
@@ -323,6 +324,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public ConfiguredRuleClassProvider createRuleClassProvider() {
     return TestRuleClassProvider.getRuleClassProvider(true);
+  }
+
+  @Override
+  public Collection<String> getOptionOverrides() {
+    return ImmutableList.of();
   }
 
   @Override

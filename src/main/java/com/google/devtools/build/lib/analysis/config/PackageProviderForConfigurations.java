@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -34,6 +35,10 @@ public interface PackageProviderForConfigurations {
    */
   void addDependency(Package pkg, String fileName)
       throws LabelSyntaxException, IOException, InterruptedException;
+
+  /** Returns fragment based on fragment type and build options. */
+  <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
+      throws InvalidConfigurationException, InterruptedException;
   
   /**
    * Returns true if any dependency is missing (value of some node hasn't been evaluated yet).

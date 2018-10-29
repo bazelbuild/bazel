@@ -527,7 +527,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new BuildConfigurationFunction(directories, ruleClassProvider, defaultBuildOptions));
     map.put(
         SkyFunctions.CONFIGURATION_FRAGMENT,
-        new ConfigurationFragmentFunction(configurationFragments));
+        new ConfigurationFragmentFunction(configurationFragments, ruleClassProvider));
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction());
     map.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     map.put(

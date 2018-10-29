@@ -353,6 +353,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     allArgs.add("--stamp");  // Stamp is now defaulted to false.
     allArgs.add("--experimental_extended_sanity_checks");
     allArgs.add("--features=cc_include_scanning");
+    allArgs.addAll(getAnalysisMock().getOptionOverrides());
 
     optionsParser.parse(allArgs);
     optionsParser.parse(args);

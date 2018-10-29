@@ -215,7 +215,7 @@ public class CrosstoolConfigurationLoader {
 
   /** Reads a crosstool file. */
   @Nullable
-  static CrosstoolRelease readCrosstool(ConfigurationEnvironment env, Label crosstoolTop)
+  public static CrosstoolRelease readCrosstool(ConfigurationEnvironment env, Label crosstoolTop)
       throws InvalidConfigurationException, InterruptedException {
     crosstoolTop = RedirectChaser.followRedirects(env, crosstoolTop, "crosstool_top");
     if (crosstoolTop == null) {
