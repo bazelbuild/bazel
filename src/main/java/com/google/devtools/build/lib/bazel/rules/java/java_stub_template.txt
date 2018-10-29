@@ -306,7 +306,7 @@ function create_and_run_classpath_jar() {
   unset IFS
 
   # Create manifest file
-  MANIFEST_FILE="$(mktemp XXXXXXXX.jar_manifest)"
+  MANIFEST_FILE="$(mktemp -t XXXXXXXX.jar_manifest)"
 
   (
     echo "Manifest-Version: 1.0"
@@ -324,7 +324,7 @@ function create_and_run_classpath_jar() {
   ) >$MANIFEST_FILE
 
   # Create classpath JAR file
-  MANIFEST_JAR_FILE="$(mktemp XXXXXXXX-classpath.jar)"
+  MANIFEST_JAR_FILE="$(mktemp -t XXXXXXXX-classpath.jar)"
   if is_windows; then
     MANIFEST_JAR_FILE="$(cygpath --windows "$MANIFEST_JAR_FILE")"
     MANIFEST_FILE="$(cygpath --windows "$MANIFEST_FILE")"
