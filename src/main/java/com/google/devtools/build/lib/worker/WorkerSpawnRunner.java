@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -78,6 +79,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final SpawnRunner fallbackRunner;
   private final LocalEnvProvider localEnvProvider;
   private final boolean sandboxUsesExpandedTreeArtifactsInRunfiles;
+  private final BinTools binTools;
 
   public WorkerSpawnRunner(
       Path execRoot,
@@ -86,7 +88,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       EventHandler reporter,
       SpawnRunner fallbackRunner,
       LocalEnvProvider localEnvProvider,
-      boolean sandboxUsesExpandedTreeArtifactsInRunfiles) {
+      boolean sandboxUsesExpandedTreeArtifactsInRunfiles,
+      BinTools binTools) {
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
     this.extraFlags = extraFlags;
@@ -94,6 +97,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.fallbackRunner = fallbackRunner;
     this.localEnvProvider = localEnvProvider;
     this.sandboxUsesExpandedTreeArtifactsInRunfiles = sandboxUsesExpandedTreeArtifactsInRunfiles;
+    this.binTools = binTools;
   }
 
   @Override
@@ -132,7 +136,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     List<String> flagFiles = new ArrayList<>();
     ImmutableList<String> workerArgs = splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
     Map<String, String> env =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, "/tmp");
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     MetadataProvider inputFileCache = context.getMetadataProvider();
 

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,8 +36,7 @@ public final class ProcessWrapperUtil {
 
   /** Returns the {@link Path} of the process wrapper binary, or null if it doesn't exist. */
   public static Path getProcessWrapper(CommandEnvironment cmdEnv) {
-    PathFragment execPath = cmdEnv.getBlazeWorkspace().getBinTools().getExecPath(PROCESS_WRAPPER);
-    return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
+    return cmdEnv.getBlazeWorkspace().getBinTools().getEmbeddedPath(PROCESS_WRAPPER);
   }
 
   /** Returns a new {@link CommandLineBuilder} for the process wrapper tool. */

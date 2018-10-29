@@ -37,8 +37,7 @@ public class IntegrationMock {
    * {@link BlazeDirectories#getEmbeddedBinariesRoot} that point to the runfiles tree
    * of the currently running test (as obtained from {@link BlazeTestUtils#runfilesDir}).
    */
-  public BinTools getIntegrationBinTools(
-      FileSystem fileSystem, BlazeDirectories directories, String workspaceName)
+  public BinTools getIntegrationBinTools(FileSystem fileSystem, BlazeDirectories directories)
       throws IOException {
     Path embeddedBinariesRoot = directories.getEmbeddedBinariesRoot();
     embeddedBinariesRoot.createDirectoryAndParents();
@@ -65,7 +64,6 @@ public class IntegrationMock {
 
     return BinTools.forIntegrationTesting(
         directories,
-        TestConstants.EMBEDDED_TOOLS,
-        workspaceName);
+        TestConstants.EMBEDDED_TOOLS);
   }
 }

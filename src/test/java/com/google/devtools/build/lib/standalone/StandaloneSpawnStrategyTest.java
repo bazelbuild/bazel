@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
+import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
@@ -115,8 +116,7 @@ public class StandaloneSpawnStrategyTest {
             /* defaultSystemJavabase= */ null,
             "mock-product-name");
     // This call implicitly symlinks the integration bin tools into the exec root.
-    IntegrationMock.get()
-        .getIntegrationBinTools(fileSystem, directories, TestConstants.WORKSPACE_NAME);
+    IntegrationMock.get().getIntegrationBinTools(fileSystem, directories);
     OptionsParser optionsParser = OptionsParser.newOptionsParser(ExecutionOptions.class);
     optionsParser.parse("--verbose_failures");
     LocalExecutionOptions localExecutionOptions = Options.getDefaults(LocalExecutionOptions.class);
@@ -145,7 +145,8 @@ public class StandaloneSpawnStrategyTest {
                             execRoot,
                             localExecutionOptions,
                             resourceManager,
-                            LocalEnvProvider.UNMODIFIED)))),
+                            LocalEnvProvider.UNMODIFIED,
+                            BinTools.forIntegrationTesting(directories, ImmutableList.of()))))),
             ImmutableList.<ActionContextProvider>of());
 
     executor.getExecRoot().createDirectoryAndParents();

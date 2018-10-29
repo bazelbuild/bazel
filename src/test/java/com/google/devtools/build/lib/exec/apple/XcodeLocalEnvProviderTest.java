@@ -18,6 +18,8 @@ import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -42,7 +44,7 @@ public class XcodeLocalEnvProviderTest {
               ImmutableMap.<String, String>of(
                   AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, "8.4",
                   AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, "iPhoneSimulator"),
-              fs.getPath("/tmp"),
+              BinTools.forUnitTesting(fs.getPath("/tmp"), ImmutableSet.of("xcode-locator")),
               "bazel");
       fail("action should fail due to being unable to resolve SDKROOT");
     } catch (IOException e) {

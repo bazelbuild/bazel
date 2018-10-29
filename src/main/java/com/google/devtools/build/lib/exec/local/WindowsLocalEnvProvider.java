@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.exec.local;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.exec.BinTools;
 import java.util.Map;
 
 /** {@link LocalEnvProvider} implementation for actions running on Windows. */
@@ -48,7 +48,7 @@ public final class WindowsLocalEnvProvider implements LocalEnvProvider {
    */
   @Override
   public Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, Path execRoot, String fallbackTmpDir) {
+      Map<String, String> env, BinTools binTools, String fallbackTmpDir) {
     ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
     result.putAll(Maps.filterKeys(env, k -> !k.equals("TMP") && !k.equals("TEMP")));
     String p = clientEnv.get("TMP");

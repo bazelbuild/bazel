@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.local;
 
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.exec.BinTools;
 import java.io.IOException;
 import java.util.Map;
 
@@ -27,7 +27,7 @@ public interface LocalEnvProvider {
       new LocalEnvProvider() {
         @Override
         public Map<String, String> rewriteLocalEnv(
-            Map<String, String> env, Path execRoot, String fallbackTmpDir) {
+            Map<String, String> env, BinTools binTools, String fallbackTmpDir) {
           return env;
         }
       };
@@ -36,13 +36,12 @@ public interface LocalEnvProvider {
    * Rewrites a {@code Spawn}'s the environment if necessary.
    *
    * @param env the Spawn's environment to rewrite
-   * @param execRoot the path where the Spawn is executed
+   * @param binTools used to find built-in tool paths
    * @param fallbackTmpDir an absolute path to a temp directory that the Spawn could use. The
    *     particular implementation of {@link LocalEnvProvider} may choose to use some other path,
    *     typically the "TMPDIR" environment variable in the Bazel client's environment, but if
    *     that's unavailable, the implementation may decide to use this {@code fallbackTmpDir}.
    */
   Map<String, String> rewriteLocalEnv(
-      Map<String, String> env, Path execRoot, String fallbackTmpDir)
-      throws IOException;
+      Map<String, String> env, BinTools binTools, String fallbackTmpDir) throws IOException;
 }

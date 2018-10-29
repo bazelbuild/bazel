@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -53,12 +54,14 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private final SandboxOptions sandboxOptions;
   private final boolean verboseFailures;
   private final ImmutableSet<Path> inaccessiblePaths;
+  protected final BinTools binTools;
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.verboseFailures = cmdEnv.getOptions().getOptions(ExecutionOptions.class).verboseFailures;
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getRuntime().getFileSystem());
+    this.binTools = cmdEnv.getBlazeWorkspace().getBinTools();
   }
 
   @Override

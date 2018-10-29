@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -40,8 +39,7 @@ public final class LinuxSandboxUtil {
 
   /** Returns the path of the {@code linux-sandbox} binary, or null if it doesn't exist. */
   public static Path getLinuxSandbox(CommandEnvironment cmdEnv) {
-    PathFragment execPath = cmdEnv.getBlazeWorkspace().getBinTools().getExecPath(LINUX_SANDBOX);
-    return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
+    return cmdEnv.getBlazeWorkspace().getBinTools().getEmbeddedPath(LINUX_SANDBOX);
   }
 
   /** Returns a new command line builder for the {@code linux-sandbox} tool. */
