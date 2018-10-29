@@ -169,7 +169,8 @@ public final class PyCommon {
                 ruleContext,
                 semantics.getCoverageInstrumentationSpec(),
                 METADATA_COLLECTOR,
-                filesToBuild))
+                filesToBuild,
+                /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER)))
         .addSkylarkTransitiveInfo(
             PYTHON_SKYLARK_PROVIDER_NAME,
             createSourceProvider(this.transitivePythonSources, usesSharedLibraries(), imports))

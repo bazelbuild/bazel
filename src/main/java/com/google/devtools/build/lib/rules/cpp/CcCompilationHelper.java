@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -853,14 +854,17 @@ public final class CcCompilationHelper {
     private final ImmutableList<Artifact> headers;
     private final ImmutableList<Artifact> moduleMapHeaders;
     private final @Nullable PathFragment virtualIncludePath;
+    private final NestedSet<Pair<String, String>> virtualToOriginalHeaders;
 
     private PublicHeaders(
         ImmutableList<Artifact> headers,
         ImmutableList<Artifact> moduleMapHeaders,
-        PathFragment virtualIncludePath) {
+        PathFragment virtualIncludePath,
+        NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
       this.headers = headers;
       this.moduleMapHeaders = moduleMapHeaders;
       this.virtualIncludePath = virtualIncludePath;
+      this.virtualToOriginalHeaders = virtualToOriginalHeaders;
     }
 
     private ImmutableList<Artifact> getHeaders() {
@@ -917,15 +921,21 @@ public final class CcCompilationHelper {
       return new PublicHeaders(
           ImmutableList.copyOf(Iterables.concat(publicHeaders, nonModuleMapHeaders)),
           ImmutableList.copyOf(publicHeaders),
-          null);
+          /*virtualIncludePath=*/ null,
+          /* virtualToOriginalHeaders= */ NestedSetBuilder.create(Order.STABLE_ORDER));
     }
 
     if (ruleContext.hasErrors()) {
-      return new PublicHeaders(ImmutableList.of(), ImmutableList.of(), null);
+      return new PublicHeaders(
+          /* headers= */ ImmutableList.of(),
+          /* moduleMapHeaders */ ImmutableList.of(),
+          /* virtualIncludePath */ null,
+          /* virtualToOriginalHeaders */ NestedSetBuilder.create(Order.STABLE_ORDER));
     }
 
     ImmutableList.Builder<Artifact> moduleHeadersBuilder = ImmutableList.builder();
-
+    NestedSetBuilder<Pair<String, String>> virtualToOriginalHeaders =
+        NestedSetBuilder.stableOrder();
     for (Artifact originalHeader : publicHeaders) {
       if (!originalHeader.getRootRelativePath().startsWith(stripPrefix)) {
         ruleContext.ruleError(
@@ -950,6 +960,10 @@ public final class CcCompilationHelper {
             virtualHeader,
             "Symlinking virtual headers for " + ruleContext.getLabel()));
         moduleHeadersBuilder.add(virtualHeader);
+        if (configuration.isCodeCoverageEnabled()) {
+          virtualToOriginalHeaders.add(
+              Pair.of(virtualHeader.getExecPathString(), originalHeader.getExecPathString()));
+        }
       } else {
         moduleHeadersBuilder.add(originalHeader);
       }
@@ -968,7 +982,8 @@ public final class CcCompilationHelper {
         ruleContext
             .getBinOrGenfilesDirectory()
             .getExecPath()
-            .getRelative(ruleContext.getUniqueDirectory("_virtual_includes")));
+            .getRelative(ruleContext.getUniqueDirectory("_virtual_includes")),
+        virtualToOriginalHeaders.build());
   }
 
   /**
@@ -1003,6 +1018,13 @@ public final class CcCompilationHelper {
     PublicHeaders publicHeaders = computePublicHeaders();
     if (publicHeaders.getVirtualIncludePath() != null) {
       ccCompilationContextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
+    }
+
+    if (configuration.isCodeCoverageEnabled()) {
+      // Populate the map only when code coverage collection is enabled, to report the actual source
+      // file name in the coverage output file.
+      ccCompilationContextBuilder.addVirtualToOriginalHeaders(
+          publicHeaders.virtualToOriginalHeaders);
     }
 
     if (useDeps) {

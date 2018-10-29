@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.In
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
@@ -264,7 +265,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
             ruleContext,
             instrumentationSpec,
             InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-            Collections.<Artifact>emptySet());
+            /* rootFiles= */ Collections.emptySet(),
+            /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
     builder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
   }
 

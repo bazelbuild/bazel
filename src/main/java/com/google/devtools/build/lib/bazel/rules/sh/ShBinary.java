@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.Lo
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -104,7 +105,8 @@ public class ShBinary implements RuleConfiguredTargetFactory {
                 ruleContext,
                 new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
                 CC_METADATA_COLLECTOR,
-                filesToBuild))
+                filesToBuild,
+                /* reportedToActualSources= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
         .build();
   }
 

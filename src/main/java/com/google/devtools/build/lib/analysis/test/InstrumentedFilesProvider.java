@@ -60,4 +60,16 @@ public interface InstrumentedFilesProvider extends TransitiveInfoProvider {
    * Environment variables that need to be set for tests collecting code coverage.
    */
   NestedSet<Pair<String, String>> getCoverageEnvironment();
+
+  /**
+   * A set of pairs of reported source file path and the actual source file path, relative to the
+   * workspace directory, if the two values are different. If the reported source file is the same
+   * as the actual source path it will not be included in this set.
+   *
+   * <p>This is useful for virtual include paths in C++, which get reported at the include location
+   * and not the real source path. For example, the reported include source file can be
+   * "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h", but its
+   * actual source path is "include/common/strategy.h".
+   */
+  NestedSet<Pair<String, String>> getReportedToActualSources();
 }

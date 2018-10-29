@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -63,6 +64,10 @@ public class Main {
         Coverage.merge(
             parseFiles(getTracefiles(flags, filesInCoverageDir), LcovParser::parse),
             parseFiles(getGcovInfoFiles(filesInCoverageDir), GcovParser::parse));
+
+    if (flags.sourcesToReplaceFile() != null) {
+      coverage.maybeReplaceSourceFileNames(getMapFromFile(flags.sourcesToReplaceFile()));
+    }
 
     File profdataFile = getProfdataFileOrNull(filesInCoverageDir);
     if (coverage.isEmpty()) {
@@ -213,6 +218,32 @@ public class Main {
       logger.log(Level.INFO, "Found " + lcovTracefiles.size() + " tracefiles.");
     }
     return lcovTracefiles;
+  }
+
+  /**
+   * Reads the content of the given file and returns a matching map.
+   *
+   * <p>It assumes the file contains lines in the form key:value. For each line it creates an entry
+   * in the map with the corresponding key and value.
+   */
+  private static ImmutableMap<String, String> getMapFromFile(String file) {
+    ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
+
+    try (FileInputStream inputStream = new FileInputStream(file);
+        InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
+        BufferedReader reader = new BufferedReader(inputStreamReader)) {
+      for (String keyToValueLine = reader.readLine();
+          keyToValueLine != null;
+          keyToValueLine = reader.readLine()) {
+        String[] keyAndValue = keyToValueLine.split(":");
+        if (keyAndValue.length == 2) {
+          mapBuilder.put(keyAndValue[0], keyAndValue[1]);
+        }
+      }
+    } catch (IOException e) {
+      logger.log(Level.SEVERE, "Error reading file " + file + ": " + e.getMessage());
+    }
+    return mapBuilder.build();
   }
 
   private static Coverage parseFiles(List<File> files, Parser parser) {

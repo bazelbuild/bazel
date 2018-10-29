@@ -53,8 +53,9 @@ public final class InstrumentedFilesCollector {
     return collect(
         ruleContext,
         new InstrumentationSpec(FileTypeSet.NO_FILE).withDependencyAttributes(dependencyAttributes),
-        null,
-        null);
+        /* localMetadataCollector= */ null,
+        /* rootFiles= */ null,
+        /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
   public static InstrumentedFilesProvider collect(
@@ -62,18 +63,37 @@ public final class InstrumentedFilesCollector {
       InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector,
       Iterable<Artifact> rootFiles) {
-    return collect(ruleContext, spec, localMetadataCollector, rootFiles,
+    return collect(
+        ruleContext,
+        spec,
+        localMetadataCollector,
+        rootFiles,
+        /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
+  }
+
+  public static InstrumentedFilesProvider collect(
+      RuleContext ruleContext,
+      InstrumentationSpec spec,
+      LocalMetadataCollector localMetadataCollector,
+      Iterable<Artifact> rootFiles,
+      NestedSet<Pair<String, String>> reportedToActualSources) {
+    return collect(
+        ruleContext,
+        spec,
+        localMetadataCollector,
+        rootFiles,
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.<Pair<String, String>>emptySet(Order.STABLE_ORDER),
-        false);
+        false,
+        reportedToActualSources);
   }
 
   /**
    * Collects transitive instrumentation data from dependencies, collects local source files from
    * dependencies, collects local metadata files by traversing the action graph of the current
    * configured target, collect rule-specific instrumentation support file sand creates baseline
-   * coverage actions for the transitive closure of source files (if
-   * <code>withBaselineCoverage</code> is true).
+   * coverage actions for the transitive closure of source files (if <code>withBaselineCoverage
+   * </code> is true).
    */
   public static InstrumentedFilesProvider collect(
       RuleContext ruleContext,
@@ -83,6 +103,26 @@ public final class InstrumentedFilesCollector {
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       boolean withBaselineCoverage) {
+    return collect(
+        ruleContext,
+        spec,
+        localMetadataCollector,
+        rootFiles,
+        coverageSupportFiles,
+        coverageEnvironment,
+        withBaselineCoverage,
+        /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
+  }
+
+  public static InstrumentedFilesProvider collect(
+      RuleContext ruleContext,
+      InstrumentationSpec spec,
+      LocalMetadataCollector localMetadataCollector,
+      Iterable<Artifact> rootFiles,
+      NestedSet<Artifact> coverageSupportFiles,
+      NestedSet<Pair<String, String>> coverageEnvironment,
+      boolean withBaselineCoverage,
+      NestedSet<Pair<String, String>> reportedToActualSources) {
     Preconditions.checkNotNull(ruleContext);
     Preconditions.checkNotNull(spec);
 
@@ -160,7 +200,8 @@ public final class InstrumentedFilesCollector {
         baselineCoverageFiles,
         baselineCoverageArtifacts,
         coverageSupportFilesBuilder.build(),
-        coverageEnvironmentBuilder.build());
+        coverageEnvironmentBuilder.build(),
+        reportedToActualSources);
   }
 
   /**

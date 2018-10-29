@@ -28,7 +28,7 @@ import java.util.stream.Stream;
  */
 class SourceFileCoverage {
 
-  private final String sourceFileName;
+  private String sourceFileName;
   private final TreeMap<String, Integer> lineNumbers; // function name to line numbers
   private final TreeMap<String, Integer> functionsExecution; // function name to execution count
   private final TreeMap<Integer, BranchCoverage> branches; // line number to branch
@@ -54,6 +54,10 @@ class SourceFileCoverage {
     this.functionsExecution.putAll(other.functionsExecution);
     this.branches.putAll(other.branches);
     this.lines.putAll(other.lines);
+  }
+
+  void changeSourcefileName(String newSourcefileName) {
+    this.sourceFileName = newSourcefileName;
   }
 
   /*

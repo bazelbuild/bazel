@@ -131,6 +131,12 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
         .getCoverageEnvironment();
   }
 
+  @Override
+  public NestedSet<Pair<String, String>> getReportedToActualSources() {
+    return getProvider(InstrumentedFilesProvider.class, InstrumentedFilesProviderImpl.EMPTY)
+        .getReportedToActualSources();
+  }
+
   /**
    * Returns the corresponding provider from the generating rule, if it is non-null, or {@code
    * defaultValue} otherwise.

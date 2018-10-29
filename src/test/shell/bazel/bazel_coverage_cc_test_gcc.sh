@@ -200,23 +200,12 @@ end_of_record"
 }
 
 # TODO(#6254): Enable this test when #6254 is fixed.
-function SKIP_test_cc_test_coverage_gcov_virtual_includes() {
-  local -r gcov_location=$(which gcov)
-  if [[ ! -x ${gcov_location:-/usr/bin/gcov} ]]; then
-    echo "gcov not installed. Skipping test."
-    return
+function test_cc_test_coverage_gcov_virtual_includes() {
+  if is_gcov_missing_or_wrong_version; then
+    echo "Skipping test." && return
   fi
 
-  "$gcov_location" -version | grep "LLVM" && \
-      echo "gcov LLVM version not supported. Skipping test." && return
-   # gcov -v | grep "gcov" outputs a line that looks like this:
-   # gcov (Debian 7.3.0-5) 7.3.0
-   local gcov_version="$(gcov -v | grep "gcov" | cut -d " " -f 4 | cut -d "." -f 1)"
-    [ "$gcov_version" -lt 7 ] \
-        && echo "gcov version before 7.0 is not supported. Skipping test." \
-        && return
-
-  ########### Setup source files and BUILD file ###########
+ ########### Setup source files and BUILD file ###########
   mkdir -p examples/cpp
  cat << EOF > examples/cpp/BUILD
 cc_library(
@@ -351,24 +340,24 @@ end_of_record"
   assert_coverage_result "$expected_result_hello_lib" "$coverage_file_path"
 
   local expected_result_a_header="SF:examples/cpp/foo/bar/baz/a_header.h
-FN:9,_ZNK1A13cout_whateverEv
+FN:6,_ZNK1A13cout_whateverEv
 FNDA:1,_ZNK1A13cout_whateverEv
 FNF:1
 FNH:1
-DA:9,1
-DA:10,1
-DA:11,1
+DA:6,1
+DA:7,1
+DA:8,1
 LH:3
 LF:3
 end_of_record"
   assert_coverage_result "$expected_result_a_header" "$coverage_file_path"
 
   local coverage_result_hello_lib_header="SF:examples/cpp/hello-lib.h
-FN:12,_ZN5hello8HelloLibD2Ev
+FN:10,_ZN5hello8HelloLibD2Ev
 FNDA:1,_ZN5hello8HelloLibD2Ev
 FNF:1
 FNH:1
-DA:12,1
+DA:10,1
 LH:1
 LF:1
 end_of_record"

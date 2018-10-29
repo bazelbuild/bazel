@@ -30,7 +30,8 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER));
+          NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<Artifact> instrumentedFiles;
   private final NestedSet<Artifact> instrumentationMetadataFiles;
@@ -38,6 +39,7 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final NestedSet<Artifact> coverageSupportFiles;
   private final NestedSet<Pair<String, String>> coverageEnvironment;
+  private final NestedSet<Pair<String, String>> reportedToActualSources;
 
   public InstrumentedFilesProviderImpl(
       NestedSet<Artifact> instrumentedFiles,
@@ -45,13 +47,15 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
       NestedSet<Artifact> baselineCoverageFiles,
       NestedSet<Artifact> baselineCoverageArtifacts,
       NestedSet<Artifact> coverageSupportFiles,
-      NestedSet<Pair<String, String>> coverageEnvironment) {
+      NestedSet<Pair<String, String>> coverageEnvironment,
+      NestedSet<Pair<String, String>> reportedToActualSources) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.baselineCoverageFiles = baselineCoverageFiles;
     this.baselineCoverageArtifacts = baselineCoverageArtifacts;
     this.coverageSupportFiles = coverageSupportFiles;
     this.coverageEnvironment = coverageEnvironment;
+    this.reportedToActualSources = reportedToActualSources;
   }
 
   @Override
@@ -82,5 +86,10 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   @Override
   public NestedSet<Pair<String, String>> getCoverageEnvironment() {
     return coverageEnvironment;
+  }
+
+  @Override
+  public NestedSet<Pair<String, String>> getReportedToActualSources() {
+    return reportedToActualSources;
   }
 }
