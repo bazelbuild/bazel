@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.rules.platform;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -33,6 +35,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
+import java.util.List;
 
 /** Defines a platform for execution contexts. */
 public class Platform implements RuleConfiguredTargetFactory {
@@ -41,6 +44,19 @@ public class Platform implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
 
     PlatformInfo.Builder platformBuilder = PlatformInfo.builder().setLabel(ruleContext.getLabel());
+
+    List<PlatformInfo> parentPlatforms =
+        Lists.newArrayList(
+            PlatformProviderUtils.platforms(
+                ruleContext.getPrerequisites(PlatformRule.PARENTS_PLATFORM_ATTR, Mode.DONT_CHECK)));
+
+    if (parentPlatforms.size() > 1) {
+      throw ruleContext.throwWithAttributeError(
+          PlatformRule.PARENTS_PLATFORM_ATTR,
+          PlatformRule.PARENTS_PLATFORM_ATTR + " attribute must have a single value");
+    }
+    PlatformInfo parentPlatform = Iterables.getFirst(parentPlatforms, null);
+    platformBuilder.setParent(parentPlatform);
 
     Boolean isHostPlatform =
         ruleContext.attributes().get(PlatformRule.HOST_PLATFORM_ATTR, Type.BOOLEAN);

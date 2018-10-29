@@ -86,6 +86,101 @@ public class PlatformInfoApiTest extends BuildViewTestCase {
     assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("foo: val1");
   }
 
+  @Test
+  public void testPlatform_parent() throws Exception {
+    constraintBuilder("//foo:setting1").addConstraintValue("value1").write();
+    constraintBuilder("//foo:setting2").addConstraintValue("value2").write();
+    platformBuilder("//foo:parent_platform").addConstraint("value1").write();
+    platformBuilder("//foo:my_platform")
+        .setParent("//foo:parent_platform")
+        .addConstraint("value2")
+        .write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    ConstraintSettingInfo constraintSetting1 =
+        ConstraintSettingInfo.create(makeLabel("//foo:setting1"));
+    ConstraintValueInfo constraintValue1 =
+        ConstraintValueInfo.create(constraintSetting1, makeLabel("//foo:value1"));
+    assertThat(platformInfo.constraints().get(constraintSetting1)).isEqualTo(constraintValue1);
+    ConstraintSettingInfo constraintSetting2 =
+        ConstraintSettingInfo.create(makeLabel("//foo:setting2"));
+    ConstraintValueInfo constraintValue2 =
+        ConstraintValueInfo.create(constraintSetting2, makeLabel("//foo:value2"));
+    assertThat(platformInfo.constraints().get(constraintSetting2)).isEqualTo(constraintValue2);
+  }
+
+  @Test
+  public void testPlatform_parent_override() throws Exception {
+    constraintBuilder("//foo:setting1")
+        .addConstraintValue("value1a")
+        .addConstraintValue("value1b")
+        .write();
+    platformBuilder("//foo:parent_platform").addConstraint("value1a").write();
+    platformBuilder("//foo:my_platform").addConstraint("value1b").write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    ConstraintSettingInfo constraintSetting1 =
+        ConstraintSettingInfo.create(makeLabel("//foo:setting1"));
+    ConstraintValueInfo constraintValue1 =
+        ConstraintValueInfo.create(constraintSetting1, makeLabel("//foo:value1b"));
+    assertThat(platformInfo.constraints().get(constraintSetting1)).isEqualTo(constraintValue1);
+  }
+
+  @Test
+  public void testPlatform_parent_remoteExecProperties_entireOverride() throws Exception {
+    platformBuilder("//foo:parent_platform").setRemoteExecutionProperties("parent props").write();
+    platformBuilder("//foo:my_platform")
+        .setParent("//foo:parent_platform")
+        .setRemoteExecutionProperties("child props")
+        .write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child props");
+  }
+
+  @Test
+  public void testPlatform_parent_remoteExecProperties_includeParent() throws Exception {
+    platformBuilder("//foo:parent_platform").setRemoteExecutionProperties("parent props").write();
+    platformBuilder("//foo:my_platform")
+        .setParent("//foo:parent_platform")
+        .setRemoteExecutionProperties("child ({PARENT_REMOTE_EXECUTION_PROPERTIES}) props")
+        .write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.remoteExecutionProperties()).isEqualTo("child (parent props) props");
+  }
+
+  @Test
+  public void testPlatform_parent_tooManyParentsError() throws Exception {
+    List<String> lines =
+        new ImmutableList.Builder<String>()
+            .addAll(platformBuilder("//foo:parent_platform1").lines())
+            .addAll(platformBuilder("//foo:parent_platform2").lines())
+            .addAll(
+                ImmutableList.of(
+                    "platform(name = 'my_platform',\n",
+                    "  parents = [\n",
+                    "    ':parent_platform1',\n",
+                    "    ':parent_platform2',\n",
+                    "  ])"))
+            .build();
+
+    checkError(
+        "foo",
+        "my_platform",
+        "in parents attribute of platform rule //foo:my_platform: "
+            + "parents attribute must have a single value",
+        lines.toArray(new String[] {}));
+  }
+
   ConstraintBuilder constraintBuilder(String name) {
     return new ConstraintBuilder(name);
   }
@@ -146,10 +241,16 @@ public class PlatformInfoApiTest extends BuildViewTestCase {
   final class PlatformBuilder {
     private final Label label;
     private final List<String> constraintValues = new ArrayList<>();
+    private Label parentLabel = null;
     private String remoteExecutionProperties = "";
 
     public PlatformBuilder(String name) {
       this.label = Label.parseAbsoluteUnchecked(name);
+    }
+
+    public PlatformBuilder setParent(String parentLabel) {
+      this.parentLabel = Label.parseAbsoluteUnchecked(parentLabel);
+      return this;
     }
 
     public PlatformBuilder addConstraint(String value) {
@@ -166,6 +267,9 @@ public class PlatformInfoApiTest extends BuildViewTestCase {
       ImmutableList.Builder<String> lines = ImmutableList.builder();
 
       lines.add("platform(", "  name = '" + label.getName() + "',");
+      if (parentLabel != null) {
+        lines.add("  parents = ['" + parentLabel + "'],");
+      }
       lines.add("  constraint_values = [");
       for (String name : constraintValues) {
         lines.add("    ':" + name + "',");
