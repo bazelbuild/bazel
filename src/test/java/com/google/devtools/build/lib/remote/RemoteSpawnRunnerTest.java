@@ -33,6 +33,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.LogFile;
+import build.bazel.remote.execution.v2.Platform;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
@@ -1031,6 +1032,27 @@ public class RemoteSpawnRunnerTest {
           .asList()
           .containsExactly("--foo", "--bar");
     }
+  }
+
+  @Test
+  public void testParsePlatformSortsProperties() throws Exception {
+    String s =
+        String.join(
+            "\n",
+            "properties: {",
+            " name: \"b\"",
+            " value: \"2\"",
+            "}",
+            "properties: {",
+            " name: \"a\"",
+            " value: \"1\"",
+            "}");
+    Platform expected =
+        Platform.newBuilder()
+            .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
+            .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
+            .build();
+    assertThat(RemoteSpawnRunner.parsePlatform(null, s)).isEqualTo(expected);
   }
 
   private static Spawn newSimpleSpawn() {

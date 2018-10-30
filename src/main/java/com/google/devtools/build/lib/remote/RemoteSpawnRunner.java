@@ -28,6 +28,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -66,6 +67,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -389,6 +391,10 @@ class RemoteSpawnRunner implements SpawnRunner {
               "Failed to parse remote_execution_properties from platform %s", platformLabel),
           e);
     }
+    List<Platform.Property> properties = platformBuilder.getPropertiesList();
+    platformBuilder.clearProperties();
+    platformBuilder.addAllProperties(
+        Ordering.from(Comparator.comparing(Platform.Property::getName)).sortedCopy(properties));
     return platformBuilder.build();
   }
 
