@@ -96,10 +96,7 @@ public class ResourceJarActionBuilder {
     SpawnAction.Builder builder = new SpawnAction.Builder();
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
-          .setJarExecutable(
-              javabase.javaBinaryExecPath(),
-              singleJar,
-              javaToolchain.getJvmOptions())
+          .setJarExecutable(javabase.javaBinaryExecPath(), singleJar, javaToolchain.getJvmOptions())
           .addTransitiveInputs(javabase.javaBaseInputsMiddleman());
     } else {
       builder.setExecutable(singleJar);

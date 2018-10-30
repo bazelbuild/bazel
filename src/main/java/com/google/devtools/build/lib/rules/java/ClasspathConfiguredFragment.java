@@ -20,9 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 
-/**
- * Represents common aspects of all JVM targeting configured targets.
- */
+/** Represents common aspects of all JVM targeting configured targets. */
 public final class ClasspathConfiguredFragment {
 
   private final NestedSet<Artifact> runtimeClasspath;
@@ -30,9 +28,9 @@ public final class ClasspathConfiguredFragment {
   private final ImmutableList<Artifact> bootClasspath;
 
   /**
-   * Initializes the runtime and compile time classpaths for this target. This method
-   * should be called during {@code initializationHook()} once a {@link JavaTargetAttributes}
-   * object for this target is fully initialized.
+   * Initializes the runtime and compile time classpaths for this target. This method should be
+   * called during {@code initializationHook()} once a {@link JavaTargetAttributes} object for this
+   * target is fully initialized.
    *
    * @param attributes the processed attributes of this Java target
    * @param isNeverLink whether to leave runtimeClasspath empty
@@ -58,12 +56,10 @@ public final class ClasspathConfiguredFragment {
   }
 
   /**
-   * Returns the runtime class path. It consists of the concatenation of the
-   * instrumentation class path, output jars and the runtime time class path of
-   * the transitive dependencies of this rule.
+   * Returns the runtime class path. It consists of the concatenation of the instrumentation class
+   * path, output jars and the runtime time class path of the transitive dependencies of this rule.
    *
    * @param attributes the processed attributes of this Java target
-   *
    * @return a {@List} of artifacts that comprise the runtime class path.
    */
   private NestedSet<Artifact> getRuntimeClasspathList(
@@ -90,8 +86,8 @@ public final class ClasspathConfiguredFragment {
   }
 
   /**
-   * Returns the classpath to be passed as a boot classpath to the Java compiler when compiling
-   * a target containing this fragment.
+   * Returns the classpath to be passed as a boot classpath to the Java compiler when compiling a
+   * target containing this fragment.
    */
   public ImmutableList<Artifact> getBootClasspath() {
     return bootClasspath;

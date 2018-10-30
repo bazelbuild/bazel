@@ -35,8 +35,9 @@ import com.google.devtools.build.lib.syntax.Type;
 import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for Java support. */
-public class JavaSkylarkCommon implements JavaCommonApi<Artifact, JavaInfo, SkylarkRuleContext,
-    ConfiguredTarget, SkylarkActionFactory> {
+public class JavaSkylarkCommon
+    implements JavaCommonApi<
+        Artifact, JavaInfo, SkylarkRuleContext, ConfiguredTarget, SkylarkActionFactory> {
   private final JavaSemantics javaSemantics;
 
   @Override
@@ -98,7 +99,8 @@ public class JavaSkylarkCommon implements JavaCommonApi<Artifact, JavaInfo, Skyl
       SkylarkList<Artifact> sourcepathEntries,
       SkylarkList<Artifact> resources,
       Boolean neverlink,
-      Environment environment) throws EvalException, InterruptedException {
+      Environment environment)
+      throws EvalException, InterruptedException {
 
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
@@ -183,9 +185,7 @@ public class JavaSkylarkCommon implements JavaCommonApi<Artifact, JavaInfo, Skyl
       // javacopts attribute.
       javacOptsFromAttr = ImmutableList.of();
     }
-    return ImmutableList.copyOf(Iterables.concat(
-        toolchain.getJavacOptions(),
-        javacOptsFromAttr));
+    return ImmutableList.copyOf(Iterables.concat(toolchain.getJavacOptions(), javacOptsFromAttr));
   }
 
   @Override
@@ -204,7 +204,6 @@ public class JavaSkylarkCommon implements JavaCommonApi<Artifact, JavaInfo, Skyl
                 javaInfo.getProvider(JavaCompilationArgsProvider.class)))
         .build();
   }
-
 
   @Override
   public Provider getJavaRuntimeProvider() {

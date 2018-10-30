@@ -43,11 +43,18 @@ public abstract class JavaCompilationArtifacts {
   @AutoCodec public static final JavaCompilationArtifacts EMPTY = new Builder().build();
 
   public abstract ImmutableList<Artifact> getRuntimeJars();
+
   public abstract ImmutableList<Artifact> getCompileTimeJars();
+
   abstract ImmutableList<Artifact> getFullCompileTimeJars();
+
   public abstract ImmutableList<Artifact> getInstrumentationMetadata();
-  @Nullable public abstract Artifact getCompileTimeDependencyArtifact();
-  @Nullable public abstract Artifact getInstrumentedJar();
+
+  @Nullable
+  public abstract Artifact getCompileTimeDependencyArtifact();
+
+  @Nullable
+  public abstract Artifact getInstrumentedJar();
 
   /** Returns a builder for a {@link JavaCompilationArtifacts}. */
   public static Builder builder() {
@@ -72,9 +79,7 @@ public abstract class JavaCompilationArtifacts {
         instrumentedJar);
   }
 
-  /**
-   * A builder for {@link JavaCompilationArtifacts}.
-   */
+  /** A builder for {@link JavaCompilationArtifacts}. */
   public static final class Builder {
     private final Set<Artifact> runtimeJars = new LinkedHashSet<>();
     private final Set<Artifact> compileTimeJars = new LinkedHashSet<>();

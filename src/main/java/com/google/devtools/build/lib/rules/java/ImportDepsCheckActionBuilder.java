@@ -108,9 +108,7 @@ public final class ImportDepsCheckActionBuilder {
             .setMnemonic("ImportDepsChecker")
             .setProgressMessage(
                 "Checking the completeness of the deps for %s",
-                jarsToCheck
-                    .toList()
-                    .stream()
+                jarsToCheck.toList().stream()
                     .map(Artifact::prettyPrint)
                     .collect(Collectors.joining(", ")))
             .addCommandLine(buildCommandLine())

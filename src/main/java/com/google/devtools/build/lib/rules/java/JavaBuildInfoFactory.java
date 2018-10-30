@@ -65,49 +65,56 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
   private static final TimestampFormatter DEFAULT_FORMATTER = new DefaultTimestampFormatter();
 
   @Override
-  public final BuildInfoCollection create(BuildInfoContext context, BuildConfiguration config,
-      Artifact stableStatus, Artifact volatileStatus, RepositoryName repositoryName) {
-    WriteBuildInfoPropertiesAction redactedInfo = getHeader(context,
-        config,
-        BUILD_INFO_REDACTED_PROPERTIES_NAME,
-        Artifact.NO_ARTIFACTS,
-        createRedactedTranslator(),
-        true,
-        true,
-        repositoryName);
-    WriteBuildInfoPropertiesAction nonvolatileInfo = getHeader(context,
-        config,
-        BUILD_INFO_NONVOLATILE_PROPERTIES_NAME,
-        ImmutableList.of(stableStatus),
-        createNonVolatileTranslator(),
-        false,
-        true,
-        repositoryName);
-    WriteBuildInfoPropertiesAction volatileInfo = getHeader(context,
-        config,
-        BUILD_INFO_VOLATILE_PROPERTIES_NAME,
-        ImmutableList.of(volatileStatus),
-        createVolatileTranslator(),
-        true,
-        false,
-        repositoryName);
+  public final BuildInfoCollection create(
+      BuildInfoContext context,
+      BuildConfiguration config,
+      Artifact stableStatus,
+      Artifact volatileStatus,
+      RepositoryName repositoryName) {
+    WriteBuildInfoPropertiesAction redactedInfo =
+        getHeader(
+            context,
+            config,
+            BUILD_INFO_REDACTED_PROPERTIES_NAME,
+            Artifact.NO_ARTIFACTS,
+            createRedactedTranslator(),
+            true,
+            true,
+            repositoryName);
+    WriteBuildInfoPropertiesAction nonvolatileInfo =
+        getHeader(
+            context,
+            config,
+            BUILD_INFO_NONVOLATILE_PROPERTIES_NAME,
+            ImmutableList.of(stableStatus),
+            createNonVolatileTranslator(),
+            false,
+            true,
+            repositoryName);
+    WriteBuildInfoPropertiesAction volatileInfo =
+        getHeader(
+            context,
+            config,
+            BUILD_INFO_VOLATILE_PROPERTIES_NAME,
+            ImmutableList.of(volatileStatus),
+            createVolatileTranslator(),
+            true,
+            false,
+            repositoryName);
     List<Action> actions = new ArrayList<>(3);
     actions.add(redactedInfo);
     actions.add(nonvolatileInfo);
     actions.add(volatileInfo);
-    return new BuildInfoCollection(actions,
+    return new BuildInfoCollection(
+        actions,
         ImmutableList.of(nonvolatileInfo.getPrimaryOutput(), volatileInfo.getPrimaryOutput()),
         ImmutableList.of(redactedInfo.getPrimaryOutput()));
   }
 
-  /**
-   * Creates a {@link BuildInfoPropertiesTranslator} to use for volatile keys.
-   */
+  /** Creates a {@link BuildInfoPropertiesTranslator} to use for volatile keys. */
   protected abstract BuildInfoPropertiesTranslator createVolatileTranslator();
 
-  /**
-   * Creates a {@link BuildInfoPropertiesTranslator} to use for non-volatile keys.
-   */
+  /** Creates a {@link BuildInfoPropertiesTranslator} to use for non-volatile keys. */
   protected abstract BuildInfoPropertiesTranslator createNonVolatileTranslator();
 
   /**
@@ -116,14 +123,13 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
    */
   protected abstract BuildInfoPropertiesTranslator createRedactedTranslator();
 
-  /**
-   * Specifies the {@link TimestampFormatter} to use to output dates in the properties file.
-   */
+  /** Specifies the {@link TimestampFormatter} to use to output dates in the properties file. */
   protected TimestampFormatter getTimestampFormatter() {
     return DEFAULT_FORMATTER;
   }
 
-  private WriteBuildInfoPropertiesAction getHeader(BuildInfoContext context,
+  private WriteBuildInfoPropertiesAction getHeader(
+      BuildInfoContext context,
       BuildConfiguration config,
       PathFragment propertyFileName,
       ImmutableList<Artifact> inputs,
@@ -132,15 +138,15 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       boolean includeNonVolatile,
       RepositoryName repositoryName) {
     ArtifactRoot outputPath = config.getIncludeDirectory(repositoryName);
-    final Artifact output = context.getBuildInfoArtifact(propertyFileName, outputPath,
-        includeVolatile && !inputs.isEmpty() ? BuildInfoType.NO_REBUILD
-            : BuildInfoType.FORCE_REBUILD_IF_CHANGED);
-    return new WriteBuildInfoPropertiesAction(inputs,
-        output,
-        translator,
-        includeVolatile,
-        includeNonVolatile,
-        getTimestampFormatter());
+    final Artifact output =
+        context.getBuildInfoArtifact(
+            propertyFileName,
+            outputPath,
+            includeVolatile && !inputs.isEmpty()
+                ? BuildInfoType.NO_REBUILD
+                : BuildInfoType.FORCE_REBUILD_IF_CHANGED);
+    return new WriteBuildInfoPropertiesAction(
+        inputs, output, translator, includeVolatile, includeNonVolatile, getTimestampFormatter());
   }
 
   @Override

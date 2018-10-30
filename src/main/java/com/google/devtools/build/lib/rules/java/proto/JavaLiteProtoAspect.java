@@ -160,10 +160,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
     private final boolean isJavaProtoExportsEnabled;
 
-    Impl(
-        RuleContext ruleContext,
-        SupportData supportData,
-        JavaProtoAspectCommon aspectCommon) {
+    Impl(RuleContext ruleContext, SupportData supportData, JavaProtoAspectCommon aspectCommon) {
       this.ruleContext = ruleContext;
       this.supportData = supportData;
       this.aspectCommon = aspectCommon;

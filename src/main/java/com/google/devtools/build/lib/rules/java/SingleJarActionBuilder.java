@@ -43,11 +43,9 @@ import java.util.function.Consumer;
 @Immutable
 public final class SingleJarActionBuilder {
 
-  private static final ImmutableList<String> SOURCE_JAR_COMMAND_LINE_ARGS = ImmutableList.of(
-      "--compression",
-      "--normalize",
-      "--exclude_build_data",
-      "--warn_duplicate_resources");
+  private static final ImmutableList<String> SOURCE_JAR_COMMAND_LINE_ARGS =
+      ImmutableList.of(
+          "--compression", "--normalize", "--exclude_build_data", "--warn_duplicate_resources");
 
   /** Constructs the base spawn for a singlejar action. */
   private static SpawnAction.Builder singleJarActionBuilder(
@@ -60,10 +58,7 @@ public final class SingleJarActionBuilder {
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
           .addTransitiveInputs(hostJavabase.javaBaseInputsMiddleman())
-          .setJarExecutable(
-              hostJavabase.javaBinaryExecPath(),
-              singleJar,
-              provider.getJvmOptions())
+          .setJarExecutable(hostJavabase.javaBinaryExecPath(), singleJar, provider.getJvmOptions())
           .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
     } else {
       builder.setExecutable(singleJar);
@@ -120,8 +115,8 @@ public final class SingleJarActionBuilder {
     if (!resources.isEmpty()) {
       requireNonNull(semantics);
     }
-    SpawnAction.Builder builder = singleJarActionBuilder(
-        toolchainProvider, hostJavabase)
+    SpawnAction.Builder builder =
+        singleJarActionBuilder(toolchainProvider, hostJavabase)
             .addOutput(outputJar)
             .addInputs(resources)
             .addTransitiveInputs(resourceJars)
@@ -218,4 +213,3 @@ public final class SingleJarActionBuilder {
     }
   }
 }
-

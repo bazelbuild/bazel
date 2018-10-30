@@ -128,11 +128,10 @@ public final class OneVersionCheckActionBuilder {
 
   private static String getArtifactOwnerGeneralizedLabel(Artifact artifact) {
     Label label = checkNotNull(artifact.getArtifactOwner(), artifact).getLabel();
-    return
-        label.getPackageIdentifier().getRepository().isDefault()
+    return label.getPackageIdentifier().getRepository().isDefault()
             || label.getPackageIdentifier().getRepository().isMain()
-            ? label.toString()
-            // Escape '@' prefix for .params file.
-            : "@" + label;
+        ? label.toString()
+        // Escape '@' prefix for .params file.
+        : "@" + label;
   }
 }

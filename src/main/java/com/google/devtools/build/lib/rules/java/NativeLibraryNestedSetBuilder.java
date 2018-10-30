@@ -26,23 +26,17 @@ import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.util.FileType;
 
-/**
- * A builder that helps construct nested sets of native libraries.
- */
+/** A builder that helps construct nested sets of native libraries. */
 public final class NativeLibraryNestedSetBuilder {
 
   private final NestedSetBuilder<LinkerInput> builder = NestedSetBuilder.linkOrder();
 
-  /**
-   * Build a nested set of native libraries.
-   */
+  /** Build a nested set of native libraries. */
   public NestedSet<LinkerInput> build() {
     return builder.build();
   }
 
-  /**
-   * Include specified artifacts as native libraries in the nested set.
-   */
+  /** Include specified artifacts as native libraries in the nested set. */
   public NativeLibraryNestedSetBuilder addAll(Iterable<Artifact> deps) {
     for (Artifact dep : deps) {
       builder.add(
@@ -52,9 +46,7 @@ public final class NativeLibraryNestedSetBuilder {
     return this;
   }
 
-  /**
-   * Include native libraries of specified dependencies into the nested set.
-   */
+  /** Include native libraries of specified dependencies into the nested set. */
   public NativeLibraryNestedSetBuilder addJavaTargets(
       Iterable<? extends TransitiveInfoCollection> deps) {
     for (TransitiveInfoCollection dep : deps) {
@@ -63,9 +55,7 @@ public final class NativeLibraryNestedSetBuilder {
     return this;
   }
 
-  /**
-   * Include native Java libraries of a specified target into the nested set.
-   */
+  /** Include native Java libraries of a specified target into the nested set. */
   public NativeLibraryNestedSetBuilder addJavaTarget(TransitiveInfoCollection dep) {
     JavaNativeLibraryProvider javaProvider = dep.getProvider(JavaNativeLibraryProvider.class);
     if (javaProvider != null) {
@@ -82,11 +72,9 @@ public final class NativeLibraryNestedSetBuilder {
     addTarget(dep);
 
     return this;
- }
+  }
 
-  /**
-   * Include native C/C++ libraries of specified dependencies into the nested set.
-   */
+  /** Include native C/C++ libraries of specified dependencies into the nested set. */
   public NativeLibraryNestedSetBuilder addCcTargets(
       Iterable<? extends TransitiveInfoCollection> deps) {
     for (TransitiveInfoCollection dep : deps) {
@@ -95,9 +83,7 @@ public final class NativeLibraryNestedSetBuilder {
     return this;
   }
 
-  /**
-   * Include native Java libraries of a specified target into the nested set.
-   */
+  /** Include native Java libraries of a specified target into the nested set. */
   private void addCcTarget(TransitiveInfoCollection dep) {
     CcNativeLibraryProvider provider = dep.getProvider(CcNativeLibraryProvider.class);
     if (provider != null) {
@@ -107,13 +93,11 @@ public final class NativeLibraryNestedSetBuilder {
     }
   }
 
-  /**
-   * Include files and genrule artifacts.
-   */
+  /** Include files and genrule artifacts. */
   private void addTarget(TransitiveInfoCollection dep) {
-    for (Artifact artifact : FileType.filterList(
-        dep.getProvider(FileProvider.class).getFilesToBuild(),
-        CppFileTypes.SHARED_LIBRARY)) {
+    for (Artifact artifact :
+        FileType.filterList(
+            dep.getProvider(FileProvider.class).getFilesToBuild(), CppFileTypes.SHARED_LIBRARY)) {
       builder.add(
           new LinkerInputs.SimpleLinkerInput(
               artifact, ArtifactCategory.DYNAMIC_LIBRARY, /* disableWholeArchive= */ false));

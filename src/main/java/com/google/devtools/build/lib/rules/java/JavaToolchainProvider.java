@@ -43,8 +43,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
     return from(ruleContext, ":java_toolchain");
   }
 
-  public static JavaToolchainProvider from(
-      RuleContext ruleContext, String attributeName) {
+  public static JavaToolchainProvider from(RuleContext ruleContext, String attributeName) {
     TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite(attributeName, Mode.TARGET);
     return from(prerequisite, ruleContext);
   }

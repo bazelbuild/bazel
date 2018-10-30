@@ -31,8 +31,7 @@ public final class JavaNativeLibraryProvider implements TransitiveInfoProvider {
 
   private final NestedSet<LinkerInput> transitiveJavaNativeLibraries;
 
-  public JavaNativeLibraryProvider(
-      NestedSet<LinkerInput> transitiveJavaNativeLibraries) {
+  public JavaNativeLibraryProvider(NestedSet<LinkerInput> transitiveJavaNativeLibraries) {
     this.transitiveJavaNativeLibraries = transitiveJavaNativeLibraries;
   }
 
@@ -52,5 +51,4 @@ public final class JavaNativeLibraryProvider implements TransitiveInfoProvider {
     }
     return new JavaNativeLibraryProvider(transitiveSourceJars.build());
   }
-
 }

@@ -31,9 +31,7 @@ import com.google.devtools.build.lib.rules.proto.SupportData;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaProtoCommonApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
-/**
- * A class that exposes Java common methods for proto compilation.
- */
+/** A class that exposes Java common methods for proto compilation. */
 public class JavaProtoSkylarkCommon
     implements JavaProtoCommonApi<Artifact, SkylarkRuleContext, ConfiguredTarget> {
   @Override
@@ -42,7 +40,8 @@ public class JavaProtoSkylarkCommon
       ConfiguredTarget target,
       Artifact sourceJar,
       String protoToolchainAttr,
-      String flavour) throws EvalException {
+      String flavour)
+      throws EvalException {
     SupportData supportData =
         checkNotNull(target.getProvider(ProtoSupportDataProvider.class).getSupportData());
     ProtoCompileActionBuilder.registerActions(
@@ -75,12 +74,11 @@ public class JavaProtoSkylarkCommon
       SkylarkRuleContext skylarkRuleContext, String protoToolchainAttr) throws EvalException {
     TransitiveInfoCollection runtime =
         getProtoToolchainProvider(skylarkRuleContext, protoToolchainAttr).runtime();
-    return
-        JavaInfo.Builder.create()
-            .addProvider(
-                JavaCompilationArgsProvider.class,
-                JavaInfo.getProvider(JavaCompilationArgsProvider.class, runtime))
-            .build();
+    return JavaInfo.Builder.create()
+        .addProvider(
+            JavaCompilationArgsProvider.class,
+            JavaInfo.getProvider(JavaCompilationArgsProvider.class, runtime))
+        .build();
   }
 
   @Override
@@ -98,8 +96,8 @@ public class JavaProtoSkylarkCommon
 
   private static ProtoLangToolchainProvider getProtoToolchainProvider(
       SkylarkRuleContext skylarkRuleContext, String protoToolchainAttr) throws EvalException {
-    ConfiguredTarget javaliteToolchain = (ConfiguredTarget) checkNotNull(
-            skylarkRuleContext.getAttr().getValue(protoToolchainAttr));
+    ConfiguredTarget javaliteToolchain =
+        (ConfiguredTarget) checkNotNull(skylarkRuleContext.getAttr().getValue(protoToolchainAttr));
     return checkNotNull(javaliteToolchain.getProvider(ProtoLangToolchainProvider.class));
   }
 }

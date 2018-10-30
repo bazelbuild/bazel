@@ -26,9 +26,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link JavaInfo}.
- */
+/** Unit tests for {@link JavaInfo}. */
 @RunWith(JUnit4.class)
 public class JavaInfoTest {
 
@@ -60,13 +58,15 @@ public class JavaInfoTest {
   @Test
   public void testMergeJavaExportsProvider() throws LabelSyntaxException {
 
-    JavaInfo javaInfo1 = JavaInfo.Builder.create()
-        .addProvider(JavaExportsProvider.class, createJavaExportsProvider("foo", 2))
-        .build();
+    JavaInfo javaInfo1 =
+        JavaInfo.Builder.create()
+            .addProvider(JavaExportsProvider.class, createJavaExportsProvider("foo", 2))
+            .build();
 
-    JavaInfo javaInfo2 = JavaInfo.Builder.create()
-        .addProvider(JavaExportsProvider.class, createJavaExportsProvider("bar", 3))
-        .build();
+    JavaInfo javaInfo2 =
+        JavaInfo.Builder.create()
+            .addProvider(JavaExportsProvider.class, createJavaExportsProvider("bar", 3))
+            .build();
 
     JavaInfo javaInfoMerged = JavaInfo.merge(ImmutableList.of(javaInfo1, javaInfo2));
 

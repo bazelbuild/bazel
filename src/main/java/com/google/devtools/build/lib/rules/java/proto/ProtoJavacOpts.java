@@ -19,9 +19,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 
-/**
- * Helper class to centralize Javac flags handling.
- */
+/** Helper class to centralize Javac flags handling. */
 public class ProtoJavacOpts {
 
   /**

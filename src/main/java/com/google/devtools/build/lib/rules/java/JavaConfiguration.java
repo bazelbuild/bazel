@@ -86,23 +86,23 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
      */
     NOOP("-dontshrink", "-dontoptimize", "-dontobfuscate"),
     /**
-     * Symbols have different names except where configured not to rename.  This mode is primarily
+     * Symbols have different names except where configured not to rename. This mode is primarily
      * intended to aid in identifying missing configuration directives that prevent symbols accessed
      * reflectively etc. from being renamed or removed.
      */
     RENAME("-dontshrink", "-dontoptimize"),
     /**
-     * "Quickly" produce small binary typically without changing code structure.  In practice this
+     * "Quickly" produce small binary typically without changing code structure. In practice this
      * mode removes unreachable code and uses short symbol names except where configured not to
-     * rename or remove.  This mode should build faster than {@link #OPTIMIZE_MINIFY} and may hence
+     * rename or remove. This mode should build faster than {@link #OPTIMIZE_MINIFY} and may hence
      * be preferable during development.
      */
     FAST_MINIFY("-dontoptimize"),
     /**
-     * Produce fully optimized binary with short symbol names and unreachable code removed.  Unlike
+     * Produce fully optimized binary with short symbol names and unreachable code removed. Unlike
      * {@link #FAST_MINIFY}, this mode may apply code transformations, in addition to removing and
-     * renaming code as the configuration allows, to produce a more compact binary.  This mode
-     * should be preferable for producing and testing release binaries.
+     * renaming code as the configuration allows, to produce a more compact binary. This mode should
+     * be preferable for producing and testing release binaries.
      */
     OPTIMIZE_MINIFY;
 
@@ -117,17 +117,15 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       this.proguardDirectives = proguardDirectives.toString();
     }
 
-    /**
-     * Returns additional Proguard directives necessary for this mode (can be empty).
-     */
+    /** Returns additional Proguard directives necessary for this mode (can be empty). */
     public String getImplicitProguardDirectives() {
       return proguardDirectives;
     }
 
     /**
      * Returns true if all affected targets should produce mappings from original to renamed symbol
-     * names, regardless of the proguard_generate_mapping attribute.  This should be the case for
-     * all modes that force symbols to be renamed.  By contrast, the {@link #NOOP} mode will never
+     * names, regardless of the proguard_generate_mapping attribute. This should be the case for all
+     * modes that force symbols to be renamed. By contrast, the {@link #NOOP} mode will never
      * produce a mapping file since no symbols are ever renamed.
      */
     public boolean alwaysGenerateOutputMapping() {
@@ -218,8 +216,12 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
         Label label = Label.parseAbsolute(s, ImmutableMap.of());
         translationsBuilder.add(label);
       } catch (LabelSyntaxException e) {
-        throw new InvalidConfigurationException("Invalid translations target '" + s + "', make " +
-            "sure it uses correct absolute path syntax.", e);
+        throw new InvalidConfigurationException(
+            "Invalid translations target '"
+                + s
+                + "', make "
+                + "sure it uses correct absolute path syntax.",
+            e);
       }
     }
     this.translationTargets = translationsBuilder.build();
@@ -253,14 +255,14 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     if ((bundleTranslations == TriState.YES) && translationTargets.isEmpty()) {
-      reporter.handle(Event.error("Translations enabled, but no message translations specified. " +
-          "Use '--message_translations' to select the message translations to use"));
+      reporter.handle(
+          Event.error(
+              "Translations enabled, but no message translations specified. "
+                  + "Use '--message_translations' to select the message translations to use"));
     }
   }
 
-  /**
-   * Returns true iff Java compilation should use ijars.
-   */
+  /** Returns true iff Java compilation should use ijars. */
   public boolean getUseIjars() {
     return useIjars;
   }
@@ -270,9 +272,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return useHeaderCompilation;
   }
 
-  /**
-   * Returns true iff dependency information is generated after compilation.
-   */
+  /** Returns true iff dependency information is generated after compilation. */
   public boolean getGenerateJavaDeps() {
     return generateJavaDeps;
   }
@@ -299,7 +299,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       case STRICT:
       case DEFAULT:
         return StrictDepsMode.ERROR;
-      default:   // OFF, WARN, ERROR
+      default: // OFF, WARN, ERROR
         return strict;
     }
   }
@@ -309,9 +309,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return fixDepsTool;
   }
 
-  /**
-   * @return proper label only if --java_launcher= is specified, otherwise null.
-   */
+  /** @return proper label only if --java_launcher= is specified, otherwise null. */
   public Label getJavaLauncherLabel() {
     return javaLauncherLabel;
   }
@@ -326,30 +324,22 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return proguardBinary;
   }
 
-  /**
-   * Returns all labels provided with --extra_proguard_specs.
-   */
+  /** Returns all labels provided with --extra_proguard_specs. */
   public ImmutableList<Label> getExtraProguardSpecs() {
     return extraProguardSpecs;
   }
 
-  /**
-   * Returns the raw translation targets.
-   */
+  /** Returns the raw translation targets. */
   public ImmutableList<Label> getTranslationTargets() {
     return translationTargets;
   }
 
-  /**
-   * Returns true if the we should build translations.
-   */
+  /** Returns true if the we should build translations. */
   public boolean buildTranslations() {
     return (bundleTranslations != TriState.NO) && !translationTargets.isEmpty();
   }
 
-  /**
-   * Returns whether translations were explicitly disabled.
-   */
+  /** Returns whether translations were explicitly disabled. */
   public boolean isTranslationsDisabled() {
     return bundleTranslations == TriState.NO;
   }
@@ -364,25 +354,21 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return toolchainLabel;
   }
 
-  /**
-   * Returns the label of the {@code java_runtime} rule representing the JVM in use.
-   */
+  /** Returns the label of the {@code java_runtime} rule representing the JVM in use. */
   public Label getRuntimeLabel() {
     return runtimeLabel;
   }
 
   /**
    * Returns the --java_optimization_mode flag setting. Note that running with a different mode over
-   * the same binary or test target typically invalidates the cached output Jar for that target,
-   * but since Proguard doesn't run on libraries, the outputs for library targets remain valid.
+   * the same binary or test target typically invalidates the cached output Jar for that target, but
+   * since Proguard doesn't run on libraries, the outputs for library targets remain valid.
    */
   public JavaOptimizationMode getJavaOptimizationMode() {
     return javaOptimizationMode;
   }
 
-  /**
-   * Returns ordered list of optimizers to run.
-   */
+  /** Returns ordered list of optimizers to run. */
   public ImmutableMap<String, Optional<Label>> getBytecodeOptimizers() {
     return bytecodeOptimizers;
   }
@@ -415,8 +401,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
    * Returns an enum representing whether or not Bazel should attempt to enforce one-version
    * correctness on java_binary rules using the 'oneversion' tool in the java_toolchain.
    *
-   * One-version correctness will inspect for multiple non-identical versions of java classes in the
-   * transitive dependencies for a java_binary.
+   * <p>One-version correctness will inspect for multiple non-identical versions of java classes in
+   * the transitive dependencies for a java_binary.
    */
   public OneVersionEnforcementLevel oneVersionEnforcementLevel() {
     return enforceOneVersion;

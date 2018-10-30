@@ -47,16 +47,12 @@ public final class ProguardLibrary {
 
   private final RuleContext ruleContext;
 
-  /**
-   * Creates a new ProguardLibrary wrapping the given RuleContext.
-   */
+  /** Creates a new ProguardLibrary wrapping the given RuleContext. */
   public ProguardLibrary(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
   }
 
-  /**
-   * Collects the validated proguard specs exported by this rule and its dependencies.
-   */
+  /** Collects the validated proguard specs exported by this rule and its dependencies. */
   public NestedSet<Artifact> collectProguardSpecs() {
     return collectProguardSpecs(DEPENDENCY_ATTRIBUTES);
   }
@@ -86,9 +82,7 @@ public final class ProguardLibrary {
     return specsBuilder.build();
   }
 
-  /**
-   * Collects the unvalidated proguard specs exported by this rule.
-   */
+  /** Collects the unvalidated proguard specs exported by this rule. */
   public ImmutableList<Artifact> collectLocalProguardSpecs() {
     if (!ruleContext.attributes().has(LOCAL_SPEC_ATTRIBUTE, BuildType.LABEL_LIST)) {
       return ImmutableList.of();

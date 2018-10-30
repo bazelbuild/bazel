@@ -34,8 +34,7 @@ public class JavaProtoLibraryAspectProvider implements TransitiveInfoProvider {
   private final JavaCompilationArgsProvider nonStrictCompArgs;
 
   public JavaProtoLibraryAspectProvider(
-      NestedSet<Artifact> jars,
-      JavaCompilationArgsProvider nonStrictCompArgs) {
+      NestedSet<Artifact> jars, JavaCompilationArgsProvider nonStrictCompArgs) {
     this.jars = jars;
     this.nonStrictCompArgs = nonStrictCompArgs;
   }

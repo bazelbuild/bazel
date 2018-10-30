@@ -29,8 +29,6 @@ public class JavaHostRuntimeAliasRule extends CommonAliasRule {
   @Override
   protected Attribute.Builder<Label> makeAttribute(RuleDefinitionEnvironment environment) {
     Attribute.Builder<Label> builder = super.makeAttribute(environment);
-    return builder
-        .cfg(HostTransition.INSTANCE)
-        .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id());
+    return builder.cfg(HostTransition.INSTANCE).mandatoryProviders(JavaRuntimeInfo.PROVIDER.id());
   }
 }

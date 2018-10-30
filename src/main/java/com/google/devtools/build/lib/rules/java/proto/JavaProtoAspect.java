@@ -199,7 +199,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       } else {
         this.exportsCompilationArgs = null;
       }
-
     }
 
     void addProviders(ConfiguredAspect.Builder aspect) {

@@ -25,13 +25,9 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 
-/**
- * Common rule class definitions for Java rules.
- */
+/** Common rule class definitions for Java rules. */
 public class JavaRuleClasses {
-  /**
-   * Common attributes for rules that depend on ijar.
-   */
+  /** Common attributes for rules that depend on ijar. */
   public static final class IjarBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {

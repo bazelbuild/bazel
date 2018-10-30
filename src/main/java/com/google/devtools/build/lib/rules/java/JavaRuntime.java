@@ -62,8 +62,8 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     }
 
     PathFragment javaBinaryExecPath = javaHome.getRelative(BIN_JAVA);
-    PathFragment javaBinaryRunfilesPath = getRunfilesJavaExecutable(
-        javaHome, ruleContext.getLabel());
+    PathFragment javaBinaryRunfilesPath =
+        getRunfilesJavaExecutable(javaHome, ruleContext.getLabel());
 
     Artifact java = ruleContext.getPrerequisiteArtifact("java", Mode.TARGET);
     if (java != null) {
@@ -103,11 +103,12 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             javaHomeRunfilesPath,
             javaBinaryRunfilesPath);
 
-    TemplateVariableInfo templateVariableInfo = new TemplateVariableInfo(
-        ImmutableMap.of(
-            "JAVA", javaBinaryExecPath.getPathString(),
-            "JAVABASE", javaHome.getPathString()),
-        ruleContext.getRule().getLocation());
+    TemplateVariableInfo templateVariableInfo =
+        new TemplateVariableInfo(
+            ImmutableMap.of(
+                "JAVA", javaBinaryExecPath.getPathString(),
+                "JAVABASE", javaHome.getPathString()),
+            ruleContext.getRule().getLocation());
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
@@ -134,7 +135,10 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     if (javaHome.isAbsolute() || javabase.getPackageIdentifier().getRepository().isMain()) {
       return javaHome.getRelative(BIN_JAVA);
     } else {
-      return javabase.getPackageIdentifier().getRepository().getRunfilesPath()
+      return javabase
+          .getPackageIdentifier()
+          .getRepository()
+          .getRunfilesPath()
           .getRelative(BIN_JAVA);
     }
   }

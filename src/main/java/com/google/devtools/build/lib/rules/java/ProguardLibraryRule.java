@@ -26,9 +26,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 
-/**
- * A base rule for libraries which can provide proguard specs.
- */
+/** A base rule for libraries which can provide proguard specs. */
 public final class ProguardLibraryRule implements RuleDefinition {
 
   @Override
@@ -44,15 +42,19 @@ public final class ProguardLibraryRule implements RuleDefinition {
         <code>android_binary</code>'s proguard_specs, to ensure non-tautological merges.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("proguard_specs", LABEL_LIST).legacyAllowAnyFileType())
-        .add(attr("$proguard_whitelister", LABEL).cfg(HostTransition.INSTANCE).exec().value(
-            new Attribute.ComputedDefault() {
-              @Override
-              public Object getDefault(AttributeMap rule) {
-                return rule.isAttributeValueExplicitlySpecified("proguard_specs")
-                    ? environment.getToolsLabel("//tools/jdk:proguard_whitelister")
-                    : null;
-              }
-            }))
+        .add(
+            attr("$proguard_whitelister", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .exec()
+                .value(
+                    new Attribute.ComputedDefault() {
+                      @Override
+                      public Object getDefault(AttributeMap rule) {
+                        return rule.isAttributeValueExplicitlySpecified("proguard_specs")
+                            ? environment.getToolsLabel("//tools/jdk:proguard_whitelister")
+                            : null;
+                      }
+                    }))
         .build();
   }
 

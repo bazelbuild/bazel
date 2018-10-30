@@ -28,12 +28,11 @@ public final class JavaPrimaryClassProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns either the Java class whose main() method is to be invoked (when
-   * use_testrunner=0) or the Java subclass of junit.framework.Test that
-   * is to be tested by the test runner class (when use_testrunner=1).
+   * Returns either the Java class whose main() method is to be invoked (when use_testrunner=0) or
+   * the Java subclass of junit.framework.Test that is to be tested by the test runner class (when
+   * use_testrunner=1).
    *
-   * @return a fully qualified Java class name, or null if none could be
-   *   determined.
+   * @return a fully qualified Java class name, or null if none could be determined.
    */
   public String getPrimaryClass() {
     return primaryClass;

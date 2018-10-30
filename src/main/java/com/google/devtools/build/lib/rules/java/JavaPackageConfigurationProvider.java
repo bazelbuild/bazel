@@ -53,8 +53,7 @@ public abstract class JavaPackageConfigurationProvider implements TransitiveInfo
    * is contained by any of the {@link #packageSpecifications}.
    */
   public boolean matches(Label label) {
-    return packageSpecifications()
-        .stream()
+    return packageSpecifications().stream()
         .flatMap(p -> Streams.stream(p.getPackageSpecifications()))
         .anyMatch(p -> p.containsPackage(label.getPackageIdentifier()));
   }

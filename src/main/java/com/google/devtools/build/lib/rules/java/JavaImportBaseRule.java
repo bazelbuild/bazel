@@ -29,19 +29,18 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
-/**
- * A base rule for building the java_import rule.
- */
+/** A base rule for building the java_import rule. */
 public class JavaImportBaseRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
-        .add(attr(":host_jdk", LABEL)
-            .cfg(HostTransition.INSTANCE)
-            .value(JavaSemantics.hostJdkAttribute(environment))
-            .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
+        .add(
+            attr(":host_jdk", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .value(JavaSemantics.hostJdkAttribute(environment))
+                .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(jars) -->
         The list of JAR files provided to Java targets that depend on this target.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

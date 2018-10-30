@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
 
-/**
- * Implementation of the {@code java_toolchain_alias} rule.
- */
-public class JavaToolchainAliasRule extends CommonAliasRule{
+/** Implementation of the {@code java_toolchain_alias} rule. */
+public class JavaToolchainAliasRule extends CommonAliasRule {
   public JavaToolchainAliasRule() {
     super("java_toolchain_alias", JavaSemantics::javaToolchainAttribute, JavaConfiguration.class);
   }

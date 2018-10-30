@@ -57,9 +57,7 @@ import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * An implementation of java_binary.
- */
+/** An implementation of java_binary. */
 public class JavaBinary implements RuleConfiguredTargetFactory {
   private static final PathFragment CPP_RUNTIMES = PathFragment.create("_cpp_runtimes");
 
@@ -73,9 +71,11 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     final JavaCommon common = new JavaCommon(ruleContext, semantics);
-    DeployArchiveBuilder deployArchiveBuilder =  new DeployArchiveBuilder(semantics, ruleContext);
-    Runfiles.Builder runfilesBuilder = new Runfiles.Builder(
-        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles());
+    DeployArchiveBuilder deployArchiveBuilder = new DeployArchiveBuilder(semantics, ruleContext);
+    Runfiles.Builder runfilesBuilder =
+        new Runfiles.Builder(
+            ruleContext.getWorkspaceName(),
+            ruleContext.getConfiguration().legacyExternalRunfiles());
     List<String> jvmFlags = new ArrayList<>();
 
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
@@ -108,8 +108,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     }
 
     // Collect the transitive dependencies.
-    JavaCompilationHelper helper = new JavaCompilationHelper(
-        ruleContext, semantics, common.getJavacOpts(), attributesBuilder);
+    JavaCompilationHelper helper =
+        new JavaCompilationHelper(ruleContext, semantics, common.getJavacOpts(), attributesBuilder);
     List<TransitiveInfoCollection> deps =
         Lists.newArrayList(common.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     helper.addLibrariesToAttributes(deps);
@@ -118,24 +118,26 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     // deploy_env is valid for java_binary, but not for java_test.
     if (ruleContext.getRule().isAttrDefined("deploy_env", BuildType.LABEL_LIST)) {
-      for (JavaRuntimeClasspathProvider envTarget : ruleContext.getPrerequisites(
-               "deploy_env", Mode.TARGET, JavaRuntimeClasspathProvider.class)) {
+      for (JavaRuntimeClasspathProvider envTarget :
+          ruleContext.getPrerequisites(
+              "deploy_env", Mode.TARGET, JavaRuntimeClasspathProvider.class)) {
         attributesBuilder.addExcludedArtifacts(envTarget.getRuntimeClasspath());
       }
     }
 
     Artifact srcJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_SOURCE_JAR);
-    JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder = JavaSourceJarsProvider.builder()
-        .addSourceJar(srcJar)
-        .addAllTransitiveSourceJars(common.collectTransitiveSourceJars(srcJar));
+    JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder =
+        JavaSourceJarsProvider.builder()
+            .addSourceJar(srcJar)
+            .addAllTransitiveSourceJars(common.collectTransitiveSourceJars(srcJar));
     Artifact classJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_CLASS_JAR);
     Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
             .addOutputJar(classJar, null /* iJar */, manifestProtoOutput, ImmutableList.of(srcJar));
 
-    CppConfiguration cppConfiguration = ruleContext.getConfiguration().getFragment(
-        CppConfiguration.class);
+    CppConfiguration cppConfiguration =
+        ruleContext.getConfiguration().getFragment(CppConfiguration.class);
     CcToolchainProvider ccToolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     // TODO(b/64384912): Remove in favor of CcToolchainProvider
@@ -193,9 +195,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaTargetAttributes attributes = helper.getAttributes();
     List<Artifact> nativeLibraries = attributes.getNativeLibraries();
     if (!nativeLibraries.isEmpty()) {
-      jvmFlags.add("-Djava.library.path="
-          + JavaCommon.javaLibraryPath(nativeLibraries,
-              ruleContext.getRule().getPackage().getWorkspaceName()));
+      jvmFlags.add(
+          "-Djava.library.path="
+              + JavaCommon.javaLibraryPath(
+                  nativeLibraries, ruleContext.getRule().getPackage().getWorkspaceName()));
     }
 
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
@@ -251,8 +254,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Iterable<Artifact> dynamicRuntimeActionInputs =
         CppHelper.getDefaultCcToolchainDynamicRuntimeInputs(ruleContext);
 
-    Iterables.addAll(jvmFlags,
-        semantics.getJvmFlags(ruleContext, common.getSrcsArtifacts(), userJvmFlags));
+    Iterables.addAll(
+        jvmFlags, semantics.getJvmFlags(ruleContext, common.getSrcsArtifacts(), userJvmFlags));
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -310,8 +313,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     Artifact deployJar =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_JAR);
-    boolean runProguard = applyProguardIfRequested(
-        ruleContext, deployJar, common.getBootClasspath(), mainClass, semantics, filesBuilder);
+    boolean runProguard =
+        applyProguardIfRequested(
+            ruleContext, deployJar, common.getBootClasspath(), mainClass, semantics, filesBuilder);
 
     if (javaConfig.oneVersionEnforcementLevel() != OneVersionEnforcementLevel.OFF) {
       // This JavaBinary class is also the implementation for java_test targets (via the
@@ -338,8 +342,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     // Need not include normal runtime classpath in runfiles if Proguard is used because _deploy.jar
     // is used as classpath instead.  Keeping runfiles unchanged has however the advantage that
     // manually running executable without --singlejar works (although it won't depend on Proguard).
-    collectDefaultRunfiles(runfilesBuilder, ruleContext, common, javaArtifacts, filesToBuild,
-        launcher, dynamicRuntimeActionInputs);
+    collectDefaultRunfiles(
+        runfilesBuilder,
+        ruleContext,
+        common,
+        javaArtifacts,
+        filesToBuild,
+        launcher,
+        dynamicRuntimeActionInputs);
     Runfiles defaultRunfiles = runfilesBuilder.build();
 
     RunfilesSupport runfilesSupport = null;
@@ -373,13 +383,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       extraFilesToRunBuilder.add(runfilesSupport.getRunfilesMiddleman());
     }
 
-    RunfilesProvider runfilesProvider = RunfilesProvider.withData(
-        defaultRunfiles,
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(),
-            ruleContext.getConfiguration().legacyExternalRunfiles())
-            .merge(runfilesSupport)
-            .build());
+    RunfilesProvider runfilesProvider =
+        RunfilesProvider.withData(
+            defaultRunfiles,
+            new Runfiles.Builder(
+                    ruleContext.getWorkspaceName(),
+                    ruleContext.getConfiguration().legacyExternalRunfiles())
+                .merge(runfilesSupport)
+                .build());
 
     ImmutableList<String> deployManifestLines =
         getDeployManifestLines(ruleContext, originalMainClass);
@@ -439,12 +450,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     common.addTransitiveInfoProviders(builder, javaInfoBuilder, filesToBuild, classJar);
     common.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
-    JavaInfo javaInfo = javaInfoBuilder
-        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-        .addProvider(JavaSourceInfoProvider.class,
+    JavaInfo javaInfo =
+        javaInfoBuilder
+            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+            .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+            .addProvider(
+                JavaSourceInfoProvider.class,
                 JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
-        .build();
+            .build();
 
     return builder
         .setFilesToBuild(filesToBuild)
@@ -468,10 +481,11 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   // Create the deploy jar and make it dependent on the runfiles middleman if an executable is
   // created. Do not add the deploy jar to files to build, so we will only build it when it gets
   // requested.
-  private ImmutableList<String> getDeployManifestLines(RuleContext ruleContext,
-      String originalMainClass) {
-    ImmutableList.Builder<String> builder = ImmutableList.<String>builder()
-          .addAll(ruleContext.attributes().get("deploy_manifest_lines", Type.STRING_LIST));
+  private ImmutableList<String> getDeployManifestLines(
+      RuleContext ruleContext, String originalMainClass) {
+    ImmutableList.Builder<String> builder =
+        ImmutableList.<String>builder()
+            .addAll(ruleContext.attributes().get("deploy_manifest_lines", Type.STRING_LIST));
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       builder.add("Coverage-Main-Class: " + originalMainClass);
     }
@@ -488,9 +502,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     }
   }
 
-  private void collectDefaultRunfiles(Runfiles.Builder builder, RuleContext ruleContext,
-      JavaCommon common, JavaCompilationArtifacts javaArtifacts, NestedSet<Artifact> filesToBuild,
-      Artifact launcher, Iterable<Artifact> dynamicRuntimeActionInputs) {
+  private void collectDefaultRunfiles(
+      Runfiles.Builder builder,
+      RuleContext ruleContext,
+      JavaCommon common,
+      JavaCompilationArtifacts javaArtifacts,
+      NestedSet<Artifact> filesToBuild,
+      Artifact launcher,
+      Iterable<Artifact> dynamicRuntimeActionInputs) {
     // Convert to iterable: filesToBuild has a different order.
     builder.addArtifacts((Iterable<Artifact>) filesToBuild);
     builder.addArtifacts(javaArtifacts.getRuntimeJars());
@@ -510,8 +529,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         // Because the NestedSet representing each target's launcher runfiles is re-built here,
         // we may see increased memory consumption for representing the target's runfiles.
         Runfiles runfiles =
-            defaultLauncher.getProvider(RunfilesProvider.class)
-              .getDefaultRunfiles();
+            defaultLauncher.getProvider(RunfilesProvider.class).getDefaultRunfiles();
         NestedSetBuilder<Artifact> unconditionalArtifacts = NestedSetBuilder.compileOrder();
         for (Artifact a : runfiles.getUnconditionalArtifacts()) {
           if (!a.equals(defaultLauncherArtifact)) {
@@ -571,9 +589,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
    */
   public static Collection<Artifact> collectNativeLibraries(
       Iterable<? extends TransitiveInfoCollection> deps) {
-    NestedSet<LinkerInput> linkerInputs = new NativeLibraryNestedSetBuilder()
-        .addJavaTargets(deps)
-        .build();
+    NestedSet<LinkerInput> linkerInputs =
+        new NativeLibraryNestedSetBuilder().addJavaTargets(deps).build();
     ImmutableList.Builder<Artifact> result = ImmutableList.builder();
     for (LinkerInput linkerInput : linkerInputs) {
       result.add(linkerInput.getArtifact());
@@ -583,17 +600,21 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * This method uses {@link ProguardHelper#applyProguardIfRequested} to create a proguard action
-   * if necessary and adds any artifacts created by proguard to the given {@code filesBuilder}.
-   * This is convenience to make sure the proguarded Jar is included in the files to build, which is
-   * necessary because the Jar written by proguard is used at runtime.
-   * If this method returns {@code true} the Proguard is being used and we need to use a
-   * {@link DeployArchiveBuilder} to write the input artifact assumed by
-   * {@link ProguardHelper#applyProguardIfRequested}.
+   * This method uses {@link ProguardHelper#applyProguardIfRequested} to create a proguard action if
+   * necessary and adds any artifacts created by proguard to the given {@code filesBuilder}. This is
+   * convenience to make sure the proguarded Jar is included in the files to build, which is
+   * necessary because the Jar written by proguard is used at runtime. If this method returns {@code
+   * true} the Proguard is being used and we need to use a {@link DeployArchiveBuilder} to write the
+   * input artifact assumed by {@link ProguardHelper#applyProguardIfRequested}.
    */
-  private static boolean applyProguardIfRequested(RuleContext ruleContext, Artifact deployJar,
-      ImmutableList<Artifact> bootclasspath, String mainClassName, JavaSemantics semantics,
-      NestedSetBuilder<Artifact> filesBuilder) throws InterruptedException {
+  private static boolean applyProguardIfRequested(
+      RuleContext ruleContext,
+      Artifact deployJar,
+      ImmutableList<Artifact> bootclasspath,
+      String mainClassName,
+      JavaSemantics semantics,
+      NestedSetBuilder<Artifact> filesBuilder)
+      throws InterruptedException {
     // We only support proguarding tests so Proguard doesn't try to proguard itself.
     if (!isJavaTestRule(ruleContext)) {
       return false;

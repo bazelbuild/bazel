@@ -52,9 +52,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for the Skylark version of java_lite_proto_library rule.
- */
+/** Tests for the Skylark version of java_lite_proto_library rule. */
 @RunWith(JUnit4.class)
 public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   private static final String RULE_DIRECTORY = "tools/build_rules/java_lite_proto_library";
@@ -293,7 +291,6 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         .containsExactly("javalite_runtime.pro_valid");
   }
 
-
   /** Protobufs should always be compiled with the default and proto javacopts. */
   @Test
   public void testJavacOpts() throws Exception {
@@ -508,8 +505,9 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "    srcs = [ 'bar.proto' ],",
         ")");
 
-    JavaCompilationArgsProvider compilationArgsProvider = getProvider(
-        JavaCompilationArgsProvider.class, getConfiguredTarget("//x:foo_java_proto_lite"));
+    JavaCompilationArgsProvider compilationArgsProvider =
+        getProvider(
+            JavaCompilationArgsProvider.class, getConfiguredTarget("//x:foo_java_proto_lite"));
 
     Iterable<String> directJars =
         prettyArtifactNames(compilationArgsProvider.getDirectCompileTimeJars());

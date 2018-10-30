@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;

@@ -34,9 +34,7 @@ public class JavaCompilationInfoProvider
   private final NestedSet<Artifact> compilationClasspath;
   private final ImmutableList<Artifact> bootClasspath;
 
-  /**
-   * Builder for {@link JavaCompilationInfoProvider}.
-   */
+  /** Builder for {@link JavaCompilationInfoProvider}. */
   public static class Builder {
     private ImmutableList<String> javacOpts;
     private NestedSet<Artifact> runtimeClasspath;

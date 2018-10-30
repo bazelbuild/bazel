@@ -38,8 +38,7 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
   @Override
   public String getSourceVersion() {
-    JavaToolchainProvider javaToolchainProvider =
-        JavaToolchainProvider.from(getInfo());
+    JavaToolchainProvider javaToolchainProvider = JavaToolchainProvider.from(getInfo());
     Iterator<String> it = javaToolchainProvider.getJavacOptions().iterator();
     while (it.hasNext()) {
       if (it.next().equals("-source") && it.hasNext()) {
@@ -53,8 +52,7 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
   @Override
   public String getTargetVersion() {
-    JavaToolchainProvider javaToolchainProvider =
-        JavaToolchainProvider.from(getInfo());
+    JavaToolchainProvider javaToolchainProvider = JavaToolchainProvider.from(getInfo());
     Iterator<String> it = javaToolchainProvider.getJavacOptions().iterator();
     while (it.hasNext()) {
       if (it.next().equals("-target") && it.hasNext()) {
@@ -67,17 +65,12 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider
   /** @return The {@link Artifact} of the javac jar */
   @Override
   public Artifact getJavacJar() {
-    JavaToolchainProvider javaToolchainProvider =
-        JavaToolchainProvider.from(getInfo());
+    JavaToolchainProvider javaToolchainProvider = JavaToolchainProvider.from(getInfo());
     return javaToolchainProvider.getJavac();
   }
 
   /** @return The {@link Artifact} of the SingleJar deploy jar */
-  @SkylarkCallable(
-      name = "single_jar",
-      doc = "The SingleJar deploy jar.",
-      structField = true
-  )
+  @SkylarkCallable(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   public Artifact getSingleJar() {
     return JavaToolchainProvider.from(getInfo()).getSingleJar();
   }
@@ -86,8 +79,7 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider
   @SkylarkCallable(
       name = "bootclasspath",
       doc = "The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.",
-      structField = true
-  )
+      structField = true)
   public SkylarkNestedSet getBootclasspath() {
     return SkylarkNestedSet.of(
         Artifact.class, JavaToolchainProvider.from(getInfo()).getBootclasspath());

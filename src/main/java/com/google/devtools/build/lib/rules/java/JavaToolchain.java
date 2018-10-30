@@ -41,9 +41,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Implementation for the {@code java_toolchain} rule.
- */
+/** Implementation for the {@code java_toolchain} rule. */
 public class JavaToolchain implements RuleConfiguredTargetFactory {
 
   private final JavaSemantics semantics;
@@ -56,10 +54,10 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<String> javacopts = getJavacOpts(ruleContext);
-    NestedSet<Artifact> bootclasspath = PrerequisiteArtifacts.nestedSet(
-        ruleContext, "bootclasspath", Mode.HOST);
-    NestedSet<Artifact> extclasspath = PrerequisiteArtifacts.nestedSet(
-        ruleContext, "extclasspath", Mode.HOST);
+    NestedSet<Artifact> bootclasspath =
+        PrerequisiteArtifacts.nestedSet(ruleContext, "bootclasspath", Mode.HOST);
+    NestedSet<Artifact> extclasspath =
+        PrerequisiteArtifacts.nestedSet(ruleContext, "extclasspath", Mode.HOST);
     boolean javacSupportsWorkers =
         ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
     Artifact javac = ruleContext.getPrerequisiteArtifact("javac", Mode.HOST);
@@ -73,8 +71,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
     Artifact singleJar = ruleContext.getPrerequisiteArtifact("singlejar", Mode.HOST);
     Artifact oneVersion = ruleContext.getPrerequisiteArtifact("oneversion", Mode.HOST);
-    Artifact oneVersionWhitelist = ruleContext
-        .getPrerequisiteArtifact("oneversion_whitelist", Mode.HOST);
+    Artifact oneVersionWhitelist =
+        ruleContext.getPrerequisiteArtifact("oneversion_whitelist", Mode.HOST);
     Artifact genClass = ruleContext.getPrerequisiteArtifact("genclass", Mode.HOST);
     Artifact resourceJarBuilder = ruleContext.getPrerequisiteArtifact("resourcejar", Mode.HOST);
     Artifact timezoneData = ruleContext.getPrerequisiteArtifact("timezone_data", Mode.HOST);

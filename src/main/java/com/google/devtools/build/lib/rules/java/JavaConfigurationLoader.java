@@ -33,7 +33,7 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
 
   @Override
   public JavaConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
-    throws InvalidConfigurationException {
+      throws InvalidConfigurationException {
     return new JavaConfiguration(buildOptions.get(JavaOptions.class));
   }
 

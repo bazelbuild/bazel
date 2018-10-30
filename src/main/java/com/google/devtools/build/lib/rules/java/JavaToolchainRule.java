@@ -32,15 +32,13 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
 
-/**
- * Rule definition for {@code java_toolchain}
- */
+/** Rule definition for {@code java_toolchain} */
 public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDefinition {
 
   private final Class<C> ruleClass;
 
-  public static <C extends JavaToolchain> JavaToolchainRule create(Class<C> ruleClass){
-      return new JavaToolchainRule(ruleClass);
+  public static <C extends JavaToolchain> JavaToolchainRule create(Class<C> ruleClass) {
+    return new JavaToolchainRule(ruleClass);
   }
 
   private JavaToolchainRule(Class<C> ruleClass) {

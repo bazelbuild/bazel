@@ -127,19 +127,14 @@ public final class JavaRuleOutputJarsProvider
     return outputJars;
   }
 
-  /**
-   * Collects all class output jars from {@link #outputJars}
-   */
+  /** Collects all class output jars from {@link #outputJars} */
   public Iterable<Artifact> getAllClassOutputJars() {
     return outputJars.stream().map(OutputJar::getClassJar).collect(Collectors.toList());
   }
 
-  /**
-   * Collects all source output jars from {@link #outputJars}
-   */
+  /** Collects all source output jars from {@link #outputJars} */
   public Iterable<Artifact> getAllSrcOutputJars() {
-    return outputJars
-        .stream()
+    return outputJars.stream()
         .map(OutputJar::getSrcJars)
         .reduce(ImmutableList.of(), Iterables::concat);
   }
@@ -160,8 +155,7 @@ public final class JavaRuleOutputJarsProvider
     return new Builder();
   }
 
-  public static JavaRuleOutputJarsProvider merge(
-      Collection<JavaRuleOutputJarsProvider> providers) {
+  public static JavaRuleOutputJarsProvider merge(Collection<JavaRuleOutputJarsProvider> providers) {
     Builder builder = new Builder();
     for (JavaRuleOutputJarsProvider provider : providers) {
       builder.addOutputJars(provider.getOutputJars());
@@ -169,9 +163,7 @@ public final class JavaRuleOutputJarsProvider
     return builder.build();
   }
 
-  /**
-   * Builder for {@link JavaRuleOutputJarsProvider}.
-   */
+  /** Builder for {@link JavaRuleOutputJarsProvider}. */
   public static class Builder {
     private final ImmutableList.Builder<OutputJar> outputJars = ImmutableList.builder();
     private Artifact jdeps;

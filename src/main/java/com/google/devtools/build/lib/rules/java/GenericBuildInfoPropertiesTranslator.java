@@ -14,26 +14,24 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.util.Fingerprint;
-
 import java.util.Map;
 import java.util.Properties;
 
 /** The generic implementation of {@link BuildInfoPropertiesTranslator} */
-public class GenericBuildInfoPropertiesTranslator implements
-    BuildInfoPropertiesTranslator {
+public class GenericBuildInfoPropertiesTranslator implements BuildInfoPropertiesTranslator {
 
   private static final String GUID = "e71fe4a8-11af-4ec0-9b38-1d3e7f542f51";
 
   // syntax is %ID% for a property that depends on the ID key, %ID|default% to
   // always add the property with the "default" key, %% is to add a percent sign
   private final Map<String, String> translationKeys;
-  
+
   /**
    * Create a generic translator, for each key,value pair in {@code translationKeys}, the key
    * represents the property key that will be written and the value, its value. Inside value every
    * %ID% is replaced by the corresponding build information with the same ID key. The property
-   * won't be added if it's depends on an unresolved build information. Adding a property can
-   * be forced even if a build information is missing by specifying a default value using the
+   * won't be added if it's depends on an unresolved build information. Adding a property can be
+   * forced even if a build information is missing by specifying a default value using the
    * %ID|default% syntax. Finally to add a percent sign, just use the %% syntax.
    */
   public GenericBuildInfoPropertiesTranslator(Map<String, String> translationKeys) {

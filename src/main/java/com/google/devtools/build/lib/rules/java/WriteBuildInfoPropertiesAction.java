@@ -45,19 +45,19 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
   private final BuildInfoPropertiesTranslator keyTranslations;
   private final boolean includeVolatile;
   private final boolean includeNonVolatile;
-  
+
   private final TimestampFormatter timestampFormatter;
   /**
    * An interface to format a timestamp. We are using our custom one to avoid external dependency.
    */
   public static interface TimestampFormatter {
     /**
-     * Return a human readable string for the given {@code timestamp}. {@code timestamp} is given
-     * in milliseconds since 1st of January 1970 at 0am UTC.
+     * Return a human readable string for the given {@code timestamp}. {@code timestamp} is given in
+     * milliseconds since 1st of January 1970 at 0am UTC.
      */
     public String format(long timestamp);
   }
-  
+
   /**
    * A wrapper around a {@link Writer} that skips the first line assuming the line is pure ASCII. It
    * can be used to strip the timestamp comment that {@link Properties#store(Writer, String)} adds.
@@ -98,7 +98,6 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
     public void close() throws IOException {
       writer.close();
     }
-
   }
 
   /**
@@ -173,18 +172,22 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
     };
   }
 
-  private void addValues(Map<String, String> result, Map<String, String> values,
-      Map<String, Key> keys) {
+  private void addValues(
+      Map<String, String> result, Map<String, String> values, Map<String, Key> keys) {
     boolean redacted = values.isEmpty();
     for (Map.Entry<String, WorkspaceStatusAction.Key> key : keys.entrySet()) {
       result.put(key.getKey(), gePropertyValue(values, redacted, key));
     }
   }
 
-  private static String gePropertyValue(Map<String, String> values, boolean redacted,
+  private static String gePropertyValue(
+      Map<String, String> values,
+      boolean redacted,
       Map.Entry<String, WorkspaceStatusAction.Key> key) {
-    return redacted ? key.getValue().getRedactedValue()
-        : values.containsKey(key.getKey()) ? values.get(key.getKey())
+    return redacted
+        ? key.getValue().getRedactedValue()
+        : values.containsKey(key.getKey())
+            ? values.get(key.getKey())
             : key.getValue().getDefaultValue();
   }
 

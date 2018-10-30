@@ -21,9 +21,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link JavaUtil} methods.
- */
+/** Tests for {@link JavaUtil} methods. */
 @RunWith(JUnit4.class)
 public class JavaUtilTest {
 
@@ -34,8 +32,8 @@ public class JavaUtilTest {
   @Test
   public void testGetJavaRoot() {
     assertThat(
-        JavaUtil.getJavaRoot(
-            PathFragment.create("path/without/Java/or/Javatests/or/Src/lowercase")))
+            JavaUtil.getJavaRoot(
+                PathFragment.create("path/without/Java/or/Javatests/or/Src/lowercase")))
         .isNull();
     assertThat(getRootPath("java/com/google/common/case")).isEqualTo("java");
     assertThat(getRootPath("javatests/com/google/common/case")).isEqualTo("javatests");
@@ -75,23 +73,16 @@ public class JavaUtilTest {
         .isEqualTo("javatests/com/google/project/src");
     assertThat(getRootPath("src/com/google/project/src/main/java"))
         .isEqualTo("src/com/google/project/src/main/java");
-    assertThat(getRootPath("java/com/google/project/module/src/somethingelse"))
-        .isEqualTo("java");
+    assertThat(getRootPath("java/com/google/project/module/src/somethingelse")).isEqualTo("java");
     assertThat(getRootPath("java/com/google/project/module/testsrc/somethingelse"))
         .isEqualTo("java");
-    assertThat(getRootPath("java/com/google/project/module/src/foo/java"))
-        .isEqualTo("java");
+    assertThat(getRootPath("java/com/google/project/module/src/foo/java")).isEqualTo("java");
     assertThat(getRootPath("java/com/google/project/module/testsrc/foo/java")).isEqualTo("java");
-    assertThat(getRootPath("java/com/google/project/module/src/main/com"))
-        .isEqualTo("java");
-    assertThat(getRootPath("java/com/google/project/module/src/test/org"))
-        .isEqualTo("java");
-    assertThat(getRootPath("java/com/google/project/module/src/java/com"))
-        .isEqualTo("java");
-    assertThat(getRootPath("foo/java/com/google/project/src/com"))
-        .isEqualTo("foo/java");
-    assertThat(getRootPath("src/com/google/java/javac"))
-        .isEqualTo("src");
+    assertThat(getRootPath("java/com/google/project/module/src/main/com")).isEqualTo("java");
+    assertThat(getRootPath("java/com/google/project/module/src/test/org")).isEqualTo("java");
+    assertThat(getRootPath("java/com/google/project/module/src/java/com")).isEqualTo("java");
+    assertThat(getRootPath("foo/java/com/google/project/src/com")).isEqualTo("foo/java");
+    assertThat(getRootPath("src/com/google/java/javac")).isEqualTo("src");
     assertThat(getRootPath("testsrc/com/google/java/javac")).isEqualTo("testsrc");
 
     assertThat(getRootPath("src/java_tools/buildjar/javatests/com"))
@@ -100,8 +91,7 @@ public class JavaUtilTest {
         .isEqualTo("third_party/project/src/java_tools/buildjar/javatests");
     assertThat(getRootPath("third_party/project/src/java_tools/buildjar/java/net"))
         .isEqualTo("third_party/project/src/java_tools/buildjar/java");
-    assertThat(getRootPath("src/java_tools/buildjar/javatests/foo"))
-        .isEqualTo("src");
+    assertThat(getRootPath("src/java_tools/buildjar/javatests/foo")).isEqualTo("src");
     assertThat(getRootPath("src/tools/workspace/src/test/java/foo"))
         .isEqualTo("src/tools/workspace/src/test/java");
     assertThat(getRootPath("foo/src/tools/workspace/src/test/java/foo"))
@@ -110,8 +100,9 @@ public class JavaUtilTest {
 
   @Test
   public void testGetJavaPackageName() {
-    assertThat(JavaUtil.getJavaPackageName(
-        PathFragment.create("java/com/google/foo/FooModule.java"))).isEqualTo("com.google.foo");
+    assertThat(
+            JavaUtil.getJavaPackageName(PathFragment.create("java/com/google/foo/FooModule.java")))
+        .isEqualTo("com.google.foo");
     assertThat(JavaUtil.getJavaPackageName(PathFragment.create("org/foo/FooUtil.java")))
         .isEqualTo("org.foo");
   }
@@ -119,7 +110,8 @@ public class JavaUtilTest {
   @Test
   public void testGetJavaFullClassname() {
     assertThat(
-        JavaUtil.getJavaFullClassname(PathFragment.create("java/com/google/foo/FooModule.java")))
+            JavaUtil.getJavaFullClassname(
+                PathFragment.create("java/com/google/foo/FooModule.java")))
         .isEqualTo("com.google.foo.FooModule.java");
     assertThat(JavaUtil.getJavaFullClassname(PathFragment.create("org/foo/FooUtil.java"))).isNull();
   }
@@ -127,8 +119,8 @@ public class JavaUtilTest {
   @Test
   public void testGetJavaPath() {
     assertThat(
-        JavaUtil.getJavaPath(
-            PathFragment.create("java/com/google/foo/FooModule.java")).getPathString())
+            JavaUtil.getJavaPath(PathFragment.create("java/com/google/foo/FooModule.java"))
+                .getPathString())
         .isEqualTo("com/google/foo/FooModule.java");
     assertThat(JavaUtil.getJavaPath(PathFragment.create("org/foo/FooUtil.java"))).isNull();
   }

@@ -100,14 +100,12 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
   public abstract NestedSet<Artifact> getInstrumentationMetadata();
 
   /**
-   * Returns non-recursively collected Java dependency artifacts for
-   * computing a restricted classpath when building this target (called when
-   * strict_java_deps = 1).
+   * Returns non-recursively collected Java dependency artifacts for computing a restricted
+   * classpath when building this target (called when strict_java_deps = 1).
    *
-   * <p>Note that dependency artifacts are needed only when non-recursive
-   * compilation args do not provide a safe super-set of dependencies.
-   * Non-strict targets such as proto_library, always collecting their
-   * transitive closure of deps, do not need to provide dependency artifacts.
+   * <p>Note that dependency artifacts are needed only when non-recursive compilation args do not
+   * provide a safe super-set of dependencies. Non-strict targets such as proto_library, always
+   * collecting their transitive closure of deps, do not need to provide dependency artifacts.
    */
   public abstract NestedSet<Artifact> getCompileTimeJavaDependencyArtifacts();
 

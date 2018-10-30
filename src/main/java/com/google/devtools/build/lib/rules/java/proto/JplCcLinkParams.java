@@ -24,9 +24,7 @@ import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Methods that all java_xxx_proto_library rules use to construct JavaCcLinkParamsProvider's.
- */
+/** Methods that all java_xxx_proto_library rules use to construct JavaCcLinkParamsProvider's. */
 public class JplCcLinkParams {
 
   /**

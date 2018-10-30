@@ -128,9 +128,7 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
       return this;
     }
 
-    /**
-     * Sets the pre-built jar files included as part of the sources of this rule.
-     */
+    /** Sets the pre-built jar files included as part of the sources of this rule. */
     public Builder setJarFiles(Collection<Artifact> jarFiles) {
       this.jarFiles = Preconditions.checkNotNull(jarFiles);
       return this;
