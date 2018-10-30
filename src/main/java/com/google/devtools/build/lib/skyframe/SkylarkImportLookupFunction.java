@@ -364,7 +364,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   }
 
   private ImmutableList<SkylarkImport> remapImports(ImmutableList<SkylarkImport> unRemappedImports, int workspaceChunk, RootedPath workspacePath, Label enclosingFileLabel, Environment env) {
-    SkyKey workspaceFileKey = WorkspaceFileValue.key(workspacePath, workspaceChunk);
+    SkyKey workspaceFileKey = WorkspaceFileValue.key(workspacePath, workspaceChunk-1);
     ImmutableList.Builder<SkylarkImport> builder = ImmutableList.builder();
     try {
       WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
@@ -372,15 +372,11 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       for (SkylarkImport notRemappedImport : unRemappedImports) {
         SkylarkImport newImport = SkylarkImports.create(notRemappedImport.getImportString(), repositoryMapping);
         builder.add(newImport);
-        // RepositoryName notRemappedName = notRemappedImport.getLabel(enclosingFileLabel).getPackageIdentifier().getRepository();
-        // RepositoryName remappedName = repositoryMapping.getOrDefault(notRemappedName, notRemappedName);
-        // SkylarkImport skylarkImport
       }
     }
     catch (Exception e) {
       System.out.print(e);
     }
-
     return builder.build();
   }
 
