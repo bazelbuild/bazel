@@ -566,6 +566,7 @@ public final class BlazeRuntime {
 
     env.getReporter().clearEventBus();
     actionKeyContext.clear();
+    flushServerLog();
     return finalCommandResult;
   }
 
@@ -580,6 +581,16 @@ public final class BlazeRuntime {
   public static void setupLogging(Level level) {
     templateLogger.setLevel(level);
     templateLogger.info("Log level: " + templateLogger.getLevel());
+  }
+
+  private void flushServerLog() {
+    for (Logger logger = templateLogger; logger != null; logger = logger.getParent()) {
+      for (Handler handler : logger.getHandlers()) {
+        if (handler != null) {
+          handler.flush();
+        }
+      }
+    }
   }
 
   /**
