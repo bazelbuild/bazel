@@ -197,15 +197,20 @@ function get_source_or_header_file() {
 
     declare -a is_pic_extensions=("" ".pic")
 
+    declare -a gcov_extensions=(".gcda.gcov" ".gcov")
+
     local gcov_file=""
     for ext in "${source_extensions[@]}"
     do
       for pic_ext in "${is_pic_extensions[@]}"
       do
-        gcov_file="$(basename ${gcno_file} "$pic_ext.gcno")$ext.gcov"
-        if [ -f "$gcov_file" ]; then
-          echo "$gcov_file" && return
-        fi
+        for gcov_ext in "${gcov_extensions[@]}"
+        do
+          gcov_file="$(basename ${gcno_file} "$pic_ext.gcno")${ext}${gcov_ext}"
+          if [ -f "$gcov_file" ]; then
+            echo "$gcov_file" && return
+          fi
+        done
       done
     done
 }
