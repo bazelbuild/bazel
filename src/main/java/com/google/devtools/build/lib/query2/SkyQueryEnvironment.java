@@ -249,7 +249,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
               .setNumThreads(loadingPhaseThreads)
               .setEventHander(universeEvalEventHandler)
               .build();
-      result = graphFactory.prepareAndGet(roots, evaluationContext);
+      result = graphFactory.prepareAndGet(roots, configureEvaluationContext(evaluationContext));
     }
 
     if (graph == null || graph != result.getWalkableGraph()) {
@@ -278,6 +278,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             eventHandler,
             TargetPatternEvaluator.DEFAULT_FILTERING_POLICY,
             packageSemaphore);
+  }
+
+  /**
+   * Configures the default {@link EvaluationContext} to change the behavior of how evaluations in
+   * {@link WalkableGraphFactory#prepareAndGet} work.
+   */
+  protected EvaluationContext configureEvaluationContext(EvaluationContext evaluationContext) {
+    return evaluationContext;
   }
 
   protected MultisetSemaphore<PackageIdentifier> makeFreshPackageMultisetSemaphore() {

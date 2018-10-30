@@ -58,6 +58,15 @@ public class EvaluationContext {
     return eventHandler;
   }
 
+  public EvaluationContext getCopyWithKeepGoing(boolean keepGoing) {
+    if (this.keepGoing == keepGoing) {
+      return this;
+    } else {
+      return new EvaluationContext(
+          this.numThreads, this.executorService, keepGoing, this.eventHandler);
+    }
+  }
+
   public static Builder newBuilder() {
     return new Builder();
   }
