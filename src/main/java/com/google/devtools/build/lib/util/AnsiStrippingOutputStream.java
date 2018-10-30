@@ -55,7 +55,7 @@ public class AnsiStrippingOutputStream extends OutputStream {
   }
 
   @Override
-  public synchronized void write(byte b[], int off, int len) throws IOException {
+  public synchronized void write(byte[] b, int off, int len) throws IOException {
     int i = 0;
     if (state == State.NORMAL) {
 

@@ -137,6 +137,52 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
     size -= toRemove.size();
   }
 
+  /**
+   * Removes everything in toRemove from the list of lists, elements. Called both by GroupedList and
+   * GroupedListHelper.
+   */
+  private static <E> List<Object> remove(List<Object> elements, Set<E> toRemove) {
+    if (toRemove.isEmpty()) {
+      return elements;
+    }
+    int removedCount = 0;
+    // elements.size is an upper bound of the needed size. Since normally removal happens just
+    // before the list is finished and compressed, optimizing this size isn't a concern.
+    List<Object> newElements = new ArrayList<>(elements.size());
+    for (Object obj : elements) {
+      if (obj instanceof List) {
+        ImmutableList.Builder<E> newGroup = new ImmutableList.Builder<>();
+        @SuppressWarnings("unchecked")
+        List<E> oldGroup = (List<E>) obj;
+        for (E elt : oldGroup) {
+          if (toRemove.contains(elt)) {
+            removedCount++;
+          } else {
+            newGroup.add(elt);
+          }
+        }
+        ImmutableList<E> group = newGroup.build();
+        addItem(group, newElements);
+      } else {
+        if (toRemove.contains(obj)) {
+          removedCount++;
+        } else {
+          newElements.add(obj);
+        }
+      }
+    }
+    // removedCount can be larger if elements had duplicates and the duplicate was also in toRemove.
+    Preconditions.checkState(
+        removedCount >= toRemove.size(),
+        "removedCount=%s, toRemove.size()=%s, elements=%s toRemove=%s newElements=%s",
+        removedCount,
+        toRemove.size(),
+        elements,
+        toRemove,
+        newElements);
+    return newElements;
+  }
+
   /** Returns the group at position {@code i}. {@code i} must be less than {@link #listSize()}. */
   @SuppressWarnings("unchecked") // Cast of Object to List<T> or T.
   public List<T> get(int i) {
@@ -158,6 +204,21 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
    */
   public int numElements() {
     return size;
+  }
+
+  public static int numElements(Object compressed) {
+    if (compressed == EMPTY_LIST) {
+      return 0;
+    }
+    if (compressed.getClass().isArray()) {
+      int size = 0;
+      for (Object item : (Object[]) compressed) {
+        size += sizeOf(item);
+      }
+      return size;
+    }
+    // Just a single element.
+    return 1;
   }
 
   /** Returns true if this list contains no elements. */
@@ -226,21 +287,6 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
     }
     // Just a single element.
     return new GroupedList<>(1, ImmutableList.of(compressed));
-  }
-
-  public static int numElements(Object compressed) {
-    if (compressed == EMPTY_LIST) {
-      return 0;
-    }
-    if (compressed.getClass().isArray()) {
-      int size = 0;
-      for (Object item : (Object[]) compressed) {
-        size += sizeOf(item);
-      }
-      return size;
-    }
-    // Just a single element.
-    return 1;
   }
 
   @Override
@@ -369,52 +415,6 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
   @Override
   public Iterator<Collection<T>> iterator() {
     return new GroupedIterator();
-  }
-
-  /**
-   * Removes everything in toRemove from the list of lists, elements. Called both by GroupedList and
-   * GroupedListHelper.
-   */
-  private static <E> List<Object> remove(List<Object> elements, Set<E> toRemove) {
-    if (toRemove.isEmpty()) {
-      return elements;
-    }
-    int removedCount = 0;
-    // elements.size is an upper bound of the needed size. Since normally removal happens just
-    // before the list is finished and compressed, optimizing this size isn't a concern.
-    List<Object> newElements = new ArrayList<>(elements.size());
-    for (Object obj : elements) {
-      if (obj instanceof List) {
-        ImmutableList.Builder<E> newGroup = new ImmutableList.Builder<>();
-        @SuppressWarnings("unchecked")
-        List<E> oldGroup = (List<E>) obj;
-        for (E elt : oldGroup) {
-          if (toRemove.contains(elt)) {
-            removedCount++;
-          } else {
-            newGroup.add(elt);
-          }
-        }
-        ImmutableList<E> group = newGroup.build();
-        addItem(group, newElements);
-      } else {
-        if (toRemove.contains(obj)) {
-          removedCount++;
-        } else {
-          newElements.add(obj);
-        }
-      }
-    }
-    // removedCount can be larger if elements had duplicates and the duplicate was also in toRemove.
-    Preconditions.checkState(
-        removedCount >= toRemove.size(),
-        "removedCount=%s, toRemove.size()=%s, elements=%s toRemove=%s newElements=%s",
-        removedCount,
-        toRemove.size(),
-        elements,
-        toRemove,
-        newElements);
-    return newElements;
   }
 
   /**

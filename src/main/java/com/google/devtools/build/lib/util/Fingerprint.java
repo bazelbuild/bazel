@@ -120,7 +120,7 @@ public final class Fingerprint implements Consumer<String> {
     try {
       codedOut.writeBoolNoTag(input);
     } catch (IOException e) {
-      throw new IllegalStateException();
+      throw new IllegalStateException(e);
     }
     return this;
   }
