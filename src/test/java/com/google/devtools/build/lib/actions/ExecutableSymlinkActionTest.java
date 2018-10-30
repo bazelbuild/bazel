@@ -129,7 +129,6 @@ public class ExecutableSymlinkActionTest {
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
     new SerializationTester(action)
         .addDependency(FileSystem.class, scratch.getFileSystem())
-        .addDependency(OutputBaseSupplier.class, () -> execRoot)
         .setVerificationFunction(
             (in, out) -> {
               SymlinkAction inAction = (SymlinkAction) in;

@@ -462,10 +462,6 @@ public final class BlazeRuntime {
     return projectFileProvider;
   }
 
-  public Path getOutputBase() {
-    return getWorkspace().getDirectories().getOutputBase();
-  }
-
   /**
    * Hook method called by the BlazeCommandDispatcher prior to the dispatch of
    * each command.
@@ -1109,12 +1105,15 @@ public final class BlazeRuntime {
     }
 
     FileSystem fs = null;
+    Path execRootBasePath = null;
     try {
       for (BlazeModule module : blazeModules) {
-        FileSystem moduleFs = module.getFileSystem(options);
+        BlazeModule.ModuleFileSystem moduleFs =
+            module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
         if (moduleFs != null) {
+          execRootBasePath = moduleFs.virtualExecRootBase();
           Preconditions.checkState(fs == null, "more than one module returns a file system");
-          fs = moduleFs;
+          fs = moduleFs.fileSystem();
         }
       }
 
@@ -1131,6 +1130,9 @@ public final class BlazeRuntime {
     Path outputUserRootPath = fs.getPath(outputUserRoot);
     Path installBasePath = fs.getPath(installBase);
     Path outputBasePath = fs.getPath(outputBase);
+    if (execRootBasePath == null) {
+      execRootBasePath = outputBasePath.getRelative(ServerDirectories.EXECROOT);
+    }
     Path workspaceDirectoryPath = null;
     if (!workspaceDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
       workspaceDirectoryPath = fs.getPath(workspaceDirectory);
@@ -1142,7 +1144,11 @@ public final class BlazeRuntime {
 
     ServerDirectories serverDirectories =
         new ServerDirectories(
-            installBasePath, outputBasePath, outputUserRootPath, startupOptions.installMD5);
+            installBasePath,
+            outputBasePath,
+            outputUserRootPath,
+            execRootBasePath,
+            startupOptions.installMD5);
     Clock clock = BlazeClock.instance();
     BlazeRuntime.Builder runtimeBuilder =
         new BlazeRuntime.Builder()

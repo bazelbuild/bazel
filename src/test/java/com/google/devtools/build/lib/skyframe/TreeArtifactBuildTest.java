@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.OutputBaseSupplier;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
@@ -119,8 +118,6 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   public void testCodec() throws Exception {
     new SerializationTester(outOne, outOneFileOne)
         .addDependency(FileSystem.class, scratch.getFileSystem())
-        .addDependency(
-            OutputBaseSupplier.class, () -> scratch.getFileSystem().getPath(TestUtils.tmpDir()))
         .runTests();
   }
 
@@ -1178,7 +1175,8 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
   private SpecialArtifact createTreeArtifact(String name) {
     FileSystem fs = scratch.getFileSystem();
-    Path execRoot = fs.getPath(TestUtils.tmpDir());
+    Path execRoot =
+        fs.getPath(TestUtils.tmpDir()).getRelative("execroot").getRelative("default-exec-root");
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return new SpecialArtifact(
         ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out")),

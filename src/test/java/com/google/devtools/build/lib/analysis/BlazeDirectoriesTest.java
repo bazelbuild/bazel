@@ -80,6 +80,7 @@ public class BlazeDirectoriesTest extends FoundationTestCase {
                     FsUtils.TEST_FILESYSTEM.getPath("/install_base"),
                     FsUtils.TEST_FILESYSTEM.getPath("/output_base"),
                     FsUtils.TEST_FILESYSTEM.getPath("/user_root"),
+                    FsUtils.TEST_FILESYSTEM.getPath("/output_base/execroot"),
                     "1234abcd1234abcd1234abcd1234abcd"),
                 FsUtils.TEST_FILESYSTEM.getPath("/workspace"),
                 /* defaultSystemJavabase= */ null,

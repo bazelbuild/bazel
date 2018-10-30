@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionN
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -61,13 +62,16 @@ public class BazelFileSystemModule extends BlazeModule {
   }
 
   @Override
-  public FileSystem getFileSystem(OptionsParsingResult startupOptions)
+  public ModuleFileSystem getFileSystem(
+      OptionsParsingResult startupOptions, PathFragment realExecRootBase)
       throws DefaultHashFunctionNotSetException {
     if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
       // Ignore UnixFileSystem, to be used for bootstrapping.
-      return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new JavaIoFileSystem();
+      return ModuleFileSystem.create(
+          OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new JavaIoFileSystem());
     }
     // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
-    return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new UnixFileSystem();
+    return ModuleFileSystem.create(
+        OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new UnixFileSystem());
   }
 }

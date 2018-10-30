@@ -20,7 +20,6 @@ import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -29,9 +28,10 @@ import javax.annotation.Nullable;
  * Represents the relevant directories for the server: the location of the embedded binaries
  * and the output directories.
  */
-@AutoCodec
 @Immutable
 public final class ServerDirectories {
+  public static final String EXECROOT = "execroot";
+
   /** Top-level user output directory; used, e.g., as default location for caches. */
   private final Path outputUserRoot;
   /** Where Blaze gets unpacked. */
@@ -41,25 +41,24 @@ public final class ServerDirectories {
   /** The root of the temp and output trees. */
   private final Path outputBase;
 
-  public ServerDirectories(
-      Path installBase, Path outputBase, Path outputUserRoot, @Nullable String installMD5) {
-    this(
-        installBase,
-        outputBase,
-        outputUserRoot,
-        Strings.isNullOrEmpty(installMD5) ? null : checkMD5(HashCode.fromString(installMD5)));
-  }
+  private final Path execRootBase;
 
-  @AutoCodec.Instantiator
-  ServerDirectories(Path installBase, Path outputBase, Path outputUserRoot, HashCode installMD5) {
+  public ServerDirectories(
+      Path installBase,
+      Path outputBase,
+      Path outputUserRoot,
+      Path execRootBase,
+      @Nullable String installMD5) {
     this.outputUserRoot = outputUserRoot;
     this.installBase = installBase;
     this.outputBase = outputBase;
-    this.installMD5 = installMD5;
+    this.execRootBase = execRootBase;
+    this.installMD5 =
+        Strings.isNullOrEmpty(installMD5) ? null : checkMD5(HashCode.fromString(installMD5));
   }
 
   public ServerDirectories(Path installBase, Path outputBase, Path outputUserRoot) {
-    this(installBase, outputBase, outputUserRoot, (HashCode) null);
+    this(installBase, outputBase, outputUserRoot, outputBase.getRelative(EXECROOT), null);
   }
 
   private static HashCode checkMD5(HashCode hash) {
@@ -86,6 +85,15 @@ public final class ServerDirectories {
    */
   public Path getOutputUserRoot() {
     return outputUserRoot;
+  }
+
+  /**
+   * Parent of all execution roots.
+   *
+   * <p>This is physically, always /outputbase/execroot, but might be virtualized.
+   */
+  public Path getExecRootBase() {
+    return execRootBase;
   }
 
   /** Returns the installed embedded binaries directory, under the shared installBase location. */

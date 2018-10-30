@@ -100,10 +100,10 @@ public class ProcessPackageDirectory {
         && fileValue.isSymlink()
         && fileValue
             .getUnresolvedLinkTarget()
-            .startsWith(directories.getOutputBase().asFragment())) {
-      // Symlinks back to the output base are not traversed so that we avoid convenience symlinks.
-      // Note that it's not enough to just check for the convenience symlinks themselves, because
-      // if the value of --symlink_prefix changes, the old symlinks are left in place. This
+            .startsWith(directories.getExecRootBase().asFragment())) {
+      // Symlinks back to the execroot are not traversed so that we avoid convenience symlinks.
+      // Note that it's not enough to just check for the convenience symlinks themselves,
+      // because if the value of --symlink_prefix changes, the old symlinks are left in place. This
       // algorithm also covers more creative use cases where people create convenience symlinks
       // somewhere in the directory tree manually.
       return ProcessPackageDirectoryResult.EMPTY_RESULT;

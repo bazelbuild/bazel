@@ -18,18 +18,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -49,6 +43,7 @@ import java.util.Objects;
  * <p>The derived roots must have paths that point inside the exec root, i.e. below the directory
  * that is the root of the merged directory tree.
  */
+@AutoCodec
 @Immutable
 public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializable, FileRootApi {
   private static final Interner<ArtifactRoot> INTERNER = Interners.newWeakInterner();
@@ -85,7 +80,14 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, RootType.Middleman));
   }
 
-  private enum RootType {
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec.Instantiator
+  static ArtifactRoot createForSerialization(Root root, PathFragment execPath, RootType rootType) {
+    return INTERNER.intern(new ArtifactRoot(root, execPath, rootType));
+  }
+
+  @AutoCodec.VisibleForSerialization
+  enum RootType {
     Source,
     Output,
     Middleman
@@ -157,50 +159,5 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append(isSourceRoot() ? "<source root>" : "<derived root>");
-  }
-
-  /** Custom codec that replaces output base with local output base on deserialization. */
-  private static class ArtifactRootCodec implements ObjectCodec<ArtifactRoot> {
-    @Override
-    public Class<ArtifactRoot> getEncodedClass() {
-      return ArtifactRoot.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, ArtifactRoot input, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context.serialize(input.rootType, codedOut);
-      switch (input.rootType) {
-        case Source:
-          context.serialize(input.root, codedOut);
-          break;
-        case Output: // fall-through, same behavior as Middleman
-        case Middleman:
-          Path outputBase = context.getDependency(OutputBaseSupplier.class).get();
-          context.serialize(input.root.asPath().relativeTo(outputBase), codedOut);
-          break;
-      }
-      context.serialize(input.execPath, codedOut);
-    }
-
-    @Override
-    public ArtifactRoot deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      ArtifactRoot.RootType rootType = context.deserialize(codedIn);
-      Root root = null;
-      switch (rootType) {
-        case Source:
-          root = context.deserialize(codedIn);
-          break;
-        case Output: // fall-through, same behavior as Middleman
-        case Middleman:
-          Path outputBase = context.getDependency(OutputBaseSupplier.class).get();
-          PathFragment relativeRoot = context.deserialize(codedIn);
-          root = Root.fromPath(outputBase.getRelative(relativeRoot));
-          break;
-      }
-      return INTERNER.intern(new ArtifactRoot(root, context.deserialize(codedIn), rootType));
-    }
   }
 }

@@ -321,7 +321,6 @@ public class ArtifactTest {
                 PathFragment.create("src/c"),
                 new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"))))
         .addDependency(FileSystem.class, scratch.getFileSystem())
-        .addDependency(OutputBaseSupplier.class, () -> scratch.getFileSystem().getPath("/"))
         .runTests();
   }
 
@@ -333,7 +332,6 @@ public class ArtifactTest {
     artifactFactory.setSourceArtifactRoots(ImmutableMap.of(root, artifactRoot));
     ArtifactResolverSupplier artifactResolverSupplierForTest = () -> artifactFactory;
 
-    OutputBaseSupplier outputBaseSupplier = () -> scratch.getFileSystem().getPath("/");
     ObjectCodecs objectCodecs =
         new ObjectCodecs(
             AutoRegistry.get()
@@ -343,7 +341,6 @@ public class ArtifactTest {
                 .build(),
             ImmutableMap.of(
                 FileSystem.class, scratch.getFileSystem(),
-                OutputBaseSupplier.class, outputBaseSupplier,
                 ArtifactResolverSupplier.class, artifactResolverSupplierForTest));
 
     PathFragment pathFragment = PathFragment.create("src/foo.cc");

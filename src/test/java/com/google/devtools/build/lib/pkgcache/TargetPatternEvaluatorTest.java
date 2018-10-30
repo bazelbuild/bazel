@@ -562,9 +562,9 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   @Test
   public void testDoesNotRecurseIntoSymlinksToOutputBase() throws Exception {
-    Path outputBaseBuildFile = outputBase.getRelative("workspace/test/BUILD");
+    Path outputBaseBuildFile = outputBase.getRelative("execroot/workspace/test/BUILD");
     scratch.file(outputBaseBuildFile.getPathString(), "filegroup(name='c')");
-    PathFragment targetFragment = outputBase.asFragment().getRelative("workspace/test");
+    PathFragment targetFragment = outputBase.asFragment().getRelative("execroot/workspace/test");
     Path d = scratch.dir("d");
     d.getChild("c").createSymbolicLink(targetFragment);
     rootDirectory.getChild("convenience").createSymbolicLink(targetFragment);

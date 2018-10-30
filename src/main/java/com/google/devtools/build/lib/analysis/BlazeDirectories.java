@@ -77,15 +77,14 @@ public final class BlazeDirectories {
     this.defaultSystemJavabase = defaultSystemJavabase;
     this.productName = productName;
     Path outputBase = serverDirectories.getOutputBase();
-    Path execRootBase = outputBase.getChild("execroot");
     boolean useDefaultExecRootName =
         this.workspace == null || this.workspace.getParentDirectory() == null;
     if (useDefaultExecRootName) {
       // TODO(bazel-team): if workspace is null execRoot should be null, but at the moment there is
       // a lot of code that depends on it being non-null.
-      this.execRoot = execRootBase.getChild(DEFAULT_EXEC_ROOT);
+      this.execRoot = serverDirectories.getExecRootBase().getChild(DEFAULT_EXEC_ROOT);
     } else {
-      this.execRoot = execRootBase.getChild(workspace.getBaseName());
+      this.execRoot = serverDirectories.getExecRootBase().getChild(workspace.getBaseName());
     }
     String relativeOutputPath = getRelativeOutputPath(productName);
     this.outputPath = execRoot.getRelative(getRelativeOutputPath());
@@ -127,6 +126,10 @@ public final class BlazeDirectories {
     return serverDirectories.getOutputBase();
   }
 
+  public Path getExecRootBase() {
+    return serverDirectories.getExecRootBase();
+  }
+
   /**
    * Returns the execution root for the main package. This is created before the workspace file has
    * been read, so it has an incorrect path. Use {@link #getExecRoot(String)} instead.
@@ -142,7 +145,7 @@ public final class BlazeDirectories {
    * specified with --package_path.
    */
   public Path getExecRoot(String workspaceName) {
-    return execRoot.getParentDirectory().getRelative(workspaceName);
+    return serverDirectories.getExecRootBase().getRelative(workspaceName);
   }
 
   /**
