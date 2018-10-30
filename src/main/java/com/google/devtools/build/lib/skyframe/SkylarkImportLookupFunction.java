@@ -368,7 +368,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     ImmutableList.Builder<SkylarkImport> builder = ImmutableList.builder();
     try {
       WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = workspaceFileValue.getRepositoryMapping().get(enclosingFileLabel.getPackageIdentifier().getRepository());
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = workspaceFileValue.getRepositoryMapping().getOrDefault(enclosingFileLabel.getPackageIdentifier().getRepository(), ImmutableMap.of());
       for (SkylarkImport notRemappedImport : unRemappedImports) {
         SkylarkImport newImport = SkylarkImports.create(notRemappedImport.getImportString(), repositoryMapping);
         builder.add(newImport);
