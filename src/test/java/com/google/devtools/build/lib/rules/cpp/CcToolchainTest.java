@@ -978,4 +978,55 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     assertThat(ccToolchainProvider.getSysroot()).isEqualTo("libc2");
   }
+
+  @Test
+  public void testSysroot_fromFlag() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "    name='empty')",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    proto = \"\"\"",
+        "      toolchain_identifier: \"a\"",
+        "      host_system_name: \"a\"",
+        "      target_system_name: \"a\"",
+        "      target_cpu: \"a\"",
+        "      target_libc: \"a\"",
+        "      compiler: \"a\"",
+        "      abi_version: \"a\"",
+        "      abi_libc_version: \"a\"",
+        "\"\"\",",
+        "    libc_top = '//libc2:everything')");
+    scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header.h'])");
+    scratch.file("libc1/header.h", "#define FOO 1");
+    scratch.file("libc2/BUILD", "filegroup(name = 'everything', srcs = ['header.h'])");
+    scratch.file("libc2/header.h", "#define FOO 2");
+    scratch.file("libc3/BUILD", "filegroup(name = 'everything', srcs = ['header.h'])");
+    scratch.file("libc3/header.h", "#define FOO 3");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder().setDefaultGrteTop("//libc1").buildPartial());
+    useConfiguration(
+        "--cpu=k8", "--grte_top=//libc3", "--incompatible_disable_sysroot_from_configuration");
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider ccToolchainProvider =
+        (CcToolchainProvider) target.get(CcToolchainProvider.PROVIDER);
+
+    assertThat(ccToolchainProvider.getSysroot()).isEqualTo("libc3");
+  }
 }

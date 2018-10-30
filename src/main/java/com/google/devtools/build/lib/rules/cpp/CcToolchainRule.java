@@ -70,8 +70,17 @@ public final class CcToolchainRule implements RuleDefinition {
           CppConfiguration.class,
           null,
           (rule, attributes, cppConfig) -> {
+            // Is the libcTop directly set via a flag?
+            Label cppOptionLibcTop = cppConfig.getLibcTopLabel();
+            if (cppOptionLibcTop != null) {
+              return cppOptionLibcTop;
+            }
+
+            // Should we use the version from the configuration?
             Label cppConfigSysrootLabel =
-                cppConfig.disableSysrootfromConfiguration() ? null : cppConfig.getSysrootLabel();
+                cppConfig.disableSysrootFromConfiguration() ? null : cppConfig.getSysrootLabel();
+
+            // Look up the value from the attribute.
             // This avoids analyzing the label from the CROSSTOOL if the attribute is set.
             return getLabel(attributes, "libc_top", cppConfigSysrootLabel);
           });

@@ -908,7 +908,7 @@ public class CppOptions extends FragmentOptions {
           "If true, cc_toolchain will no longer determine the sysroot from the CROSSTOOL "
               + "(default_grte_top property_ during configuration, instead only using the "
               + "libc_top attribute.")
-  public boolean disableSysrootfromConfiguration;
+  public boolean disableSysrootFromConfiguration;
 
   @Override
   public FragmentOptions getHost() {
@@ -952,7 +952,7 @@ public class CppOptions extends FragmentOptions {
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
     host.disableLegacyToolchainSkylarkApi = disableLegacyToolchainSkylarkApi;
-    host.disableSysrootfromConfiguration = disableSysrootfromConfiguration;
+    host.disableSysrootFromConfiguration = disableSysrootFromConfiguration;
 
     return host;
   }
