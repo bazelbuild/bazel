@@ -55,6 +55,16 @@ public final class SkylarkCallableProcessorTest {
   }
 
   @Test
+  public void testStaticMethod() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("StaticMethod.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining("@SkylarkCallable annotated methods cannot be static.");
+  }
+
+
+  @Test
   public void testStructFieldWithArguments() throws Exception {
     assertAbout(javaSource())
         .that(getFile("StructFieldWithArguments.java"))

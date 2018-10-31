@@ -127,19 +127,22 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @SkylarkModule(name = "Mock", doc = "")
   static class Mock {
-    @SkylarkCallable(name = "MockFn", selfCall = true, documented = false,
+    @SkylarkCallable(
+        name = "MockFn",
+        selfCall = true,
+        documented = false,
         parameters = {
-            @Param(name = "pos", positional = true, type = String.class),
-        }
-    )
-    public static String selfCall(String myName) {
+          @Param(name = "pos", positional = true, type = String.class),
+        })
+    public String selfCall(String myName) {
       return "I'm a mock named " + myName;
     }
 
-    @SkylarkCallable(name = "value_of",
-        parameters = { @Param(name = "str", type = String.class) },
+    @SkylarkCallable(
+        name = "value_of",
+        parameters = {@Param(name = "str", type = String.class)},
         documented = false)
-    public static Integer valueOf(String str) {
+    public Integer valueOf(String str) {
       return Integer.valueOf(str);
     }
     @SkylarkCallable(name = "is_empty",
@@ -1607,19 +1610,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "f(augmented)[0] += g(augmented)[1]")
         .testLookup("ordinary", MutableList.of(env, "g", "f"))    // This order is consistent
         .testLookup("augmented", MutableList.of(env, "f", "g"));  // with Python
-  }
-
-  @Test
-  public void testStaticDirectJavaCall() throws Exception {
-    new SkylarkTest().update("Mock", Mock.class).setUp("val = Mock.value_of('8')")
-        .testLookup("val", 8);
-  }
-
-  @Test
-  public void testStaticDirectJavaCallMethodIsNonStatic() throws Exception {
-    new SkylarkTest()
-        .update("Mock", Mock.class)
-        .testIfExactError("method 'is_empty' is not static", "val = Mock.is_empty('a')");
   }
 
   @Test

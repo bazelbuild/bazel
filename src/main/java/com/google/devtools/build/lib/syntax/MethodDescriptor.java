@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.Arrays;
 
 /**
@@ -124,10 +124,8 @@ public final class MethodDescriptor {
    */
   public Object call(Object obj, Object[] args, Location loc, Environment env)
       throws EvalException, InterruptedException {
+    Preconditions.checkNotNull(obj);
     try {
-      if (obj == null && !Modifier.isStatic(method.getModifiers())) {
-        throw new EvalException(loc, "method '" + getName() + "' is not static");
-      }
       Object result = method.invoke(obj, args);
       if (method.getReturnType().equals(Void.TYPE)) {
         return Runtime.NONE;
