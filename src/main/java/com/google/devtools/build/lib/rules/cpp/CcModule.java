@@ -348,7 +348,8 @@ public class CcModule
       SkylarkRuleContext skylarkRuleContext, CcToolchainProvider ccToolchain, Artifact library) {
     Artifact dynamicLibrarySymlink =
         SolibSymlinkAction.getDynamicLibrarySymlink(
-            skylarkRuleContext.getRuleContext(),
+            /* actionRegistry= */ skylarkRuleContext.getRuleContext(),
+            /* actionConstructionContext= */ skylarkRuleContext.getRuleContext(),
             ccToolchain.getSolibDirectory(),
             library,
             /* preserveName= */ true,

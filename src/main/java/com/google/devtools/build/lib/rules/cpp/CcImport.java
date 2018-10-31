@@ -166,7 +166,8 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     } else {
       Artifact dynamicLibrarySymlink =
           SolibSymlinkAction.getDynamicLibrarySymlink(
-              ruleContext,
+              /* actionRegistry= */ ruleContext,
+              /* actionConstructionContext= */ ruleContext,
               ccToolchain.getSolibDirectory(),
               sharedLibraryArtifact,
               /* preserveName= */ true,
@@ -192,7 +193,8 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     } else {
       Artifact dynamicLibrarySymlink =
           SolibSymlinkAction.getDynamicLibrarySymlink(
-              ruleContext,
+              /* actionRegistry= */ ruleContext,
+              /* actionConstructionContext= */ ruleContext,
               ccToolchain.getSolibDirectory(),
               interfaceLibraryArtifact,
               /* preserveName= */ true,

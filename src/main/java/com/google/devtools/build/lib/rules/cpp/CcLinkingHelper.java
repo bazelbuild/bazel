@@ -749,7 +749,8 @@ public final class CcLinkingHelper {
       } else {
         Artifact implLibraryLinkArtifact =
             SolibSymlinkAction.getDynamicLibrarySymlink(
-                ruleContext,
+                /* actionRegistry= */ ruleContext,
+                /* actionConstructionContext= */ ruleContext,
                 ccToolchain.getSolibDirectory(),
                 dynamicLibrary.getArtifact(),
                 /* preserveName= */ false,
@@ -766,7 +767,8 @@ public final class CcLinkingHelper {
         } else {
           Artifact libraryLinkArtifact =
               SolibSymlinkAction.getDynamicLibrarySymlink(
-                  ruleContext,
+                  /* actionRegistry= */ ruleContext,
+                  /* actionConstructionContext= */ ruleContext,
                   ccToolchain.getSolibDirectory(),
                   interfaceLibrary.getArtifact(),
                   /* preserveName= */ false,

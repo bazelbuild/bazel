@@ -57,6 +57,16 @@ public interface ActionConstructionContext {
   Artifact getDerivedArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
   /**
+   * Returns an artifact that can be an output of shared actions. Only use when there is no other
+   * option.
+   *
+   * <p>This artifact can be created anywhere in the output tree, which, in addition to making
+   * sharing possible, opens up the possibility of action conflicts and makes it impossible to infer
+   * the label of the rule creating the artifact from the path of the artifact.
+   */
+  Artifact getShareableArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+
+  /**
    * Returns the implicit output artifact for a given template function. If multiple or no artifacts
    * can be found as a result of the template, an exception is thrown.
    */

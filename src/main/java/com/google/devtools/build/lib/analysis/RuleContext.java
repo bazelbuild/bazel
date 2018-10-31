@@ -665,14 +665,7 @@ public final class RuleContext extends TargetContext
         relative, getConfiguration().getGenfilesDirectory(rule.getRepository()));
   }
 
-  /**
-   * Returns an artifact that can be an output of shared actions. Only use when there is no other
-   * option.
-   *
-   * <p>This artifact can be created anywhere in the output tree, which, in addition to making
-   * sharing possible, opens up the possibility of action conflicts and makes it impossible to infer
-   * the label of the rule creating the artifact from the path of the artifact.
-   */
+  @Override
   public Artifact getShareableArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root);
   }

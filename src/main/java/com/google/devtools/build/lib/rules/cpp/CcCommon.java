@@ -671,7 +671,8 @@ public final class CcCommon {
    */
   public Artifact getDynamicLibrarySymlink(Artifact library, boolean preserveName) {
     return SolibSymlinkAction.getDynamicLibrarySymlink(
-        ruleContext,
+        /* actionRegistry= */ ruleContext,
+        /* actionConstructionContext= */ ruleContext,
         ccToolchain.getSolibDirectory(),
         library,
         preserveName,
