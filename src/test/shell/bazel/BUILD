@@ -324,9 +324,11 @@ sh_test(
     name = "external_patching_test",
     size = "medium",
     srcs = ["external_patching_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     shard_count = 3,
-    tags = ["no_windows"],
 )
 
 sh_test(
@@ -345,8 +347,8 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell/bazel/testdata:git-repos",
+        "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["no_windows"],
 )
 
 sh_test(
@@ -356,8 +358,8 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell/bazel/testdata:git-repos",
+        "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["no_windows"],
 )
 
 sh_test(
