@@ -18,7 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
@@ -61,11 +61,11 @@ public abstract class StructImpl extends Info
    * Preprocesses a map of field values to convert the field names and field values to
    * Skylark-acceptable names and types.
    *
-   * <p>This preserves the order of the map entries.
+   * <p>Entries are ordered by key.
    */
-  protected static ImmutableMap<String, Object> copyValues(Map<String, Object> values) {
+  static ImmutableSortedMap<String, Object> copyValues(Map<String, Object> values) {
     Preconditions.checkNotNull(values);
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+    ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
     for (Map.Entry<String, Object> e : values.entrySet()) {
       builder.put(
           Attribute.getSkylarkName(e.getKey()),

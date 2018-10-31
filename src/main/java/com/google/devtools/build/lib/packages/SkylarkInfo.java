@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -250,8 +251,7 @@ public abstract class SkylarkInfo extends StructImpl implements Concatable, Skyl
   /** A {@link SkylarkInfo} implementation that stores its values in a map. */
   // TODO(b/72448383): Make private.
   public static final class MapBackedSkylarkInfo extends SkylarkInfo {
-
-    private final ImmutableMap<String, Object> values;
+    private final ImmutableSortedMap<String, Object> values;
 
     /**
      * Formattable string with one {@code '%s'} placeholder for the missing field name.

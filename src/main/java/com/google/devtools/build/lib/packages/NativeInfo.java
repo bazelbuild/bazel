@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -25,7 +26,7 @@ import java.util.Map;
 /** Base class for native implementations of {@link StructImpl}. */
 // todo(vladmos,dslomov): make abstract once DefaultInfo stops instantiating it.
 public class NativeInfo extends StructImpl {
-  protected final ImmutableMap<String, Object> values;
+  protected final ImmutableSortedMap<String, Object> values;
 
   // Initialized lazily.
   private ImmutableSet<String> fieldNames;
