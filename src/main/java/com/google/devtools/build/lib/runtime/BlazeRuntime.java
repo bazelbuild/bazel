@@ -1192,6 +1192,15 @@ public final class BlazeRuntime {
 
     BlazeRuntime runtime = runtimeBuilder.build();
 
+    CustomExitCodePublisher.setAbruptExitStatusFileDir(
+        serverDirectories.getOutputBase().getPathString());
+
+    // Most static initializers for @SkylarkSignature-containing classes have already run by this
+    // point, but this will pick up the stragglers.
+    initSkylarkBuiltinsRegistry();
+
+    AutoProfiler.setClock(runtime.getClock());
+    BugReport.setRuntime(runtime);
     BlazeDirectories directories =
         new BlazeDirectories(
             serverDirectories, workspaceDirectoryPath, defaultSystemJavabasePath, productName);
@@ -1203,16 +1212,8 @@ public final class BlazeRuntime {
           "Cannot enumerate embedded binaries: " + e.getMessage(),
           ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     }
+    // Keep this line last in this method, so that all other initialization is available to it.
     runtime.initWorkspace(directories, binTools);
-    CustomExitCodePublisher.setAbruptExitStatusFileDir(
-        serverDirectories.getOutputBase().getPathString());
-
-    // Most static initializers for @SkylarkSignature-containing classes have already run by this
-    // point, but this will pick up the stragglers.
-    initSkylarkBuiltinsRegistry();
-
-    AutoProfiler.setClock(runtime.getClock());
-    BugReport.setRuntime(runtime);
     return runtime;
   }
 
