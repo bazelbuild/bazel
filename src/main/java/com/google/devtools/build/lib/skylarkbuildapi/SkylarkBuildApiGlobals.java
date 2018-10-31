@@ -36,7 +36,7 @@ public interface SkylarkBuildApiGlobals {
       + "as a value must <a href=\"../rules.html#private-attributes\">be private</a>. "
       + "<p>Example usage: "
       + "<p>Defining a rule attribute: <br><pre class=language-python>"
-      + "'foo_': attr.label(default=configuration_field(fragment='java', name='toolchain'))</pre>"
+      + "'_foo': attr.label(default=configuration_field(fragment='java', name='toolchain'))</pre>"
       + "<p>Accessing in rule implementation: <br><pre class=language-python>"
       + "  def _rule_impl(ctx):\n"
       + "    foo_info = ctx.attr._foo\n"
