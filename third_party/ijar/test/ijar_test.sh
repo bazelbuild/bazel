@@ -82,6 +82,7 @@ SOURCEDEBUGEXT_IJAR=$TEST_TMPDIR/source_debug_extension.jar
 CENTRAL_DIR_LARGEST_REGULAR=$IJAR_SRCDIR/test/largest_regular.jar
 CENTRAL_DIR_SMALLEST_ZIP64=$IJAR_SRCDIR/test/smallest_zip64.jar
 CENTRAL_DIR_ZIP64=$IJAR_SRCDIR/test/definitely_zip64.jar
+KEEP_FOR_COMPILE=$IJAR_SRCDIR/test/keep_for_compile_lib.jar
 
 #### Setup
 
@@ -538,6 +539,22 @@ function test_source_debug_extension_attribute() {
   $JAVAP -classpath $SOURCEDEBUGEXT_IJAR -v sourcedebugextension.Test >& $TEST_log \
     || fail "javap failed"
   expect_not_log "SourceDebugExtension" "SourceDebugExtension preserved!"
+}
+
+function test_keep_for_compile() {
+  $IJAR --strip_jar $KEEP_FOR_COMPILE $TEST_TMPDIR/keep.jar \
+    || fail "ijar failed"
+  lines=$($JAVAP -classpath $TEST_TMPDIR/keep.jar -c -p \
+    functions.car.CarInlineUtilsKt |
+    grep "// Method kotlin/jvm/internal/Intrinsics.checkParameterIsNotNull"  |
+    wc -l)
+  check_eq 2 $lines "Output jar should have kept method body"
+  attr=$($JAVAP -classpath $TEST_TMPDIR/keep.jar -v \
+    functions.car.CarInlineUtilsKt |
+    strings |
+    grep "com.google.devtools.ijar.KeepForCompile" |
+    wc -l)
+  check_eq 2 $attr "Output jar should have kept KeepForCompile attribute."
 }
 
 function test_central_dir_largest_regular() {

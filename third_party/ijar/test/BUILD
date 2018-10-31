@@ -35,6 +35,7 @@ sh_test(
         # TODO(cushon): build from source once we have a JDK 11
         "nestmates/nestmates.jar",
         ":source_debug_extension.jar",
+        ":keep_for_compile_lib.jar",
         ":largest_regular.jar",
         ":smallest_zip64.jar",
         ":definitely_zip64.jar",
@@ -196,6 +197,24 @@ genrule(
     outs = ["local_and_anonymous-interface.jar"],
     cmd = "$(location //third_party/ijar) $< $@",
     tools = ["//third_party/ijar"],
+)
+
+java_binary(
+    name = "GenKeepForCompile",
+    testonly = 1,
+    srcs = ["GenKeepForCompile.java"],
+    main_class = "GenKeepForCompile",
+    deps = [
+        "//third_party:asm",
+    ],
+)
+
+genrule(
+    name = "keep_for_compile_lib",
+    testonly = 1,
+    outs = ["keep_for_compile_lib.jar"],
+    cmd = "$(location :GenKeepForCompile) $@",
+    tools = [":GenKeepForCompile"],
 )
 
 java_binary(

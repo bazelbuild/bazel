@@ -434,6 +434,10 @@ struct Attribute {
   Constant *attribute_name_;
 };
 
+struct KeepForCompileAttribute : Attribute {
+  void Write(u1 *&p) { WriteProlog(p, 0); }
+};
+
 // See sec.4.7.5 of JVM spec.
 struct ExceptionsAttribute : Attribute {
 
@@ -1335,6 +1339,8 @@ struct ClassFile : HasAttrs {
 
   bool ReadConstantPool(const u1 *&p);
 
+  bool IsExplicitlyKept();
+
   bool IsLocalOrAnonymous();
 
   void WriteHeader(u1 *&p) {
@@ -1447,6 +1453,10 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
     } else if (attr_name == "NestMembers") {
       attributes.push_back(
           NestMembersAttribute::Read(p, attribute_name, attribute_length));
+    } else if (attr_name == "com.google.devtools.ijar.KeepForCompile") {
+      auto attr = new KeepForCompileAttribute;
+      attr->attribute_name_ = attribute_name;
+      attributes.push_back(attr);
     } else {
       // Skip over unknown attributes with a warning.  The JVM spec
       // says this is ok, so long as we handle the mandatory attributes.
@@ -1578,6 +1588,28 @@ bool ClassFile::IsLocalOrAnonymous() {
     if (attribute->attribute_name_->Display() == "EnclosingMethod") {
       // JVMS 4.7.6: a class must has EnclosingMethod attribute iff it
       // represents a local class or an anonymous class
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool HasKeepForCompile(const std::vector<Attribute *> attributes) {
+  for (const Attribute *attribute : attributes) {
+    if (attribute->attribute_name_->Display() ==
+        "com.google.devtools.ijar.KeepForCompile") {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ClassFile::IsExplicitlyKept() {
+  if (HasKeepForCompile(attributes)) {
+    return true;
+  }
+  for (const Member *method : methods) {
+    if (HasKeepForCompile(method->attributes)) {
       return true;
     }
   }
@@ -1831,13 +1863,14 @@ void ClassFile::WriteClass(u1 *&p) {
 bool StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length) {
   ClassFile *clazz = ReadClass(classdata_in, in_length);
   bool keep = true;
-  if (clazz == NULL) {
-    // Class is invalid. Simply copy it to the output and call it a day.
+  if (clazz == NULL || clazz->IsExplicitlyKept()) {
+    // Class is invalid or kept. Simply copy it to the output and call it a day.
+    // TODO: If kept, only emit methods marked with KeepForCompile attribute,
+    // as opposed to the entire type.
     put_n(classdata_out, classdata_in, in_length);
   } else if (clazz->IsLocalOrAnonymous()) {
     keep = false;
   } else {
-
     // Constant pool item zero is a dummy entry.  Setting it marks the
     // beginning of the output phase; calls to Constant::slot() will
     // fail if called prior to this.
