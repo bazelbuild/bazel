@@ -217,7 +217,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
-  remote="file://${EXTREPODIR}/extgit/.git",
+  remote="${EXTREPOURL}/extgit/.git",
   tag="mytag",
   build_file_content="exports_files([\"foo.sh\"])",
   patches = ["//:patch_foo.sh"],
@@ -258,7 +258,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
-  remote="file://${EXTREPODIR}/extgit/.git",
+  remote="${EXTREPOURL}/extgit/.git",
   tag="mytag",
   build_file_content="exports_files([\"foo.sh\"])",
 )
@@ -434,7 +434,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="withbuild",
-  remote="file://${EXTREPODIR}/withbuild/.git",
+  remote="${EXTREPOURL}/withbuild/.git",
   tag="mytag",
   build_file="@//:ext.BUILD",
 )
@@ -505,7 +505,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="withbuild",
-  remote="file://${EXTREPODIR}/withbuild/.git",
+  remote="${EXTREPOURL}/withbuild/.git",
   tag="mytag",
   build_file_content="""
 genrule(
