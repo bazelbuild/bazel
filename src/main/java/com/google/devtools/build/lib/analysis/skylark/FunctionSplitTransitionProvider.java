@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.common.options.OptionDefinition;
@@ -273,6 +274,11 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
         // of assuming every key is for a command line option.
         String optionName = commandLineOptionLabelToOption(optionKey);
         Object optionValue = entry.getValue();
+
+        // Convert NoneType to null.
+        if (optionValue instanceof NoneType) {
+          optionValue = null;
+        }
 
         try {
           if (!optionInfoMap.containsKey(optionName)) {
