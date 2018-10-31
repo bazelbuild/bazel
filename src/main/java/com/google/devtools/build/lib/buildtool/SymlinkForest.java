@@ -85,6 +85,9 @@ class SymlinkForest {
   @VisibleForTesting
   @ThreadSafety.ThreadSafe
   static void deleteTreesBelowNotPrefixed(Path dir, String[] prefixes) throws IOException {
+    if (LOG_FINER) {
+      logger.finer("NOTE! - deleteTreesBelowNotPrefixed starting, dir is " + dir);
+    }
     dirloop:
     for (Path p : dir.getDirectoryEntries()) {
       String name = p.getBaseName();
@@ -93,11 +96,20 @@ class SymlinkForest {
           continue dirloop;
         }
       }
+      if (LOG_FINER) {
+        logger.finer("NOTE! - deleteTreesBelowNotPrefixed calling FileSystemUtils.deleteTree for path " + p);
+      }
       FileSystemUtils.deleteTree(p);
+    }
+    if (LOG_FINER) {
+      logger.finer("NOTE! - deleteTreesBelowNotPrefixed ended");
     }
   }
 
   void plantSymlinkForest() throws IOException {
+    if (LOG_FINER) {
+      logger.finer("NOTE! - plantSymlinkForest started");
+    }
     deleteTreesBelowNotPrefixed(execroot, prefixes);
     // TODO(kchodorow): this can be removed once the execution root is rearranged.
     // Current state: symlink tree was created under execroot/$(basename ws) and then
@@ -107,8 +119,14 @@ class SymlinkForest {
     // their execution root would contain a subtree for execroot/wsname that would never be
     // cleaned up by this version of Bazel.
     Path realWorkspaceDir = execroot.getParentDirectory().getRelative(workspaceName);
+    if (LOG_FINER) {
+      logger.finer("NOTE! - plantSymlinkForest, realWorkspaceDir = " + realWorkspaceDir);
+    }
     if (!workspaceName.equals(execroot.getBaseName()) && realWorkspaceDir.exists()
         && !realWorkspaceDir.isSymbolicLink()) {
+      if (LOG_FINER) {
+        logger.finer("NOTE! - plantSymlinkForest, calling FileSystemUtils.deleteTree for realWorkspaceDir = " + realWorkspaceDir);
+      }
       FileSystemUtils.deleteTree(realWorkspaceDir);
     }
 
