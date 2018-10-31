@@ -350,6 +350,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     try {
       return Files.deleteIfExists(nioPath);
     } catch (java.nio.file.DirectoryNotEmptyException e) {
+       if (LOG_FINER) {
+        logger.finer("NOTE! - delete failed with ERR_DIRECTORY_NOT_EMPTY, called for path=" + path + ", nioPath =" + nioPath);
+      }
       throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY);
     } catch (java.nio.file.AccessDeniedException e) {
       throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED);
