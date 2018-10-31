@@ -22,7 +22,7 @@ IOS_DEVICE_ARCHITECTURES = ["armv7", "arm64"]
 TVOS_DEVICE_ARCHITECTURES = ["arm64"]
 """Architectures that are used by tvOS devices."""
 
-WATCHOS_DEVICE_ARCHITECTURES = ["armv7k"]
+WATCHOS_DEVICE_ARCHITECTURES = ["armv7k", "arm64_32"]
 """Architectures that are used by watchOS devices."""
 
 APPLE_DEFAULT_ARCHITECTURES = (APPLE_SIMULATOR_ARCHITECTURES +
