@@ -31,13 +31,11 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.ArgumentCaptor;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 
 /** Tests for {@link ObjectCodecs}. */
 @RunWith(JUnit4.class)
@@ -87,29 +85,50 @@ public class ObjectCodecsTest {
 
   @Test
   public void testSerializeDeserializeUsesCustomLogicWhenAvailable() throws Exception {
-    Integer original = Integer.valueOf(12345);
+    Integer original = 12345;
 
     doAnswer(
-            new Answer<Void>() {
-              @Override
-              public Void answer(InvocationOnMock invocation) throws IOException {
-                CodedOutputStream codedOutArg = (CodedOutputStream) invocation.getArguments()[2];
-                codedOutArg.writeInt32NoTag(42);
-                return null;
-              }
+            invocation -> {
+              CodedOutputStream codedOutArg = (CodedOutputStream) invocation.getArguments()[2];
+              codedOutArg.writeInt32NoTag(42);
+              return null;
             })
         .when(spyObjectCodec)
         .serialize(any(SerializationContext.class), eq(original), any(CodedOutputStream.class));
-    ArgumentCaptor<CodedInputStream> captor = ArgumentCaptor.forClass(CodedInputStream.class);
-    doReturn(original)
+    AtomicInteger readInteger = new AtomicInteger(0);
+    doAnswer(
+            invocation -> {
+              readInteger.set(((CodedInputStream) invocation.getArguments()[1]).readInt32());
+              return original;
+            })
         .when(spyObjectCodec)
-        .deserialize(any(DeserializationContext.class), captor.capture());
+        .deserialize(any(DeserializationContext.class), any(CodedInputStream.class));
 
     ByteString serialized = underTest.serialize(original);
     Object deserialized = underTest.deserialize(serialized);
     assertThat(deserialized).isEqualTo(original);
 
-    assertThat(captor.getValue().readInt32()).isEqualTo(42);
+    assertThat(readInteger.get()).isEqualTo(42);
+  }
+
+  @Test
+  public void tooManyBytesCausesFailure() throws Exception {
+    doReturn(1)
+        .when(spyObjectCodec)
+        .deserialize(any(DeserializationContext.class), any(CodedInputStream.class));
+    doAnswer(
+            invocation -> {
+              ((CodedOutputStream) invocation.getArguments()[2]).writeInt64NoTag(0xAAAAAA);
+              return null;
+            })
+        .when(spyObjectCodec)
+        .serialize(any(SerializationContext.class), eq(1), any(CodedOutputStream.class));
+    try {
+      underTest.deserialize(underTest.serialize(1));
+      fail("Expected exception");
+    } catch (SerializationException e) {
+      assertThat(e).hasMessageThat().isEqualTo("input stream not exhausted after deserializing 1");
+    }
   }
 
   @Test
