@@ -43,6 +43,7 @@ public abstract class SkylarkSemantics {
         SkylarkSemantics::experimentalAnalysisTestingImprovements),
     EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS(
         SkylarkSemantics::experimentalEnableAndroidMigrationApis),
+    EXPERIMENTAL_BUILD_SETTING_API(SkylarkSemantics::experimentalBuildSettingApi),
     EXPERIMENTAL_PLATFORM_API(SkylarkSemantics::experimentalPlatformsApi),
     INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
         SkylarkSemantics::incompatibleDisableObjcProviderResources),
@@ -108,6 +109,8 @@ public abstract class SkylarkSemantics {
 
   // <== Add new options here in alphabetic order ==>
   public abstract boolean experimentalAnalysisTestingImprovements();
+
+  public abstract boolean experimentalBuildSettingApi();
 
   public abstract List<String> experimentalCcSkylarkApiEnabledPackages();
 
@@ -193,6 +196,7 @@ public abstract class SkylarkSemantics {
       builder()
           // <== Add new options here in alphabetic order ==>
           .experimentalAnalysisTestingImprovements(false)
+          .experimentalBuildSettingApi(false)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalEnableRepoMapping(false)
@@ -235,6 +239,8 @@ public abstract class SkylarkSemantics {
 
     // <== Add new options here in alphabetic order ==>
     public abstract Builder experimentalAnalysisTestingImprovements(boolean value);
+
+    public abstract Builder experimentalBuildSettingApi(boolean value);
 
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
 

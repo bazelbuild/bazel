@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.skylark;
 
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -572,6 +574,30 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   public BuildConfiguration getHostConfiguration() throws EvalException {
     checkMutable("host_configuration");
     return ruleContext.getHostConfiguration();
+  }
+
+  @Override
+  @Nullable
+  public Object getBuildSettingValue() throws EvalException {
+    if (ruleContext.getRule().getRuleClassObject().getBuildSetting() == null) {
+      throw new EvalException(
+          Location.BUILTIN,
+          String.format(
+              "attempting to access 'build_setting_value' of non-build setting %s",
+              ruleLabelCanonicalName));
+    }
+    ImmutableMap<String, Object> skylarkFlagSettings =
+        ruleContext.getConfiguration().getOptions().getSkylarkOptions();
+
+    Type<?> buildSettingType =
+        ruleContext.getRule().getRuleClassObject().getBuildSetting().getType();
+    if (skylarkFlagSettings.containsKey(ruleLabelCanonicalName)) {
+      return skylarkFlagSettings.get(ruleLabelCanonicalName);
+    } else {
+      return ruleContext
+          .attributes()
+          .get(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSettingType);
+    }
   }
 
   @Override

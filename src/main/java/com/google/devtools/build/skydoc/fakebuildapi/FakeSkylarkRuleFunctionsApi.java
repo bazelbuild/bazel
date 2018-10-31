@@ -117,6 +117,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Boolean executionPlatformConstraintsAllowed,
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
+      Object buildSetting,
       FuncallExpression ast,
       Environment funcallEnv)
       throws EvalException {

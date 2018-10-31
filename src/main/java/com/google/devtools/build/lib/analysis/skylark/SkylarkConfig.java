@@ -21,69 +21,48 @@ import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
+import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkConfigApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.Type;
 
 /**
- * Skylark namespace for creating build setting descriptors.
+ * Skylark namespace for creating build settings.
+ * TODO(juliexxia): Consider adding more types of build settings, specifically other label types.
  */
 public class SkylarkConfig implements SkylarkConfigApi {
 
   @Override
-  public BuildSettingDescriptor intSetting(Boolean flag) {
-    return new BuildSettingDescriptor(flag, INTEGER);
+  public BuildSetting intSetting(Boolean flag) {
+    return new BuildSetting(flag, INTEGER);
   }
 
   @Override
-  public BuildSettingDescriptor boolSetting(Boolean flag) {
-    return new BuildSettingDescriptor(flag, BOOLEAN);
+  public BuildSetting boolSetting(Boolean flag) {
+    return new BuildSetting(flag, BOOLEAN);
   }
 
   @Override
-  public BuildSettingDescriptor stringSetting(Boolean flag) {
-    return new BuildSettingDescriptor(flag, STRING);
+  public BuildSetting stringSetting(Boolean flag) {
+    return new BuildSetting(flag, STRING);
   }
 
   @Override
-  public BuildSettingDescriptor stringListSetting(Boolean flag) {
-    return new BuildSettingDescriptor(flag, STRING_LIST);
+  public BuildSetting stringListSetting(Boolean flag) {
+    return new BuildSetting(flag, STRING_LIST);
   }
 
   @Override
-  public BuildSettingDescriptor labelSetting(Boolean flag) {
-    return new BuildSettingDescriptor(flag, LABEL);
+  public BuildSetting labelSetting(Boolean flag) {
+    return new BuildSetting(flag, LABEL);
   }
 
   @Override
-  public BuildSettingDescriptor labelListSetting(Boolean flag) {
-    return new BuildSettingDescriptor(flag, LABEL_LIST);
+  public BuildSetting labelListSetting(Boolean flag) {
+    return new BuildSetting(flag, LABEL_LIST);
   }
 
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<config>");
-  }
-
-  /**
-   * An object that describes what time of build setting a skylark rule is (if any type).
-   */
-  private static final class BuildSettingDescriptor implements SkylarkConfigApi.BuildSettingApi {
-    private final boolean isFlag;
-    private final Type<?> type;
-
-    BuildSettingDescriptor(boolean isFlag, Type<?> type) {
-      this.isFlag = isFlag;
-      this.type = type;
-    }
-
-    public Type<?> getType() {
-      return type;
-    }
-
-    @Override
-    public void repr(SkylarkPrinter printer) {
-      printer.append("<build_setting." + type.toString() + ">");
-    }
   }
 }

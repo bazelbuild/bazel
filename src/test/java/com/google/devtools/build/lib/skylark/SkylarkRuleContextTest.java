@@ -36,7 +36,9 @@ import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTa
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -2205,5 +2207,72 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkInfo keyInfo = (SkylarkInfo) a.get(key);
     SkylarkList<String> keys = (SkylarkList<String>) keyInfo.getValue("keys");
     assertThat(keys).containsExactly("c", "b", "a", "f", "e", "d").inOrder();
+  }
+
+  private void writeIntFlagBuildSettingFiles() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
+    scratch.file(
+        "test/build_setting.bzl",
+        "BuildSettingInfo = provider(fields = ['name', 'value'])",
+        "def _impl(ctx):",
+        "  return [BuildSettingInfo(name = ctx.attr.name, value = ctx.build_setting_value)]",
+        "",
+        "int_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.int(flag = True),",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'int_flag')",
+        "int_flag(name = 'int_flag', build_setting_default = 42)");
+  }
+
+  @Test
+  public void testBuildSettingValue_explicitlySet() throws Exception {
+    writeIntFlagBuildSettingFiles();
+    useConfiguration(ImmutableMap.of("//test:int_flag", 24));
+
+    ConfiguredTarget buildSetting = getConfiguredTarget("//test:int_flag");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            "BuildSettingInfo");
+    StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
+
+    assertThat(buildSettingInfo.getValue("value")).isEqualTo(24);
+  }
+
+  @Test
+  public void testBuildSettingValue_defaultFallback() throws Exception {
+    writeIntFlagBuildSettingFiles();
+
+    ConfiguredTarget buildSetting = getConfiguredTarget("//test:int_flag");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            "BuildSettingInfo");
+    StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
+
+    assertThat(buildSettingInfo.getValue("value")).isEqualTo(42);
+  }
+
+  @Test
+  public void testBuildSettingValue_nonBuildSettingRule() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  foo = ctx.build_setting_value",
+        "  return []",
+        "non_build_setting = rule(implementation = _impl)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'non_build_setting')",
+        "non_build_setting(name = 'my_non_build_setting')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:my_non_build_setting");
+    assertContainsEvent("attempting to access 'build_setting_value' of non-build setting "
+        + "//test:my_non_build_setting");
   }
 }

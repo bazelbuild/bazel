@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
+import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
@@ -272,6 +273,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Boolean executionPlatformConstraintsAllowed,
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
+      Object buildSetting,
       FuncallExpression ast,
       Environment funcallEnv)
       throws EvalException, ConversionException {
@@ -352,6 +354,17 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     builder.addRequiredToolchains(
         collectToolchainLabels(
             toolchains.getContents(String.class, "toolchains"), ast.getLocation()));
+    if (!buildSetting.equals(Runtime.NONE)) {
+      if (funcallEnv.getSemantics().experimentalBuildSettingApi()) {
+        builder.setBuildSetting((BuildSetting) buildSetting);
+      } else {
+        throw new EvalException(
+            ast.getLocation(),
+            "build_setting parameter is experimental and not available for "
+                + "general use. It is subject to change at any time. It may be enabled by "
+                + "specifying --experimental_build_setting_api");
+      }
+    }
 
     for (Object o : providesArg) {
       if (!SkylarkAttr.isProvider(o)) {

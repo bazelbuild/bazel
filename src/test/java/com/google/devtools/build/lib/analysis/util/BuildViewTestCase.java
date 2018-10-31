@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -341,8 +342,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ResourceSet.createWithRamCpu(Double.MAX_VALUE, Double.MAX_VALUE);
   }
 
-  protected final BuildConfigurationCollection createConfigurations(String... args)
-      throws Exception {
+  private BuildConfigurationCollection createConfigurations(
+      ImmutableMap<String, Object> skylarkOptions, String... args) throws Exception {
     optionsParser =
         OptionsParser.newOptionsParser(
             Iterables.concat(
@@ -357,6 +358,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     optionsParser.parse(allArgs);
     optionsParser.parse(args);
+
+    // TODO(juliexxia): when the skylark options parsing work goes in, add type verification here.
+    optionsParser.setSkylarkOptionsForTesting(skylarkOptions);
 
     InvocationPolicyEnforcer optionsPolicyEnforcer =
         getAnalysisMock().getInvocationPolicyEnforcer();
@@ -504,18 +508,30 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Sets host and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    *
+   * TODO(juliexxia): when skylark option parsing exists, find a way to combine these parameters
+   * into a single parameter so skylark/native options don't have to be specified separately.
+   *
+   * @param skylarkOptions map of skylark-defined options where the keys are option names (in the
+   *     form of label-like strings) and the values are option values
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   *
    * @throws IllegalArgumentException
    */
-  protected void useConfiguration(String... args) throws Exception {
+  protected void useConfiguration(ImmutableMap<String, Object> skylarkOptions, String... args)
+      throws Exception {
     String[] actualArgs;
     actualArgs = Arrays.copyOf(args, args.length + 1);
-    actualArgs[args.length] = "--experimental_dynamic_configs="
-        + configsMode.toString().toLowerCase();
-    masterConfig = createConfigurations(actualArgs);
+    actualArgs[args.length] =
+        "--experimental_dynamic_configs=" + Ascii.toLowerCase(configsMode.toString());
+    masterConfig = createConfigurations(skylarkOptions, actualArgs);
     targetConfig = getTargetConfiguration();
     targetConfigKey = BuildConfigurationValue.key(targetConfig);
     configurationArgs = Arrays.asList(actualArgs);
     createBuildView();
+  }
+
+  protected void useConfiguration(String... args) throws Exception {
+    useConfiguration(ImmutableMap.of(), args);
   }
 
   /**

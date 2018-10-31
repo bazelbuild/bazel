@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.syntax.SkylarkIndexable;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -227,6 +228,17 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             + "configuration</a> type for more details."
   )
   public BuildConfigurationApi getHostConfiguration() throws EvalException;
+
+  @SkylarkCallable(
+      name = "build_setting_value",
+      structField = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
+      doc =
+          "<b>Experimental. This field is experimental and subject to change at any time. Do not "
+              + "depend on it.</b> <p>Returns the value of the build setting that is represented "
+              + "by the current target. It is an error to access this field for rules that do not "
+              + "set the <code>build_setting</code> attribute in their rule definition.")
+  public Object getBuildSettingValue() throws EvalException;
 
   @SkylarkCallable(
       name = "coverage_instrumented",

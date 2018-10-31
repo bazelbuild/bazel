@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -2278,6 +2280,110 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     getConfiguredTarget("//test:r");
     assertContainsEvent("Only rule definitions with analysis_test=True may have attributes "
         + "with for_analysis_testing=True");
+  }
+
+
+  @Test
+  public void testBuildSettingRule_flag() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+
+    scratch.file("test/rules.bzl",
+        "def _impl(ctx): return None",
+        "build_setting_rule = rule(_impl, build_setting = config.string(flag=True))");
+    scratch.file("test/BUILD",
+    "load('//test:rules.bzl', 'build_setting_rule')",
+    "build_setting_rule(name = 'my_build_setting', build_setting_default = 'default')");
+
+    BuildSetting buildSetting =
+        getTarget("//test:my_build_setting")
+            .getAssociatedRule()
+            .getRuleClassObject()
+            .getBuildSetting();
+
+    assertThat(buildSetting.getType()).isEqualTo(Type.STRING);
+    assertThat(buildSetting.isFlag()).isTrue();
+  }
+
+  @Test
+  public void testBuildSettingRule_settingByDefault() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+
+    scratch.file("test/rules.bzl",
+        "def _impl(ctx): return None",
+        "build_setting_rule = rule(_impl, build_setting = config.string())");
+    scratch.file("test/BUILD",
+        "load('//test:rules.bzl', 'build_setting_rule')",
+        "build_setting_rule(name = 'my_build_setting', build_setting_default = 'default')");
+
+    BuildSetting buildSetting =
+        getTarget("//test:my_build_setting")
+            .getAssociatedRule()
+            .getRuleClassObject()
+            .getBuildSetting();
+
+    assertThat(buildSetting.getType()).isEqualTo(Type.STRING);
+    assertThat(buildSetting.isFlag()).isFalse();
+  }
+
+  @Test
+  public void testBuildSettingRule_settingByFlagParameter() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+
+    scratch.file("test/rules.bzl",
+        "def _impl(ctx): return None",
+        "build_setting_rule = rule(_impl, build_setting = config.string(flag=False))");
+    scratch.file("test/BUILD",
+        "load('//test:rules.bzl', 'build_setting_rule')",
+        "build_setting_rule(name = 'my_build_setting', build_setting_default = 'default')");
+
+    BuildSetting buildSetting =
+        getTarget("//test:my_build_setting")
+            .getAssociatedRule()
+            .getRuleClassObject()
+            .getBuildSetting();
+
+    assertThat(buildSetting.getType()).isEqualTo(Type.STRING);
+    assertThat(buildSetting.isFlag()).isFalse();
+  }
+
+
+  @Test
+  public void testBuildSettingRule_noDefault() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
+
+    scratch.file("test/rules.bzl",
+        "def _impl(ctx): return None",
+        "build_setting_rule = rule(_impl, build_setting = config.string())");
+    scratch.file("test/BUILD",
+        "load('//test:rules.bzl', 'build_setting_rule')",
+        "build_setting_rule(name = 'my_build_setting')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:my_build_setting");
+    assertContainsEvent("missing value for mandatory attribute "
+        + "'build_setting_default' in 'build_setting_rule' rule");
+
+  }
+
+  @Test
+  public void testBuildSettingRule_errorsWithoutExperimentalFlag() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_build_setting_api=false");
+
+    scratch.file(
+        "test/rules.bzl",
+        "def _impl(ctx): return None",
+        "build_setting_rule = rule(_impl, build_setting = config.string())");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'build_setting_rule')",
+        "build_setting_rule(name = 'my_build_setting', build_setting_default = 'default')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:my_build_setting");
+    assertContainsEvent(
+        "build_setting parameter is experimental and not "
+            + "available for general use. It is subject to change at any time. It may be enabled "
+            + "by specifying --experimental_build_setting_api");
   }
 
   /**

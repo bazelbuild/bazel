@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.substitutePlaceholderIntoTemplate;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.RuleClass.NO_EXTERNAL_BINDINGS;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
@@ -911,7 +912,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         ExecutionPlatformConstraintsAllowed.PER_RULE,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
         OutputFile.Kind.FILE,
-        ImmutableList.copyOf(attributes));
+        ImmutableList.copyOf(attributes),
+        /* buildSetting= */ null);
   }
 
   private static RuleClass createParentRuleClass() {
@@ -1232,5 +1234,35 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(childRuleClass.executionPlatformConstraintsAllowed())
         .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
     assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isTrue();
+  }
+
+  @Test
+  public void testBuildSetting_createsDefaultAttribute() {
+    RuleClass labelFlag =
+        new RuleClass.Builder("label_flag", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST))
+            .setBuildSetting(new BuildSetting(true, LABEL))
+            .build();
+    RuleClass stringSetting =
+        new RuleClass.Builder("string_setting", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST))
+            .setBuildSetting(new BuildSetting(false, STRING))
+            .build();
+
+    assertThat(labelFlag.hasAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)).isTrue();
+    assertThat(stringSetting.hasAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, STRING)).isTrue();
+  }
+
+  @Test
+  public void testBuildSetting_doesNotCreateDefaultAttributeIfNotBuildSetting() {
+    RuleClass stringSetting =
+        new RuleClass.Builder("non_build_setting", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST))
+            .build();
+
+    assertThat(stringSetting.hasAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)).isFalse();
   }
 }

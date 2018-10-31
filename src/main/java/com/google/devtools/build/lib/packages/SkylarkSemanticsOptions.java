@@ -72,6 +72,16 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean experimentalAnalysisTestingImprovements;
 
   @Option(
+      name = "experimental_build_setting_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
+      help =
+          "If set to true, allows access to value of build setting rules via "
+              + "ctx.build_setting_value.")
+  public boolean experimentalBuildSettingApi;
+
+  @Option(
       name = "experimental_cc_skylark_api_enabled_packages",
       converter = CommaSeparatedOptionListConverter.class,
       defaultValue = "",
@@ -520,6 +530,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     return SkylarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
         .experimentalAnalysisTestingImprovements(experimentalAnalysisTestingImprovements)
+        .experimentalBuildSettingApi(experimentalBuildSettingApi)
         .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
         .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
         .experimentalEnableRepoMapping(experimentalEnableRepoMapping)

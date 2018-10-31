@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -111,6 +112,8 @@ import javax.annotation.concurrent.Immutable;
  *       tree. All targets appearing in these attributes appears beneath the ".runfiles" tree; in
  *       addition, "deps" may have rule-specific semantics.
  * </ul>
+ *
+ * TODO(bazel-team): Consider breaking up this class in more manageable subclasses.
  */
 // Non-final only for mocking in tests. Do not subclass!
 @Immutable
@@ -607,6 +610,12 @@ public class RuleClass {
       }
     }
 
+    /**
+     * Name of default attribute implicitly added to all Skylark RuleClasses that are {@code
+     * build_setting}s.
+     */
+    public static final String SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME = "build_setting_default";
+
     /** List of required attributes for normal rules, name and type. */
     public static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_NORMAL_RULES =
         ImmutableList.of(attr("tags", Type.STRING_LIST).build());
@@ -641,6 +650,7 @@ public class RuleClass {
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
     private AdvertisedProviderSet.Builder advertisedProviders = AdvertisedProviderSet.builder();
     private BaseFunction configuredTargetFunction = null;
+    private BuildSetting buildSetting = null;
     private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
         NO_EXTERNAL_BINDINGS;
     private Function<? super Rule, ? extends Set<String>> optionReferenceFunction =
@@ -770,6 +780,17 @@ public class RuleClass {
       if (skylark) {
         assertRuleClassProperStarlarkDefinedTransitionUsage();
       }
+      if (buildSetting != null) {
+        Type<?> type = buildSetting.getType();
+        Attribute.Builder<?> attrBuilder =
+            attr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, type)
+                .nonconfigurable("Build setting defaults are referenced during analysis.")
+                .mandatory();
+        if (BuildType.isLabelType(type)) {
+          attrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
+        }
+        this.add(attrBuilder);
+      }
 
       return new RuleClass(
           name,
@@ -803,7 +824,8 @@ public class RuleClass {
           executionPlatformConstraintsAllowed,
           executionPlatformConstraints,
           outputFileKind,
-          attributes.values());
+          attributes.values(),
+          buildSetting);
     }
 
     private void assertSkylarkRuleClassHasImplementationFunction() {
@@ -1142,6 +1164,11 @@ public class RuleClass {
       return this;
     }
 
+    public Builder setBuildSetting(BuildSetting buildSetting) {
+      this.buildSetting = buildSetting;
+      return this;
+    }
+
     public Builder setExternalBindingsFunction(Function<? super Rule, Map<String, Label>> func) {
       this.externalBindingsFunction = func;
       return this;
@@ -1418,6 +1445,12 @@ public class RuleClass {
   @Nullable private final BaseFunction configuredTargetFunction;
 
   /**
+   * The BuildSetting associated with this rule. Null for all RuleClasses except Skylark-defined
+   * rules that pass {@code build_setting} to their {@code rule()} declaration.
+   */
+  @Nullable private final BuildSetting buildSetting;
+
+  /**
    * Returns the extra bindings a workspace function adds to the WORKSPACE file.
    */
   private final Function<? super Rule, Map<String, Label>> externalBindingsFunction;
@@ -1506,7 +1539,8 @@ public class RuleClass {
       ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed,
       Set<Label> executionPlatformConstraints,
       OutputFile.Kind outputFileKind,
-      Collection<Attribute> attributes) {
+      Collection<Attribute> attributes,
+      @Nullable BuildSetting buildSetting) {
     this.name = name;
     this.key = key;
     this.type = type;
@@ -1541,6 +1575,7 @@ public class RuleClass {
     this.supportsPlatforms = supportsPlatforms;
     this.executionPlatformConstraintsAllowed = executionPlatformConstraintsAllowed;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
+    this.buildSetting = buildSetting;
 
     // Create the index and collect non-configurable attributes.
     int index = 0;
@@ -2305,6 +2340,11 @@ public class RuleClass {
    */
   @Nullable public BaseFunction getConfiguredTargetFunction() {
     return configuredTargetFunction;
+  }
+
+  @Nullable
+  public BuildSetting getBuildSetting() {
+    return buildSetting;
   }
 
   /**
