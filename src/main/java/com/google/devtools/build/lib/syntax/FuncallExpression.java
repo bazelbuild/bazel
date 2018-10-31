@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -102,7 +103,7 @@ public final class FuncallExpression extends Expression {
                   Class<?> keyClass = key.getClazz();
                   SkylarkSemantics semantics = key.getSemantics();
                   MethodDescriptor returnValue = null;
-                  for (Method method : keyClass.getMethods()) {
+                  for (Method method : sortMethodArrayByMethodName(keyClass.getMethods())) {
                     // Synthetic methods lead to false multiple matches
                     if (method.isSynthetic()) {
                       continue;
@@ -137,7 +138,7 @@ public final class FuncallExpression extends Expression {
                       SkylarkSemantics semantics = key.getSemantics();
                       ImmutableMap.Builder<String, MethodDescriptor> methodMap =
                           ImmutableMap.builder();
-                      for (Method method : keyClass.getMethods()) {
+                      for (Method method : sortMethodArrayByMethodName(keyClass.getMethods())) {
                         // Synthetic methods lead to false multiple matches
                         if (method.isSynthetic()) {
                           continue;
@@ -200,7 +201,7 @@ public final class FuncallExpression extends Expression {
       Class<?> classObj) {
     ImmutableSortedMap.Builder<Method, SkylarkCallable> methodMap
         = ImmutableSortedMap.orderedBy(Comparator.comparing(Object::toString));
-    for (Method method : classObj.getMethods()) {
+    for (Method method : sortMethodArrayByMethodName(classObj.getMethods())) {
       // Synthetic methods lead to false multiple matches
       if (!method.isSynthetic()) {
         SkylarkCallable annotation = SkylarkInterfaceUtils.getSkylarkCallable(classObj, method);
@@ -210,6 +211,12 @@ public final class FuncallExpression extends Expression {
       }
     }
     return methodMap.build();
+  }
+
+  /** Sort Method arrays by their name for a deterministic ordering */
+  private static Method[] sortMethodArrayByMethodName(Method[] methods) {
+    Arrays.sort(methods, Comparator.comparing(Method::getName));
+    return methods;
   }
 
   private static class ArgumentListConversionResult {
