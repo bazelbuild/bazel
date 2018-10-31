@@ -306,24 +306,15 @@ public class InMemoryNodeEntry implements NodeEntry {
       // value, because preserving == equality is even better than .equals() equality.
       this.value = getDirtyBuildingState().getLastBuildValue();
     } else {
+      this.value = value;
       boolean forcedRebuild =
           isDirty() && getDirtyBuildingState().getDirtyState() == DirtyState.FORCED_REBUILDING;
-      // If this is a new value, or it has changed since the last build, set the version to the
-      // current graph version.
       if (!forcedRebuild && this.lastChangedVersion.equals(version)) {
-        logError(
-            new IllegalStateException(
-                "Changed value but with the same version? "
-                    + this.lastChangedVersion
-                    + " "
-                    + version
-                    + " "
-                    + this));
+        logError(new ChangedValueAtSameVersionException(this.lastChangedVersion, version, this));
       }
       // If this is a new value, or it has changed since the last build, set the version to the
       // current graph version.
       this.lastChangedVersion = version;
-      this.value = value;
     }
     return setStateFinishedAndReturnReverseDepsToSignal();
   }
@@ -348,6 +339,17 @@ public class InMemoryNodeEntry implements NodeEntry {
     if (!this.lastEvaluatedVersion.atMost(version)) {
       logError(
           new IllegalStateException("Bad ev: " + this + ", " + version + ", " + valueForDebugging));
+    }
+  }
+
+  /** An exception indicating that the node's value changed but its version did not. */
+  public static final class ChangedValueAtSameVersionException extends IllegalStateException {
+    private ChangedValueAtSameVersionException(
+        Version lastChangedVersion, Version newVersion, InMemoryNodeEntry nodeEntry) {
+      super(
+          String.format(
+              "Changed value but with the same version? %s %s %s",
+              lastChangedVersion, newVersion, nodeEntry));
     }
   }
 
