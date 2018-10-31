@@ -98,7 +98,7 @@ bar_binary(
 ```
 
 We can improve on this solution by using `select` to choose the `compiler`
-[based on the platform](https://docs.bazel.build/versions/master/configurable-attributes.html):
+[based on the platform](configurable-attributes.html):
 
 ```python
 config_setting(
@@ -207,7 +207,7 @@ To define some toolchains for a given toolchain type, we need three things:
    suite for different platforms.
 
 3. For each such target, an associated target of the generic
-[`toolchain`](https://docs.bazel.build/versions/master/be/platform.html#toolchain)
+[`toolchain`](be/platform.html#toolchain)
 rule, to provide metadata used by the toolchain framework.
 
 For our running example, here's a definition for a `bar_toolchain` rule. Our
@@ -361,33 +361,39 @@ This will end up building `//bar_tools:barc_linux` but not
 **Note:** Some Bazel rules do not yet support toolchain resolution.
 
 For each target that uses toolchains, Bazel's toolchain resolution procedure
-determines the target's concrete dependencies. The procedure takes as input a
-set of required toolchain types, the target platform, a list of available
-execution platforms, and a list of available toolchains. Its outputs are a
+determines the target's concrete toolchain dependencies. The procedure takes as input a
+set of required toolchain types, the target platform, the list of available
+execution platforms, and the list of available toolchains. Its outputs are a
 selected toolchain for each toolchain type as well as a selected execution
 platform for the current target.
 
 The available execution platforms and toolchains are gathered from the
 `WORKSPACE` file via
-[`register_execution_platforms`](https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_execution_platforms)
+[`register_execution_platforms`](skylark/lib/globals.html#register_execution_platforms)
 and
-[`register_toolchains`](https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_toolchains).
+[`register_toolchains`](skylark/lib/globals.html#register_toolchains).
 Additional execution platforms and toolchains may also be specified on the
 command line via
-[`--extra_execution_platforms`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--extra_execution_platforms)
+[`--extra_execution_platforms`](command-line-reference.html#flag--extra_execution_platforms)
 and
-[`--extra_toolchains`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--extra_toolchains).
+[`--extra_toolchains`](command-line-reference.html#flag--extra_toolchains).
 The host platform is automatically included as an available execution platform.
 Available platforms and toolchains are tracked as ordered lists for determinism,
-with preference given to earlier items in the list.
 
 The resolution steps are as follows.
 
-1. For each available execution platform, we associate each toolchain type with
+1. If the target being configured specifies the
+   [`exec_compatible_with` attribute](be/common-definitions.html#common.exec_compatible_with)
+   (or the rule specifies the
+   [`exec_compatible_with` argument](skylark/lib/globals.html#rule.exec_compatible_with),
+   the list of available execution platforms is filtered to remove
+   any that do not match the target's constraints.
+
+2. For each available execution platform, we associate each toolchain type with
    the first available toolchain, if any, that is compatible with this execution
    platform and the target platform.
 
-2. Any execution platform that failed to find a compatible toolchain for one of
+3. Any execution platform that failed to find a compatible toolchain for one of
    its toolchain types is ruled out. Of the remaining platforms, the first one
    becomes the current target's execution platform, and its associated
    toolchains become dependencies of the target.

@@ -27,8 +27,7 @@ appropriate
 for build actions. Platforms can also be used in combination with the
 [config_setting](be/general.html#config_setting)
 rule to write
-  <a href="https://docs.bazel.build/versions/master/configurable-attributes.html">
-  configurable attributes</a>.
+<a href="configurable-attributes.html"> configurable attributes</a>.
 
 Bazel recognizes three roles that a platform may serve:
 
