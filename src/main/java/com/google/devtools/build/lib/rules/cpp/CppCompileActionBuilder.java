@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -26,14 +25,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -356,10 +353,6 @@ public class CppCompileActionBuilder {
               builtinIncludeDirectories,
               grepIncludes);
     }
-
-    if (cppSemantics.needsIncludeValidation()) {
-      verifyActionIncludePaths(action, errorCollector);
-    }
     return action;
   }
 
@@ -406,37 +399,6 @@ public class CppCompileActionBuilder {
 
   private boolean shouldPruneModules() {
     return shouldScanIncludes && useHeaderModules();
-  }
-
-  private void verifyActionIncludePaths(CppCompileAction action, Consumer<String> errorReporter) {
-    ImmutableSet<PathFragment> ignoredDirs = ImmutableSet.copyOf(action.getValidationIgnoredDirs());
-    // We currently do not check the output of:
-    // - getQuoteIncludeDirs(): those only come from includes attributes, and are checked in
-    //   CcCommon.getIncludeDirsFromIncludesAttribute().
-    // - getBuiltinIncludeDirs(): while in practice this doesn't happen, bazel can be configured
-    //   to use an absolute system root, in which case the builtin include dirs might be absolute.
-
-    Iterable<PathFragment> includePathsToVerify =
-        Iterables.concat(action.getIncludeDirs(), action.getSystemIncludeDirs());
-    for (PathFragment includePath : includePathsToVerify) {
-      // includePathsToVerify contains all paths that are added as -isystem directive on the command
-      // line, most of which are added for include directives in the CcCompilationContext and are
-      // thus also in ignoredDirs. The hash lookup prevents this from becoming O(N^2) for these.
-      if (ignoredDirs.contains(includePath)
-          || FileSystemUtils.startsWithAny(includePath, ignoredDirs)) {
-        continue;
-      }
-      // One starting ../ is okay for getting to a sibling repository.
-      if (includePath.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
-        includePath = includePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
-      }
-      if (includePath.isAbsolute() || includePath.containsUplevelReferences()) {
-        errorReporter.accept(
-            String.format(
-                "The include path '%s' references a path outside of the execution root.",
-                includePath));
-      }
-    }
   }
 
   /**

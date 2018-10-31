@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -816,6 +817,40 @@ public class CppCompileAction extends AbstractAction
     return Iterables.concat(cxxSystemIncludeDirs, ccCompilationContext.getSystemIncludeDirs());
   }
 
+  @VisibleForTesting
+  void verifyActionIncludePaths() throws ActionExecutionException {
+    ImmutableSet<PathFragment> ignoredDirs = ImmutableSet.copyOf(getValidationIgnoredDirs());
+    // We currently do not check the output of:
+    // - getQuoteIncludeDirs(): those only come from includes attributes, and are checked in
+    //   CcCommon.getIncludeDirsFromIncludesAttribute().
+    // - getBuiltinIncludeDirs(): while in practice this doesn't happen, bazel can be configured
+    //   to use an absolute system root, in which case the builtin include dirs might be absolute.
+
+    Iterable<PathFragment> includePathsToVerify =
+        Iterables.concat(getIncludeDirs(), getSystemIncludeDirs());
+    for (PathFragment includePath : includePathsToVerify) {
+      // includePathsToVerify contains all paths that are added as -isystem directive on the command
+      // line, most of which are added for include directives in the CcCompilationContext and are
+      // thus also in ignoredDirs. The hash lookup prevents this from becoming O(N^2) for these.
+      if (ignoredDirs.contains(includePath)
+          || FileSystemUtils.startsWithAny(includePath, ignoredDirs)) {
+        continue;
+      }
+      // One starting ../ is okay for getting to a sibling repository.
+      if (includePath.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
+        includePath = includePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
+      }
+      if (includePath.isAbsolute() || includePath.containsUplevelReferences()) {
+        throw new ActionExecutionException(
+            String.format(
+                "The include path '%s' references a path outside of the execution root.",
+                includePath),
+            this,
+            false);
+      }
+    }
+  }
+
   /**
    * Returns true if an included artifact is declared in a set of allowed include directories. The
    * simple case is that the artifact's parent directory is contained in the set, or is empty.
@@ -1031,6 +1066,10 @@ public class CppCompileAction extends AbstractAction
   @ThreadCompatible
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    if (needsIncludeValidation) {
+      verifyActionIncludePaths();
+    }
+
     setModuleFileFlags();
     CppCompileActionContext.Reply reply;
     ShowIncludesFilter showIncludesFilterForStdout = null;

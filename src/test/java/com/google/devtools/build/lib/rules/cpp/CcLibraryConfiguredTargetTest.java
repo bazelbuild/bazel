@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
@@ -1278,38 +1279,69 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError(
+    scratchRule(
         "root",
         "a",
-        "The include path '../somewhere' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
+    CppCompileAction compileAction = getCppCompileAction("//root:a");
+    try {
+      compileAction.verifyActionIncludePaths();
+    } catch (ActionExecutionException exception) {
+      assertThat(exception)
+          .hasMessageThat()
+          .isEqualTo(
+              "The include path '../somewhere' references a path outside of the execution root.");
+    }
   }
 
   @Test
   public void testAbsoluteIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError(
+    scratchRule(
         "root",
         "a",
-        "The include path '/somewhere' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-I/somewhere'])");
+    CppCompileAction compileAction = getCppCompileAction("//root:a");
+    try {
+      compileAction.verifyActionIncludePaths();
+    } catch (ActionExecutionException exception) {
+      assertThat(exception)
+          .hasMessageThat()
+          .isEqualTo(
+              "The include path '/somewhere' references a path outside of the execution root.");
+    }
   }
 
   @Test
   public void testSystemIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError(
+    scratchRule(
         "root",
         "a",
-        "The include path '../system' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
+    CppCompileAction compileAction = getCppCompileAction("//root:a");
+    try {
+      compileAction.verifyActionIncludePaths();
+    } catch (ActionExecutionException exception) {
+      assertThat(exception)
+          .hasMessageThat()
+          .isEqualTo(
+              "The include path '../system' references a path outside of the execution root.");
+    }
   }
 
   @Test
   public void testAbsoluteSystemIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError(
+    scratchRule(
         "root",
         "a",
-        "The include path '/system' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
+    CppCompileAction compileAction = getCppCompileAction("//root:a");
+    try {
+      compileAction.verifyActionIncludePaths();
+    } catch (ActionExecutionException exception) {
+      assertThat(exception)
+          .hasMessageThat()
+          .isEqualTo("The include path '/system' references a path outside of the execution root.");
+    }
   }
 
   /**
