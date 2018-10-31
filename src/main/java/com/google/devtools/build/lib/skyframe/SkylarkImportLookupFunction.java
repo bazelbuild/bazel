@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.SkylarkImports;
+import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -268,6 +269,10 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     ImmutableList<SkylarkImport> unRemappedImports = ast.getImports();
     // here go over the imports and remap them
     ImmutableList<SkylarkImport> imports = remapImports(unRemappedImports, workspaceChunk, workspacePath, fileLabel, env);
+    // stop gap, make this nicer, but it means the value we need isn't ready yet
+    if (imports == null) {
+      return null;
+    }
     ImmutableMap<String, Label> labelsForImports = getLabelsForLoadStatements(imports, fileLabel);
     ImmutableCollection<Label> importLabels = labelsForImports.values();
 
@@ -363,20 +368,51 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     return result;
   }
 
-  private ImmutableList<SkylarkImport> remapImports(ImmutableList<SkylarkImport> unRemappedImports, int workspaceChunk, RootedPath workspacePath, Label enclosingFileLabel, Environment env) {
-    SkyKey workspaceFileKey = WorkspaceFileValue.key(workspacePath, workspaceChunk-1);
-    ImmutableList.Builder<SkylarkImport> builder = ImmutableList.builder();
-    try {
-      WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = workspaceFileValue.getRepositoryMapping().getOrDefault(enclosingFileLabel.getPackageIdentifier().getRepository(), ImmutableMap.of());
-      for (SkylarkImport notRemappedImport : unRemappedImports) {
-        SkylarkImport newImport = SkylarkImports.create(notRemappedImport.getImportString(), repositoryMapping);
-        builder.add(newImport);
+  private ImmutableList<SkylarkImport> remapImports(
+      ImmutableList<SkylarkImport> unRemappedImports,
+      int workspaceChunk,
+      RootedPath workspacePath,
+      Label enclosingFileLabel,
+      Environment env) throws InterruptedException {
+    if (workspaceChunk == 0) {
+      // there is no previous workspace chunk
+      return unRemappedImports;
+    }
+    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of();
+    if (workspaceChunk == -1) {
+      // we are not coming from workspace file, use final mappings
+      PackageIdentifier packageIdentifier = enclosingFileLabel.getPackageIdentifier();
+      RepositoryMappingValue repositoryMappingValue;
+      repositoryMappingValue = (RepositoryMappingValue)
+          env.getValue(RepositoryMappingValue.key(packageIdentifier.getRepository()));
+      if (repositoryMappingValue == null) {
+        return null;
       }
+      repositoryMapping =
+          repositoryMappingValue.getRepositoryMapping();
+    } else {
+      SkyKey workspaceFileKey = WorkspaceFileValue.key(workspacePath, workspaceChunk-1);
+      WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
+
+      if (workspaceFileValue == null) {
+        return null;
+      }
+      repositoryMapping = workspaceFileValue.getRepositoryMapping().getOrDefault(enclosingFileLabel.getPackageIdentifier().getRepository(), ImmutableMap.of());
+
     }
-    catch (Exception e) {
-      System.out.print(e);
+    ImmutableList.Builder<SkylarkImport> builder = ImmutableList.builder();
+    for (SkylarkImport notRemappedImport : unRemappedImports) {
+
+      SkylarkImport newImport = null;
+      try {
+        newImport = SkylarkImports.create(notRemappedImport.getImportString(), repositoryMapping);
+      } catch (SkylarkImportSyntaxException e) {
+        // FIXME handle this exception properly - see go/java-practices/exceptions
+        throw new AssertionError("Unhandled exception", e);
+      }
+      builder.add(newImport);
     }
+
     return builder.build();
   }
 
