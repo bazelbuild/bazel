@@ -84,6 +84,7 @@ StartupOptions::StartupOptions(const string &product_name,
       oom_more_eagerly(false),
       oom_more_eagerly_threshold(100),
       write_command_log(true),
+      rotating_server_log(true),
       watchfs(false),
       fatal_event_bus_exceptions(false),
       command_port(0),
@@ -142,6 +143,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("unlimit_coredumps");
   RegisterNullaryStartupFlag("watchfs");
   RegisterNullaryStartupFlag("write_command_log");
+  RegisterNullaryStartupFlag("rotating_server_log");
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");
@@ -322,6 +324,12 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--nowrite_command_log")) {
     write_command_log = false;
     option_sources["write_command_log"] = rcfile;
+  } else if (GetNullaryOption(arg, "--rotating_server_log")) {
+    rotating_server_log = true;
+    option_sources["rotating_server_log"] = rcfile;
+  } else if (GetNullaryOption(arg, "--norotating_server_log")) {
+    rotating_server_log = false;
+    option_sources["rotating_server_log"] = rcfile;
   } else if (GetNullaryOption(arg, "--watchfs")) {
     watchfs = true;
     option_sources["watchfs"] = rcfile;
@@ -542,29 +550,58 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   return AddJVMMemoryArguments(server_javabase, result, user_options, error);
 }
 
+static std::string GetJavaUtilLoggingFileHandlerProps(
+    const std::string &java_log, const std::string &java_logging_formatter) {
+  return "handlers=java.util.logging.FileHandler\n"
+         ".level=INFO\n"
+         "java.util.logging.FileHandler.level=INFO\n"
+         "java.util.logging.FileHandler.pattern=" +
+         java_log +
+         "\n"
+         "java.util.logging.FileHandler.limit=1024000\n"
+         "java.util.logging.FileHandler.count=1\n"
+         "java.util.logging.FileHandler.formatter=" +
+         java_logging_formatter + "\n";
+}
+
+static std::string GetSimpleLogHandlerProps(
+    const std::string &java_log, const std::string &java_logging_formatter) {
+  return "handlers=com.google.devtools.build.lib.util.SimpleLogHandler\n"
+         ".level=INFO\n"
+         "com.google.devtools.build.lib.util.SimpleLogHandler.level=INFO\n"
+         "com.google.devtools.build.lib.util.SimpleLogHandler.prefix=" +
+         java_log +
+         "\n"
+         "com.google.devtools.build.lib.util.SimpleLogHandler.limit=1024000\n"
+         "com.google.devtools.build.lib.util.SimpleLogHandler.total_limit="
+         "20971520\n"  // 20 MB.
+         "com.google.devtools.build.lib.util.SimpleLogHandler.formatter=" +
+         java_logging_formatter + "\n";
+}
+
 void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
   // Configure logging
   const string propFile = blaze_util::PathAsJvmFlag(
       blaze_util::JoinPath(output_base, "javalog.properties"));
   const string java_log(
       blaze_util::PathAsJvmFlag(blaze_util::JoinPath(output_base, "java.log")));
-  if (!blaze_util::WriteFile("handlers=java.util.logging.FileHandler\n"
-                             ".level=INFO\n"
-                             "java.util.logging.FileHandler.level=INFO\n"
-                             "java.util.logging.FileHandler.pattern=" +
-                                 java_log +
-                                 "\n"
-                                 "java.util.logging.FileHandler.limit=1024000\n"
-                                 "java.util.logging.FileHandler.count=1\n"
-                                 "java.util.logging.FileHandler.formatter=" +
-                                 java_logging_formatter + "\n",
-                             propFile)) {
+  const std::string loggingProps =
+      rotating_server_log
+          ? GetSimpleLogHandlerProps(java_log, java_logging_formatter)
+          : GetJavaUtilLoggingFileHandlerProps(java_log,
+                                               java_logging_formatter);
+  const std::string loggingQuerierClass =
+      rotating_server_log
+          ? "com.google.devtools.build.lib.util.SimpleLogHandler$HandlerQuerier"
+          : "com.google.devtools.build.lib.util.FileHandlerQuerier";
+
+  if (!blaze_util::WriteFile(loggingProps, propFile)) {
     perror(("Couldn't write logging file " + propFile).c_str());
   } else {
     result->push_back("-Djava.util.logging.config.file=" + propFile);
     result->push_back(
-        "-Dcom.google.devtools.build.lib.util.LogHandlerQuerier.class="
-        "com.google.devtools.build.lib.util.FileHandlerQuerier");
+        "-Dcom.google.devtools.build.lib.util.LogHandlerQuerier.class=" +
+        loggingQuerierClass);
   }
 }
 

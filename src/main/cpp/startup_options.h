@@ -257,6 +257,15 @@ class StartupOptions {
 
   bool write_command_log;
 
+  // If true, Bazel will use SimpleLogHandler for the server log, meaning that
+  // each time a Bazel server process starts, it will create a new log file and
+  // update java.log to be a symbolic link to the new log file.
+  // TODO(b/118755753): The --norotating_server_log option is intended as a
+  // temporary "escape hatch" in case switching to the rotating ServerLogHandler
+  // breaks things. Remove the option and associated logic once we are confident
+  // that the "escape hatch" is not needed.
+  bool rotating_server_log;
+
   // If true, Blaze will listen to OS-level file change notifications.
   bool watchfs;
 

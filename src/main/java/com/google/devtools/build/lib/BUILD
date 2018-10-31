@@ -1505,6 +1505,7 @@ java_binary(
         ":bazel-main",
         ":server",
         ":single-line-formatter",  # See startup_options.cc
+        "//src/main/java/com/google/devtools/build/lib:simple-log-handler",  # See startup_options.cc
     ],
 )
 
