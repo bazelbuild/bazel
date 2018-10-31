@@ -525,6 +525,9 @@ public class FileSystemUtils {
    */
   @ThreadSafe
   public static void deleteTree(Path p) throws IOException {
+    if (LOG_FINER) {
+        logger.finer("NOTE! - deleteTree called for path " + p);
+      }
     deleteTreesBelow(p);
     p.delete();
   }
@@ -538,6 +541,9 @@ public class FileSystemUtils {
   @ThreadSafe
   public static void deleteTreesBelow(Path dir) throws IOException {
     if (dir.isDirectory(Symlinks.NOFOLLOW)) {  // real directories (not symlinks)
+      if (LOG_FINER) {
+        logger.finer("NOTE! - deleteTreesBelow, continuning for the non symlink path " + dir);
+      }
       dir.setReadable(true);
       dir.setWritable(true);
       dir.setExecutable(true);
