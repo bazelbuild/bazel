@@ -84,11 +84,11 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   /**
    * Returns the last version this entry was evaluated at, even if it re-evaluated to the same
-   * value. When a child signals this entry with the last version it was changed at in
-   * {@link #signalDep}, this entry need not re-evaluate if the child's version is at most this
-   * version, even if the {@link #lastChangedVersion} is less than this one.
+   * value. When a child signals this entry with the last version it was changed at in {@link
+   * #signalDep}, this entry need not re-evaluate if the child's version is at most this version,
+   * even if the {@link #lastChangedVersion} is less than this one.
    *
-   * @see #signalDep(Version)
+   * @see #signalDep(Version, SkyKey)
    */
   protected Version lastEvaluatedVersion = MinimalVersion.INSTANCE;
 
@@ -298,7 +298,10 @@ public class InMemoryNodeEntry implements NodeEntry {
     assertVersionCompatibleWhenSettingValue(version, value);
     this.lastEvaluatedVersion = version;
 
-    if (isDirty() && getDirtyBuildingState().unchangedFromLastBuild(value)) {
+    if (!isEligibleForChangePruning()) {
+      this.lastChangedVersion = version;
+      this.value = value;
+    } else if (isDirty() && getDirtyBuildingState().unchangedFromLastBuild(value)) {
       // If the value is the same as before, just use the old value. Note that we don't use the new
       // value, because preserving == equality is even better than .equals() equality.
       this.value = getDirtyBuildingState().getLastBuildValue();
@@ -323,6 +326,17 @@ public class InMemoryNodeEntry implements NodeEntry {
       this.value = value;
     }
     return setStateFinishedAndReturnReverseDepsToSignal();
+  }
+
+  /**
+   * Returns {@code true} if this node is eligible to be change pruned when its value has not
+   * changed from the last build.
+   *
+   * <p>Implementations need not check whether the value has changed - this will only be called if
+   * the value has not changed.
+   */
+  protected boolean isEligibleForChangePruning() {
+    return true;
   }
 
   protected void assertVersionCompatibleWhenSettingValue(
@@ -593,7 +607,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void markRebuilding() {
-    getDirtyBuildingState().markRebuilding();
+    getDirtyBuildingState().markRebuilding(isEligibleForChangePruning());
   }
 
   @SuppressWarnings("unchecked")
