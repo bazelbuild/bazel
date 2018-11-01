@@ -13,14 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * A simple implementation of a general purpose "sum" type.
+ * A container wrapping a value of one of two types. An {@code Either<A, B>} instance either wraps
+ * an instance of {@code A} or a instance of {@code B}.
  *
  * <p>Just as with {@link Pair}, this class is immutable, supports nullable values, and is
- * completely devoid of semantics. Avoid using it in public APIs.</p>
+ * completely devoid of Bazel-business-logic-specific semantics. Avoid using it in public APIs.
+ *
+ * <p>This class is a a simple implementation of a general purpose "sum" type. In type theory, sum
+ * types are the duals of product types -- the corresponding observation here is that {@link Either}
+ * is the dual of {@link Pair}.
  */
 public abstract class Either<A, B> {
   // Disallow subclasses outside of this file.
@@ -49,6 +55,15 @@ public abstract class Either<A, B> {
    */
   public abstract <C> C map(Function<A, C> leftFunction, Function<B, C> rightFunction);
 
+  @Override
+  public abstract int hashCode();
+
+  @Override
+  public abstract boolean equals(Object other);
+
+  @Override
+  public abstract String toString();
+
   private static class LeftEither<A, B> extends Either<A, B> {
     private final A a;
 
@@ -64,6 +79,24 @@ public abstract class Either<A, B> {
     @Override
     public <C> C map(Function<A, C> leftFunction, Function<B, C> rightFunction) {
       return leftFunction.apply(a);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(a);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof LeftEither)) {
+        return false;
+      }
+      return Objects.equals(this.a, ((LeftEither) other).a);
+    }
+
+    @Override
+    public String toString() {
+      return "left injection of " + a;
     }
   }
 
@@ -82,6 +115,24 @@ public abstract class Either<A, B> {
     @Override
     public <C> C map(Function<A, C> leftFunction, Function<B, C> rightFunction) {
       return rightFunction.apply(b);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(b);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof RightEither)) {
+        return false;
+      }
+      return Objects.equals(this.b, ((RightEither) other).b);
+    }
+
+    @Override
+    public String toString() {
+      return "right injection of " + b;
     }
   }
 }
