@@ -98,7 +98,6 @@ public class PackageFunction implements SkyFunction {
   private final AtomicBoolean showLoadingProgress;
   private final AtomicInteger numPackagesLoaded;
   @Nullable private final PackageProgressReceiver packageProgress;
-  private final Profiler profiler = Profiler.instance();
   private final Label preludeLabel;
 
   // Not final only for testing.
