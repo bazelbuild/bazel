@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import javax.annotation.Nullable;
 
 /**
  * An {@link ExecException} thrown when an action fails to execute because one or more of its inputs
@@ -24,15 +25,22 @@ import com.google.common.collect.ImmutableList;
 public class LostInputsExecException extends ExecException {
 
   private final ImmutableList<ActionInput> lostInputs;
+  private final InputOwners inputOwners;
 
-  public LostInputsExecException(ImmutableList<ActionInput> lostInputs) {
+  public LostInputsExecException(ImmutableList<ActionInput> lostInputs, InputOwners inputOwners) {
     super("");
     this.lostInputs = lostInputs;
+    this.inputOwners = inputOwners;
   }
 
   @VisibleForTesting
   public ImmutableList<ActionInput> getLostInputs() {
     return lostInputs;
+  }
+
+  @VisibleForTesting
+  public InputOwners getInputOwners() {
+    return inputOwners;
   }
 
   @Override
@@ -53,5 +61,20 @@ public class LostInputsExecException extends ExecException {
     public ImmutableList<ActionInput> getLostInputs() {
       return ((LostInputsExecException) getCause()).getLostInputs();
     }
+
+    public InputOwners getInputOwners() {
+      return ((LostInputsExecException) getCause()).getInputOwners();
+    }
+  }
+
+  /** Specifies the owning {@link Artifact}s that were responsible for the lost inputs. */
+  public interface InputOwners {
+
+    /**
+     * Returns the owning {@link Artifact} that was responsible for the lost {@link ActionInput} or
+     * {@code null} if there is no such owner. Throws if {@code input} was not lost.
+     */
+    @Nullable
+    Artifact getOwner(ActionInput input);
   }
 }
