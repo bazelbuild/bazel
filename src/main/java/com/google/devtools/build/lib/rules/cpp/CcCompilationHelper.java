@@ -792,7 +792,11 @@ public final class CcCompilationHelper {
    */
   public CompilationInfo compile() throws RuleErrorException {
     if (checkDepsGenerateCpp) {
-      CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
+      for (LanguageDependentFragment dep :
+          AnalysisUtils.getProviders(deps, LanguageDependentFragment.class)) {
+        LanguageDependentFragment.Checker.depSupportsLanguage(
+            ruleContext, dep, CppRuleClasses.LANGUAGE, "deps");
+      }
     }
 
     if (!generatePicAction && !generateNoPicAction) {

@@ -345,7 +345,11 @@ public final class CcLinkingHelper {
     Preconditions.checkNotNull(ccOutputs);
 
     if (checkDepsGenerateCpp) {
-      CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
+      for (LanguageDependentFragment dep :
+          AnalysisUtils.getProviders(deps, LanguageDependentFragment.class)) {
+        LanguageDependentFragment.Checker.depSupportsLanguage(
+            ruleContext, dep, CppRuleClasses.LANGUAGE, "deps");
+      }
     }
 
     // Create link actions (only if there are object files or if explicitly requested).
