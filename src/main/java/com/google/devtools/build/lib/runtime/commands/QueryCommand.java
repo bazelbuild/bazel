@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.TargetProviderForQueryEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.Either;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -58,6 +59,7 @@ import java.nio.channels.ClosedByInterruptException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 /** Command line wrapper for executing a query with blaze. */
 @Command(
@@ -140,7 +142,8 @@ public final class QueryCommand implements BlazeCommand {
 
     Set<Setting> settings = queryOptions.toSettings();
     boolean streamResults = QueryOutputUtils.shouldStreamResults(queryOptions, formatter);
-    QueryEvalResult result;
+
+    Either<BlazeCommandResult, QueryEvalResult> result;
     try (AbstractBlazeQueryEnvironment<Target> queryEnv =
         newQueryEnvironment(
             env,
@@ -149,122 +152,147 @@ public final class QueryCommand implements BlazeCommand {
             queryOptions.universeScope,
             options.getOptions(LoadingPhaseThreadsOption.class).threads,
             settings)) {
-      QueryExpression expr;
-      try {
-        expr = QueryExpression.parse(query, queryEnv);
-      } catch (QueryException e) {
-        env.getReporter()
-            .handle(Event.error(null, "Error while parsing '" + query + "': " + e.getMessage()));
-        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
-      }
+      result = doQuery(
+          query,
+          env,
+          queryOptions,
+          streamResults,
+          formatter,
+          queryEnv);
+    }
+    return result.map(
+        Function.identity(),
+        queryEvalResult -> {
+          if (queryEvalResult.isEmpty()) {
+            env.getReporter().handle(Event.info("Empty results"));
+          }
+          ExitCode exitCode = queryEvalResult.getSuccess()
+              ? ExitCode.SUCCESS
+              : ExitCode.PARTIAL_ANALYSIS_FAILURE;
+          env.getEventBus().post(
+              new NoBuildRequestFinishedEvent(exitCode, runtime.getClock().currentTimeMillis()));
+          return BlazeCommandResult.exitCode(exitCode);
+        });
+  }
 
-      try {
-        formatter.verifyCompatible(queryEnv, expr);
-      } catch (QueryException e) {
-        env.getReporter().handle(Event.error(e.getMessage()));
-        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
-      }
+  private Either<BlazeCommandResult, QueryEvalResult> doQuery(
+      String query,
+      CommandEnvironment env,
+      QueryOptions queryOptions,
+      boolean streamResults,
+      OutputFormatter formatter,
+      AbstractBlazeQueryEnvironment<Target> queryEnv) {
+    QueryExpression expr;
+    try {
+      expr = QueryExpression.parse(query, queryEnv);
+    } catch (QueryException e) {
+      env.getReporter()
+          .handle(Event.error(null, "Error while parsing '" + query + "': " + e.getMessage()));
+      return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR));
+    }
 
-      expr = queryEnv.transformParsedQuery(expr);
+    try {
+      formatter.verifyCompatible(queryEnv, expr);
+    } catch (QueryException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR));
+    }
 
-      OutputStream out;
-      if (formatter.canBeBuffered()) {
-        // There is no particular reason for the 16384 constant here, except its a multiple of the
-        // gRPC buffer size. We mainly don't want to send each label individually because the output
-        // stream is connected to gRPC, and every write gets converted to one gRPC call.
-        out = new BufferedOutputStream(env.getReporter().getOutErr().getOutputStream(), 16384);
+    expr = queryEnv.transformParsedQuery(expr);
+
+    OutputStream out;
+    if (formatter.canBeBuffered()) {
+      // There is no particular reason for the 16384 constant here, except its a multiple of the
+      // gRPC buffer size. We mainly don't want to send each label individually because the output
+      // stream is connected to gRPC, and every write gets converted to one gRPC call.
+      out = new BufferedOutputStream(env.getReporter().getOutErr().getOutputStream(), 16384);
+    } else {
+      out = env.getReporter().getOutErr().getOutputStream();
+    }
+
+    ThreadSafeOutputFormatterCallback<Target> callback;
+    if (streamResults) {
+      disableAnsiCharactersFiltering(env);
+      StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
+      streamedFormatter.setOptions(
+          queryOptions,
+          queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
+      callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
+    } else {
+      callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
+    }
+
+    QueryEvalResult result;
+    boolean catastrophe = true;
+    try {
+      result = queryEnv.evaluateQuery(expr, callback);
+      catastrophe = false;
+    } catch (QueryException e) {
+      catastrophe = false;
+      // Keep consistent with reportBuildFileError()
+      env.getReporter()
+          // TODO(bazel-team): this is a kludge to fix a bug observed in the wild. We should make
+          // sure no null error messages ever get in.
+          .handle(Event.error(e.getMessage() == null ? e.toString() : e.getMessage()));
+      return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE));
+    } catch (InterruptedException e) {
+      catastrophe = false;
+      IOException ioException = callback.getIoException();
+      if (ioException == null || ioException instanceof ClosedByInterruptException) {
+        env.getReporter().handle(Event.error("query interrupted"));
+        return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.INTERRUPTED));
       } else {
-        out = env.getReporter().getOutErr().getOutputStream();
-      }
-      ThreadSafeOutputFormatterCallback<Target> callback;
-      if (streamResults) {
-        disableAnsiCharactersFiltering(env);
-        StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
-        streamedFormatter.setOptions(
-            queryOptions,
-            queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
-        callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
-      } else {
-        callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
-      }
-      boolean catastrophe = true;
-      try {
-        result = queryEnv.evaluateQuery(expr, callback);
-        catastrophe = false;
-      } catch (QueryException e) {
-        catastrophe = false;
-        // Keep consistent with reportBuildFileError()
-        env.getReporter()
-            // TODO(bazel-team): this is a kludge to fix a bug observed in the wild. We should make
-            // sure no null error messages ever get in.
-            .handle(Event.error(e.getMessage() == null ? e.toString() : e.getMessage()));
-        return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
-      } catch (InterruptedException e) {
-        catastrophe = false;
-        IOException ioException = callback.getIoException();
-        if (ioException == null || ioException instanceof ClosedByInterruptException) {
-          env.getReporter().handle(Event.error("query interrupted"));
-          return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
-        } else {
-          env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-          return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
-        }
-      } catch (IOException e) {
-        catastrophe = false;
         env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
-      } finally {
-        if (!catastrophe) {
-          try {
-            out.flush();
-          } catch (IOException e) {
-            env.getReporter()
-                .handle(Event.error("Failed to flush query results: " + e.getMessage()));
-            return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
-          }
-        }
+        return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
       }
-
-      env.getEventBus()
-          .post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime(), true));
-      if (!streamResults) {
-        disableAnsiCharactersFiltering(env);
+    } catch (IOException e) {
+      catastrophe = false;
+      env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
+      return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
+    } finally {
+      if (!catastrophe) {
         try {
-          Set<Target> targets =
-              ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
-          QueryOutputUtils.output(
-              queryOptions,
-              result,
-              targets,
-              formatter,
-              out,
-              queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
-        } catch (ClosedByInterruptException | InterruptedException e) {
-          env.getReporter().handle(Event.error("query interrupted"));
-          return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+          out.flush();
         } catch (IOException e) {
-          env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-          return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
-        } finally {
-          try {
-            out.flush();
-          } catch (IOException e) {
-            env.getReporter()
-                .handle(Event.error("Failed to flush query results: " + e.getMessage()));
-            return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
-          }
+          env.getReporter()
+              .handle(Event.error("Failed to flush query results: " + e.getMessage()));
+          return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
         }
       }
     }
 
-    if (result.isEmpty()) {
-      env.getReporter().handle(Event.info("Empty results"));
+    env.getEventBus()
+        .post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime(), true));
+    if (!streamResults) {
+      disableAnsiCharactersFiltering(env);
+      try {
+        Set<Target> targets =
+            ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
+        QueryOutputUtils.output(
+            queryOptions,
+            result,
+            targets,
+            formatter,
+            out,
+            queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
+      } catch (ClosedByInterruptException | InterruptedException e) {
+        env.getReporter().handle(Event.error("query interrupted"));
+        return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.INTERRUPTED));
+      } catch (IOException e) {
+        env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
+        return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
+      } finally {
+        try {
+          out.flush();
+        } catch (IOException e) {
+          env.getReporter()
+              .handle(Event.error("Failed to flush query results: " + e.getMessage()));
+          return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
+        }
+      }
     }
 
-    ExitCode exitCode = result.getSuccess() ? ExitCode.SUCCESS : ExitCode.PARTIAL_ANALYSIS_FAILURE;
-    env.getEventBus()
-        .post(new NoBuildRequestFinishedEvent(exitCode, runtime.getClock().currentTimeMillis()));
-    return BlazeCommandResult.exitCode(exitCode);
+    return Either.ofRight(result);
   }
 
   /**
