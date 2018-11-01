@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -280,7 +281,9 @@ public final class CcLinkingHelper {
   }
 
   /**
-   * Disables checking that the deps actually are C++ rules.
+   * Disables checking that the deps actually are C++ rules. By default, the {@link #link} method
+   * uses {@link LanguageDependentFragment.Checker#depSupportsLanguage} to check that all deps
+   * provide C++ providers.
    */
   public CcLinkingHelper setCheckDepsGenerateCpp(boolean checkDepsGenerateCpp) {
     this.checkDepsGenerateCpp = checkDepsGenerateCpp;

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -712,7 +713,9 @@ public final class CcCompilationHelper {
   }
 
   /**
-   * Disables checking that the deps actually are C++ rules.
+   * Disables checking that the deps actually are C++ rules. By default, the {@link #compile} method
+   * uses {@link LanguageDependentFragment.Checker#depSupportsLanguage} to check that all deps
+   * provide C++ providers.
    */
   public CcCompilationHelper setCheckDepsGenerateCpp(boolean checkDepsGenerateCpp) {
     this.checkDepsGenerateCpp = checkDepsGenerateCpp;
