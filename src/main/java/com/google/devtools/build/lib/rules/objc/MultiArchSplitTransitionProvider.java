@@ -79,10 +79,27 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
   }
 
   /**
+   * Returns the apple platform type for the given platform type string (corresponding directly with
+   * platform type attribute value).
+   *
+   * @throws IllegalArgumentException if the given platform type string is not a valid type
+   */
+  public static PlatformType getPlatformType(String platformTypeString) {
+    PlatformType platformType = PlatformType.fromString(platformTypeString);
+
+    if (!SUPPORTED_PLATFORM_TYPES.contains(platformType)) {
+      throw new IllegalArgumentException(
+          String.format(UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT, platformTypeString));
+    } else {
+      return platformType;
+    }
+  }
+
+  /**
    * Validates that minimum OS was set to a valid value on the current rule.
-    
-   * @throws RuleErrorException if the platform type attribute in the current rulecontext is
-   *     an invalid value
+   *
+   * @throws RuleErrorException if the platform type attribute in the current rulecontext is an
+   *     invalid value
    */
   public static void validateMinimumOs(RuleContext ruleContext) throws RuleErrorException {
     String attributeValue = ruleContext.attributes().get(PlatformRule.MINIMUM_OS_VERSION, STRING);
@@ -105,23 +122,6 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
             PlatformRule.MINIMUM_OS_VERSION,
             String.format(INVALID_VERSION_STRING_ERROR_FORMAT, attributeValue));
       }
-    }
-  }
-
-  /**
-   * Returns the apple platform type for the given platform type string (corresponding directly
-   * with platform type attribute value).
-   * 
-   * @throws IllegalArgumentException if the given platform type string is not a valid type
-   */
-  public static PlatformType getPlatformType(String platformTypeString) {
-    PlatformType platformType = PlatformType.fromString(platformTypeString);
-
-    if (!SUPPORTED_PLATFORM_TYPES.contains(platformType)) {
-      throw new IllegalArgumentException(
-          String.format(UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT, platformTypeString));
-    } else {
-      return platformType;
     }
   }
 

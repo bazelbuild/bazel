@@ -1145,7 +1145,7 @@ public class CompilationSupport {
     registerObjFilelistAction(objFiles, inputFileList);
 
     LinkTargetType linkType =
-        (objcProvider.is(Flag.USES_CPP))
+        objcProvider.is(Flag.USES_CPP)
             ? LinkTargetType.OBJCPP_EXECUTABLE
             : LinkTargetType.OBJC_EXECUTABLE;
 

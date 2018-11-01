@@ -956,21 +956,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
     }
 
     /**
-     * Add all keys and values from the given provider, but propagate any normally-propagated items
-     * only to direct dependers of this ObjcProvider.
-     */
-    public Builder addAsDirectDeps(ObjcProvider provider) {
-      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.items.entrySet()) {
-        uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(),
-            this.strictDependencyItems);
-      }
-      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.strictDependencyItems.entrySet()) {
-        uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.nonPropagatedItems);
-      }
-      return this;
-    }
-
-    /**
      * Add all elements from a single key of the given provider, and propagate them to any
      * (transitive) dependers on this ObjcProvider.
      */
@@ -991,6 +976,21 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
      */
     public <E> Builder addTransitiveAndPropagate(Key<E> key, NestedSet<E> items) {
       uncheckedAddTransitive(key, items, this.items);
+      return this;
+    }
+
+    /**
+     * Add all keys and values from the given provider, but propagate any normally-propagated items
+     * only to direct dependers of this ObjcProvider.
+     */
+    public Builder addAsDirectDeps(ObjcProvider provider) {
+      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.items.entrySet()) {
+        uncheckedAddTransitive(
+            typeEntry.getKey(), typeEntry.getValue(), this.strictDependencyItems);
+      }
+      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.strictDependencyItems.entrySet()) {
+        uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.nonPropagatedItems);
+      }
       return this;
     }
 
