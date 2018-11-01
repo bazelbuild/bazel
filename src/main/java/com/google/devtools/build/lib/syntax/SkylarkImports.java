@@ -72,13 +72,6 @@ public class SkylarkImports {
       return Objects.equals(getClass(), that.getClass())
           && Objects.equals(importString, ((SkylarkImportImpl) that).importString);
     }
-
-    // public abstract void updatePackageIdentifier(RepositoryName repositoryName);
-    //
-    // public SkylarkImport createSkylarkImportWithUpdatedPackageIdentifier(RepositoryName repositoryName) {
-    //   return null;
-    // }
-
   }
 
   @VisibleForSerialization
@@ -208,8 +201,6 @@ public class SkylarkImports {
       if (packageId.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
         throw new SkylarkImportSyntaxException(EXTERNAL_PKG_NOT_ALLOWED_MSG);
       }
-      // String remappedImportString = remapImportString(importString, repositoryMapping);
-      // return new AbsoluteLabelImport(remappedImportString, importLabel);
       return new AbsoluteLabelImport(importString, importLabel);
     } else if (importString.startsWith(":")) {
       // Relative label. We require that relative labels use an explicit ':' prefix.
@@ -227,17 +218,4 @@ public class SkylarkImports {
 
     throw new SkylarkImportSyntaxException(INVALID_PATH_SYNTAX);
   }
-
-  private static String remapImportString(String importString, ImmutableMap<RepositoryName,RepositoryName> repositoryMapping) {
-    String repoNameString = importString.substring(0, importString.indexOf("//"));
-    RepositoryName repoName = null;
-    try {
-      repoName = RepositoryName.create(repoNameString);
-    } catch (LabelSyntaxException e) {
-      // This won't happen because we are parsing an already valid repository name string
-    }
-    String newRepoName = repositoryMapping.getOrDefault(repoName, repoName).getName();
-
-    return importString.replace(repoNameString, newRepoName);
-    }
 }
