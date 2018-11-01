@@ -382,12 +382,12 @@ Available platforms and toolchains are tracked as ordered lists for determinism,
 
 The resolution steps are as follows.
 
-1. If the target being configured specifies the
+1. If the target specifies the
    [`exec_compatible_with` attribute](be/common-definitions.html#common.exec_compatible_with)
    (or the rule specifies the
    [`exec_compatible_with` argument](skylark/lib/globals.html#rule.exec_compatible_with),
    the list of available execution platforms is filtered to remove
-   any that do not match the target's constraints.
+   any that do not match the execution constraints.
 
 2. For each available execution platform, we associate each toolchain type with
    the first available toolchain, if any, that is compatible with this execution
