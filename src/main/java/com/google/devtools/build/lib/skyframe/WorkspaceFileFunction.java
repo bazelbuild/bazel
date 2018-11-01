@@ -119,10 +119,9 @@ public class WorkspaceFileFunction implements SkyFunction {
         parser.setParent(prevValue.getPackage(), prevValue.getImportMap(), prevValue.getBindings());
       }
       BuildFileAST ast = workspaceASTValue.getASTs().get(key.getIndex());
-      // TODO: change repoWorkspace.asPath.asFragment to just be repoWorkspace so don't need to pass key.getPath as well
       PackageFunction.SkylarkImportResult importResult =
           PackageFunction.fetchImportsFromBuildFile(
-              repoWorkspace.asPath().asFragment(), rootPackage, ast, key.getIndex(), key.getPath(), env,  null);
+              repoWorkspace, rootPackage, ast, key.getIndex(), env,  null);
       if (importResult == null) {
         return null;
       }

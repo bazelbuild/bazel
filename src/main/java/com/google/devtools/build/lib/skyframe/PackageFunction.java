@@ -549,19 +549,14 @@ public class PackageFunction implements SkyFunction {
    */
   @Nullable
   static SkylarkImportResult fetchImportsFromBuildFile(
-      PathFragment buildFilePath,
+      RootedPath buildFilePath,
       PackageIdentifier packageId,
       BuildFileAST buildFileAST,
       int workspaceChunk,
-      @Nullable RootedPath workspacePath,
       Environment env,
       SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
       throws NoSuchPackageException, InterruptedException {
     Preconditions.checkArgument(!packageId.getRepository().isDefault());
-
-    if (workspaceChunk == -1) {
-      System.out.println("workspace chunk is -1");
-    }
 
     ImmutableList<SkylarkImport> imports = buildFileAST.getImports();
     Map<String, Extension> importMap = Maps.newHashMapWithExpectedSize(imports.size());
@@ -581,11 +576,11 @@ public class PackageFunction implements SkyFunction {
     // Look up and load the imports.
     ImmutableCollection<Label> importLabels = importPathMap.values();
     List<SkyKey> importLookupKeys = Lists.newArrayListWithExpectedSize(importLabels.size());
-    boolean inWorkspace = buildFilePath.getBaseName().endsWith("WORKSPACE");
+    boolean inWorkspace = buildFilePath.getRootRelativePath().getBaseName().endsWith("WORKSPACE");
     for (Label importLabel : importLabels) {
       // need to do a lookup in WSV for the *original* chunk
-      int originalChunk = getOriginalWorkspaceChunk(env, workspacePath, workspaceChunk, importLabel);
-      importLookupKeys.add(SkylarkImportLookupValue.key(importLabel, inWorkspace, originalChunk, workspacePath));
+      int originalChunk = getOriginalWorkspaceChunk(env, /*utb wp*/ buildFilePath, workspaceChunk, importLabel);
+      importLookupKeys.add(SkylarkImportLookupValue.key(importLabel, inWorkspace, originalChunk, /*utb wp*/ buildFilePath));
     }
     Map<SkyKey, SkyValue> skylarkImportMap = Maps.newHashMapWithExpectedSize(importPathMap.size());
     boolean valuesMissing = false;
@@ -645,8 +640,8 @@ public class PackageFunction implements SkyFunction {
       Label importLabel = importEntry.getValue();
 
       // do the workspace chunk lookup here too
-      int originalChunk = getOriginalWorkspaceChunk(env, workspacePath, workspaceChunk, importLabel);
-      SkyKey keyForLabel = SkylarkImportLookupValue.key(importLabel, inWorkspace, originalChunk, workspacePath);
+      int originalChunk = getOriginalWorkspaceChunk(env, /*utb wp*/ buildFilePath, workspaceChunk, importLabel);
+      SkyKey keyForLabel = SkylarkImportLookupValue.key(importLabel, inWorkspace, originalChunk, /*utb wp*/ buildFilePath);
       SkylarkImportLookupValue importLookupValue =
           (SkylarkImportLookupValue) skylarkImportMap.get(keyForLabel);
       importMap.put(importString, importLookupValue.getEnvironmentExtension());
@@ -1184,11 +1179,11 @@ public class PackageFunction implements SkyFunction {
         try {
           importResult =
               fetchImportsFromBuildFile(
-                  buildFilePath.getRootRelativePath(),
+                  buildFilePath,
                   packageId,
                   astParseResult.ast,
                   /* workspaceChunk = */ -1,
-                  /* workspacePath = */ buildFilePath,
+//                  /* workspacePath = */ buildFilePath,
                   env,
                   skylarkImportLookupFunctionForInlining);
         } catch (NoSuchPackageException e) {
