@@ -71,17 +71,27 @@ def CreatePythonPathEntries(python_imports, module_space):
 
 # Find the runfiles tree
 def FindModuleSpace():
-  stub_filename = os.path.abspath(sys.argv[0])
-  module_space = stub_filename + ('.exe' if IsWindows() else '') + '.runfiles'
-  if os.path.isdir(module_space):
-    return module_space
+  stub_filename = sys.argv[0]
+  if not os.path.isabs(stub_filename):
+    stub_filename = os.path.join(os.getcwd(), stub_filename)
 
-  runfiles_pattern = "(.*\.runfiles)/.*"
-  if IsWindows():
-    runfiles_pattern = "(.*\.runfiles)\\.*"
-  matchobj = re.match(runfiles_pattern, os.path.abspath(sys.argv[0]))
-  if matchobj:
-    return matchobj.group(1)
+  while True:
+    module_space = stub_filename + ('.exe' if IsWindows() else '') + '.runfiles'
+    if os.path.isdir(module_space):
+      return module_space
+
+    runfiles_pattern = r'(.*\.runfiles)' + (r'\\' if IsWindows() else '/') + '.*'
+    matchobj = re.match(runfiles_pattern, stub_filename)
+    if matchobj:
+      return matchobj.group(1)
+
+    if not os.path.islink(stub_filename):
+      break
+    target = os.readlink(stub_filename)
+    if os.path.isabs(target):
+      stub_filename = target
+    else:
+      stub_filename = os.path.join(os.path.dirname(stub_filename), target)
 
   raise AssertionError('Cannot find .runfiles directory for %s' % sys.argv[0])
 
