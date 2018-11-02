@@ -172,6 +172,7 @@ def find_vc_path(repository_ctx):
             break
 
     if not vc_dir:
+        _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools not found.")
         return None
     _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
     return vc_dir
@@ -244,7 +245,7 @@ def find_msvc_tool(repository_ctx, vc_path, tool):
     if not repository_ctx.path(tool_path).exists:
         return None
 
-    return tool_path
+    return tool_path.replace("\\", "/")
 
 def _find_missing_vc_tools(repository_ctx, vc_path):
     """Check if any required tool is missing under given VC path."""
@@ -267,7 +268,7 @@ def _is_support_debug_fastlink(repository_ctx, linker):
     return result.find("/DEBUG[:{FASTLINK|FULL|NONE}]") != -1
 
 def find_llvm_path(repository_ctx):
-    """Find LLVM install path. Doesn't %-escape the result."""
+    """Find LLVM install path."""
 
     # 1. Check if BAZEL_LLVM is already set by user.
     if "BAZEL_LLVM" in repository_ctx.os.environ:
@@ -300,6 +301,7 @@ def find_llvm_path(repository_ctx):
         llvm_dir = path
 
     if not llvm_dir:
+        _auto_configure_warning_maybe(repository_ctx, "LLVM installation not found.")
         return None
     _auto_configure_warning_maybe(repository_ctx, "LLVM installation found at %s" % llvm_dir)
     return llvm_dir
@@ -311,12 +313,11 @@ def find_llvm_tool(repository_ctx, llvm_path, tool):
     if not repository_ctx.path(tool_path).exists:
         return None
 
-    return tool_path
+    return tool_path.replace("\\", "/")
 
 def _use_clang_cl(repository_ctx):
     """Returns True if USE_CLANG_CL is set to 1."""
-    env = repository_ctx.os.environ
-    return "USE_CLANG_CL" in env and env["USE_CLANG_CL"] == "1"
+    return repository_ctx.os.environ.get("USE_CLANG_CL", default = "0") == "1"
 
 def configure_windows_toolchain(repository_ctx):
     """Configure C++ toolchain on Windows."""
@@ -402,15 +403,15 @@ def configure_windows_toolchain(repository_ctx):
         if not llvm_path:
             auto_configure_fail("\nUSE_CLANG_CL is set to 1, but Bazel cannot find Clang installation on your system.\n"
                                 + "Please install Clang via http://releases.llvm.org/download.html\n")
-        cl_path = find_llvm_tool(repository_ctx, llvm_path, "clang-cl.exe").replace("\\", "/")
-        link_path = find_llvm_tool(repository_ctx, llvm_path, "lld-link.exe").replace("\\", "/")
-        lib_path = find_llvm_tool(repository_ctx, llvm_path, "llvm-lib.exe").replace("\\", "/")
+        cl_path = find_llvm_tool(repository_ctx, llvm_path, "clang-cl.exe")
+        link_path = find_llvm_tool(repository_ctx, llvm_path, "lld-link.exe")
+        lib_path = find_llvm_tool(repository_ctx, llvm_path, "llvm-lib.exe")
     else:
-        cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
-        link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
-        lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
+        cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe")
+        link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe")
+        lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe")
 
-    msvc_ml_path = find_msvc_tool(repository_ctx, vc_path, "ml64.exe").replace("\\", "/")
+    msvc_ml_path = find_msvc_tool(repository_ctx, vc_path, "ml64.exe")
     escaped_cxx_include_directories = []
 
     for path in escaped_include_paths.split(";"):
