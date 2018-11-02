@@ -14,29 +14,26 @@
 
 /* Verify that InputJar can scan zip/jar files created by JDK's jar tool.  */
 
-#include <stdarg.h>
-#include <stdlib.h>
+#include "src/tools/singlejar/port.h"
+
+// Suppress [build/include_order] linter errors, because port.h must be the
+// topmost header file as it defines types used by later-included headers.
+#include <stdarg.h>  // NOLINT
+#include <stdlib.h>  // NOLINT
 
 #include "src/tools/singlejar/input_jar_scan_entries_test.h"
 
-#if !defined(JAR_TOOL_PATH)
-#error "The path to jar tool has to be defined via -DJAR_TOOL_PATH="
-#endif
+using bazel::tools::cpp::runfiles::Runfiles;
 
 class JartoolCreator {
  public:
   static void SetUpTestCase() {
-    jar_path_ = realpath(JAR_TOOL_PATH, nullptr);
-    if (!jar_path_) {
-      // At least show what's available.
-      system("ls -1R");
-    }
-    ASSERT_NE(nullptr, jar_path_);
+    std::unique_ptr<Runfiles> runfiles(Runfiles::CreateForTest());
+    static std::string jar_path_str = runfiles->Rlocation(JAR_TOOL_PATH);
+    jar_path_ = jar_path_str.c_str();
   }
 
-  static void TearDownTestCase() {
-    free(jar_path_);
-  }
+  static void TearDownTestCase() {}
 
   static int Jar(bool compress, const char *output_jar, ...) {
     std::string command(jar_path_);
@@ -55,10 +52,10 @@ class JartoolCreator {
     }
     return system(command.c_str());
   }
-  static char * jar_path_;
+  static const char *jar_path_;
 };
 
-char *JartoolCreator::jar_path_;
+const char *JartoolCreator::jar_path_ = nullptr;
 
 typedef testing::Types<JartoolCreator> Creators;
 INSTANTIATE_TYPED_TEST_CASE_P(Jartool, InputJarScanEntries, Creators);

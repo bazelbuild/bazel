@@ -39,7 +39,7 @@ class CombinersTest : public ::testing::Test {
     ASSERT_EQ(0, system("zip -qm combiners.zip tag1.xml tag2.xml"));
   }
 
-  static void TearDownTestCase() { system("rm -f xmls.zip"); }
+  static void TearDownTestCase() { remove("xmls.zip"); }
 
   static bool CreateFile(const char *filename, const char *contents) {
     FILE *fp = fopen(filename, "wb");

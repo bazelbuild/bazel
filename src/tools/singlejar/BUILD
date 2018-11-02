@@ -97,7 +97,8 @@ cc_test(
         ":zlib_interface",
     ],
     tags = [
-        # https://github.com/bazelbuild/bazel/issues/6512
+        # TODO(laszlocsomor) Enable this test when BuildKite uses Bazel that includes
+        # https://github.com/bazelbuild/bazel/commit/914b4ce14624171a97ff8b41f9202058f10d15b2
         "no_windows",
     ],
     deps = [
@@ -117,11 +118,6 @@ cc_test(
     data = [
         "data/empty.zip",
     ],
-    tags = [
-        # TODO(@rongjiecomputer): make this work on Windows as part of
-        # https://github.com/bazelbuild/bazel/issues/2241
-        "no_windows",
-    ],
     deps = [
         ":input_jar",
         ":test_util",
@@ -132,16 +128,12 @@ cc_test(
 
 cc_test(
     name = "input_jar_preambled_test",
+    size = "large",
     srcs = [
         "input_jar_preambled_test.cc",
     ],
     data = [
         ":test1",
-    ],
-    tags = [
-        # TODO(@rongjiecomputer): make this work on Windows as part of
-        # https://github.com/bazelbuild/bazel/issues/2241
-        "no_windows",
     ],
     deps = [
         ":input_jar",
@@ -158,7 +150,10 @@ cc_test(
         "input_jar_scan_entries_test.h",
         "input_jar_scan_jartool_test.cc",
     ],
-    copts = ["-DJAR_TOOL_PATH=\\\"$(JAVABASE)/bin/jar\\\""],
+    copts = select({
+        "//src/conditions:windows": ["-DJAR_TOOL_PATH=\\\"io_bazel/$(JAVABASE)/bin/jar.exe\\\""],
+        "//conditions:default": ["-DJAR_TOOL_PATH=\\\"io_bazel/$(JAVABASE)/bin/jar\\\""],
+    }),
     data = ["@bazel_tools//tools/jdk:current_java_runtime"],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
@@ -228,9 +223,10 @@ cc_test(
     srcs = [
         "output_jar_simple_test.cc",
     ],
-    # TODO(@rongjiecomputer): update copts to handle Windows and add
-    # ".exe" extension.
-    copts = ["-DJAR_TOOL_PATH=\\\"$(JAVABASE)/bin/jar\\\""],
+    copts = select({
+        "//src/conditions:windows": ["-DJAR_TOOL_PATH=\\\"io_bazel/$(JAVABASE)/bin/jar.exe\\\""],
+        "//conditions:default": ["-DJAR_TOOL_PATH=\\\"io_bazel/$(JAVABASE)/bin/jar\\\""],
+    }),
     data = [
         ":data1",
         ":data2",
@@ -238,11 +234,6 @@ cc_test(
         ":test1",
         ":test2",
         "@bazel_tools//tools/jdk:current_java_runtime",
-    ],
-    tags = [
-        # TODO(@rongjiecomputer): make this work on Windows as part of
-        # https://github.com/bazelbuild/bazel/issues/2241
-        "no_windows",
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     deps = [
