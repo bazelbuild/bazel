@@ -1292,7 +1292,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
         .hasMessageThat()
-        .contains("unexpected keyword 'foo' in call to DefaultInfo");
+        .contains("unexpected keyword 'foo', in call to DefaultInfo");
   }
 
   @Test

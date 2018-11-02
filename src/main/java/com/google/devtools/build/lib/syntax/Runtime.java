@@ -324,7 +324,13 @@ public final class Runtime {
    */
   private static final BuiltinRegistry builtins = new BuiltinRegistry();
 
-  /** Retrieve the static instance containing information on all known Skylark builtins. */
+  /**
+   * Retrieve the static instance containing information on all known Skylark builtins.
+   *
+   * @deprecated do not use a static singleton registry -- instead set up the Skylark environment
+   *     with 'global' objects
+   */
+  @Deprecated
   public static BuiltinRegistry getBuiltinRegistry() {
     return builtins;
   }
