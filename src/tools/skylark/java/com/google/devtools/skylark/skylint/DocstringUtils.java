@@ -498,7 +498,7 @@ public final class DocstringUtils {
           error(
               "invalid parameter documentation"
                   + " (expected format: \"parameter_name: documentation\")."
-                  + "For more details, please have a look at the documentation.");
+                  + " For more details, please have a look at the documentation.");
           nextLine();
           continue;
         }
