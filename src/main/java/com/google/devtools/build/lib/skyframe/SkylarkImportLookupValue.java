@@ -121,7 +121,7 @@ public class SkylarkImportLookupValue implements SkyValue {
           && workspaceChunk == other.workspaceChunk
           // note this might break if workspacePath can be nullable
           // actually, can skykeys contain null values??
-          && workspacePath.equals(other.workspacePath);
+          && Objects.equals(workspacePath, other.workspacePath);
     }
 
     @Override

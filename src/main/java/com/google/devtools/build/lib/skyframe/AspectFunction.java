@@ -167,7 +167,7 @@ public final class AspectFunction implements SkyFunction {
       @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
       throws AspectCreationException, InterruptedException {
     // if inWorkspace is false, then workspaceChunk is definitely irrelevant
-    SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel, false, /* workspaceChunk = */-1, /* workspacePath = */ extensionLabel);
+    SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel, false, /* workspaceChunk = */-1, /* workspacePath = */ null);
     try {
       SkylarkImportLookupValue skylarkImportLookupValue;
       if (skylarkImportLookupFunctionForInlining == null) {

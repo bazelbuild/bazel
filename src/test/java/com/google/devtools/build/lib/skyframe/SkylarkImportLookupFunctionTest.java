@@ -171,7 +171,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   private SkyKey key(String label) {
-    return SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked(label), false);
+    return SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked(label), false, -1, null);
   }
 
   // Ensures that a Skylark file has been successfully processed by checking that the
@@ -186,8 +186,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   @Test
   public void testSkylarkImportLookupNoBuildFile() throws Exception {
     scratch.file("pkg/ext.bzl", "");
-    SkyKey skylarkImportLookupKey =
-        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//pkg:ext.bzl"), false);
+    SkyKey skylarkImportLookupKey = key("//pkg:ext.bzl");
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
@@ -204,8 +203,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     scratch.file("pkg2/BUILD");
     scratch.file("pkg1/ext.bzl", "a = 1");
     scratch.file("pkg2/ext.bzl", "load('//pkg1:ext.bzl', 'a')");
-    SkyKey skylarkImportLookupKey =
-        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//pkg:ext.bzl"), false);
+    SkyKey skylarkImportLookupKey = key("//pkg:ext.bzl");
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
@@ -222,8 +220,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     scratch.file("pkg/BUILD", "");
     scratch.file("pkg/ext.bzl", "load('//pkg:oops\u0000.bzl', 'a')");
     try {
-      SkyKey skylarkImportLookupKey =
-          SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//pkg:ext.bzl"), false);
+      SkyKey skylarkImportLookupKey = key("//pkg:ext.bzl");
       EvaluationResult<SkylarkImportLookupValue> result =
           SkyframeExecutorTestUtils.evaluate(
               getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
@@ -240,7 +237,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   @Test
   public void testLoadFromExternalRepoInWorkspaceFileAllowed() throws Exception {
     scratch.deleteFile(preludeLabelRelativePath);
-    scratch.overwriteFile(
+    Path p = scratch.overwriteFile(
         "WORKSPACE",
         "local_repository(",
         "    name = 'a_remote_repo',",
@@ -253,7 +250,9 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     SkyKey skylarkImportLookupKey =
         SkylarkImportLookupValue.key(
             Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:ext.bzl"),
-            /*inWorkspace=*/ true);
+            /* inWorkspace= */ true,
+            /* workspaceChunk= */0,
+            /*p*/ null);
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
@@ -289,8 +288,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     scratch.file("a/b/BUILD", "");
     scratch.file("a/b/b.bzl", "b = 42");
 
-    SkyKey skylarkImportLookupKey =
-        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//a:a.bzl"), false);
+    SkyKey skylarkImportLookupKey =  key("//a:a.bzl");
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
@@ -331,8 +329,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     scratch.file("a/b/c/BUILD", "");
     scratch.file("a/b/c/c.bzl", "c = 42");
 
-    SkyKey skylarkImportLookupKey =
-        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//a:a.bzl"), false);
+    SkyKey skylarkImportLookupKey = key("//a:a.bzl");
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
@@ -364,10 +361,9 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     // because package //a/c doesn't exist. The behavior with
     // --incompatible_disallow_load_labels_to_cross_subpackage_boundaries=true is stricter, but we
     // still have an explicit test for this case so that way we don't forget to think about it when
-    // we address the TODO in ASTFuleLookupFunction.
+    // we address the TODO in ASTFileLookupFunction.
 
-    SkyKey skylarkImportLookupKey =
-        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//a/b:b.bzl"), false);
+    SkyKey skylarkImportLookupKey = key("//a/b:b.bzl");
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
@@ -395,8 +391,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     scratch.file("a/BUILD");
     scratch.file("a/c/c/c.bzl", "c = 42");
 
-    SkyKey skylarkImportLookupKey =
-        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//a/b:b.bzl"), false);
+    SkyKey skylarkImportLookupKey = key("//a/b:b.bzl");
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
