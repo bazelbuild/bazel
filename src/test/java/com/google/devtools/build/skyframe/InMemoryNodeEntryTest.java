@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry.ChangedValueAtSameVersionException;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
@@ -162,15 +163,31 @@ public class InMemoryNodeEntryTest {
   }
 
   @Test
-  public void crashOnDifferentValue() throws InterruptedException {
+  public void crashOnSetValueWhenDone() throws InterruptedException {
     NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
+    setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 0L);
+    assertThat(entry.isDone()).isTrue();
     try {
-      // Value() {} and Value() {} are not .equals().
-      setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/1L);
+      setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 1L);
       fail();
     } catch (IllegalStateException e) {
+      // Expected.
+    }
+  }
+
+  @Test
+  public void crashOnChangedValueAtSameVersion() throws InterruptedException {
+    NodeEntry entry = new InMemoryNodeEntry();
+    entry.addReverseDepAndCheckIfDone(null);
+    setValue(entry, new IntegerValue(1), /*errorInfo=*/ null, /*graphVersion=*/ 0L);
+    entry.markDirty(DirtyType.CHANGE);
+    entry.addReverseDepAndCheckIfDone(null);
+    entry.markRebuilding();
+    try {
+      setValue(entry, new IntegerValue(2), /*errorInfo=*/ null, /*graphVersion=*/ 0L);
+      fail();
+    } catch (ChangedValueAtSameVersionException e) {
       // Expected.
     }
   }
@@ -588,6 +605,24 @@ public class InMemoryNodeEntryTest {
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/1L);
     assertThat(entry.isDone()).isTrue();
     // ErrorInfo is treated as a NotComparableSkyValue, so it is not pruned.
+    assertThat(entry.getVersion()).isEqualTo(IntVersion.of(1L));
+  }
+
+  @Test
+  public void ineligibleForPruning() throws InterruptedException {
+    NodeEntry entry =
+        new InMemoryNodeEntry() {
+          @Override
+          protected boolean isEligibleForChangePruning() {
+            return false;
+          }
+        };
+    entry.addReverseDepAndCheckIfDone(null);
+    setValue(entry, new IntegerValue(5), /*errorInfo=*/ null, /*graphVersion=*/ 0L);
+    entry.markDirty(DirtyType.CHANGE);
+    entry.addReverseDepAndCheckIfDone(null);
+    entry.markRebuilding();
+    setValue(entry, new IntegerValue(5), /*errorInfo=*/ null, /*graphVersion=*/ 1L);
     assertThat(entry.getVersion()).isEqualTo(IntVersion.of(1L));
   }
 
