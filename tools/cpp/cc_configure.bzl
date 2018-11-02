@@ -72,6 +72,8 @@ cc_autoconf = repository_rule(
         "BAZEL_USE_LLVM_NATIVE_COVERAGE",
         "BAZEL_VC",
         "BAZEL_VS",
+        "BAZEL_LLVM",
+        "USE_CLANG_CL",
         "CC",
         "CC_CONFIGURE_DEBUG",
         "CC_TOOLCHAIN_NAME",

@@ -152,6 +152,9 @@ def find_vc_path(repository_ctx):
                     line = line.strip()
                     if line.startswith(version) and line.find("REG_SZ") != -1:
                         vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip() + suffix
+    if vc_dir:
+        _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
+        return vc_dir
 
     # 4. Check default directories for VC installation
     _auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
@@ -169,6 +172,7 @@ def find_vc_path(repository_ctx):
             break
 
     if not vc_dir:
+        _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools not found.")
         return None
     _auto_configure_warning_maybe(repository_ctx, "Visual C++ build tools found at %s" % vc_dir)
     return vc_dir
@@ -241,7 +245,7 @@ def find_msvc_tool(repository_ctx, vc_path, tool):
     if not repository_ctx.path(tool_path).exists:
         return None
 
-    return tool_path
+    return tool_path.replace("\\", "/")
 
 def _find_missing_vc_tools(repository_ctx, vc_path):
     """Check if any required tool is missing under given VC path."""
@@ -255,11 +259,65 @@ def _find_missing_vc_tools(repository_ctx, vc_path):
 
     return missing_tools
 
-def _is_support_debug_fastlink(repository_ctx, vc_path):
-    """Run MSVC linker alone to see if it supports /DEBUG:FASTLINK."""
-    linker = find_msvc_tool(repository_ctx, vc_path, "link.exe")
+def _is_support_debug_fastlink(repository_ctx, linker):
+    """Run linker alone to see if it supports /DEBUG:FASTLINK."""
+    if _use_clang_cl(repository_ctx):
+        # LLVM's lld-link.exe doesn't support /DEBUG:FASTLINK.
+        return False
     result = execute(repository_ctx, [linker], expect_failure = True)
     return result.find("/DEBUG[:{FASTLINK|FULL|NONE}]") != -1
+
+def find_llvm_path(repository_ctx):
+    """Find LLVM install path."""
+
+    # 1. Check if BAZEL_LLVM is already set by user.
+    if "BAZEL_LLVM" in repository_ctx.os.environ:
+        return repository_ctx.os.environ["BAZEL_LLVM"]
+
+    _auto_configure_warning_maybe(repository_ctx, "'BAZEL_LLVM' is not set, " +
+                                                  "start looking for LLVM installation on machine.")
+
+    # 2. Look for LLVM installation through registry.
+    _auto_configure_warning_maybe(repository_ctx, "Looking for LLVM installation through registry")
+    reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
+    llvm_dir = None
+    result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\LLVM\\LLVM"])
+    _auto_configure_warning_maybe(repository_ctx, "registry query result for LLVM:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                                                  (result.stdout, result.stderr))
+    if not result.stderr:
+        for line in result.stdout.split("\n"):
+            line = line.strip()
+            if line.startswith("(Default)") and line.find("REG_SZ") != -1:
+                llvm_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip()
+    if llvm_dir:
+        _auto_configure_warning_maybe(repository_ctx, "LLVM installation found at %s" % llvm_dir)
+        return llvm_dir
+
+    # 3. Check default directories for LLVM installation
+    _auto_configure_warning_maybe(repository_ctx, "Looking for default LLVM installation directory")
+    program_files_dir = get_env_var(repository_ctx, "PROGRAMFILES", default = "C:\\Program Files", enable_warning = True)
+    path = program_files_dir + "\\LLVM"
+    if repository_ctx.path(path).exists:
+        llvm_dir = path
+
+    if not llvm_dir:
+        _auto_configure_warning_maybe(repository_ctx, "LLVM installation not found.")
+        return None
+    _auto_configure_warning_maybe(repository_ctx, "LLVM installation found at %s" % llvm_dir)
+    return llvm_dir
+
+def find_llvm_tool(repository_ctx, llvm_path, tool):
+    """Find the exact path of a specific build tool in LLVM. Doesn't %-escape the result."""
+    tool_path = llvm_path + "\\bin\\" + tool
+
+    if not repository_ctx.path(tool_path).exists:
+        return None
+
+    return tool_path.replace("\\", "/")
+
+def _use_clang_cl(repository_ctx):
+    """Returns True if USE_CLANG_CL is set to 1."""
+    return repository_ctx.os.environ.get("USE_CLANG_CL", default = "0") == "1"
 
 def configure_windows_toolchain(repository_ctx):
     """Configure C++ toolchain on Windows."""
@@ -338,17 +396,32 @@ def configure_windows_toolchain(repository_ctx):
     escaped_tmp_dir = escape_string(
         get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp").replace("\\", "\\\\"),
     )
-    msvc_cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
-    msvc_ml_path = find_msvc_tool(repository_ctx, vc_path, "ml64.exe").replace("\\", "/")
-    msvc_link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
-    msvc_lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
+
+    llvm_path = ""
+    if _use_clang_cl(repository_ctx):
+        llvm_path = find_llvm_path(repository_ctx)
+        if not llvm_path:
+            auto_configure_fail("\nUSE_CLANG_CL is set to 1, but Bazel cannot find Clang installation on your system.\n" +
+                                "Please install Clang via http://releases.llvm.org/download.html\n")
+        cl_path = find_llvm_tool(repository_ctx, llvm_path, "clang-cl.exe")
+        link_path = find_llvm_tool(repository_ctx, llvm_path, "lld-link.exe")
+        lib_path = find_llvm_tool(repository_ctx, llvm_path, "llvm-lib.exe")
+    else:
+        cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe")
+        link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe")
+        lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe")
+
+    msvc_ml_path = find_msvc_tool(repository_ctx, vc_path, "ml64.exe")
     escaped_cxx_include_directories = []
 
     for path in escaped_include_paths.split(";"):
         if path:
             escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % path)
+    if llvm_path:
+        clang_include_path = (llvm_path + "\\lib\\clang").replace("\\", "\\\\")
+        escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % clang_include_path)
 
-    support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, vc_path)
+    support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, link_path)
 
     repository_ctx.template(
         "CROSSTOOL",
@@ -361,10 +434,10 @@ def configure_windows_toolchain(repository_ctx):
             "%{msvc_env_path}": escaped_paths,
             "%{msvc_env_include}": escaped_include_paths,
             "%{msvc_env_lib}": escaped_lib_paths,
-            "%{msvc_cl_path}": msvc_cl_path,
+            "%{msvc_cl_path}": cl_path,
             "%{msvc_ml_path}": msvc_ml_path,
-            "%{msvc_link_path}": msvc_link_path,
-            "%{msvc_lib_path}": msvc_lib_path,
+            "%{msvc_link_path}": link_path,
+            "%{msvc_lib_path}": lib_path,
             "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
             "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
             "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
