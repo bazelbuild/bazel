@@ -43,7 +43,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private final DepsCheckerMethodVisitor defaultMethodChecker = new DepsCheckerMethodVisitor();
 
   public DepsCheckerClassVisitor(ClassCache classCache, ResultCollector resultCollector) {
-    super(Opcodes.ASM6);
+    super(Opcodes.ASM7);
     this.classCache = classCache;
     this.resultCollector = resultCollector;
   }
@@ -221,7 +221,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerAnnotationVisitor extends AnnotationVisitor {
 
     DepsCheckerAnnotationVisitor() {
-      super(Opcodes.ASM6);
+      super(Opcodes.ASM7);
     }
 
     @Override
@@ -262,7 +262,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerFieldVisitor extends FieldVisitor {
 
     DepsCheckerFieldVisitor() {
-      super(Opcodes.ASM6);
+      super(Opcodes.ASM7);
     }
 
     @Override
@@ -283,7 +283,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerMethodVisitor extends MethodVisitor {
 
     DepsCheckerMethodVisitor() {
-      super(Opcodes.ASM6);
+      super(Opcodes.ASM7);
     }
 
     @Override

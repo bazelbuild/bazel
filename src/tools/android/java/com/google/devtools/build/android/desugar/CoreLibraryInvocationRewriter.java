@@ -33,7 +33,7 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
   private final CoreLibrarySupport support;
 
   public CoreLibraryInvocationRewriter(ClassVisitor cv, CoreLibrarySupport support) {
-    super(Opcodes.ASM6, cv);
+    super(Opcodes.ASM7, cv);
     this.support = support;
   }
 
@@ -46,7 +46,7 @@ public class CoreLibraryInvocationRewriter extends ClassVisitor {
 
   private class CoreLibraryMethodInvocationRewriter extends MethodVisitor {
     public CoreLibraryMethodInvocationRewriter(MethodVisitor mv) {
-      super(Opcodes.ASM6, mv);
+      super(Opcodes.ASM7, mv);
     }
 
     @Override

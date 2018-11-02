@@ -65,7 +65,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       @Nullable CoreLibrarySupport coreLibrarySupport,
       ClassReaderFactory bootclasspath,
       ClassLoader targetLoader) {
-    super(Opcodes.ASM6, dest);
+    super(Opcodes.ASM7, dest);
     this.classpath = classpath;
     this.coreLibrarySupport = coreLibrarySupport;
     this.bootclasspath = bootclasspath;
@@ -454,7 +454,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
     public DefaultMethodStubber(
         boolean isBootclasspathInterface, boolean mayNeedStubsForSuperclass) {
-      super(Opcodes.ASM6);
+      super(Opcodes.ASM7);
       this.isBootclasspathInterface = isBootclasspathInterface;
       this.mayNeedStubsForSuperclass = mayNeedStubsForSuperclass;
     }
@@ -617,7 +617,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     private boolean found;
 
     public DefaultMethodFinder() {
-      super(Opcodes.ASM6);
+      super(Opcodes.ASM7);
     }
 
     @Override
@@ -663,7 +663,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     private String className;
 
     public InstanceMethodRecorder(boolean ignoreEmulatedMethods) {
-      super(Opcodes.ASM6);
+      super(Opcodes.ASM7);
       this.ignoreEmulatedMethods = ignoreEmulatedMethods;
     }
 
@@ -711,7 +711,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     private boolean hasDefaultMethods;
 
     public InterfaceInitializationNecessityDetector(String internalName) {
-      super(Opcodes.ASM6);
+      super(Opcodes.ASM7);
       this.internalName = internalName;
     }
 
@@ -745,7 +745,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         hasDefaultMethods = isNonBridgeDefaultMethod(access);
       }
       if ("<clinit>".equals(name)) {
-        return new MethodVisitor(Opcodes.ASM6) {
+        return new MethodVisitor(Opcodes.ASM7) {
           @Override
           public void visitFieldInsn(int opcode, String owner, String name, String desc) {
             if (opcode == Opcodes.PUTSTATIC && internalName.equals(owner)) {

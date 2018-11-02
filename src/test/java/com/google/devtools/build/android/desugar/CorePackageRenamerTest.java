@@ -70,7 +70,7 @@ public class CorePackageRenamerTest {
     final MockMethodVisitor mv = new MockMethodVisitor();
 
     public MockClassVisitor() {
-      super(Opcodes.ASM6);
+      super(Opcodes.ASM7);
     }
 
     @Override
@@ -86,7 +86,7 @@ public class CorePackageRenamerTest {
     String desc;
 
     public MockMethodVisitor() {
-      super(Opcodes.ASM6);
+      super(Opcodes.ASM7);
     }
 
     @Override

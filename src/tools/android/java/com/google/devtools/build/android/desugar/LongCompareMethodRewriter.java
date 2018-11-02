@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
-import static org.objectweb.asm.Opcodes.ASM6;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.LCMP;
 
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
  * This class rewrites any call to Long.compare with the JVM instruction lcmp that is semantically
@@ -30,7 +30,7 @@ public class LongCompareMethodRewriter extends ClassVisitor {
   private final CoreLibraryRewriter rewriter;
 
   public LongCompareMethodRewriter(ClassVisitor cv, CoreLibraryRewriter rewriter) {
-    super(ASM6, cv);
+    super(Opcodes.ASM7, cv);
     this.rewriter = rewriter;
   }
 
@@ -44,7 +44,7 @@ public class LongCompareMethodRewriter extends ClassVisitor {
   private class LongCompareMethodVisitor extends MethodVisitor {
 
     public LongCompareMethodVisitor(MethodVisitor visitor) {
-      super(ASM6, visitor);
+      super(Opcodes.ASM7, visitor);
     }
 
     @Override

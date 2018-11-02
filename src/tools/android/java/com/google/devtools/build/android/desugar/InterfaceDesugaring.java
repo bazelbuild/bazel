@@ -71,7 +71,7 @@ class InterfaceDesugaring extends ClassVisitor {
       ClassLoader targetLoader,
       GeneratedClassStore store,
       boolean legacyJaCoCo) {
-    super(Opcodes.ASM6, dest);
+    super(Opcodes.ASM7, dest);
     this.interfaceCache = interfaceCache;
     this.depsCollector = depsCollector;
     this.coreLibrarySupport = coreLibrarySupport;
@@ -338,7 +338,7 @@ class InterfaceDesugaring extends ClassVisitor {
   private class InterfaceFieldWriteCollector extends MethodVisitor {
 
     public InterfaceFieldWriteCollector(MethodVisitor mv) {
-      super(Opcodes.ASM6, mv);
+      super(Opcodes.ASM7, mv);
     }
 
     @Override
@@ -384,7 +384,7 @@ class InterfaceDesugaring extends ClassVisitor {
         ClassLoader targetLoader,
         DependencyCollector depsCollector,
         String declaringClass) {
-      super(Opcodes.ASM6, dest);
+      super(Opcodes.ASM7, dest);
       this.interfaceName = knownInterfaceName;
       this.bootclasspath = bootclasspath;
       this.targetLoader = targetLoader;
@@ -478,7 +478,7 @@ class InterfaceDesugaring extends ClassVisitor {
   private static class MoveJacocoFieldAccess extends MethodVisitor {
 
     public MoveJacocoFieldAccess(MethodVisitor mv) {
-      super(Opcodes.ASM6, mv);
+      super(Opcodes.ASM7, mv);
     }
 
     @Override
@@ -501,7 +501,7 @@ class InterfaceDesugaring extends ClassVisitor {
     private final MethodVisitor annotationOnlyDest;
 
     public MultiplexAnnotations(@Nullable MethodVisitor dest, MethodVisitor annotationOnlyDest) {
-      super(Opcodes.ASM6, dest);
+      super(Opcodes.ASM7, dest);
       this.annotationOnlyDest = annotationOnlyDest;
     }
 
@@ -546,7 +546,7 @@ class InterfaceDesugaring extends ClassVisitor {
 
     public MultiplexAnnotationVisitor(
         @Nullable AnnotationVisitor dest, AnnotationVisitor... moreDestinations) {
-      super(Opcodes.ASM6, dest);
+      super(Opcodes.ASM7, dest);
       this.moreDestinations = moreDestinations;
     }
 

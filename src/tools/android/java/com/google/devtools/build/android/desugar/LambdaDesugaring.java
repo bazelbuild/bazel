@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.invoke.MethodHandles.publicLookup;
-import static org.objectweb.asm.Opcodes.ASM6;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
@@ -74,7 +73,7 @@ class LambdaDesugaring extends ClassVisitor {
       ImmutableSet.Builder<String> aggregateInterfaceLambdaMethods,
       ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDyanmic,
       boolean allowDefaultMethods) {
-    super(Opcodes.ASM6, dest);
+    super(Opcodes.ASM7, dest);
     this.targetLoader = targetLoader;
     this.lambdas = lambdas;
     this.aggregateInterfaceLambdaMethods = aggregateInterfaceLambdaMethods;
@@ -382,7 +381,7 @@ class LambdaDesugaring extends ClassVisitor {
         String desc,
         String signature,
         String[] exceptions) {
-      super(ASM6, access, name, desc, signature, exceptions);
+      super(Opcodes.ASM7, access, name, desc, signature, exceptions);
       this.dest = checkNotNull(dest, "Null destination for %s.%s : %s", internalName, name, desc);
     }
 

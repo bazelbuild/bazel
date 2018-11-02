@@ -356,7 +356,7 @@ public final class ClassCache implements Closeable {
     private boolean directDep;
 
     public ClassInfoBuilder() {
-      super(Opcodes.ASM6);
+      super(Opcodes.ASM7);
     }
 
     @Override
