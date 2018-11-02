@@ -133,13 +133,13 @@ public class BazelRuleClassProvider {
     }
   }
 
-  private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
+  // private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
 
   public static final ShellExecutableProvider SHELL_EXECUTABLE = (BuildOptions options) ->
       ShellConfiguration.Loader.determineShellExecutable(
           OS.getCurrent(),
           options.get(ShellConfiguration.Options.class),
-          FALLBACK_SHELL);
+          null); // FALLBACK_SHELL);
 
   public static final ActionEnvironmentProvider SHELL_ACTION_ENV = (BuildOptions options) -> {
     boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;

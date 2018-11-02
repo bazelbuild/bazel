@@ -32,11 +32,11 @@ import javax.annotation.Nullable;
 
 /** A configuration fragment that tells where the shell is. */
 public class ShellConfiguration extends BuildConfiguration.Fragment {
-  private static final ImmutableMap<OS, PathFragment> OS_SPECIFIC_SHELL =
-      ImmutableMap.<OS, PathFragment>builder()
-          .put(OS.WINDOWS, PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"))
-          .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
-          .build();
+//  private static final ImmutableMap<OS, PathFragment> OS_SPECIFIC_SHELL =
+//      ImmutableMap.<OS, PathFragment>builder()
+//          .put(OS.WINDOWS, PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"))
+//          .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
+//          .build();
 
   private final PathFragment shellExecutable;
   private final boolean useShBinaryStubScript;
@@ -135,8 +135,9 @@ public class ShellConfiguration extends BuildConfiguration.Fragment {
       // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
       // which may be different for remote execution. For now, this can be overridden with
       // --shell_executable, so at least there's a workaround.
-      PathFragment result = OS_SPECIFIC_SHELL.get(os);
-      return result != null ? result : defaultShell;
+//      PathFragment result = OS_SPECIFIC_SHELL.get(os);
+//      return result != null ? result : defaultShell;
+      return defaultShell;
     }
 
     @Override

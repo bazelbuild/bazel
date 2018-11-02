@@ -1447,14 +1447,16 @@ static string LocateBash() {
   }
 
   string result = GetBinaryFromPath("bash.exe");
-  if (result.empty()) {
-    BAZEL_LOG(ERROR) << "bash.exe not found on PATH";
-  }
+//  if (result.empty()) {
+//    BAZEL_LOG(ERROR) << "bash.exe not found on PATH";
+//  }
   return result;
 }
 
 void DetectBashOrDie() {
-  if (!blaze::GetEnv("BAZEL_SH").empty()) return;
+  if (!blaze::GetEnv("BAZEL_SH").empty()) {
+    return;
+  }
 
   uint64_t start = blaze::GetMillisecondsMonotonic();
 
@@ -1466,18 +1468,18 @@ void DetectBashOrDie() {
   if (!bash.empty()) {
     // Set process environment variable.
     blaze::SetEnv("BAZEL_SH", bash);
-  } else {
-    // TODO(bazel-team) should this be printed to stderr? If so, it should use
-    // BAZEL_LOG(ERROR)
-    printf(
-        "Bazel on Windows requires MSYS2 Bash, but we could not find it.\n"
-        "If you do not have it installed, you can install MSYS2 from\n"
-        "       http://repo.msys2.org/distrib/msys2-x86_64-latest.exe\n"
-        "\n"
-        "If you already have it installed but Bazel cannot find it,\n"
-        "set BAZEL_SH environment variable to its location:\n"
-        "       set BAZEL_SH=c:\\path\\to\\msys2\\usr\\bin\\bash.exe\n");
-    exit(1);
+//  } else {
+//    // TODO(bazel-team) should this be printed to stderr? If so, it should use
+//    // BAZEL_LOG(ERROR)
+//    printf(
+//        "Bazel on Windows requires MSYS2 Bash, but we could not find it.\n"
+//        "If you do not have it installed, you can install MSYS2 from\n"
+//        "       http://repo.msys2.org/distrib/msys2-x86_64-latest.exe\n"
+//        "\n"
+//        "If you already have it installed but Bazel cannot find it,\n"
+//        "set BAZEL_SH environment variable to its location:\n"
+//        "       set BAZEL_SH=c:\\path\\to\\msys2\\usr\\bin\\bash.exe\n");
+//    exit(1);
   }
 }
 
