@@ -60,15 +60,17 @@ EOF
   rm -rf ext-0.1.2
 }
 
+function get_extrepourl() {
+  if is_windows; then
+    echo "file:///$(cygpath -m $1)"
+  else
+    echo "file://$1"
+  fi
+}
 
 test_patch_file() {
   EXTREPODIR=`pwd`
-
-  if is_windows; then
-    EXTREPOURL="file:///$(cygpath -m ${EXTREPODIR})"
-  else
-    EXTREPOURL="file://${EXTREPODIR}"
-  fi
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   # Test that the patches attribute of http_archive is honored
   mkdir main
@@ -140,12 +142,7 @@ EOF
 
 test_patch_failed() {
   EXTREPODIR=`pwd`
-
-  if is_windows; then
-    EXTREPOURL="file:///$(cygpath -m ${EXTREPODIR})"
-  else
-    EXTREPOURL="file://${EXTREPODIR}"
-  fi
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   cat > my_patch_tool <<'EOF'
 #!/bin/sh
@@ -179,12 +176,6 @@ EOF
 test_patch_git() {
   EXTREPODIR=`pwd`
 
-  if is_windows; then
-    EXTREPOURL="file:///$(cygpath -m ${EXTREPODIR})"
-  else
-    EXTREPOURL="file://${EXTREPODIR}"
-  fi
-
   export GIT_CONFIG_NOSYSTEM=YES
 
   mkdir extgit
@@ -217,7 +208,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
-  remote="${EXTREPOURL}/extgit/.git",
+  remote="${EXTREPODIR}/extgit/.git",
   tag="mytag",
   build_file_content="exports_files([\"foo.sh\"])",
   patches = ["//:patch_foo.sh"],
@@ -258,7 +249,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
-  remote="${EXTREPOURL}/extgit/.git",
+  remote="${EXTREPODIR}/extgit/.git",
   tag="mytag",
   build_file_content="exports_files([\"foo.sh\"])",
 )
@@ -273,12 +264,7 @@ test_override_buildfile() {
   ## Verify that the BUILD file of an external repository can be overriden
   ## via the http_archive rule.
   EXTREPODIR=`pwd`
-
-  if is_windows; then
-    EXTREPOURL="file:///$(cygpath -m ${EXTREPODIR})"
-  else
-    EXTREPOURL="file://${EXTREPODIR}"
-  fi
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   mkdir withbuild
   cat > withbuild/BUILD <<'EOF'
@@ -336,12 +322,7 @@ test_override_buildfile_content() {
   ## Verify that the BUILD file of an external repository can be overriden
   ## via specified content in the http_archive rule.
   EXTREPODIR=`pwd`
-
-  if is_windows; then
-    EXTREPOURL="file:///$(cygpath -m ${EXTREPODIR})"
-  else
-    EXTREPOURL="file://${EXTREPODIR}"
-  fi
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   mkdir withbuild
   cat > withbuild/BUILD <<'EOF'
@@ -399,12 +380,6 @@ test_override_buildfile_git() {
   ## via the git_repository rule.
   EXTREPODIR=`pwd`
 
-  if is_windows; then
-    EXTREPOURL="file:///$(cygpath -m ${EXTREPODIR})"
-  else
-    EXTREPOURL="file://${EXTREPODIR}"
-  fi
-
   export GIT_CONFIG_NOSYSTEM=YES
 
   mkdir withbuild
@@ -434,7 +409,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="withbuild",
-  remote="${EXTREPOURL}/withbuild/.git",
+  remote="${EXTREPODIR}/withbuild/.git",
   tag="mytag",
   build_file="@//:ext.BUILD",
 )
@@ -470,12 +445,6 @@ test_override_buildfilecontents_git() {
   ## via specified content in the git_repository rule.
   EXTREPODIR=`pwd`
 
-  if is_windows; then
-    EXTREPOURL="file:///$(cygpath -m ${EXTREPODIR})"
-  else
-    EXTREPOURL="file://${EXTREPODIR}"
-  fi
-
   export GIT_CONFIG_NOSYSTEM=YES
 
   mkdir withbuild
@@ -505,7 +474,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="withbuild",
-  remote="${EXTREPOURL}/withbuild/.git",
+  remote="${EXTREPODIR}/withbuild/.git",
   tag="mytag",
   build_file_content="""
 genrule(
@@ -539,13 +508,7 @@ test_build_file_build_bazel() {
   ## Verify that the BUILD file of an external repository can be overriden
   ## via the http_archive rule.
   EXTREPODIR=`pwd`
-
-  if is_windows; then
-    EXTREPOURL="file:///$(cygpath -m ${EXTREPODIR})"
-  else
-    EXTREPOURL="file://${EXTREPODIR}"
-  fi
-
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
   mkdir withbuild
   cat > withbuild/BUILD.bazel <<'EOF'
 genrule(
@@ -600,12 +563,7 @@ EOF
 
 test_git_format_patch() {
   EXTREPODIR=`pwd`
-
-  if is_windows; then
-    EXTREPOURL="file:///$(cygpath -m ${EXTREPODIR})"
-  else
-    EXTREPOURL="file://${EXTREPODIR}"
-  fi
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   # Verify that a patch in the style of git-format-patch(1) can be handled.
   mkdir main
