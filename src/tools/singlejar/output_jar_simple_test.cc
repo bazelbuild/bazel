@@ -29,7 +29,7 @@
 
 #ifdef _WIN32
 #define unlink _unlink
-#define CMD_SEPARATOR "&&"
+#define CMD_SEPARATOR "&"
 #else
 #define CMD_SEPARATOR ";"
 #endif
