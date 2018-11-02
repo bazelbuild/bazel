@@ -407,7 +407,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       try {
         newImport = SkylarkImports.create(notRemappedImport.getImportString(), repositoryMapping);
       } catch (SkylarkImportSyntaxException e) {
-        // FIXME handle this exception properly - see go/java-practices/exceptions
+        // TODO fix this
         throw new AssertionError("Unhandled exception", e);
       }
       builder.add(newImport);

@@ -221,9 +221,8 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     scratch.file("pkg/ext.bzl", "load('//pkg:oops\u0000.bzl', 'a')");
     try {
       SkyKey skylarkImportLookupKey = key("//pkg:ext.bzl");
-      EvaluationResult<SkylarkImportLookupValue> result =
-          SkyframeExecutorTestUtils.evaluate(
-              getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+      SkyframeExecutorTestUtils.evaluate(
+          getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
       fail("Expected exception");
     } catch (AssertionError e) {
       String errorMessage = e.getMessage();
