@@ -578,9 +578,8 @@ public class PackageFunction implements SkyFunction {
     List<SkyKey> importLookupKeys = Lists.newArrayListWithExpectedSize(importLabels.size());
     boolean inWorkspace = buildFilePath.getRootRelativePath().getBaseName().endsWith("WORKSPACE");
     for (Label importLabel : importLabels) {
-      // need to do a lookup in WSV for the *original* chunk
-      int originalChunk = getOriginalWorkspaceChunk(env, /*utb wp*/ buildFilePath, workspaceChunk, importLabel);
-      importLookupKeys.add(SkylarkImportLookupValue.key(importLabel, inWorkspace, originalChunk, /*utb wp*/ buildFilePath));
+      int originalChunk = getOriginalWorkspaceChunk(env, buildFilePath, workspaceChunk, importLabel);
+      importLookupKeys.add(SkylarkImportLookupValue.key(importLabel, inWorkspace, originalChunk, buildFilePath));
     }
     Map<SkyKey, SkyValue> skylarkImportMap = Maps.newHashMapWithExpectedSize(importPathMap.size());
     boolean valuesMissing = false;
@@ -639,9 +638,8 @@ public class PackageFunction implements SkyFunction {
       String importString = importEntry.getKey();
       Label importLabel = importEntry.getValue();
 
-      // do the workspace chunk lookup here too
-      int originalChunk = getOriginalWorkspaceChunk(env, /*utb wp*/ buildFilePath, workspaceChunk, importLabel);
-      SkyKey keyForLabel = SkylarkImportLookupValue.key(importLabel, inWorkspace, originalChunk, /*utb wp*/ buildFilePath);
+      int originalChunk = getOriginalWorkspaceChunk(env, buildFilePath, workspaceChunk, importLabel);
+      SkyKey keyForLabel = SkylarkImportLookupValue.key(importLabel, inWorkspace, originalChunk, buildFilePath);
       SkylarkImportLookupValue importLookupValue =
           (SkylarkImportLookupValue) skylarkImportMap.get(keyForLabel);
       importMap.put(importString, importLookupValue.getEnvironmentExtension());
@@ -651,22 +649,22 @@ public class PackageFunction implements SkyFunction {
     return new SkylarkImportResult(importMap, transitiveClosureOfLabels(fileDependencies.build()));
   }
 
-  private static int getOriginalWorkspaceChunk(Environment env, RootedPath workspacePath, int workspaceChunk, Label importLabel) {
-    SkyKey workspaceFileKey = WorkspaceFileValue.key(workspacePath, workspaceChunk-1);
-    int originalChunk = workspaceChunk;
+  private static int getOriginalWorkspaceChunk(
+      Environment env,
+      RootedPath workspacePath,
+      int workspaceChunk,
+      Label importLabel) throws InterruptedException{
     if (workspaceChunk < 1) {
-      // i.e. if 0 or -1 then there is no 1 less chunk so we return
-      return originalChunk;
+      return workspaceChunk;
     }
-    try {
-      WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
-      ImmutableMap<String, Integer> importToChunkMap = workspaceFileValue.getImportToChunkMap();
-      String importString = importLabel.toString();
-      originalChunk = importToChunkMap.getOrDefault(importString, workspaceChunk);
-    } catch (Exception e) {
-      System.out.print(e);
-    }
-    return originalChunk;
+    // If we got here, we are already computing workspaceChunk "workspaceChunk", and so we know
+    // that the value for "workspaceChunk-1" has already been computed so we don't need to check
+    // for nullness
+    SkyKey workspaceFileKey = WorkspaceFileValue.key(workspacePath, workspaceChunk-1);
+    WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
+    ImmutableMap<String, Integer> importToChunkMap = workspaceFileValue.getImportToChunkMap();
+    String importString = importLabel.toString();
+    return importToChunkMap.getOrDefault(importString, workspaceChunk);
   }
 
   private static ImmutableList<Label> transitiveClosureOfLabels(
@@ -1183,7 +1181,6 @@ public class PackageFunction implements SkyFunction {
                   packageId,
                   astParseResult.ast,
                   /* workspaceChunk = */ -1,
-//                  /* workspacePath = */ buildFilePath,
                   env,
                   skylarkImportLookupFunctionForInlining);
         } catch (NoSuchPackageException e) {
