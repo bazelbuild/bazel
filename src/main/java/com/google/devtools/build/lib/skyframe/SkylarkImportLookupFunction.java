@@ -267,9 +267,9 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
     // Process the load statements in the file.
     ImmutableList<SkylarkImport> unRemappedImports = ast.getImports();
-    // here go over the imports and remap them
     ImmutableList<SkylarkImport> imports = remapImports(unRemappedImports, workspaceChunk, workspacePath, fileLabel, env);
-    // stop gap, make this nicer, but it means the value we need isn't ready yet
+    // We do a skykey lookup in remapImports that might not be completed yet so if it returns null
+    // we need to stop the current computation
     if (imports == null) {
       return null;
     }
@@ -280,7 +280,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     List<SkyKey> importLookupKeys =
         Lists.newArrayListWithExpectedSize(labelsForImports.size());
     for (Label importLabel : importLabels) {
-      // need to figure out the actual workspace chunk here somehow
       importLookupKeys.add(SkylarkImportLookupValue.key(importLabel, inWorkspace, workspaceChunk, workspacePath));
     }
     Map<SkyKey, SkyValue> skylarkImportMap;
@@ -374,13 +373,16 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       RootedPath workspacePath,
       Label enclosingFileLabel,
       Environment env) throws InterruptedException {
+
+    // There is no previous workspace chunk
     if (workspaceChunk == 0) {
-      // there is no previous workspace chunk
       return unRemappedImports;
     }
-    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of();
+    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+
+    // We are fully done with workspace evaluation so we should get the mappings from the
+    // final RepositoryMappingValue
     if (workspaceChunk == -1) {
-      // we are not coming from workspace file, use final mappings
       PackageIdentifier packageIdentifier = enclosingFileLabel.getPackageIdentifier();
       RepositoryMappingValue repositoryMappingValue;
       repositoryMappingValue = (RepositoryMappingValue)
@@ -390,29 +392,26 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       }
       repositoryMapping =
           repositoryMappingValue.getRepositoryMapping();
-    } else {
+    } else { // Still during workspace file evaluation
       SkyKey workspaceFileKey = WorkspaceFileValue.key(workspacePath, workspaceChunk-1);
       WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
-
-      if (workspaceFileValue == null) {
-        return null;
-      }
+      // Note: we know for sure that the requested WorkspaceFileValue is fully computed so we do not
+      // need to check if it is null
       repositoryMapping = workspaceFileValue.getRepositoryMapping().getOrDefault(enclosingFileLabel.getPackageIdentifier().getRepository(), ImmutableMap.of());
-
     }
+
     ImmutableList.Builder<SkylarkImport> builder = ImmutableList.builder();
     for (SkylarkImport notRemappedImport : unRemappedImports) {
-
-      SkylarkImport newImport = null;
+      SkylarkImport newImport;
       try {
         newImport = SkylarkImports.create(notRemappedImport.getImportString(), repositoryMapping);
-      } catch (SkylarkImportSyntaxException e) {
-        // TODO fix this
-        throw new AssertionError("Unhandled exception", e);
+      } catch (SkylarkImportSyntaxException ignored) {
+        // This won't happen because we are constructing a SkylarkImport from a SkylarkImport so
+        // it must be valid
+        throw new AssertionError("SkylarkImportSyntaxException", ignored);
       }
       builder.add(newImport);
     }
-
     return builder.build();
   }
 
