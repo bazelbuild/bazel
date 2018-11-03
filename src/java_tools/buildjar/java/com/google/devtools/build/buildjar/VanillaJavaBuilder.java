@@ -181,13 +181,12 @@ public class VanillaJavaBuilder implements Closeable {
       writeNativeHeaderOutput(optionsParser, nativeHeaderDir);
     }
     writeGeneratedSourceOutput(optionsParser);
-    // the jdeps output doesn't include any information about dependencies, but Bazel still expects
-    // the file to be created
     if (optionsParser.getOutputDepsProtoFile() != null) {
       try (OutputStream os =
           Files.newOutputStream(Paths.get(optionsParser.getOutputDepsProtoFile()))) {
         Deps.Dependencies.newBuilder()
             .setRuleLabel(optionsParser.getTargetLabel())
+            .addAllDependency(collectDependencies(fileManager))
             .setSuccess(ok)
             .build()
             .writeTo(os);
@@ -221,6 +220,15 @@ public class VanillaJavaBuilder implements Closeable {
       output.write(message.toString());
     }
     return new VanillaJavaBuilderResult(ok, output.toString());
+  }
+
+  private ImmutableList<Deps.Dependency> collectDependencies(StandardJavaFileManager fileManager) {
+    ImmutableList.Builder<Deps.Dependency> builder = ImmutableList.builder();
+    for (File file : fileManager.getLocation(StandardLocation.CLASS_PATH)) {
+      String path = file.toString();
+      builder.add(Deps.Dependency.newBuilder().setKind(Deps.Dependency.Kind.EXPLICIT).setPath(path).build());
+    }
+    return builder.build();
   }
 
   /** Returns the sources to compile, including any source jar entries. */
