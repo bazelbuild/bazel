@@ -75,9 +75,8 @@ new_local_repository(
     path = "./third_party/protobuf/3.6.1/",
 )
 
-new_local_repository(
+local_repository(
     name = "googleapis",
-    build_file = "./third_party/googleapis/BUILD",
     path = "./third_party/googleapis/",
 )
 

@@ -10,23 +10,23 @@ load("@io_bazel//tools/build_rules:utilities.bzl", "java_library_srcs")
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//third_party:__pkg__"],
+    visibility = ["@//third_party:__pkg__"],
 )
 
 JAVA_LIBRARY_PROTOS = [
-  "google_api_auth",
-  "google_api_http",
-  "google_api_annotations",
-  "google_watch_v1",
-  "google_rpc_status",
-  "google_rpc_error_details",
-  "google_rpc_code",
-  "google_longrunning_operations",
-  "google_devtools_remoteexecution_v1test_remote_execution",
-  "google_devtools_build_v1_publish_build_event",
-  "google_bytestream_bytestream",
-  "google_devtools_build_v1_build_status",
-  "google_devtools_build_v1_build_events",
+    "google_api_auth",
+    "google_api_http",
+    "google_api_annotations",
+    "google_watch_v1",
+    "google_rpc_status",
+    "google_rpc_error_details",
+    "google_rpc_code",
+    "google_longrunning_operations",
+    "google_devtools_remoteexecution_v1test_remote_execution",
+    "google_devtools_build_v1_publish_build_event",
+    "google_bytestream_bytestream",
+    "google_devtools_build_v1_build_status",
+    "google_devtools_build_v1_build_events",
 ]
 
 [java_library_srcs(
@@ -37,12 +37,11 @@ JAVA_LIBRARY_PROTOS = [
 # for bootstrapping
 filegroup(
     name = "dist_jars",
-    srcs = [":" + proto + "_java_proto_srcs" for proto in JAVA_LIBRARY_PROTOS]
-    + [
-      ":google_devtools_build_v1_publish_build_event_java_grpc_srcs",
-      ":google_bytestream_bytestream_java_grpc_srcs",
-      ":google_devtools_remoteexecution_v1test_remote_execution_java_grpc_srcs",
-      ":google_watch_v1_java_grpc_srcs",
+    srcs = [":" + proto + "_java_proto_srcs" for proto in JAVA_LIBRARY_PROTOS] + [
+        ":google_devtools_build_v1_publish_build_event_java_grpc_srcs",
+        ":google_bytestream_bytestream_java_grpc_srcs",
+        ":google_devtools_remoteexecution_v1test_remote_execution_java_grpc_srcs",
+        ":google_watch_v1_java_grpc_srcs",
     ],
     visibility = ["@//src:__pkg__"],
 )

@@ -32,7 +32,7 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/zlib:srcs",
         "//third_party/nanopb:srcs",
-        "//third_party/googleapis:srcs",
+        "@googleapis//:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/pprof:srcs",
         "//third_party/remoteapis:srcs",
