@@ -24,7 +24,8 @@ import java.io.ObjectOutputStream;
  */
 public final class ErrorTransienceValue implements SkyValue, UnshareableValue {
   public static final SkyFunctionName FUNCTION_NAME =
-      SkyFunctionName.createNonHermetic("ERROR_TRANSIENCE");
+      SkyFunctionName.create(
+          "ERROR_TRANSIENCE", ShareabilityOfValue.NEVER, FunctionHermeticity.NONHERMETIC);
   @AutoCodec public static final SkyKey KEY = () -> FUNCTION_NAME;
   @AutoCodec public static final ErrorTransienceValue INSTANCE = new ErrorTransienceValue();
 

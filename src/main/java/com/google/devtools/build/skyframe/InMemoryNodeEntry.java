@@ -348,6 +348,8 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   /** An exception indicating that the node's value changed but its version did not. */
   public static final class ChangedValueAtSameVersionException extends IllegalStateException {
+    private final SkyValue newValue;
+
     private ChangedValueAtSameVersionException(
         Version lastChangedVersion,
         Version newVersion,
@@ -358,6 +360,12 @@ public class InMemoryNodeEntry implements NodeEntry {
               "Changed value but with the same version? "
                   + "lastChangedVersion: %s, newVersion: %s newValue: %s, nodeEntry: %s",
               lastChangedVersion, newVersion, newValue, nodeEntry));
+      this.newValue = newValue;
+    }
+
+    /** Returns the value that this node changed to. */
+    public SkyValue getNewValue() {
+      return newValue;
     }
   }
 

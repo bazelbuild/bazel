@@ -40,7 +40,7 @@ public final class SkyFunctionName implements Serializable {
    * transitively invalidated).
    */
   public static SkyFunctionName createNonHermetic(String name) {
-    return create(name, ShareabilityOfValue.ALWAYS, FunctionHermeticity.NONHERMETIC);
+    return create(name, ShareabilityOfValue.SOMETIMES, FunctionHermeticity.NONHERMETIC);
   }
 
   /**
@@ -48,7 +48,7 @@ public final class SkyFunctionName implements Serializable {
    * to be a deterministic function of its dependencies, not doing any external operations).
    */
   public static SkyFunctionName createHermetic(String name) {
-    return create(name, ShareabilityOfValue.ALWAYS, FunctionHermeticity.HERMETIC);
+    return create(name, ShareabilityOfValue.SOMETIMES, FunctionHermeticity.HERMETIC);
   }
 
   public static SkyFunctionName create(
@@ -93,8 +93,7 @@ public final class SkyFunctionName implements Serializable {
 
   @Override
   public String toString() {
-    return name
-        + (shareabilityOfValue.equals(ShareabilityOfValue.ALWAYS) ? "" : " " + shareabilityOfValue);
+    return name + (shareabilityOfValue.equals(ShareabilityOfValue.NEVER) ? " (unshareable)" : "");
   }
 
   @Override
