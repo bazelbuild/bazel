@@ -153,80 +153,80 @@ title: User Manual
 </p>
 
 <p>
-All target patterns starting with '//' are resolved relative to the current
+All target patterns starting with <code>//</code> are resolved relative to the current
 workspace.
 <table>
 <tr>
   <td><code>//foo/bar:wiz</code></td>
-  <td>Just the single target '//foo/bar:wiz'.</td>
+  <td>Just the single target <code>//foo/bar:wiz</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/bar</code></td>
-  <td>Equivalent to '//foo/bar:bar'.</td>
+  <td>Equivalent to <code>//foo/bar:bar</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/bar:all</code></td>
-  <td>All rules in the package 'foo/bar'.</td>
+  <td>All rules in the package <code>foo/bar</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...</code></td>
-  <td>All rules in all packages beneath the directory 'foo'.</td>
+  <td>All rules in all packages beneath the directory <code>foo</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...:all</code></td>
-  <td>All rules in all packages beneath the directory 'foo'.</td>
+  <td>All rules in all packages beneath the directory <code>foo</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...:*</code></td>
-  <td>All targets (rules and files) in all packages beneath the directory 'foo'.</td>
+  <td>All targets (rules and files) in all packages beneath the directory <code>foo</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...:all-targets</code></td>
-  <td>All targets (rules and files) in all packages beneath the directory 'foo'.</td>
+  <td>All targets (rules and files) in all packages beneath the directory <code>foo</code>.</td>
 </tr>
 </table>
 </p>
 
 <p>
-Target patterns which do not begin with '//' are resolved relative to the
+Target patterns which do not begin with <code>//</code> are resolved relative to the
 current <em>working directory</em>. These examples assume a working directory of
-'foo':
+<code>foo</code>:
 <table>
 <tr>
   <td><code>:foo</code></td>
-  <td>Equivalent to  '//foo:foo'.</td>
+  <td>Equivalent to  <code>//foo:foo</code>.</td>
 </tr>
 <tr>
   <td><code>bar:wiz</code></td>
-  <td>Equivalent to  '//foo/bar:wiz'.</td>
+  <td>Equivalent to <code>//foo/bar:wiz</code>.</td>
 </tr>
 <tr>
   <td><code>bar/wiz</code></td>
   <td>Equivalent to:
-                      '//foo/bar/wiz:wiz' if foo/bar/wiz is a package,
-                      '//foo/bar:wiz' if foo/bar is a package,
-                      '//foo:bar/wiz' otherwise.
+                      <code>//foo/bar/wiz:wiz</code> if <code>foo/bar/wiz</code> is a package,
+                      <code>//foo/bar:wiz</code> if <code>foo/bar</code> is a package,
+                      <code>//foo:bar/wiz</code> otherwise.
   </td>
 </tr>
 <tr>
   <td><code>bar:all</code></td>
-  <td>Equivalent to  '//foo/bar:all'.</td>
+  <td>Equivalent to  <code>//foo/bar:all</code>.</td>
 </tr>
 <tr>
   <td><code>:all</code></td>
-  <td>Equivalent to  '//foo:all'.</td>
+  <td>Equivalent to  <code>//foo:all</code>.</td>
 </tr>
 <tr>
   <td><code>...:all</code></td>
-  <td>Equivalent to  '//foo/...:all'.</td>
+  <td>Equivalent to  <code>//foo/...:all</code>.</td>
 </tr>
 <tr>
   <td><code>...</code></td>
-  <td>Equivalent to  '//foo/...:all'.</td>
+  <td>Equivalent to  <code>//foo/...:all</code>.</td>
 </tr>
 <tr>
   <td><code>bar/...:all</code></td>
-  <td>Equivalent to  '//foo/bar/...:all'.</td>
+  <td>Equivalent to  <code>//foo/bar/...:all</code>.</td>
 </tr>
 </table>
 </p>
@@ -278,9 +278,9 @@ DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSIVE_TARGET_PATTE
 </p>
 <p>
   Many Bazel commands accept a list of target patterns as arguments,
-  and they all honor the prefix negation operator `<code>-</code>'.
+  and they all honor the prefix negation operator <code>-</code>.
   This can be used to subtract a set of targets from the set specified
-  by the preceding arguments. (Note that this means order matters.)
+  by the preceding arguments. Note that this means order matters.
   For example,
 </p>
 <pre>
@@ -311,8 +311,9 @@ DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSIVE_TARGET_PATTE
   building the former.
 </p>
 <p>
-  Targets with <code>tags=["manual"]</code> will not be included in wildcard target patterns (...,
-  :*, :all, etc). You should specify such test targets with explicit target patterns on the command
+  Targets with <code>tags = ["manual"]</code> will not be included in wildcard target patterns (
+  <code>...</code>, <code>:*</code>, <code>:all</code>, etc.).
+  You should specify such test targets with explicit target patterns on the command
   line if you want Bazel to build/test them.
 </p>
 
