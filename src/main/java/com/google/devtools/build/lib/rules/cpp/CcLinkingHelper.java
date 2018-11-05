@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -367,6 +368,23 @@ public final class CcLinkingHelper {
     return ccLinkingOutputs;
   }
 
+  public CcLinkingInfo buildCcLinkingInfoFromLibraryToLinkWrappers(
+      ImmutableCollection<LibraryToLinkWrapper> libraryToLinkWrappers,
+      CcCompilationContext ccCompilationContext) {
+    CcLinkingInfo ccLinkingInfo =
+        LibraryToLinkWrapper.toCcLinkingInfo(
+            cppConfiguration.forcePic(),
+            libraryToLinkWrappers,
+            ImmutableList.copyOf(linkopts),
+            linkstamps.build(),
+            ccCompilationContext,
+            nonCodeLinkerInputs);
+    ImmutableList.Builder<CcLinkingInfo> mergedCcLinkingInfos = ImmutableList.builder();
+    mergedCcLinkingInfos.add(ccLinkingInfo);
+    mergedCcLinkingInfos.addAll(ccLinkingInfos);
+    return CcLinkingInfo.merge(mergedCcLinkingInfos.build());
+  }
+
   public CcLinkingInfo buildCcLinkingInfo(
       CcLinkingOutputs ccLinkingOutputs, CcCompilationContext ccCompilationContext) {
     Preconditions.checkNotNull(ccCompilationContext);
@@ -466,7 +484,12 @@ public final class CcLinkingHelper {
       createDynamicLibrary(result, env, usePic, libraryIdentifier, ccOutputs);
     }
 
-    return result.build();
+    CcLinkingOutputs ccLinkingOutputs = result.build();
+    Preconditions.checkState(ccLinkingOutputs.getStaticLibraries().size() <= 1);
+    Preconditions.checkState(ccLinkingOutputs.getPicStaticLibraries().size() <= 1);
+    Preconditions.checkState(ccLinkingOutputs.getDynamicLibrariesForLinking().size() <= 1);
+    Preconditions.checkState(ccLinkingOutputs.getDynamicLibrariesForRuntime().size() <= 1);
+    return ccLinkingOutputs;
   }
 
   public CcLinkingHelper setWillOnlyBeLinkedIntoDynamicLibraries(
