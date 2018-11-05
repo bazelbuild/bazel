@@ -63,11 +63,35 @@ public class ExecutorBuilder {
   }
 
   /**
+   * Sets the strategy name for all given action mnemonics.
+   *
+   * <p>The calling module can either decide for itself which implementation is needed and make the
+   * value associated with this key a constant or defer that decision to the user, for example, by
+   * providing a command line option and setting the value in the map based on that.
+   *
+   * <p>Setting the strategy to the empty string "" redirects it to the value for the empty
+   * mnemonic.
+   *
+   * <p>Example: a module requires {@code SpawnActionContext} to do its job, and it creates actions
+   * with the mnemonic <code>C++</code>. The the module can call
+   * <code>addStrategyByMnemonic("C++", strategy)</code>.
+   */
+  public ExecutorBuilder addStrategyByMnemonic(Iterable<String> mnemonics, String strategy) {
+    for (String mnemonic : mnemonics) {
+      addStrategyByMnemonic(mnemonic, strategy);
+    }
+    return this;
+  }
+
+  /**
    * Sets the strategy name for a given action mnemonic.
    *
    * <p>The calling module can either decide for itself which implementation is needed and make the
    * value associated with this key a constant or defer that decision to the user, for example, by
    * providing a command line option and setting the value in the map based on that.
+   *
+   * <p>Setting the strategy to the empty string "" redirects it to the value for the empty
+   * mnemonic.
    *
    * <p>Example: a module requires {@code SpawnActionContext} to do its job, and it creates actions
    * with the mnemonic <code>C++</code>. The the module can call

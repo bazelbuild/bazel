@@ -120,6 +120,9 @@ public class BazelStrategyModule extends BlazeModule {
     builder.addStrategyByMnemonic("Closure", "worker");
     builder.addStrategyByMnemonic("DexBuilder", "worker");
 
+    // Allow genrule_strategy to also be overridden by --strategy= flags.
+    builder.addStrategyByMnemonic("Genrule", options.genruleStrategy);
+
     for (Map.Entry<String, String> strategy : options.strategy) {
       String strategyName = strategy.getValue();
       // TODO(philwo) - remove this when the standalone / local mess is cleaned up.
@@ -131,14 +134,7 @@ public class BazelStrategyModule extends BlazeModule {
       builder.addStrategyByMnemonic(strategy.getKey(), strategyName);
     }
 
-    if (!options.genruleStrategy.isEmpty()) {
-      builder.addStrategyByMnemonic("Genrule", options.genruleStrategy);
-    }
-
-    // TODO(bazel-team): put this in getActionContexts (key=SpawnActionContext.class) instead
-    if (!options.spawnStrategy.isEmpty()) {
-      builder.addStrategyByMnemonic("", options.spawnStrategy);
-    }
+    builder.addStrategyByMnemonic("", options.spawnStrategy);
 
     for (Map.Entry<RegexFilter, String> entry : options.strategyByRegexp) {
       builder.addStrategyByRegexp(entry.getKey(), entry.getValue());

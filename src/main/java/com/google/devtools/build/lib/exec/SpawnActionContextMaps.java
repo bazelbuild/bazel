@@ -108,7 +108,7 @@ public final class SpawnActionContextMaps {
     if (context != null) {
       return context;
     }
-    return spawnStrategyMnemonicMap.get("");
+    return Preconditions.checkNotNull(spawnStrategyMnemonicMap.get(""));
   }
 
   /** Returns a map from action context class to its instantiated context object. */
@@ -247,6 +247,13 @@ public final class SpawnActionContextMaps {
       ImmutableListMultimap<String, String> multimap = strategyByMnemonicMapBuilder.build();
       for (String mnemonic : multimap.keySet()) {
         String strategy = Iterables.getLast(multimap.get(mnemonic));
+        if (strategy.isEmpty() && !mnemonic.isEmpty()) {
+          // If strategy is set to the empty value, and we're not looking at the empty mnemonic,
+          // then don't create a per-mnemonic entry for this case at all. At runtime, we'll fall
+          // back to the setting for the empty mnemonic, which may or may not be the setting for
+          // the "" strategy (the default strategy), but may be overridden to a specific one.
+          continue;
+        }
         SpawnActionContext context =
             strategyConverter.getStrategy(SpawnActionContext.class, strategy);
         if (context == null) {

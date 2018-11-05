@@ -76,6 +76,14 @@ public class SpawnActionContextMapsTest {
   }
 
   @Test
+  public void emptyStrategyFallsBackToEmptyMnemonicNotToDefault() throws Exception {
+    builder.strategyByMnemonicMap().put("Spawn1", "").put("", "ac2");
+    SpawnActionContextMaps maps = builder.build(PROVIDERS, "actest");
+    SpawnActionContext result = maps.getSpawnActionContext(mockSpawn("Spawn1", null), reporter);
+    assertThat(result).isInstanceOf(AC2.class);
+  }
+
+  @Test
   public void multipleRegexps_firstMatchWins() throws Exception {
     builder.addStrategyByRegexp(converter.convert("foo"), "ac1");
     builder.addStrategyByRegexp(converter.convert("foo/bar"), "ac2");
