@@ -460,23 +460,22 @@ public class JavaOptions extends FragmentOptions {
               + "'strict_deps' attribute.")
   public boolean strictDepsJavaProtos;
 
-  // TODO(twerth): Remove flag after it's turned on globally.
+  // TODO(b/111180047): Remove flag after it's removed from the global .blazerc.
   @Option(
       name = "experimental_proto_generated_strict_deps",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help = "Enables strict deps mode for the java compilation of proto generated Java code.")
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean protoGeneratedStrictDeps;
 
+  // TODO(b/111180047): Remove flag after it's removed from the global .blazerc.
   @Option(
       name = "experimental_enable_java_proto_exports",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help =
-          "Enables exports forwarding for proto_library targets depended on by "
-              + "java_proto_library targets.")
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean isJavaProtoExportsEnabled;
 
   @Option(
@@ -628,8 +627,6 @@ public class JavaOptions extends FragmentOptions {
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
-    host.protoGeneratedStrictDeps = protoGeneratedStrictDeps;
-    host.isJavaProtoExportsEnabled = isJavaProtoExportsEnabled;
 
     host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
 

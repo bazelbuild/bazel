@@ -47,9 +47,13 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
         ProtoCommon.collectTransitiveImports(ruleContext, protoSources);
     NestedSet<Artifact> protosInDirectDeps = ProtoCommon.computeProtosInDirectDeps(ruleContext);
 
+    NestedSet<Artifact> protosInExports = ProtoCommon.computeProtosInExportedDeps(ruleContext);
+
     String protoSourceRoot = ProtoCommon.getProtoSourceRoot(ruleContext);
     NestedSet<String> directProtoSourceRoots =
         ProtoCommon.getProtoSourceRootsOfDirectDependencies(ruleContext, protoSourceRoot);
+    NestedSet<String> exportedProtoSourceRoots =
+        ProtoCommon.getProtoSourceRootsOfExportedDependencies(ruleContext, protoSourceRoot);
     NestedSet<String> protoPathFlags =
         ProtoCommon.collectTransitiveProtoPathFlags(ruleContext, protoSourceRoot);
 
@@ -63,8 +67,8 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             protoSourceRoot,
             directProtoSourceRoots,
             !protoSources.isEmpty(),
-            /* protosInExports= */ null,
-            /* exportedProtoSourceRoots= */ null);
+            protosInExports,
+            exportedProtoSourceRoots);
 
     Artifact descriptorSetOutput =
         ruleContext.getGenfilesArtifact(

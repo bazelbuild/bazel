@@ -50,10 +50,11 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(ProtoConfiguration.class)
         .setOutputToGenfiles()
-        .add(attr(":proto_compiler", LABEL)
-            .cfg(HostTransition.INSTANCE)
-            .exec()
-            .value(PROTO_COMPILER))
+        .add(
+            attr(":proto_compiler", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .exec()
+                .value(PROTO_COMPILER))
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(deps) -->
         The list of other <code>proto_library</code> rules that the target depends upon.
         A <code>proto_library</code> may only depend on other
@@ -77,6 +78,11 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         the source root will be the workspace directory (default).
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("proto_source_root", STRING))
+        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(exports) -->
+        List of proto_library targets that can be referenced via "import public" in the proto
+        source.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("exports", LABEL_LIST).allowedRuleClasses("proto_library").allowedFileTypes())
         .advertiseProvider(ProtoSourcesProvider.class, ProtoSupportDataProvider.class)
         .build();
   }

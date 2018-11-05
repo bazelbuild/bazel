@@ -166,8 +166,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     private final Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders;
 
-    private final boolean isJavaProtoExportsEnabled;
-
     Impl(
         RuleContext ruleContext,
         SupportData supportData,
@@ -186,19 +184,12 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
               ruleContext.getPrerequisites(
                   "deps", RuleConfiguredTarget.Mode.TARGET, JavaCompilationArgsProvider.class));
 
-      this.isJavaProtoExportsEnabled =
-          ruleContext.getFragment(JavaConfiguration.class).isJavaProtoExportsEnabled();
-
-      if (this.isJavaProtoExportsEnabled) {
         this.exportsCompilationArgs =
             JavaCompilationArgsProvider.merge(
                 ruleContext.getPrerequisites(
                     "exports",
                     RuleConfiguredTarget.Mode.TARGET,
                     JavaCompilationArgsProvider.class));
-      } else {
-        this.exportsCompilationArgs = null;
-      }
     }
 
     void addProviders(ConfiguredAspect.Builder aspect) {
@@ -249,11 +240,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         aspect.addProvider(JavaRuleOutputJarsProvider.EMPTY);
       }
 
-      if (isJavaProtoExportsEnabled) {
-        generatedCompilationArgsProvider =
-            JavaCompilationArgsProvider.merge(
-                ImmutableList.of(generatedCompilationArgsProvider, exportsCompilationArgs));
-      }
+      generatedCompilationArgsProvider =
+          JavaCompilationArgsProvider.merge(
+              ImmutableList.of(generatedCompilationArgsProvider, exportsCompilationArgs));
 
       aspect.addProvider(generatedCompilationArgsProvider);
       aspect.addNativeDeclaredProvider(

@@ -149,8 +149,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean useHeaderCompilation;
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
-  private final boolean protoGeneratedStrictDeps;
-  private final boolean isJavaProtoExportsEnabled;
   private final OneVersionEnforcementLevel enforceOneVersion;
   private final boolean enforceOneVersionOnJavaTests;
   private final ImportDepsCheckingLevel importDepsCheckingLevel;
@@ -199,8 +197,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
-    this.protoGeneratedStrictDeps = javaOptions.protoGeneratedStrictDeps;
-    this.isJavaProtoExportsEnabled = javaOptions.isJavaProtoExportsEnabled;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
     this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
     this.importDepsCheckingLevel = javaOptions.importDepsCheckingLevel;
@@ -422,14 +418,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean strictDepsJavaProtos() {
     return strictDepsJavaProtos;
-  }
-
-  public boolean isProtoGeneratedStrictDeps() {
-    return protoGeneratedStrictDeps;
-  }
-
-  public boolean isJavaProtoExportsEnabled() {
-    return isJavaProtoExportsEnabled;
   }
 
   public boolean jplPropagateCcLinkParamsStore() {

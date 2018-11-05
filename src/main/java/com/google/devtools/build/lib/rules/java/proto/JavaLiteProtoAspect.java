@@ -158,8 +158,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
     private final JavaProtoAspectCommon aspectCommon;
     private final Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders;
 
-    private final boolean isJavaProtoExportsEnabled;
-
     Impl(RuleContext ruleContext, SupportData supportData, JavaProtoAspectCommon aspectCommon) {
       this.ruleContext = ruleContext;
       this.supportData = supportData;
@@ -173,19 +171,10 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
               ruleContext.getPrerequisites(
                   "deps", RuleConfiguredTarget.Mode.TARGET, JavaCompilationArgsProvider.class));
 
-      this.isJavaProtoExportsEnabled =
-          ruleContext.getFragment(JavaConfiguration.class).isJavaProtoExportsEnabled();
-
-      if (this.isJavaProtoExportsEnabled) {
-        this.exportsCompilationArgs =
-            JavaCompilationArgsProvider.merge(
-                ruleContext.getPrerequisites(
-                    "exports",
-                    RuleConfiguredTarget.Mode.TARGET,
-                    JavaCompilationArgsProvider.class));
-      } else {
-        this.exportsCompilationArgs = null;
-      }
+      this.exportsCompilationArgs =
+          JavaCompilationArgsProvider.merge(
+              ruleContext.getPrerequisites(
+                  "exports", RuleConfiguredTarget.Mode.TARGET, JavaCompilationArgsProvider.class));
     }
 
     void addProviders(ConfiguredAspect.Builder aspect) {
@@ -236,11 +225,9 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
         aspect.addProvider(JavaRuleOutputJarsProvider.EMPTY);
       }
 
-      if (isJavaProtoExportsEnabled) {
-        generatedCompilationArgsProvider =
-            JavaCompilationArgsProvider.merge(
-                ImmutableList.of(generatedCompilationArgsProvider, exportsCompilationArgs));
-      }
+      generatedCompilationArgsProvider =
+          JavaCompilationArgsProvider.merge(
+              ImmutableList.of(generatedCompilationArgsProvider, exportsCompilationArgs));
 
       aspect.addProvider(generatedCompilationArgsProvider);
       aspect.addNativeDeclaredProvider(
