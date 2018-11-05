@@ -264,7 +264,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testStrictAndroidDepsWarn() throws Exception {
-    useConfiguration("--strict_android_deps=WARN");
+    useConfiguration("--strict_java_deps=WARN");
     scratch.file(
         "java/android/strict/BUILD",
         "android_library(",
