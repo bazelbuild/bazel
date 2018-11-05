@@ -96,7 +96,7 @@ public class ActionGraphQueryEnvironment
                     : ((BuildConfigurationValue) graph.getValue(element.getConfigurationKey()))
                         .getConfiguration());
           } catch (InterruptedException e) {
-            throw new IllegalStateException("Interruption unexpected in configured query");
+            throw new IllegalStateException("Interruption unexpected in configured query", e);
           }
         };
     this.accessor =
@@ -235,7 +235,7 @@ public class ActionGraphQueryEnvironment
           : ((BuildConfigurationValue) graph.getValue(target.getConfigurationKey()))
               .getConfiguration();
     } catch (InterruptedException e) {
-      throw new IllegalStateException("Unexpected interruption during aquery");
+      throw new IllegalStateException("Unexpected interruption during aquery", e);
     }
   }
 

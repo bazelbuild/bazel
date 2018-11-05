@@ -308,7 +308,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           result.add(parent);
         }
       }
-      result.addAll(getAllowedDeps((targetAndRdeps.getKey()), ruleDeps.build()));
+      result.addAll(getAllowedDeps(targetAndRdeps.getKey(), ruleDeps.build()));
     }
     return result;
   }

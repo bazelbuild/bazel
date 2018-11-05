@@ -178,6 +178,11 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     return new QueryEvalResult(!eventHandler.hasErrors(), emptySensingCallback.isEmpty());
   }
 
+  public QueryEvalResult evaluateQuery(String query, ThreadSafeOutputFormatterCallback<T> callback)
+      throws QueryException, InterruptedException, IOException {
+    return evaluateQuery(QueryExpression.parse(query, this), callback);
+  }
+
   private static class EmptinessSensingCallback<T> extends OutputFormatterCallback<T> {
     private final OutputFormatterCallback<T> callback;
     private final AtomicBoolean empty = new AtomicBoolean(true);
@@ -210,12 +215,6 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
 
   public QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     return queryExpression;
-  }
-
-  public QueryEvalResult evaluateQuery(String query, ThreadSafeOutputFormatterCallback<T> callback)
-      throws QueryException, InterruptedException, IOException {
-    return evaluateQuery(
-        QueryExpression.parse(query, this), callback);
   }
 
   @Override
