@@ -38,8 +38,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "asset_catalog",
       structField = true,
       doc =
-          "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-              + "Asset catalog resource files.",
+          "Asset catalog resource files.",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
   public NestedSet<FileApiT> assetCatalog();
 
@@ -47,8 +46,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "bundle_file",
       structField = true,
       doc =
-          "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-              + "Files that are plopped into the final bundle at some arbitrary bundle path.",
+          "Files that are plopped into the final bundle at some arbitrary bundle path.",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
   public SkylarkNestedSet bundleFile();
 
@@ -171,8 +169,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "merge_zip",
       structField = true,
       doc =
-          "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-              + "Merge zips to include in the bundle. The entries of these zip files are included "
+           "Merge zips to include in the bundle. The entries of these zip files are included "
               + "in the final bundle with the same path. The entries in the merge zips should not "
               + "include the bundle root path (e.g. 'Foo.app').",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
@@ -206,8 +203,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "root_merge_zip",
       structField = true,
       doc =
-          "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-              + "Merge zips to include in the ipa and outside the bundle root.",
+          "Merge zips to include in the ipa and outside the bundle root.",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
   public NestedSet<FileApiT> rootMergeZip();
 
@@ -240,8 +236,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "storyboard",
       structField = true,
       doc =
-          "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-              + "Files for storyboard sources.",
+          "Files for storyboard sources.",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
   public NestedSet<FileApiT> storyboard();
 
@@ -249,8 +244,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "strings",
       structField = true,
       doc =
-          "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-              + "Files for strings source files.",
+          "Files for strings source files.",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
   public NestedSet<FileApiT> strings();
 
@@ -274,8 +268,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "xcassets_dir",
       structField = true,
       doc =
-          "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-              + "The set of all unique asset catalog directories (*.xcassets) containing files "
+          "The set of all unique asset catalog directories (*.xcassets) containing files "
               + "in 'asset_catalogs'.",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
   public SkylarkNestedSet xcassetsDir();
@@ -284,8 +277,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "xcdatamodel",
       structField = true,
       doc =
-          "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-              + "Files that comprise the data models of the final linked binary.",
+          "Files that comprise the data models of the final linked binary.",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
   public NestedSet<FileApiT> xcdatamodel();
 
@@ -293,8 +285,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue 
       name = "xib",
       structField = true,
       doc =
-          "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-              + ".xib resource files",
+          ".xib resource files",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES)
   public NestedSet<FileApiT> xib();
 

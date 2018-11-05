@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,7 +90,18 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
 
   @Override
   public String getDocumentation() {
-    return SkylarkDocUtils.substituteVariables(callable.doc());
+    String prefixWarning = "";
+    if (callable.enableOnlyWithFlag() != FlagIdentifier.NONE) {
+      prefixWarning = "<b>Experimental</b>. This API is experimental and may change at any time. "
+          + "Please do not depend on it. It may be enabled on an experimental basis by setting "
+          + "<code>--" + callable.enableOnlyWithFlag().getFlagName() + "</code> <br>";
+    } else if (callable.disableWithFlag() != FlagIdentifier.NONE) {
+      prefixWarning = "<b>Deprecated</b>. This API is deprecated and will be removed soon. "
+          + "Please do not depend on it. It is <i>disabled</i> with "
+          + "<code>--" + callable.disableWithFlag().getFlagName() + "</code>. Use this flag "
+          + "to verify your code is compatible with its imminent removal. <br>";
+    }
+    return prefixWarning + SkylarkDocUtils.substituteVariables(callable.doc());
   }
 
   @Override
