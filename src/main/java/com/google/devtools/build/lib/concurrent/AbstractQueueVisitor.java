@@ -141,13 +141,13 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
             .build());
   }
 
-  public static ExecutorService createExecutorService(int parallelism) {
+  public static ExecutorService createExecutorService(int parallelism, String poolName) {
     return createExecutorService(
         parallelism,
         /*keepAliveTime=*/ 1,
         TimeUnit.SECONDS,
         new PriorityBlockingQueue<>(),
-        "skyframe-evaluator");
+        poolName);
   }
 
   public static AbstractQueueVisitor createWithExecutorService(

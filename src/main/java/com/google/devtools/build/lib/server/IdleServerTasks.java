@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.lang.management.ManagementFactory;
@@ -35,7 +36,9 @@ class IdleServerTasks {
 
   /** Must be called from the main thread. */
   public IdleServerTasks() {
-    this.executor = new ScheduledThreadPoolExecutor(1);
+    this.executor = new ScheduledThreadPoolExecutor(
+        1,
+        new ThreadFactoryBuilder().setNameFormat("idle-server-tasks-%d").build());
   }
 
   /**

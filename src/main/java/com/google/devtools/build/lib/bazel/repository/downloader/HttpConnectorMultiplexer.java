@@ -137,8 +137,7 @@ final class HttpConnectorMultiplexer {
       }
       // Create the worker thread pool.
       for (int i = 0; i < Math.min(urls.size(), MAX_THREADS_PER_CONNECT); i++) {
-        Thread thread = new Thread(new Worker(context));
-        thread.setName("HttpConnector");
+        Thread thread = new Thread(new Worker(context), "HttpConnector");
         // These threads will not start doing anything until we release the lock below.
         thread.start();
         context.threads.add(thread);

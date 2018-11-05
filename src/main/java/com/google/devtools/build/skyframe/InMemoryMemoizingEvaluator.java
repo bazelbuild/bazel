@@ -197,7 +197,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
                 evaluationContext.getExecutorService() == null
                     ? () ->
                         AbstractQueueVisitor.createExecutorService(
-                            evaluationContext.getNumThreads())
+                            evaluationContext.getNumThreads(), "skyframe-evaluator")
                     : evaluationContext.getExecutorService(),
                 new SimpleCycleDetector(),
                 EvaluationVersionBehavior.MAX_CHILD_VERSIONS);

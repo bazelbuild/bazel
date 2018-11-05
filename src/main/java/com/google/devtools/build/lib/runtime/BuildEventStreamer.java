@@ -28,6 +28,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -371,7 +372,8 @@ public class BuildEventStreamer implements EventHandler {
 
     ScheduledExecutorService executor = null;
     try {
-      executor = Executors.newSingleThreadScheduledExecutor();
+      executor = Executors.newSingleThreadScheduledExecutor(
+          new ThreadFactoryBuilder().setNameFormat("build-event-streamer-%d").build());
       List<ListenableFuture<Void>> closeFutures = new ArrayList<>(transports.size());
       for (final BuildEventTransport transport : transports) {
         ListenableFuture<Void> closeFuture = transport.close();

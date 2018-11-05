@@ -106,14 +106,8 @@ public final class ActionExecutionInactivityWatchdog {
     this.reporter = Preconditions.checkNotNull(reporter);
     this.sleeper = Preconditions.checkNotNull(sleeper);
     this.waitTime = new WaitTime(progressIntervalFlagValue);
-    this.thread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        enterWatchdogLoop();
-      }
-    });
+    this.thread = new Thread(() -> enterWatchdogLoop(), "action-execution-watchdog");
     this.thread.setDaemon(true);
-    this.thread.setName("action-execution-watchdog");
   }
 
   /** Starts the watchdog thread. This method should only be called once. */
