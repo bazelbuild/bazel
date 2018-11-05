@@ -34,6 +34,9 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
@@ -137,13 +140,17 @@ public class LocalSpawnRunner implements SpawnRunner {
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws IOException, InterruptedException {
-    ActionExecutionMetadata owner = spawn.getResourceOwner();
-    context.report(ProgressStatus.SCHEDULING, getName());
-    try (ResourceHandle handle =
-        resourceManager.acquireResources(owner, spawn.getLocalResources())) {
-      context.report(ProgressStatus.EXECUTING, getName());
-      context.lockOutputFiles();
-      return new SubprocessHandler(spawn, context).run();
+    try (SilentCloseable c =
+        Profiler.instance().profile(
+            ProfilerTask.LOCAL_EXECUTION, spawn.getResourceOwner().getMnemonic())) {
+      ActionExecutionMetadata owner = spawn.getResourceOwner();
+      context.report(ProgressStatus.SCHEDULING, getName());
+      try (ResourceHandle handle =
+          resourceManager.acquireResources(owner, spawn.getLocalResources())) {
+        context.report(ProgressStatus.EXECUTING, getName());
+        context.lockOutputFiles();
+        return new SubprocessHandler(spawn, context).run();
+      }
     }
   }
 
@@ -324,7 +331,9 @@ public class LocalSpawnRunner implements SpawnRunner {
 
         long startTime = System.currentTimeMillis();
         CommandResult commandResult = null;
-        try {
+        try (SilentCloseable c =
+            Profiler.instance().profile(
+                ProfilerTask.PROCESS_TIME, spawn.getResourceOwner().getMnemonic())) {
           commandResult = cmd.execute(stdOut, stdErr);
           if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException();
