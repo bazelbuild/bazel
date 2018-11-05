@@ -15,8 +15,7 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.output.CqueryOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -26,12 +25,12 @@ import java.io.OutputStream;
 public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   LabelAndConfigurationOutputFormatterCallback(
-      Reporter reporter,
+      ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor) {
-    super(reporter, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, skyframeExecutor, accessor);
   }
 
   @Override
@@ -43,8 +42,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
   public void processOutput(Iterable<ConfiguredTarget> partialResult) {
     for (ConfiguredTarget configuredTarget : partialResult) {
       BuildConfiguration config =
-          skyframeExecutor.getConfiguration(
-              NullEventHandler.INSTANCE, configuredTarget.getConfigurationKey());
+          skyframeExecutor.getConfiguration(eventHandler, configuredTarget.getConfigurationKey());
       StringBuilder output =
           new StringBuilder()
               .append(configuredTarget.getLabel())

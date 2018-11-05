@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
-import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.output.AqueryOptions;
@@ -53,12 +53,12 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   ActionGraphTextOutputFormatterCallback(
-      Reporter reporter,
+      ExtendedEventHandler eventHandler,
       AqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTargetValue> accessor) {
-    super(reporter, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, skyframeExecutor, accessor);
   }
 
   @Override

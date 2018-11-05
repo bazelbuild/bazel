@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.output.AqueryOptions;
 import com.google.devtools.build.lib.skyframe.AspectValue;
@@ -52,13 +52,13 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   private final ActionGraphDump actionGraphDump;
 
   ActionGraphProtoOutputFormatterCallback(
-      Reporter reporter,
+      ExtendedEventHandler eventHandler,
       AqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTargetValue> accessor,
       OutputType outputType) {
-    super(reporter, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.actionGraphDump = new ActionGraphDump(options.includeCommandline);
   }

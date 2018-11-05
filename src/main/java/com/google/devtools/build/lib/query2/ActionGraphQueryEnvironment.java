@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -141,19 +140,19 @@ public class ActionGraphQueryEnvironment
   public ImmutableList<NamedThreadSafeOutputFormatterCallback<ConfiguredTargetValue>>
       getDefaultOutputFormatters(
           TargetAccessor<ConfiguredTargetValue> accessor,
-          Reporter reporter,
+          ExtendedEventHandler eventHandler,
+          OutputStream out,
           SkyframeExecutor skyframeExecutor,
           BuildConfiguration hostConfiguration,
           @Nullable RuleTransitionFactory trimmingTransitionFactory,
           PackageManager packageManager) {
-    OutputStream out = reporter.getOutErr().getOutputStream();
     return ImmutableList.of(
         new ActionGraphProtoOutputFormatterCallback(
-            reporter, aqueryOptions, out, skyframeExecutor, accessor, OutputType.BINARY),
+            eventHandler, aqueryOptions, out, skyframeExecutor, accessor, OutputType.BINARY),
         new ActionGraphProtoOutputFormatterCallback(
-            reporter, aqueryOptions, out, skyframeExecutor, accessor, OutputType.TEXT),
+            eventHandler, aqueryOptions, out, skyframeExecutor, accessor, OutputType.TEXT),
         new ActionGraphTextOutputFormatterCallback(
-            reporter, aqueryOptions, out, skyframeExecutor, accessor));
+            eventHandler, aqueryOptions, out, skyframeExecutor, accessor));
   }
 
   @Override

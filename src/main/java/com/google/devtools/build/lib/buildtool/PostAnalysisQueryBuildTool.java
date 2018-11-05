@@ -90,10 +90,12 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
 
     PostAnalysisQueryEnvironment<T> postAnalysisQueryEnvironment =
         getQueryEnvironment(request, hostConfiguration, topLevelConfigurations, walkableGraph);
+
     Iterable<NamedThreadSafeOutputFormatterCallback<T>> callbacks =
         postAnalysisQueryEnvironment.getDefaultOutputFormatters(
             postAnalysisQueryEnvironment.getAccessor(),
             env.getReporter(),
+            env.getReporter().getOutErr().getOutputStream(),
             env.getSkyframeExecutor(),
             hostConfiguration,
             runtime.getRuleClassProvider().getTrimmingTransitionFactory(),
@@ -111,7 +113,8 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
                       NamedThreadSafeOutputFormatterCallback.callbackNames(callbacks))));
       return;
     }
-    QueryEvalResult result = postAnalysisQueryEnvironment.evaluateQuery(queryExpression, callback);
+    QueryEvalResult result =
+        postAnalysisQueryEnvironment.evaluateQuery(queryExpression, callback);
     if (result.isEmpty()) {
       env.getReporter().handle(Event.info("Empty query results"));
     }

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.output.CqueryOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -33,7 +33,7 @@ import java.util.List;
 public abstract class CqueryThreadsafeCallback
     extends NamedThreadSafeOutputFormatterCallback<ConfiguredTarget> {
 
-  protected final Reporter reporter;
+  protected final ExtendedEventHandler eventHandler;
   protected final CqueryOptions options;
   protected PrintStream printStream = null;
   protected final SkyframeExecutor skyframeExecutor;
@@ -42,12 +42,12 @@ public abstract class CqueryThreadsafeCallback
   private final List<String> result = new ArrayList<>();
 
   CqueryThreadsafeCallback(
-      Reporter reporter,
+      ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor) {
-    this.reporter = reporter;
+    this.eventHandler = eventHandler;
     this.options = options;
     if (out != null) {
       this.printStream = new PrintStream(out);

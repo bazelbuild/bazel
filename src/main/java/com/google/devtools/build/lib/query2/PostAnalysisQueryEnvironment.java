@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
@@ -67,6 +66,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKe
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -138,7 +138,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   public abstract ImmutableList<NamedThreadSafeOutputFormatterCallback<T>>
       getDefaultOutputFormatters(
           TargetAccessor<T> accessor,
-          Reporter reporter,
+          ExtendedEventHandler eventHandler,
+          OutputStream outputStream,
           SkyframeExecutor skyframeExecutor,
           BuildConfiguration hostConfiguration,
           @Nullable RuleTransitionFactory trimmingTransitionFactory,

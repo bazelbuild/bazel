@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
@@ -67,14 +67,14 @@ public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private ConfiguredTarget currentTarget;
 
   ProtoOutputFormatterCallback(
-      Reporter reporter,
+      ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTarget> accessor,
       AspectResolver resolver,
       OutputType outputType) {
-    super(reporter, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.resolver = resolver;
   }
