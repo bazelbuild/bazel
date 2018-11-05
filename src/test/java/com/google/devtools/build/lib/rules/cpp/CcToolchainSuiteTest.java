@@ -67,7 +67,6 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "  abi_libc_version: ''",
         "  target_libc: 'local'",
         "  builtin_sysroot: 'sysroot'",
-        "  default_grte_top: '//cc:grtetop'",
         "}",
         // Stub toolchain to make default cc toolchains happy
         // TODO(b/113849758): Remove once CppConfiguration doesn't load packages
@@ -81,7 +80,6 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "  abi_libc_version: ''",
         "  target_libc: 'local'",
         "  builtin_sysroot: 'sysroot'",
-        "  default_grte_top: '//cc:grtetop'",
         "}",
         "\"\"\"",
         ")");
@@ -144,7 +142,6 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "  abi_libc_version: ''",
         "  target_libc: 'local'",
         "  builtin_sysroot: 'sysroot'",
-        "  default_grte_top: '//cc:grtetop'",
         "}",
         "toolchain {",
         "  compiler: 'orange'",
@@ -156,7 +153,6 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "  abi_libc_version: ''",
         "  target_libc: 'local'",
         "  builtin_sysroot: 'sysroot'",
-        "  default_grte_top: '//cc:grtetop'",
         "}",
         // Stub toolchain to make default cc toolchains happy
         // TODO(b/113849758): Remove once CppConfiguration doesn't load packages
@@ -170,7 +166,6 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "  abi_libc_version: ''",
         "  target_libc: 'local'",
         "  builtin_sysroot: 'sysroot'",
-        "  default_grte_top: '//cc:grtetop'",
         "}",
         "\"\"\"",
         ")");

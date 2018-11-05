@@ -332,7 +332,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  builtin_sysroot: \"builtin-sysroot-A\"\n"
                 + "  default_python_top: \"python-top-A\"\n"
                 + "  default_python_version: \"python-version-A\"\n"
-                + "  default_grte_top: \"//some\""
                 + "}\n"
                 + "toolchain {\n"
                 + "  toolchain_identifier: \"toolchain-identifier-B\"\n"
@@ -417,7 +416,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  builtin_sysroot: \"builtin-sysroot-B\"\n"
                 + "  default_python_top: \"python-top-B\"\n"
                 + "  default_python_version: \"python-version-B\"\n"
-                + "  default_grte_top: \"//some\"\n"
                 + "}\n"
                 + "toolchain {\n"
                 + "  toolchain_identifier: \"toolchain-identifier-C\"\n"
@@ -549,7 +547,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             ImmutableMap.<String, String>builder()
                 .put("SOME_MAKE_VARIABLE-A-1", "make-variable-value-A-1")
                 .put("SOME_MAKE_VARIABLE-A-2", "make-variable-value-A-2 with spaces in")
-                .put("CC_FLAGS", "--sysroot=some")
                 .put("STACK_FRAME_UNLIMITED", "")
                 .build()
                 .entrySet());
@@ -557,7 +554,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .containsExactly(
             getToolPath("system-include-dir-A-1"), getToolPath("system-include-dir-A-2"))
         .inOrder();
-    assertThat(ccProviderA.getSysroot()).isEqualTo("some");
 
     // Cursory testing of the "B" toolchain only; assume that if none of
     // toolchain B bled through into toolchain A, the reverse also didn't occur. And

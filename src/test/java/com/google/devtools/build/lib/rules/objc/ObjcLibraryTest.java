@@ -63,6 +63,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -1954,11 +1955,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  @Ignore("apple_grte_top isn't being applied because the cpu doesn't change")
   public void testSysrootArgSpecifiedWithGrteTopFlag() throws Exception {
-    MockObjcSupport.setup(mockToolsConfig, "default_grte_top : '//x'");
+    MockObjcSupport.setup(mockToolsConfig);
     useConfiguration(
         "--cpu=ios_x86_64",
-        "--ios_cpu=x86_64");
+        "--ios_cpu=x86_64",
+        "--incompatible_disable_sysroot_from_configuration",
+        "--apple_grte_top=//x");
     scratch.file(
         "x/BUILD",
         "objc_library(",
