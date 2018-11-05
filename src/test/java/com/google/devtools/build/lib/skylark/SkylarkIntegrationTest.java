@@ -2282,7 +2282,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         + "with for_analysis_testing=True");
   }
 
-
   @Test
   public void testBuildSettingRule_flag() throws Exception {
     setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
@@ -2384,6 +2383,127 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "build_setting parameter is experimental and not "
             + "available for general use. It is subject to change at any time. It may be enabled "
             + "by specifying --experimental_build_setting_api");
+  }
+
+  @Test
+  public void testAnalysisTestCannotDependOnAnalysisTest() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_analysis_testing_improvements=true",
+        "--experimental_starlark_config_transitions=true");
+
+    scratch.file(
+        "test/extension.bzl",
+        "",
+        "def analysis_test_rule_impl(ctx):",
+        "  return [AnalysisTestResultInfo(success = True, message = 'message contents')]",
+        "def middle_rule_impl(ctx):",
+        "  return []",
+        "def inner_rule_impl(ctx):",
+        "  return [AnalysisTestResultInfo(success = True, message = 'message contents')]",
+        "",
+        "def transition_func(settings):",
+        "  return { '//command_line_option:strict_java_deps' : 'WARN' }",
+        "my_transition = transition(",
+        "  implementation = transition_func,",
+        "  for_analysis_testing=True,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:strict_java_deps'])",
+        "",
+        "inner_rule_test = rule(",
+        "  implementation = analysis_test_rule_impl,",
+        "  analysis_test = True,",
+        ")",
+        "middle_rule = rule(",
+        "  implementation = middle_rule_impl,",
+        "  attrs = {'dep':  attr.label()}",
+        ")",
+        "outer_rule_test = rule(",
+        "  implementation = analysis_test_rule_impl,",
+        "  analysis_test = True,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "  })");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'outer_rule_test', 'middle_rule', 'inner_rule_test')",
+        "",
+        "outer_rule_test(name = 'outer', dep = ':middle')",
+        "middle_rule(name = 'middle', dep = ':inner')",
+        "inner_rule_test(name = 'inner')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:outer");
+    assertContainsEvent(
+        "analysis_test rule '//test:inner' cannot be transitively "
+            + "depended on by another analysis test rule");
+  }
+
+  @Test
+  public void testAnalysisTestOverDepsLimit() throws Exception {
+    setupAnalysisTestDepsLimitTest(10, 12);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:r");
+    assertContainsEvent(
+        "analysis test rule excedeed maximum dependency edge count. " + "Count: 13. Limit is 10.");
+  }
+
+  @Test
+  public void testAnalysisTestUnderDepsLimit() throws Exception {
+    setupAnalysisTestDepsLimitTest(10, 8);
+
+    assertThat(getConfiguredTarget("//test:r")).isNotNull();
+  }
+
+  private void setupAnalysisTestDepsLimitTest(int limit, int dependencyChainSize) throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_analysis_testing_improvements=true",
+        "--experimental_starlark_config_transitions=true");
+    useConfiguration("--analysis_testing_deps_limit=" + limit);
+
+    scratch.file(
+        "test/extension.bzl",
+        "",
+        "def outer_rule_impl(ctx):",
+        "  return [AnalysisTestResultInfo(success = True, message = 'message contents')]",
+        "def dep_rule_impl(ctx):",
+        "  return []",
+        "",
+        "def transition_func(settings):",
+        "  return { '//command_line_option:strict_java_deps' : 'WARN' }",
+        "my_transition = transition(",
+        "    implementation = transition_func,",
+        "    for_analysis_testing=True,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:strict_java_deps'])",
+        "",
+        "dep_rule = rule(",
+        "  implementation = dep_rule_impl,",
+        "  attrs = {'dep':  attr.label()}",
+        ")",
+        "outer_rule_test = rule(",
+        "  implementation = outer_rule_impl,",
+        "  fragments = ['java'],",
+        "  analysis_test = True,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "  })");
+
+    // Create a chain of targets where 'innerN' depends on 'inner{N+1}' until the max length.
+    StringBuilder dependingRulesChain = new StringBuilder();
+    for (int i = 0; i < dependencyChainSize; i++) {
+      dependingRulesChain.append(
+          String.format("dep_rule(name = 'inner%s', dep = ':inner%s')\n", i, (i + 1)));
+    }
+    dependingRulesChain.append(String.format("dep_rule(name = 'inner%s')", dependencyChainSize));
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'dep_rule', 'outer_rule_test')",
+        "",
+        "outer_rule_test(name = 'r', dep = ':inner0')",
+        dependingRulesChain.toString());
   }
 
   /**

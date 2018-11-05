@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -148,6 +150,18 @@ public final class RuleConfiguredTargetBuilder {
       addNativeDeclaredProvider(outputGroupInfo);
     }
 
+    if (ruleContext.getConfiguration().evaluatingForAnalysisTest()) {
+      if (ruleContext.getRule().isAnalysisTest()) {
+        ruleContext.ruleError(
+            String.format(
+                "analysis_test rule '%s' cannot be transitively "
+                    + "depended on by another analysis test rule",
+                ruleContext.getLabel()));
+        return null;
+      }
+      addProvider(new DepCountInfo(transitiveDepCount()));
+    }
+
     TransitiveInfoProviderMap providers = providersBuilder.build();
 
     if (ruleContext.getRule().isAnalysisTest()) {
@@ -163,7 +177,24 @@ public final class RuleConfiguredTargetBuilder {
       }
 
       AnalysisTestActionBuilder.writeAnalysisTestAction(ruleContext, testResultInfo);
+
+      int depCount = transitiveDepCount();
+      if (depCount > ruleContext.getConfiguration().analysisTestingDepsLimit()) {
+        ruleContext.ruleError(
+            String.format(
+                "analysis test rule excedeed maximum dependency edge count. "
+                    + "Count: %s. Limit is %s. This indicates either the analysis_test has too "
+                    + "many dependencies, or the underlying toolchains may be large. Try "
+                    + "decreasing the number of test dependencies. (Analysis tests should not be "
+                    + "very large!) If underlying toolchain size is to blame, it might be worth "
+                    + "considering increasing --analysis_testing_deps_limit. (Beware, however, "
+                    + "that large values of this flag can lead to no safeguards against giant "
+                    + "test suites that can lead to Out Of Memory exceptions in the build server.)",
+                depCount, ruleContext.getConfiguration().analysisTestingDepsLimit()));
+        return null;
+      }
     }
+
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
     GeneratingActions generatingActions = Actions.filterSharedActionsAndThrowActionConflict(
           analysisEnvironment.getActionKeyContext(), analysisEnvironment.getRegisteredActions());
@@ -172,6 +203,22 @@ public final class RuleConfiguredTargetBuilder {
         providers,
         generatingActions.getActions(),
         generatingActions.getGeneratingActionIndex());
+  }
+
+  private int transitiveDepCount() {
+    int depCount = 0;
+
+    for (String attributeName : ruleContext.attributes().getAttributeNames()) {
+      Type<?> attributeType =
+          ruleContext.attributes().getAttributeDefinition(attributeName).getType();
+      if (attributeType.getLabelClass() == LabelClass.DEPENDENCY) {
+        for (DepCountInfo depCountInfo :
+            ruleContext.getPrerequisites(attributeName, Mode.DONT_CHECK, DepCountInfo.class)) {
+          depCount += depCountInfo.getNumDepEdges() + 1;
+        }
+      }
+    }
+    return depCount;
   }
 
   /**
@@ -439,5 +486,23 @@ public final class RuleConfiguredTargetBuilder {
       ImmutableSet<ActionAnalysisMetadata> actions) {
     this.actionsWithoutExtraAction = actions;
     return this;
+  }
+
+  /**
+   * Contains a count of transitive dependency edges traversed by the target which propagated this
+   * object.
+   *
+   * <p>This is automatically provided by all targets which are being evaluated in analysis testing.
+   */
+  private static class DepCountInfo implements TransitiveInfoProvider {
+    private final int numDepEdges;
+
+    public DepCountInfo(int numDepEdges) {
+      this.numDepEdges = numDepEdges;
+    }
+
+    public int getNumDepEdges() {
+      return numDepEdges;
+    }
   }
 }

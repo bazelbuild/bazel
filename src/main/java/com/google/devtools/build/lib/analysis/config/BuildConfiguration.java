@@ -800,6 +800,29 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public boolean allowAnalysisFailures;
 
     @Option(
+        name = "evaluating for analysis test",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        metadataTags = {OptionMetadataTag.INTERNAL},
+        help =
+            "If true, targets in the current configuration are being analyzed only for purposes "
+                + "of an analysis test. This, for example, imposes the restriction described by "
+                + "--analysis_testing_deps_limit.")
+    public boolean evaluatingForAnalysisTest;
+
+    @Option(
+        name = "analysis_testing_deps_limit",
+        defaultValue = "500",
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        help =
+            "Sets the maximum number of transitive dependencies through a rule attribute with "
+                + "a for_analysis_testing configuration transition. "
+                + "Exceeding this limit will result in a rule error.")
+    public int analysisTestingDepsLimit;
+
+    @Option(
         name = "features",
         allowMultiple = true,
         defaultValue = "",
@@ -1789,6 +1812,14 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public boolean allowAnalysisFailures() {
     return options.allowAnalysisFailures;
+  }
+
+  public boolean evaluatingForAnalysisTest() {
+    return options.evaluatingForAnalysisTest;
+  }
+
+  public int analysisTestingDepsLimit() {
+    return options.analysisTestingDepsLimit;
   }
 
   public List<Label> getActionListeners() {
