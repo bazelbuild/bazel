@@ -18,34 +18,34 @@ title: User Manual
   Usage: bazel &lt;command&gt; &lt;options&gt; ...
 
   Available commands:
-    <a href='#analyze-profile'>analyze-profile</a>     Analyzes build profile data.
-    <a href='#aquery'>aquery</a>             Executes a query on the <a href='#analysis-phase'>post-analysis</a> action graph.
+    <a href='user-manual.html#analyze-profile'>analyze-profile</a>     Analyzes build profile data.
+    <a href='user-manual.html#aquery'>aquery</a>             Executes a query on the <a href='#analysis-phase'>post-analysis</a> action graph.
     <a href='#build'>build</a>               Builds the specified targets.
 
-    <a href='#canonicalize'>canonicalize-flags</a>  Canonicalize Bazel flags.
-    <a href='#clean'>clean</a>               Removes output files and optionally stops the server.
+    <a href='user-manual.html#canonicalize'>canonicalize-flags</a>  Canonicalize Bazel flags.
+    <a href='user-manual.html#clean'>clean</a>               Removes output files and optionally stops the server.
 
-    <a href='#query'>cquery</a>              Executes a <a href='#analysis-phase'>post-analysis</a> dependency graph query.
+    <a href='user-manual.html#query'>cquery</a>              Executes a <a href='#analysis-phase'>post-analysis</a> dependency graph query.
 
-    <a href='#dump'>dump</a>                Dumps the internal state of the Bazel server process.
+    <a href='user-manual.html#dump'>dump</a>                Dumps the internal state of the Bazel server process.
 
-    <a href='#help'>help</a>                Prints help for commands, or the index.
-    <a href='#info'>info</a>                Displays runtime info about the bazel server.
+    <a href='user-manual.html#help'>help</a>                Prints help for commands, or the index.
+    <a href='user-manual.html#info'>info</a>                Displays runtime info about the bazel server.
 
     <a href='#fetch'>fetch</a>               Fetches all external dependencies of a target.
-    <a href='#mobile-install'>mobile-install</a>      Installs apps on mobile devices.
+    <a href='user-manual.html#mobile-install'>mobile-install</a>      Installs apps on mobile devices.
 
-    <a href='#query'>query</a>               Executes a dependency graph query.
+    <a href='user-manual.html#query'>query</a>               Executes a dependency graph query.
 
-    <a href='#run'>run</a>                 Runs the specified target.
-    <a href='#shutdown'>shutdown</a>            Stops the Bazel server.
-    <a href='#test'>test</a>                Builds and runs the specified test targets.
-    <a href='#version'>version</a>             Prints version information for Bazel.
+    <a href='user-manual.html#run'>run</a>                 Runs the specified target.
+    <a href='user-manual.html#shutdown'>shutdown</a>            Stops the Bazel server.
+    <a href='user-manual.html#test'>test</a>                Builds and runs the specified test targets.
+    <a href='user-manual.html#version'>version</a>             Prints version information for Bazel.
 
   Getting more help:
     bazel help &lt;command&gt;
                      Prints help and options for &lt;command&gt;.
-    bazel help <a href='#startup_options'>startup_options</a>
+    bazel help <a href='user-manual.html#startup_options'>startup_options</a>
                      Options for the JVM hosting Bazel.
     bazel help <a href='#target-patterns'>target-syntax</a>
                      Explains the syntax for specifying targets.
@@ -65,8 +65,7 @@ title: User Manual
 <h3>The <code>build</code> command</h3>
 
 <p>
-  The most important function of Bazel is, of course, building code.  Type
-  <code>bazel build</code> followed by the name of the
+  Type <code>bazel build</code> followed by the name of the
   <a href="#target-patterns">target</a> you wish to build. Here's a typical
   session:
 </p>
@@ -704,59 +703,6 @@ $ bazel fetch //...
   files in the filesystem, and it only produces its declared output files.
 </p>
 
-<h3 id='clean'>Deleting the outputs of a build</h3>
-
-<h4>The <code>clean</code> command</h4>
-
-<p>
-  Bazel has a <code>clean</code> command, analogous to that of Make.
-  It deletes the output directories for all build configurations performed
-  by this Bazel instance, or the entire working tree created by this
-  Bazel instance, and resets internal caches. If executed without any
-  command-line options, then the output directory for all configurations
-  will be cleaned.
-</p>
-
-<p>Recall that each Bazel instance is associated with a single workspace, thus the
-  <code>clean</code> command will delete all outputs from all builds you've done
-  with that Bazel instance in that workspace.
-</p>
-<p>
-  To completely remove the entire working tree created by a Bazel
-  instance,  you can specify the <code class='flag'>--expunge</code> option. When
-  executed with <code class='flag'>--expunge</code>, the clean command simply
-  removes the entire output base tree which, in addition to the build
-  output, contains all temp files created by Bazel. It also
-  stops the Bazel server after the clean, equivalent to the <a
-  href='#shutdown'><code>shutdown</code></a> command. For example, to
-  clean up all disk and memory traces of a Bazel instance, you could
-  specify:
-</p>
-<pre>
-  % bazel clean --expunge
-</pre>
-<p>
-  Alternatively, you can expunge in the background by using
-  <code class='flag'>--expunge_async</code>. It is safe to invoke a Bazel command
-  in the same client while the asynchronous expunge continues to run.
-  Note, however, that this may introduce IO contention.
-</p>
-
-<p>
-  The <code>clean</code> command is provided primarily as a means of
-  reclaiming disk space for workspaces that are no longer needed.
-  However, we recognize that Bazel's incremental rebuilds might not be
-  perfect; <code>clean</code> may be used to recover a consistent
-  state when problems arise.
-</p>
-<p>
-  Bazel's design is such that these problems are fixable; we consider
-  such bugs a high priority, and will do our best fix them.  If you
-  ever find an incorrect incremental build, please file a bug report.
-  We encourage developers to get out of the habit of
-  using <code>clean</code> and into that of reporting bugs in the
-  tools.
-</p>
 
 <h3 id='phases'>Phases of a build</h3>
 

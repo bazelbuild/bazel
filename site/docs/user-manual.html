@@ -1959,6 +1959,60 @@ Examples:
 </p>
 
 
+<h3 id='clean'>Deleting the outputs of a build</h3>
+
+<h4>The <code>clean</code> command</h4>
+
+<p>
+  Bazel has a <code>clean</code> command, analogous to that of Make.
+  It deletes the output directories for all build configurations performed
+  by this Bazel instance, or the entire working tree created by this
+  Bazel instance, and resets internal caches. If executed without any
+  command-line options, then the output directory for all configurations
+  will be cleaned.
+</p>
+
+<p>Recall that each Bazel instance is associated with a single workspace, thus the
+  <code>clean</code> command will delete all outputs from all builds you've done
+  with that Bazel instance in that workspace.
+</p>
+<p>
+  To completely remove the entire working tree created by a Bazel
+  instance,  you can specify the <code class='flag'>--expunge</code> option. When
+  executed with <code class='flag'>--expunge</code>, the clean command simply
+  removes the entire output base tree which, in addition to the build
+  output, contains all temp files created by Bazel. It also
+  stops the Bazel server after the clean, equivalent to the <a
+  href='#shutdown'><code>shutdown</code></a> command. For example, to
+  clean up all disk and memory traces of a Bazel instance, you could
+  specify:
+</p>
+<pre>
+  % bazel clean --expunge
+</pre>
+<p>
+  Alternatively, you can expunge in the background by using
+  <code class='flag'>--expunge_async</code>. It is safe to invoke a Bazel command
+  in the same client while the asynchronous expunge continues to run.
+  Note, however, that this may introduce IO contention.
+</p>
+
+<p>
+  The <code>clean</code> command is provided primarily as a means of
+  reclaiming disk space for workspaces that are no longer needed.
+  However, we recognize that Bazel's incremental rebuilds might not be
+  perfect; <code>clean</code> may be used to recover a consistent
+  state when problems arise.
+</p>
+<p>
+  Bazel's design is such that these problems are fixable; we consider
+  such bugs a high priority, and will do our best fix them.  If you
+  ever find an incorrect incremental build, please file a bug report.
+  We encourage developers to get out of the habit of
+  using <code>clean</code> and into that of reporting bugs in the
+  tools.
+</p>
+
 
 <h2 id='run'>Running executables with Bazel</h2>
 <p>
