@@ -36,6 +36,10 @@ public class BlazeJavacResult {
     return createFullResult(false, ImmutableList.of(), message, null, BlazeJavacStatistics.empty());
   }
 
+  public BlazeJavacResult withStatistics(BlazeJavacStatistics statistics) {
+    return new BlazeJavacResult(ok, diagnostics, output, compiler, statistics);
+  }
+
   private BlazeJavacResult(
       boolean ok,
       ImmutableList<FormattedDiagnostic> diagnostics,

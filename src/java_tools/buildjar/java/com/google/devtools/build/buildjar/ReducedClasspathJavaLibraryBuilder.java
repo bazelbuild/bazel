@@ -53,6 +53,16 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     BlazeJavacResult result =
         javacRunner.invokeJavac(build.toBlazeJavacArguments(compressedClasspath));
 
+    result =
+        result.withStatistics(
+            result
+                .statistics()
+                .toBuilder()
+                .transitiveClasspathLength(build.getClassPath().size())
+                .reducedClasspathLength(compressedClasspath.size())
+                .transitiveClasspathFallback(false)
+                .build());
+
     // If javac errored out because of missing entries on the classpath, give it another try.
     // TODO(bazel-team): check performance impact of additional retries.
     if (shouldFallBack(result)) {
@@ -63,6 +73,9 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
 
       // Fall back to the regular compile, but add extra checks to catch transitive uses
       result = javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
+      result =
+          result.withStatistics(
+              result.statistics().toBuilder().transitiveClasspathFallback(true).build());
     }
     return result;
   }

@@ -59,12 +59,21 @@ public abstract class BlazeJavacStatistics {
   }
 
   private static Builder newBuilder() {
-    return new AutoValue_BlazeJavacStatistics.Builder();
+    return new AutoValue_BlazeJavacStatistics.Builder()
+        .transitiveClasspathLength(0)
+        .reducedClasspathLength(0)
+        .transitiveClasspathFallback(false);
   }
 
   public abstract ImmutableListMultimap<TickKey, Duration> timingTicks();
 
   public abstract ImmutableListMultimap<String, Duration> errorProneTicks();
+
+  public abstract int transitiveClasspathLength();
+
+  public abstract int reducedClasspathLength();
+
+  public abstract boolean transitiveClasspathFallback();
 
   // TODO(glorioso): We really need to think out more about what data to collect/store here.
 
@@ -72,6 +81,8 @@ public abstract class BlazeJavacStatistics {
   public enum TickKey {
     DAGGER,
   }
+
+  public abstract Builder toBuilder();
 
   /**
    * Builder of {@link BlazeJavacStatistics} instances.
@@ -86,6 +97,12 @@ public abstract class BlazeJavacStatistics {
     abstract ImmutableListMultimap.Builder<TickKey, Duration> timingTicksBuilder();
 
     abstract ImmutableListMultimap.Builder<String, Duration> errorProneTicksBuilder();
+
+    public abstract Builder transitiveClasspathLength(int length);
+
+    public abstract Builder reducedClasspathLength(int length);
+
+    public abstract Builder transitiveClasspathFallback(boolean fallback);
 
     public Builder addErrorProneTiming(String key, Duration value) {
       errorProneTicksBuilder().put(key, value);
