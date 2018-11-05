@@ -7,6 +7,7 @@ title: Installing Bazel on Ubuntu
 
 Supported Ubuntu Linux platforms:
 
+*   18.04 (LTS)
 *   16.04 (LTS)
 *   14.04 (LTS)
 
