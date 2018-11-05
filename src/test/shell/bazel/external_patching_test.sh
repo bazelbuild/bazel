@@ -16,13 +16,35 @@
 #
 # Tests the patching functionality of external repositories.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
-  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-source "${CURRENT_DIR}/remote_helpers.sh" \
-  || { echo "remote_helpers.sh not found!" >&2; exit 1; }
+set -euo pipefail
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
 
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
+if is_windows; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
 
 set_up() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
@@ -38,9 +60,17 @@ EOF
   rm -rf ext-0.1.2
 }
 
+function get_extrepourl() {
+  if is_windows; then
+    echo "file:///$(cygpath -m $1)"
+  else
+    echo "file://$1"
+  fi
+}
 
 test_patch_file() {
   EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   # Test that the patches attribute of http_archive is honored
   mkdir main
@@ -59,7 +89,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
-  urls=["file://${EXTREPODIR}/ext.zip"],
+  urls=["${EXTREPOURL}/ext.zip"],
   build_file_content="exports_files([\"foo.sh\"])",
   patches = ["//:patch_foo.sh"],
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
@@ -100,7 +130,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
-  urls=["file://${EXTREPODIR}/ext.zip"],
+  urls=["${EXTREPOURL}/ext.zip"],
   build_file_content="exports_files([\"foo.sh\"])",
 )
 EOF
@@ -112,6 +142,7 @@ EOF
 
 test_patch_failed() {
   EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   cat > my_patch_tool <<'EOF'
 #!/bin/sh
@@ -130,7 +161,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
-  urls=["file://${EXTREPODIR}/ext.zip"],
+  urls=["${EXTREPOURL}/ext.zip"],
   build_file_content="exports_files([\"foo.sh\"])",
   patches = ["//:patch_foo.sh"],
   patch_tool = "${EXTREPODIR}/my_patch_tool",
@@ -144,6 +175,10 @@ EOF
 
 test_patch_git() {
   EXTREPODIR=`pwd`
+  if is_windows; then
+    EXTREPODIR="$(cygpath -m ${EXTREPODIR})"
+  fi
+
   export GIT_CONFIG_NOSYSTEM=YES
 
   mkdir extgit
@@ -176,7 +211,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
-  remote="file://${EXTREPODIR}/extgit/.git",
+  remote="${EXTREPODIR}/extgit/.git",
   tag="mytag",
   build_file_content="exports_files([\"foo.sh\"])",
   patches = ["//:patch_foo.sh"],
@@ -217,7 +252,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
-  remote="file://${EXTREPODIR}/extgit/.git",
+  remote="${EXTREPODIR}/extgit/.git",
   tag="mytag",
   build_file_content="exports_files([\"foo.sh\"])",
 )
@@ -232,6 +267,7 @@ test_override_buildfile() {
   ## Verify that the BUILD file of an external repository can be overriden
   ## via the http_archive rule.
   EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   mkdir withbuild
   cat > withbuild/BUILD <<'EOF'
@@ -255,7 +291,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="withbuild",
   strip_prefix="withbuild",
-  urls=["file://${EXTREPODIR}/withbuild.zip"],
+  urls=["${EXTREPOURL}/withbuild.zip"],
   build_file="@//:ext.BUILD",
 )
 EOF
@@ -289,6 +325,7 @@ test_override_buildfile_content() {
   ## Verify that the BUILD file of an external repository can be overriden
   ## via specified content in the http_archive rule.
   EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   mkdir withbuild
   cat > withbuild/BUILD <<'EOF'
@@ -312,7 +349,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="withbuild",
   strip_prefix="withbuild",
-  urls=["file://${EXTREPODIR}/withbuild.zip"],
+  urls=["${EXTREPOURL}/withbuild.zip"],
   build_file_content="""
 genrule(
   name="target",
@@ -345,6 +382,10 @@ test_override_buildfile_git() {
   ## Verify that the BUILD file of an external repository can be overriden
   ## via the git_repository rule.
   EXTREPODIR=`pwd`
+  if is_windows; then
+    EXTREPODIR="$(cygpath -m ${EXTREPODIR})"
+  fi
+
   export GIT_CONFIG_NOSYSTEM=YES
 
   mkdir withbuild
@@ -374,7 +415,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="withbuild",
-  remote="file://${EXTREPODIR}/withbuild/.git",
+  remote="${EXTREPODIR}/withbuild/.git",
   tag="mytag",
   build_file="@//:ext.BUILD",
 )
@@ -409,6 +450,10 @@ test_override_buildfilecontents_git() {
   ## Verify that the BUILD file of an external repository can be overriden
   ## via specified content in the git_repository rule.
   EXTREPODIR=`pwd`
+  if is_windows; then
+    EXTREPODIR="$(cygpath -m ${EXTREPODIR})"
+  fi
+
   export GIT_CONFIG_NOSYSTEM=YES
 
   mkdir withbuild
@@ -438,7 +483,7 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="withbuild",
-  remote="file://${EXTREPODIR}/withbuild/.git",
+  remote="${EXTREPODIR}/withbuild/.git",
   tag="mytag",
   build_file_content="""
 genrule(
@@ -472,7 +517,7 @@ test_build_file_build_bazel() {
   ## Verify that the BUILD file of an external repository can be overriden
   ## via the http_archive rule.
   EXTREPODIR=`pwd`
-
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
   mkdir withbuild
   cat > withbuild/BUILD.bazel <<'EOF'
 genrule(
@@ -495,7 +540,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="withbuild",
   strip_prefix="withbuild",
-  urls=["file://${EXTREPODIR}/withbuild.zip"],
+  urls=["${EXTREPOURL}/withbuild.zip"],
   build_file="@//:ext.BUILD",
 )
 EOF
@@ -527,6 +572,7 @@ EOF
 
 test_git_format_patch() {
   EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   # Verify that a patch in the style of git-format-patch(1) can be handled.
   mkdir main
@@ -560,7 +606,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
-  urls=["file://${EXTREPODIR}/ext.zip"],
+  urls=["${EXTREPOURL}/ext.zip"],
   build_file_content="exports_files([\"foo.sh\"])",
   patches = ["//:0001-foo.sh-remove-dragons.patch"],
   patch_args = ["-p1"],
