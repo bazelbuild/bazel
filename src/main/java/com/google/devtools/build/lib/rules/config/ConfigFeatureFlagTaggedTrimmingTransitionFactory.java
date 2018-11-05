@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -50,6 +51,8 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory implements RuleTra
       if (!(options.contains(ConfigFeatureFlagOptions.class)
           && options.get(ConfigFeatureFlagOptions.class)
               .enforceTransitiveConfigsForConfigFeatureFlag
+          && options.get(BuildConfiguration.Options.class)
+              .useDistinctHostConfiguration
           && options.get(ConfigFeatureFlagOptions.class).requiresTrimming(flags))) {
         return options;
       }
