@@ -825,6 +825,7 @@ java_library(
         "bazel/commands/sync.txt",
     ],
     deps = [
+        ":bazel-repository",
         ":build-base",
         ":events",
         ":exitcode-external",

@@ -794,4 +794,113 @@ EOF
     expect_log "timestamprepo.*hash"
 }
 
+test_chain_resolved() {
+  # Verify that a cahin of dependencies in external repositories is reflected
+  # in the resolved file in such a way, that the resolved file can be used.
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+
+  mkdir rulerepo
+  cat > rulerepo/rule.bzl <<'EOF'
+def _rule_impl(ctx):
+  ctx.file("data.txt", "Hello World")
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+
+trivial_rule = repository_rule(
+  implementation = _rule_impl,
+  attrs = {},
+)
+EOF
+  touch rulerepo/BUILD
+  zip rule.zip rulerepo/*
+  rm -rf rulerepo
+
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="rulerepo",
+  strip_prefix="rulerepo",
+  urls=["file://${EXTREPODIR}/rule.zip"],
+)
+load("@rulerepo//:rule.bzl", "trivial_rule")
+trivial_rule(name="a")
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  srcs =  ["@a//:data.txt"],
+  outs = ["local.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+        --experimental_repository_resolved_file=resolved.bzl
+  bazel clean --expunge
+  echo; cat resolved.bzl; echo
+
+  bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
+        //:local || fail "Expected success"
+}
+
+test_order_reproducible() {
+  # Verify that the order of repositories in the resolved file is reproducible
+  # and does not depend on the parameters or timing of the actual rules.
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+
+  mkdir main
+  cd main
+
+  cat > rule.bzl <<'EOF'
+def _impl(ctx):
+  ctx.execute(["/bin/sh", "-c", "sleep %s" % (ctx.attr.sleep,)])
+  ctx.file("data", "some test data")
+  ctx.file("BUILD", "exports_files(['data'])")
+
+sleep_rule = repository_rule(
+  implementation = _impl,
+  attrs = {"sleep": attr.int()},
+)
+EOF
+  cat > BUILD <<'EOF'
+load("//:repo.bzl", "resolved")
+
+genrule(
+  name = "order",
+  outs = ["order.txt"],
+  cmd = ("echo '%s' > $@" %
+    ([entry["original_attributes"]["name"] for entry in resolved],)),
+)
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "sleep_rule")
+
+sleep_rule(name="a", sleep=1)
+sleep_rule(name="c", sleep=5)
+sleep_rule(name="b", sleep=10)
+EOF
+  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+        --experimental_repository_resolved_file=repo.bzl
+  bazel build //:order
+  cp `bazel info bazel-genfiles`/order.txt order-first.txt
+  bazel clean --expunge
+
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "sleep_rule")
+
+sleep_rule(name="a", sleep=20)
+sleep_rule(name="c", sleep=10)
+sleep_rule(name="b", sleep=1)
+EOF
+  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+        --experimental_repository_resolved_file=repo.bzl
+  bazel build //:order
+  cp `bazel info bazel-genfiles`/order.txt order-second.txt
+
+  echo; cat order-first.txt; echo; cat order-second.txt; echo
+
+  diff order-first.txt order-second.txt \
+      || fail "expected order to be reproducible"
+}
+
 run_suite "workspace_resolved_test tests"

@@ -51,6 +51,8 @@ public class RepositoryResolvedEvent implements ProgressLike {
    */
   private final Object resolvedInformation;
 
+  private final String name;
+
   public RepositoryResolvedEvent(Rule rule, StructImpl attrs, Path outputDirectory, Object result) {
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
 
@@ -101,10 +103,16 @@ public class RepositoryResolvedEvent implements ProgressLike {
     }
 
     this.resolvedInformation = builder.build();
+    this.name = rule.getName();
   }
 
   /** Return the entry for the given rule invocation in a format suitable for WORKSPACE.resolved. */
   public Object getResolvedInformation() {
     return resolvedInformation;
+  }
+
+  /** Return the name of the rule that produced the resolvedInformation */
+  public String getName() {
+    return name;
   }
 }
