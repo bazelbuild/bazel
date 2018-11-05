@@ -260,7 +260,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadUsingLabelThatDoesntCrossesBoundaryOfPackage() throws Exception {
+  public void testLoadUsingLabelThatDoesntCrossBoundaryOfPackage() throws Exception {
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
     scratch.file("a/b/b.bzl", "b = 42");
@@ -407,4 +407,67 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
             "Label '//a/c:c/c.bzl' crosses boundary of package 'a' (perhaps you meant to put the "
                 + "colon here: '//a:c/c/c.bzl'?)");
   }
+
+  // test stuff with remapping:
+  // 1. test that load in workspace file applies mapping
+  // local_repo (name = "a", repo_mapping = {b :c}), load(@a//a.bzl), a.bzl has @b in it
+
+  // 2. test that regs load in bzl file that requires remapping works (it didn't before)
+  @Test
+  public void testLoadBzlFileWithRemapping()
+      throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_repository_remapping");
+
+    scratch.deleteFile(preludeLabelRelativePath);
+    scratch.overwriteFile(
+        "WORKSPACE",
+        "local_repository(",
+        "    name = 'y',",
+        "    path = '/y'",
+        ")",
+        "local_repository(",
+        "    name = 'a',",
+        "    path = '/a'",
+        "    repo_mapping = {'@x' : '@y'}",
+        ")");
+    scratch.file("/y/WORKSPACE");
+    scratch.file("y/BUILD");
+
+
+    scratch.file("/a/WORKSPACE");
+    scratch.file("/a/remote_pkg/BUILD");
+    scratch.file("/a/remote_pkg/ext1.bzl", "load(':ext2.bzl', 'CONST')");
+    scratch.file("/a/remote_pkg/ext2.bzl", "CONST = 17");
+    checkSuccessfulLookup("@a_remote_repo//remote_pkg:ext1.bzl");
+
+
+
+
+
+    scratch.file("a/b/BUILD");
+    scratch.file("a/b/b.bzl", "load('//a/c:c/c.bzl', 'c')");
+    scratch.file("a/BUILD");
+    scratch.file("a/c/c/c.bzl", "c = 42");
+
+    SkyKey skylarkImportLookupKey = key("//a/b:b.bzl");
+    EvaluationResult<SkylarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .isInstanceOf(SkylarkImportFailedException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "Label '//a/c:c/c.bzl' crosses boundary of package 'a' (perhaps you meant to put the "
+                + "colon here: '//a:c/c/c.bzl'?)");
+  }
+
+
+
+
 }
