@@ -99,7 +99,6 @@ pkg_tar(
 pkg_tar(
     name = "skylark-rule-docs",
     srcs = [
-        "//tools/build_defs/docker:README.md",
         "//tools/build_defs/pkg:README.md",
     ],
     strip_prefix = "/tools/build_defs",
