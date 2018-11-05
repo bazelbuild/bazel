@@ -30,7 +30,9 @@ import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.Skylar
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -414,12 +416,12 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
   // 2. test that regs load in bzl file that requires remapping works (it didn't before)
   @Test
-  public void testLoadBzlFileWithRemapping()
+  public void testLoadBzlFileFromWorkspaceWithRemapping()
       throws Exception {
-    setSkylarkSemanticsOptions("--experimental_enable_repository_remapping");
+    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
 
     scratch.deleteFile(preludeLabelRelativePath);
-    scratch.overwriteFile(
+    Path p = scratch.overwriteFile(
         "WORKSPACE",
         "local_repository(",
         "    name = 'y',",
@@ -427,44 +429,78 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         ")",
         "local_repository(",
         "    name = 'a',",
-        "    path = '/a'",
+        "    path = '/a',",
         "    repo_mapping = {'@x' : '@y'}",
-        ")");
-    scratch.file("/y/WORKSPACE");
-    scratch.file("y/BUILD");
+        ")",
+        "load('@a//:a.bzl', 'a_symbol')");
 
+    scratch.file("/y/WORKSPACE");
+    scratch.file("/y/BUILD");
+    scratch.file("/y/y.bzl",
+        "y_symbol = 5");
 
     scratch.file("/a/WORKSPACE");
-    scratch.file("/a/remote_pkg/BUILD");
-    scratch.file("/a/remote_pkg/ext1.bzl", "load(':ext2.bzl', 'CONST')");
-    scratch.file("/a/remote_pkg/ext2.bzl", "CONST = 17");
-    checkSuccessfulLookup("@a_remote_repo//remote_pkg:ext1.bzl");
+    scratch.file("/a/BUILD");
+    scratch.file("/a/a.bzl",
+        "load('@x//:y.bzl', 'y_symbol')",
+        "a_symbol = y_symbol");
 
 
 
+    Root root = Root.fromPath(p.getParentDirectory());
+    RootedPath rootedPath = RootedPath.toRootedPath(root, PathFragment.create("WORKSPACE"));
 
+    SkyKey skylarkImportLookupKey = SkylarkImportLookupValue.key(
+        Label.parseAbsoluteUnchecked("@a//:a.bzl"), true, 1, rootedPath);
 
-    scratch.file("a/b/BUILD");
-    scratch.file("a/b/b.bzl", "load('//a/c:c/c.bzl', 'c')");
-    scratch.file("a/BUILD");
-    scratch.file("a/c/c/c.bzl", "c = 42");
-
-    SkyKey skylarkImportLookupKey = key("//a/b:b.bzl");
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
-        .hasExceptionThat()
-        .isInstanceOf(SkylarkImportFailedException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skylarkImportLookupKey)
-        .hasExceptionThat()
-        .hasMessageThat()
-        .contains(
-            "Label '//a/c:c/c.bzl' crosses boundary of package 'a' (perhaps you meant to put the "
-                + "colon here: '//a:c/c/c.bzl'?)");
+
+    assertThat(result.get(skylarkImportLookupKey).getEnvironmentExtension().getBindings()).containsEntry("a_symbol", 5);
+    assertThat(result.get(skylarkImportLookupKey).getEnvironmentExtension().getBindings()).containsEntry("y_symbol", 5);
+  }
+
+  @Test
+  public void testDoNotLoadSameBzlFileMoreThanOnceFromDifferentWorkspaceChunks()
+      throws Exception {
+    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
+
+    scratch.deleteFile(preludeLabelRelativePath);
+    Path p = scratch.overwriteFile(
+        "WORKSPACE",
+        "local_repository(",
+        "    name = 'a',",
+        "    path = '/a',",
+        ")",
+        "load('@a//:a.bzl', 'a_symbol')",
+        "# comment for new chunk",
+        "load('@a//:a.bzl', 'a2_symbol')");
+
+    scratch.file("/a/WORKSPACE");
+    scratch.file("/a/BUILD");
+    scratch.file("/a/a.bzl",
+        "a_symbol = 1",
+        "a2_symbol = 2");
+
+    Root root = Root.fromPath(p.getParentDirectory());
+    RootedPath rootedPath = RootedPath.toRootedPath(root, PathFragment.create("WORKSPACE"));
+
+    SkyKey skylarkImportLookupKey = SkylarkImportLookupValue.key(
+        Label.parseAbsoluteUnchecked("@a//:a.bzl"), true, 1, rootedPath);
+    EvaluationResult<SkylarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+
+    assertThat(result).isNotNull();
+
+    skylarkImportLookupKey = SkylarkImportLookupValue.key(
+        Label.parseAbsoluteUnchecked("@a//:a.bzl"), true, 2, rootedPath);
+    result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+    assertThat(result).isNull();
+
   }
 
 
