@@ -58,6 +58,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/shell:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple:srcs",
