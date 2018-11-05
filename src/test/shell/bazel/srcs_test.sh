@@ -21,8 +21,10 @@
 LIST_SRCS="${TEST_SRCDIR}/local_bazel_source_list/sources.txt"
 SRCS_QUERY="$(mktemp)"
 
+# Rewrite labels to file paths. This assumes any external repo is actually
+# a local_repository located in third_party.
 cat "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/srcs_list" \
-  | grep -v '^@' \
+  | sed -e 's|@\([^/]*\)//|third_party/\1|' \
   | sed -e 's|^//||' | sed -e 's|^:||' | sed -e 's|:|/|' \
   | sort -u >"${SRCS_QUERY}"
 
