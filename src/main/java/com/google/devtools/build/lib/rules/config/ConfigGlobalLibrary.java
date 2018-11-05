@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.config;
 
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigGlobalLibraryApi;
@@ -21,6 +22,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransit
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -29,6 +31,8 @@ import java.util.List;
  * <p>A collection of top-level Starlark functions pertaining to configuration.
  */
 public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
+
+  private static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
 
   @Override
   public ConfigurationTransitionApi transition(BaseFunction implementation, List<String> inputs,
@@ -52,6 +56,27 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
                 + "--experimental_starlark_config_transitions to use this experimental API.");
       }
     }
-    return new StarlarkDefinedConfigTransition(implementation, forAnalysisTesting);
+    validateBuildSettingKeys(inputs, "input", location);
+    validateBuildSettingKeys(outputs, "output", location);
+    return new StarlarkDefinedConfigTransition(implementation, forAnalysisTesting, inputs, outputs);
+  }
+
+  private void validateBuildSettingKeys(List<String> optionKeys, String keyErrorDescriptor,
+      Location location) throws EvalException {
+    // TODO(juliexxia): Allow real labels, not just command line option placeholders.
+
+    HashSet<String> processedOptions = Sets.newHashSet();
+
+    for (String optionKey : optionKeys) {
+      if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+        throw new EvalException(location,
+            String.format("invalid transition %s '%s'. If this is intended as a native option, "
+                + "it must begin with //command_line_option:", keyErrorDescriptor, optionKey));
+      }
+      if (!processedOptions.add(optionKey)) {
+        throw new EvalException(location,
+            String.format("duplicate transition %s '%s'", keyErrorDescriptor, optionKey));
+      }
+    }
   }
 }

@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.analysis.skylark;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -40,6 +42,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -58,56 +61,87 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
   private final BaseFunction transitionFunction;
   private final SkylarkSemantics semantics;
   private final EventHandler eventHandler;
+  private final List<String> inputs;
+  private final List<String> expectedOutputs;
 
   public FunctionSplitTransitionProvider(BaseFunction transitionFunction,
-      SkylarkSemantics semantics, EventHandler eventHandler) {
+      SkylarkSemantics semantics, EventHandler eventHandler,
+      List<String> inputs, List<String> expectedOutputs) {
     this.transitionFunction = transitionFunction;
     this.semantics = semantics;
     this.eventHandler = eventHandler;
+    this.inputs = inputs;
+    this.expectedOutputs = expectedOutputs;
   }
 
   @Override
   public SplitTransition apply(AttributeMap attributeMap) {
-    return new FunctionSplitTransition(transitionFunction, semantics, eventHandler);
+    return new FunctionSplitTransition(transitionFunction, semantics, eventHandler, inputs,
+        expectedOutputs);
   }
 
   private static class FunctionSplitTransition implements SplitTransition {
     private final BaseFunction transitionFunction;
     private final SkylarkSemantics semantics;
     private final EventHandler eventHandler;
+    private final List<String> inputs;
+    private final List<String> expectedOutputs;
 
     public FunctionSplitTransition(BaseFunction transitionFunction, SkylarkSemantics semantics,
-        EventHandler eventHandler) {
+        EventHandler eventHandler, List<String> inputs, List<String> expectedOutputs) {
       this.transitionFunction = transitionFunction;
       this.semantics = semantics;
       this.eventHandler = eventHandler;
+      this.inputs = inputs;
+      this.expectedOutputs = expectedOutputs;
     }
 
     @Override
     public final List<BuildOptions> split(BuildOptions buildOptions) {
       // TODO(waltl): we should be able to build this once and use it across different split
       // transitions.
-      Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
-      SkylarkDict<String, Object> settings = buildSettings(buildOptions, optionInfoMap);
-
-      ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
-
       try {
+        Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
+        SkylarkDict<String, Object> settings = buildSettings(buildOptions, optionInfoMap, inputs);
+
+        ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
+
         ImmutableList<Map<String, Object>> transitions =
             evalTransitionFunction(transitionFunction, settings);
+        // TODO(juliexxia): Validate that the output values correctly match the output types.
+        validateFunctionOutputs(transitions, expectedOutputs);
 
         for (Map<String, Object> transition : transitions) {
           BuildOptions options = buildOptions.clone();
           applyTransition(options, transition, optionInfoMap);
           splitBuildOptions.add(options);
         }
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-      } catch (EvalException e) {
-        throw new RuntimeException(e.print());
-      }
+        return splitBuildOptions.build();
 
-      return splitBuildOptions.build();
+      } catch (InterruptedException | EvalException e) {
+        // TODO(juliexxia): Throw an exception better than RuntimeException.
+        throw new RuntimeException(e);
+      }
+    }
+
+    private void validateFunctionOutputs(
+        ImmutableList<Map<String, Object>> transitions,
+        List<String> expectedOutputs) throws EvalException {
+      for (Map<String, Object> transition : transitions) {
+        LinkedHashSet<String> remainingOutputs = Sets.newLinkedHashSet(expectedOutputs);
+        for (String outputKey : transition.keySet()) {
+          if (!remainingOutputs.remove(outputKey)) {
+            throw new EvalException(transitionFunction.getLocation(),
+                String.format("transition function returned undeclared output '%s'", outputKey));
+          }
+        }
+
+        if (!remainingOutputs.isEmpty()) {
+          throw new EvalException(transitionFunction.getLocation(),
+              String.format("transition outputs [%s] were not defined by transition function",
+                  Joiner.on(", ").join(remainingOutputs)));
+        }
+      }
     }
 
     /**
@@ -163,15 +197,24 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
      * @throws RuntimeException If the field corresponding to an option value in buildOptions is
      *     inaccessible due to Java language access control, or if an option name is an invalid key
      *     to the Skylark dictionary.
+     * @throws EvalException if any of the specified transition inputs do not correspond to a valid
+     *     build setting
      */
     private SkylarkDict<String, Object> buildSettings(BuildOptions buildOptions,
-        Map<String, OptionInfo> optionInfoMap) {
+        Map<String, OptionInfo> optionInfoMap, List<String> inputs) throws EvalException {
+      LinkedHashSet<String> remainingInputs = Sets.newLinkedHashSet(inputs);
+
       try (Mutability mutability = Mutability.create("build_settings")) {
         SkylarkDict<String, Object> dict = SkylarkDict.withMutability(mutability);
 
         for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {
           String optionName = entry.getKey();
           String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
+
+          if (!remainingInputs.remove(optionKey)) {
+            // This option was not present in inputs. Skip it.
+            continue;
+          }
           OptionInfo optionInfo = entry.getValue();
 
           try {
@@ -180,10 +223,16 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
             Object optionValue = field.get(options);
 
             dict.put(optionKey, optionValue, null, mutability);
-          } catch (IllegalAccessException | EvalException e) {
+          } catch (IllegalAccessException e) {
             // These exceptions should not happen, but if they do, throw a RuntimeException.
             throw new RuntimeException(e);
           }
+        }
+
+        if (!remainingInputs.isEmpty()) {
+          throw new EvalException(transitionFunction.getLocation(),
+              String.format("transition inputs [%s] do not correspond to valid settings",
+                  Joiner.on(", ").join(remainingInputs)));
         }
 
         return dict;
@@ -283,7 +332,8 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
         try {
           if (!optionInfoMap.containsKey(optionName)) {
             throw new EvalException(transitionFunction.getLocation(),
-                "Unknown option '" + optionName + "'");
+                String.format("transition output '%s' does not correspond to a valid setting",
+                    optionKey));
           }
 
           OptionInfo optionInfo = optionInfoMap.get(optionName);

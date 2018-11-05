@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import java.util.List;
 
 /**
  * Implementation of {@link ConfigurationTransitionApi}.
@@ -26,10 +27,15 @@ public class StarlarkDefinedConfigTransition implements ConfigurationTransitionA
 
   private final BaseFunction impl;
   private final boolean forAnalysisTesting;
+  private final List<String> inputs;
+  private final List<String> outputs;
 
-  public StarlarkDefinedConfigTransition(BaseFunction impl, boolean forAnalysisTesting) {
+  public StarlarkDefinedConfigTransition(BaseFunction impl, boolean forAnalysisTesting,
+      List<String> inputs, List<String> outputs) {
     this.impl = impl;
     this.forAnalysisTesting = forAnalysisTesting;
+    this.inputs = inputs;
+    this.outputs = outputs;
   }
 
   /**
@@ -48,6 +54,23 @@ public class StarlarkDefinedConfigTransition implements ConfigurationTransitionA
    */
   public Boolean isForAnalysisTesting() {
     return forAnalysisTesting;
+  }
+
+  /**
+   * Returns the input option keys for this transition. Only option keys contained in this
+   * list will be provided in the 'settings' argument given to the transition implementation
+   * function.
+   */
+  public List<String> getInputs() {
+    return inputs;
+  }
+
+  /**
+   * Returns the output option keys for this transition. The transition implementation function
+   * must return a dictionary where the option keys exactly match the elements of this list.
+   */
+  public List<String> getOutputs() {
+    return outputs;
   }
 
   @Override
