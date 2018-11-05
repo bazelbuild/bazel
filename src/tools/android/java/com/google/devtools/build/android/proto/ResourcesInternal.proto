@@ -22,7 +22,6 @@ import "src/tools/android/java/com/google/devtools/build/android/proto/Resources
 package aapt.pb.internal;
 
 option java_package = "android.aapt.pb.internal";
-option optimize_for = LITE_RUNTIME;
 
 // The top level message representing an external resource file (layout XML, PNG, etc).
 // This is used to represent a compiled file before it is linked. Only useful to aapt2.

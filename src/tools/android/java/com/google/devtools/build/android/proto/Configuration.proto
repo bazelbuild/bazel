@@ -19,7 +19,6 @@ syntax = "proto3";
 package aapt.pb;
 
 option java_package = "com.android.aapt";
-option optimize_for = LITE_RUNTIME;
 
 // A description of the requirements a device must have in order for a
 // resource to be matched and selected.
