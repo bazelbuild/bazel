@@ -155,6 +155,12 @@ public class ResourceProcessorBusyBox {
       void call(String[] args) throws Exception {
         AndroidAssetMergingAction.main(args);
       }
+    },
+    PROCESS_DATABINDING {
+      @Override
+      void call(String[] args) throws Exception {
+        AndroidDataBindingProcessingAction.main(args);
+      }
     };
 
     abstract void call(String[] args) throws Exception;
