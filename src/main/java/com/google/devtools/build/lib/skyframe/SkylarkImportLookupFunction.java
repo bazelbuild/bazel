@@ -405,12 +405,12 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       SkylarkImport newImport;
       try {
         newImport = SkylarkImports.create(notRemappedImport.getImportString(), repositoryMapping);
+        builder.add(newImport);
       } catch (SkylarkImportSyntaxException ignored) {
         // This won't happen because we are constructing a SkylarkImport from a SkylarkImport so
         // it must be valid
         throw new AssertionError("SkylarkImportSyntaxException", ignored);
       }
-      builder.add(newImport);
     }
     return builder.build();
   }

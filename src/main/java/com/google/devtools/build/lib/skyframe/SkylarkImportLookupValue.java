@@ -119,8 +119,6 @@ public class SkylarkImportLookupValue implements SkyValue {
       return importLabel.equals(other.importLabel)
           && inWorkspace == other.inWorkspace
           && workspaceChunk == other.workspaceChunk
-          // note this might break if workspacePath can be nullable
-          // actually, can skykeys contain null values??
           && Objects.equals(workspacePath, other.workspacePath);
     }
 
