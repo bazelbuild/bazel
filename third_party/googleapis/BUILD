@@ -10,7 +10,7 @@ load("@io_bazel//tools/build_rules:utilities.bzl", "java_library_srcs")
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//third_party:__pkg__"],
+    visibility = ["@//third_party:__pkg__"],
 )
 
 JAVA_LIBRARY_PROTOS = [
