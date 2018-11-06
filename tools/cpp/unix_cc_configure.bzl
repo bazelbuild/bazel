@@ -189,6 +189,17 @@ def _is_gold_supported(repository_ctx, cc):
     ])
     return result.return_code == 0
 
+def _is_fission_supported(repository_ctx, cc):
+    """Checks if `DebugFission` is supported by the C compiler."""
+    result = repository_ctx.execute([
+        cc,
+        "-gsplit-dwarf",
+        "-g",
+        "-c",
+        str(repository_ctx.path("tools/cpp/empty.cc")),
+    ])
+    return result.return_code == 0
+
 def _add_compiler_option_if_supported(repository_ctx, cc, option):
     """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
     return [option] if _is_compiler_option_supported(repository_ctx, cc, option) else []
@@ -221,6 +232,10 @@ def _get_no_canonical_prefixes_opt(repository_ctx, cc):
 def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
     """Return the content for the CROSSTOOL file, in a dictionary."""
     supports_gold_linker = _is_gold_supported(repository_ctx, cc)
+    supports_fission = False
+    if supports_gold_linker:
+        supports_fission = _is_fission_supported(repository_ctx, cc)
+
     cc_path = repository_ctx.path(cc)
     if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
         # cc is outside the repository, set -B
@@ -254,7 +269,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
         "needsPic": True,
         "supports_gold_linker": supports_gold_linker,
         "supports_incremental_linker": False,
-        "supports_fission": False,
+        "supports_fission": supports_fission,
         "supports_interface_shared_objects": False,
         "supports_normalizing_ar": False,
         "supports_start_end_lib": supports_gold_linker,
