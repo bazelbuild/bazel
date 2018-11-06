@@ -20,8 +20,8 @@ title: Make Variables
     <li><a href="#use">Use</a></li>
     <li><a href="#predefined_variables">Predefined variables</a></li>
     <li><a href="#predefined_genrule_variables">Predefined genrule variables</a></li>
+    <li><a href="#predefined_label_variables">Predefined source/output path variables</a></li>
     <li><a href="#custom_variables">Custom variables</a></li>
-    <li><a href="#location">"$(location)" substitution</a></li>
   </ul>
 </div>
 #end
@@ -37,8 +37,8 @@ title: Make Variables
 
 <p>
   Bazel provides both <i>predefined</i> variables, which are available to all
-  rules, and <i>custom</i> variables, which are defined in rules and only
-  available to other rules that depend on them.
+  rules, and <i>custom</i> variables, which are defined in dependency rules and
+  only available to parent rules that depend on them.
 </p>
 
 <p>
@@ -75,8 +75,8 @@ title: Make Variables
 </p>
 
 <p>
-  To write <code>$</code> as a a string literal, escape it as <code>$$</code> to
-  prevent variable expansion.
+  To write <code>$</code> as a a string literal (i.e. to prevent variable
+  expansion), write <code>$$</code>.
 </p>
 
 <h2 id="predefined_variables">Predefined variables</h2>
@@ -88,7 +88,7 @@ title: Make Variables
 
 <p>
   To see the list of these variables and their values for a given set of build
-  flags, run
+  options, run
 </p>
 
 <p><code>bazel info --show_make_env [build options]</code></p>
@@ -97,7 +97,7 @@ title: Make Variables
   and look at the top output lines with capital letters.
 </p>
 
-<p><strong>C++ toolchain path variables</strong></p>
+<p><strong>C++ tool path variables</strong></p>
 <p>
   The following will eventually be converted to <a
   href="#custom_variables">custom variables</a> defined in C++ toolchain
@@ -150,9 +150,9 @@ title: Make Variables
     architectures.
   </li>
   <li><code>COMPILATION_MODE</code>:
-    "fastbuild", "dbg", or "opt" (<a
+    "fastbuild", "dbg", or "opt". (<a
   href="https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode">more
-  details</a>).
+  details</a>)
   </li>
 </ul>
 
@@ -171,10 +171,12 @@ title: Make Variables
     </p>
 
     <p>
-      If you want to run a tool from within a genrule, the recommended way of
-      specifying the path to the tool is to use <code>$(location
-      <i>toolname</i>)</code>, where <i>toolname</i> must be listed in the
-      <code>tools</code> attribute for the genrule.
+      If you want to run a tool from within a <code>genrule</code>, the
+      recommended way to get its path is <code>($<a
+      href="#predefined_label_variables">execpath</a> toolname)</code>,
+      where <i>toolname</i> must be listed in the <code>genrule</code>'s
+      <code><a
+      href="$expander.expandRef("genrule.tools")">tools</a></code> attribute.
     </p>
   </li>
       
@@ -189,14 +191,15 @@ title: Make Variables
   <li><code>ABI</code>:
     The C++ ABI version. </li>
 
-  <li> <code>TARGET_CPU</code>: The target architecture's cpu, e.g. "k8". </li>
+  <li> <code>TARGET_CPU</code>: The target architecture's CPU, e.g. "k8". </li>
 </ul>
 
 <h2 id="predefined_genrule_variables">Predefined genrule variables</h2>
+
 <p>
   The following are specially available to <code>genrule</code>'s
   <code><a href="$expander.expandRef("genrule.cmd")">cmd</a></code> attribute and are
-  generally important toward making that attribute work.
+  generally important for making that attribute work.
 </p>
 
 <ul><!--  keep alphabetically sorted  -->
@@ -212,11 +215,11 @@ title: Make Variables
   </li>
 
   <li>
-    <code>&lt;</code>: <code>SRCS</code>, if it is a single file. Else, triggers
+    <code>&lt;</code>: <code>SRCS</code>, if it is a single file. Else triggers
     a build error.
   </li>
   <li>
-    <code>@</code>: <code>OUTS</code>, if it is a single file. Else, triggers a
+    <code>@</code>: <code>OUTS</code>, if it is a single file. Else triggers a
     build error.
   </li>
   <li>
@@ -233,17 +236,151 @@ title: Make Variables
     <p>
       If the genrule needs to generate temporary intermediate files (perhaps as
       a result of using some other tool like a compiler), it should attempt to
-      write those files to <code>@D</code> (although <code>/tmp</code> will also
-      be writable) and try to remove them before finishing.
+      write them to <code>@D</code> (although <code>/tmp</code> will also
+      be writable) and remove them before finishing.
     </p>
     <p>
       Especially avoid writing to directories containing inputs. They may be on
-      read-only fileasystems, and even if not, doing so would trash the source
-      tree.
+      read-only filesystems. Even if not, doing so would trash the source tree.
     </p>
   </li>
 </ul>
 
+<h2 id="predefined_label_variables">Predefined source/output path variables</h2>
+<p>
+  The predefined variables <code>execpath</code>, <code>execpaths</code>,
+  <code>rootpath</code>, <code>rootpaths</code>, <code>location</code>, and
+  <code>locations</code> take a label parameter (e.g. <code>$(execpath
+  //foo:bar)</code>) and substitute the file paths denoted by that label.
+</p>
+<p>
+  For source files, this is the path of the file. For other rules, this is the
+  output path(s) of the file(s) generated by that rule.
+</p>
+
+<p>Example:</p>
+
+<p>
+  <pre>
+$ cat testapp/BUILD
+cc_binary(
+  name = "app",
+  srcs = ["app.cc"]
+)
+
+genrule(
+  name = "show_app_output",
+  srcs = ["empty.source"],
+  outs = ["app_output"],
+  cmd = "echo :app output paths > $@;"
+  + "echo ' ' execpath: $(execpath :app) >> $@;"
+  + "echo ' ' runfiles: $(rootpath :app) >> $@;"
+  + "echo ' ' location: $(location :app) >> $@;"
+  + "echo >> $@;"
+  + "echo source file paths >> $@;"
+  + "echo ' ' execpath: $(execpath empty.source) >> $@;"
+  + "echo ' ' runfiles: $(rootpath empty.source) >> $@",
+  + "echo ' ' location: $(location empty.source) >> $@;"
+  tools = [":app"])
+
+$ bazel build //testapp:show_app_output && cat bazel-genfiles/testapp/app_output
+Target //testapp:show_app_output up-to-date:
+  bazel-genfiles/testapp/app_output
+INFO: Build completed successfully, 1 total action
+:app output paths
+  execpath: bazel-out/host/bin/testapp/app
+  runfiles: testapp/app
+  location: bazel-out/host/bin/testapp/app
+
+source file paths
+  execpath: testapp/empty.source
+  runfiles: testapp/empty.source
+  location: testapp/empty.source
+  </pre>
+</p>
+
+<ul>
+  <li>
+    <p>
+      <code>execpath</code>:  Denotes the path beneath the <a
+      href="../output_directories.html">execroot</a> where Bazel runs build
+      actions.
+    </p>
+    <p>
+      In the above example, Bazel runs all build actions in the directory linked
+      by the <code>bazel-myproject</code> symlink in your workspace root. The
+      source file <code>empty.source</code> is linked at the path
+      <code>bazel-myproject/testapp/empty.source</code>. So its exec path (which
+      is the subpath below the root) is <code>testapp/empty.source</code>. This
+      is the path build actions can use to find the file.
+    </p>
+    <p>
+      Output files are staged similarly, but are also prefixed with the subpath
+      <code>bazel-out/cpu-compilation_mode/bin</code> (or for certain outputs:
+      <code>bazel-out/cpu-compilation_mode/genfiles</code>, or for the outputs
+      of host tools: <code>bazel-out/host/bin</code>). In the above example,
+      <code>//testapp:app</code> is a host tool because it appears in
+      <code>show_app_output</code>'s <code><a
+      href="$expander.expandRef("genrule.tools")">tools</a></code> attribute.
+      So its output file <code>app</code> is written to 
+      <code>bazel-myproject/bazel-out/host/bin/testapp/app</code>. The exec path
+      is thus <code>bazel-out/host/bin/testapp/app</code>. This extra prefix
+      makes it possible to build the same rule for, say, two different CPUs in
+      the same build without the results clobbering each other.
+    </p>
+    <p>
+      The label passed to this variable must represent exactly one file. For
+      labels representing source files, this is automatically true. For labels
+      representing rules, the rule must generate exactly one output. If this is
+      false or the label is malformed, the build fails with an error.
+    </p>
+  </li>
+
+  <li>
+    <p>
+      <code>rootpath</code>: Denotes the runfiles path that a built binary can
+      use to find its dependencies at runtime.
+    </p>
+    <p>
+      This is the same as <code>execpath</code> but strips the output prefixes
+      described above. In the above example this means both
+      <code>empty.source</code> and <code>app</code> use pure workspace-relative
+      paths: <code>testapp/empty.source</code> and <code>testapp/app</code>.
+    </p>
+    <p>
+      This has the same "one output only" requirements as <code>execpath</code>.
+    </p>
+  </li>
+
+  <li>
+    <code>location</code>: A synonym for either <code>execpath</code> or
+    <code>rootpath</code>, depending on the attribute being expanded. This is
+    legacy pre-Starlark behavior and not recommended unless you really know what
+    it does for a particular rule. See <a
+    href="https://github.com/bazelbuild/bazel/issues/2475#issuecomment-339318016">#2475</a>
+    for details.
+  </li>
+</ul>
+
+<p>
+  <code>execpaths</code>, <code>rootpaths</code>, and <code>locations</code> are
+  the plural variations of <code>execpath</code>, <code>rootpath</code>, and
+  <code>location</code>, respectively. They support labels producing multiple
+  outputs, in which case each output is listed separated by a space. Zero-output
+  rules and malformed labels produce build errors.
+</p>
+
+<p>
+  All referenced labels must appear in the consuming rule's <code>srcs</code>,
+  output files, or <code>deps</code>. Otherwise the build fails. C++ rules can
+  also reference labels in <code><a
+  href="$expander.expandRef("cc_binary.data")">data</a></code>.
+</p>
+
+<p>
+  Labels don't have to be in canonical form: <code>foo</code>, <code>:foo</code>
+  and <code>//somepkg:foo</code> are all fine.
+</p>
 
 <h2 id="custom_variables">Custom variables</h2>
 
@@ -256,11 +393,11 @@ title: Make Variables
 <p>
   As best practice all variables should be custom unless there's a really good
   reason to bake them into core Bazel. This saves Bazel from having to load
-  potentially expensive dependencies to supply variables that consuming rules
-  may not care about.
+  potentially expensive dependencies to supply variables consuming rules may not
+  care about.
 </p>
 
-<p><strong>Java toolchain path variables</strong></p>
+<p><strong>Java tool path variables</strong></p>
 
 <p>
   The following are defined in Java toolchain rules and available to any rule
@@ -346,43 +483,6 @@ INFO: Build completed successfully, 1 total action
 FOO is equal to bar!
   </pre>
 </p>
-
-<h2 id="location">"$(location)" substitution</h2>
-
-<p>
-  In attributes that support it, all occurrences of
-  <code>$(location <i>label</i>)</code> are replaced by the path to the
-  file denoted by <i>label</i>. Use <code>location</code> if the <i>label</i>
-  outputs exactly one file name. This allows bazel to perform a check and give
-  an error if no or more than one files are represented by the given label; a
-  label referring to a source file always represents a single file, but a label
-  referring to a rule refers to all output files of that rule. Otherwise use
-  <code>$(location<b>s</b> <i>label</i>)</code>; bazel will then raise an error
-  if no files are generated. In both cases, if the label is malformed then an
-  error is raised.
-</p>
-<p>
-  The <i>label</i> needs not be in canonical form:
-  <code>foo</code>, <code>:foo</code> and <code>//somepkg:foo</code> are
-  all fine. It may also be the name of an output file from the
-  <code>outs</code> attribute.
-</p>
-<p>
-  The expanded paths are relative to the runfiles directory of the
-  <code>*_test</code> or <code>*_binary</code> rule.
-</p>
-
-
-<p>To see the list of all common "Make" variables and their values,
-  run <code>bazel info --show_make_env</code>.
-</p>
-
-<p>Build rules can introduce additional rule specific variables. One example is
-  the <a href="$expander.expandRef("genrule.cmd")"><code>cmd</code> attribute of a genrule</a>.
-</p>
-
-
-
 
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
