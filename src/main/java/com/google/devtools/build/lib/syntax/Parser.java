@@ -537,7 +537,7 @@ public class Parser {
   private ImmutableList<Argument.Passed> parseFuncallArguments() {
     ImmutableList<Argument.Passed> arguments = parseFunctionArguments(this::parseFuncallArgument);
     try {
-      Argument.validateFuncallArguments(arguments);
+      Argument.legacyValidateFuncallArguments(arguments);
     } catch (Argument.ArgumentException e) {
       reportError(e.getLocation(), e.getMessage());
     }

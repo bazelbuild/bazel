@@ -187,10 +187,12 @@ public abstract class Argument extends ASTNode {
 
   /**
    * Validate that the list of Argument's, whether gathered by the Parser or from annotations,
-   * satisfies the requirements of the Python calling conventions: all Positional's first,
-   * at most one Star, at most one StarStar, at the end only.
+   * satisfies the requirements of the Python calling conventions: all Positional's first, at most
+   * one Star, at most one StarStar, at the end only.
+   *
+   * <p>TODO(laurentlb): remove this function and use only validateFuncallArguments.
    */
-  public static void validateFuncallArguments(List<Passed> arguments)
+  public static void legacyValidateFuncallArguments(List<Passed> arguments)
       throws ArgumentException {
     boolean hasNamed = false;
     boolean hasStar = false;
@@ -216,6 +218,57 @@ public abstract class Argument extends ASTNode {
       } else {
         hasKwArg = true;
       }
+    }
+  }
+
+  /**
+   * Validate that the list of Argument's, whether gathered by the Parser or from annotations,
+   * satisfies the requirements: first Positional arguments, then Keyword arguments, then an
+   * optional *arg argument, finally an optional **kwarg argument.
+   */
+  public static void validateFuncallArguments(List<Passed> arguments) throws ArgumentException {
+    int i = 0;
+    int len = arguments.size();
+
+    while (i < len && arguments.get(i).isPositional()) {
+      i++;
+    }
+
+    while (i < len && arguments.get(i).isKeyword()) {
+      i++;
+    }
+
+    if (i < len && arguments.get(i).isStar()) {
+      i++;
+    }
+
+    if (i < len && arguments.get(i).isStarStar()) {
+      i++;
+    }
+
+    // If there's no argument left, everything is correct.
+    if (i == len) {
+      return;
+    }
+
+    Location loc = arguments.get(i).getLocation();
+    if (arguments.get(i).isPositional()) {
+      throw new ArgumentException(
+          loc, "positional argument is misplaced (positional arguments come first)");
+    }
+
+    if (arguments.get(i).isKeyword()) {
+      throw new ArgumentException(
+          loc,
+          "keyword argument is misplaced (keyword arguments must be before any *arg or **kwarg)");
+    }
+
+    if (i < len && arguments.get(i).isStar()) {
+      throw new ArgumentException(loc, "*arg argument is misplaced");
+    }
+
+    if (i < len && arguments.get(i).isStarStar()) {
+      throw new ArgumentException(loc, "**kwarg argument is misplaced (there can be only one)");
     }
   }
 

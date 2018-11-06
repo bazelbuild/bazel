@@ -176,6 +176,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleStaticNameResolution();
 
+  public abstract boolean incompatibleStricArgumentOrdering();
+
   public abstract boolean incompatibleStringIsNotIterable();
 
   public abstract boolean internalSkylarkFlagTestCanary();
@@ -229,6 +231,7 @@ public abstract class SkylarkSemantics {
           .incompatibleRemoveNativeGitRepository(true)
           .incompatibleRemoveNativeHttpArchive(true)
           .incompatibleStaticNameResolution(false)
+          .incompatibleStricArgumentOrdering(false)
           .incompatibleStringIsNotIterable(false)
           .internalSkylarkFlagTestCanary(false)
           .build();
@@ -305,6 +308,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleRemoveNativeHttpArchive(boolean value);
 
     public abstract Builder incompatibleStaticNameResolution(boolean value);
+
+    public abstract Builder incompatibleStricArgumentOrdering(boolean value);
 
     public abstract Builder incompatibleStringIsNotIterable(boolean value);
 

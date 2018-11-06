@@ -502,6 +502,20 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleStaticNameResolution;
 
   @Option(
+      name = "incompatible_strict_argument_ordering",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the order of arguments is stricter in function calls, see "
+              + "https://github.com/bazelbuild/bazel/issues/6611")
+  public boolean incompatibleStricArgumentOrdering;
+
+  @Option(
       name = "incompatible_string_is_not_iterable",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -564,6 +578,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)
         .incompatibleStaticNameResolution(incompatibleStaticNameResolution)
+        .incompatibleStricArgumentOrdering(incompatibleStricArgumentOrdering)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
         .build();

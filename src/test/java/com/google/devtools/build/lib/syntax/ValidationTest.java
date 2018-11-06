@@ -239,6 +239,34 @@ public class ValidationTest extends EvaluationTestCase {
     }
   }
 
+  @Test
+  public void testPositionalAfterStarArg() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_strict_argument_ordering=true");
+    checkError(
+        "positional argument is misplaced (positional arguments come first)",
+        "def fct(*args, **kwargs): pass",
+        "fct(1, *[2], 3)");
+  }
+
+  @Test
+  public void testTwoStarArgs() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_strict_argument_ordering=true");
+    checkError(
+        "*arg argument is misplaced",
+        "def fct(*args, **kwargs):",
+        "  pass",
+        "fct(1, 2, 3, *[], *[])");
+  }
+
+  @Test
+  public void testKeywordArgAfterStarArg() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_strict_argument_ordering=true");
+    checkError(
+        "keyword argument is misplaced (keyword arguments must be before any *arg or **kwarg)",
+        "def fct(*args, **kwargs): pass",
+        "fct(1, *[2], a=3)");
+  }
+
   private void parse(String... lines) {
     parseFile(lines);
     assertNoWarningsOrErrors();

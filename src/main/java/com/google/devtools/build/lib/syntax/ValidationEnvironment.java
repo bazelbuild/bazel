@@ -153,6 +153,18 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     }
   }
 
+  private void validateLValue(Location loc, Expression expr) {
+    if (expr instanceof IndexExpression) {
+      visit(expr);
+    } else if (expr instanceof ListLiteral) {
+      for (Expression e : ((ListLiteral) expr).getElements()) {
+        validateLValue(loc, e);
+      }
+    } else if (!(expr instanceof Identifier)) {
+      throw new ValidationException(loc, "cannot assign to '" + expr + "'");
+    }
+  }
+
   @Override
   public void visit(Identifier node) {
     @Nullable Block b = blockThatDefines(node.getName());
@@ -169,21 +181,21 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     node.setScope(b.scope);
   }
 
-  private void validateLValue(Location loc, Expression expr) {
-    if (expr instanceof IndexExpression) {
-      visit(expr);
-    } else if (expr instanceof ListLiteral) {
-      for (Expression e : ((ListLiteral) expr).getElements()) {
-        validateLValue(loc, e);
-      }
-    } else if (!(expr instanceof Identifier)) {
-      throw new ValidationException(loc, "cannot assign to '" + expr + "'");
-    }
-  }
-
   @Override
   public void visit(LValue node) {
     validateLValue(node.getLocation(), node.getExpression());
+  }
+
+  @Override
+  public void visit(FuncallExpression node) {
+    super.visit(node);
+    try {
+      if (env.getSemantics().incompatibleStricArgumentOrdering()) {
+        Argument.validateFuncallArguments(node.getArguments());
+      }
+    } catch (Argument.ArgumentException e) {
+      throw new ValidationException(e.getLocation(), e.getMessage());
+    }
   }
 
   @Override
