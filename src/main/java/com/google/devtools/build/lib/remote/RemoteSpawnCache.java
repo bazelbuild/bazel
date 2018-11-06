@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
@@ -93,26 +95,33 @@ final class RemoteSpawnCache implements SpawnCache {
       context.report(ProgressStatus.CHECKING_CACHE, "remote-cache");
     }
 
+    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     TreeNodeRepository repository =
         new TreeNodeRepository(execRoot, context.getMetadataProvider(), digestUtil);
-    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
-    TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
-    repository.computeMerkleDigests(inputRoot);
+    TreeNode inputRoot;
+    try (SilentCloseable c = Profiler.instance().profile("RemoteCache.computeMerkleDigests")) {
+      inputRoot = repository.buildFromActionInputs(inputMap);
+      repository.computeMerkleDigests(inputRoot);
+    }
     Command command =
         RemoteSpawnRunner.buildCommand(
             spawn.getOutputFiles(),
             spawn.getArguments(),
             spawn.getEnvironment(),
             spawn.getExecutionPlatform());
-    Action action =
-        RemoteSpawnRunner.buildAction(
-            digestUtil.compute(command),
-            repository.getMerkleDigest(inputRoot),
-            context.getTimeout(),
-            Spawns.mayBeCached(spawn));
-    // Look up action cache, and reuse the action output if it is found.
-    final ActionKey actionKey = digestUtil.computeActionKey(action);
+    Action action;
+    final ActionKey actionKey;
+    try (SilentCloseable c = Profiler.instance().profile("RemoteCache.buildAction")) {
+      action =
+          RemoteSpawnRunner.buildAction(
+              digestUtil.compute(command),
+              repository.getMerkleDigest(inputRoot),
+              context.getTimeout(),
+              Spawns.mayBeCached(spawn));
+      // Look up action cache, and reuse the action output if it is found.
+      actionKey = digestUtil.computeActionKey(action);
+    }
 
     Context withMetadata =
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
@@ -122,12 +131,17 @@ final class RemoteSpawnCache implements SpawnCache {
       // This is done via a thread-local variable.
       Context previous = withMetadata.attach();
       try {
-        ActionResult result = remoteCache.getCachedActionResult(actionKey);
+        ActionResult result;
+        try (SilentCloseable c = Profiler.instance().profile("RemoteCache.getCachedActionResult")) {
+          result = remoteCache.getCachedActionResult(actionKey);
+        }
         if (result != null) {
           // We don't cache failed actions, so we know the outputs exist.
           // For now, download all outputs locally; in the future, we can reuse the digests to
           // just update the TreeNodeRepository and continue the build.
-          remoteCache.download(result, execRoot, context.getFileOutErr());
+          try (SilentCloseable c = Profiler.instance().profile("RemoteCache.download")) {
+            remoteCache.download(result, execRoot, context.getFileOutErr());
+          }
           SpawnResult spawnResult =
               new SpawnResult.Builder()
                   .setStatus(Status.SUCCESS)
@@ -171,7 +185,8 @@ final class RemoteSpawnCache implements SpawnCache {
         public void store(SpawnResult result)
             throws ExecException, InterruptedException, IOException {
           if (options.experimentalGuardAgainstConcurrentChanges) {
-            try {
+            try (SilentCloseable c =
+                Profiler.instance().profile("RemoteCache.checkForConcurrentModifications")) {
               checkForConcurrentModifications();
             } catch (IOException e) {
               report(Event.warn(e.getMessage()));
@@ -185,7 +200,7 @@ final class RemoteSpawnCache implements SpawnCache {
           Context previous = withMetadata.attach();
           Collection<Path> files =
               RemoteSpawnRunner.resolveActionInputs(execRoot, spawn.getOutputFiles());
-          try {
+          try (SilentCloseable c = Profiler.instance().profile("RemoteCache.upload")) {
             remoteCache.upload(
                 actionKey, action, command, execRoot, files, context.getFileOutErr(), uploadAction);
           } catch (IOException e) {
