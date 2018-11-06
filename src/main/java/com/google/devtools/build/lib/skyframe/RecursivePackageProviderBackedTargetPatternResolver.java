@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.pkgcache.FilteringPolicies.NO_FILTER;
 
-import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,7 +50,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A {@link TargetPatternResolver} backed by a {@link RecursivePackageProvider}.
@@ -273,14 +270,14 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       return Futures.immediateCancelledFuture();
     }
 
-    Iterable<PackageIdentifier> pkgIds = Iterables.transform(packagesUnderDirectory,
-            new Function<PathFragment, PackageIdentifier>() {
-              @Override
-              public PackageIdentifier apply(PathFragment path) {
-                return PackageIdentifier.create(repository, path);
-              }
-            });
-    final AtomicBoolean foundTarget = new AtomicBoolean(false);
+    if (Iterables.isEmpty(packagesUnderDirectory)) {
+      return Futures.immediateFailedFuture(
+          new TargetParsingException("no targets found beneath '" + pathFragment + "'"));
+    }
+
+    Iterable<PackageIdentifier> pkgIds =
+        Iterables.transform(
+            packagesUnderDirectory, path -> PackageIdentifier.create(repository, path));
 
     // For very large sets of packages, we may not want to process all of them at once, so we split
     // into batches.
@@ -295,18 +292,10 @@ public class RecursivePackageProviderBackedTargetPatternResolver
                 packageSemaphore.acquireAll(pkgIdBatchSet);
                 try {
                   Iterable<ResolvedTargets<Target>> resolvedTargets =
-                      bulkGetTargetsInPackage(originalPattern, pkgIdBatch, NO_FILTER).values();
+                      bulkGetTargetsInPackage(originalPattern, pkgIdBatch, actualPolicy).values();
                   List<Target> filteredTargets = new ArrayList<>(calculateSize(resolvedTargets));
                   for (ResolvedTargets<Target> targets : resolvedTargets) {
-                    for (Target target : targets.getTargets()) {
-                      // Perform the no-targets-found check before applying the filtering policy
-                      // so we only return the error if the input directory's subtree really
-                      // contains no targets.
-                      foundTarget.set(true);
-                      if (actualPolicy.shouldRetain(target, false)) {
-                        filteredTargets.add(target);
-                      }
-                    }
+                    filteredTargets.addAll(targets.getTargets());
                   }
                   // TODO(bazel-core): Invoking the callback while holding onto the package
                   // semaphore can lead to deadlocks. Also, if the semaphore has a small count,
@@ -320,15 +309,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
                 return null;
               }));
     }
-    return Futures.whenAllSucceed(futures)
-        .call(
-            () -> {
-              if (!foundTarget.get()) {
-                throw new TargetParsingException("no targets found beneath '" + pathFragment + "'");
-              }
-              return null;
-            },
-            directExecutor());
+    return Futures.whenAllSucceed(futures).call(() -> null, directExecutor());
   }
 
   private static <T> int calculateSize(Iterable<ResolvedTargets<T>> resolvedTargets) {
