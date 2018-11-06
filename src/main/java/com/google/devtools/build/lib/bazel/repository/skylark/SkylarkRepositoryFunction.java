@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -128,9 +127,11 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               /*kwargs=*/ ImmutableMap.of(),
               null,
               buildEnv);
-      if (retValue != Runtime.NONE) {
-        env.getListener()
-            .handle(Event.info("Repository rule '" + rule.getName() + "' returned: " + retValue));
+      RepositoryResolvedEvent resolved =
+          new RepositoryResolvedEvent(
+              rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue);
+      if (resolved.isNewInformationReturned()) {
+        env.getListener().handle(Event.info(resolved.getMessage()));
       }
 
       String ruleClass =
@@ -138,25 +139,16 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       if (verificationRules.contains(ruleClass)) {
         String expectedHash = resolvedHashes.get(rule.getName());
         if (expectedHash != null) {
-          try {
-            String actualHash = outputDirectory.getDirectoryDigest();
-            if (!expectedHash.equals(actualHash)) {
-              throw new RepositoryFunctionException(
-                  new IOException(
-                      rule + " failed to create a directory with expected hash " + expectedHash),
-                  Transience.PERSISTENT);
-            }
-          } catch (IOException e) {
+          String actualHash = resolved.getDirectoryDigest();
+          if (!expectedHash.equals(actualHash)) {
             throw new RepositoryFunctionException(
-                new IOException("Rule failed to produce a directory with computable hash", e),
+                new IOException(
+                    rule + " failed to create a directory with expected hash " + expectedHash),
                 Transience.PERSISTENT);
           }
         }
       }
-      env.getListener()
-          .post(
-              new RepositoryResolvedEvent(
-                  rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue));
+      env.getListener().post(resolved);
     } catch (EvalException e) {
       if (e.getCause() instanceof RepositoryMissingDependencyException) {
         // A dependency is missing, cleanup and returns null
