@@ -16,7 +16,6 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
-#include <inttypes.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -24,6 +23,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -189,7 +189,8 @@ TEST_F(UnlimitResourcesTest, Coredumps) {
   struct rlimit rl = GetrlimitOrDie(RLIMIT_CORE);
   if (rl.rlim_max <= 1) {
     fprintf(stderr, "Hard resource limit for RLIMIT_CORE is %" PRIuMAX
-            "; cannot test anything meaningful\n", (uintmax_t)rl.rlim_max);
+            "; cannot test anything meaningful\n",
+            static_cast<uintmax_t>(rl.rlim_max));
     return;
   }
   rl.rlim_cur = 1;
