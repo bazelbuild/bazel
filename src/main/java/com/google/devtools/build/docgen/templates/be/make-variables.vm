@@ -38,7 +38,7 @@ title: Make Variables
 <p>
   Bazel provides both <i>predefined</i> variables, which are available to all
   rules, and <i>custom</i> variables, which are defined in dependency rules and
-  only available to parent rules that depend on them.
+  only available to rules that depend on them.
 </p>
 
 <p>
