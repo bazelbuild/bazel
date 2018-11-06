@@ -193,6 +193,11 @@ message BuildEventId {
   message BuildMetricsId {
   }
 
+  // Identifier of an event providing information about the location of
+  // query/cquery/acquery command output.
+  message QueryOutputId {
+  }
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
@@ -216,6 +221,7 @@ message BuildEventId {
     BuildFinishedId build_finished = 9;
     BuildToolLogsId build_tool_logs = 20;
     BuildMetricsId build_metrics = 22;
+    QueryOutputId query_output = 23;
   }
 }
 
@@ -665,6 +671,30 @@ message BuildToolLogs {
   repeated File log = 1;
 }
 
+// For 'query', 'cquery', and 'aquery' commands, an Event that describes where
+// the output was written to.
+message QueryOutput {
+  // Marker message type to indicate that Bazel printed the query output to
+  // stdout on the console. Note that this also implies that the output is in a
+  // Progress event.
+  message OutputPrintedToConsole {
+  }
+
+  // Marker message type to indicate that the query output upload didn't occur
+  // for some reason. Either there was an error, or the appropriate flags to
+  // enable remote file uploading weren't set,
+  message UploadFailed {
+  }
+
+  oneof payload {
+    OutputPrintedToConsole output_printed_to_console = 1;
+    // If this field is set, 'query_output_file.uri' will be the URI of where
+    // the query output was uploaded.
+    File query_output_file = 2;
+    UploadFailed upload_failed = 3;
+  };
+}
+
 // Message describing a build event. Events will have an identifier that
 // is unique within a given build invocation; they also announce follow-up
 // events as children. More details, which are specific to the kind of event
@@ -695,5 +725,6 @@ message BuildEvent {
     BuildFinished finished = 14;
     BuildToolLogs build_tool_logs = 23;
     BuildMetrics build_metrics = 24;
+    QueryOutput query_output = 25;
   };
 }

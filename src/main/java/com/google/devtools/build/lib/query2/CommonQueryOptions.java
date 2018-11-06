@@ -92,6 +92,17 @@ public class CommonQueryOptions extends OptionsBase {
     return settings;
   }
 
+  @Option(
+      name = "upload_query_output_using_bep",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "If this flag is set to 'true' and other relevant BEP flags are set as appropriate, "
+          + "query output will not be written to stdout and will instead be uploaded to a remote "
+          + "file, and the location of this file will be reported in the BEP."
+  )
+  public boolean uploadQueryOutputUsingBEP;
+
   ///////////////////////////////////////////////////////////
   // PROTO OUTPUT FORMATTER OPTIONS                        //
   ///////////////////////////////////////////////////////////

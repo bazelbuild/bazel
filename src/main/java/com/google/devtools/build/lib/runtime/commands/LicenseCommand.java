@@ -51,7 +51,7 @@ public class LicenseCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    env.getEventBus().post(new NoBuildEvent());
+    env.getEventBus().post(NoBuildEvent.newBuilder().build());
     OutErr outErr = env.getReporter().getOutErr();
 
     outErr.printOutLn("Licenses of all components included in this binary:\n");

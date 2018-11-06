@@ -75,12 +75,13 @@ public final class SyncCommand implements BlazeCommand {
     try {
       env.getReporter()
           .post(
-              new NoBuildEvent(
-                  env.getCommandName(),
-                  env.getCommandStartTime(),
-                  true,
-                  true,
-                  env.getCommandId().toString()));
+              NoBuildEvent.newBuilder()
+                  .setCommand(env.getCommandName())
+                  .setStartTimeMillis(env.getCommandStartTime())
+                  .setSeparateFinishedEvent(true)
+                  .setShowProgress(true)
+                  .setId(env.getCommandId().toString())
+                  .build());
       env.setupPackageCache(options, env.getRuntime().getDefaultsPackageContent());
       SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
       skyframeExecutor.injectExtraPrecomputedValues(

@@ -122,7 +122,7 @@ public final class HelpCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    env.getEventBus().post(new NoBuildEvent());
+    env.getEventBus().post(NoBuildEvent.newBuilder().build());
 
     BlazeRuntime runtime = env.getRuntime();
     OutErr outErr = env.getReporter().getOutErr();

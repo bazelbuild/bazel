@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
@@ -74,7 +75,32 @@ public class ActionGraphQueryEnvironment
       String parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      Set<Setting> settings) {
+      AqueryOptions aqueryOptions) {
+    this(
+        keepGoing,
+        eventHandler,
+        extraFunctions,
+        topLevelConfigurations,
+        hostConfiguration,
+        parserPrefix,
+        pkgPath,
+        walkableGraphSupplier,
+        aqueryOptions.toSettings(),
+        aqueryOptions);
+  }
+
+  @VisibleForTesting
+  public ActionGraphQueryEnvironment(
+      boolean keepGoing,
+      ExtendedEventHandler eventHandler,
+      Iterable<QueryFunction> extraFunctions,
+      TopLevelConfigurations topLevelConfigurations,
+      BuildConfiguration hostConfiguration,
+      String parserPrefix,
+      PathPackageLocator pkgPath,
+      Supplier<WalkableGraph> walkableGraphSupplier,
+      Set<Setting> settings,
+      AqueryOptions aqueryOptions) {
     super(
         keepGoing,
         eventHandler,
@@ -84,7 +110,8 @@ public class ActionGraphQueryEnvironment
         parserPrefix,
         pkgPath,
         walkableGraphSupplier,
-        settings);
+        settings,
+        aqueryOptions);
     this.configuredTargetKeyExtractor =
         configuredTargetValue -> {
           try {
@@ -102,28 +129,6 @@ public class ActionGraphQueryEnvironment
     this.accessor =
         new ConfiguredTargetValueAccessor(
             walkableGraphSupplier.get(), this.configuredTargetKeyExtractor);
-  }
-
-  public ActionGraphQueryEnvironment(
-      boolean keepGoing,
-      ExtendedEventHandler eventHandler,
-      Iterable<QueryFunction> extraFunctions,
-      TopLevelConfigurations topLevelConfigurations,
-      BuildConfiguration hostConfiguration,
-      String parserPrefix,
-      PathPackageLocator pkgPath,
-      Supplier<WalkableGraph> walkableGraphSupplier,
-      AqueryOptions aqueryOptions) {
-    this(
-        keepGoing,
-        eventHandler,
-        extraFunctions,
-        topLevelConfigurations,
-        hostConfiguration,
-        parserPrefix,
-        pkgPath,
-        walkableGraphSupplier,
-        aqueryOptions.toSettings());
     this.aqueryOptions = aqueryOptions;
   }
 

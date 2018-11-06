@@ -96,6 +96,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   private final String parserPrefix;
   private final PathPackageLocator pkgPath;
   private final Supplier<WalkableGraph> walkableGraphSupplier;
+  private final CommonQueryOptions commonQueryOptions;
   protected WalkableGraph graph;
 
   private static final Function<SkyKey, ConfiguredTargetKey> SKYKEY_TO_CTKEY =
@@ -126,13 +127,15 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       String parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      Set<Setting> settings) {
+      Set<Setting> settings,
+      CommonQueryOptions commonQueryOptions) {
     super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
     this.topLevelConfigurations = topLevelConfigurations;
     this.hostConfiguration = hostConfiguration;
     this.parserPrefix = parserPrefix;
     this.pkgPath = pkgPath;
     this.walkableGraphSupplier = walkableGraphSupplier;
+    this.commonQueryOptions = commonQueryOptions;
   }
 
   public abstract ImmutableList<NamedThreadSafeOutputFormatterCallback<T>>
@@ -187,6 +190,10 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   public BuildConfiguration getHostConfiguration() {
     return hostConfiguration;
+  }
+
+  public CommonQueryOptions getCommonQueryOptions() {
+    return commonQueryOptions;
   }
 
   // TODO(bazel-team): It's weird that this untemplated function exists. Fix? Or don't implement?

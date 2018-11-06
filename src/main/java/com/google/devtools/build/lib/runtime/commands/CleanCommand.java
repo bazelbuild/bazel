@@ -127,7 +127,7 @@ public final class CleanCommand implements BlazeCommand {
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     Options cleanOptions = options.getOptions(Options.class);
     boolean async = cleanOptions.async;
-    env.getEventBus().post(new NoBuildEvent());
+    env.getEventBus().post(NoBuildEvent.newBuilder().build());
 
     // TODO(dmarting): Deactivate expunge_async on non-Linux platform until we completely fix it
     // for non-Linux platforms (https://github.com/bazelbuild/bazel/issues/1906).

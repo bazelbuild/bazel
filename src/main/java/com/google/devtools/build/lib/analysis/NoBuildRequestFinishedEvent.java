@@ -17,7 +17,10 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.util.ExitCode;
 
-/** {@link BuildEvent} indicating that a request that does not involve building as finished. */
+/**
+ * A {@link BuildEvent} indicating that a request (that does not involve building) should be treated
+ * as finished.
+ */
 public final class NoBuildRequestFinishedEvent extends BuildCompletingEvent {
   public NoBuildRequestFinishedEvent(ExitCode exitCode, long finishTimeMillis) {
     super(exitCode, finishTimeMillis);

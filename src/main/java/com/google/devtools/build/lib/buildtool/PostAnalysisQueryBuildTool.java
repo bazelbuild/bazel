@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.QueryBEPHelper;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
@@ -79,6 +82,11 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
       TopLevelConfigurations topLevelConfigurations,
       WalkableGraph walkableGraph);
 
+  @Override
+  protected ImmutableList<BuildEventId> getAdditionalChildrenEventsForBuildStartingEvent() {
+    return ImmutableList.of(QueryBEPHelper.getBuildEventIdOfQueryOutputEvent());
+  }
+
   private void doPostAnalysisQuery(
       BuildRequest request,
       BuildConfiguration hostConfiguration,
@@ -87,36 +95,38 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
       throws InterruptedException, QueryException, IOException {
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
-
     PostAnalysisQueryEnvironment<T> postAnalysisQueryEnvironment =
         getQueryEnvironment(request, hostConfiguration, topLevelConfigurations, walkableGraph);
-
-    Iterable<NamedThreadSafeOutputFormatterCallback<T>> callbacks =
-        postAnalysisQueryEnvironment.getDefaultOutputFormatters(
-            postAnalysisQueryEnvironment.getAccessor(),
-            env.getReporter(),
-            env.getReporter().getOutErr().getOutputStream(),
-            env.getSkyframeExecutor(),
-            hostConfiguration,
-            runtime.getRuleClassProvider().getTrimmingTransitionFactory(),
-            env.getPackageManager());
-    String outputFormat = postAnalysisQueryEnvironment.getOutputFormat();
-    NamedThreadSafeOutputFormatterCallback<T> callback =
-        NamedThreadSafeOutputFormatterCallback.selectCallback(outputFormat, callbacks);
-    if (callback == null) {
-      env.getReporter()
-          .handle(
-              Event.error(
-                  String.format(
-                      "Invalid output format '%s'. Valid values are: %s",
-                      outputFormat,
-                      NamedThreadSafeOutputFormatterCallback.callbackNames(callbacks))));
-      return;
-    }
-    QueryEvalResult result =
-        postAnalysisQueryEnvironment.evaluateQuery(queryExpression, callback);
-    if (result.isEmpty()) {
-      env.getReporter().handle(Event.info("Empty query results"));
+    try (QueryBEPHelper queryBepHelper =
+        QueryBEPHelper.create(env, postAnalysisQueryEnvironment.getCommonQueryOptions())) {
+      Iterable<NamedThreadSafeOutputFormatterCallback<T>> callbacks =
+          postAnalysisQueryEnvironment.getDefaultOutputFormatters(
+              postAnalysisQueryEnvironment.getAccessor(),
+              env.getReporter(),
+              queryBepHelper.getOutputStreamForQueryOutput(),
+              env.getSkyframeExecutor(),
+              hostConfiguration,
+              runtime.getRuleClassProvider().getTrimmingTransitionFactory(),
+              env.getPackageManager());
+      String outputFormat = postAnalysisQueryEnvironment.getOutputFormat();
+      NamedThreadSafeOutputFormatterCallback<T> callback =
+          NamedThreadSafeOutputFormatterCallback.selectCallback(outputFormat, callbacks);
+      if (callback == null) {
+        env.getReporter()
+            .handle(
+                Event.error(
+                    String.format(
+                        "Invalid output format '%s'. Valid values are: %s",
+                        outputFormat,
+                        NamedThreadSafeOutputFormatterCallback.callbackNames(callbacks))));
+        return;
+      }
+      QueryEvalResult result =
+          postAnalysisQueryEnvironment.evaluateQuery(queryExpression, callback);
+      if (result.isEmpty()) {
+        env.getReporter().handle(Event.info("Empty query results"));
+      }
+      queryBepHelper.afterQueryOutputIsWritten();
     }
   }
 
