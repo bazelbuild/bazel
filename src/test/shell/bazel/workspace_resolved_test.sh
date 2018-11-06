@@ -842,6 +842,58 @@ EOF
         //:local || fail "Expected success"
 }
 
+test_usage_order_respected() {
+   # Verify that if one rules uses a file from another (without any load
+   # statement inbetween), then still the resolved file is such that it can
+   # be used as a workspace replacement.
+   EXTREPODIR=`pwd`
+   tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+
+   mkdir datarepo
+   echo 'Pure data' > datarepo/data.txt
+   zip datarepo.zip datarepo/*
+   rm -rf datarepo
+
+   mkdir metadatarepo
+   echo 'exports_files(["data.txt"])' > metadatarepo/datarepo.BUILD
+   touch metadatarepo/BUILD
+   zip metadatarepo.zip metadatarepo/*
+   rm -rf metadatarepo
+
+   mkdir main
+   cd main
+   cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="datarepo",
+  strip_prefix="datarepo",
+  urls=["file://${EXTREPODIR}/datarepo.zip"],
+  build_file="@metadatarepo//:datarepo.BUILD",
+)
+http_archive(
+  name="metadatarepo",
+  strip_prefix="metadatarepo",
+  urls=["file://${EXTREPODIR}/metadatarepo.zip"],
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  srcs =  ["@datarepo//:data.txt"],
+  outs = ["local.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+     --experimental_repository_resolved_file=resolved.bzl
+  bazel clean --expunge
+  echo; cat resolved.bzl; echo
+
+
+  bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
+        //:local || fail "Expected success"
+}
+
 test_order_reproducible() {
   # Verify that the order of repositories in the resolved file is reproducible
   # and does not depend on the parameters or timing of the actual rules.

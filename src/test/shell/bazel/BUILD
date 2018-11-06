@@ -499,7 +499,7 @@ sh_test(
         ":jdk_WORKSPACE",
         ":test-deps",
     ],
-    shard_count = 16,
+    shard_count = 17,
     tags = ["no_windows"],
 )
 
