@@ -397,6 +397,9 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
       // Note: we know for sure that the requested WorkspaceFileValue is fully computed so we do not
       // need to check if it is null
+      if (workspaceFileValue == null) {
+        return null;
+      }
       repositoryMapping = workspaceFileValue.getRepositoryMapping().getOrDefault(enclosingFileLabel.getPackageIdentifier().getRepository(), ImmutableMap.of());
     }
 
