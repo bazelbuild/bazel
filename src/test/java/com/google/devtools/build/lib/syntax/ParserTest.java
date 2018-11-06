@@ -1480,4 +1480,28 @@ public class ParserTest extends EvaluationTestCase {
     parseFile("func(*array)");
     assertContainsError("*args arguments are not allowed in BUILD files");
   }
+
+  @Test
+  public void testArgumentAfterKwargs() throws Exception {
+    setFailFast(false);
+    parseFileForSkylark(
+        "f(",
+        "    1,",
+        "    *[2],",
+        "    *[3],", // error on this line
+        ")\n");
+    assertContainsError(":4:5: more than one *stararg");
+  }
+
+  @Test
+  public void testPositionalArgAfterKeywordArg() throws Exception {
+    setFailFast(false);
+    parseFileForSkylark(
+        "f(",
+        "    2,",
+        "    a = 4,",
+        "    3,", // error on this line
+        ")\n");
+    assertContainsError(":4:5: non-keyword arg after keyword arg");
+  }
 }
