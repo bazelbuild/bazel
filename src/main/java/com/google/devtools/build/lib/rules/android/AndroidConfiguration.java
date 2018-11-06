@@ -232,7 +232,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
               ruleContext,
               ruleContext.attributes().get("aapt_version", STRING));
         } else {
-          // On rules can't choose, assume aapt2 if aapt2 is present in the sdk.
+          // On rules that can't choose, assume aapt2 if aapt2 is present in the sdk.
+          // This ensures that non-leaf nodes (e.g. android_library) will generate aapt2 actions.
           return AndroidSdkProvider.fromRuleContext(ruleContext).getAapt2() != null ? AAPT2 : AAPT;
         }
       }
@@ -243,20 +244,20 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public static AndroidAaptVersion chooseTargetAaptVersion(
         AndroidDataContext dataContext,
         RuleErrorConsumer errorConsumer,
-        @Nullable String versionString)
+        @Nullable String attributeString)
         throws RuleErrorException {
 
       boolean hasAapt2 = dataContext.getSdk().getAapt2() != null;
       AndroidAaptVersion flag = dataContext.getAndroidConfig().getAndroidAaptVersion();
+      AndroidAaptVersion attribute = AndroidAaptVersion.fromString(attributeString);
 
-      AndroidAaptVersion version = fromString(versionString);
-      // version is null if the value is "auto"
-      version = version == AndroidAaptVersion.AUTO ? flag : version;
+      AndroidAaptVersion version = flag == AndroidAaptVersion.AUTO ? attribute : flag;
 
       if (version == AAPT2 && !hasAapt2) {
         throw errorConsumer.throwWithRuleError(
             "aapt2 processing requested but not available on the android_sdk");
       }
+      // If version is auto, assume aapt.
       return version == AndroidAaptVersion.AUTO ? AAPT : version;
     }
   }
@@ -653,18 +654,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public AndroidManifestMerger manifestMerger;
 
     @Option(
-        name = "android_aapt",
-        defaultValue = "aapt",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        converter = AndroidAaptConverter.class,
-        help =
-            "Selects the version of androidAaptVersion to use for android_binary rules."
-                + "Flag to help the test and transition to aapt2.")
+      name = "android_aapt",
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+      },
+      converter = AndroidAaptConverter.class,
+      help =
+          "Selects the version of androidAaptVersion to use for android_binary rules."
+              + "Flag to help the test and transition to aapt2."
+    )
     public AndroidAaptVersion androidAaptVersion;
 
     @Option(
