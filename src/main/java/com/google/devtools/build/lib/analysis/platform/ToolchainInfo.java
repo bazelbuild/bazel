@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Map;
 
 /**
- * A provider that supplied information about a specific language toolchain, including what platform
+ * A provider that supplies information about a specific language toolchain, including what platform
  * constraints are required for execution and for the target platform.
  */
 @AutoCodec

@@ -139,7 +139,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     debugMessage(eventHandler, "Looking for toolchain of type %s...", toolchainType);
     for (DeclaredToolchainInfo toolchain : toolchains) {
       // Make sure the type matches.
-      if (!toolchain.toolchainType().equals(toolchainType)) {
+      if (!toolchain.toolchainType().typeLabel().equals(toolchainType)) {
         continue;
       }
       debugMessage(eventHandler, "  Considering toolchain %s...", toolchain.toolchainLabel());

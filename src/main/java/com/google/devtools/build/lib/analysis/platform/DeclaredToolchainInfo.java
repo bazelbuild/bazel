@@ -33,7 +33,7 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
   /**
    * The type of the toolchain being declared. This will be a label of a toolchain_type() target.
    */
-  public abstract Label toolchainType();
+  public abstract ToolchainTypeInfo toolchainType();
 
   /** The constraints describing the execution environment. */
   public abstract ConstraintCollection execConstraints();
@@ -46,7 +46,7 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
 
   /** Returns a new {@link DeclaredToolchainInfo} with the given data. */
   public static DeclaredToolchainInfo create(
-      Label toolchainType,
+      ToolchainTypeInfo toolchainType,
       ImmutableList<ConstraintValueInfo> execConstraints,
       ImmutableList<ConstraintValueInfo> targetConstraints,
       Label toolchainLabel) {
@@ -60,7 +60,7 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
   @AutoCodec.Instantiator
   @VisibleForSerialization
   static DeclaredToolchainInfo create(
-      Label toolchainType,
+      ToolchainTypeInfo toolchainType,
       ConstraintCollection execConstraints,
       ConstraintCollection targetConstraints,
       Label toolchainLabel) {

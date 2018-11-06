@@ -20,6 +20,7 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -46,10 +47,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
     // Check that the number of toolchains created for this test is correct.
     assertThat(
-            value
-                .registeredToolchains()
-                .stream()
-                .filter(toolchain -> toolchain.toolchainType().equals(testToolchainType))
+            value.registeredToolchains().stream()
+                .filter(
+                    toolchain -> toolchain.toolchainType().typeLabel().equals(testToolchainType))
                 .collect(Collectors.toList()))
         .hasSize(2);
 
@@ -57,7 +57,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             value.registeredToolchains().stream()
                 .anyMatch(
                     toolchain ->
-                        (toolchain.toolchainType().equals(testToolchainType))
+                        toolchain.toolchainType().typeLabel().equals(testToolchainType)
                             && toolchain.execConstraints().get(setting).equals(linuxConstraint)
                             && toolchain.targetConstraints().get(setting).equals(macConstraint)
                             && toolchain
@@ -69,7 +69,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             value.registeredToolchains().stream()
                 .anyMatch(
                     toolchain ->
-                        (toolchain.toolchainType().equals(testToolchainType))
+                        toolchain.toolchainType().typeLabel().equals(testToolchainType)
                             && toolchain.execConstraints().get(setting).equals(macConstraint)
                             && toolchain.targetConstraints().get(setting).equals(linuxConstraint)
                             && toolchain
@@ -238,13 +238,13 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   public void testRegisteredToolchainsValue_equalsAndHashCode() {
     DeclaredToolchainInfo toolchain1 =
         DeclaredToolchainInfo.create(
-            makeLabel("//test:toolchain"),
+            ToolchainTypeInfo.create(makeLabel("//test:toolchain")),
             ImmutableList.of(),
             ImmutableList.of(),
             makeLabel("//test/toolchain_impl_1"));
     DeclaredToolchainInfo toolchain2 =
         DeclaredToolchainInfo.create(
-            makeLabel("//test:toolchain"),
+            ToolchainTypeInfo.create(makeLabel("//test:toolchain")),
             ImmutableList.of(),
             ImmutableList.of(),
             makeLabel("//test/toolchain_impl_2"));

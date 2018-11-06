@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -74,7 +75,8 @@ public class ToolchainTest extends BuildViewTestCase {
 
     DeclaredToolchainInfo provider = target.getProvider(DeclaredToolchainInfo.class);
     assertThat(provider).isNotNull();
-    assertThat(provider.toolchainType()).isEqualTo(makeLabel("//toolchain:demo_toolchain"));
+    assertThat(provider.toolchainType())
+        .isEqualTo(ToolchainTypeInfo.create(makeLabel("//toolchain:demo_toolchain")));
 
     ConstraintSettingInfo basicConstraintSetting =
         ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
