@@ -13,6 +13,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Disable Slow Tests
@@ -32,6 +33,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Disable Slow Tests
@@ -51,6 +53,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Disable Slow Tests
@@ -69,6 +72,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
@@ -123,6 +127,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Disable Slow Tests
@@ -142,6 +147,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Disable Slow Tests
@@ -161,6 +167,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
