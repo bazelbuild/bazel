@@ -31,7 +31,7 @@ title: Make Variables
 </p>
 
 <p>
-  They can be used, for example, to inject specific toolchain paths into
+  These can be used, for example, to inject specific toolchain paths into
   user-constructed build actions.
 </p>
 
@@ -60,7 +60,7 @@ title: Make Variables
 </p>
 
 <p>
-  In other words, any substring that matches <code>$(FOO)</code> gets expanded
+  In other words, any substring matching <code>$(FOO)</code> gets expanded
   to <code>FOO</code>'s value. If that value is <code>"bar"</code>, the final
   string becomes:
 </p>
@@ -70,25 +70,20 @@ title: Make Variables
 </p>
 
 <p>
-  Parentheses may be omitted for single-character variable names. So both
-  <code>$(A)</code> and <code>&#36;A</code> are valid references.
-</p>
-
-<p>
   If <code>FOO</code> doesn't correspond to a variable known to the consuming
   rule, Bazel fails with an error.
 </p>
 
 <p>
-  To treat <code>$(FOO)</code> as a string literal that shouldn't be
-  expanded, use double dollar signs: <code>$$(FOO)</code>.
+  To write <code>$</code> as a a string literal, escape it as <code>$$</code> to
+  prevent variable expansion.
 </p>
 
 <h2 id="predefined_variables">Predefined variables</h2>
 
 <p>
-  Predefined "Make" variables can be referenced in any attribute marked as
-  <i>"Subject to 'Make variable' substitution"</i> under any rule.
+  Predefined "Make" variables can be referenced by any attribute marked as
+  <i>"Subject to 'Make variable' substitution"</i> on any rule.
 </p>
 
 <p>
@@ -99,14 +94,16 @@ title: Make Variables
 <p><code>bazel info --show_make_env [build options]</code></p>
 
 <p>
-  and look at the top lines in the output with capital letters.
+  and look at the top output lines with capital letters.
 </p>
 
 <p><strong>C++ toolchain path variables</strong></p>
 <p>
   The following will eventually be converted to <a
   href="#custom_variables">custom variables</a> defined in C++ toolchain
-  rules. For the time being they're globally available to all rules.
+  rules. This will save Bazel from having to load the C++ toolchain for rules
+  that don't care about C++. For the time being, these are globally available to
+  all rules.
 </p>
 
 <p>
@@ -125,9 +122,10 @@ title: Make Variables
 </p>
 
 <ul><!--  keep alphabetically sorted  -->
-  <li class="harmful"> <code>CC</code>: The C and C++ compiler command.
+  <li class="harmful">
+    <p><code>CC</code>: The C and C++ compiler command.</p>
     <p>
-      It is strongly recommended to always use <code>CC_FLAGS</code> in
+      We strongly recommended always using <code>CC_FLAGS</code> in
       combination with <code>CC</code>. Fail to do so at your own risk.
     </p>
   </li>
@@ -147,29 +145,36 @@ title: Make Variables
 
 <ul><!--  keep alphabetically sorted  -->
   <li class="harmful"><code>CC_FLAGS</code>: A minimal set of flags for the C/C++
-    compiler to be usable by genrules. In particular, it contains flags to select
-    the correct architecture if <code>CC</code> supports multiple architectures.
+    compiler to be usable by genrules. In particular, this contains flags to
+    select the correct architecture if <code>CC</code> supports multiple
+    architectures.
   </li>
   <li><code>COMPILATION_MODE</code>:
-    "fastbuild", "dbg", or "opt". (<a
-  href="https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode">More
-  details</a>)
+    "fastbuild", "dbg", or "opt" (<a
+  href="https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode">more
+  details</a>).
   </li>
 </ul>
 
 <p><strong>Path variables</strong></p>
 
 <ul><!--  keep alphabetically sorted  -->
-  <li><code>BINDIR</code>: The base of the generated binary tree for the target
-    architecture.
+  <li>
+    <p>
+      <code>BINDIR</code>: The base of the generated binary tree for the target
+       architecture.
+    </p>
 
     <p>
       Note that a different tree may be used for programs that run during the
-      build on the host architecture, to support cross-compiling.  If you want
-      to run a tool from within a genrule, the recommended way of specifying the
-      path to the tool is to use <code>$(location <i>toolname</i>)</code>, where
-      <i>toolname</i> must be listed in the <code>tools</code> attribute for the
-      genrule.
+      build on the host architecture, to support cross-compiling.
+    </p>
+
+    <p>
+      If you want to run a tool from within a genrule, the recommended way of
+      specifying the path to the tool is to use <code>$(location
+      <i>toolname</i>)</code>, where <i>toolname</i> must be listed in the
+      <code>tools</code> attribute for the genrule.
     </p>
   </li>
       
@@ -195,48 +200,94 @@ title: Make Variables
 </p>
 
 <ul><!--  keep alphabetically sorted  -->
-  <li><code>OUTS</code>: The <code><a href="$expander.expandRef("genrule.outs")">outs</a></code> list. If you have only one output
-    file, you can also use <code>$@</code>.</li>
-  <li><code>SRCS</code>: The <code>srcs</code> list (or more
-    precisely, the pathnames of the files corresponding to
-    labels in the <code>srcs</code> list).  If you have only one
-    source file, you can also use <code>$&lt;</code>.</li>
-  <li><code>&lt;</code>: <code>srcs</code>, if it is a single file.</li>
-  <li><code>@</code>: <code>outs</code>, if it is a single file.</li>
-  <li><code>@D</code>: The output directory.  If there is only
-    one filename in <code>outs</code>, this expands to the
-    directory containing that file.  If there are multiple
-    filenames, this variable instead expands to the package's root
-    directory in the <code>genfiles</code> tree, <i>even if all
-    the generated files belong to the same subdirectory</i>!
-    <!-- (as a consequence of the "middleman" implementation) -->
-    If the genrule needs to generate temporary intermediate files
-    (perhaps as a result of using some other tool like a compiler)
-    then it should attempt to write the temporary files to
-    <code>@D</code> (although <code>/tmp</code> will also be
-    writable), and to remove any such generated temporary files.
-    Especially, avoid writing to directories containing inputs -
-    they may be on read-only filesystems, and even if they aren't,
-    doing so would trash the source tree.</li>
+  <li><code>OUTS</code>: The <code>genrule</code>'s <code><a
+  href="$expander.expandRef("genrule.outs")">outs</a></code> list. If you have
+  only one output file, you can also use <code>$@</code>.</li>
+  <li>
+    <code>SRCS</code>: The <code>genrule</code>'s <code><a
+    href="$expander.expandRef("genrule.srcs")">srcs</a></code> list (or more
+    precisely: the path names of the files corresponding to labels in the
+    <code><a href="$expander.expandRef("genrule.srcs")">srcs</a></code> list).
+    If you have only one source file, you can also use <code>$&lt;</code>.
+  </li>
+
+  <li>
+    <code>&lt;</code>: <code>SRCS</code>, if it is a single file. Else, triggers
+    a build error.
+  </li>
+  <li>
+    <code>@</code>: <code>OUTS</code>, if it is a single file. Else, triggers a
+    build error.
+  </li>
+  <li>
+    <p>
+      <code>@D</code>: The output directory.  If there is only one file name in
+      <a
+      href="$expander.expandRef("genrule.outs")">outs</a></code>, this expands
+      to the directory containing that file.  If there are multiple files, this
+      instead expands to the package's root directory in the
+      <code>genfiles</code> tree, <i>even if all generated files belong to the
+      same subdirectory</i>!
+      <!-- (as a consequence of the "middleman" implementation) -->
+    </p>
+    <p>
+      If the genrule needs to generate temporary intermediate files (perhaps as
+      a result of using some other tool like a compiler), it should attempt to
+      write those files to <code>@D</code> (although <code>/tmp</code> will also
+      be writable) and try to remove them before finishing.
+    </p>
+    <p>
+      Especially avoid writing to directories containing inputs. They may be on
+      read-only fileasystems, and even if not, doing so would trash the source
+      tree.
+    </p>
+  </li>
 </ul>
 
 
 <h2 id="custom_variables">Custom variables</h2>
 
+<p>
+  Custom "Make" variables can be referenced by any attribute marked as
+  <i>"Subject to 'Make variable' substitution"</i>, but only on rules that
+  depend on other rules that <i>define</i> these variables.
+</p>
+
+<p>
+  As best practice all variables should be custom unless there's a really good
+  reason to bake them into core Bazel. This saves Bazel from having to load
+  potentially expensive dependencies to supply variables that consuming rules
+  may not care about.
+</p>
+
 <p><strong>Java toolchain path variables</strong></p>
 
 <p>
-  The following variables are defined in Java toolchain rules and available to
-  any rule that sets <code>toolchains =
+  The following are defined in Java toolchain rules and available to any rule
+  that sets <code>toolchains =
   ["@bazel_tools//tools/jdk:current_java_runtime"]</code> (or
   <code>"@bazel_tools//tools/jdk:currentHost_java_runtime"</code> for the host
-  toolchain version).
+  toolchain equivalent).
 </p>
 
+<p>
+  Most of the tools in the JDK should not be used directly. The built-in Java
+  rules use much more sophisticated approaches to Java compilation and packaging
+  than upstream tools can express, such as interface Jars, header interface
+  Jars, and highly optimized Jar packaging and merging implementations.
+</p>
+
+<p>
+  These variables are a fallback mechanism to be used by language experts in
+  rare cases. If you are tempted to use them, please <a
+  href="https://bazel.build/support.html">contact the Bazel devs</a> first.
+</p>
+	
 <ul><!--  keep alphabetically sorted  -->
   <li class="harmful"> <code>JAVA</code>: The "java" command (a Java virtual
-    machine). Avoid this, and use a <code>java_binary</code> rule instead where
-    possible. May be a relative path. If you must change
+    machine). Avoid this, and use a <code><a
+    href="$expander.expandRef("java_binary")">java_binary</a></code> rule
+    instead where possible. May be a relative path. If you must change
     directories before invoking <code>java</code>, you need to capture the
     working directory before changing it.
   </li>
@@ -244,18 +295,57 @@ title: Make Variables
   <li class="harmful"><code>JAVABASE</code>: The base directory containing the
     Java utilities. May be a relative path. It will have a "bin"
     subdirectory.
-    
-    <p>
-      For Java, most of the tools in the JDK should not be used as-is. The
-      built-in Java rules use much more sophisticated approaches to Java
-      compilation and packaging than the upstream tools can express, such as
-      interface Jars, header interface Jars, and highly
-      optimized Jar packaging and merging implementations.
-    </p>
   </li>
-
 </ul>
 
+<p><strong>Starlark-defined variables</strong></p>
+
+<p>
+  Rule and <a href="../toolchains.html">toolchain</a> writers can define
+  completely custom variables by returning a <a
+  href="../skylark/lib/TemplateVariableInfo.html">TemplateVariableInfo</a>
+  provider. Any rules depending on these through the
+  <code>toolchains</code> attribute can then read their values:
+</p>
+
+<p>
+  <pre>
+$ cat testapp/defs.bzl
+def _var_providing_rule_impl(ctx):
+  return [
+    platform_common.TemplateVariableInfo({
+      "FOO": ctx.attr.var_value
+    })
+  ]
+
+var_providing_rule = rule(
+  implementation = _var_providing_rule_impl,
+  attrs = { "var_value": attr.string() }
+)
+
+$ cat testapp/BUILD
+load("//testapp:defs.bzl", "var_providing_rule")
+
+var_providing_rule(
+  name = "set_foo_to_bar",
+  var_value = "bar"
+)
+
+genrule(
+  name = "g",
+  srcs = [],
+  outs = ["g.out"],
+  cmd = "echo FOO is equal to $(FOO)! > $@",
+  toolchains = [":set_foo_to_bar"]
+)
+
+$ bazel build //testapp:g && cat bazel-genfiles/testapp/g.out
+Target //testapp:g up-to-date:
+  bazel-genfiles/testapp/g.out
+INFO: Build completed successfully, 1 total action
+FOO is equal to bar!
+  </pre>
+</p>
 
 <h2 id="location">"$(location)" substitution</h2>
 
@@ -263,7 +353,7 @@ title: Make Variables
   In attributes that support it, all occurrences of
   <code>$(location <i>label</i>)</code> are replaced by the path to the
   file denoted by <i>label</i>. Use <code>location</code> if the <i>label</i>
-  outputs exactly one filename. This allows bazel to perform a check and give
+  outputs exactly one file name. This allows bazel to perform a check and give
   an error if no or more than one files are represented by the given label; a
   label referring to a source file always represents a single file, but a label
   referring to a rule refers to all output files of that rule. Otherwise use
