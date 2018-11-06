@@ -94,7 +94,6 @@ function unpack_skylark_rule_docs {
   mkdir -p $tmp_dir
   cd "$tmp_dir"
   tar -xf "${SKYLARK_RULE_DOCS}"
-  copy_skylark_rule_doc docker "Docker"
   copy_skylark_rule_doc pkg "Packaging"
 }
 
