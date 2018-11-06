@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
-import com.google.errorprone.annotations.concurrent.LazyInit;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -228,9 +227,6 @@ public class DynamicCodec implements ObjectCodec<Object> {
       for (Field field : next.getDeclaredFields()) {
         if ((field.getModifiers() & (Modifier.STATIC | Modifier.TRANSIENT)) != 0) {
           continue; // Skips static or transient fields.
-        }
-        if (field.isAnnotationPresent(LazyInit.class)) {
-          continue; // Skips lazily initialized fields.
         }
         field.setAccessible(true);
         offsets.put(field, UnsafeProvider.getInstance().objectFieldOffset(field));
