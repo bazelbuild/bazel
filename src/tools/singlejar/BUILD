@@ -96,11 +96,6 @@ cc_test(
         ":zip_headers",
         ":zlib_interface",
     ],
-    tags = [
-        # TODO(laszlocsomor) Enable this test when BuildKite uses Bazel that includes
-        # https://github.com/bazelbuild/bazel/commit/914b4ce14624171a97ff8b41f9202058f10d15b2
-        "no_windows",
-    ],
     deps = [
         ":combiners",
         ":desugar_checking",
