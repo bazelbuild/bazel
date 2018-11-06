@@ -154,7 +154,7 @@ public class SkylarkImports {
 
   @VisibleForTesting
   static final String INVALID_PATH_SYNTAX =
-      "First argument of 'load' must be a label and start with either '//', ':', or '@'.";
+      "First argument of 'load' must be a label and start with either '//', ':', or '@'";
 
   @VisibleForTesting
   static final String INVALID_TARGET_PREFIX = "Invalid target: ";
