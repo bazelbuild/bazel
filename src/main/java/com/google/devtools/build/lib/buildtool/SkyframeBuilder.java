@@ -127,8 +127,8 @@ public class SkyframeBuilder implements Builder {
     List<ExitCode> exitCodes = new LinkedList<>();
     EvaluationResult<?> result;
 
-    ActionExecutionStatusReporter statusReporter = ActionExecutionStatusReporter.create(
-        reporter, executor, skyframeExecutor.getEventBus());
+    ActionExecutionStatusReporter statusReporter =
+        ActionExecutionStatusReporter.create(reporter, skyframeExecutor.getEventBus());
 
     AtomicBoolean isBuildingExclusiveArtifacts = new AtomicBoolean(false);
     ActionExecutionInactivityWatchdog watchdog =
