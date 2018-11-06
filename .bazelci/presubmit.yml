@@ -13,6 +13,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Disable Slow Tests
@@ -32,6 +33,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Disable Slow Tests
@@ -51,6 +53,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Disable Slow Tests
@@ -69,6 +72,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
@@ -110,6 +114,7 @@ platforms:
     - "-//src/test/shell/integration:output_filter_test"
     - "-//src/test/shell/integration:stub_finds_runfiles_test"
     - "-//src/test/shell/integration:test_test"
+    - "-//src/tools/singlejar:zip64_test"
   ubuntu1804_java9:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -123,6 +128,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Disable Slow Tests
@@ -142,6 +148,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Disable Slow Tests
@@ -161,6 +168,7 @@ platforms:
     - "--"
     - "//scripts/..."
     - "//src/test/..."
+    - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
