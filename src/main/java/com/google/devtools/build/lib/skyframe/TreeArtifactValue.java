@@ -24,11 +24,15 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -184,12 +188,14 @@ class TreeArtifactValue implements SkyValue {
   private static void explodeDirectory(Path treeArtifactPath,
       PathFragment pathToExplode, ImmutableSet.Builder<PathFragment> valuesBuilder)
       throws IOException {
-    for (Path subpath : treeArtifactPath.getRelative(pathToExplode).getDirectoryEntries()) {
-      PathFragment canonicalSubpathFragment = pathToExplode.getChild(subpath.getBaseName());
-      if (subpath.isDirectory()) {
-        explodeDirectory(treeArtifactPath,
-            pathToExplode.getChild(subpath.getBaseName()), valuesBuilder);
-      } else if (subpath.isSymbolicLink()) {
+    Path dir = treeArtifactPath.getRelative(pathToExplode);
+    Collection<Dirent> dirents = dir.readdir(Symlinks.NOFOLLOW);
+    for (Dirent dirent : dirents) {
+      PathFragment canonicalSubpathFragment = pathToExplode.getChild(dirent.getName());
+      if (dirent.getType() == Type.DIRECTORY) {
+        explodeDirectory(treeArtifactPath, canonicalSubpathFragment, valuesBuilder);
+      } else if (dirent.getType() == Type.SYMLINK) {
+        Path subpath = dir.getRelative(dirent.getName());
         PathFragment linkTarget = subpath.readSymbolicLinkUnchecked();
         valuesBuilder.add(canonicalSubpathFragment);
         if (linkTarget.isAbsolute()) {
@@ -214,10 +220,11 @@ class TreeArtifactValue implements SkyValue {
             throw new IOException(errorMessage);
           }
         }
-      } else if (subpath.isFile()) {
+      } else if (dirent.getType() == Type.FILE) {
         valuesBuilder.add(canonicalSubpathFragment);
       } else {
         // We shouldn't ever reach here.
+        Path subpath = dir.getRelative(dirent.getName());
         throw new IllegalStateException("Could not determine type of file " + subpath);
       }
     }

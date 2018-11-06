@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
@@ -296,7 +298,12 @@ public final class ActionMetadataHandler implements MetadataHandler {
       // Preserve existing behavior: we don't set non-TreeArtifact directories
       // read only and executable. However, it's unusual for non-TreeArtifact outputs
       // to be directories.
-      setTreeReadOnlyAndExecutable(artifact, PathFragment.EMPTY_FRAGMENT);
+      if (artifactPathResolver.toPath(artifact).isDirectory()) {
+        setTreeReadOnlyAndExecutable(artifact, PathFragment.EMPTY_FRAGMENT);
+      } else {
+        setPathReadOnlyAndExecutable(
+            ActionInputHelper.treeFileArtifact(artifact, PathFragment.EMPTY_FRAGMENT));
+      }
     }
 
     Set<TreeFileArtifact> registeredContents = store.getTreeArtifactContents(artifact);
@@ -605,13 +612,15 @@ public final class ActionMetadataHandler implements MetadataHandler {
   private void setTreeReadOnlyAndExecutable(SpecialArtifact parent, PathFragment subpath)
       throws IOException {
     Path path = artifactPathResolver.toPath(parent).getRelative(subpath);
-    if (path.isDirectory()) {
-      path.chmod(0555);
-      for (Path child : path.getDirectoryEntries()) {
-        setTreeReadOnlyAndExecutable(parent, subpath.getChild(child.getBaseName()));
+    path.chmod(0555);
+    Collection<Dirent> dirents = path.readdir(Symlinks.FOLLOW);
+    for (Dirent dirent : dirents) {
+      if (dirent.getType() == Type.DIRECTORY) {
+        setTreeReadOnlyAndExecutable(parent, subpath.getChild(dirent.getName()));
+      } else {
+        setPathReadOnlyAndExecutable(
+            ActionInputHelper.treeFileArtifact(parent, subpath.getChild(dirent.getName())));
       }
-    } else {
-      setPathReadOnlyAndExecutable(ActionInputHelper.treeFileArtifact(parent, subpath));
     }
   }
 }
