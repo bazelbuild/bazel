@@ -111,6 +111,50 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   }
 
   @Test
+  public void testRegisteredToolchains_flagOverride_multiple() throws Exception {
+
+    // Add an extra toolchain.
+    scratch.file(
+        "extra/BUILD",
+        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
+        "toolchain(",
+        "    name = 'extra_toolchain_1',",
+        "    toolchain_type = '//toolchain:test_toolchain',",
+        "    exec_compatible_with = ['//constraints:linux'],",
+        "    target_compatible_with = ['//constraints:linux'],",
+        "    toolchain = ':extra_toolchain_impl_1')",
+        "test_toolchain(",
+        "  name='extra_toolchain_impl_1',",
+        "  data = 'extra')",
+        "toolchain(",
+        "    name = 'extra_toolchain_2',",
+        "    toolchain_type = '//toolchain:test_toolchain',",
+        "    exec_compatible_with = ['//constraints:mac'],",
+        "    target_compatible_with = ['//constraints:linux'],",
+        "    toolchain = ':extra_toolchain_impl_2')",
+        "test_toolchain(",
+        "  name='extra_toolchain_impl_2',",
+        "  data = 'extra2')");
+
+    useConfiguration(
+        "--extra_toolchains=//extra:extra_toolchain_1",
+        "--extra_toolchains=//extra:extra_toolchain_2");
+
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    // Verify that the target registered with the extra_toolchains flag is first in the list.
+    assertToolchainLabels(result.get(toolchainsKey))
+        .containsAllOf(
+            makeLabel("//extra:extra_toolchain_impl_1"),
+            makeLabel("//extra:extra_toolchain_impl_2"),
+            makeLabel("//toolchain:toolchain_1_impl"))
+        .inOrder();
+  }
+
+  @Test
   public void testRegisteredToolchains_invalidPattern() throws Exception {
     rewriteWorkspace("register_toolchains('/:invalid:label:syntax')");
 

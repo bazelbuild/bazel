@@ -55,17 +55,17 @@ public class PlatformOptions extends FragmentOptions {
   public String hostPlatformRemotePropertiesOverride;
 
   @Option(
-    name = "extra_execution_platforms",
-    converter = CommaSeparatedOptionListConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.EXECUTION},
-    help =
-        "The platforms that are available as execution platforms to run actions. "
-            + "Platforms can be specified by exact target, or as a target pattern. "
-            + "These platforms will be considered before those declared in the WORKSPACE file by "
-            + "register_execution_platforms()."
-  )
+      name = "extra_execution_platforms",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      allowMultiple = true,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The platforms that are available as execution platforms to run actions. "
+              + "Platforms can be specified by exact target, or as a target pattern. "
+              + "These platforms will be considered before those declared in the WORKSPACE file by "
+              + "register_execution_platforms().")
   public List<String> extraExecutionPlatforms;
 
   @Option(
@@ -85,21 +85,21 @@ public class PlatformOptions extends FragmentOptions {
   public List<Label> platforms;
 
   @Option(
-    name = "extra_toolchains",
-    defaultValue = "",
-    converter = CommaSeparatedOptionListConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {
-      OptionEffectTag.AFFECTS_OUTPUTS,
-      OptionEffectTag.CHANGES_INPUTS,
-      OptionEffectTag.LOADING_AND_ANALYSIS
-    },
-    help =
-        "The toolchain rules to be considered during toolchain resolution. "
-            + "Toolchains can be specified by exact target, or as a target pattern. "
-            + "These toolchains will be considered before those declared in the WORKSPACE file by "
-            + "register_toolchains()."
-  )
+      name = "extra_toolchains",
+      defaultValue = "",
+      converter = CommaSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      allowMultiple = true,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help =
+          "The toolchain rules to be considered during toolchain resolution. "
+              + "Toolchains can be specified by exact target, or as a target pattern. "
+              + "These toolchains will be considered before those declared in the WORKSPACE file "
+              + "by register_toolchains().")
   public List<String> extraToolchains;
 
   @Option(
