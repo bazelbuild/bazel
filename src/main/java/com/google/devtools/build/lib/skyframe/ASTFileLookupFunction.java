@@ -129,8 +129,8 @@ public class ASTFileLookupFunction implements SkyFunction {
         ast =
             BuildFileAST.parseSkylarkFile(
                 bytes, path.getDigest(), path.asFragment(), env.getListener());
-          ast = ast.validate(validationEnv, env.getListener());
-        }
+        ast = ast.validate(validationEnv, env.getListener());
+      }
     } catch (IOException e) {
       throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),
           Transience.TRANSIENT);
