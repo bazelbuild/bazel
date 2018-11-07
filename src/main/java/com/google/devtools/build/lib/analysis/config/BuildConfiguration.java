@@ -1558,7 +1558,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   @Override
   public ImmutableMap<String, String> getLocalShellEnvironment() {
-    return actionEnv.getFixedEnv();
+    return actionEnv.getFixedEnv().toMap();
   }
 
   /**
@@ -1576,7 +1576,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * client environment.)
    */
   @Deprecated // Use getActionEnvironment instead.
-  public ImmutableSet<String> getVariableShellEnvironment() {
+  public Iterable<String> getVariableShellEnvironment() {
     return actionEnv.getInheritedEnv();
   }
 
@@ -1711,7 +1711,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   @Override
   public ImmutableMap<String, String> getTestEnv() {
-    return testEnv.getFixedEnv();
+    return testEnv.getFixedEnv().toMap();
   }
 
   /**
