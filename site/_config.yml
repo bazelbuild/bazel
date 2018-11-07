@@ -3,6 +3,8 @@ markdown: kramdown
 kramdown:
   syntax_highlighter: rouge
 
+highlighter: rouge
+
 paginate: 10
 sass:
   sass_dir: _sass
