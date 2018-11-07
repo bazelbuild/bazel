@@ -1,10 +1,5 @@
 package(default_visibility = ["//visibility:private"])
 
-exports_files(
-    ["resources.o"],
-    visibility = ["//src/main/cpp:__pkg__"],
-)
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -60,4 +55,11 @@ cc_binary(
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
         "//src/tools/android/java/com/google/devtools/build/android:__subpackages__",
     ],
+)
+
+# Directly re-export resources.o so it can be consumed in the client.
+cc_library(
+    name = "resources",
+    srcs = ["resources.o"],
+    visibility = ["//src/main/cpp:__pkg__"],
 )
