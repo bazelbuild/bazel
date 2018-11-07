@@ -851,6 +851,71 @@ EOF
     || fail "download_executable_file.sh is not executable"
 }
 
+function test_skylark_repository_context_downloads_return_struct() {
+   # Prepare HTTP server with Python
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+  local download_with_sha256="${server_dir}/download_with_sha256.txt"
+  local download_no_sha256="${server_dir}/download_no_sha256.txt"
+  local compressed_with_sha256="${server_dir}/compressed_with_sha256.txt"
+  local compressed_no_sha256="${server_dir}/compressed_no_sha256.txt"
+  echo "This is one file" > "${download_no_sha256}"
+  echo "This is another file" > "${download_with_sha256}"
+  echo "Compressed file with sha" > "${compressed_with_sha256}"
+  echo "Compressed file no sha" > "${compressed_no_sha256}"
+  zip "${compressed_with_sha256}".zip "${compressed_with_sha256}"
+  zip "${compressed_no_sha256}".zip "${compressed_no_sha256}"
+
+  provided_sha256="$(sha256sum "${download_with_sha256}" | head -c 64)"
+  not_provided_sha256="$(sha256sum "${download_no_sha256}" | head -c 64)"
+  compressed_provided_sha256="$(sha256sum "${compressed_with_sha256}.zip" | head -c 64)"
+  compressed_not_provided_sha256="$(sha256sum "${compressed_no_sha256}.zip" | head -c 64)"
+
+  # Start HTTP server with Python
+  startup_server "${server_dir}"
+
+  setup_skylark_repository
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  no_sha_return = repository_ctx.download(
+    url = "http://localhost:${fileserver_port}/download_no_sha256.txt",
+    output = "download_no_sha256.txt")
+  with_sha_return = repository_ctx.download(
+    url = "http://localhost:${fileserver_port}/download_with_sha256.txt",
+    output = "download_with_sha256.txt",
+    sha256 = "${provided_sha256}")
+  compressed_no_sha_return = repository_ctx.download_and_extract(
+    url = "http://localhost:${fileserver_port}/compressed_no_sha256.txt.zip",
+    output = "compressed_no_sha256.txt.zip")
+  compressed_with_sha_return = repository_ctx.download_and_extract(
+      url = "http://localhost:${fileserver_port}/compressed_with_sha256.txt.zip",
+      output = "compressed_with_sha256.txt.zip",
+      sha256 = "${compressed_provided_sha256}")
+
+  file_content = "no_sha_return " + no_sha_return.sha256 + "\n"
+  file_content += "with_sha_return " + with_sha_return.sha256 + "\n"
+  file_content += "compressed_no_sha_return " + compressed_no_sha_return.sha256 + "\n"
+  file_content += "compressed_with_sha_return " + compressed_with_sha_return.sha256
+  repository_ctx.file("returned_shas.txt", content = file_content, executable = False)
+  repository_ctx.file("BUILD")  # necessary directories should already created by download function
+repo = repository_rule(implementation = _impl, local = False)
+EOF
+
+  bazel build @foo//:all >& $TEST_log && shutdown_server \
+    || fail "Execution of @foo//:all failed"
+
+  output_base="$(bazel info output_base)"
+  grep "no_sha_return $not_provided_sha256" $output_base/external/foo/returned_shas.txt \
+      || fail "expected calculated sha256 $not_provided_sha256"
+  grep "with_sha_return $provided_sha256" $output_base/external/foo/returned_shas.txt \
+      || fail "expected provided sha256 $provided_sha256"
+  grep "compressed_with_sha_return $compressed_provided_sha256" $output_base/external/foo/returned_shas.txt \
+      || fail "expected provided sha256 $compressed_provided_sha256"
+  grep "compressed_no_sha_return $compressed_not_provided_sha256" $output_base/external/foo/returned_shas.txt \
+      || fail "expected compressed calculated sha256 $compressed_not_provided_sha256"
+}
+
 function test_skylark_repository_download_args() {
   # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
