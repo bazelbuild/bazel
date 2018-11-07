@@ -36,6 +36,8 @@ public class MarkdownRenderer {
       "com/google/devtools/build/skydoc/rendering/templates/rule.vm";
   private static final String PROVIDER_TEMPLATE_FILENAME =
       "com/google/devtools/build/skydoc/rendering/templates/provider.vm";
+  private static final String FUNCTION_TEMPLATE_FILENAME =
+      "com/google/devtools/build/skydoc/rendering/templates/func.vm";
 
   private final VelocityEngine velocityEngine;
 
@@ -82,6 +84,23 @@ public class MarkdownRenderer {
     StringWriter stringWriter = new StringWriter();
     try {
       velocityEngine.mergeTemplate(PROVIDER_TEMPLATE_FILENAME, "UTF-8", context, stringWriter);
+    } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
+      throw new IOException(e);
+    }
+    return stringWriter.toString();
+  }
+
+  /**
+   * Returns a markdown rendering of a user-defined function's documentation for the function info
+   * object.
+   */
+  public String render(UserDefinedFunctionInfo functionInfo) throws IOException {
+    VelocityContext context = new VelocityContext();
+    context.put("funcInfo", functionInfo);
+
+    StringWriter stringWriter = new StringWriter();
+    try {
+      velocityEngine.mergeTemplate(FUNCTION_TEMPLATE_FILENAME, "UTF-8", context, stringWriter);
     } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
       throw new IOException(e);
     }

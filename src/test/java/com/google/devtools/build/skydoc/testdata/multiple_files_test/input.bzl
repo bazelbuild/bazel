@@ -1,4 +1,6 @@
-load(":testdata/multiple_files_test/dep.bzl", "my_rule_impl")
+"""A direct dependency file of the input file."""
+
+load(":testdata/multiple_files_test/dep.bzl", "my_rule_impl", "some_cool_function")
 
 my_rule = rule(
     implementation = my_rule_impl,
@@ -13,6 +15,10 @@ my_rule = rule(
         "second": attr.string_dict(mandatory = True),
     },
 )
+
+def top_fun(a, b, c):
+    _ignore = [a, b, c]
+    return 6
 
 other_rule = rule(
     implementation = my_rule_impl,
