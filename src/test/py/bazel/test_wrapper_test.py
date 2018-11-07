@@ -293,7 +293,7 @@ class TestWrapperTest(test_base.TestBase):
 
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
-    flag = '--nowindows_native_test_wrapper'
+    flag = '--noincompatible_windows_native_test_wrapper'
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
@@ -328,7 +328,7 @@ class TestWrapperTest(test_base.TestBase):
     # As of 2018-09-11, the Windows native test runner can run simple tests and
     # export a few envvars, though it does not completely set up the test's
     # environment yet.
-    flag = '--windows_native_test_wrapper'
+    flag = '--incompatible_windows_native_test_wrapper'
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
