@@ -94,11 +94,6 @@ public class Alias implements RuleConfiguredTargetFactory {
 </p>
 
 <p>
-  Aliasing only works for "regular" targets. In particular, <code>package_group</code>,
-    <code>config_setting</code> and <code>test_suite</code> rules cannot be aliased.
-</p>
-
-<p>
   The alias rule has its own visibility declaration. In all other respects, it behaves
   like the rule it references with some minor exceptions:
 
