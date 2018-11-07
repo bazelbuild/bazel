@@ -97,58 +97,16 @@ title: Make Variables
   and look at the top output lines with capital letters.
 </p>
 
-<p><strong>C++ tool path variables</strong></p>
 <p>
-  The following will eventually be converted to <a
-  href="#custom_variables">custom variables</a> defined in C++ toolchain
-  rules. This will save Bazel from having to load the C++ toolchain for rules
-  that don't care about C++. For the time being, these are globally available to
-  all rules.
+  <b>Nov 7, 2018</b>: C++ variables appear in the predefined list unless
+  <code><a
+  href="https://github.com/bazelbuild/bazel/issues/6381">--incompatible_disable_cc_configuration_make_variables</a></code>
+  is set. They will no longer appear after this flag is removed.
 </p>
-
-<p>
-  The built-in C++ rules are much more sophisticated than "run the compiler on
-  it". In order to support compilation modes as diverse as *SAN, ThinLTO,
-  with/without modules, and carefully optimized binaries at the same time as
-  fast running tests on multiple platforms, the built-in rules go to great
-  lengths to ensure the correct inputs, outputs, and command-line flags are set
-  on each of potentially multiple internally generated actions.
-</p>
-
-<p>
-  These variables are a fallback mechanism to be used by language experts in
-  rare cases. If you are tempted to use them, please <a
-  href="https://bazel.build/support.html">contact the Bazel devs</a> first.
-</p>
-
-<ul><!--  keep alphabetically sorted  -->
-  <li class="harmful">
-    <p><code>CC</code>: The C and C++ compiler command.</p>
-    <p>
-      We strongly recommended always using <code>CC_FLAGS</code> in
-      combination with <code>CC</code>. Fail to do so at your own risk.
-    </p>
-  </li>
-  <li class="harmful"> <code>C_COMPILER</code>:
-    The C/C++ compiler identifier, e.g. "llvm".
-  </li>
-
-  <li> <code>STRIP</code>: The strip command from the same suite as the C/C++
-    compiler.</li>
-  <li> <code>AR</code>: The "ar" command from crosstool. </li>
-  <li> <code>NM</code>: The "nm" command from crosstool. </li>
-  <li> <code>OBJCOPY</code>: The objcopy command from the same suite as the C/C++
-    compiler. </li>
-</ul>
 
 <p><strong>Toolchain option variables</strong></p>
 
 <ul><!--  keep alphabetically sorted  -->
-  <li class="harmful"><code>CC_FLAGS</code>: A minimal set of flags for the C/C++
-    compiler to be usable by genrules. In particular, this contains flags to
-    select the correct architecture if <code>CC</code> supports multiple
-    architectures.
-  </li>
   <li><code>COMPILATION_MODE</code>:
     "fastbuild", "dbg", or "opt". (<a
   href="https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode">more
@@ -188,9 +146,6 @@ title: Make Variables
 <p><strong>Machine architecture variables</strong></p>
 
 <ul><!--  keep alphabetically sorted  -->
-  <li><code>ABI</code>:
-    The C++ ABI version. </li>
-
   <li> <code>TARGET_CPU</code>: The target architecture's CPU, e.g. "k8". </li>
 </ul>
 
@@ -397,13 +352,65 @@ source file paths
   care about.
 </p>
 
-<p><strong>Java tool path variables</strong></p>
+<p><strong>C++ toolchain variables</strong></p>
+<p>
+  The following are defined in C++ toolchain rules and available to any rule
+  that sets <code>toolchains =
+  ["@bazel_tools//tools/cpp:current_cc_toolchain"]</code> (or
+  <code>"@bazel_tools//tools/cpp:current_cc_host_toolchain"</code> for the host
+  toolchain equivalent). Some rules, like <code><a
+  href="$expander.expandRef("java_binary")">java_binary</a></code>, implicitly
+  include the C++ toolchain in their rule definition. They inherit these variables
+  automatically.  
+</p>
+
+<p>
+  The built-in C++ rules are much more sophisticated than "run the compiler on
+  it". In order to support compilation modes as diverse as *SAN, ThinLTO,
+  with/without modules, and carefully optimized binaries at the same time as
+  fast running tests on multiple platforms, the built-in rules go to great
+  lengths to ensure the correct inputs, outputs, and command-line flags are set
+  on each of potentially multiple internally generated actions.
+</p>
+
+<p>
+  These variables are a fallback mechanism to be used by language experts in
+  rare cases. If you are tempted to use them, please <a
+  href="https://bazel.build/support.html">contact the Bazel devs</a> first.
+</p>
+
+<ul><!--  keep alphabetically sorted  -->
+  <li><code>ABI</code>: The C++ ABI version. </li>  
+  <li> <code>AR</code>: The "ar" command from crosstool. </li>
+  <li class="harmful"> <code>C_COMPILER</code>:
+    The C/C++ compiler identifier, e.g. "llvm".
+  </li>
+  <li class="harmful">
+    <p><code>CC</code>: The C and C++ compiler command.</p>
+    <p>
+      We strongly recommended always using <code>CC_FLAGS</code> in
+      combination with <code>CC</code>. Fail to do so at your own risk.
+    </p>
+  </li>
+  <li class="harmful"><code>CC_FLAGS</code>: A minimal set of flags for the C/C++
+    compiler to be usable by genrules. In particular, this contains flags to
+    select the correct architecture if <code>CC</code> supports multiple
+    architectures.
+  </li>
+  <li> <code>NM</code>: The "nm" command from crosstool. </li>
+  <li> <code>OBJCOPY</code>: The objcopy command from the same suite as the C/C++
+    compiler. </li>
+  <li> <code>STRIP</code>: The strip command from the same suite as the C/C++
+    compiler.</li>
+</ul>
+
+<p><strong>Java toolchain variables</strong></p>
 
 <p>
   The following are defined in Java toolchain rules and available to any rule
   that sets <code>toolchains =
   ["@bazel_tools//tools/jdk:current_java_runtime"]</code> (or
-  <code>"@bazel_tools//tools/jdk:currentHost_java_runtime"</code> for the host
+  <code>"@bazel_tools//tools/jdk:current_host_java_runtime"</code> for the host
   toolchain equivalent).
 </p>
 
