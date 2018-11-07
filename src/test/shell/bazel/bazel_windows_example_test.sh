@@ -34,10 +34,6 @@ fi
 function set_up() {
   copy_examples
   setup_bazelrc
-  cat >>"$TEST_TMPDIR/bazelrc" <<EOF
-# Workaround for https://github.com/bazelbuild/bazel/issues/2983
-startup --host_jvm_args=-Dbazel.windows_unix_root=C:/fake/msys
-EOF
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
 }
@@ -76,6 +72,40 @@ function test_cpp() {
   expect_log "Hello foo"
   assert_test_ok "//examples/cpp:hello-success_test"
   assert_test_fails "//examples/cpp:hello-fail_test"
+}
+
+function test_cpp_with_msys_gcc() {
+  local cpp_pkg=examples/cpp
+  assert_build_output \
+    ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
+    --compiler=msys-gcc
+  assert_build_output \
+    ./bazel-bin/${cpp_pkg}/libhello-lib.so ${cpp_pkg}:hello-lib\
+    --compiler=msys-gcc --output_groups=dynamic_library
+  assert_build ${cpp_pkg}:hello-world --compiler=msys-gcc
+  ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
+    || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
+  expect_log "Hello foo"
+  assert_test_ok "//examples/cpp:hello-success_test" --compiler=msys-gcc
+  assert_test_fails "//examples/cpp:hello-fail_test" --compiler=msys-gcc
+}
+
+function test_cpp_with_mingw_gcc() {
+  local cpp_pkg=examples/cpp
+  ( # mingw gcc should be in PATH
+  export PATH="/mingw64/bin:$PATH"
+  assert_build_output \
+    ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
+    --compiler=mingw-gcc
+  assert_build_output \
+    ./bazel-bin/${cpp_pkg}/libhello-lib.so ${cpp_pkg}:hello-lib\
+    --compiler=mingw-gcc --output_groups=dynamic_library
+  assert_build ${cpp_pkg}:hello-world --compiler=mingw-gcc
+  ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
+    || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
+  expect_log "Hello foo"
+  assert_test_ok "//examples/cpp:hello-success_test" --compiler=mingw-gcc
+  assert_test_fails "//examples/cpp:hello-fail_test" --compiler=mingw-gcc )
 }
 
 function test_cpp_alwayslink() {
