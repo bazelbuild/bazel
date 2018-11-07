@@ -49,8 +49,9 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public abstract class FileValue implements SkyValue {
-  // Depends non-hermetically on package path.
-  public static final SkyFunctionName FILE = SkyFunctionName.createNonHermetic("FILE");
+  // Depends non-hermetically on package path, but that is under the control of a flag, so use
+  // semi-hermetic.
+  public static final SkyFunctionName FILE = SkyFunctionName.createSemiHermetic("FILE");
 
   public boolean exists() {
     return realFileStateValue().getType() != FileStateType.NONEXISTENT;
@@ -144,7 +145,10 @@ public abstract class FileValue implements SkyValue {
     }
   }
 
-  /** Only intended to be used by {@link FileFunction}. Should not be used for symlink cycles. */
+  /**
+   * Only intended to be used by {@link com.google.devtools.build.lib.skyframe.FileFunction}. Should
+   * not be used for symlink cycles.
+   */
   public static FileValue value(
       RootedPath rootedPath,
       FileStateValue fileStateValue,
