@@ -1,5 +1,15 @@
 package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
+java_binary(
+    name = "turbine",
+    main_class = "com.google.devtools.build.java.turbine.javac.JavacTurbine",
+    visibility = [
+        "//:__subpackages__",
+        "//src/java_tools/buildjar:buildjar_package_group",
+    ],
+    runtime_deps = [":javac_turbine"],
+)
+
 java_library(
     name = "javac_turbine",
     srcs = ["JavacTurbine.java"],

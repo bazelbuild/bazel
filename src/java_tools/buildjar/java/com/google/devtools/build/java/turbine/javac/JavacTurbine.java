@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
-import com.google.turbine.binder.ClassPathBinder;
 import com.google.turbine.options.TurbineOptions;
 import com.google.turbine.options.TurbineOptionsParser;
 import com.sun.tools.javac.util.Context;
@@ -71,6 +70,12 @@ public class JavacTurbine implements AutoCloseable {
   static final String MANIFEST_NAME = JarFile.MANIFEST_NAME;
   static final Attributes.Name TARGET_LABEL = new Attributes.Name("Target-Label");
   static final Attributes.Name INJECTING_RULE_KIND = new Attributes.Name("Injecting-Rule-Kind");
+
+  /**
+   * The prefix for repackaged transitive dependencies; see {@link
+   * com.google.turbine.deps.Transitive}.
+   */
+  public static final String TRANSITIVE_PREFIX = "META-INF/TRANSITIVE/";
 
   public static void main(String[] args) throws IOException {
     System.exit(compile(TurbineOptionsParser.parse(Arrays.asList(args))).exitCode());
@@ -301,7 +306,7 @@ public class JavacTurbine implements AutoCloseable {
       for (Map.Entry<String, byte[]> entry : transitive.entrySet()) {
         String name = entry.getKey();
         byte[] bytes = entry.getValue();
-        ZipUtil.storeEntry(ClassPathBinder.TRANSITIVE_PREFIX + name + ".class", bytes, zipOut);
+        ZipUtil.storeEntry(TRANSITIVE_PREFIX + name + ".class", bytes, zipOut);
       }
       for (Map.Entry<String, byte[]> entry : files.entrySet()) {
         String name = entry.getKey();
