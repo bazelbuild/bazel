@@ -118,7 +118,7 @@ Creates a tar file from a list of inputs.
         <code>String, default to 'tar'</code>
         <p>
             The extension for the resulting tarball. The output
-            file will be '<i>name<i>.<i>extension<i>'. This extension
+            file will be '<i>name</i>.<i>extension</i>'. This extension
             also decide on the compression: if set to <code>tar.gz</code>
             or <code>tgz</code> then gzip compression will be used and
             if set to <code>tar.bz2</code> or <code>tar.bzip2</code> then
@@ -284,7 +284,6 @@ Creates a tar file from a list of inputs.
       </td>
     </tr>
   </tbody>
-  </tbody>
 </table>
 
 <a name="pkg_deb"></a>
@@ -448,7 +447,6 @@ for more details on this.
       </td>
     </tr>
   </tbody>
-  </tbody>
 </table>
 
 <a name="pkg_rpm"></a>
@@ -516,6 +514,5 @@ for more details on this.
         </p>
       </td>
     </tr>
-  </tbody>
   </tbody>
 </table>
