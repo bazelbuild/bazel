@@ -586,8 +586,8 @@ function test_build_only() {
 
 function test_query() {
   # Verify that at least a minimally meaningful event stream is generated
-  # for query. In particular, we expect bazel not to crash.
-  bazel query --build_event_text_file=$TEST_log '//pkg:true' \
+  # for non-build. In particular, we expect bazel not to crash.
+  bazel query --build_event_text_file=$TEST_log 'tests(//...)' \
     || fail "bazel query failed"
   expect_log '^started'
   expect_log 'command: "query"'
@@ -595,53 +595,9 @@ function test_query() {
   expect_log 'build_finished'
   expect_not_log 'aborted'
   # For query, we also expect the full output to be contained in the protocol,
-  # inside of a progress event.
-  expect_log '^progress'
-  expect_log 'stdout:'
+  # as well as a proper finished event.
   expect_log '//pkg:true'
-  #  ... as well as a proper finished event.
-  expect_log '^finished'
-  expect_log 'name: "SUCCESS"'
-  expect_log 'last_message: true'
-}
-
-function test_cquery() {
-  # Verify that at least a minimally meaningful event stream is generated
-  # for cquery. In particular, we expect bazel not to crash.
-  bazel cquery --build_event_text_file=$TEST_log '//pkg:true' \
-    || fail "bazel cquery failed"
-  expect_log '^started'
-  expect_log 'command: "cquery"'
-  expect_log 'args: "--build_event_text_file='
-  expect_log 'build_finished'
-  expect_log 'aborted'
-  # For cquery, we also expect the full output to be contained in the protocol,
-  # inside of a progress event.
-  expect_log '^progress'
-  expect_log 'stdout:'
-  expect_log '//pkg:true'
-  #  ... as well as a proper finished event.
-  expect_log '^finished'
-  expect_log 'name: "SUCCESS"'
-  expect_log 'last_message: true'
-}
-
-function test_aquery() {
-  # Verify that at least a minimally meaningful event stream is generated
-  # for aquery. In particular, we expect bazel not to crash.
-  bazel aquery --build_event_text_file=$TEST_log '//pkg:true' \
-    || fail "bazel aquery failed"
-  expect_log '^started'
-  expect_log 'command: "aquery"'
-  expect_log 'args: "--build_event_text_file='
-  expect_log 'build_finished'
-  expect_log 'aborted'
-  # For aquery, we also expect the full output to be contained in the protocol,
-  # inside of a progress event.
-  expect_log '^progress'
-  expect_log 'stdout:'
-  expect_log '//pkg:true'
-  #  ... as well as a proper finished event.
+  expect_log '//pkg:slow'
   expect_log '^finished'
   expect_log 'name: "SUCCESS"'
   expect_log 'last_message: true'
