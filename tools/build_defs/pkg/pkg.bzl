@@ -19,12 +19,23 @@ load(":path.bzl", "compute_data_path", "dest_path")
 tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2"]
 deb_filetype = [".deb", ".udeb"]
 
+def _remap(remap_paths, path):
+  """If path starts with a key in remap_paths, rewrite it."""
+  for prefix, replacement in remap_paths.items():
+    if path.startswith(prefix):
+      return path.replace(prefix, replacement)
+  return path
+
 def _pkg_tar_impl(ctx):
     """Implementation of the pkg_tar rule."""
 
     # Compute the relative path
     data_path = compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
 
+    # Find a list of path remappings to apply.
+    remap_paths = ctx.attr.remap_paths
+
+    # Start building the arguments.
     build_tar = ctx.executable.build_tar
     args = [
         "--output=" + ctx.outputs.out.path,
@@ -44,7 +55,7 @@ def _pkg_tar_impl(ctx):
                 file_inputs += run_files
 
     args += [
-        "--file=%s=%s" % (f.path, dest_path(f, data_path))
+        "--file=%s=%s" % (f.path, _remap(remap_paths, dest_path(f, data_path)))
         for f in file_inputs
     ]
     for target, f_dest_path in ctx.attr.files.items():
@@ -200,6 +211,7 @@ _real_pkg_tar = rule(
         "empty_files": attr.string_list(),
         "include_runfiles": attr.bool(default = False, mandatory = False),
         "empty_dirs": attr.string_list(),
+        "remap_paths": attr.string_dict(),
         # Implicit dependencies.
         "build_tar": attr.label(
             default = Label("//tools/build_defs/pkg:build_tar"),
