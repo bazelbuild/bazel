@@ -263,8 +263,8 @@ recompiles that file.
 Looking at the dependency graph, you can see that `ProjectRunner` depends on the
 same inputs as it did before, but the structure of the build is different:
 
-![Dependency graph of the target 'ProjectRunner' after adding a dependency]
-(/assets/tutorial_java_02.svg)
+![Dependency graph of the target 'ProjectRunner' after adding a dependency](
+/assets/tutorial_java_02.svg)
 
 You've now built the project with two targets. The `ProjectRunner` target builds
 two source files and depends on one other target (`:greeter`), which builds

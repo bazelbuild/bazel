@@ -24,8 +24,8 @@ title: Configurable Build Attributes
 
 &nbsp;
 
-**_Configurable attributes_**, commonly known as [`select()`]
-(be/functions.html#select), is a Bazel feature that lets users toggle the values
+**_Configurable attributes_**, commonly known as [`select()`](
+be/functions.html#select), is a Bazel feature that lets users toggle the values
 of BUILD rule attributes at the command line.
 
 This can be used, for example, for a multiplatform library that automatically
@@ -196,8 +196,8 @@ Since `config_setting` currently only supports built-in Bazel flags, the level
 of custom conditioning it can support is limited. For example, there's no Bazel
 flag for `IncludeSpecialProjectFeatureX`.
 
-Plans for [truly custom flags]
-(https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
+Plans for [truly custom flags](
+https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
 are underway. In the meantime, [`--define`](user-manual.html#flag--define) is
 the best approach for these purposes.
 `--define` is a bit awkward to use and wasn't originally designed for this
@@ -319,9 +319,9 @@ Without platforms, this might look something like
 bazel build //my_app:my_rocks --define color=white --define texture=smooth --define type=metamorphic
 ```
 
-Platforms are still under development. See the [documentation]
-(https://docs.bazel.build/versions/master/platforms.html) and [roadmap]
-(https://bazel.build/roadmaps/platforms.html) for details.
+Platforms are still under development. See the [documentation](
+https://docs.bazel.build/versions/master/platforms.html) and
+[roadmap](https://bazel.build/roadmaps/platforms.html) for details.
 
 ## Short Keys
 
@@ -506,8 +506,8 @@ This makes it easier to manage the dependency. But it still adds unnecessary
 duplication.
 
 `select()` doesn't support native syntax for `OR`ed conditions. For this, use
-the [Skylib](https://github.com/bazelbuild/bazel-skylib) utility [`selects`]
-(https://github.com/bazelbuild/bazel-skylib/blob/master/lib/selects.bzl).
+the [Skylib](https://github.com/bazelbuild/bazel-skylib) utility [`selects`](
+https://github.com/bazelbuild/bazel-skylib/blob/master/lib/selects.bzl).
 
 ```python
 load("@bazel_skylib//:lib.bzl", "selects")
@@ -600,8 +600,8 @@ select({"foo": "val_with_suffix"}, ...)
 This is for two reasons.
 
 First, macros that need to know which path a `select` will choose *cannot work*
-because macros are evaluated in Bazel's [loading phase]
-(user-manual.html#loading-phase), which occurs before flag values are known.
+because macros are evaluated in Bazel's [loading phase](user-manual.html#loading-phase),
+which occurs before flag values are known.
 This is a core Bazel design restriction that's unlikely to change any time soon.
 
 Second, macros that just need to iterate over *all* `select` paths, while
@@ -609,8 +609,8 @@ technically feasible, lack a coherent UI. Further design is necessary to change
 this.
 
 ## <a name="query"></a>Bazel Query and Cquery
-Bazel `query` operates over Bazel's [loading phase]
-(user-manual.html#loading-phase). This means it doesn't know what command line
+Bazel `query` operates over Bazel's [loading phase](
+user-manual.html#loading-phase). This means it doesn't know what command line
 flags will be applied to a target since those flags aren't evaluated until later
 in the build (during the [analysis phase](user-manual.html#analysis-phase)). So
 the [`query`](query.html) command can't accurately determine which path a

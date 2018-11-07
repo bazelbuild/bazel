@@ -379,8 +379,8 @@ watch [issue #4558] for updates.
 * **Faster Bazel builds with remote caching: a benchmark:** Nicolò Valigi wrote a [blog post](https://nicolovaligi.com/faster-bazel-remote-caching-benchmark.html) in which he benchmarks remote caching in Bazel.
 
 
-[Adapting Rules for Remote Execution](https://docs.bazel.build/versions/master/remote-execution-rules.html)
-[Troubleshooting Remote Execution](https://docs.bazel.build/versions/master/remote-execution-sandbox.html)
+[Adapting Rules for Remote Execution]: https://docs.bazel.build/versions/master/remote-execution-rules.html
+[Troubleshooting Remote Execution]: https://docs.bazel.build/versions/master/remote-execution-sandbox.html
 [WebDAV module]: http://nginx.org/en/docs/http/ngx_http_dav_module.html
 [docker image]: https://hub.docker.com/r/buchgr/bazel-remote-cache/
 [GitHub]: https://github.com/buchgr/bazel-remote/
