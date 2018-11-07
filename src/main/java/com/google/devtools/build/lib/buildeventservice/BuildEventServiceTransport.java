@@ -418,7 +418,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           failCloseFuture((Exception) e.getCause());
         }
       } catch (RuntimeException e) {
-        failCloseFuture((Exception) e.getCause());
+        failCloseFuture(e);
         logError(e, "BES upload failed due to a RuntimeException. This is a bug.");
         throw e;
       } finally {
