@@ -621,7 +621,6 @@ public class CcToolchainTest extends BuildViewTestCase {
     useConfiguration(
         "--cpu=k8",
         "--experimental_enable_cc_toolchain_config_info",
-        "--incompatible_disable_late_bound_option_defaults",
         "--incompatible_disable_cc_configuration_make_variables");
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
@@ -643,7 +642,6 @@ public class CcToolchainTest extends BuildViewTestCase {
     useConfiguration(
         "--cpu=k8",
         "--experimental_enable_cc_toolchain_config_info",
-        "--incompatible_disable_late_bound_option_defaults",
         "--incompatible_disable_cc_configuration_make_variables");
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
@@ -672,8 +670,7 @@ public class CcToolchainTest extends BuildViewTestCase {
       assertThat(e)
           .hasMessageThat()
           .contains(
-              "--incompatible_disable_late_bound_option_defaults and "
-                  + "--incompatible_disable_cc_configuration_make_variables must be set to true in "
+              "--incompatible_disable_cc_configuration_make_variables must be set to true in "
                   + "order to configure the C++ toolchain from Starlark.");
     }
   }

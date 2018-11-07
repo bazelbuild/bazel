@@ -894,31 +894,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
       NOTRIM,
     }
 
-    @Option(
-        name = "experimental_use_late_bound_option_defaults",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-        help =
-            "Do not use this flag. Use --incompatible_disable_late_bound_option_defaults instead.")
-    public boolean useLateBoundOptionDefaults;
-
-    @Option(
-        name = "incompatible_disable_late_bound_option_defaults",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help =
-            "When true, Bazel will not allow late bound values read from the CROSSTOOL file "
-                + "to be used in config_settings. The CROSSTOOL field used in this manner is "
-                + "'compiler'. Instead of config_setting(values = {'compiler': 'x'}), "
-                + "config_setting(flag_values = {'@bazel_tools/tools/cpp:compiler': 'x'}) should "
-                + "be used.")
-    public boolean incompatibleDisableLateBoundOptionDefaults;
 
     /**
      * Converter for --experimental_dynamic_configs.
@@ -1320,11 +1295,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     this.testEnv = setupTestEnvironment();
 
     this.transitiveOptionDetails =
-        computeOptionsMap(
-            buildOptions,
-            fragments.values(),
-            (options.useLateBoundOptionDefaults
-                && !options.incompatibleDisableLateBoundOptionDefaults));
+        TransitiveOptionDetails.forOptionsWithDefaults(buildOptions.getNativeOptions());
 
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
     for (Fragment fragment : fragments.values()) {
@@ -1422,22 +1393,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   TransitiveOptionDetails getTransitiveOptionDetails() {
     return transitiveOptionDetails;
-  }
-
-  /** Computes and returns the {@link TransitiveOptionDetails} for this configuration. */
-  private static TransitiveOptionDetails computeOptionsMap(
-      BuildOptions buildOptions, Iterable<Fragment> fragments, boolean useLateBoundOptionDefaults) {
-    // Collect from our fragments "alternative defaults" for options where the default
-    // should be something other than what's specified in Option.defaultValue.
-    Map<String, Object> lateBoundDefaults = Maps.newHashMap();
-    if (useLateBoundOptionDefaults) {
-      for (Fragment fragment : fragments) {
-        lateBoundDefaults.putAll(fragment.lateBoundOptionDefaults());
-      }
-    }
-
-    return TransitiveOptionDetails.forOptionsWithDefaults(
-        buildOptions.getNativeOptions(), lateBoundDefaults);
   }
 
   private String buildMnemonic() {
@@ -1974,8 +1929,4 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return reservedActionMnemonics;
   }
 
-  public boolean disableLateBoundOptionDefaults() {
-    return options.incompatibleDisableLateBoundOptionDefaults
-        || !options.useLateBoundOptionDefaults;
-  }
 }

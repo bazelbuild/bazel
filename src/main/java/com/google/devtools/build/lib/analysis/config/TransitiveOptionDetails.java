@@ -21,7 +21,6 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.Serializable;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -37,8 +36,8 @@ public final class TransitiveOptionDetails implements Serializable {
    * Computes and returns the transitive optionName -> "option info" map for the given set of
    * options sets, using the given map as defaults for options which would otherwise be null.
    */
-  public static TransitiveOptionDetails forOptionsWithDefaults(
-      Iterable<? extends OptionsBase> buildOptions, Map<String, Object> lateBoundDefaults) {
+  static TransitiveOptionDetails forOptionsWithDefaults(
+      Iterable<? extends OptionsBase> buildOptions) {
     ImmutableMap.Builder<String, OptionDetails> map = ImmutableMap.builder();
     try {
       for (OptionsBase options : buildOptions) {
@@ -51,14 +50,10 @@ public final class TransitiveOptionDetails implements Serializable {
               continue;
             }
           Object value = optionDefinition.getField().get(options);
-            if (value == null) {
-            if (lateBoundDefaults.containsKey(optionDefinition.getOptionName())) {
-              value = lateBoundDefaults.get(optionDefinition.getOptionName());
-            } else if (!optionDefinition.isSpecialNullDefault()) {
+          if (value == null && !optionDefinition.isSpecialNullDefault()) {
               // See {@link Option#defaultValue} for an explanation of default "null" strings.
               value = optionDefinition.getUnparsedDefaultValue();
-              }
-            }
+          }
           map.put(
               optionDefinition.getOptionName(),
               new OptionDetails(options.getClass(), value, optionDefinition.allowsMultiple()));

@@ -76,6 +76,19 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
         help = "noop")
     public boolean forceIgnoreDashStatic;
+
+    @Option(
+        name = "incompatible_disable_late_bound_option_defaults",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "This option is deprecated and has no effect.")
+    public boolean incompatibleDisableLateBoundOptionDefaults;
   }
 
   @Override

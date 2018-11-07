@@ -4006,7 +4006,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "cc_toolchain_config_rule(name='r')");
     useConfiguration(
         "--experimental_enable_cc_toolchain_config_info",
-        "--incompatible_disable_late_bound_option_defaults",
         "--incompatible_disable_cc_configuration_make_variables");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
@@ -4082,7 +4081,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     setupSkylarkRuleForStringFieldsTesting("");
     useConfiguration(
         "--experimental_enable_cc_toolchain_config_info",
-        "--incompatible_disable_late_bound_option_defaults",
         "--incompatible_disable_cc_configuration_make_variables");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();

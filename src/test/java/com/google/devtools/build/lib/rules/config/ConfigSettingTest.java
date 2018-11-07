@@ -33,7 +33,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,44 +42,6 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ConfigSettingTest extends BuildViewTestCase {
-
-  /** Test option that has its null default overridden by its fragment. */
-  public static class LateBoundTestOptions extends FragmentOptions {
-    public LateBoundTestOptions() {}
-
-    @Option(
-      name = "opt_with_default",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "null"
-    )
-    public String optwithDefault;
-  }
-
-  @AutoCodec
-  static class LateBoundTestOptionsFragment extends BuildConfiguration.Fragment {
-    @Override
-    public Map<String, Object> lateBoundOptionDefaults() {
-      return ImmutableMap.<String, Object>of("opt_with_default", "overridden");
-    }
-  }
-
-  private static class LateBoundTestOptionsLoader implements ConfigurationFragmentFactory {
-    @Override
-    public BuildConfiguration.Fragment create(BuildOptions buildOptions) {
-      return new LateBoundTestOptionsFragment();
-    }
-
-    @Override
-    public Class<? extends BuildConfiguration.Fragment> creates() {
-      return LateBoundTestOptionsFragment.class;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(LateBoundTestOptions.class);
-    }
-  }
 
   /** Test option which is private. */
   public static class InternalTestOptions extends FragmentOptions {
@@ -122,8 +83,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new FeatureFlagSetterRule());
-    builder.addConfigurationOptions(LateBoundTestOptions.class);
-    builder.addConfigurationFragment(new LateBoundTestOptionsLoader());
     builder.addConfigurationOptions(InternalTestOptions.class);
     builder.addConfigurationFragment(new InternalTestOptionsLoader());
     return builder.build();
@@ -245,47 +204,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    values = {})");
   }
 
-  /**
-   * Tests {@link BuildConfiguration.Fragment#lateBoundOptionDefaults} options (options
-   * that take alternative defaults from what's specified in {@link
-   * com.google.devtools.common.options.Option#defaultValue}).
-   */
-  @Test
-  public void lateBoundOptionDefaults() throws Exception {
-    useConfiguration("--incompatible_disable_late_bound_option_defaults=false");
-    scratch.file("test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = { 'opt_with_default': 'overridden' }",
-        ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
-  }
-
-  /** Tests disallowing {@link BuildConfiguration.Fragment#lateBoundOptionDefaults} */
-  @Test
-  public void disallowLateBoundOptionDefaults() throws Exception {
-    useConfiguration("--experimental_use_late_bound_option_defaults=false");
-    scratch.file(
-        "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = { 'opt_with_default': 'overridden' }",
-        ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
-  }
-
-  /** Tests disallowing {@link BuildConfiguration.Fragment#lateBoundOptionDefaults} */
-  @Test
-  public void disallowLateBoundOptionDefaultsIncompatible() throws Exception {
-    useConfiguration("--incompatible_disable_late_bound_option_defaults=true");
-    scratch.file(
-        "test/BUILD",
-        "config_setting(",
-        "    name = 'match',",
-        "    values = { 'opt_with_default': 'overridden' }",
-        ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
-  }
   /**
    * Tests matching on multi-value attributes with key=value entries (e.g. --define).
    */
