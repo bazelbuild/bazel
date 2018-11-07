@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -37,11 +38,11 @@ public abstract class ToolchainResolutionValue implements SkyValue {
   // A key representing the input data.
   public static Key key(
       BuildConfigurationValue.Key configurationKey,
-      Label toolchainType,
+      Label toolchainTypeLabel,
       ConfiguredTargetKey targetPlatformKey,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
     return Key.create(
-        configurationKey, toolchainType, targetPlatformKey, availableExecutionPlatformKeys);
+        configurationKey, toolchainTypeLabel, targetPlatformKey, availableExecutionPlatformKeys);
   }
 
   /** {@link SkyKey} implementation used for {@link ToolchainResolutionFunction}. */
@@ -57,7 +58,7 @@ public abstract class ToolchainResolutionValue implements SkyValue {
 
     abstract BuildConfigurationValue.Key configurationKey();
 
-    public abstract Label toolchainType();
+    public abstract Label toolchainTypeLabel();
 
     abstract ConfiguredTargetKey targetPlatformKey();
 
@@ -66,12 +67,12 @@ public abstract class ToolchainResolutionValue implements SkyValue {
     @AutoCodec.Instantiator
     static Key create(
         BuildConfigurationValue.Key configurationKey,
-        Label toolchainType,
+        Label toolchainTypeLabel,
         ConfiguredTargetKey targetPlatformKey,
         List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
       return new AutoValue_ToolchainResolutionValue_Key(
           configurationKey,
-          toolchainType,
+          toolchainTypeLabel,
           targetPlatformKey,
           ImmutableList.copyOf(availableExecutionPlatformKeys));
     }
@@ -79,9 +80,13 @@ public abstract class ToolchainResolutionValue implements SkyValue {
 
   @AutoCodec.Instantiator
   public static ToolchainResolutionValue create(
+      ToolchainTypeInfo toolchainType,
       ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels) {
-    return new AutoValue_ToolchainResolutionValue(availableToolchainLabels);
+    return new AutoValue_ToolchainResolutionValue(toolchainType, availableToolchainLabels);
   }
+
+  /** Returns the resolved details about the requested toolchain type. */
+  public abstract ToolchainTypeInfo toolchainType();
 
   /**
    * Returns the resolved set of toolchain labels (as {@link Label}) for the requested toolchain

@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ToolchainResolver.NoMatchingPlatformException;
 import com.google.devtools.build.lib.analysis.ToolchainResolver.UnloadedToolchainContext;
 import com.google.devtools.build.lib.analysis.ToolchainResolver.UnresolvedToolchainsException;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -97,7 +98,8 @@ public class ToolchainResolverTest extends ToolchainTestCase {
 
     useConfiguration("--platforms=//platforms:linux");
     ResolveToolchainsKey key =
-        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
+        ResolveToolchainsKey.create(
+            "test", ImmutableSet.of(testToolchainTypeLabel), targetConfigKey);
 
     EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
@@ -196,7 +198,7 @@ public class ToolchainResolverTest extends ToolchainTestCase {
         ResolveToolchainsKey.create(
             "test",
             ImmutableSet.of(
-                testToolchainType, Label.parseAbsoluteUnchecked("//fake/toolchain:type_1")),
+                testToolchainTypeLabel, Label.parseAbsoluteUnchecked("//fake/toolchain:type_1")),
             targetConfigKey);
 
     EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
@@ -219,7 +221,7 @@ public class ToolchainResolverTest extends ToolchainTestCase {
         ResolveToolchainsKey.create(
             "test",
             ImmutableSet.of(
-                testToolchainType,
+                testToolchainTypeLabel,
                 Label.parseAbsoluteUnchecked("//fake/toolchain:type_1"),
                 Label.parseAbsoluteUnchecked("//fake/toolchain:type_2")),
             targetConfigKey);
@@ -238,7 +240,8 @@ public class ToolchainResolverTest extends ToolchainTestCase {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
     useConfiguration("--platforms=//invalid:not_a_platform");
     ResolveToolchainsKey key =
-        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
+        ResolveToolchainsKey.create(
+            "test", ImmutableSet.of(testToolchainTypeLabel), targetConfigKey);
 
     EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
@@ -261,7 +264,8 @@ public class ToolchainResolverTest extends ToolchainTestCase {
     scratch.resolve("invalid").delete();
     useConfiguration("--platforms=//invalid:not_a_platform");
     ResolveToolchainsKey key =
-        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
+        ResolveToolchainsKey.create(
+            "test", ImmutableSet.of(testToolchainTypeLabel), targetConfigKey);
 
     EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
@@ -282,7 +286,8 @@ public class ToolchainResolverTest extends ToolchainTestCase {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
     useConfiguration("--host_platform=//invalid:not_a_platform");
     ResolveToolchainsKey key =
-        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
+        ResolveToolchainsKey.create(
+            "test", ImmutableSet.of(testToolchainTypeLabel), targetConfigKey);
 
     EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
@@ -303,7 +308,8 @@ public class ToolchainResolverTest extends ToolchainTestCase {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
     useConfiguration("--extra_execution_platforms=//invalid:not_a_platform");
     ResolveToolchainsKey key =
-        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
+        ResolveToolchainsKey.create(
+            "test", ImmutableSet.of(testToolchainTypeLabel), targetConfigKey);
 
     EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
@@ -343,7 +349,7 @@ public class ToolchainResolverTest extends ToolchainTestCase {
     ResolveToolchainsKey key =
         ResolveToolchainsKey.create(
             "test",
-            ImmutableSet.of(testToolchainType),
+            ImmutableSet.of(testToolchainTypeLabel),
             ImmutableSet.of(Label.parseAbsoluteUnchecked("//constraints:linux")),
             targetConfigKey);
 
@@ -372,7 +378,7 @@ public class ToolchainResolverTest extends ToolchainTestCase {
     ResolveToolchainsKey key =
         ResolveToolchainsKey.create(
             "test",
-            ImmutableSet.of(testToolchainType),
+            ImmutableSet.of(testToolchainTypeLabel),
             ImmutableSet.of(Label.parseAbsoluteUnchecked("//platforms:linux")),
             targetConfigKey);
 
@@ -451,7 +457,8 @@ public class ToolchainResolverTest extends ToolchainTestCase {
 
     useConfiguration("--platforms=//platforms:linux");
     ResolveToolchainsKey key =
-        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
+        ResolveToolchainsKey.create(
+            "test", ImmutableSet.of(testToolchainTypeLabel), targetConfigKey);
 
     // Create the UnloadedToolchainContext.
     EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
@@ -479,8 +486,9 @@ public class ToolchainResolverTest extends ToolchainTestCase {
   @Test
   public void unloadedToolchainContext_load_withTemplateVariables() throws Exception {
     // Add new toolchain rule that provides template variables.
-    Label variableToolchainType =
+    Label variableToolchainTypeLabel =
         Label.parseAbsoluteUnchecked("//variable:variable_toolchain_type");
+    ToolchainTypeInfo variableToolchainType = ToolchainTypeInfo.create(variableToolchainTypeLabel);
     scratch.file(
         "variable/variable_toolchain_def.bzl",
         "def _impl(ctx):",
@@ -512,7 +520,7 @@ public class ToolchainResolverTest extends ToolchainTestCase {
 
     ResolveToolchainsKey key =
         ResolveToolchainsKey.create(
-            "test", ImmutableSet.of(variableToolchainType), targetConfigKey);
+            "test", ImmutableSet.of(variableToolchainTypeLabel), targetConfigKey);
 
     // Create the UnloadedToolchainContext.
     EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
