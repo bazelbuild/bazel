@@ -245,7 +245,7 @@ public class JavaOptions extends FragmentOptions {
   public Void javaTestDebug;
 
   @Option(
-      name = "strict_java_deps",
+      name = "experimental_strict_java_deps",
       allowMultiple = false,
       defaultValue = "default",
       converter = StrictDepsConverter.class,
@@ -254,7 +254,7 @@ public class JavaOptions extends FragmentOptions {
       help =
           "If true, checks that a Java target explicitly declares all directly used "
               + "targets as dependencies.",
-      oldName = "strict_android_deps")
+      oldName = "strict_java_deps")
   public StrictDepsMode strictJavaDeps;
 
   @Option(

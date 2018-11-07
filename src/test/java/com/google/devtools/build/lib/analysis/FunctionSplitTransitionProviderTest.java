@@ -333,7 +333,8 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
         "  return {'//command_line_option:cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
         "  inputs = [],",
-        "  outputs = ['//command_line_option:cpu', '//command_line_option:strict_java_deps'])",
+        "  outputs = ['//command_line_option:cpu',",
+        "             '//command_line_option:experimental_strict_java_deps'])",
         "def impl(ctx): ",
         "  return []",
         "my_rule = rule(",
@@ -356,9 +357,13 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
       fail("Expected failure");
     } catch (IllegalStateException expected) {
       // TODO(bazel-team): Register a failure event instead of throwing a RuntimeException.
-      assertThat(expected).hasCauseThat().hasCauseThat().hasMessageThat()
-          .contains("transition outputs [//command_line_option:strict_java_deps] were not "
-              + "defined by transition function");
+      assertThat(expected)
+          .hasCauseThat()
+          .hasCauseThat()
+          .hasMessageThat()
+          .contains(
+              "transition outputs [//command_line_option:experimental_strict_java_deps] were not "
+                  + "defined by transition function");
     }
   }
 
@@ -371,12 +376,13 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
         "test/skylark/my_rule.bzl",
         "def transition_func(settings):",
         "  if (len(settings) != 2",
-        "      or (not settings['//command_line_option:strict_java_deps'])",
+        "      or (not settings['//command_line_option:experimental_strict_java_deps'])",
         "      or (not settings['//command_line_option:cpu'])):",
         "    fail()",
         "  return {'//command_line_option:cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
-        "  inputs = ['//command_line_option:strict_java_deps', '//command_line_option:cpu'],",
+        "  inputs = ['//command_line_option:experimental_strict_java_deps',",
+        "            '//command_line_option:cpu'],",
         "  outputs = ['//command_line_option:cpu'])",
         "def impl(ctx): ",
         "  return []",

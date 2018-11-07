@@ -2194,7 +2194,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   @Test
   public void testAnalysisTestTransitionOnAnalysisTest() throws Exception {
     setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
-    useConfiguration("--strict_java_deps=OFF");
+    useConfiguration("--experimental_strict_java_deps=OFF");
 
     scratch.file(
         "test/extension.bzl",
@@ -2209,12 +2209,12 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  return [MyInfo(strict_java_deps = ctx.fragments.java.strict_java_deps)]",
         "",
         "def transition_func(settings):",
-        "  return { '//command_line_option:strict_java_deps' : 'WARN' }",
+        "  return { '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
         "my_transition = transition(",
         "    implementation = transition_func,",
         "    for_analysis_testing=True,",
         "    inputs = [],",
-        "    outputs = ['//command_line_option:strict_java_deps'])",
+        "    outputs = ['//command_line_option:experimental_strict_java_deps'])",
         "",
         "inner_rule = rule(implementation = inner_rule_impl,",
         "                  fragments = ['java'])",
@@ -2402,12 +2402,12 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  return [AnalysisTestResultInfo(success = True, message = 'message contents')]",
         "",
         "def transition_func(settings):",
-        "  return { '//command_line_option:strict_java_deps' : 'WARN' }",
+        "  return { '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
         "my_transition = transition(",
         "  implementation = transition_func,",
         "  for_analysis_testing=True,",
         "  inputs = [],",
-        "  outputs = ['//command_line_option:strict_java_deps'])",
+        "  outputs = ['//command_line_option:experimental_strict_java_deps'])",
         "",
         "inner_rule_test = rule(",
         "  implementation = analysis_test_rule_impl,",
@@ -2471,12 +2471,12 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  return []",
         "",
         "def transition_func(settings):",
-        "  return { '//command_line_option:strict_java_deps' : 'WARN' }",
+        "  return { '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
         "my_transition = transition(",
         "    implementation = transition_func,",
         "    for_analysis_testing=True,",
         "    inputs = [],",
-        "    outputs = ['//command_line_option:strict_java_deps'])",
+        "    outputs = ['//command_line_option:experimental_strict_java_deps'])",
         "",
         "dep_rule = rule(",
         "  implementation = dep_rule_impl,",
