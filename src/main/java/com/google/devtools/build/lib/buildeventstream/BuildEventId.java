@@ -313,12 +313,4 @@ public final class BuildEventId implements Serializable {
                 BuildEventStreamProtos.BuildEventId.BuildMetricsId.getDefaultInstance())
             .build());
   }
-
-  public static BuildEventId queryOutput() {
-    return new BuildEventId(
-        BuildEventStreamProtos.BuildEventId.newBuilder()
-            .setQueryOutput(
-                BuildEventStreamProtos.BuildEventId.QueryOutputId.getDefaultInstance())
-            .build());
-  }
 }

@@ -18,6 +18,8 @@ import static com.google.devtools.build.lib.packages.Rule.ALL_LABELS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -40,8 +42,6 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
-import com.google.devtools.build.lib.runtime.QueryBEPHelper;
-import com.google.devtools.build.lib.runtime.QueryBEPHelper.QueryBEPHelperForNonBuildingCommand;
 import com.google.devtools.build.lib.runtime.TargetProviderForQueryEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -143,44 +143,36 @@ public final class QueryCommand implements BlazeCommand {
     Set<Setting> settings = queryOptions.toSettings();
     boolean streamResults = QueryOutputUtils.shouldStreamResults(queryOptions, formatter);
 
-    try (QueryBEPHelperForNonBuildingCommand queryBEPHelperForNonBuildingCommand =
-        QueryBEPHelper.createForNonBuildingCommand(env, queryOptions)) {
-      Either<BlazeCommandResult, QueryEvalResult> result;
-      try (AbstractBlazeQueryEnvironment<Target> queryEnv =
-          newQueryEnvironment(
-              env,
-              options.getOptions(KeepGoingOption.class).keepGoing,
-              !streamResults,
-              queryOptions.universeScope,
-              options.getOptions(LoadingPhaseThreadsOption.class).threads,
-              settings)) {
-        result = doQuery(
-            query,
+    Either<BlazeCommandResult, QueryEvalResult> result;
+    try (AbstractBlazeQueryEnvironment<Target> queryEnv =
+        newQueryEnvironment(
             env,
-            queryOptions,
-            streamResults,
-            formatter,
-            queryEnv,
-            queryBEPHelperForNonBuildingCommand);
-      }
-      return result.map(
-          Function.identity(),
-          queryEvalResult -> {
-            if (queryEvalResult.isEmpty()) {
-              env.getReporter().handle(Event.info("Empty results"));
-            }
-            queryBEPHelperForNonBuildingCommand.afterQueryOutputIsWritten();
-            ExitCode exitCode = queryEvalResult.getSuccess()
-                ? ExitCode.SUCCESS
-                : ExitCode.PARTIAL_ANALYSIS_FAILURE;
-            queryBEPHelperForNonBuildingCommand.afterExitCodeIsDetermined(exitCode);
-            return BlazeCommandResult.exitCode(exitCode);
-          });
-    } catch (IOException e) {
-      env.getReporter()
-          .handle(Event.error("I/O error:" + e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+            options.getOptions(KeepGoingOption.class).keepGoing,
+            !streamResults,
+            queryOptions.universeScope,
+            options.getOptions(LoadingPhaseThreadsOption.class).threads,
+            settings)) {
+      result = doQuery(
+          query,
+          env,
+          queryOptions,
+          streamResults,
+          formatter,
+          queryEnv);
     }
+    return result.map(
+        Function.identity(),
+        queryEvalResult -> {
+          if (queryEvalResult.isEmpty()) {
+            env.getReporter().handle(Event.info("Empty results"));
+          }
+          ExitCode exitCode = queryEvalResult.getSuccess()
+              ? ExitCode.SUCCESS
+              : ExitCode.PARTIAL_ANALYSIS_FAILURE;
+          env.getEventBus().post(
+              new NoBuildRequestFinishedEvent(exitCode, runtime.getClock().currentTimeMillis()));
+          return BlazeCommandResult.exitCode(exitCode);
+        });
   }
 
   private Either<BlazeCommandResult, QueryEvalResult> doQuery(
@@ -189,8 +181,7 @@ public final class QueryCommand implements BlazeCommand {
       QueryOptions queryOptions,
       boolean streamResults,
       OutputFormatter formatter,
-      AbstractBlazeQueryEnvironment<Target> queryEnv,
-      QueryBEPHelperForNonBuildingCommand queryBEPHelperForNonBuildingCommand) {
+      AbstractBlazeQueryEnvironment<Target> queryEnv) {
     QueryExpression expr;
     try {
       expr = QueryExpression.parse(query, queryEnv);
@@ -214,10 +205,9 @@ public final class QueryCommand implements BlazeCommand {
       // There is no particular reason for the 16384 constant here, except its a multiple of the
       // gRPC buffer size. We mainly don't want to send each label individually because the output
       // stream is connected to gRPC, and every write gets converted to one gRPC call.
-      out = new BufferedOutputStream(
-          queryBEPHelperForNonBuildingCommand.getOutputStreamForQueryOutput(), 16384);
+      out = new BufferedOutputStream(env.getReporter().getOutErr().getOutputStream(), 16384);
     } else {
-      out = queryBEPHelperForNonBuildingCommand.getOutputStreamForQueryOutput();
+      out = env.getReporter().getOutErr().getOutputStream();
     }
 
     ThreadSafeOutputFormatterCallback<Target> callback;
@@ -231,8 +221,6 @@ public final class QueryCommand implements BlazeCommand {
     } else {
       callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
     }
-
-    queryBEPHelperForNonBuildingCommand.beforeQueryOutputIsWritten();
 
     QueryEvalResult result;
     boolean catastrophe = true;
@@ -273,6 +261,8 @@ public final class QueryCommand implements BlazeCommand {
       }
     }
 
+    env.getEventBus()
+        .post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime(), true));
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
       try {

@@ -116,13 +116,12 @@ public final class FetchCommand implements BlazeCommand {
 
     env.getReporter()
         .post(
-            NoBuildEvent.newBuilder()
-                .setCommand(env.getCommandName())
-                .setStartTimeMillis(env.getCommandStartTime())
-                .setSeparateFinishedEvent(true)
-                .setShowProgress(true)
-                .setId(env.getCommandId().toString())
-                .build());
+            new NoBuildEvent(
+                env.getCommandName(),
+                env.getCommandStartTime(),
+                true,
+                true,
+                env.getCommandId().toString()));
 
     // 2. Evaluate expression:
     QueryEvalResult queryEvalResult = null;

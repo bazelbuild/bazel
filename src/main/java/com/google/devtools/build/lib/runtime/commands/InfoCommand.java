@@ -167,7 +167,7 @@ public class InfoCommand implements BlazeCommand {
       }
 
       String key = residue.size() == 1 ? residue.get(0) : null;
-      env.getEventBus().post(NoBuildEvent.newBuilder().build());
+      env.getEventBus().post(new NoBuildEvent());
       if (key != null) { // print just the value for the specified key:
         byte[] value;
         if (items.containsKey(key)) {

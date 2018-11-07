@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
@@ -91,32 +90,7 @@ public class ConfiguredTargetQueryEnvironment
       String parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      CqueryOptions cqueryOptions) {
-    this(
-        keepGoing,
-        eventHandler,
-        extraFunctions,
-        topLevelConfigurations,
-        hostConfiguration,
-        parserPrefix,
-        pkgPath,
-        walkableGraphSupplier,
-        cqueryOptions.toSettings(),
-        cqueryOptions);
-  }
-
-  @VisibleForTesting
-  public ConfiguredTargetQueryEnvironment(
-      boolean keepGoing,
-      ExtendedEventHandler eventHandler,
-      Iterable<QueryFunction> extraFunctions,
-      TopLevelConfigurations topLevelConfigurations,
-      BuildConfiguration hostConfiguration,
-      String parserPrefix,
-      PathPackageLocator pkgPath,
-      Supplier<WalkableGraph> walkableGraphSupplier,
-      Set<Setting> settings,
-      CqueryOptions cqueryOptions) {
+      Set<Setting> settings) {
     super(
         keepGoing,
         eventHandler,
@@ -126,8 +100,7 @@ public class ConfiguredTargetQueryEnvironment
         parserPrefix,
         pkgPath,
         walkableGraphSupplier,
-        settings,
-        cqueryOptions);
+        settings);
     this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
     this.configuredTargetKeyExtractor =
         element -> {
@@ -142,6 +115,28 @@ public class ConfiguredTargetQueryEnvironment
             throw new IllegalStateException("Interruption unexpected in configured query", e);
           }
         };
+  }
+
+  public ConfiguredTargetQueryEnvironment(
+      boolean keepGoing,
+      ExtendedEventHandler eventHandler,
+      Iterable<QueryFunction> extraFunctions,
+      TopLevelConfigurations topLevelConfigurations,
+      BuildConfiguration hostConfiguration,
+      String parserPrefix,
+      PathPackageLocator pkgPath,
+      Supplier<WalkableGraph> walkableGraphSupplier,
+      CqueryOptions cqueryOptions) {
+    this(
+        keepGoing,
+        eventHandler,
+        extraFunctions,
+        topLevelConfigurations,
+        hostConfiguration,
+        parserPrefix,
+        pkgPath,
+        walkableGraphSupplier,
+        cqueryOptions.toSettings());
     this.cqueryOptions = cqueryOptions;
   }
 
