@@ -1,0 +1,2 @@
+Important changes:
+- Fix regression #6610, which prevents using the MINGW compiler on Windows.
