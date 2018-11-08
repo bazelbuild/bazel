@@ -189,7 +189,7 @@ public class SpawnIncludeScanner {
     @Override
     @Nullable
     public PlatformInfo getExecutionPlatform() {
-      throw new UnsupportedOperationException();
+      return actionExecutionMetadata.getExecutionPlatform();
     }
 
     @Override
