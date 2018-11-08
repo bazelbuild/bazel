@@ -897,7 +897,7 @@ public class CppOptions extends FragmentOptions {
   // TODO(--incompatible_disable_systool_from_configration): Deprecate the feature and remove.
   @Option(
       name = "incompatible_disable_sysroot_from_configuration",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
