@@ -118,6 +118,7 @@ load("//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/i
 
 create_golden_test(
     name = "bootclasspath_missing_golden_test",
+    check_missing = True,
     checking_mode = "error",
     expect_errors = True,
     golden_output_file = "golden_bootclasspath_missing.txt",
@@ -131,6 +132,7 @@ create_golden_test(
 
 create_golden_test(
     name = "warn_on_bootclasspath_missing_golden_test",
+    check_missing = True,
     checking_mode = "warning",
     expect_errors = False,
     golden_output_file = "golden_warn_on_bootclasspath_missing.txt.txt",
@@ -196,6 +198,7 @@ create_golden_test(
 
 create_golden_test(
     name = "library_interface_missing_golden_test",
+    check_missing = True,
     checking_mode = "error",
     expect_errors = True,
     golden_output_file = "golden_library_interface_missing.txt",
@@ -209,10 +212,26 @@ create_golden_test(
 
 create_golden_test(
     name = "library_members_missing_golden_test",
+    check_missing = True,
     checking_mode = "error",
     expect_errors = True,
     golden_output_file = "golden_library_members_missing.txt",
     golden_stderr_file = "golden_library_members_missing.stderr.txt",
+    has_bootclasspath = True,
+    import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
+    missing_jar = "testdata_lib_Library",
+    replacing_jar = "testdata_lib_Library_no_members",
+    rt_jar = "@local_jdk//:jre/lib/rt.jar",
+    testdata_pkg = "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata",
+)
+
+create_golden_test(
+    name = "library_members_missing_unchecked_golden_test",
+    check_missing = False,
+    checking_mode = "error",
+    expect_errors = False,
+    golden_output_file = "golden_missing_member_unchecked.txt",
+    golden_stderr_file = "golden_complete_classpath.stderr.txt",
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
     missing_jar = "testdata_lib_Library",

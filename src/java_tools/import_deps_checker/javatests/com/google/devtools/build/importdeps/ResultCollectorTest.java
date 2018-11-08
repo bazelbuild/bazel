@@ -46,7 +46,7 @@ public class ResultCollectorTest {
           false,
           ImmutableList.of(objectClass),
           ImmutableSet.of());
-  private ResultCollector collector = new ResultCollector();
+  private ResultCollector collector = new ResultCollector(true);
 
   @Test
   public void testEmptyCollector() throws IOException {

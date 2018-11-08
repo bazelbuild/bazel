@@ -140,6 +140,15 @@ public class Main {
       help = "Controls the behavior of the checker."
     )
     public CheckingMode checkingMode;
+
+    @Option(
+      name = "check_missing_members",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to check whether referenced fields and methods are defined."
+    )
+    public boolean checkMissingMembers;
   }
 
   /** A randomly picked large exit code to avoid collision with other common exit codes. */
@@ -166,7 +175,8 @@ public class Main {
                 ? ImmutableList.copyOf(options.fullClasspath)
                 : ImmutableList.copyOf(options.directClasspath),
             ImmutableList.copyOf(options.fullClasspath),
-            ImmutableList.copyOf(options.inputJars))) {
+            ImmutableList.copyOf(options.inputJars),
+            options.checkMissingMembers)) {
       if (!checker.check() && options.checkingMode != CheckingMode.SILENCE) {
         String result = checker.computeResultOutput(options.ruleLabel);
         checkState(!result.isEmpty(), "The result should NOT be empty.");

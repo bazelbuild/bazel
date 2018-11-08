@@ -39,7 +39,8 @@ def create_golden_test(
         rt_jar,
         missing_jar = None,
         replacing_jar = None,
-        direct_jars = []):
+        direct_jars = [],
+        check_missing = False):
     """Create a golden test for the dependency checker."""
     all_dep_jars = [
         "testdata_client",
@@ -67,6 +68,7 @@ def create_golden_test(
         "$(location :DumpProto)",
         "$(location %s)" % import_deps_checker,
         "--checking_mode=%s" % checking_mode,
+        "--check_missing_members=%s" % ("true" if check_missing else "false"),
     ]
     args.append("--bootclasspath_entry")
     if has_bootclasspath:
