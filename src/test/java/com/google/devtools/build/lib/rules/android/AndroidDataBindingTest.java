@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.android.databinding.UsesDataBindingProvider;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
