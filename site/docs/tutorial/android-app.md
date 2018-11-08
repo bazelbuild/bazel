@@ -50,26 +50,22 @@ Let's take a look at the source files for the app.
 $ tree
 .
 ├── README.md
-├── src
-│   ├── main
-│   │   └── java
-│   │       ├── AndroidManifest.xml
-│   │       ├── BUILD
-│   │       └── com
-│   │           └── example
-│   │               └── bazel
-│   │                   ├── AndroidManifest.xml
-│   │                   ├── BUILD
-│   │                   ├── Greeter.java
-│   │                   ├── MainActivity.java
-│   │                   └── res
-│   │                       ├── layout
-│   │                       │   └── activity_main.xml
-│   │                       └── values
-│   │                           ├── colors.xml
-│   │                           └── strings.xml
-│   └── test
-└── WORKSPACE
+└── src
+    └── main
+        └── java
+            ├── AndroidManifest.xml
+            └── com
+                └── example
+                    └── bazel
+                        ├── AndroidManifest.xml
+                        ├── Greeter.java
+                        ├── MainActivity.java
+                        └── res
+                            ├── layout
+                            │   └── activity_main.xml
+                            └── values
+                                ├── colors.xml
+                                └── strings.xml
 ```
 
 The key files and directories are:
