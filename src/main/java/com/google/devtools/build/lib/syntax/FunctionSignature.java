@@ -243,15 +243,15 @@ public abstract class FunctionSignature implements Serializable {
       return createInternal(signature, convertedDefaultValues, convertedTypes);
     }
 
+    public static <V, T> WithValues<V, T> create(FunctionSignature signature) {
+      return create(signature, null, null);
+    }
+
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static <V, T> WithValues<V, T> createInternal(
         FunctionSignature signature, @Nullable List<V> defaultValues, @Nullable List<T> types) {
       return new AutoValue_FunctionSignature_WithValues<>(signature, defaultValues, types);
-    }
-
-    public static <V, T> WithValues<V, T> create(FunctionSignature signature) {
-      return create(signature, null, null);
     }
 
     /**

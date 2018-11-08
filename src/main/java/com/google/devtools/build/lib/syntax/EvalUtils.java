@@ -304,7 +304,7 @@ public final class EvalUtils {
     } else if (o instanceof SkylarkNestedSet) {
       return !((SkylarkNestedSet) o).isEmpty();
     } else if (o instanceof Iterable<?>) {
-      return !(Iterables.isEmpty((Iterable<?>) o));
+      return !Iterables.isEmpty((Iterable<?>) o);
     } else {
       return true;
     }
