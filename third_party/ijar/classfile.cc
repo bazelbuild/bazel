@@ -1663,6 +1663,12 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
   for (int ii = 0; ii < methods_count; ++ii) {
     Member *method = Member::Read(p);
 
+    if (HasKeepForCompile(method->attributes)) {
+      // Always keep methods marked as such
+      clazz->methods.push_back(method);
+      continue;
+    }
+
     // drop class initializers
     if (method->name->Display() == "<clinit>") continue;
 
