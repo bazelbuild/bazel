@@ -29,7 +29,6 @@ make builds significantly faster.
 * [Disk cache](#disk-cache)
 * [Known Issues](#known-issues)
 * [External Links](#external-links)
-* [Bazel remote execution (in development)](#bazel-remote-execution-in-development)
 
 ## Remote caching overview
 
