@@ -921,12 +921,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public ConfigsMode configsMode;
 
     @Option(
-      name = "experimental_enable_runfiles",
+      name = "enable_runfiles",
+      oldName = "experimental_enable_runfiles",
       defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = { OptionEffectTag.AFFECTS_OUTPUTS },
-      metadataTags = { OptionMetadataTag.EXPERIMENTAL },
-      help = "Enable runfiles; off on Windows, on on other platforms"
+      help = "Enable runfiles symlink tree; By default, it's off on Windows, on on other platforms."
     )
     public TriState enableRunfiles;
 
