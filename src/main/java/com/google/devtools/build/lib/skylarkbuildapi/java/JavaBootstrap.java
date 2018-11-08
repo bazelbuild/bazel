@@ -44,6 +44,6 @@ public class JavaBootstrap implements Bootstrap {
     builder.put("java_common", javaCommonApi);
     builder.put("JavaInfo", javaInfoProviderApi);
     builder.put("java_proto_common", javaProtoCommonApi);
-    builder.put("java_cc_link_params_info", javaCcLinkParamsProviderApiProvider);
+    builder.put("JavaCcLinkParamsInfo", javaCcLinkParamsProviderApiProvider);
   }
 }

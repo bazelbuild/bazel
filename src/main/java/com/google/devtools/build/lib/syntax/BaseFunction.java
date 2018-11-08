@@ -441,6 +441,22 @@ public abstract class BaseFunction implements SkylarkValue {
   }
 
   /**
+   * Inner call to a BaseFunction subclasses need to @Override this method.
+   *
+   * @param args an array of argument values sorted as per the signature.
+   * @param ast the source code for the function if user-defined
+   * @param env the lexical environment of the function call
+   * @throws InterruptedException may be thrown in the function implementations.
+   */
+  // Don't make it abstract, so that subclasses may be defined that @Override the outer call() only.
+  protected Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
+      throws EvalException, InterruptedException {
+    throw new EvalException(
+        (ast == null) ? Location.BUILTIN : ast.getLocation(),
+        String.format("function %s not implemented", getName()));
+  }
+
+  /**
    * The outer calling convention to a BaseFunction. This function expects all arguments to have
    * been resolved into positional ones.
    *
@@ -465,22 +481,6 @@ public abstract class BaseFunction implements SkylarkValue {
         Callstack.pop();
       }
     }
-  }
-
-  /**
-   * Inner call to a BaseFunction subclasses need to @Override this method.
-   *
-   * @param args an array of argument values sorted as per the signature.
-   * @param ast the source code for the function if user-defined
-   * @param env the lexical environment of the function call
-   * @throws InterruptedException may be thrown in the function implementations.
-   */
-  // Don't make it abstract, so that subclasses may be defined that @Override the outer call() only.
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
-      throws EvalException, InterruptedException {
-    throw new EvalException(
-        (ast == null) ? Location.BUILTIN : ast.getLocation(),
-        String.format("function %s not implemented", getName()));
   }
 
   /**

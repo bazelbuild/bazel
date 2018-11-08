@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
+import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
@@ -72,6 +73,8 @@ import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
 import com.google.devtools.build.skydoc.rendering.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.UserDefinedFunctionInfo;
+import com.google.devtools.build.skydoc.rendering.UserDefinedFunctionInfo.DocstringParseException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.NoSuchFileException;
@@ -83,6 +86,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
@@ -132,9 +136,11 @@ public class SkydocMain {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
     ImmutableList.Builder<RuleInfo> unknownNamedRules = ImmutableList.builder();
+    ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctions = ImmutableMap.builder();
 
     new SkydocMain(new FilesystemFileAccessor())
-        .eval(targetFileLabel, ruleInfoMap, unknownNamedRules, providerInfoMap);
+        .eval(
+            targetFileLabel, ruleInfoMap, unknownNamedRules, providerInfoMap, userDefinedFunctions);
 
     MarkdownRenderer renderer = new MarkdownRenderer();
 
@@ -142,6 +148,7 @@ public class SkydocMain {
       try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
         printRuleInfos(printWriter, renderer, ruleInfoMap.build(), unknownNamedRules.build());
         printProviderInfos(printWriter, renderer, providerInfoMap.build());
+        printUserDefinedFunctions(printWriter, renderer, userDefinedFunctions.build());
       }
     } else {
       Map<String, RuleInfo> filteredRuleInfos =
@@ -152,9 +159,14 @@ public class SkydocMain {
           providerInfoMap.build().entrySet().stream()
               .filter(entry -> symbolNames.contains(entry.getKey()))
               .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
+      Map<String, UserDefinedFunction> filteredUserDefinedFunctions =
+          userDefinedFunctions.build().entrySet().stream()
+              .filter(entry -> symbolNames.contains(entry.getKey()))
+              .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
       try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
         printRuleInfos(printWriter, renderer, filteredRuleInfos, ImmutableList.of());
         printProviderInfos(printWriter, renderer, filteredProviderInfos);
+        printUserDefinedFunctions(printWriter, renderer, filteredUserDefinedFunctions);
       }
     }
   }
@@ -192,6 +204,24 @@ public class SkydocMain {
     }
   }
 
+  private static void printUserDefinedFunctions(
+      PrintWriter printWriter,
+      MarkdownRenderer renderer,
+      Map<String, UserDefinedFunction> userDefinedFunctions)
+      throws IOException {
+    for (Entry<String, UserDefinedFunction> entry : userDefinedFunctions.entrySet()) {
+      try {
+        UserDefinedFunctionInfo functionInfo =
+            UserDefinedFunctionInfo.fromNameAndFunction(entry.getKey(), entry.getValue());
+        printUserDefinedFunctionInfo(printWriter, renderer, functionInfo);
+        printWriter.println();
+      } catch (DocstringParseException exception) {
+        System.err.println(exception.getMessage());
+        System.err.println();
+      }
+    }
+  }
+
   private static void printRuleInfo(
       PrintWriter printWriter, MarkdownRenderer renderer,
       String exportedName, RuleInfo ruleInfo) throws IOException {
@@ -202,6 +232,12 @@ public class SkydocMain {
       PrintWriter printWriter, MarkdownRenderer renderer,
       String exportedName, ProviderInfo providerInfo) throws IOException {
     printWriter.println(renderer.render(exportedName, providerInfo));
+  }
+
+  private static void printUserDefinedFunctionInfo(
+      PrintWriter printWriter, MarkdownRenderer renderer, UserDefinedFunctionInfo functionInfo)
+      throws IOException {
+    printWriter.println(renderer.render(functionInfo));
   }
 
   /**
@@ -216,16 +252,20 @@ public class SkydocMain {
    * @param unknownNamedRules a list builder to be populated with rule definition information for
    *     rules which were not exported as top level symbols
    * @param providerInfoMap a map builder to be populated with provider definition information for
-   *     named providers. Keys are exported names of providers, and values are their
-   *     {@link ProviderInfo} descriptions. For example, 'my_provider = provider(...)' has key
+   *     named providers. Keys are exported names of providers, and values are their {@link
+   *     ProviderInfo} descriptions. For example, 'my_provider = provider(...)' has key
    *     'my_provider'
+   * @param userDefinedFunctionMap a map builder to be populated with user-defined functions. Keys
+   *     are exported names of functions, and values are the {@link UserDefinedFunction} objects.
+   *     For example, 'def my_function(foo):' is a function with key 'my_function'.
    * @throws InterruptedException if evaluation is interrupted
    */
   public Environment eval(
       Label label,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableList.Builder<RuleInfo> unknownNamedRules,
-      ImmutableMap.Builder<String, ProviderInfo> providerInfoMap)
+      ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
+      ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctionMap)
       throws InterruptedException, IOException, LabelSyntaxException {
 
     List<RuleInfo> ruleInfoList = new ArrayList<>();
@@ -242,7 +282,11 @@ public class SkydocMain {
             Functions.identity()));
 
     ImmutableSet.Builder<RuleInfo> handledRuleDefinitions = ImmutableSet.builder();
-    for (Entry<String, Object> envEntry : env.getGlobals().getBindings().entrySet()) {
+
+    // Sort the bindings so their ordering is deterministic.
+    TreeMap<String, Object> sortedBindings = new TreeMap<>(env.getGlobals().getBindings());
+
+    for (Entry<String, Object> envEntry : sortedBindings.entrySet()) {
       if (ruleFunctions.containsKey(envEntry.getValue())) {
         RuleInfo ruleInfo = ruleFunctions.get(envEntry.getValue());
         ruleInfoMap.put(envEntry.getKey(), ruleInfo);
@@ -251,6 +295,10 @@ public class SkydocMain {
       if (providerInfos.containsKey(envEntry.getValue())) {
         ProviderInfo providerInfo = providerInfos.get(envEntry.getValue());
         providerInfoMap.put(envEntry.getKey(), providerInfo);
+      }
+      if (envEntry.getValue() instanceof UserDefinedFunction) {
+        UserDefinedFunction userDefinedFunction = (UserDefinedFunction) envEntry.getValue();
+        userDefinedFunctionMap.put(envEntry.getKey(), userDefinedFunction);
       }
     }
 

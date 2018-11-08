@@ -420,7 +420,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
       for (SkyKey key : keys) {
         if (setToCheck.add(key)) {
           Preconditions.checkState(
-              !isChanged || key.functionName().getHermeticity() == FunctionHermeticity.NONHERMETIC,
+              !isChanged || key.functionName().getHermeticity() != FunctionHermeticity.HERMETIC,
               key);
           keysToGet.add(key);
         }

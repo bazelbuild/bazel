@@ -586,69 +586,21 @@ function test_build_only() {
 
 function test_query() {
   # Verify that at least a minimally meaningful event stream is generated
-  # for query. In particular, we expect bazel not to crash.
-  bazel query --build_event_json_file="${TEST_log}" '//pkg:true' \
+  # for non-build. In particular, we expect bazel not to crash.
+  bazel query --build_event_text_file=$TEST_log 'tests(//...)' \
     || fail "bazel query failed"
-  # We expect a started event, which should declare the QueryOutput event as a
-  # child.
-  expect_log '{"id":{"started":{\}\},"children":\[.*{"queryOutput":{\}\}.*\].*"command":"query".*\}'
-  expect_log '{"id":{"optionsParsed":{\}\},.*"cmdLine":\[.*"--build_event_json_file.*\].*'
-  expect_log '{"id":{"buildFinished":{\}\}'
+  expect_log '^started'
+  expect_log 'command: "query"'
+  expect_log 'args: "--build_event_text_file='
+  expect_log 'build_finished'
   expect_not_log 'aborted'
   # For query, we also expect the full output to be contained in the protocol,
-  # inside of a progress event.
-  expect_log '{"stdout":.*//pkg:true.*"lastMessage":true'
-  # ... and also a QueryOutput event stating that the output was printed to the
-  # console,
-  expect_log '{"id":{"queryOutput":{\}\},"queryOutput":{"outputPrintedToConsole":{\}\}\}'
-  #  ... as well as a proper finished event.
-  expect_log '{"id":{"buildFinished":{\}\}.*"exitCode":{"name":"SUCCESS"\}.*'
-}
-
-function test_cquery() {
-  # Verify that at least a minimally meaningful event stream is generated
-  # for cquery. In particular, we expect bazel not to crash.
-  bazel cquery --build_event_json_file=$TEST_log '//pkg:true' \
-    || fail "bazel cquery failed"
-  # We expect a started event, which should declare the QueryOutput event as a
-  # child.
-  expect_log '{"id":{"started":{\}\},"children":\[.*{"queryOutput":{\}\}.*\].*"command":"cquery".*\}'
-  expect_log '{"id":{"optionsParsed":{\}\},.*"cmdLine":\[.*"--build_event_json_file.*\].*'
-  # For cquery, we also expect the full output to be contained in the protocol,
-  # inside of a progress event,
-  expect_log '{"stdout":.*//pkg:true.*'
-  # ... and also a BuildFinished event and a TargetCompleted event for the
-  # target pattern in the query expression,
-  expect_log '{"id":{"buildFinished":{\}\}'
-  expect_log '{"id":{"targetCompleted":{"label":"//pkg:true","configuration":{"id":"[a-z0-9]\+"\}\}\},"aborted":{"reason":"NO_BUILD"\}\}'
-  # ... and also a QueryOutput event stating that the output was printed to the
-  # console,
-  expect_log '{"id":{"queryOutput":{\}\},"queryOutput":{"outputPrintedToConsole":{\}\}\}'
-  #  ... as well as a proper finished event.
-  expect_log '{"id":{"buildFinished":{\}\}.*"exitCode":{"name":"SUCCESS"\}.*'
-}
-
-function test_aquery() {
-  # Verify that at least a minimally meaningful event stream is generated
-  # for aquery. In particular, we expect bazel not to crash.
-  bazel aquery --build_event_json_file=$TEST_log '//pkg:true' \
-    || fail "bazel aquery failed"
-  # We expect a started event, which should declare the QueryOutput event as a
-  # child.
-  expect_log '{"id":{"started":{\}\},"children":\[.*{"queryOutput":{\}\}.*\].*"command":"aquery".*\}'
-  expect_log '{"id":{"optionsParsed":{\}\},.*"cmdLine":\[.*"--build_event_json_file.*\].*'
-  # For aquery, we also expect the full output to be contained in the protocol,
-  # inside of a progress event,
-  expect_log '{"stdout":.*//pkg:true.*'
-  # ... and also a BuildFinished event and a TargetCompleted event for the
-  # target pattern in the query expression,
-  expect_log '{"id":{"buildFinished":{\}\}'
-  expect_log '{"id":{"targetCompleted":{"label":"//pkg:true","configuration":{"id":"[a-z0-9]\+"\}\}\},"aborted":{"reason":"NO_BUILD"\}\}'
-  # ... and also a QueryOutput event stating that the output was printed to the
-  # console,
-  expect_log '{"id":{"queryOutput":{\}\},"queryOutput":{"outputPrintedToConsole":{\}\}\}'
-  #  ... as well as a proper finished event.
-  expect_log '{"id":{"buildFinished":{\}\}.*"exitCode":{"name":"SUCCESS"\}.*'
+  # as well as a proper finished event.
+  expect_log '//pkg:true'
+  expect_log '//pkg:slow'
+  expect_log '^finished'
+  expect_log 'name: "SUCCESS"'
+  expect_log 'last_message: true'
 }
 
 function test_command_whitelisting() {

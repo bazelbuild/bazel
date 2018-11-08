@@ -117,10 +117,7 @@ public class BuildTool {
     boolean catastrophe = false;
     try {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
-        env.getEventBus().post(new BuildStartingEvent(
-            env,
-            request,
-            getAdditionalChildrenEventsForBuildStartingEvent()));
+        env.getEventBus().post(new BuildStartingEvent(env, request));
       }
       logger.info("Build identifier: " + request.getId());
 
@@ -219,10 +216,6 @@ public class BuildTool {
       AnalysisResult analysisResult)
       throws InterruptedException, ViewCreationFailedException,
           PostAnalysisQueryCommandLineException {
-  }
-
-  protected ImmutableList<BuildEventId> getAdditionalChildrenEventsForBuildStartingEvent() {
-    return ImmutableList.of();
   }
 
   private void reportExceptionError(Exception e) {

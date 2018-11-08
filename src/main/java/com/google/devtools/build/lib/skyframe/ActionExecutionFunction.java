@@ -215,8 +215,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
       stateMap.remove(action);
       RewindPlan rewindPlan = actionRewindStrategy.getRewindPlan(action, inputDepKeys, e, env);
-      for (Action actionToReset : rewindPlan.getActionsToReset()) {
-        skyframeActionExecutor.resetActionExecution(actionToReset);
+      for (Action actionToRestart : rewindPlan.getActionsToRestart()) {
+        skyframeActionExecutor.resetActionExecution(actionToRestart);
       }
       return rewindPlan.getNodesToRestart();
     } catch (ActionExecutionException e) {

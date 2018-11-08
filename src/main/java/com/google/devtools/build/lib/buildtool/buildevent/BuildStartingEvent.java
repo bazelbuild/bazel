@@ -37,7 +37,6 @@ public final class BuildStartingEvent implements BuildEvent {
   private final BuildRequest request;
   private final String workspace;
   private final String pwd;
-  private final ImmutableList<BuildEventId> additionalChildEvents;
 
   /**
    * Construct the BuildStartingEvent
@@ -45,10 +44,7 @@ public final class BuildStartingEvent implements BuildEvent {
    * @param request the build request.
    * @param env the environment of the request invocation.
    */
-  public BuildStartingEvent(
-      CommandEnvironment env,
-      BuildRequest request,
-      ImmutableList<BuildEventId> additionalChildEvents) {
+  public BuildStartingEvent(CommandEnvironment env, BuildRequest request) {
     this.request = request;
     if (env != null) {
       this.outputFileSystem = env.determineOutputFileSystem();
@@ -63,7 +59,6 @@ public final class BuildStartingEvent implements BuildEvent {
       this.pwd = null;
       this.outputFileSystem = null;
     }
-    this.additionalChildEvents = additionalChildEvents;
   }
 
   /**
@@ -87,18 +82,16 @@ public final class BuildStartingEvent implements BuildEvent {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.<BuildEventId>builder()
-        .add(ProgressEvent.INITIAL_PROGRESS_UPDATE)
-        .add(BuildEventId.unstructuredCommandlineId())
-        .add(BuildEventId.structuredCommandlineId(CommandLineEvent.OriginalCommandLineEvent.LABEL))
-        .add(BuildEventId.structuredCommandlineId(CommandLineEvent.CanonicalCommandLineEvent.LABEL))
-        .add(BuildEventId.structuredCommandlineId(CommandLineEvent.ToolCommandLineEvent.LABEL))
-        .add(BuildEventId.optionsParsedId())
-        .add(BuildEventId.workspaceStatusId())
-        .add(BuildEventId.targetPatternExpanded(request.getTargets()))
-        .add(BuildEventId.buildFinished())
-        .addAll(additionalChildEvents)
-        .build();
+    return ImmutableList.of(
+        ProgressEvent.INITIAL_PROGRESS_UPDATE,
+        BuildEventId.unstructuredCommandlineId(),
+        BuildEventId.structuredCommandlineId(CommandLineEvent.OriginalCommandLineEvent.LABEL),
+        BuildEventId.structuredCommandlineId(CommandLineEvent.CanonicalCommandLineEvent.LABEL),
+        BuildEventId.structuredCommandlineId(CommandLineEvent.ToolCommandLineEvent.LABEL),
+        BuildEventId.optionsParsedId(),
+        BuildEventId.workspaceStatusId(),
+        BuildEventId.targetPatternExpanded(request.getTargets()),
+        BuildEventId.buildFinished());
   }
 
   @Override

@@ -130,6 +130,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   @Override
   public void afterCommand() {
     this.outErr = null;
+    this.transports = ImmutableSet.of();
   }
 
   /** Returns {@code null} if no stream could be created. */

@@ -1,9 +1,9 @@
 destination: production
-markdown: kramdown
-kramdown:
-  syntax_highlighter: rouge
-
+markdown: redcarpet
+redcarpet:
+  extensions: ["tables"]
 paginate: 10
+highlighter: pygments
 sass:
   sass_dir: _sass
 gems: [jekyll-paginate]

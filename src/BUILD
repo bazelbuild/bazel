@@ -147,7 +147,7 @@ py_binary(
         "//third_party/ijar:zipper",
         "//third_party/ijar:embedded_tools",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:turbine_deploy.jar",
         "//third_party/java/jacoco:srcs",
         "//third_party/zlib:embedded_tools",
     ] + select({

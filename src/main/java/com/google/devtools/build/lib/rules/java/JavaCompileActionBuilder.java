@@ -282,7 +282,8 @@ public final class JavaCompileActionBuilder {
     builder.setProgressMessage(getProgressMessage());
     builder.setMnemonic(MNEMONIC);
     builder.setResources(LOCAL_RESOURCES);
-    builder.setEnvironment(UTF8_ENVIRONMENT);
+    builder.setEnvironment(
+        ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT));
     builder.setExecutionInfo(executionInfo);
 
     builder.setExtraActionInfo(

@@ -124,3 +124,114 @@ This is yet another rule
 </table>
 
 
+## my_rule_impl
+
+<pre>
+my_rule_impl(ctx)
+</pre>
+
+
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr>
+      <td><code>ctx</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+## some_cool_function
+
+<pre>
+some_cool_function(name, srcs, beef)
+</pre>
+
+A pretty cool function. You should call it.
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr>
+      <td><code>name</code></td>
+      <td>
+        required.
+        <p>
+          Some sort of name.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>srcs</code></td>
+      <td>
+        optional. default is <code>[]</code>
+        <p>
+          What sources you want cool stuff to happen to.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>beef</code></td>
+      <td>
+        optional. default is <code>""</code>
+        <p>
+          Your opinion on beef.
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+## top_fun
+
+<pre>
+top_fun(a, b, c)
+</pre>
+
+
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr>
+      <td><code>a</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+    <tr>
+      <td><code>b</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+    <tr>
+      <td><code>c</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

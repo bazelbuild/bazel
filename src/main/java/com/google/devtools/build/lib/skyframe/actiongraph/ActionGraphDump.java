@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
@@ -111,7 +110,7 @@ public class ActionGraphDump {
       SpawnAction spawnAction = (SpawnAction) action;
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
-      ImmutableMap<String, String> fixedEnvironment = spawnAction.getEnvironment().getFixedEnv();
+      Map<String, String> fixedEnvironment = spawnAction.getEnvironment().getFixedEnv().toMap();
       for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
         AnalysisProtos.KeyValuePair.Builder keyValuePairBuilder =
             AnalysisProtos.KeyValuePair.newBuilder();

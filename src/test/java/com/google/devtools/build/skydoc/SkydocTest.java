@@ -23,10 +23,13 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor.Type;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
+import com.google.devtools.build.skydoc.rendering.UserDefinedFunctionInfo;
+import com.google.devtools.build.skydoc.rendering.UserDefinedFunctionInfo.DocstringParseException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -82,6 +85,7 @@ public final class SkydocTest extends SkylarkTestCase {
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
         unexportedRuleInfos,
+        ImmutableMap.builder(),
         ImmutableMap.builder());
     Map<String, RuleInfo> ruleInfos = ruleInfoMap.build();
     assertThat(ruleInfos).hasSize(1);
@@ -144,6 +148,7 @@ public final class SkydocTest extends SkylarkTestCase {
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
         unexportedRuleInfos,
+        ImmutableMap.builder(),
         ImmutableMap.builder());
 
     assertThat(ruleInfoMap.build().keySet()).containsExactly("rule_one", "rule_two");
@@ -196,6 +201,7 @@ public final class SkydocTest extends SkylarkTestCase {
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
         ImmutableList.builder(),
+        ImmutableMap.builder(),
         ImmutableMap.builder());
 
     Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
@@ -249,6 +255,7 @@ public final class SkydocTest extends SkylarkTestCase {
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
         ImmutableList.builder(),
+        ImmutableMap.builder(),
         ImmutableMap.builder());
 
     Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
@@ -282,13 +289,62 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
     IllegalStateException expected =
-        assertThrows(IllegalStateException.class,
-            () -> skydocMain.eval(
-                Label.parseAbsoluteUnchecked("//test:main.bzl"),
-                ruleInfoMapBuilder,
-                ImmutableList.builder(),
-                ImmutableMap.builder()));
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                skydocMain.eval(
+                    Label.parseAbsoluteUnchecked("//test:main.bzl"),
+                    ruleInfoMapBuilder,
+                    ImmutableList.builder(),
+                    ImmutableMap.builder(),
+                    ImmutableMap.builder()));
 
     assertThat(expected).hasMessageThat().contains("cycle with test/main.bzl");
+  }
+
+  @Test
+  public void testMalformedFunctionDocstring() throws Exception {
+    scratch.file(
+        "/test/main.bzl",
+        "def check_sources(name,",
+        "                  required_param,",
+        "                  bool_param = True,",
+        "                  srcs = []):",
+        "    \"\"\"Runs some checks on the given source files.",
+        "",
+        "    This rule runs checks on a given set of source files.",
+        "    Use `bazel build` to run the check.",
+        "",
+        "    Args:",
+        "        name: A unique name for this rule.",
+        "        required_param:",
+        "        bool_param: ..oh hey I forgot to document required_param!",
+        "    \"\"\"",
+        "    pass");
+
+    ImmutableMap.Builder<String, UserDefinedFunction> functionInfoBuilder = ImmutableMap.builder();
+
+    skydocMain.eval(
+        Label.parseAbsoluteUnchecked("//test:main.bzl"),
+        ImmutableMap.builder(),
+        ImmutableList.builder(),
+        ImmutableMap.builder(),
+        functionInfoBuilder);
+
+    UserDefinedFunction checkSourcesFn = functionInfoBuilder.build().get("check_sources");
+    DocstringParseException expected =
+        assertThrows(
+            DocstringParseException.class,
+            () -> UserDefinedFunctionInfo.fromNameAndFunction("check_sources", checkSourcesFn));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "Unable to generate documentation for function check_sources "
+                + "(defined at /test/main.bzl:1:5) due to malformed docstring. Parse errors:");
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "/test/main.bzl:1:5 line 8: invalid parameter documentation "
+                + "(expected format: \"parameter_name: documentation\").");
   }
 }

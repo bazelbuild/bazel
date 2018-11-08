@@ -1,0 +1,34 @@
+#[[##]]# ${funcInfo.name}
+
+<pre>
+${funcInfo.summaryForm}
+</pre>
+
+${funcInfo.docString}
+
+#if (!$funcInfo.parameters.isEmpty())
+#[[###]]# Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+#foreach ($param in $funcInfo.parameters)
+    <tr>
+      <td><code>${param.name}</code></td>
+      <td>
+        ${param.mandatoryString}.#if($param.hasDefaultValueString()) default is <code>${param.defaultString}</code>#end
+
+#if (!$param.docString.isEmpty())
+        <p>
+          ${param.docString}
+        </p>
+#end
+      </td>
+    </tr>
+#end
+  </tbody>
+</table>
+#end

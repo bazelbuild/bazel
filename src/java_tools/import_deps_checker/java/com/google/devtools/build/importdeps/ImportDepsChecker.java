@@ -56,10 +56,11 @@ public final class ImportDepsChecker implements Closeable {
       ImmutableList<Path> bootclasspath,
       ImmutableList<Path> directClasspath,
       ImmutableList<Path> classpath,
-      ImmutableList<Path> inputJars)
+      ImmutableList<Path> inputJars,
+      boolean checkMissingMembers)
       throws IOException {
     this.classCache = new ClassCache(bootclasspath, directClasspath, classpath, inputJars);
-    this.resultCollector = new ResultCollector();
+    this.resultCollector = new ResultCollector(checkMissingMembers);
     this.inputJars = inputJars;
     this.pathToTargetMap = buildPathToTargetMap(bootclasspath, classpath, inputJars);
     this.classInfoLabelFunc =

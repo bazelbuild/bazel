@@ -333,6 +333,11 @@ public class CppCompileAction extends AbstractAction
     return Preconditions.checkNotNull(additionalInputs);
   }
 
+  /** Clears the discovered {@link #additionalInputs}. */
+  public void clearAdditionalInputs() {
+    additionalInputs = null;
+  }
+
   @Override
   public boolean discoversInputs() {
     return shouldScanIncludes || needsDotdInputPruning;
@@ -1027,8 +1032,7 @@ public class CppCompileAction extends AbstractAction
   @Override
   public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addUUID(actionClassId);
-    fp.addStringMap(env.getFixedEnv());
-    fp.addStrings(env.getInheritedEnv());
+    env.addTo(fp);
     fp.addStringMap(compileCommandLine.getEnvironment());
     fp.addStringMap(executionInfo);
 
@@ -1101,7 +1105,7 @@ public class CppCompileAction extends AbstractAction
           actionExecutionContext.getVerboseFailures(),
           this);
     } finally {
-      additionalInputs = null;
+      clearAdditionalInputs();
     }
     ensureCoverageNotesFilesExist(actionExecutionContext);
 

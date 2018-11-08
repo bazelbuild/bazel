@@ -406,11 +406,11 @@ EOF
  }
 
 # Runfiles is disabled by default on Windows, but we can test it on Unix by
-# adding flag --experimental_enable_runfiles=0
+# adding flag --enable_runfiles=0
 function test_build_and_run_hello_world_without_runfiles() {
   write_hello_library_files
 
-  bazel run --experimental_enable_runfiles=0 //java/main:main &> $TEST_log || fail "build failed"
+  bazel run --enable_runfiles=0 //java/main:main &> $TEST_log || fail "build failed"
   expect_log "Hello, Library!;Hello, World!"
 }
 

@@ -66,14 +66,14 @@ public abstract class ASTNode implements Serializable {
     this.location = location;
   }
 
-  public Location getLocation() {
-    return location;
-  }
-
   /** @return the same node with its location set, in a slightly more fluent style */
-  public static <NODE extends ASTNode> NODE setLocation(Location location, NODE node) {
+  public static <NodeT extends ASTNode> NodeT setLocation(Location location, NodeT node) {
     node.setLocation(location);
     return node;
+  }
+
+  public Location getLocation() {
+    return location;
   }
 
   /** Number of spaces that each indentation level expands to when pretty-printing. */

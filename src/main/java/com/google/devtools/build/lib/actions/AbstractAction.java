@@ -579,7 +579,7 @@ public abstract class AbstractAction implements Action, ActionApi {
 
   @Override
   public SkylarkDict<String, String> getEnv() {
-    return SkylarkDict.copyOf(null, env.getFixedEnv());
+    return SkylarkDict.copyOf(null, env.getFixedEnv().toMap());
   }
 
   @Override

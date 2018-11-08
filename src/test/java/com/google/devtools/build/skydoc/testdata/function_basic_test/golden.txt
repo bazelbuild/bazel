@@ -1,0 +1,122 @@
+## check_sources
+
+<pre>
+check_sources(name, required_param, bool_param, srcs, string_param, int_param, dict_param, struct_param)
+</pre>
+
+Runs some checks on the given source files.
+
+This rule runs checks on a given set of source files.
+Use `bazel build` to run the check.
+
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr>
+      <td><code>name</code></td>
+      <td>
+        required.
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>required_param</code></td>
+      <td>
+        required.
+        <p>
+          Use your imagination.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>bool_param</code></td>
+      <td>
+        optional. default is <code>True</code>
+      </td>
+    </tr>
+    <tr>
+      <td><code>srcs</code></td>
+      <td>
+        optional. default is <code>[]</code>
+        <p>
+          Source files to run the checks against.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>string_param</code></td>
+      <td>
+        optional. default is <code>""</code>
+      </td>
+    </tr>
+    <tr>
+      <td><code>int_param</code></td>
+      <td>
+        optional. default is <code>2</code>
+        <p>
+          Your favorite number.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>dict_param</code></td>
+      <td>
+        optional. default is <code>{}</code>
+      </td>
+    </tr>
+    <tr>
+      <td><code>struct_param</code></td>
+      <td>
+        optional.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+## undocumented_function
+
+<pre>
+undocumented_function(a, b, c)
+</pre>
+
+
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr>
+      <td><code>a</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+    <tr>
+      <td><code>b</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+    <tr>
+      <td><code>c</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

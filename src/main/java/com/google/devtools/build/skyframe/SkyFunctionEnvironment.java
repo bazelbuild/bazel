@@ -843,7 +843,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   }
 
   private void maybeUpdateMaxChildVersion(NodeEntry depEntry) {
-    if (hermeticity == FunctionHermeticity.HERMETIC
+    if (hermeticity != FunctionHermeticity.NONHERMETIC
         && evaluatorContext.getEvaluationVersionBehavior()
             == EvaluationVersionBehavior.MAX_CHILD_VERSIONS) {
       Version depVersion = depEntry.getVersion();

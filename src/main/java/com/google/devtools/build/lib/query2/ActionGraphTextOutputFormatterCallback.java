@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.query2;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -174,13 +174,13 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
       SpawnAction spawnAction = (SpawnAction) action;
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
-      ImmutableSet<Entry<String, String>> fixedEnvironment =
-          spawnAction.getEnvironment().getFixedEnv().entrySet();
-      if (!fixedEnvironment.isEmpty()) {
+      Iterable<Map.Entry<String, String>> fixedEnvironment =
+          spawnAction.getEnvironment().getFixedEnv().toMap().entrySet();
+      if (!Iterables.isEmpty(fixedEnvironment)) {
         stringBuilder
             .append("  Environment: [")
             .append(
-                fixedEnvironment.stream()
+                Streams.stream(fixedEnvironment)
                     .map(
                         environmentVariable ->
                             environmentVariable.getKey() + "=" + environmentVariable.getValue())

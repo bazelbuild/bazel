@@ -523,7 +523,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     if (type == ClasspathType.COMPILE_ONLY && enforceExplicitJavaTestDeps(ruleContext)) {
       // We add the test support below, but the test framework's deps are not relevant for
       // COMPILE_ONLY, hence we return here.
-      // TODO(bazel-team): Ideally enforceExplicitJavaTestDeps should be the default behaviour,
+      // TODO(b/113524892): Ideally enforceExplicitJavaTestDeps should be the default behaviour,
       // since the testSupport deps don't belong to the COMPILE_ONLY classpath, but since many
       // targets may break, we are keeping it behind this flag.
       return;
