@@ -78,16 +78,18 @@ void CompareFileInfos(std::vector<FileInfo> actual,
       << __FILE__ << "(" << line << "): assertion failed here";
   std::sort(actual.begin(), actual.end(),
             [](const FileInfo& a, const FileInfo& b) {
-              return a.rel_path > b.rel_path;
+              return a.RelativePath() > b.RelativePath();
             });
   std::sort(expected.begin(), expected.end(),
             [](const FileInfo& a, const FileInfo& b) {
-              return a.rel_path > b.rel_path;
+              return a.RelativePath() > b.RelativePath();
             });
   for (std::vector<FileInfo>::size_type i = 0; i < actual.size(); ++i) {
-    ASSERT_EQ(actual[i].rel_path, expected[i].rel_path)
+    ASSERT_EQ(actual[i].RelativePath(), expected[i].RelativePath())
         << __FILE__ << "(" << line << "): assertion failed here; index: " << i;
-    ASSERT_EQ(actual[i].size, expected[i].size)
+    ASSERT_EQ(actual[i].Size(), expected[i].Size())
+        << __FILE__ << "(" << line << "): assertion failed here; index: " << i;
+    ASSERT_EQ(actual[i].IsDirectory(), expected[i].IsDirectory())
         << __FILE__ << "(" << line << "): assertion failed here; index: " << i;
   }
 }
@@ -145,10 +147,15 @@ TEST_F(TestWrapperWindowsTest, TestGetFileListRelativeTo) {
   std::vector<FileInfo> actual;
   ASSERT_TRUE(TestOnly_GetFileListRelativeTo(root, &actual));
 
-  std::vector<FileInfo> expected = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+  std::vector<FileInfo> expected = {FileInfo(L"foo"),
+                                    FileInfo(L"foo\\sub"),
+                                    FileInfo(L"foo\\sub\\file1", 0),
+                                    FileInfo(L"foo\\sub\\file2", 5),
+                                    FileInfo(L"foo\\file1", 3),
+                                    FileInfo(L"foo\\file2", 6),
+                                    FileInfo(L"foo\\junc"),
+                                    FileInfo(L"foo\\junc\\file1", 0),
+                                    FileInfo(L"foo\\junc\\file2", 5)};
   COMPARE_FILE_INFOS(actual, expected);
 
   // Assert traversal of "foo" -- should include all files, but now with paths
@@ -157,34 +164,45 @@ TEST_F(TestWrapperWindowsTest, TestGetFileListRelativeTo) {
   ASSERT_TRUE(
       TestOnly_GetFileListRelativeTo((root + L"\\foo").c_str(), &actual));
 
-  expected = {{L"sub\\file1", 0}, {L"sub\\file2", 5},  {L"file1", 3},
-              {L"file2", 6},      {L"junc\\file1", 0}, {L"junc\\file2", 5}};
+  expected = {FileInfo(L"sub"),
+              FileInfo(L"sub\\file1", 0),
+              FileInfo(L"sub\\file2", 5),
+              FileInfo(L"file1", 3),
+              FileInfo(L"file2", 6),
+              FileInfo(L"junc"),
+              FileInfo(L"junc\\file1", 0),
+              FileInfo(L"junc\\file2", 5)};
   COMPARE_FILE_INFOS(actual, expected);
 }
 
 TEST_F(TestWrapperWindowsTest, TestToZipEntryPaths) {
   // Pretend we already acquired a file list. The files don't have to exist.
   std::wstring root = L"c:\\nul\\root";
-  std::vector<FileInfo> files = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+  std::vector<FileInfo> files = {FileInfo(L"foo"),
+                                 FileInfo(L"foo\\sub"),
+                                 FileInfo(L"foo\\sub\\file1", 0),
+                                 FileInfo(L"foo\\sub\\file2", 5),
+                                 FileInfo(L"foo\\file1", 3),
+                                 FileInfo(L"foo\\file2", 6),
+                                 FileInfo(L"foo\\junc"),
+                                 FileInfo(L"foo\\junc\\file1", 0),
+                                 FileInfo(L"foo\\junc\\file2", 5)};
 
   ZipEntryPaths actual;
   ASSERT_TRUE(TestOnly_ToZipEntryPaths(root, files, &actual));
-  ASSERT_EQ(actual.Size(), 6);
+  ASSERT_EQ(actual.Size(), 9);
 
   std::vector<const char*> expected_abs_paths = {
-      "c:/nul/root/foo/sub/file1",  "c:/nul/root/foo/sub/file2",
-      "c:/nul/root/foo/file1",      "c:/nul/root/foo/file2",
-      "c:/nul/root/foo/junc/file1", "c:/nul/root/foo/junc/file2",
-  };
+      "c:/nul/root/foo",           "c:/nul/root/foo/sub",
+      "c:/nul/root/foo/sub/file1", "c:/nul/root/foo/sub/file2",
+      "c:/nul/root/foo/file1",     "c:/nul/root/foo/file2",
+      "c:/nul/root/foo/junc",      "c:/nul/root/foo/junc/file1",
+      "c:/nul/root/foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.AbsPathPtrs(), expected_abs_paths);
 
   std::vector<const char*> expected_entry_paths = {
-      "foo/sub/file1", "foo/sub/file2",  "foo/file1",
-      "foo/file2",     "foo/junc/file1", "foo/junc/file2",
-  };
+      "foo",       "foo/sub",  "foo/sub/file1",  "foo/sub/file2", "foo/file1",
+      "foo/file2", "foo/junc", "foo/junc/file1", "foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.EntryPathPtrs(), expected_entry_paths);
 }
 
@@ -193,26 +211,31 @@ TEST_F(TestWrapperWindowsTest, TestToZipEntryPathsLongPathRoot) {
   // Assert that the root is allowed to have the `\\?\` prefix, but the zip
   // entry paths won't have it.
   std::wstring root = L"\\\\?\\c:\\nul\\unc";
-  std::vector<FileInfo> files = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+  std::vector<FileInfo> files = {FileInfo(L"foo"),
+                                 FileInfo(L"foo\\sub"),
+                                 FileInfo(L"foo\\sub\\file1", 0),
+                                 FileInfo(L"foo\\sub\\file2", 5),
+                                 FileInfo(L"foo\\file1", 3),
+                                 FileInfo(L"foo\\file2", 6),
+                                 FileInfo(L"foo\\junc"),
+                                 FileInfo(L"foo\\junc\\file1", 0),
+                                 FileInfo(L"foo\\junc\\file2", 5)};
 
   ZipEntryPaths actual;
   ASSERT_TRUE(TestOnly_ToZipEntryPaths(root, files, &actual));
-  ASSERT_EQ(actual.Size(), 6);
+  ASSERT_EQ(actual.Size(), 9);
 
   std::vector<const char*> expected_abs_paths = {
-      "c:/nul/unc/foo/sub/file1",  "c:/nul/unc/foo/sub/file2",
-      "c:/nul/unc/foo/file1",      "c:/nul/unc/foo/file2",
-      "c:/nul/unc/foo/junc/file1", "c:/nul/unc/foo/junc/file2",
-  };
+      "c:/nul/unc/foo",           "c:/nul/unc/foo/sub",
+      "c:/nul/unc/foo/sub/file1", "c:/nul/unc/foo/sub/file2",
+      "c:/nul/unc/foo/file1",     "c:/nul/unc/foo/file2",
+      "c:/nul/unc/foo/junc",      "c:/nul/unc/foo/junc/file1",
+      "c:/nul/unc/foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.AbsPathPtrs(), expected_abs_paths);
 
   std::vector<const char*> expected_entry_paths = {
-      "foo/sub/file1", "foo/sub/file2",  "foo/file1",
-      "foo/file2",     "foo/junc/file1", "foo/junc/file2",
-  };
+      "foo",       "foo/sub",  "foo/sub/file1",  "foo/sub/file2", "foo/file1",
+      "foo/file2", "foo/junc", "foo/junc/file1", "foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.EntryPathPtrs(), expected_entry_paths);
 }
 
@@ -235,8 +258,10 @@ class InMemoryExtractor : public devtools_ijar::ZipExtractorProcessor {
                const devtools_ijar::u1* data, const size_t size) override {
     extracted_->push_back({});
     extracted_->back().path = filename;
-    extracted_->back().data.reset(new devtools_ijar::u1[size]);
-    memcpy(extracted_->back().data.get(), data, size);
+    if (size > 0) {
+      extracted_->back().data.reset(new devtools_ijar::u1[size]);
+      memcpy(extracted_->back().data.get(), data, size);
+    }
     extracted_->back().size = size;
   }
 
@@ -260,10 +285,15 @@ TEST_F(TestWrapperWindowsTest, TestCreateZip) {
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\foo\\file2", "foobar"));
   CREATE_JUNCTION(root + L"\\foo\\junc", root + L"\\foo\\sub");
 
-  std::vector<FileInfo> file_list = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+  std::vector<FileInfo> file_list = {FileInfo(L"foo"),
+                                     FileInfo(L"foo\\sub"),
+                                     FileInfo(L"foo\\sub\\file1", 0),
+                                     FileInfo(L"foo\\sub\\file2", 5),
+                                     FileInfo(L"foo\\file1", 3),
+                                     FileInfo(L"foo\\file2", 6),
+                                     FileInfo(L"foo\\junc"),
+                                     FileInfo(L"foo\\junc\\file1", 0),
+                                     FileInfo(L"foo\\junc\\file2", 5)};
 
   ASSERT_TRUE(TestOnly_CreateZip(root, file_list, root + L"\\x.zip"));
 
@@ -278,26 +308,32 @@ TEST_F(TestWrapperWindowsTest, TestCreateZip) {
   EXPECT_NE(zip.get(), nullptr);
   EXPECT_EQ(zip->ProcessAll(), 0);
 
-  EXPECT_EQ(extracted.size(), 6);
+  EXPECT_EQ(extracted.size(), 9);
 
-  EXPECT_EQ(extracted[0].path, std::string("foo/sub/file1"));
-  EXPECT_EQ(extracted[1].path, std::string("foo/sub/file2"));
-  EXPECT_EQ(extracted[2].path, std::string("foo/file1"));
-  EXPECT_EQ(extracted[3].path, std::string("foo/file2"));
-  EXPECT_EQ(extracted[4].path, std::string("foo/junc/file1"));
-  EXPECT_EQ(extracted[5].path, std::string("foo/junc/file2"));
+  EXPECT_EQ(extracted[0].path, std::string("foo"));
+  EXPECT_EQ(extracted[1].path, std::string("foo/sub"));
+  EXPECT_EQ(extracted[2].path, std::string("foo/sub/file1"));
+  EXPECT_EQ(extracted[3].path, std::string("foo/sub/file2"));
+  EXPECT_EQ(extracted[4].path, std::string("foo/file1"));
+  EXPECT_EQ(extracted[5].path, std::string("foo/file2"));
+  EXPECT_EQ(extracted[6].path, std::string("foo/junc"));
+  EXPECT_EQ(extracted[7].path, std::string("foo/junc/file1"));
+  EXPECT_EQ(extracted[8].path, std::string("foo/junc/file2"));
 
   EXPECT_EQ(extracted[0].size, 0);
-  EXPECT_EQ(extracted[1].size, 5);
-  EXPECT_EQ(extracted[2].size, 3);
-  EXPECT_EQ(extracted[3].size, 6);
-  EXPECT_EQ(extracted[4].size, 0);
-  EXPECT_EQ(extracted[5].size, 5);
+  EXPECT_EQ(extracted[1].size, 0);
+  EXPECT_EQ(extracted[2].size, 0);
+  EXPECT_EQ(extracted[3].size, 5);
+  EXPECT_EQ(extracted[4].size, 3);
+  EXPECT_EQ(extracted[5].size, 6);
+  EXPECT_EQ(extracted[6].size, 0);
+  EXPECT_EQ(extracted[7].size, 0);
+  EXPECT_EQ(extracted[8].size, 5);
 
-  EXPECT_EQ(memcmp(extracted[1].data.get(), "hello", 5), 0);
-  EXPECT_EQ(memcmp(extracted[2].data.get(), "foo", 3), 0);
-  EXPECT_EQ(memcmp(extracted[3].data.get(), "foobar", 6), 0);
-  EXPECT_EQ(memcmp(extracted[5].data.get(), "hello", 5), 0);
+  EXPECT_EQ(memcmp(extracted[3].data.get(), "hello", 5), 0);
+  EXPECT_EQ(memcmp(extracted[4].data.get(), "foo", 3), 0);
+  EXPECT_EQ(memcmp(extracted[5].data.get(), "foobar", 6), 0);
+  EXPECT_EQ(memcmp(extracted[8].data.get(), "hello", 5), 0);
 }
 
 }  // namespace

@@ -16,12 +16,17 @@
 // Design:
 // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
 
+#include "tools/test/windows/tw.h"
+
 #define WIN32_LEAN_AND_MEAN
 #include <lmcons.h>  // UNLEN
 #include <windows.h>
 
+#include <errno.h>
+#include <limits.h>  // INT_MAX
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
 #include <wchar.h>
 
 #include <algorithm>
@@ -38,7 +43,6 @@
 #include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
 #include "tools/cpp/runfiles/runfiles.h"
-#include "tools/test/windows/tw.h"
 
 namespace bazel {
 namespace tools {
@@ -367,9 +371,9 @@ bool ExportMiscEnvvars(const Path& cwd) {
   return true;
 }
 
-bool _GetFileListRelativeTo(
-    const std::wstring& unc_root, const std::wstring& subdir,
-    std::vector<bazel::tools::test_wrapper::FileInfo>* result) {
+bool _GetFileListRelativeTo(const std::wstring& unc_root,
+                            const std::wstring& subdir,
+                            std::vector<FileInfo>* result) {
   const std::wstring full_subdir =
       unc_root + (subdir.empty() ? L"" : (L"\\" + subdir)) + L"\\*";
   WIN32_FIND_DATAW info;
@@ -395,6 +399,7 @@ bool _GetFileListRelativeTo(
           subdir.empty() ? info.cFileName : (subdir + L"\\" + info.cFileName);
       if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
         subdirectories.push_back(rel_path);
+        result->push_back(FileInfo(rel_path));
       } else {
         if (info.nFileSizeHigh > 0 || info.nFileSizeLow > INT_MAX) {
           // devtools_ijar::Stat::total_size is declared as `int`, so the file
@@ -407,10 +412,10 @@ bool _GetFileListRelativeTo(
           return false;
         }
 
-        result->push_back({rel_path,
-                           // File size is already validated to be smaller than
-                           // min(INT_MAX, 4 GiB)
-                           static_cast<int>(info.nFileSizeLow)});
+        result->push_back(FileInfo(rel_path,
+                                   // File size is already validated to be
+                                   // smaller than min(INT_MAX, 4 GiB)
+                                   static_cast<int>(info.nFileSizeLow)));
       }
     }
     if (FindNextFileW(handle, &info) == 0) {
@@ -434,9 +439,7 @@ bool _GetFileListRelativeTo(
   return true;
 }
 
-bool GetFileListRelativeTo(
-    const Path& root,
-    std::vector<bazel::tools::test_wrapper::FileInfo>* result) {
+bool GetFileListRelativeTo(const Path& root, std::vector<FileInfo>* result) {
   if (!blaze_util::IsAbsolute(root.Get())) {
     LogError(__LINE__, "Root should be absolute");
     return false;
@@ -448,10 +451,8 @@ bool GetFileListRelativeTo(
                                 std::wstring(), result);
 }
 
-bool ToZipEntryPaths(
-    const Path& root,
-    const std::vector<bazel::tools::test_wrapper::FileInfo>& files,
-    ZipEntryPaths* result) {
+bool ToZipEntryPaths(const Path& root, const std::vector<FileInfo>& files,
+                     ZipEntryPaths* result) {
   std::string acp_root;
   if (!WcsToAcp(AsMixedPath(bazel::windows::HasUncPrefix(root.Get().c_str())
                                 ? root.Get().substr(4)
@@ -468,10 +469,10 @@ bool ToZipEntryPaths(
   acp_file_list.reserve(files.size());
   for (const auto& e : files) {
     std::string acp_path;
-    if (!WcsToAcp(AsMixedPath(e.rel_path), &acp_path)) {
-      LogError(__LINE__,
-               (std::wstring(L"Failed to convert path ") + e.rel_path + L"\"")
-                   .c_str());
+    if (!WcsToAcp(AsMixedPath(e.RelativePath()), &acp_path)) {
+      LogError(__LINE__, (std::wstring(L"Failed to convert path ") +
+                          e.RelativePath() + L"\"")
+                             .c_str());
       return false;
     }
     acp_file_list.push_back(acp_path);
@@ -583,11 +584,16 @@ bool ExportXmlPath(const Path& cwd) {
 }
 
 devtools_ijar::u4 GetZipAttr(const FileInfo& info) {
+  // We use these hard-coded Unix permission masks because they are:
+  // - stable, so the zip file is deterministic
+  // - useful, because stat_to_zipattr expects a mode_t
+  static constexpr mode_t kDirectoryMode = 040750;  // drwxr-x--- (directory)
+  static constexpr mode_t kFileMode = 0100640;      // -rw-r----- (regular file)
+
   devtools_ijar::Stat file_stat;
-  file_stat.total_size = info.size;
-  file_stat.is_directory = false;
-  // Set 0777 permission mask inside the zip for sake of simplicity.
-  file_stat.file_mode = S_IFREG | 0777;
+  file_stat.total_size = info.Size();
+  file_stat.is_directory = info.IsDirectory();
+  file_stat.file_mode = info.IsDirectory() ? kDirectoryMode : kFileMode;
   return devtools_ijar::stat_to_zipattr(file_stat);
 }
 
@@ -632,27 +638,29 @@ bool CreateZip(const Path& root, const std::vector<FileInfo>& files,
   }
 
   for (size_t i = 0; i < files.size(); ++i) {
-    HANDLE handle;
+    HANDLE handle = INVALID_HANDLE_VALUE;
     Path path;
-    if (!path.Set(root.Get() + L"\\" + files[i].rel_path) ||
-        !OpenExistingFileForRead(path, &handle)) {
+    if (!path.Set(root.Get() + L"\\" + files[i].RelativePath()) ||
+        (!files[i].IsDirectory() && !OpenExistingFileForRead(path, &handle))) {
       LogError(__LINE__,
                (std::wstring(L"Failed to open file \"") + path.Get() + L"\"")
                    .c_str());
       return false;
     }
     Defer close_file([handle]() { CloseHandle(handle); });
+
     devtools_ijar::u1* dest;
     if (!GetZipEntryPtr(zip_builder.get(), zip_entry_paths.EntryPathPtrs()[i],
                         GetZipAttr(files[i]), &dest) ||
-        !ReadCompleteFile(handle, dest, files[i].size)) {
+        (!files[i].IsDirectory() &&
+         !ReadCompleteFile(handle, dest, files[i].Size()))) {
       LogError(__LINE__, (std::wstring(L"Failed to dump file \"") + path.Get() +
                           +L"\" into zip")
                              .c_str());
       return false;
     }
 
-    if (zip_builder->FinishFile(files[i].size, /* compress */ false,
+    if (zip_builder->FinishFile(files[i].Size(), /* compress */ false,
                                 /* compute_crc */ true) == -1) {
       LogError(__LINE__, (std::wstring(L"Failed to finish writing file \"") +
                           path.Get() + L"\" to zip")
@@ -1066,10 +1074,9 @@ bool TestOnly_GetFileListRelativeTo(const std::wstring& abs_root,
          GetFileListRelativeTo(root, result);
 }
 
-bool TestOnly_ToZipEntryPaths(
-    const std::wstring& abs_root,
-    const std::vector<bazel::tools::test_wrapper::FileInfo>& files,
-    ZipEntryPaths* result) {
+bool TestOnly_ToZipEntryPaths(const std::wstring& abs_root,
+                              const std::vector<FileInfo>& files,
+                              ZipEntryPaths* result) {
   Path root;
   return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
          ToZipEntryPaths(root, files, result);
