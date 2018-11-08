@@ -227,7 +227,7 @@ function test_native_python() {
 }
 
 function test_native_python_with_runfiles() {
-  BUILD_FLAGS="--experimental_enable_runfiles --build_python_zip=0"
+  BUILD_FLAGS="--enable_runfiles --build_python_zip=0"
   bazel build -s --verbose_failures $BUILD_FLAGS //examples/py_native:bin \
     || fail "Failed to build //examples/py_native:bin with runfiles support"
   (

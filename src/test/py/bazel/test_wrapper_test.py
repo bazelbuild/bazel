@@ -196,7 +196,7 @@ class TestWrapperTest(test_base.TestBase):
         '-t-',
         '--test_output=all',
         # Ensure Bazel does not create a runfiles tree.
-        '--experimental_enable_runfiles=no',
+        '--enable_runfiles=no',
         flag,
     ])
     self.AssertExitCode(exit_code, 0, stderr)

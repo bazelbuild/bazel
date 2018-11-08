@@ -55,7 +55,7 @@ if "$is_windows"; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
   export EXT=".exe"
-  export EXTRA_BUILD_FLAGS="--experimental_enable_runfiles --build_python_zip=0"
+  export EXTRA_BUILD_FLAGS="--enable_runfiles --build_python_zip=0"
 else
   export EXT=""
   export EXTRA_BUILD_FLAGS=""
