@@ -282,6 +282,21 @@ Creates a tar file from a list of inputs.
         </p>
       </td>
     </tr>
+    <tr>
+      <td><code>remap_paths</code></td>
+      <td>
+        <code>Dictionary, optional</code>
+        <p>Source path prefixes to remap in the tarfile.</p>
+        <p>
+          <code>
+          remap_paths = {
+           "original/path/prefix": "replaced/path",
+           ...
+          },
+          </code>
+        </p>
+      </td>
+    </tr>
   </tbody>
 </table>
 
