@@ -338,8 +338,14 @@ TEST_F(TestWrapperWindowsTest, TestCreateZip) {
 }
 
 TEST_F(TestWrapperWindowsTest, TestGetMimeType) {
-  EXPECT_EQ(TestOnly_GetMimeType("foo.txt"), std::string("text/plain"));
-  EXPECT_EQ(TestOnly_GetMimeType("foo.png"), std::string("image/png"));
+  // As of 2018-11-08, TestOnly_GetMimeType looks up the MIME type from the
+  // registry under `HKCR\<extension>\Content Type`, e.g.
+  // 'HKCR\.bmp\Content Type`.
+  // Bazel's CI machines run Windows Server 2016 Core, whose registry contains
+  // the Content Type for .ico and .bmp but not for common types such as .txt,
+  // hence the file types we choose to test for.
+  EXPECT_EQ(TestOnly_GetMimeType("foo.ico"), std::string("image/x-icon"));
+  EXPECT_EQ(TestOnly_GetMimeType("foo.bmp"), std::string("image/bmp"));
   EXPECT_EQ(TestOnly_GetMimeType("foo"),
             std::string("application/octet-stream"));
 }
