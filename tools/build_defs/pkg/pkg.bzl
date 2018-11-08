@@ -19,6 +19,10 @@ load(":path.bzl", "compute_data_path", "dest_path")
 tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2"]
 deb_filetype = [".deb", ".udeb"]
 
+def _quote(filename, protect = "="):
+    """Quote the filename, by escaping = by \= and \ by \\"""
+    return filename.replace("\\", "\\\\").replace(protect, "\\" + protect)
+
 def _pkg_tar_impl(ctx):
     """Implementation of the pkg_tar rule."""
 
@@ -44,7 +48,7 @@ def _pkg_tar_impl(ctx):
                 file_inputs += run_files
 
     args += [
-        "--file=%s=%s" % (f.path, dest_path(f, data_path))
+        "--file=%s=%s" % (_quote(f.path), dest_path(f, data_path))
         for f in file_inputs
     ]
     for target, f_dest_path in ctx.attr.files.items():
@@ -52,14 +56,20 @@ def _pkg_tar_impl(ctx):
         if len(target_files) != 1:
             fail("Inputs to pkg_tar.files_map must describe exactly one file.")
         file_inputs += [target_files[0]]
-        args += ["--file=%s=%s" % (target_files[0].path, f_dest_path)]
+        args += ["--file=%s=%s" % (_quote(target_files[0].path), f_dest_path)]
     if ctx.attr.modes:
-        args += ["--modes=%s=%s" % (key, ctx.attr.modes[key]) for key in ctx.attr.modes]
+        args += [
+            "--modes=%s=%s" % (_quote(key), ctx.attr.modes[key])
+            for key in ctx.attr.modes
+        ]
     if ctx.attr.owners:
-        args += ["--owners=%s=%s" % (key, ctx.attr.owners[key]) for key in ctx.attr.owners]
+        args += [
+            "--owners=%s=%s" % (_quote(key), ctx.attr.owners[key])
+            for key in ctx.attr.owners
+        ]
     if ctx.attr.ownernames:
         args += [
-            "--owner_names=%s=%s" % (key, ctx.attr.ownernames[key])
+            "--owner_names=%s=%s" % (_quote(key), ctx.attr.ownernames[key])
             for key in ctx.attr.ownernames
         ]
     if ctx.attr.empty_files:
@@ -73,7 +83,7 @@ def _pkg_tar_impl(ctx):
             args += ["--compression=%s" % ctx.attr.extension[dotPos:]]
     args += ["--tar=" + f.path for f in ctx.files.deps]
     args += [
-        "--link=%s:%s" % (k, ctx.attr.symlinks[k])
+        "--link=%s:%s" % (_quote(k, protect = ":"), ctx.attr.symlinks[k])
         for k in ctx.attr.symlinks
     ]
     arg_file = ctx.actions.declare_file(ctx.label.name + ".args")

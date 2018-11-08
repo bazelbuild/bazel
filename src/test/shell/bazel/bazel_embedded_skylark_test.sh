@@ -26,6 +26,7 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
 
 
 test_pkg_tar() {
+  rm -rf main
   mkdir main
   cd main
   touch WORKSPACE
@@ -43,6 +44,35 @@ EOF
     || fail "Expect success, even with all upcoming Skylark changes"
   grep -q 'Hello World' `bazel info bazel-bin`/data.tar \
     || fail "Output not generated correctly"
+}
+
+test_pkg_tar_quoting() {
+  # Verify that pkg_tar can handle file names that are allowed as lablels
+  # but contain cahracters that could mess up options.
+  rm -rf main out
+  mkdir main
+  cd main
+  touch WORKSPACE
+  mkdir data
+  echo 'with equal' > data/'foo=bar'
+  echo 'like an option' > data/--foo
+  cat > BUILD <<'EOF'
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+pkg_tar(
+  name = "fancy",
+  srcs = glob(["data/**/*"]),
+  symlinks = {"link_with_colons" : "some:dangling:link"},
+)
+EOF
+  bazel build --all_incompatible_changes :fancy || fail "Expected success"
+  mkdir ../out
+  tar -C ../out -x -v -f `bazel info bazel-bin`/fancy.tar
+
+  grep equal ../out/foo=bar || fail "file with equal sign not packed correctly"
+  grep option ../out/--foo || fail "file with double minus not packed correctly"
+  readlink ../out/link_with_colons | grep -- 'some:dangling:link' \
+      || fail "symlink not packed"
 }
 
 test_http_archive() {
