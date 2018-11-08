@@ -1044,7 +1044,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Check that configuration of the target named 'ruleName' in the
-   * specified BUILD file fails with an error message ending in
+   * specified BUILD file fails with an error message containing
    * 'expectedErrorMessage'.
    *
    * @param packageName the package name of the generated BUILD file
