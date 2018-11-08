@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
@@ -79,9 +80,13 @@ class GrpcRemoteExecutor {
         }
         Preconditions.checkState(
             resp.hasResult(), "Unexpected result of remote execution: no result");
-        if (resp.getResult().getExitCode() == 0) {
+        ActionResult res = resp.getResult();
+        if (res.getExitCode() == 0) {
           Preconditions.checkState(
-              resp.getResult().getOutputFilesCount() + resp.getResult().getOutputDirectoriesCount()
+              res.getOutputFilesCount()
+                      + res.getOutputFileSymlinksCount()
+                      + res.getOutputDirectoriesCount()
+                      + res.getOutputDirectorySymlinksCount()
                   > 0,
               "Unexpected result of remote execution: no output files.");
         }

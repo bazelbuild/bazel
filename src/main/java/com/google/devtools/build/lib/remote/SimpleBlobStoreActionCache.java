@@ -153,7 +153,12 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
       boolean uploadAction)
       throws ExecException, IOException, InterruptedException {
     UploadManifest manifest =
-        new UploadManifest(digestUtil, result, execRoot, options.allowSymlinkUpload);
+        new UploadManifest(
+            digestUtil,
+            result,
+            execRoot,
+            options.incompatibleRemoteSymlinks,
+            options.allowSymlinkUpload);
     manifest.addFiles(files);
     if (uploadAction) {
       manifest.addAction(actionKey, action, command);
