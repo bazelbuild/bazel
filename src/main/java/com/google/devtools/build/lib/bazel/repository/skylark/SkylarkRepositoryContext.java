@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyT
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
@@ -142,6 +143,31 @@ public class SkylarkRepositoryContext
     } else {
       throw new EvalException(Location.BUILTIN, method + " can only take a string or a label.");
     }
+  }
+
+  @Override
+  public void reportProgress(String status) {
+    final String message = status == null ? "" : status;
+    final String id = "@" + getName();
+
+    env.getListener()
+        .post(
+            new FetchProgress() {
+              @Override
+              public String getResourceIdentifier() {
+                return id;
+              }
+
+              @Override
+              public String getProgress() {
+                return message;
+              }
+
+              @Override
+              public boolean isFinished() {
+                return false;
+              }
+            });
   }
 
   @Override

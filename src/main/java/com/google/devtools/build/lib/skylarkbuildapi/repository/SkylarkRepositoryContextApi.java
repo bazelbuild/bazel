@@ -78,6 +78,17 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   public RepositoryPathApi<?> path(Object path) throws EvalException, InterruptedException;
 
   @SkylarkCallable(
+      name = "report_progress",
+      doc = "Update the progress status for the fetching of this repository",
+      parameters = {
+        @Param(
+            name = "status",
+            allowedTypes = {@ParamType(type = String.class)},
+            doc = "string describing the current status of the fetch progress")
+      })
+  public void reportProgress(String status);
+
+  @SkylarkCallable(
       name = "symlink",
       doc = "Create a symlink on the filesystem.",
       useLocation = true,

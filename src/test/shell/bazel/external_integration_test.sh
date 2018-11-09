@@ -1680,4 +1680,42 @@ EOF
     && fail "Expected failure due to unsupported symlink" || :
 }
 
+function test_progress_reporting() {
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  cat > rule.bzl <<'EOF'
+def _rule_impl(ctx):
+  ctx.report_progress("First action")
+  ctx.execute(["/bin/sh", "-c", "sleep 5"])
+  ctx.report_progress("Second action")
+  ctx.execute(["/bin/sh", "-c", "sleep 5"])
+  ctx.report_progress("Actual files")
+  ctx.file("data", "Hello world")
+  ctx.file("BUILD", "exports_files(['data'])")
+
+with_progress = repository_rule(
+  implementation = _rule_impl,
+  attrs = {},
+)
+EOF
+
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "with_progress")
+with_progress(name="foo")
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  srcs = ["@foo//:data"],
+  outs = ["local.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build --curses=yes //:local > "${TEST_log}" 2>&1 \
+      || fail "exepected succes"
+  expect_log "foo.*First action"
+  expect_log "foo.*Second action"
+}
+
 run_suite "external tests"
