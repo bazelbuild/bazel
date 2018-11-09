@@ -49,6 +49,7 @@ public final class ActionExecutionStatusReporter {
   private static final int MAX_LINES = 10;
 
   private final EventHandler eventHandler;
+  private final Executor executor;
   private final EventBus eventBus;
   private final Clock clock;
 
@@ -64,29 +65,29 @@ public final class ActionExecutionStatusReporter {
   }
 
   @VisibleForTesting
-  static ActionExecutionStatusReporter create(EventHandler eventHandler, @Nullable Clock clock) {
-    return create(eventHandler, null, clock);
+  static ActionExecutionStatusReporter create(EventHandler eventHandler, Clock clock) {
+    return create(eventHandler, null, null, clock);
   }
 
-  public static ActionExecutionStatusReporter create(
-      EventHandler eventHandler, @Nullable EventBus eventBus) {
-    return create(eventHandler, eventBus, null);
+  public static ActionExecutionStatusReporter create(EventHandler eventHandler,
+      @Nullable Executor executor, @Nullable EventBus eventBus) {
+    return create(eventHandler, executor, eventBus, null);
   }
 
-  private static ActionExecutionStatusReporter create(
-      EventHandler eventHandler, @Nullable EventBus eventBus, @Nullable Clock clock) {
-    ActionExecutionStatusReporter result =
-        new ActionExecutionStatusReporter(
-            eventHandler, eventBus, clock == null ? BlazeClock.instance() : clock);
+  private static ActionExecutionStatusReporter create(EventHandler eventHandler,
+      @Nullable Executor executor, @Nullable EventBus eventBus, @Nullable Clock clock) {
+    ActionExecutionStatusReporter result = new ActionExecutionStatusReporter(eventHandler, executor,
+        eventBus, clock == null ? BlazeClock.instance() : clock);
     if (eventBus != null) {
       eventBus.register(result);
     }
     return result;
   }
 
-  private ActionExecutionStatusReporter(
-      EventHandler eventHandler, @Nullable EventBus eventBus, Clock clock) {
+  private ActionExecutionStatusReporter(EventHandler eventHandler, @Nullable Executor executor,
+      @Nullable EventBus eventBus, Clock clock) {
     this.eventHandler = Preconditions.checkNotNull(eventHandler);
+    this.executor = executor;
     this.eventBus = eventBus;
     this.clock = Preconditions.checkNotNull(clock);
   }
@@ -106,6 +107,13 @@ public final class ActionExecutionStatusReporter {
    */
   public void remove(Action action) {
     Preconditions.checkNotNull(actionStatus.remove(action), action);
+  }
+
+  /**
+   * Set "Preparing" status.
+   */
+  public void setPreparing(Action action) {
+    updateStatus(ActionStatusMessage.preparingStrategy(action));
   }
 
   @Subscribe
