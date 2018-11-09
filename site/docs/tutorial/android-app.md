@@ -8,19 +8,19 @@ title: Build Tutorial - Android
 In this tutorial, you will learn how to build a simple Android app using Bazel.
 
 Bazel supports building Android apps using the [Android
-rules](https://docs.bazel.build/versions/master/be/android.html). This tutorial
-will focus on using Bazel from the command-line.
+rules](https://docs.bazel.build/versions/master/be/android.html).
 
-This tutorial is intended for Windows, macOS and Linux users with **no
-experience with Bazel and Android app development**. You do not need to write
-any Android code in this tutorial.
+This tutorial is intended for Windows, macOS and Linux users and does not
+require experience with Bazel or Android app development. You do not need to
+write any Android code in this tutorial.
 
 ## Prerequisites
 
 You will need to install the following software:
 
 * Bazel. To install, follow the [installation instructions](../install.md).
-* Android Studio. To install, follow the steps to [download Android Studio](https://developer.android.com/sdk/index.html).
+* Android Studio. To install, follow the steps to [download Android
+  Studio](https://developer.android.com/sdk/index.html).
 * (Optional) Git. We will use `git` to download the Android app project.
 
 ## Getting started
@@ -30,14 +30,15 @@ repository](https://github.com/bazelbuild/examples).
 
 This app has a single button that prints a greeting when clicked.
 
-<img src="/assets/android_tutorial_app.png" alt="screenshot of tutorial app" width="700">
+<img src="/assets/android_tutorial_app.png" alt="screenshot of tutorial app"
+width="700">
 
 Clone the repository with `git` (or [download the ZIP file
 directly](https://github.com/bazelbuild/examples/archive/master.zip)):
 
 ``` bash
-$ git clone git@github.com:bazelbuild/examples.git bazel-examples
-$ cd bazel-examples/android/tutorial
+git clone git@github.com:bazelbuild/examples.git bazel-examples
+cd bazel-examples/android/tutorial
 ```
 
 For the rest of the tutorial, you will be executing commands in this directory.
@@ -47,13 +48,12 @@ For the rest of the tutorial, you will be executing commands in this directory.
 Let's take a look at the source files for the app.
 
 ```
-$ tree
 .
 ├── README.md
 └── src
     └── main
+        ├── AndroidManifest.xml
         └── java
-            ├── AndroidManifest.xml
             └── com
                 └── example
                     └── bazel
@@ -70,35 +70,32 @@ $ tree
 
 The key files and directories are:
 
-| Name                    | Location                                                                                      |
-| Android manifest files  | `src/main/java/AndroidManifest.xml` and `src/main/java/com/example/bazel/AndroidManifest.xml` |
-| Activity source files   | `src/main/java/com/example/bazel/MainActivity.java` and `Greeter.java`                        |
-| Resource file directory | `src/main/java/com/example/bazel/res/`                                                        |
+| Name                    | Location                                                                                 |
+| Android manifest files  | `src/main/AndroidManifest.xml` and `src/main/java/com/example/bazel/AndroidManifest.xml` |
+| Android source files    | `src/main/java/com/example/bazel/MainActivity.java` and `Greeter.java`                   |
+| Resource file directory | `src/main/java/com/example/bazel/res/`                                                   |
 
-Note that you're just looking at these files now to become familiar with the
-structure of the app. You don't have to edit any of the source files to complete
-this tutorial.
-
-## Initialize the Bazel workspace
+## Initialize the project's workspace
 
 A [workspace](../build-ref.html#workspace) is a directory that contains the
-source files for one or more software projects, and a `WORKSPACE` file in the
-top level of the directory.
+source files for one or more software projects, and has a `WORKSPACE` file in
+the top level of the directory.
 
 The `WORKSPACE` file may be empty or it may contain references to [external
-dependencies](../external.html) required to build the app. Run the following
-command to create an empty `WORKSPACE` file:
+dependencies](../external.html) required to build your project. 
 
-| Linux, macOS             | `$ touch WORKSPACE`                   |
-| Windows (Command Prompt) | `$ type nul > WORKSPACE`              |
-| Windows (PowerShell)     | `$ New-Item WORKSPACE -ItemType file` |
+First, run the following command to create an empty `WORKSPACE` file:
+
+| Linux, macOS             | `touch WORKSPACE`                   |
+| Windows (Command Prompt) | `type nul > WORKSPACE`              |
+| Windows (PowerShell)     | `New-Item WORKSPACE -ItemType file` |
 
 ### Running Bazel
 
 You can now check if Bazel is running correctly with the command:
 
 ```bash
-$ bazel info workspace
+bazel info workspace
 ```
 
 If Bazel prints the path of the current directory, you're good to go! If the
@@ -108,7 +105,7 @@ If Bazel prints the path of the current directory, you're good to go! If the
 ERROR: The 'info' command is only supported from within a workspace.
 ```
 
-## Integrate the Android SDK
+## Integrate with the Android SDK
 
 Bazel needs to run the Android SDK [build
 tools](https://developer.android.com/tools/revisions/build-tools.html) to build
@@ -121,9 +118,9 @@ Add the following line to your `WORKSPACE` file:
 android_sdk_repository(name = "androidsdk")
 ```
 
-This will use the Android SDK referenced by the `ANDROID_HOME` environment
-variable, and automatically detect the highest API level and the latest version
-of build tools installed within that location.
+This will use the Android SDK at the path referenced by the `ANDROID_HOME`
+environment variable, and automatically detect the highest API level and the
+latest version of build tools installed within that location.
 
 You can set the `ANDROID_HOME` variable to the location of the Android SDK. Find
 the path to the installed SDK using Android Studio's [SDK
@@ -133,19 +130,24 @@ For example, as the default SDK path is in your home directory for Linux and
 macOS, and `LOCALAPPDATA` for Windows, you can use the following commands to set
 the `ANDROID_HOME` variable:
 
-| Linux, macOS             | `$ export ANDROID_HOME=$HOME/Android/Sdk/`                                                                                                  |
-| Windows (Command Prompt) | `$ setx ANDROID_HOME "%LOCALAPPDATA%\Android\Sdk"`                                                                                          |
-| Windows (PowerShell)     | `$ [System.Environment]::SetEnvironmentVariable('ANDROID_HOME', "$env:LOCALAPPDATA\Android\Sdk", [System.EnvironmentVariableTarget]::User)` |
+| Linux, macOS             | `export ANDROID_HOME=$HOME/Android/Sdk/`            |
+| Windows (Command Prompt) | `set ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk`       |
+| Windows (PowerShell)     | `$env:ANDROID_HOME="$env:LOCALAPPDATA\Android\Sdk"` |
 
-Note that on Linux and macOS, the command will set the variable for the current
-shell session only. To make it permanent, you will need to set it as an
-environment variable by adding the line into `~/.bashrc` or `~/.bash_profile`.
-For Windows, the above commands will persist the variable across shells.
+Note that the commands above will set the variable for the current shell session
+only. To make it permanent for future sessions, run the following:
 
-Alternatively, you can explicitly specify the location of the Android SDK, the
-API level, and the version of build tools to use by including the
-`path`,`api_level`, and `build_tools_version` attributes. You can specify any
-combination of these attributes, as long as they are present in the SDK:
+| Linux, macOS             | `echo "export ANDROID_HOME=$HOME/Android/Sdk/" >> ~/.bashrc`                                                                              |
+| Windows (Command Prompt) | `setx ANDROID_HOME "%LOCALAPPDATA%\Android\Sdk"`                                                                                          |
+| Windows (PowerShell)     | `[System.Environment]::SetEnvironmentVariable('ANDROID_HOME', "$env:LOCALAPPDATA\Android\Sdk", [System.EnvironmentVariableTarget]::User)` |
+
+Alternatively, you can explicitly specify the absolute path of the Android SDK,
+the API level, and the version of build tools to use by including the `path`,
+`api_level`, and `build_tools_version` attributes. If `api_level` and
+`build_tools_version` are not specified, the `android_sdk_repository` rule will
+use the respective latest version available in the SDK. You can specify any
+combination of these attributes, as long as they are present in the SDK, for
+example:
 
 ```python
 android_sdk_repository(
@@ -153,6 +155,16 @@ android_sdk_repository(
     path = "/path/to/Android/sdk",
     api_level = 25,
     build_tools_version = "26.0.1"
+)
+```
+
+On Windows, note that the `path` attribute must use the mixed-style path, that
+is, a Windows path with forward slashes:
+
+```python
+android_sdk_repository(
+    name = "androidsdk",
+    path = "c:/path/to/Android/sdk",
 )
 ```
 
@@ -194,28 +206,28 @@ The package hierarchy is a logical structure that overlays the directory
 structure in your workspace. Each [package](../build-ref.html#packages) is a
 directory (and its subdirectories) that contains a related set of source files
 and a `BUILD` file. The package also includes any subdirectories, excluding
-those that contain their own `BUILD` file. The *package name* is the name of the
-directory where the `BUILD` file is located.
+those that contain their own `BUILD` file. The *package name* is the path to the
+`BUILD` file relative to the `WORKSPACE`.
 
-Note that this package hierarchy is a different concept compared with Java
-package hierarchy for your Android app, although the directories may be
-organized identically.
+Note that Bazel's package hierarchy is conceptually different from the Java
+package hierarchy of your Android App directory where the `BUILD` file is
+located. , although the directories may be organized identically.
 
-For the simple Android app in this tutorial, we'll consider all the source files
-in `src/main/java/` to comprise a single Bazel package. A more complex project may have
+For the simple Android app in this tutorial, we'll make all the source files in
+`src/main/` to comprise a single Bazel package. A more complex project may have
 many nested packages.
 
 ### Add an android_library rule
 
-A `BUILD` file contains several different types of instructions for Bazel. The
+A `BUILD` file contains several different types of declarations for Bazel. The
 most important type is the [build rule](../build-ref.html#funcs), which tells
 Bazel how to build an intermediate or final software output from a set of source
 files or other dependencies.
 
 Bazel provides two build rules, `android_library` and `android_binary`, that you
 can use to build an Android app. For this tutorial, you'll first use the
-[`android_library`](../be/android.html#android_library) rule to tell Bazel how
-to build an [Android library
+[`android_library`](../be/android.html#android_library) rule to tell Bazel to
+build an [Android library
 module](http://developer.android.com/tools/projects/index.html#LibraryProjects)
 from the app source code and resource files. Then you'll use the
 `android_binary` rule to tell it how to build the Android application package.
@@ -223,7 +235,7 @@ from the app source code and resource files. Then you'll use the
 Create a new `BUILD` file in the `src/main/java/com/example/bazel` directory,
 and declare a new `android_library` target:
 
-`src/main/java/com/example/bazel/java/BUILD`:
+`src/main/java/com/example/bazel/BUILD`:
 
 ```python
 package(
@@ -251,10 +263,10 @@ rule using this name as a dependency in the `android_binary` rule.
 The [`android_binary`](../be/android.html#android_binary) rule builds
 the Android application package (`.apk` file) for your app.
 
-Create a new `BUILD` file in the `src/main/java/` directory,
+Create a new `BUILD` file in the `src/main/` directory,
 and declare a new `android_binary` target:
 
-`src/main/java/BUILD`:
+`src/main/BUILD`:
 
 ```python
 android_binary(
@@ -278,14 +290,14 @@ Let's try building the app! Run the following command to build the
 `android_binary` target:
 
 ```bash
-bazel build //src/main/java:app
+bazel build //src/main:app
 ```
 
 The [`build`](../user-manual.html#build) subcommand instructs Bazel to build the
 target that follows. The target is specified as the name of a build rule inside
 a `BUILD` file, with along with the package path relative to your workspace
 directory. For this example, the target is `app` and the package path is
-`//src/main/java`.
+`//src/main/`.
 
 Note that you can sometimes omit the package path or target name, depending on
 your current working directory at the command line and the name of the target.
@@ -296,36 +308,36 @@ Bazel will start to build the sample app. During the build process, its output
 will appear similar to the following:
 
 ```bash
-INFO: Analysed target //src/main/java:app (3 packages loaded, 75 targets configured).
+INFO: Analysed target //src/main:app (0 packages loaded, 0 targets configured).
 INFO: Found 1 target...
-Target //src/main/java:app up-to-date:
-  bazel-bin/src/main/java/app_deploy.jar
-  bazel-bin/src/main/java/app_unsigned.apk
-  bazel-bin/src/main/java/app.apk
+Target //src/main:app up-to-date:
+  bazel-bin/src/main/app_deploy.jar
+  bazel-bin/src/main/app_unsigned.apk
+  bazel-bin/src/main/app.apk
 ```
 
-## Find the build outputs
+## Locate the build outputs
 
-Bazel stores the outputs of both intermediate and final build operations in
-a set of per-user, per-workspace output directories. These directories are
-symlinked from the following locations:
+Bazel puts the outputs of both intermediate and final build operations in a set
+of per-user, per-workspace output directories. These directories are symlinked
+from the following locations at the top-level of the project directory, where
+the `WORKSPACE` is:
 
-* `$WORKSPACE/bazel-bin`, which stores binary executables and other runnable
-   build outputs
-* `$WORKSPACE/bazel-genfiles`, which stores intermediary source files that are
-   generated by Bazel rules
-* `$WORKSPACE/bazel-out`, which stores other types of build outputs
+* `bazel-bin`, which stores binary executables and other runnable build outputs
+* `bazel-genfiles`, which stores intermediary source files that are generated by
+   Bazel rules
+* `bazel-out`, which stores other types of build outputs
 
 Bazel stores the Android `.apk` file generated using the `android_binary` rule
-in the `bazel-bin/src/main/java` directory, where the subdirectory name
-`src/main/java` is derived from the name of the Bazel package.
+in the `bazel-bin/src/main` directory, where the subdirectory name `src/main` is
+derived from the name of the Bazel package.
 
 At a command prompt, list the contents of this directory and find the `app.apk`
 file:
 
-| Linux, macOS             | `$ ls bazel-bin/src/main/java`  |
-| Windows (Command Prompt) | `$ dir bazel-bin\src\main\java` |
-| Windows (PowerShell)     | `$ ls bazel-bin\src\main\java`  |
+| Linux, macOS             | `ls bazel-bin/src/main`  |
+| Windows (Command Prompt) | `dir bazel-bin\src\main` |
+| Windows (PowerShell)     | `ls bazel-bin\src\main`  |
 
 
 ## Run the app
@@ -342,7 +354,7 @@ Studio. Make sure the emulator is running before executing the command below.
 Enter the following:
 
 ```bash
-bazel mobile-install //src/main/java:app
+bazel mobile-install //src/main:app
 ```
 
 Next, find and launch the "Bazel Tutorial App". You should see this screen:
