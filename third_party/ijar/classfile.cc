@@ -1676,9 +1676,9 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
       // drop private methods
       continue;
     }
-    if ((method->access_flags & (ACC_SYNTHETIC | ACC_BRIDGE)) ==
-        ACC_SYNTHETIC) {
-      // drop non-bridge synthetic methods, e.g. package-private synthetic
+    if ((method->access_flags & (ACC_SYNTHETIC | ACC_BRIDGE | ACC_PUBLIC |
+                                 ACC_PROTECTED)) == ACC_SYNTHETIC) {
+      // drop package-private non-bridge synthetic methods, e.g. synthetic
       // constructors used to instantiate private nested classes within their
       // declaring compilation unit
       continue;
