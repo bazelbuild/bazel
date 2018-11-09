@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
@@ -70,22 +68,11 @@ public final class LanguageDependentFragment implements TransitiveInfoProvider {
     }
   }
 
-  private final Label label;
   private final ImmutableSet<LibraryLanguage> languages;
 
   @AutoCodec.Instantiator
-  public LanguageDependentFragment(Label label, ImmutableSet<LibraryLanguage> languages) {
-    this.label = label;
+  public LanguageDependentFragment(ImmutableSet<LibraryLanguage> languages) {
     this.languages = languages;
-  }
-
-  /**
-   * Returns the label that is associated with this piece of information.
-   *
-   * <p>This is usually the label of the target that provides the information.
-   */
-  public Label getLabel() {
-    return label;
   }
 
   /**
@@ -94,44 +81,5 @@ public final class LanguageDependentFragment implements TransitiveInfoProvider {
    */
   public ImmutableSet<LibraryLanguage> getSupportedLanguages() {
     return languages;
-  }
-
-  /**
-   * Routines for verifying that dependency provide the right output.
-   */
-  public static final class Checker {
-    /** Checks that given dep supports the given language. */
-    public static boolean depSupportsLanguage(
-        RuleContext context,
-        LanguageDependentFragment dep,
-        LibraryLanguage language,
-        String attrName) {
-      if (dep.getSupportedLanguages().contains(language)) {
-        return true;
-      } else {
-        context.attributeError(
-            attrName,
-            String.format("'%s' does not produce output for %s", dep.getLabel(), language));
-        return false;
-      }
-    }
-
-    /**
-     * Checks that all LanguageDependentFragment support the given language.
-     *
-     * @param attrNames names of attributes whose contents should be checked for supported
-     *     languages, e.g., "deps".
-     */
-    public static void depsSupportsLanguage(
-        RuleContext context, LibraryLanguage language, Iterable<String> attrNames) {
-      for (String attrName : attrNames) {
-        if (context.attributes().has(attrName)) {
-          for (LanguageDependentFragment dep :
-              context.getPrerequisites(attrName, Mode.TARGET, LanguageDependentFragment.class)) {
-            depSupportsLanguage(context, dep, language, attrName);
-          }
-        }
-      }
-    }
   }
 }
