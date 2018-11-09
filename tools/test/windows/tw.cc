@@ -568,6 +568,26 @@ bool ReadCompleteFile(HANDLE handle, uint8_t* dest, DWORD max_read) {
   return true;
 }
 
+// Returns the MIME type of the file name.
+// If the MIME type is unknown or an error occurs, the method returns
+// "application/octet-stream".
+std::string GetMimeType(const std::string& filename) {
+  static constexpr char* kDefaultMimeType = "application/octet-stream";
+  std::string::size_type pos = filename.find_last_of('.');
+  if (pos == std::string::npos) {
+    return kDefaultMimeType;
+  }
+  char data[1000];
+  DWORD data_size = 1000 * sizeof(char);
+  if (RegGetValueA(HKEY_CLASSES_ROOT, filename.c_str() + pos, "Content Type",
+                   RRF_RT_REG_SZ, NULL, data, &data_size) == ERROR_SUCCESS) {
+    return data;
+  }
+  // The file extension is unknown, or it does not have a "Content Type" value,
+  // or the value is too long. We don't care; just return the default.
+  return kDefaultMimeType;
+}
+
 bool ExportXmlPath(const Path& cwd) {
   Path result;
   if (!GetPathEnv(L"XML_OUTPUT_FILE", &result)) {
@@ -1089,6 +1109,10 @@ bool TestOnly_CreateZip(const std::wstring& abs_root,
   return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
          blaze_util::IsAbsolute(abs_zip) && zip.Set(abs_zip) &&
          CreateZip(root, files, zip);
+}
+
+std::string TestOnly_GetMimeType(const std::string& filename) {
+  return GetMimeType(filename);
 }
 
 bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result) {

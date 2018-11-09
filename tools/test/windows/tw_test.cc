@@ -39,6 +39,7 @@ using bazel::tools::test_wrapper::testing::TestOnly_AsMixedPath;
 using bazel::tools::test_wrapper::testing::TestOnly_CreateZip;
 using bazel::tools::test_wrapper::testing::TestOnly_GetEnv;
 using bazel::tools::test_wrapper::testing::TestOnly_GetFileListRelativeTo;
+using bazel::tools::test_wrapper::testing::TestOnly_GetMimeType;
 using bazel::tools::test_wrapper::testing::TestOnly_ToZipEntryPaths;
 
 class TestWrapperWindowsTest : public ::testing::Test {
@@ -334,6 +335,19 @@ TEST_F(TestWrapperWindowsTest, TestCreateZip) {
   EXPECT_EQ(memcmp(extracted[4].data.get(), "foo", 3), 0);
   EXPECT_EQ(memcmp(extracted[5].data.get(), "foobar", 6), 0);
   EXPECT_EQ(memcmp(extracted[8].data.get(), "hello", 5), 0);
+}
+
+TEST_F(TestWrapperWindowsTest, TestGetMimeType) {
+  // As of 2018-11-08, TestOnly_GetMimeType looks up the MIME type from the
+  // registry under `HKCR\<extension>\Content Type`, e.g.
+  // 'HKCR\.bmp\Content Type`.
+  // Bazel's CI machines run Windows Server 2016 Core, whose registry contains
+  // the Content Type for .ico and .bmp but not for common types such as .txt,
+  // hence the file types we choose to test for.
+  EXPECT_EQ(TestOnly_GetMimeType("foo.ico"), std::string("image/x-icon"));
+  EXPECT_EQ(TestOnly_GetMimeType("foo.bmp"), std::string("image/bmp"));
+  EXPECT_EQ(TestOnly_GetMimeType("foo"),
+            std::string("application/octet-stream"));
 }
 
 }  // namespace
