@@ -69,6 +69,11 @@ pkg_tar(
     name = "bazel-srcs",
     srcs = [":srcs"],
     strip_prefix = ".",
+    remap_paths = {
+        # Rewrite paths coming from local repositories back into third_party.
+        '../googleapis': 'third_party/googleapis',
+        '../remoteapis': 'third_party/remoteapis',
+    },
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
