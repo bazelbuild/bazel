@@ -191,7 +191,8 @@ public class Parser {
     Parser parser = new Parser(lexer, eventHandler);
     List<Statement> statements;
     try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.SKYLARK_PARSER, input.getPath().getPathString())) {
+        Profiler.instance()
+            .profile(ProfilerTask.STARLARK_PARSER, input.getPath().getPathString())) {
       statements = parser.parseFileInput();
     }
     boolean errors = parser.errorsCount > 0 || lexer.containsErrors();

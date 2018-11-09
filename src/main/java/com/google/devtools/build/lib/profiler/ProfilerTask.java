@@ -84,10 +84,10 @@ public enum ProfilerTask {
   __CONSTRUCT_INCLUDE_PATHS("construct include paths"), // unused
   __PARSE_AND_HINTS_RESULTS("parse and hints results"), // unused
   __PROCESS_RESULTS_AND_ENQUEUE("process results and enqueue"), // unused
-  SKYLARK_PARSER("Starlark Parser"),
-  SKYLARK_USER_FN("Starlark user function call", -0xCC0033),
-  SKYLARK_BUILTIN_FN("Starlark builtin function call", 0x990033),
-  SKYLARK_USER_COMPILED_FN("Starlark compiled user function call", 0xCC0033),
+  STARLARK_PARSER("Starlark Parser"),
+  STARLARK_USER_FN("Starlark user function call", -0xCC0033),
+  STARLARK_BUILTIN_FN("Starlark builtin function call", 0x990033),
+  STARLARK_USER_COMPILED_FN("Starlark compiled user function call", 0xCC0033),
   ACTION_FS_STAGING("Staging per-action file system", 0x000000),
   UNKNOWN("Unknown event",  0x339966);
 

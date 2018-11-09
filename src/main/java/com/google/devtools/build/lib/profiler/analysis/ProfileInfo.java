@@ -293,15 +293,15 @@ public class ProfileInfo {
      * <p>Example:
      *
      * <pre>
-     * 636779 SKYLARK_USER_FN (259.593 ms) /path/file.bzl:42#function [
-     *   636810 SKYLARK_USER_FN (257.768 ms) /path/file.bzl:133#_other_function [
-     *     636974 SKYLARK_BUILTIN_FN (254.596 ms) some.package.PackageFactory$9#genrule []
+     * 636779 STARLARK_USER_FN (259.593 ms) /path/file.bzl:42#function [
+     *   636810 STARLARK_USER_FN (257.768 ms) /path/file.bzl:133#_other_function [
+     *     636974 STARLARK_BUILTIN_FN (254.596 ms) some.package.PackageFactory$9#genrule []
      *   2 subtree(s) omitted]
      * ]
      * </pre>
      *
      * @param durationThresholdMillis Tasks with a shorter duration than this threshold will be
-     *  skipped
+     *     skipped
      * @return whether this task took longer than the threshold and was thus printed
      */
     public boolean printTaskTree(PrintStream out, long durationThresholdMillis) {
@@ -543,11 +543,11 @@ public class ProfileInfo {
     builtinFunctions = ListMultimapBuilder.treeKeys().arrayListValues().build();
 
     for (Task task : allTasksById) {
-      if (task.type == ProfilerTask.SKYLARK_BUILTIN_FN) {
+      if (task.type == ProfilerTask.STARLARK_BUILTIN_FN) {
         builtinFunctions.put(task.getDescription(), task);
-      } else if (task.type == ProfilerTask.SKYLARK_USER_FN) {
+      } else if (task.type == ProfilerTask.STARLARK_USER_FN) {
         userFunctions.put(task.getDescription(), task);
-      } else if (task.type == ProfilerTask.SKYLARK_USER_COMPILED_FN) {
+      } else if (task.type == ProfilerTask.STARLARK_USER_COMPILED_FN) {
         compiledUserFunctions.put(task.getDescription(), task);
       }
     }

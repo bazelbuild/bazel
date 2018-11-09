@@ -168,7 +168,7 @@ public class BuiltinFunction extends BaseFunction {
 
     // Last but not least, actually make an inner call to the function with the resolved arguments.
     try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.SKYLARK_BUILTIN_FN, getName())) {
+        Profiler.instance().profile(ProfilerTask.STARLARK_BUILTIN_FN, getName())) {
       env.enterScope(this, SHARED_LEXICAL_FRAME_FOR_BUILTIN_FUNCTION_CALLS, ast, env.getGlobals());
       return invokeMethod.invoke(this, args);
     } catch (InvocationTargetException x) {

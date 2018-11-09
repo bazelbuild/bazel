@@ -123,7 +123,7 @@ public class BuiltinCallable extends BaseFunction {
     }
 
     try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.SKYLARK_BUILTIN_FN, getName())) {
+        Profiler.instance().profile(ProfilerTask.STARLARK_BUILTIN_FN, getName())) {
       env.enterScope(this, SHARED_LEXICAL_FRAME_FOR_BUILTIN_METHOD_CALLS, ast, env.getGlobals());
       return descriptor.call(obj, args, ast.getLocation(), env);
     } finally {
