@@ -14,6 +14,7 @@
 
 import os
 import unittest
+import zipfile
 
 from src.test.py.bazel import test_base
 
@@ -84,6 +85,12 @@ class TestWrapperTest(test_base.TestBase):
         '    srcs = ["testargs.bat"],',
         '    args = ["foo", "a b", "", "bar"],',
         ')',
+        'py_test(',
+        '    name = "undecl_test",',
+        '    srcs = ["undecl_test.py"],',
+        '    data = ["dummy.ico", "dummy.dat"],',
+        '    deps = ["@bazel_tools//tools/python/runfiles"],',
+        ')',
     ])
     self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
     self.ScratchFile('foo/failing.bat', ['@exit /B 1'], executable=True)
@@ -128,6 +135,56 @@ class TestWrapperTest(test_base.TestBase):
             '@echo arg=(%7)',
             '@echo arg=(%8)',
             '@echo arg=(%9)',
+        ],
+        executable=True)
+
+    # A single white pixel as an ".ico" file. /usr/bin/file should identify this
+    # as "image/x-icon".
+    # The MIME type lookup logic of the test wrapper only looks at file names,
+    # but the test-setup.sh calls /usr/bin/file which inspects file contents, so
+    # we need a valid ".ico" file.
+    ico_file = bytearray([
+        0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00,
+        0x18, 0x00, 0x30, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x28, 0x00,
+        0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00,
+        0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00
+    ])
+    # 16 bytes of random data. /usr/bin/file should identify this as
+    # "application/octet-stream".
+    # The MIME type lookup logic of the test wrapper only looks at file names,
+    # but the test-setup.sh calls /usr/bin/file which inspects file contents, so
+    # we need a valid ".ico" file.
+    dat_file = bytearray([
+        0x40, 0x5a, 0x2e, 0x7e, 0x53, 0x86, 0x98, 0x0e, 0x12, 0xc4, 0x92, 0x38,
+        0x27, 0xcd, 0x09, 0xf9
+    ])
+
+    ico_file_path = self.ScratchFile('foo/dummy.ico').replace('/', '\\')
+    dat_file_path = self.ScratchFile('foo/dummy.dat').replace('/', '\\')
+
+    with open(ico_file_path, 'wb') as f:
+      f.write(ico_file)
+
+    with open(dat_file_path, 'wb') as f:
+      f.write(dat_file)
+
+    self.ScratchFile(
+        'foo/undecl_test.py', [
+            'from bazel_tools.tools.python.runfiles import runfiles',
+            'import os',
+            'import shutil',
+            '',
+            'root = os.environ.get("TEST_UNDECLARED_OUTPUTS_DIR")',
+            'os.mkdir(os.path.join(root, "out1"))',
+            'os.mkdir(os.path.join(root, "out2"))',
+            'os.makedirs(os.path.join(root, "empty/sub"))',
+            'r = runfiles.Create()',
+            'shutil.copyfile(r.Rlocation("__main__/foo/dummy.ico"),',
+            '                os.path.join(root, "out1", "data1.ico"))',
+            'shutil.copyfile(r.Rlocation("__main__/foo/dummy.dat"),',
+            '                os.path.join(root, "out2", "data2.dat"))',
         ],
         executable=True)
 
@@ -291,6 +348,52 @@ class TestWrapperTest(test_base.TestBase):
         actual.append(str(line[len('arg='):]))
     self.assertListEqual(expected, actual)
 
+  def _AssertUndeclaredOutputs(self, flag):
+    exit_code, bazel_testlogs, stderr = self.RunBazel(
+        ['info', 'bazel-testlogs'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_testlogs = bazel_testlogs[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:undecl_test',
+        '-t-',
+        '--test_output=errors',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    undecl_zip = os.path.join(bazel_testlogs, 'foo', 'undecl_test',
+                              'test.outputs', 'outputs.zip')
+    self.assertTrue(os.path.exists(undecl_zip))
+    zip_content = {}
+    with zipfile.ZipFile(undecl_zip, 'r') as z:
+      zip_content = {f: z.getinfo(f).file_size for f in z.namelist()}
+    self.assertDictEqual(
+        zip_content, {
+            'out1/': 0,
+            'out2/': 0,
+            'empty/': 0,
+            'empty/sub/': 0,
+            'out1/data1.ico': 70,
+            'out2/data2.dat': 16
+        })
+
+    undecl_mf = os.path.join(bazel_testlogs, 'foo', 'undecl_test',
+                             'test.outputs_manifest', 'MANIFEST')
+    self.assertTrue(os.path.exists(undecl_mf))
+    mf_content = []
+    with open(undecl_mf, 'rt') as f:
+      mf_content = [line.strip() for line in f.readlines()]
+    # Using an ".ico" file as example, because as of 2018-11-09 Bazel's CI
+    # machines run Windows Server 2016 core which recognizes fewer MIME types
+    # than desktop Windows versions, and one of the recognized types is ".ico"
+    # files.
+    self.assertListEqual(mf_content, [
+        'out1/data1.ico\t70\timage/x-icon',
+        'out2/data2.dat\t16\tapplication/octet-stream'
+    ])
+
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
     flag = '--noincompatible_windows_native_test_wrapper'
@@ -322,12 +425,10 @@ class TestWrapperTest(test_base.TestBase):
             '("\\\\\\")',
             '(qux")'
         ])
+    self._AssertUndeclaredOutputs(flag)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
-    # As of 2018-09-11, the Windows native test runner can run simple tests and
-    # export a few envvars, though it does not completely set up the test's
-    # environment yet.
     flag = '--incompatible_windows_native_test_wrapper'
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
@@ -355,6 +456,7 @@ class TestWrapperTest(test_base.TestBase):
             '(qux)',
             '()'
         ])
+    self._AssertUndeclaredOutputs(flag)
 
 
 if __name__ == '__main__':

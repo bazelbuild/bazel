@@ -118,6 +118,10 @@ bool TestOnly_CreateZip(const std::wstring& abs_root,
 // Returns the MIME type of a file. The file does not need to exist.
 std::string TestOnly_GetMimeType(const std::string& filename);
 
+// Returns the contents of the Undeclared Outputs manifest.
+bool TestOnly_CreateUndeclaredOutputsManifest(
+    const std::vector<FileInfo>& files, std::string* result);
+
 bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result);
 
 }  // namespace testing
