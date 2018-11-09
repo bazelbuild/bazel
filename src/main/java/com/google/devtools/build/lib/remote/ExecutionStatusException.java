@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.remote;
 
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import com.google.rpc.Status;
+import io.grpc.Metadata;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
+import io.grpc.protobuf.lite.ProtoLiteUtils;
 import javax.annotation.Nullable;
 
 /**
@@ -28,8 +30,19 @@ public class ExecutionStatusException extends StatusRuntimeException {
   private final Status status;
   private final ExecuteResponse response;
 
+  private static final Metadata.Key<com.google.rpc.Status> STATUS_DETAILS_KEY =
+      Metadata.Key.of(
+          "grpc-status-details-bin",
+          ProtoLiteUtils.metadataMarshaller(com.google.rpc.Status.getDefaultInstance()));
+
+  private static final Metadata getMetadata(Status status) {
+    Metadata metadata = new Metadata();
+    metadata.put(STATUS_DETAILS_KEY, status);
+    return metadata;
+  }
+
   public ExecutionStatusException(Status status, @Nullable ExecuteResponse response) {
-    super(convertStatus(status, response));
+    super(convertStatus(status, response), getMetadata(status));
     this.status = status;
     this.response = response;
   }
