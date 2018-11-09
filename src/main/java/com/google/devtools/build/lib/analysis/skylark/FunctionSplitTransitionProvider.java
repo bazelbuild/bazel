@@ -25,17 +25,14 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -58,55 +55,24 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
 
   private static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
 
-  private final BaseFunction transitionFunction;
-  private final SkylarkSemantics semantics;
-  private final EventHandler eventHandler;
-  private final List<String> inputs;
-  private final List<String> expectedOutputs;
-  private final boolean isForAnalysisTesting;
+  private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
   public FunctionSplitTransitionProvider(
-      BaseFunction transitionFunction,
-      SkylarkSemantics semantics,
-      EventHandler eventHandler,
-      List<String> inputs,
-      List<String> expectedOutputs,
-      boolean isForAnalysisTesting) {
-    this.transitionFunction = transitionFunction;
-    this.semantics = semantics;
-    this.eventHandler = eventHandler;
-    this.inputs = inputs;
-    this.expectedOutputs = expectedOutputs;
-    this.isForAnalysisTesting = isForAnalysisTesting;
+      StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
+    this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
   }
 
   @Override
   public SplitTransition apply(AttributeMap attributeMap) {
-    return new FunctionSplitTransition(
-        transitionFunction, semantics, eventHandler, inputs, expectedOutputs, isForAnalysisTesting);
+    return new FunctionSplitTransition(starlarkDefinedConfigTransition);
   }
 
   private static class FunctionSplitTransition implements SplitTransition {
-    private final BaseFunction transitionFunction;
-    private final SkylarkSemantics semantics;
-    private final EventHandler eventHandler;
-    private final List<String> inputs;
-    private final List<String> expectedOutputs;
-    private final boolean isForAnalysisTesting;
+    private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
     public FunctionSplitTransition(
-        BaseFunction transitionFunction,
-        SkylarkSemantics semantics,
-        EventHandler eventHandler,
-        List<String> inputs,
-        List<String> expectedOutputs,
-        boolean isForAnalysisTesting) {
-      this.transitionFunction = transitionFunction;
-      this.semantics = semantics;
-      this.eventHandler = eventHandler;
-      this.inputs = inputs;
-      this.expectedOutputs = expectedOutputs;
-      this.isForAnalysisTesting = isForAnalysisTesting;
+        StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
+      this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
     }
 
     @Override
@@ -115,14 +81,15 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
       // transitions.
       try {
         Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
-        SkylarkDict<String, Object> settings = buildSettings(buildOptions, optionInfoMap, inputs);
+        SkylarkDict<String, Object> settings =
+            buildSettings(buildOptions, optionInfoMap, starlarkDefinedConfigTransition.getInputs());
 
         ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
 
         ImmutableList<Map<String, Object>> transitions =
-            evalTransitionFunction(transitionFunction, settings);
+            starlarkDefinedConfigTransition.getChangedSettings(settings);
         // TODO(juliexxia): Validate that the output values correctly match the output types.
-        validateFunctionOutputs(transitions, expectedOutputs);
+        validateFunctionOutputs(transitions, starlarkDefinedConfigTransition.getOutputs());
 
         for (Map<String, Object> transition : transitions) {
           BuildOptions options = buildOptions.clone();
@@ -144,14 +111,17 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
         LinkedHashSet<String> remainingOutputs = Sets.newLinkedHashSet(expectedOutputs);
         for (String outputKey : transition.keySet()) {
           if (!remainingOutputs.remove(outputKey)) {
-            throw new EvalException(transitionFunction.getLocation(),
+            throw new EvalException(
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
                 String.format("transition function returned undeclared output '%s'", outputKey));
           }
         }
 
         if (!remainingOutputs.isEmpty()) {
-          throw new EvalException(transitionFunction.getLocation(),
-              String.format("transition outputs [%s] were not defined by transition function",
+          throw new EvalException(
+              starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+              String.format(
+                  "transition outputs [%s] were not defined by transition function",
                   Joiner.on(", ").join(remainingOutputs)));
         }
       }
@@ -170,9 +140,11 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
       if (label.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         return label.substring(COMMAND_LINE_OPTION_PREFIX.length());
       } else {
-        throw new EvalException(transitionFunction.getLocation(),
-            String.format("Option key '%s' is of invalid form. "
-                   + "Expected command line option to begin with %s",
+        throw new EvalException(
+            starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+            String.format(
+                "Option key '%s' is of invalid form. "
+                    + "Expected command line option to begin with %s",
                 label, COMMAND_LINE_OPTION_PREFIX));
       }
     }
@@ -243,81 +215,15 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
         }
 
         if (!remainingInputs.isEmpty()) {
-          throw new EvalException(transitionFunction.getLocation(),
-              String.format("transition inputs [%s] do not correspond to valid settings",
+          throw new EvalException(
+              starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+              String.format(
+                  "transition inputs [%s] do not correspond to valid settings",
                   Joiner.on(", ").join(remainingInputs)));
         }
 
         return dict;
       }
-    }
-
-    /**
-     * Evaluate the input function with the given argument, and return the return value.
-     */
-    private Object evalFunction(BaseFunction function, Object arg)
-        throws InterruptedException, EvalException {
-      try (Mutability mutability = Mutability.create("eval_transition_function")) {
-        Environment env =
-            Environment.builder(mutability)
-            .setSemantics(semantics)
-            .setEventHandler(eventHandler)
-            .build();
-
-        return function.call(ImmutableList.of(arg), ImmutableMap.of(), null, env);
-      }
-    }
-
-    /**
-     * Evaluate the transition function, and convert the result into a list of optionName ->
-     * optionValue dictionaries.
-     */
-    private ImmutableList<Map<String, Object>> evalTransitionFunction(BaseFunction function,
-        SkylarkDict<String, Object> settings)
-        throws InterruptedException, EvalException {
-      Object result;
-      try {
-        result = evalFunction(function, settings);
-      } catch (EvalException e) {
-        throw new EvalException(function.getLocation(), e.getMessage());
-      }
-
-      if (!(result instanceof SkylarkDict<?, ?>)) {
-        throw new EvalException(function.getLocation(),
-            "Transition function must return a dictionary.");
-      }
-
-      // The result is either:
-      // 1. a dictionary mapping option name to new option value (for a single transition), or
-      // 2. a dictionary of such dictionaries (for a split transition).
-      //
-      // First try to parse the result as a dictionary of option dictionaries; then try it as an
-      // option dictionary.
-      SkylarkDict<?, ?> dictOrDictOfDict = (SkylarkDict<?, ?>) result;
-
-      try {
-        Map<String, SkylarkDict> dictOfDict = dictOrDictOfDict.getContents(String.class,
-            SkylarkDict.class, "dictionary of option dictionaries");
-
-        ImmutableList.Builder<Map<String, Object>> builder = ImmutableList.builder();
-        for (Map.Entry<String, SkylarkDict> entry : dictOfDict.entrySet()) {
-          Map<String, Object> dict =
-              entry.getValue().getContents(String.class, Object.class, "an option dictionary");
-          builder.add(dict);
-        }
-        return builder.build();
-      } catch (EvalException e) {
-        // Fall through.
-      }
-
-      Map<String, Object> dict;
-      try {
-        dict = dictOrDictOfDict.getContents(String.class, Object.class, "an option dictionary");
-      } catch (EvalException e) {
-        throw new EvalException(function.getLocation(), e.getMessage());
-      }
-
-      return ImmutableList.of(dict);
     }
 
     /**
@@ -344,9 +250,10 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
 
         try {
           if (!optionInfoMap.containsKey(optionName)) {
-            throw new EvalException(transitionFunction.getLocation(),
-                String.format("transition output '%s' does not correspond to a valid setting",
-                    optionKey));
+            throw new EvalException(
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                String.format(
+                    "transition output '%s' does not correspond to a valid setting", optionKey));
           }
 
           OptionInfo optionInfo = optionInfoMap.get(optionName);
@@ -358,14 +265,16 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
           } else if (optionValue instanceof String) {
             field.set(options, def.getConverter().convert((String) optionValue));
           } else {
-            throw new EvalException(transitionFunction.getLocation(),
+            throw new EvalException(
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
                 "Invalid value type for option '" + optionName + "'");
           }
         } catch (IllegalAccessException e) {
           throw new RuntimeException(
               "IllegalAccess for option " + optionName + ": " + e.getMessage());
         } catch (OptionsParsingException e) {
-          throw new EvalException(transitionFunction.getLocation(),
+          throw new EvalException(
+              starlarkDefinedConfigTransition.getLocationForErrorReporting(),
               "OptionsParsingError for option '" + optionName + "': " + e.getMessage());
         }
       }
@@ -373,7 +282,7 @@ public class FunctionSplitTransitionProvider implements SplitTransitionProvider 
       BuildConfiguration.Options buildConfigOptions;
       buildConfigOptions = buildOptions.get(BuildConfiguration.Options.class);
 
-      if (isForAnalysisTesting) {
+      if (starlarkDefinedConfigTransition.isForAnalysisTesting()) {
         buildConfigOptions.evaluatingForAnalysisTest = true;
       }
       updateOutputDirectoryNameFragment(buildConfigOptions, transition);

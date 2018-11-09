@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -259,20 +258,12 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       } else if (trans instanceof StarlarkDefinedConfigTransition) {
         StarlarkDefinedConfigTransition starlarkDefinedTransition =
             (StarlarkDefinedConfigTransition) trans;
-        BaseFunction transImpl = starlarkDefinedTransition.getImplementation();
         if (starlarkDefinedTransition.isForAnalysisTesting()) {
           builder.hasAnalysisTestTransition();
         } else {
           builder.hasStarlarkDefinedTransition();
         }
-        builder.cfg(
-            new FunctionSplitTransitionProvider(
-                transImpl,
-                env.getSemantics(),
-                env.getEventHandler(),
-                starlarkDefinedTransition.getInputs(),
-                starlarkDefinedTransition.getOutputs(),
-                starlarkDefinedTransition.isForAnalysisTesting()));
+        builder.cfg(new FunctionSplitTransitionProvider(starlarkDefinedTransition));
       } else if (!trans.equals("target")) {
         throw new EvalException(ast.getLocation(),
             "cfg must be either 'data', 'host', or 'target'.");

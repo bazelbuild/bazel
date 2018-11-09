@@ -626,6 +626,76 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testInvalidNativeOptionOutput_analysisTest() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
+    writeWhitelistFile();
+
+    scratch.file(
+        "test/skylark/my_rule.bzl",
+        "my_transition = analysis_test_transition(",
+        "  settings = {'//command_line_option:foobarbaz': 'k8'})",
+        "def impl(ctx): ",
+        "  return []",
+        "my_rule_test = rule(",
+        "  implementation = impl,",
+        "  analysis_test = True,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "  })");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:my_rule.bzl', 'my_rule_test')",
+        "my_rule_test(name = 'test', dep = ':main1')",
+        "cc_binary(name = 'main1', srcs = ['main1.c'])");
+
+    try {
+      getConfiguredTarget("//test/skylark:test");
+      fail("Expected failure");
+    } catch (IllegalStateException expected) {
+      // TODO(bazel-team): Register a failure event instead of throwing a RuntimeException.
+      assertThat(expected)
+          .hasCauseThat()
+          .hasCauseThat()
+          .hasMessageThat()
+          .contains(
+              "transition output '//command_line_option:foobarbaz' "
+                  + "does not correspond to a valid setting");
+    }
+  }
+
+  @Test
+  public void testInvalidOutputKey_analysisTest() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
+    writeWhitelistFile();
+
+    scratch.file(
+        "test/skylark/my_rule.bzl",
+        "my_transition = analysis_test_transition(",
+        "  settings = {'cpu': 'k8'})",
+        "def impl(ctx): ",
+        "  return []",
+        "my_rule_test = rule(",
+        "  implementation = impl,",
+        "  analysis_test = True,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "  })");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:my_rule.bzl', 'my_rule_test')",
+        "my_rule_test(name = 'test', dep = ':main1')",
+        "cc_binary(name = 'main1', srcs = ['main1.c'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:test");
+    assertContainsEvent(
+        "invalid transition output 'cpu'. If this is intended as a native option, "
+            + "it must begin with //command_line_option:");
+  }
+
+  @Test
   public void testOptionConversionDynamicMode() throws Exception {
     // TODO(waltl): check that dynamic_mode is parsed properly.
   }

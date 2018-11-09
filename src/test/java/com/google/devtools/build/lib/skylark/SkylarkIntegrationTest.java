@@ -2208,14 +2208,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "def inner_rule_impl(ctx):",
         "  return [MyInfo(strict_java_deps = ctx.fragments.java.strict_java_deps)]",
         "",
-        "def transition_func(settings):",
-        "  return { '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
-        "my_transition = transition(",
-        "    implementation = transition_func,",
-        "    for_analysis_testing=True,",
-        "    inputs = [],",
-        "    outputs = ['//command_line_option:experimental_strict_java_deps'])",
-        "",
+        "my_transition = analysis_test_transition(",
+        "    settings = {",
+        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        ")",
         "inner_rule = rule(implementation = inner_rule_impl,",
         "                  fragments = ['java'])",
         "outer_rule_test = rule(",
@@ -2255,20 +2251,16 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/extension.bzl",
         "def custom_rule_impl(ctx):",
         "  return []",
-        "def transition_func(settings):",
-        "  return settings",
-        "my_transition = transition(",
-        "    implementation = transition_func,",
-        "    for_analysis_testing=True,",
-        "    inputs = [],",
-        "    outputs = [])",
+        "my_transition = analysis_test_transition(",
+        "    settings = {",
+        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        ")",
         "",
         "custom_rule = rule(",
         "  implementation = custom_rule_impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
         "  })");
-
 
     scratch.file(
         "test/BUILD",
@@ -2278,8 +2270,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
-    assertContainsEvent("Only rule definitions with analysis_test=True may have attributes "
-        + "with for_analysis_testing=True");
+    assertContainsEvent(
+        "Only rule definitions with analysis_test=True may have attributes "
+            + "with analysis_test_transition transitions");
   }
 
   @Test
@@ -2401,13 +2394,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "def inner_rule_impl(ctx):",
         "  return [AnalysisTestResultInfo(success = True, message = 'message contents')]",
         "",
-        "def transition_func(settings):",
-        "  return { '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
-        "my_transition = transition(",
-        "  implementation = transition_func,",
-        "  for_analysis_testing=True,",
-        "  inputs = [],",
-        "  outputs = ['//command_line_option:experimental_strict_java_deps'])",
+        "my_transition = analysis_test_transition(",
+        "    settings = {",
+        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        ")",
         "",
         "inner_rule_test = rule(",
         "  implementation = analysis_test_rule_impl,",
@@ -2470,14 +2460,10 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "def dep_rule_impl(ctx):",
         "  return []",
         "",
-        "def transition_func(settings):",
-        "  return { '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
-        "my_transition = transition(",
-        "    implementation = transition_func,",
-        "    for_analysis_testing=True,",
-        "    inputs = [],",
-        "    outputs = ['//command_line_option:experimental_strict_java_deps'])",
-        "",
+        "my_transition = analysis_test_transition(",
+        "    settings = {",
+        "        '//command_line_option:experimental_strict_java_deps' : 'WARN' }",
+        ")",
         "dep_rule = rule(",
         "  implementation = dep_rule_impl,",
         "  attrs = {'dep':  attr.label()}",

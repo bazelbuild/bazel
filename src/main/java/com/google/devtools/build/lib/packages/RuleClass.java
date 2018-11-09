@@ -857,9 +857,10 @@ public class RuleClass {
       }
 
       if (hasAnalysisTestTransitionAttribute) {
-        Preconditions.checkState(isAnalysisTest,
+        Preconditions.checkState(
+            isAnalysisTest,
             "Only rule definitions with analysis_test=True may have attributes with "
-                + "for_analysis_testing=True");
+                + "analysis_test_transition transitions");
       }
       if (hasStarlarkDefinedTransition) {
         Preconditions.checkState(
