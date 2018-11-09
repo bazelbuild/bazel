@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
@@ -354,7 +353,6 @@ public class CcToolchainProviderHelper {
     FdoInputFile fdoInputFile = null;
     FdoInputFile prefetchHints = null;
     Artifact protoProfileArtifact = null;
-    boolean allowInference = true;
     if (configuration.getCompilationMode() == CompilationMode.OPT) {
       if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
         FdoPrefetchHintsProvider provider = attributes.getFdoPrefetch();
@@ -363,8 +361,6 @@ public class CcToolchainProviderHelper {
       if (cppConfiguration.getFdoPath() != null) {
         fdoZip = cppConfiguration.getFdoPath();
       } else if (cppConfiguration.getFdoOptimizeLabel() != null) {
-        // If fdo_profile rule is used, do not allow inferring proto.profile from AFDO profile.
-        allowInference = false;
         FdoProfileProvider fdoProfileProvider = attributes.getFdoOptimizeProvider();
         if (fdoProfileProvider != null) {
           fdoInputFile = fdoProfileProvider.getInputFile();
@@ -568,16 +564,6 @@ public class CcToolchainProviderHelper {
 
     Artifact prefetchHintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
 
-    // This relies on ccSkyframeSupportValue containing a Path if the FDO profile is not an
-    // artifact. Not nice, but will do until the Path#exists() call on proto.profile can go away and
-    // we can forget about this nightmare.
-    Path fdoZipPath =
-        fdoInputFile == null
-            ? null
-            : fdoInputFile.getArtifact() != null
-                ? fdoInputFile.getArtifact().getPath()
-                : ccSkyframeSupportValue.getFdoZipPath();
-
     reportInvalidOptions(ruleContext, toolchainInfo);
     return new CcToolchainProvider(
         getToolchainForSkylark(toolchainInfo),
@@ -619,13 +605,11 @@ public class CcToolchainProviderHelper {
         sysroot,
         fdoMode,
         new FdoProvider(
-            fdoZipPath,
             fdoMode,
             cppConfiguration.getFdoInstrument(),
             profileArtifact,
             prefetchHintsArtifact,
-            protoProfileArtifact,
-            allowInference),
+            protoProfileArtifact),
         cppConfiguration.useLLVMCoverageMapFormat(),
         configuration.isCodeCoverageEnabled(),
         configuration.isHostConfiguration(),
