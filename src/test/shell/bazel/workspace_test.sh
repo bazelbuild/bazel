@@ -418,6 +418,46 @@ EOF
       || fail "expected 'y_symbol' in $(cat bazel-genfiles/external/a/result.txt)"
 }
 
+function test_remapping_from_bzl_file_load() {
+  # Main repo assigns @x to @y within @a
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+
+local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@y"})
+local_repository(name = "y", path="../y")
+EOF
+  touch main/BUILD
+
+  # Repository y is a substitute for x
+  mkdir -p y
+  touch y/WORKSPACE
+  touch y/BUILD
+  cat > y/symbol.bzl <<EOF
+Y_SYMBOL = "y_symbol"
+EOF
+
+  # Repository a refers to @x
+  mkdir -p a
+  touch a/WORKSPACE
+  cat > a/BUILD<<EOF
+load("//:foo.bzl", "foo_symbol")
+genrule(name = "a",
+        outs = ["result.txt"],
+        cmd = "echo %s > \$(location result.txt);" % (foo_symbol)
+)
+EOF
+  cat > a/foo.bzl<<EOF
+load("@x//:symbol.bzl", "Y_SYMBOL")
+foo_symbol = Y_SYMBOL
+EOF
+
+  cd main
+  bazel build --experimental_enable_repo_mapping @a//:a || fail "Expected build to succeed"
+  grep "y_symbol" bazel-genfiles/external/a/result.txt \
+      || fail "expected 'y_symbol' in $(cat bazel-genfiles/external/a/result.txt)"
+}
+
 function test_repository_reassignment_label_in_build() {
   # Repository a refers to @x
   mkdir -p a

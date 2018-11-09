@@ -166,7 +166,7 @@ public final class AspectFunction implements SkyFunction {
       String skylarkValueName,
       @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
       throws AspectCreationException, InterruptedException {
-    SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel, false);
+    SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel);
     try {
       SkylarkImportLookupValue skylarkImportLookupValue;
       if (skylarkImportLookupFunctionForInlining == null) {
