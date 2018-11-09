@@ -151,8 +151,7 @@ public class Artifact
     throw new ComparisonException("Cannot compare artifact with " + EvalUtils.getDataTypeName(o));
   }
 
-
-  /** An object that can expand middleman artifacts. */
+  /** An object that can expand middleman and tree artifacts. */
   public interface ArtifactExpander {
 
     /**

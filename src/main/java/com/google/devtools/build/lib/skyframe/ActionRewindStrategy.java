@@ -253,12 +253,18 @@ public class ActionRewindStrategy {
     if (artifactDependencies == null) {
       return null;
     }
-    Preconditions.checkState(
-        !artifactDependencies.isTemplateActionForTreeArtifact(),
-        "Rewinding template actions not yet supported: %s",
-        artifactDependencies);
-    // Note: this is a collection because tree artifacts expand into several actions. (Rewinding
-    // support for trees is in-progress.)
+
+    if (artifactDependencies.isTemplateActionForTreeArtifact()) {
+      ArtifactFunction.ActionTemplateExpansion actionTemplateExpansion =
+          artifactDependencies.getActionTemplateExpansion(env);
+      if (actionTemplateExpansion == null) {
+        return null;
+      }
+      // This ignores the ActionTemplateExpansionKey dependency of the template artifact because we
+      // expect to never need to rewind that.
+      return ImmutableSet.copyOf(actionTemplateExpansion.getExpandedActionExecutionKeys());
+    }
+
     return ImmutableSet.of(artifactDependencies.getNontemplateActionExecutionKey());
   }
 

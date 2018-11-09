@@ -55,7 +55,9 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     ActionTemplateExpansionKey key = (ActionTemplateExpansionKey) skyKey.argument();
     ActionLookupValue value = (ActionLookupValue) env.getValue(key.getActionLookupKey());
     if (value == null) {
-      // Shouldn't actually happen in practice, but tolerate.
+      // Because of the phase boundary separating analysis and execution, all needed
+      // ActionLookupValues must have already been evaluated, so a missing ActionLookupValue is
+      // unexpected. However, we tolerate this case.
       return null;
     }
     ActionTemplate<?> actionTemplate = value.getActionTemplate(key.getActionIndex());
