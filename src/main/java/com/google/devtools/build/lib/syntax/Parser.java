@@ -30,9 +30,10 @@ import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLit
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -1039,8 +1040,11 @@ public class Parser {
     }
     expect(TokenKind.COMMA);
 
-    Map<Identifier, String> symbols = new HashMap<>();
-    parseLoadSymbol(symbols); // At least one symbol is required
+    ImmutableList.Builder<LoadStatement.Binding> bindings = ImmutableList.builder();
+    // previousSymbols is used to detect duplicate symbols in the same statement.
+    Set<String> previousSymbols = new HashSet<>();
+
+    parseLoadSymbol(bindings, previousSymbols); // At least one symbol is required
 
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
       expect(TokenKind.COMMA);
@@ -1048,10 +1052,10 @@ public class Parser {
         break;
       }
 
-      parseLoadSymbol(symbols);
+      parseLoadSymbol(bindings, previousSymbols);
     }
 
-    LoadStatement stmt = new LoadStatement(importString, symbols);
+    LoadStatement stmt = new LoadStatement(importString, bindings.build());
     list.add(setLocation(stmt, start, token.right));
     expect(TokenKind.RPAREN);
     expectAndRecover(TokenKind.NEWLINE);
@@ -1060,39 +1064,41 @@ public class Parser {
   /**
    * Parses the next symbol argument of a load statement and puts it into the output map.
    *
-   * <p> The symbol is either "name" (STRING) or name = "declared" (IDENTIFIER EQUALS STRING).
-   * If no alias is used, "name" and "declared" will be identical. "Declared" refers to the
-   * original name in the Bazel file that should be loaded, while "name" will be the key of the
-   * entry in the map.
+   * <p>The symbol is either "name" (STRING) or name = "declared" (IDENTIFIER EQUALS STRING). If no
+   * alias is used, "name" and "declared" will be identical. "Declared" refers to the original name
+   * in the Bazel file that should be loaded, while "name" will be the key of the entry in the map.
    */
-  private void parseLoadSymbol(Map<Identifier, String> symbols) {
+  private void parseLoadSymbol(
+      ImmutableList.Builder<LoadStatement.Binding> symbols, Set<String> previousSymbols) {
     if (token.kind != TokenKind.STRING && token.kind != TokenKind.IDENTIFIER) {
       syntaxError("expected either a literal string or an identifier");
       return;
     }
 
     String name = (String) token.value;
-    Identifier identifier = Identifier.of(name);
-    if (symbols.containsKey(identifier)) {
-      syntaxError(
-          String.format("Identifier '%s' is used more than once", identifier.getName()));
-    }
-    setLocation(identifier, token.left, token.right);
+    Identifier local = setLocation(Identifier.of(name), token.left, token.right);
 
-    String declared;
+    if (previousSymbols.contains(local.getName())) {
+      syntaxError(String.format("Identifier '%s' is used more than once", local.getName()));
+    }
+    previousSymbols.add(local.getName());
+
+    Identifier original;
     if (token.kind == TokenKind.STRING) {
-      declared = name;
+      // load(..., "name")
+      original = local;
     } else {
+      // load(..., local = "orig")
       expect(TokenKind.IDENTIFIER);
       expect(TokenKind.EQUALS);
       if (token.kind != TokenKind.STRING) {
         syntaxError("expected string");
         return;
       }
-      declared = token.value.toString();
+      original = setLocation(Identifier.of((String) token.value), token.left, token.right);
     }
     nextToken();
-    symbols.put(identifier, declared);
+    symbols.add(new LoadStatement.Binding(local, original));
   }
 
   private void parseTopLevelStatement(List<Statement> list) {

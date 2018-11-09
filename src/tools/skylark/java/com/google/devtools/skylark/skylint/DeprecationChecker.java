@@ -128,9 +128,9 @@ public class DeprecationChecker extends AstVisitorWithNameResolution {
         LoadStatement stmt,
         Path loadedPath,
         Map<String, DeprecatedSymbol> loadedFileInfo) {
-      for (Map.Entry<Identifier, String> entry : stmt.getSymbolMap().entrySet()) {
-        String originalName = entry.getValue();
-        String alias = entry.getKey().getName();
+      for (LoadStatement.Binding binding : stmt.getBindings()) {
+        String originalName = binding.getOriginalName().getName();
+        String alias = binding.getLocalName().getName();
         DeprecatedSymbol originalDeprecation = loadedFileInfo.get(originalName);
         if (originalDeprecation != null) {
           currentFileInfo.put(alias, originalDeprecation);

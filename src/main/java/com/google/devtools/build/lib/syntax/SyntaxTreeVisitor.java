@@ -92,7 +92,9 @@ public class SyntaxTreeVisitor {
   }
 
   public void visit(LoadStatement node) {
-    visitAll(node.getSymbols());
+    for (LoadStatement.Binding binding : node.getBindings()) {
+      visit(binding.getLocalName());
+    }
   }
 
   public void visit(ListLiteral node) {

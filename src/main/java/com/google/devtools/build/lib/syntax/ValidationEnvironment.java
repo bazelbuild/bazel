@@ -134,8 +134,8 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
         declare(fctName.getName(), fctName.getLocation());
         break;
       case LOAD:
-        for (Identifier id : ((LoadStatement) stmt).getSymbols()) {
-          declare(id.getName(), id.getLocation());
+        for (LoadStatement.Binding binding : ((LoadStatement) stmt).getBindings()) {
+          declare(binding.getLocalName().getName(), binding.getLocalName().getLocation());
         }
         break;
       case CONDITIONAL:
