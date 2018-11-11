@@ -72,12 +72,11 @@ java_library(
     name = "localhost_capacity",
     srcs = LOCALHOST_CAPACITY_SRCS,
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:unix",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )

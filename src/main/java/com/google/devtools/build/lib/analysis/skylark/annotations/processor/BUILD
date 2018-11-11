@@ -18,7 +18,5 @@ java_plugin(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations:annotations_internal",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party:guava",
     ],
 )

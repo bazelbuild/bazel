@@ -18,7 +18,6 @@ java_library(
     deps = [
         ":abstract-blaze-query-env",
         ":aspect-resolver",
-        ":common-query-options",
         ":fake-load-target",
         ":query-engine",
         ":query-output",
@@ -67,7 +66,6 @@ java_library(
         ":query-engine",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/graph",
@@ -87,9 +85,7 @@ java_library(
         ":query-engine",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -101,12 +97,9 @@ java_library(
     deps = [
         ":aspect-resolver",
         ":query-engine",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_java_proto",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -121,9 +114,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -135,9 +126,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
