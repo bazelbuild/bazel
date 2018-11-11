@@ -269,6 +269,8 @@ public class BlazeJavacMain {
             @Override
             protected Class<?> findClass(String name) throws ClassNotFoundException {
               if (name.startsWith("com.google.errorprone.")
+                  || name.startsWith("com.google.common.collect.")
+                  || name.startsWith("com.google.common.base.")
                   || name.startsWith("org.checkerframework.dataflow.")
                   || name.startsWith("com.sun.source.")
                   || name.startsWith("com.sun.tools.")
