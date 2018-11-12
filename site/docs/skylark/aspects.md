@@ -5,7 +5,8 @@ title: Aspects
 
 # Aspects
 
-<!-- [TOC] -->
+* ToC
+{:toc}
 
 **Status: Experimental**. We may make breaking changes to the API, but we will
 announce them.

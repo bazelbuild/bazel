@@ -25,7 +25,8 @@ Example uses of depsets include:
 If you don't need the merge operation, consider using another type, such as
 [list](lib/list.html) or [dict](lib/dict.html).
 
-<!-- [TOC] -->
+* ToC
+{:toc}
 
 ## Full example
 

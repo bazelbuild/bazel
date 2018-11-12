@@ -5,8 +5,6 @@ title: Optimizing Performance
 
 # Optimizing Performance
 
-<!-- [TOC] -->
-
 When writing rules, the most common performance pitfall is to traverse or copy
 data that is accumulated from dependencies. When aggregated over the whole
 build, these operations can easily take O(N^2) time or space. To avoid this, it
@@ -16,6 +14,12 @@ This can be hard to get right, so Bazel also provides a memory profiler that
 assists you in finding spots where you might have made a mistake. Be warned:
 The cost of writing an inefficient rule may not be evident until it is in
 widespread use.
+
+## Contents
+{:.no_toc}
+
+* ToC
+{:toc}
 
 ## Use depsets
 

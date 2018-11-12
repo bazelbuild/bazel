@@ -5,10 +5,8 @@ title: Configuring CROSSTOOL
 
 # Configuring CROSSTOOL
 
-*  [Overview](#overview)
-*  [Setting up the build environment](#setting-up-the-build-environment)
-*  [Configuring the C++ toolchain](#configuring-the-c-toolchain)
-
+* ToC
+{:toc}
 
 ## Overview
 
