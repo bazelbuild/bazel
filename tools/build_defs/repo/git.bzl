@@ -40,6 +40,7 @@ def _clone_or_update(ctx):
             fail("shallow_since not allowed if a branch is specified; --depth=1 will be used for branches")
         shallow = "--shallow-since=%s" % ctx.attr.shallow_since
 
+    ctx.report_progress("Cloning %s of %s" % (ref, ctx.attr.remote))
     if (ctx.attr.verbose):
         print("git.bzl: Cloning or updating %s repository %s using strip_prefix of [%s]" %
               (
@@ -78,6 +79,7 @@ set -ex
 
         ctx.symlink(dest_link, ctx.path("."))
     if ctx.attr.init_submodules:
+        ctx.report_progress("Updating submodules")
         st = ctx.execute([bash_exe, "-c", """
 set -ex
 (   git -C '{directory}' submodule update --init --checkout --force )
@@ -86,6 +88,8 @@ set -ex
         )], environment = ctx.os.environ)
     if st.return_code:
         fail("error updating submodules %s:\n%s" % (ctx.name, st.stderr))
+
+    ctx.report_progress("Recording actual commit")
 
     # After the fact, determine the actual commit and its date
     actual_commit = ctx.execute([

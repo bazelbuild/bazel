@@ -66,6 +66,8 @@ def workspace_and_buildfile(ctx):
 def patch(ctx):
     """Implementation of patching an already extracted repository"""
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+    if len(ctx.attr.patches) > 0 or len(ctx.attr.patch_cmds) > 0:
+        ctx.report_progress("Patching repository")
     for patchfile in ctx.attr.patches:
         command = "{patchtool} {patch_args} < {patchfile}".format(
             patchtool = ctx.attr.patch_tool,
