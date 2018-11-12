@@ -1,3 +1,42 @@
+## Release 0.19.1 (2018-11-12)
+
+```
+Baseline: ac880418885061d1039ad6b3d8c28949782e02d6
+
+Cherry picks:
+
+   + 9bc3b20053a8b99bf2c4a31323a7f96fabb9f1ec:
+     Fix the "nojava" platform and enable full presubmit checks for
+     the various JDK platforms now that we have enough GCE resources.
+   + 54c2572a8cabaf2b29e58abe9f04327314caa6a0:
+     Add openjdk_linux_archive java_toolchain for nojava platform.
+   + 20bfdc67dc1fc32ffebbda7088ba49ee17e3e182:
+     Automated rollback of commit
+     19a401c38e30ebc0879925a5caedcbe43de0028f.
+   + 914b4ce14624171a97ff8b41f9202058f10d15b2:
+     Windows: Fix Precondition check for addDynamicInputLinkOptions
+   + 83d406b7da32d1b1f6dd02eae2fe98582a4556fd:
+     Windows, test-setup.sh: Setting RUNFILES_MANIFEST_FILE only when
+     it exists.
+   + e025726006236520f7e91e196b9e7f139e0af5f4:
+     Update turbine
+   + 5f312dd1678878fb7563eae0cd184f2270346352:
+     Fix event id for action_completed BEP events
+   + f0c844c77a2406518c4e75c49188390d5e281d3d:
+     Release 0.19.0 (2018-10-29)
+   + c3fb1db9e4e817e8a911f5b347b30f2674a82f7c:
+     Do not use CROSSTOOL to select cc_toolchain
+   + 8e280838e8896a6b5eb5421fda435b96b6f8de60:
+     Windows Add tests for msys gcc toolchain and mingw gcc toolchain
+   + fd52341505e725487c6bc6dfbe6b5e081aa037da:
+     update bazel-toolchains pin to latest release Part of changes to
+     allow bazelci to use 0.19.0 configs. RBE toolchain configs at or
+     before 0.17.0 are not compatible with bazel 0.19.0 or above.
+```
+
+Important changes:
+- Fix regression #6610, which prevents using the MINGW compiler on Windows.
+
 ## Release 0.19.0 (2018-10-29)
 
 ```
@@ -3690,6 +3729,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
