@@ -371,6 +371,12 @@ two users with different compilers installed will wrongly share cache hits
 because the outputs are different but they have the same action hash. Please
 watch [issue #4558] for updates.
 
+**Incremental in-memory state is lost when running builds inside docker containers**
+Bazel use server/client architecture even when running in single docker container.
+On server side Bazel maintain in-memory state which speed up builds so when running
+builds inside docker containers e.g. in CI, in-memory state is lost so Bazel
+must rebuild it before using remote cache.
+
 ## External Links
 
 * **Your Build in a Datacenter:** The Bazel team gave a [talk](https://fosdem.org/2018/schedule/event/datacenter_build/) about remote caching and execution at FOSDEM 2018.
