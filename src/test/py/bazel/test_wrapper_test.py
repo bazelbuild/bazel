@@ -91,6 +91,10 @@ class TestWrapperTest(test_base.TestBase):
         '    data = ["dummy.ico", "dummy.dat"],',
         '    deps = ["@bazel_tools//tools/python/runfiles"],',
         ')',
+        'py_test(',
+        '    name = "annot_test",',
+        '    srcs = ["annot_test.py"],',
+        ')',
     ])
     self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
     self.ScratchFile('foo/failing.bat', ['@exit /B 1'], executable=True)
@@ -185,6 +189,27 @@ class TestWrapperTest(test_base.TestBase):
             '                os.path.join(root, "out1", "data1.ico"))',
             'shutil.copyfile(r.Rlocation("__main__/foo/dummy.dat"),',
             '                os.path.join(root, "out2", "data2.dat"))',
+        ],
+        executable=True)
+
+    self.ScratchFile(
+        'foo/annot_test.py', [
+            'import os',
+            'root = os.environ.get("TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR")',
+            'dir1 = os.path.join(root, "out1")',
+            'dir2 = os.path.join(root, "out2.part")',
+            'os.mkdir(dir1)',
+            'os.mkdir(dir2)',
+            'with open(os.path.join(root, "a.part"), "wt") as f:',
+            '  f.write("Hello a")',
+            'with open(os.path.join(root, "b.txt"), "wt") as f:',
+            '  f.write("Hello b")',
+            'with open(os.path.join(root, "c.part"), "wt") as f:',
+            '  f.write("Hello c")',
+            'with open(os.path.join(dir1, "d.part"), "wt") as f:',
+            '  f.write("Hello d")',
+            'with open(os.path.join(dir2, "e.part"), "wt") as f:',
+            '  f.write("Hello e")',
         ],
         executable=True)
 
@@ -394,6 +419,30 @@ class TestWrapperTest(test_base.TestBase):
         'out2/data2.dat\t16\tapplication/octet-stream'
     ])
 
+  def _AssertUndeclaredOutputsAnnotations(self, flag):
+    exit_code, bazel_testlogs, stderr = self.RunBazel(
+        ['info', 'bazel-testlogs'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_testlogs = bazel_testlogs[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:annot_test',
+        '-t-',
+        '--test_output=errors',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    undecl_annot = os.path.join(bazel_testlogs, 'foo', 'annot_test',
+                                'test.outputs_manifest', 'ANNOTATIONS')
+    self.assertTrue(os.path.exists(undecl_annot))
+    annot_content = []
+    with open(undecl_annot, 'rt') as f:
+      annot_content = [line.strip() for line in f.readlines()]
+
+    self.assertListEqual(annot_content, ['Hello aHello c'])
+
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
     flag = '--noincompatible_windows_native_test_wrapper'
@@ -426,6 +475,7 @@ class TestWrapperTest(test_base.TestBase):
             '(qux")'
         ])
     self._AssertUndeclaredOutputs(flag)
+    self._AssertUndeclaredOutputsAnnotations(flag)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
@@ -457,6 +507,7 @@ class TestWrapperTest(test_base.TestBase):
             '()'
         ])
     self._AssertUndeclaredOutputs(flag)
+    self._AssertUndeclaredOutputsAnnotations(flag)
 
 
 if __name__ == '__main__':

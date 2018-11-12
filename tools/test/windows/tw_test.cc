@@ -37,6 +37,8 @@ using bazel::tools::test_wrapper::FileInfo;
 using bazel::tools::test_wrapper::ZipEntryPaths;
 using bazel::tools::test_wrapper::testing::TestOnly_AsMixedPath;
 using bazel::tools::test_wrapper::testing::
+    TestOnly_CreateUndeclaredOutputsAnnotations;
+using bazel::tools::test_wrapper::testing::
     TestOnly_CreateUndeclaredOutputsManifest;
 using bazel::tools::test_wrapper::testing::TestOnly_CreateZip;
 using bazel::tools::test_wrapper::testing::TestOnly_GetEnv;
@@ -175,6 +177,20 @@ TEST_F(TestWrapperWindowsTest, TestGetFileListRelativeTo) {
               FileInfo(L"junc"),
               FileInfo(L"junc\\file1", 0),
               FileInfo(L"junc\\file2", 5)};
+  COMPARE_FILE_INFOS(actual, expected);
+
+  // Assert traversal limited to the current directory (depth of 0).
+  actual.clear();
+  ASSERT_TRUE(TestOnly_GetFileListRelativeTo(root, &actual, 0));
+  expected = {FileInfo(L"foo")};
+  COMPARE_FILE_INFOS(actual, expected);
+
+  // Assert traversal limited to depth of 1.
+  actual.clear();
+  ASSERT_TRUE(TestOnly_GetFileListRelativeTo(root, &actual, 1));
+  expected = {FileInfo(L"foo"), FileInfo(L"foo\\sub"),
+              FileInfo(L"foo\\file1", 3), FileInfo(L"foo\\file2", 6),
+              FileInfo(L"foo\\junc")};
   COMPARE_FILE_INFOS(actual, expected);
 }
 
@@ -367,6 +383,37 @@ TEST_F(TestWrapperWindowsTest, TestUndeclaredOutputsManifest) {
   ASSERT_EQ(content, std::string("foo/sub/file1.ico\t0\timage/x-icon\n"
                                  "foo/sub/file2.bmp\t5\timage/bmp\n"
                                  "foo/file2\t6\tapplication/octet-stream\n"));
+}
+
+TEST_F(TestWrapperWindowsTest, TestCreateUndeclaredOutputsAnnotations) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+
+  // Create a directory structure to parse.
+  std::wstring root = tmpdir + L"\\tmp" + WLINE;
+  EXPECT_TRUE(CreateDirectoryW(root.c_str(), NULL));
+  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo").c_str(), NULL));
+  EXPECT_TRUE(CreateDirectoryW((root + L"\\bar.part").c_str(), NULL));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a.part", "Hello a"));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\b.txt", "Hello b"));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\c.part", "Hello c"));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\foo\\d.part", "Hello d"));
+  EXPECT_TRUE(
+      blaze_util::CreateDummyFile(root + L"\\bar.part\\e.part", "Hello e"));
+
+  std::wstring annot = root + L"\\x.annot";
+  ASSERT_TRUE(TestOnly_CreateUndeclaredOutputsAnnotations(root, annot));
+
+  HANDLE h = CreateFileW(annot.c_str(), GENERIC_READ,
+                         FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
+                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  ASSERT_NE(h, INVALID_HANDLE_VALUE);
+  char content[100];
+  DWORD read;
+  bool success = ReadFile(h, content, 100, &read, NULL) != FALSE;
+  CloseHandle(h);
+  EXPECT_TRUE(success);
+  ASSERT_EQ(std::string(content, read), std::string("Hello aHello c"));
 }
 
 }  // namespace

@@ -373,7 +373,7 @@ bool ExportMiscEnvvars(const Path& cwd) {
 }
 
 bool _GetFileListRelativeTo(const std::wstring& unc_root,
-                            const std::wstring& subdir,
+                            const std::wstring& subdir, int depth_limit,
                             std::vector<FileInfo>* result) {
   const std::wstring full_subdir =
       unc_root + (subdir.empty() ? L"" : (L"\\" + subdir)) + L"\\*";
@@ -399,7 +399,12 @@ bool _GetFileListRelativeTo(const std::wstring& unc_root,
       std::wstring rel_path =
           subdir.empty() ? info.cFileName : (subdir + L"\\" + info.cFileName);
       if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        subdirectories.push_back(rel_path);
+        if (depth_limit != 0) {
+          // depth_limit is negative ==> unlimited depth
+          // depth_limit is zero     ==> do not recurse further
+          // depth_limit is positive ==> recurse further
+          subdirectories.push_back(rel_path);
+        }
         result->push_back(FileInfo(rel_path));
       } else {
         if (info.nFileSizeHigh > 0 || info.nFileSizeLow > INT_MAX) {
@@ -432,15 +437,23 @@ bool _GetFileListRelativeTo(const std::wstring& unc_root,
   }
   close_handle.DoNow();
 
-  for (const auto& s : subdirectories) {
-    if (!_GetFileListRelativeTo(unc_root, s, result)) {
-      return false;
+  if (depth_limit != 0) {
+    // depth_limit is negative ==> unlimited depth
+    // depth_limit is zero     ==> do not recurse further
+    // depth_limit is positive ==> recurse further
+    for (const auto& s : subdirectories) {
+      if (!_GetFileListRelativeTo(
+              unc_root, s, depth_limit > 0 ? depth_limit - 1 : depth_limit,
+              result)) {
+        return false;
+      }
     }
   }
   return true;
 }
 
-bool GetFileListRelativeTo(const Path& root, std::vector<FileInfo>* result) {
+bool GetFileListRelativeTo(const Path& root, std::vector<FileInfo>* result,
+                           int depth_limit = -1) {
   if (!blaze_util::IsAbsolute(root.Get())) {
     LogError(__LINE__, "Root should be absolute");
     return false;
@@ -449,7 +462,7 @@ bool GetFileListRelativeTo(const Path& root, std::vector<FileInfo>* result) {
   return _GetFileListRelativeTo(bazel::windows::HasUncPrefix(root.Get().c_str())
                                     ? root.Get()
                                     : L"\\\\?\\" + root.Get(),
-                                std::wstring(), result);
+                                std::wstring(), depth_limit, result);
 }
 
 bool ToZipEntryPaths(const Path& root, const std::vector<FileInfo>& files,
@@ -584,6 +597,42 @@ bool WriteToFile(HANDLE output, const void* buffer, const size_t size) {
       return false;
     }
     total_written += written;
+  }
+  return true;
+}
+
+bool AppendFileTo(const Path& file, const size_t total_size, HANDLE output) {
+  HANDLE input;
+  if (!OpenExistingFileForRead(file, &input)) {
+    LogError(
+        __LINE__,
+        (std::wstring(L"Failed to open file \"") + file.Get() + L"\"").c_str());
+    return false;
+  }
+  Defer close_input_file([input]() { CloseHandle(input); });
+
+  const size_t buf_size = std::min<size_t>(total_size, /* 10 MB */ 10000000);
+  std::unique_ptr<uint8_t[]> buffer(new uint8_t[buf_size]);
+
+  while (true) {
+    // Read at most `buf_size` many bytes from the input file.
+    DWORD read = 0;
+    if (!ReadFile(input, buffer.get(), buf_size, &read, NULL)) {
+      DWORD err = GetLastError();
+      LogErrorWithArgAndValue(__LINE__, "Failed to read file",
+                              file.Get().c_str(), err);
+      return false;
+    }
+    if (read == 0) {
+      // Reached end of input file.
+      return true;
+    }
+    if (!WriteToFile(output, buffer.get(), read)) {
+      LogError(__LINE__, (std::wstring(L"Failed to append file \"") +
+                          file.Get().c_str() + L"\"")
+                             .c_str());
+      return false;
+    }
   }
   return true;
 }
@@ -1015,6 +1064,57 @@ bool ArchiveUndeclaredOutputs(const UndeclaredOutputs& undecl) {
            CreateUndeclaredOutputsManifest(files, undecl.manifest)));
 }
 
+// Creates the Undeclared Outputs Annotations file.
+//
+// This file is a concatenation of every *.part file directly under
+// `undecl_annot_dir`. The file is written to `output`.
+bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
+                                        const Path& output) {
+  if (undecl_annot_dir.Get().empty()) {
+    // The directory's environment variable
+    // (TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR) was probably undefined, nothing
+    // to do.
+    return true;
+  }
+
+  std::vector<FileInfo> files;
+  if (!GetFileListRelativeTo(undecl_annot_dir, &files, 0)) {
+    LogError(__LINE__, (std::wstring(L"Failed to get files under \"") +
+                        undecl_annot_dir.Get() + L"\"")
+                           .c_str());
+    return false;
+  }
+  // There are no *.part files under `undecl_annot_dir`, nothing to do.
+  if (files.empty()) {
+    return true;
+  }
+
+  HANDLE handle;
+  if (!OpenFileForWriting(output.Get(), &handle)) {
+    LogError(__LINE__, (std::wstring(L"Failed to open for writing \"") +
+                        output.Get() + L"\"")
+                           .c_str());
+    return false;
+  }
+  Defer close_file([handle]() { CloseHandle(handle); });
+
+  for (const auto& e : files) {
+    if (!e.IsDirectory() &&
+        e.RelativePath().rfind(L".part") == e.RelativePath().size() - 5) {
+      // Only consume "*.part" files.
+      Path path;
+      if (!path.Set(undecl_annot_dir.Get() + L"\\" + e.RelativePath()) ||
+          !AppendFileTo(path, e.Size(), handle)) {
+        LogError(__LINE__, (std::wstring(L"Failed to append file \"") +
+                            path.Get() + L"\" to \"" + output.Get() + L"\"")
+                               .c_str());
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
                std::wstring* out_test_path_arg, bool* out_suppress_output,
                std::vector<const wchar_t*>* out_args) {
@@ -1167,7 +1267,11 @@ int Main(int argc, wchar_t** argv) {
   if (result != 0) {
     return result;
   }
-  return ArchiveUndeclaredOutputs(undecl) ? 0 : 1;
+  return (ArchiveUndeclaredOutputs(undecl) &&
+          CreateUndeclaredOutputsAnnotations(undecl.annotations_dir,
+                                             undecl.annotations))
+             ? 0
+             : 1;
 }
 
 namespace testing {
@@ -1177,10 +1281,11 @@ bool TestOnly_GetEnv(const wchar_t* name, std::wstring* result) {
 }
 
 bool TestOnly_GetFileListRelativeTo(const std::wstring& abs_root,
-                                    std::vector<FileInfo>* result) {
+                                    std::vector<FileInfo>* result,
+                                    int depth_limit) {
   Path root;
   return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
-         GetFileListRelativeTo(root, result);
+         GetFileListRelativeTo(root, result, depth_limit);
 }
 
 bool TestOnly_ToZipEntryPaths(const std::wstring& abs_root,
@@ -1207,6 +1312,14 @@ std::string TestOnly_GetMimeType(const std::string& filename) {
 bool TestOnly_CreateUndeclaredOutputsManifest(
     const std::vector<FileInfo>& files, std::string* result) {
   return CreateUndeclaredOutputsManifestContent(files, result);
+}
+
+bool TestOnly_CreateUndeclaredOutputsAnnotations(
+    const std::wstring& abs_root, const std::wstring& abs_output) {
+  Path root, output;
+  return blaze_util::IsAbsolute(abs_root) && root.Set(abs_root) &&
+         blaze_util::IsAbsolute(abs_output) && output.Set(abs_output) &&
+         CreateUndeclaredOutputsAnnotations(root, output);
 }
 
 bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result) {

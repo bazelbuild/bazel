@@ -101,8 +101,14 @@ namespace testing {
 bool TestOnly_GetEnv(const wchar_t* name, std::wstring* result);
 
 // Lists all files under `abs_root`, with paths relative to `abs_root`.
+// Limits the directory depth to `depth_limit` many directories below
+// `abs_root`.
+// A negative depth means unlimited depth. 0 depth means searching only
+// `abs_root`, while a positive depth limit allows matches in up to that many
+// subdirectories.
 bool TestOnly_GetFileListRelativeTo(const std::wstring& abs_root,
-                                    std::vector<FileInfo>* result);
+                                    std::vector<FileInfo>* result,
+                                    int depth_limit = -1);
 
 // Converts a list of files to ZIP file entry paths.a
 bool TestOnly_ToZipEntryPaths(
@@ -121,6 +127,9 @@ std::string TestOnly_GetMimeType(const std::string& filename);
 // Returns the contents of the Undeclared Outputs manifest.
 bool TestOnly_CreateUndeclaredOutputsManifest(
     const std::vector<FileInfo>& files, std::string* result);
+
+bool TestOnly_CreateUndeclaredOutputsAnnotations(
+    const std::wstring& abs_root, const std::wstring& abs_output);
 
 bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result);
 
