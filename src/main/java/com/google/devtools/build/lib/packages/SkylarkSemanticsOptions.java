@@ -307,16 +307,15 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleGenerateJavaCommonSourceJar;
 
   @Option(
-    name = "incompatible_disallow_slash_operator",
-    defaultValue = "false",
+      name = "incompatible_disallow_slash_operator",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help = "If set to true, the `/` operator is disabled. Use `//` for integer division."
-  )
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, the `/` operator is disabled. Use `//` for integer division.")
   public boolean incompatibleDisallowSlashOperator;
 
   /** Controls legacy arguments to ctx.actions.Args#add. */

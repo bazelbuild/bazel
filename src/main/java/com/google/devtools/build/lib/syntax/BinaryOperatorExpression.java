@@ -406,7 +406,7 @@ public final class BinaryOperatorExpression extends Expression {
       // We want to follow Python semantics, so we use float division and round down.
       return (int) Math.floor(Double.valueOf((Integer) lval) / (Integer) rval);
     }
-    throw typeException(lval, rval, Operator.DIVIDE, location);
+    throw typeException(lval, rval, Operator.FLOOR_DIVIDE, location);
   }
 
   /** Implements Operator.PERCENT. */

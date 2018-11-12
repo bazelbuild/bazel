@@ -210,7 +210,7 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("-7 / 2", -4)
         .testStatement("-7 / -2", 3)
         .testStatement("2147483647 / 2", 1073741823)
-        .testIfErrorContains("unsupported operand type(s) for /: 'string' and 'int'", "'str' / 2")
+        .testIfErrorContains("unsupported operand type(s) for //: 'string' and 'int'", "'str' / 2")
         .testIfExactError("integer division by zero", "5 / 0");
   }
 
@@ -224,7 +224,7 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("-7 // 2", -4)
         .testStatement("-7 // -2", 3)
         .testStatement("2147483647 // 2", 1073741823)
-        .testIfErrorContains("unsupported operand type(s) for /: 'string' and 'int'", "'str' / 2")
+        .testIfErrorContains("unsupported operand type(s) for //: 'string' and 'int'", "'str' // 2")
         .testIfExactError("integer division by zero", "5 // 0");
   }
 
@@ -244,8 +244,8 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testOperatorPrecedence() throws Exception {
     newTest()
         .testStatement("2 + 3 * 4", 14)
-        .testStatement("2 + 3 / 4", 2)
-        .testStatement("2 * 3 + 4 / -2", 4);
+        .testStatement("2 + 3 // 4", 2)
+        .testStatement("2 * 3 + 4 // -2", 4);
   }
 
   @Test

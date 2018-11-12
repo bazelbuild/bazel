@@ -823,7 +823,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         "def _impl(target, ctx):",
-        "   return 1/0",
+        "   return 1 // 0",
         "",
         "MyAspect = aspect(implementation=_impl)");
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
@@ -847,7 +847,7 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
             + LINE_SEPARATOR
             + "\tFile \"/workspace/test/aspect.bzl\", line 2, in _impl"
             + LINE_SEPARATOR
-            + "\t\t1 / 0"
+            + "\t\t1 // 0"
             + LINE_SEPARATOR
             + "integer division by zero");
   }

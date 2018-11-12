@@ -200,7 +200,7 @@ x = 7 // 2  # x is 3
 ```
 
 *   Flag: `--incompatible_disallow_slash_operator`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5823](https://github.com/bazelbuild/bazel/issues/5823)
 
 

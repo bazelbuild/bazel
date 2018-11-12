@@ -1721,7 +1721,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark/BUILD",
         "load('//test/skylark:macro.bzl', 'x')",
         "pass", // syntax error
-        "print(1 / (5 - x)"); // division by 0
+        "print(1 // (5 - x)"); // division by 0
 
     // Make sure that evaluation continues and load() succeeds, despite a syntax
     // error in the file.
