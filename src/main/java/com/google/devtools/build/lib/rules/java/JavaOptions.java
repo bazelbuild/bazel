@@ -571,6 +571,19 @@ public class JavaOptions extends FragmentOptions {
               + "--java_header_compilation is enabled.")
   public boolean requireJavaToolchainHeaderCompilerDirect;
 
+  @Option(
+      name = "incompatible_disallow_resource_jars",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Disables the resource_jars attribute; use java_import and deps or runtime_deps instead.")
+  public boolean disallowResourceJars;
+
   private Label getHostJavaBase() {
     if (hostJavaBase == null) {
       if (useJDK10AsHostJavaBase) {
@@ -615,8 +628,9 @@ public class JavaOptions extends FragmentOptions {
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
-
     host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
+
+    host.disallowResourceJars = disallowResourceJars;
 
     return host;
   }

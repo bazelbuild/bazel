@@ -609,6 +609,11 @@ public class JavaCommon {
     }
 
     if (ruleContext.attributes().has("resource_jars", BuildType.LABEL_LIST)) {
+      if (ruleContext.getFragment(JavaConfiguration.class).disallowResourceJars()) {
+        ruleContext.attributeError(
+            "resource_jars",
+            "resource_jars are not supported; use java_import and deps or runtime_deps instead.");
+      }
       javaTargetAttributes.addResourceJars(
           PrerequisiteArtifacts.nestedSet(ruleContext, "resource_jars", Mode.TARGET));
     }
