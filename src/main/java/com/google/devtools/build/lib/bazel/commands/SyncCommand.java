@@ -148,6 +148,13 @@ public final class SyncCommand implements BlazeCommand {
                 RepositoryDirectoryValue.key(RepositoryName.create("@" + rule.getName())));
           } catch (LabelSyntaxException e) {
             env.getReporter()
+                .handle(
+                    Event.error(
+                        "Internal error queuing "
+                            + rule.getName()
+                            + " to fetch: "
+                            + e.getMessage()));
+            env.getReporter()
                 .post(
                     new NoBuildRequestFinishedEvent(
                         ExitCode.BLAZE_INTERNAL_ERROR,
