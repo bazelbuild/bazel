@@ -137,6 +137,57 @@ toolchain(
     toolchain_type = ":toolchain_type",
 )
 
+[
+    cc_toolchain(
+        name = "cc-compiler-local-" + cpu,
+        all_files = ":empty",
+        compiler_files = ":empty",
+        cpu = cpu,
+        dwp_files = ":empty",
+        dynamic_runtime_libs = [":empty"],
+        linker_files = ":empty",
+        objcopy_files = ":empty",
+        static_runtime_libs = [":empty"],
+        strip_files = ":empty",
+        supports_param_files = 1,
+        toolchain_identifier = "local_linux",
+    )
+    for cpu in [
+        "k8",
+        "piii",
+        "arm",
+        "aarch64",
+        "s390x",
+        "ppc",
+        "ppc64",
+    ]
+]
+
+[
+    toolchain(
+        name = "cc-toolchain-local-" + cpu,
+        exec_compatible_with = [
+            "@bazel_tools//platforms:autoconfigured",
+            constraint,
+        ],
+        target_compatible_with = [
+            "@bazel_tools//platforms:autoconfigured",
+            constraint,
+        ],
+        toolchain = ":cc-compiler-local-" + cpu,
+        toolchain_type = ":toolchain_type",
+    )
+    for cpu, constraint in [
+        ("k8", "@bazel_tools//platforms:x86_64"),
+        ("piii", "@bazel_tools//platforms:x86_32"),
+        ("arm", "@bazel_tools//platforms:arm"),
+        ("aarch64", "@bazel_tools//platforms:aarch64"),
+        ("s390x", "@bazel_tools//platforms:s390x"),
+        ("ppc", "@bazel_tools//platforms:ppc"),
+        ("ppc64", "@bazel_tools//platforms:ppc"),
+    ]
+]
+
 cc_toolchain(
     name = "cc-compiler-ppc",
     all_files = ":empty",
