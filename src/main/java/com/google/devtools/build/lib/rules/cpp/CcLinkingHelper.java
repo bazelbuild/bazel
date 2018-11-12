@@ -643,13 +643,7 @@ public final class CcLinkingHelper {
     Artifact soInterface = null;
     if (CppHelper.useInterfaceSharedObjects(cppConfiguration, ccToolchain)
         && emitInterfaceSharedObjects) {
-      soInterface =
-          CppHelper.getLinkedArtifact(
-              ruleContext,
-              ccToolchain,
-              configuration,
-              LinkTargetType.INTERFACE_DYNAMIC_LIBRARY,
-              linkedArtifactNameSuffix);
+      soInterface = getLinkedArtifact(LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
       // TODO(b/28946988): Remove this hard-coded flag.
       if (!featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
         sonameLinkopts =
