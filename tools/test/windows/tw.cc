@@ -1065,10 +1065,16 @@ bool ArchiveUndeclaredOutputs(const UndeclaredOutputs& undecl) {
            CreateUndeclaredOutputsManifest(files, undecl.manifest)));
 }
 
+// Creates the Undeclared Outputs Annotations file.
+//
+// This file is a concatenation of every *.part file directly under
+// `undecl_annot_dir`. The file is written to `output`.
 bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
                                         const Path& output) {
   if (undecl_annot_dir.Get().empty()) {
-    // TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR was undefined, nothing to do.
+    // The directory's environment variable
+    // (TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR) was probably undefined, nothing
+    // to do.
     return true;
   }
 
@@ -1079,6 +1085,7 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
                  undecl_annot_dir.Get() + L"\"").c_str());
     return false;
   }
+  // There are no *.part files under `undecl_annot_dir`, nothing to do.
   if (files.empty()) {
     return true;
   }
@@ -1086,7 +1093,7 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
   HANDLE handle;
   if (!OpenFileForWriting(output.Get(), &handle)) {
     LogError(__LINE__,
-             (std::wstring(L"Failed to get open for writing \"") +
+             (std::wstring(L"Failed to open for writing \"") +
                  output.Get() + L"\"").c_str());
     return false;
   }
