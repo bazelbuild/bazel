@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelp
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorpath;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -853,14 +854,14 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(
             Streams.stream(unsignedApkAction.getInputs())
                 .map(Artifact::getFilename)
-                .anyMatch("SingleJar_deploy.jar"::equals))
+                .anyMatch(filename -> Ascii.toLowerCase(filename).contains("singlejar")))
         .isTrue();
     SpawnAction compressedUnsignedApkAction = (SpawnAction) actionsTestUtil()
         .getActionForArtifactEndingWith(artifacts, "compressed_hello_unsigned.apk");
     assertThat(
             Streams.stream(compressedUnsignedApkAction.getInputs())
                 .map(Artifact::getFilename)
-                .anyMatch("SingleJar_deploy.jar"::equals))
+                .anyMatch(filename -> Ascii.toLowerCase(filename).contains("singlejar")))
         .isTrue();
     SpawnAction zipalignAction = (SpawnAction) actionsTestUtil()
         .getActionForArtifactEndingWith(artifacts, "zipaligned_hello.apk");
