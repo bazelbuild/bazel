@@ -261,7 +261,7 @@ class StartupOptions {
   // each time a Bazel server process starts, it will create a new log file and
   // update java.log to be a symbolic link to the new log file.
   // TODO(b/118755753): The --norotating_server_log option is intended as a
-  // temporary "escape hatch" in case switching to the rotating ServerLogHandler
+  // temporary "escape hatch" in case switching to the rotating SimpleLogHandler
   // breaks things. Remove the option and associated logic once we are confident
   // that the "escape hatch" is not needed.
   bool rotating_server_log;

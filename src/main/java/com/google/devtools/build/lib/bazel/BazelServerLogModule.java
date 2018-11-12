@@ -26,7 +26,7 @@ public class BazelServerLogModule extends BlazeModule {
   /** Logging flags. */
   public static final class Options extends OptionsBase {
     // TODO(b/118755753): The --norotating_server_log option is intended as a temporary "escape
-    // hatch" in case switching to the rotating ServerLogHandler breaks things. Remove the option
+    // hatch" in case switching to the rotating SimpleLogHandler breaks things. Remove the option
     // and associated logic once we are confident that the "escape hatch" is not needed.
     @Option(
         name = "rotating_server_log",
