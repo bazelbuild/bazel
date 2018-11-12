@@ -1,3 +1,42 @@
+## Release 0.19.1 (2018-11-12)
+
+```
+Baseline: ac880418885061d1039ad6b3d8c28949782e02d6
+
+Cherry picks:
+
+   + 9bc3b20053a8b99bf2c4a31323a7f96fabb9f1ec:
+     Fix the "nojava" platform and enable full presubmit checks for
+     the various JDK platforms now that we have enough GCE resources.
+   + 54c2572a8cabaf2b29e58abe9f04327314caa6a0:
+     Add openjdk_linux_archive java_toolchain for nojava platform.
+   + 20bfdc67dc1fc32ffebbda7088ba49ee17e3e182:
+     Automated rollback of commit
+     19a401c38e30ebc0879925a5caedcbe43de0028f.
+   + 914b4ce14624171a97ff8b41f9202058f10d15b2:
+     Windows: Fix Precondition check for addDynamicInputLinkOptions
+   + 83d406b7da32d1b1f6dd02eae2fe98582a4556fd:
+     Windows, test-setup.sh: Setting RUNFILES_MANIFEST_FILE only when
+     it exists.
+   + e025726006236520f7e91e196b9e7f139e0af5f4:
+     Update turbine
+   + 5f312dd1678878fb7563eae0cd184f2270346352:
+     Fix event id for action_completed BEP events
+   + f0c844c77a2406518c4e75c49188390d5e281d3d:
+     Release 0.19.0 (2018-10-29)
+   + c3fb1db9e4e817e8a911f5b347b30f2674a82f7c:
+     Do not use CROSSTOOL to select cc_toolchain
+   + 8e280838e8896a6b5eb5421fda435b96b6f8de60:
+     Windows Add tests for msys gcc toolchain and mingw gcc toolchain
+   + fd52341505e725487c6bc6dfbe6b5e081aa037da:
+     update bazel-toolchains pin to latest release Part of changes to
+     allow bazelci to use 0.19.0 configs. RBE toolchain configs at or
+     before 0.17.0 are not compatible with bazel 0.19.0 or above.
+```
+
+Important changes:
+- Fix regression #6610, which prevents using the MINGW compiler on Windows.
+
 ## Release 0.19.0 (2018-10-29)
 
 ```
@@ -95,6 +134,199 @@ Thank you to our contributors!
 This release contains contributions from many people at Google, as well as Andreas Herrmann, Andreas Hippler, Benjamin Peterson, David Ostrovsky, Ed Baunton, George Gensure, Igal Tabachnik, Jason Gavris, Loo Rong Jie, rmalik, and Yannic Bonenberger
 
 Thank you to everyone who contributed to this release!
+
+## Release 0.18.1 (2018-10-31)
+
+```
+Baseline: c062b1f1730f3562d5c16a037b374fc07dc8d9a2
+
+Cherry picks:
+
+   + 2834613f93f74e988c51cf27eac0e59c79ff3b8f:
+     Include also ext jars in the bootclasspath jar.
+   + 2579b791c023a78a577e8cb827890139d6fb7534:
+     Fix toolchain_java9 on --host_javabase=<jdk9> after
+     7eb9ea150fb889a93908d96896db77d5658e5005
+   + faaff7fa440939d4367f284ee268225a6f40b826:
+     Release notes: fix markdown
+   + b073a18e3fac05e647ddc6b45128a6158b34de2c:
+     Fix NestHost length computation Fixes #5987
+   + bf6a63d64a010f4c363d218e3ec54dc4dc9d8f34:
+     Fixes #6219. Don't rethrow any remote cache failures on either
+     download or upload, only warn. Added more tests.
+   + c1a7b4c574f956c385de5c531383bcab2e01cadd:
+     Fix broken IdlClassTest on Bazel's CI.
+   + 71926bc25b3b91fcb44471e2739b89511807f96b:
+     Fix the Xcode version detection which got broken by the upgrade
+     to Xcode 10.0.
+   + 86a8217d12263d598e3a1baf2c6aa91b2e0e2eb5:
+     Temporarily restore processing of workspace-wide tools/bazel.rc
+     file.
+   + 914b4ce14624171a97ff8b41f9202058f10d15b2:
+     Windows: Fix Precondition check for addDynamicInputLinkOptions
+   + e025726006236520f7e91e196b9e7f139e0af5f4:
+     Update turbine
+```
+
+Important changes:
+
+  - Fix regression #6219, remote cache failures
+
+## Release 0.18.0 (2018-10-15)
+
+```
+Baseline: c062b1f1730f3562d5c16a037b374fc07dc8d9a2
+
+Cherry picks:
+
+   + 2834613f93f74e988c51cf27eac0e59c79ff3b8f:
+     Include also ext jars in the bootclasspath jar.
+   + 2579b791c023a78a577e8cb827890139d6fb7534:
+     Fix toolchain_java9 on --host_javabase=<jdk9> after
+     7eb9ea150fb889a93908d96896db77d5658e5005
+   + faaff7fa440939d4367f284ee268225a6f40b826:
+     Release notes: fix markdown
+   + b073a18e3fac05e647ddc6b45128a6158b34de2c:
+     Fix NestHost length computation Fixes #5987
+   + bf6a63d64a010f4c363d218e3ec54dc4dc9d8f34:
+     Fixes #6219. Don't rethrow any remote cache failures on either
+     download or upload, only warn. Added more tests.
+   + c1a7b4c574f956c385de5c531383bcab2e01cadd:
+     Fix broken IdlClassTest on Bazel's CI.
+   + 71926bc25b3b91fcb44471e2739b89511807f96b:
+     Fix the Xcode version detection which got broken by the upgrade
+     to Xcode 10.0.
+   + 86a8217d12263d598e3a1baf2c6aa91b2e0e2eb5:
+     Temporarily restore processing of workspace-wide tools/bazel.rc
+     file.
+```
+
+General changes
+
+- New [bazelrc file list](https://docs.bazel.build/versions/master/user-manual.html#where-are-the-bazelrc-files).
+  If you need to keep both the old and new lists of .rc files active
+  concurrently to support multiple versions of Bazel, you can import the old
+  file location into the new list using `try-import`. This imports a file if it
+  exists and silently exits if it does not. You can use this method to account
+  for a user file that may or may not exist
+
+- [.bazelignore](https://docs.bazel.build/versions/master/user-manual.html#.bazelignore)
+  is now fully functional.
+
+- The startup flag `--host_javabase` has been renamed to
+  `--server_javabase` to avoid confusion with the build flag
+  `--host_javabase`.
+
+Android
+
+- The Android resource processing pipeline now supports persistence
+  via worker processes. Enable it with
+  `--persistent_android_resource_processor`. We have observed a 50% increase
+  in build speed for clean local builds and up to 150% increase in build
+  speed for incremental local builds.
+
+C++
+
+- In-memory package //tools/defaults has been removed (controlled by
+  `--incompatible_disable_tools_defaults_package` flag). Please see
+  [migration instructions](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disable-inmemory-tools-defaults-package)
+  and migrate soon, the flag will be flipped in Bazel 0.19, and the legacy
+  behavior will be removed in Bazel 0.20.
+
+- Late bound option defaults (typical example was the `--compiler` flag, when
+  it was not specified, it’s value was computed using the CROSSTOOL) are removed
+  (controlled by `--incompatible_disable_late_bound_option_defaults` flag).
+  Please see [migration instructions](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disable-late-bound-option-defaults)
+  and migrate soon, the flag will be flipped in Bazel 0.19, and the legacy
+  behavior will be removed in Bazel 0.20.
+
+- Depsets are no longer accepted in `user_compile_flags` and `user_link_flags`
+  in the C++ toolchain API (controlled by
+  `--incompatible_disable_depset_in_cc_user_flags` flag) affects C++ users.
+  Please see [migration instructions](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disable-depsets-in-c-toolchain-api-in-user-flags)
+  and migrate soon, the flag will be flipped in Bazel 0.19, and the legacy
+  behavior will be removed in Bazel 0.20.
+
+- CROSSTOOL is no longer consulted when selecting C++ toolchain (controlled by
+  `--incompatible_disable_cc_toolchain_label_from_crosstool_proto` flag).
+  Please see [migration instructions](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disallow-using-crosstool-to-select-the-cc_toolchain-label)
+  and migrate soon, the flag will be flipped in Bazel 0.19, and the legacy behavior will be removed in Bazel 0.20.
+
+- You can now use [`toolchain_identifier` attribute](https://github.com/bazelbuild/bazel/commit/857d4664ce939f240b1d10d8d2baca6c6893cfcb)
+  on `cc_toolchain` to pair it with CROSSTOOL toolchain.
+
+- C++ specific Make variables
+  are no longer passed from the `CppConfiguration`, but from the C++ toolchain
+  (controlled by `--incompatible_disable_cc_configuration_make_variables` flag).
+  Please see [migration instructions](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#disallow-using-c-specific-make-variables-from-the-configuration)
+  and migrate soon, the flag will be flipped
+  in Bazel 0.19, and the legacy behavior will be removed in Bazel 0.20.
+
+- Skylark api accessing C++
+  toolchain in `ctx.fragments.cpp` is removed (controlled by
+  `--incompatible_disable_legacy_cpp_toolchain_skylark_api` flag).
+  Please migrate soon, the flag will be flipped
+  in Bazel 0.19, and the legacy behavior will be removed in Bazel 0.20.
+
+- cc_binary link action no longer hardcodes
+  `-static-libgcc` for toolchains that support embedded runtimes
+  (guarded by [`--experimental_dont_emit_static_libgcc`](https://source.bazel.build/bazel/+/2f281960b829e964526a9d292d4c3003e4d19f1c)
+  temporarily). Proper deprecation using `--incompatible` flags will follow.
+
+Java
+
+- Future versions of Bazel will require a locally installed JDK
+  for Java development. Previously Bazel would fall back to using
+  the embedded `--server_javabase` if no JDK as available. Pass
+  `--incompatible_never_use_embedded_jdk_for_javabase` to disable the
+  legacy behaviour.
+
+- `--javacopt=` no longer affects compilations of tools that are
+  executed during the build; use `--host_javacopt=` to change javac
+  flags in the host configuration.
+
+Objective C
+
+- `objc_library` now supports the module_name attribute.
+
+Skylark
+
+- Adds `--incompatible_expand_directories` to automatically expand
+  directories in skylark command lines. Design doc:
+  https://docs.google.com/document/d/11agWFiOUiz2htBLj6swPTob5z78TrCxm8DQE4uJLOwM
+
+- Support fileset expansion in ctx.actions.args(). Controlled by
+  `--incompatible_expand_directories`.
+
+Windows
+
+- `--windows_exe_launcher` is deprecated, this flag will be removed
+  soon. Please make sure you are not using it.
+
+- Bazel now supports the symlink runfiles tree on Windows with
+  `--experimental_enable_runfiles` flag. For more details, see
+  [this doc](https://docs.google.com/document/d/1hnYmU1BmtCSJOUvvDAK745DSJQCapToJxb3THXYMrmQ).
+
+Other Changes
+
+- A new experimental option `--experimental_ui_deduplicate` has been added. It
+  causes the UI to attempt to deduplicate messages from actions to keep the
+  console output cleaner.
+
+- Add `--modify_execution_info`, a flag to customize action execution
+  info.
+
+- Add ExecutionInfo to aquery output for ExecutionInfoSpecifier
+  actions.
+
+- When computing `--instrumentation_filter`, end filter patterns with
+  "[/:]" to match non-top-level packages exactly and treat
+  top-level targets consistently.
+
+- Added the `bazel info server_log` command, which obtains the main Bazel
+  server log file path. This can help debug Bazel issues.
+
+- `aapt shrink` resources now properly respect filter configurations.
 
 ## Release 0.17.2 (2018-09-21)
 
@@ -3497,6 +3729,8 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
+
 
 
 
