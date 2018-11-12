@@ -18,11 +18,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
@@ -503,12 +506,14 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         if (reifiedBuilderException.getRootCauseSkyKey().equals(parent)) {
           error =
               ErrorInfo.fromException(reifiedBuilderException, /*isTransitivelyTransient=*/ false);
+          Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
+              env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
           bubbleErrorInfo.put(
               errorKey,
               ValueWithMetadata.error(
                   ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-                  env.buildAndReportEvents(parentEntry, /*expectDoneDeps=*/ false),
-                  env.buildAndReportPostables(parentEntry, /*expectDoneDeps=*/ false)));
+                  eventsAndPostables.first,
+                  eventsAndPostables.second));
           continue;
         }
       } finally {
@@ -516,12 +521,14 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         Thread.interrupted();
       }
       // Builder didn't throw an exception, so just propagate this one up.
+      Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
+          env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
       bubbleErrorInfo.put(
           errorKey,
           ValueWithMetadata.error(
               ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-              env.buildAndReportEvents(parentEntry, /*expectDoneDeps=*/ false),
-              env.buildAndReportPostables(parentEntry, /*expectDoneDeps=*/ false)));
+              eventsAndPostables.first,
+              eventsAndPostables.second));
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.
