@@ -41,6 +41,8 @@ public class RClassGeneratorActionBuilder {
 
   private AndroidAaptVersion version;
 
+  private boolean finalFields = true;
+
   public RClassGeneratorActionBuilder withDependencies(ResourceDependencies resourceDeps) {
     this.dependencies = resourceDeps;
     return this;
@@ -48,6 +50,11 @@ public class RClassGeneratorActionBuilder {
 
   public RClassGeneratorActionBuilder targetAaptVersion(AndroidAaptVersion version) {
     this.version = version;
+    return this;
+  }
+
+  public RClassGeneratorActionBuilder finalFields(boolean finalFields) {
+    this.finalFields = finalFields;
     return this;
   }
 
@@ -68,7 +75,8 @@ public class RClassGeneratorActionBuilder {
         BusyBoxActionBuilder.create(dataContext, "GENERATE_BINARY_R")
             .addInput("--primaryRTxt", rTxt)
             .addInput("--primaryManifest", manifest.getManifest())
-            .maybeAddFlag("--packageForR", manifest.getPackage());
+            .maybeAddFlag("--packageForR", manifest.getPackage())
+            .addFlag(finalFields ? "--finalFields" : "--nofinalFields");
 
     if (dependencies != null && !dependencies.getResourceContainers().isEmpty()) {
       builder

@@ -3590,7 +3590,13 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               proguard_specs = ['proguard-spec.pro'],)");
 
     useConfiguration("--android_sdk=//sdk:sdk");
-    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+    ConfiguredTargetAndData targetAndData =
+        getConfiguredTargetAndData("//java/com/google/android/hello:hello");
+    ConfiguredTarget binary = targetAndData.getConfiguredTarget();
+
+    Artifact jar = getResourceClassJar(targetAndData);
+    assertThat(getGeneratingAction(jar).getMnemonic()).isEqualTo("RClassGenerator");
+    assertThat(getGeneratingSpawnActionArgs(jar)).contains("--finalFields");
 
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
 
@@ -3649,7 +3655,13 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               shrink_resources = 1,",
         "               proguard_specs = ['proguard-spec.pro'],)");
 
-    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:hello");
+    ConfiguredTargetAndData targetAndData =
+        getConfiguredTargetAndData("//java/com/google/android/hello:hello");
+    ConfiguredTarget binary = targetAndData.getConfiguredTarget();
+
+    Artifact jar = getResourceClassJar(targetAndData);
+    assertThat(getGeneratingAction(jar).getMnemonic()).isEqualTo("RClassGenerator");
+    assertThat(getGeneratingSpawnActionArgs(jar)).contains("--nofinalFields");
 
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
 

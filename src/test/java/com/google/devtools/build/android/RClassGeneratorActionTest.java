@@ -20,6 +20,10 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -199,6 +203,64 @@ public class RClassGeneratorActionTest {
               "com/google/bar/R.class",
               "META-INF/",
               "META-INF/MANIFEST.MF");
+      assertFieldsFinal(jarPath, "com.google.foo.R$attr", true);
+      assertFieldsFinal(jarPath, "com.google.foo.R$id", true);
+      assertFieldsFinal(jarPath, "com.google.foo.R$string", true);
+      assertFieldsFinal(jarPath, "com.google.bar.R$attr", true);
+      assertFieldsFinal(jarPath, "com.google.bar.R$drawable", true);
+      ZipMtimeAsserter.assertEntries(zipEntries);
+    }
+  }
+
+  @Test
+  public void withNoBinaryAndLibraries_noFinalFields() throws Exception {
+    Path libFooManifest =
+        ManifestBuilder.of(tempDir.resolve("libFoo"))
+            .createManifest("AndroidManifest.xml", "com.google.foo", "");
+    Path libBarManifest =
+        ManifestBuilder.of(tempDir.resolve("libBar"))
+            .createManifest("AndroidManifest.xml", "com.google.bar", "");
+
+    Path libFooSymbols =
+        createFile(
+            "libFoo.R.txt", "int attr agility 0x1", "int id someTextView 0x1", "int string ok 0x1");
+    Path libBarSymbols =
+        createFile("libBar.R.txt", "int attr dexterity 0x1", "int drawable heart 0x1");
+
+    Path jarPath = tempDir.resolve("app_resources.jar");
+
+    RClassGeneratorAction.main(
+        ImmutableList.<String>of(
+                "--library",
+                libFooSymbols + "," + libFooManifest,
+                "--library",
+                libBarSymbols + "," + libBarManifest,
+                "--nofinalFields",
+                "--classJarOutput",
+                jarPath.toString())
+            .toArray(new String[0]));
+
+    assertThat(Files.exists(jarPath)).isTrue();
+
+    try (ZipFile zip = new ZipFile(jarPath.toFile())) {
+      List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
+      Iterable<String> entries = getZipFilenames(zipEntries);
+      assertThat(entries)
+          .containsExactly(
+              "com/google/foo/R$attr.class",
+              "com/google/foo/R$id.class",
+              "com/google/foo/R$string.class",
+              "com/google/foo/R.class",
+              "com/google/bar/R$attr.class",
+              "com/google/bar/R$drawable.class",
+              "com/google/bar/R.class",
+              "META-INF/",
+              "META-INF/MANIFEST.MF");
+      assertFieldsFinal(jarPath, "com.google.foo.R$attr", false);
+      assertFieldsFinal(jarPath, "com.google.foo.R$id", false);
+      assertFieldsFinal(jarPath, "com.google.foo.R$string", false);
+      assertFieldsFinal(jarPath, "com.google.bar.R$attr", false);
+      assertFieldsFinal(jarPath, "com.google.bar.R$drawable", false);
       ZipMtimeAsserter.assertEntries(zipEntries);
     }
   }
@@ -243,6 +305,70 @@ public class RClassGeneratorActionTest {
               "com/google/app/R.class",
               "META-INF/",
               "META-INF/MANIFEST.MF");
+      assertFieldsFinal(jarPath, "com.google.app.R$attr", true);
+      assertFieldsFinal(jarPath, "com.google.app.R$drawable", true);
+      assertFieldsFinal(jarPath, "com.google.app.R$id", true);
+      assertFieldsFinal(jarPath, "com.google.app.R$integer", true);
+      assertFieldsFinal(jarPath, "com.google.app.R$string", true);
+      ZipMtimeAsserter.assertEntries(zipEntries);
+    }
+  }
+
+  @Test
+  public void withBinaryNoLibraries_noFinalFields() throws Exception {
+    Path binaryManifest =
+        ManifestBuilder.of(tempDir.resolve("binary"))
+            .createManifest(
+                "AndroidManifest.xml",
+                "com.google.app",
+                "<application android:name=\"com.google.app\">",
+                "<activity android:name=\"com.google.bar.activityFoo\" />",
+                "</application>");
+
+    Path binarySymbols =
+        createFile(
+            "R.txt",
+            "int attr agility 0x7f010000",
+            "int attr dexterity 0x7f010001",
+            "int drawable heart 0x7f020000",
+            "int id someTextView 0x7f080000",
+            "int integer maxNotifications 0x7f090000",
+            "int string alphabet 0x7f100000",
+            "int string ok 0x7f100001");
+
+    Path jarPath = tempDir.resolve("app_resources.jar");
+
+    RClassGeneratorAction.main(
+        ImmutableList.<String>of(
+                "--primaryRTxt",
+                binarySymbols.toString(),
+                "--primaryManifest",
+                binaryManifest.toString(),
+                "--nofinalFields",
+                "--classJarOutput",
+                jarPath.toString())
+            .toArray(new String[0]));
+
+    assertThat(Files.exists(jarPath)).isTrue();
+
+    try (ZipFile zip = new ZipFile(jarPath.toFile())) {
+      List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
+      Iterable<String> entries = getZipFilenames(zipEntries);
+      assertThat(entries)
+          .containsExactly(
+              "com/google/app/R$attr.class",
+              "com/google/app/R$drawable.class",
+              "com/google/app/R$id.class",
+              "com/google/app/R$integer.class",
+              "com/google/app/R$string.class",
+              "com/google/app/R.class",
+              "META-INF/",
+              "META-INF/MANIFEST.MF");
+      assertFieldsFinal(jarPath, "com.google.app.R$attr", false);
+      assertFieldsFinal(jarPath, "com.google.app.R$drawable", false);
+      assertFieldsFinal(jarPath, "com.google.app.R$id", false);
+      assertFieldsFinal(jarPath, "com.google.app.R$integer", false);
+      assertFieldsFinal(jarPath, "com.google.app.R$string", false);
       ZipMtimeAsserter.assertEntries(zipEntries);
     }
   }
@@ -360,6 +486,17 @@ public class RClassGeneratorActionTest {
             return input.getName();
           }
         });
+  }
+
+  private static void assertFieldsFinal(Path jarPath, String className, boolean expectedFinal)
+      throws Exception {
+    try (URLClassLoader urlClassLoader = new URLClassLoader(new URL[] {jarPath.toUri().toURL()})) {
+      Class<?> clazz = urlClassLoader.loadClass(className);
+      assertThat(clazz.getFields()).isNotEmpty();
+      for (Field field : clazz.getFields()) {
+        assertThat(Modifier.isFinal(field.getModifiers())).isEqualTo(expectedFinal);
+      }
+    }
   }
 
   private static final class ZipMtimeAsserter {
