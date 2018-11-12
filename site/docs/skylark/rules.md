@@ -38,21 +38,10 @@ produce and pass along information that may be useful to other rules, in the
 form of [providers](#providers).
 
 ## Contents
+{:.no_toc}
 
-*  [Rule creation](#rule-creation)
-*  [Attributes](#attributes)
-*  [Private Attributes and Implicit Dependencies](#private-attributes-and-implicit-dependencies)
-*  [Implementation function](#implementation-function)
-*  [Targets](#targets)
-*  [Files](#files)
-*  [Actions](#actions)
-*  [Configurations](#configurations)
-*  [Configuration Fragments](#configuration-fragments)
-*  [Providers](#providers)
-*  [Runfiles](#runfiles)
-*  [Requesting output files](#requesting-output-files)
-*  [Code coverage instrumentation](#code-coverage-instrumentation)
-*  [Executable rules and test rules](#executable-rules-and-test-rules)
+* ToC
+{:toc}
 
 
 ## Rule creation
@@ -136,7 +125,9 @@ The following attributes are automatically added to every rule: `deprecation`,
 following attributes: `args`, `flaky`, `local`, `shard_count`, `size`,
 `timeout`.
 
-### <a name="private-attributes"></a> Private Attributes and Implicit Dependencies
+<a name="private-attributes"></a>
+
+### Private Attributes and Implicit Dependencies
 
 A dependency attribute with a default value is called an *implicit dependency*.
 The name comes from the fact that it is a part of the target graph that the user
@@ -400,7 +391,9 @@ Otherwise, executables that are used at runtime (e.g. as part of a test) should
 be built for the target configuration. In this case, specify `cfg="target"` in
 the attribute.
 
-## <a name="fragments"></a> Configuration Fragments
+<a name="fragments"></a>
+
+## Configuration Fragments
 
 Rules may access [configuration fragments](lib/skylark-configuration-fragment.html)
 such as `cpp`, `java` and `jvm`. However, all required fragments must be

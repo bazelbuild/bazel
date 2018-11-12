@@ -2,6 +2,7 @@ destination: production
 markdown: kramdown
 kramdown:
   syntax_highlighter: rouge
+  toc_levels: "2,3"
 highlighter: rouge
 
 paginate: 10
