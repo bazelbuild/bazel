@@ -198,7 +198,7 @@ public final class CcLinkParams implements CcLinkParamsApi {
     private final NestedSetBuilder<LibraryToLink> librariesBuilder =
         NestedSetBuilder.linkOrder();
     private final NestedSetBuilder<Artifact> dynamicLibrariesForRuntimeBuilder =
-        NestedSetBuilder.stableOrder();
+        NestedSetBuilder.linkOrder();
 
     /**
      * A builder for the list of link time libraries.  Most builds
