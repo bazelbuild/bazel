@@ -169,7 +169,8 @@ android_sdk_repository(
 ```
 
 **Optional:** If you want to compile native code into your Android app, you
-also need to download the [Android NDK](https://developer.android.com/ndk/downloads/index.html
+also need to download the [Android
+NDK](https://developer.android.com/ndk/downloads/index.html)
 and tell Bazel where to find it by adding the following line to your `WORKSPACE` file:
 
 ```python
