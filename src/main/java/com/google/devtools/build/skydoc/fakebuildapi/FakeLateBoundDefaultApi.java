@@ -14,20 +14,14 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.LateBoundDefaultApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkBuildApiGlobals;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 
 /**
- * Fake implementation of {@link SkylarkBuildApiGlobals}.
+ * Fake implementation of {@link LateBoundDefaultApi}.
  */
-public class FakeBuildApiGlobals implements SkylarkBuildApiGlobals {
+public class FakeLateBoundDefaultApi implements LateBoundDefaultApi {
 
   @Override
-  public LateBoundDefaultApi configurationField(String fragment, String name, Location loc,
-      Environment env) throws EvalException {
-    return new FakeLateBoundDefaultApi();
-  }
+  public void repr(SkylarkPrinter printer) {}
 }
