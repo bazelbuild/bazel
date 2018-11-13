@@ -76,6 +76,8 @@ import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.rpc.Code;
+import com.google.rpc.PreconditionFailure;
+import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.BindableService;
 import io.grpc.CallCredentials;
 import io.grpc.Metadata;
@@ -284,7 +286,7 @@ public class GrpcRemoteExecutionClientTest {
             "command-id",
             remoteCache,
             executor,
-            retrier,
+            RemoteModule.createExecuteRetrier(remoteOptions, retryService),
             DIGEST_UTIL,
             logDir);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
@@ -1116,5 +1118,100 @@ public class GrpcRemoteExecutionClientTest {
     assertThat(result.isCacheHit()).isFalse();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(numExecuteCalls.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void retryUploadAndExecuteOnMissingInputs() throws Exception {
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+          }
+        });
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("bla")).build());
+            responseObserver.onCompleted();
+          }
+
+          @Override
+          public StreamObserver<WriteRequest> write(
+              StreamObserver<WriteResponse> responseObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest request) {}
+
+              @Override
+              public void onCompleted() {
+                responseObserver.onCompleted();
+              }
+
+              @Override
+              public void onError(Throwable t) {
+                fail("An error occurred: " + t);
+              }
+            };
+          }
+        });
+    final ActionResult actionResult =
+        ActionResult.newBuilder()
+            .addOutputFiles(DUMMY_OUTPUT)
+            .build();
+    AtomicInteger numExecuteCalls = new AtomicInteger();
+    serviceRegistry.addService(
+        new ExecutionImplBase() {
+          @Override
+          public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            if (numExecuteCalls.incrementAndGet() == 1) {
+              // Missing input.
+              Violation viol = Violation.newBuilder().setType("MISSING").build();
+              com.google.rpc.Status status =
+                  com.google.rpc.Status.newBuilder()
+                      .setCode(Code.FAILED_PRECONDITION.getNumber())
+                      .addDetails(
+                          Any.pack(PreconditionFailure.newBuilder().addViolations(viol).build()))
+                      .build();
+              responseObserver.onNext(
+                  Operation.newBuilder()
+                      .setDone(true)
+                      .setResponse(Any.pack(ExecuteResponse.newBuilder().setStatus(status).build()))
+                      .build());
+              responseObserver.onCompleted();
+            }
+            assertThat(request.getSkipCacheLookup()).isFalse();
+            responseObserver.onNext(
+                Operation.newBuilder()
+                    .setDone(true)
+                    .setResponse(
+                        Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    AtomicInteger numCacheUploads = new AtomicInteger();
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            numCacheUploads.incrementAndGet();
+            // Nothing is missing.
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+
+    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    assertThat(result.setupSuccess()).isTrue();
+    assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(result.isCacheHit()).isFalse();
+    assertThat(numCacheUploads.get()).isEqualTo(2);
+    assertThat(numExecuteCalls.get()).isEqualTo(2);
   }
 }
