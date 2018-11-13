@@ -34,7 +34,6 @@ java_library(
     name = "javac_turbine_compile_request",
     srcs = ["JavacTurbineCompileRequest.java"],
     deps = [
-        ":formatted_diagnostic",
         ":javac_transitive",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//third_party:guava",
