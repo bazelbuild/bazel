@@ -14,9 +14,13 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.DirectoryNode;
+import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -59,10 +63,14 @@ public class TreeNodeRepositoryTest {
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/exec/root")));
   }
 
-  private TreeNodeRepository createTestTreeNodeRepository() {
+  private TreeNodeRepository createTestTreeNodeRepository(boolean uploadSymlinks) {
     MetadataProvider inputFileCache =
         new SingleBuildFileCache(execRoot.getPathString(), scratch.getFileSystem());
-    return new TreeNodeRepository(execRoot, inputFileCache, digestUtil);
+    return new TreeNodeRepository(execRoot, inputFileCache, digestUtil, uploadSymlinks);
+  }
+
+  private TreeNodeRepository createTestTreeNodeRepository() {
+    return createTestTreeNodeRepository(true);
   }
 
   private TreeNode buildFromActionInputs(TreeNodeRepository repo, ActionInput... inputs)
@@ -215,5 +223,308 @@ public class TreeNodeRepositoryTest {
     Directory aClientDirectory = directories.get(aClientDigest);
     assertThat(aClientDirectory.getFiles(0).getName()).isEqualTo("baz.txt");
     assertThat(aClientDirectory.getFiles(0).getDigest()).isEqualTo(bazDigest);
+  }
+
+  @Test
+  public void testAbsoluteFileSymlinkAsFile() throws Exception {
+    Path link = scratch.getFileSystem().getPath("/exec/root/link");
+    Path target = scratch.file("/exec/root/target", "bla");
+    link.createSymbolicLink(target);
+    Artifact linkInput = new Artifact(link, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(true);
+    TreeNode root = buildFromActionInputs(repo, linkInput);
+    repo.computeMerkleDigests(root);
+    Digest digest = digestUtil.compute(target);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("link").setDigest(digest).setIsExecutable(true))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir);
+  }
+
+  @Test
+  public void testAbsoluteFileSymlinkInDirectoryAsFile() throws Exception {
+    Path foo = scratch.file("/exec/root/foo", "bla");
+    Path dir = scratch.dir("/exec/root/dir");
+    Path link = scratch.getFileSystem().getPath("/exec/root/dir/link");
+    link.createSymbolicLink(foo);
+    Artifact dirInput = new Artifact(dir, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(true);
+    TreeNode root = buildFromActionInputs(repo, dirInput);
+    repo.computeMerkleDigests(root);
+    Digest digest = digestUtil.compute(foo);
+    Directory childDir =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("link").setDigest(digest).setIsExecutable(true))
+            .build();
+    Digest dirDigest = digestUtil.compute(childDir);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("dir").setDigest(dirDigest))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir, childDir);
+  }
+
+  @Test
+  public void testRelativeFileSymlinkAsFile() throws Exception {
+    Path link = scratch.getFileSystem().getPath("/exec/root/link");
+    Path target = scratch.file("/exec/root/target", "bla");
+    link.createSymbolicLink(target.relativeTo(execRoot));
+    Artifact linkInput = new Artifact(link, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(false);
+    TreeNode root = buildFromActionInputs(repo, linkInput);
+    repo.computeMerkleDigests(root);
+    Digest digest = digestUtil.compute(target);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("link").setDigest(digest).setIsExecutable(true))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir);
+  }
+
+  @Test
+  public void testRelativeFileSymlinkInDirectoryAsFile() throws Exception {
+    Path foo = scratch.file("/exec/root/foo", "bla");
+    Path dir = scratch.dir("/exec/root/dir");
+    Path link = scratch.getFileSystem().getPath("/exec/root/dir/link");
+    link.createSymbolicLink(PathFragment.create("../foo"));
+    Artifact dirInput = new Artifact(dir, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(false);
+    TreeNode root = buildFromActionInputs(repo, dirInput);
+    repo.computeMerkleDigests(root);
+    Digest digest = digestUtil.compute(foo);
+    Directory childDir =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("link").setDigest(digest).setIsExecutable(true))
+            .build();
+    Digest dirDigest = digestUtil.compute(childDir);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("dir").setDigest(dirDigest))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir, childDir);
+  }
+
+  @Test
+  public void testRelativeFileSymlink() throws Exception {
+    Path link = scratch.getFileSystem().getPath("/exec/root/link");
+    Path target = scratch.file("/exec/root/target", "bla");
+    link.createSymbolicLink(target.relativeTo(execRoot));
+    Artifact linkInput = new Artifact(link, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(true);
+    TreeNode root = buildFromActionInputs(repo, linkInput);
+    repo.computeMerkleDigests(root);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("target"))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir);
+  }
+
+  @Test
+  public void testRelativeFileSymlinkInDirectory() throws Exception {
+    scratch.file("/exec/root/foo", "bla");
+    Path dir = scratch.dir("/exec/root/dir");
+    Path link = scratch.getFileSystem().getPath("/exec/root/dir/link");
+    link.createSymbolicLink(PathFragment.create("../foo"));
+    Artifact dirInput = new Artifact(dir, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(true);
+    TreeNode root = buildFromActionInputs(repo, dirInput);
+    repo.computeMerkleDigests(root);
+    Directory childDir =
+        Directory.newBuilder()
+            .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("../foo"))
+            .build();
+    Digest dirDigest = digestUtil.compute(childDir);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("dir").setDigest(dirDigest))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir, childDir);
+  }
+
+  @Test
+  public void testDanglingSymlinkFail() throws Exception {
+    Path link = scratch.getFileSystem().getPath("/exec/root/link");
+    Path target = scratch.getFileSystem().getPath("/exec/root/target");
+    link.createSymbolicLink(target.relativeTo(execRoot));
+    Artifact linkInput = new Artifact(link, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(true);
+    try {
+      buildFromActionInputs(repo, linkInput);
+      fail("Expected exception");
+    } catch (Exception e) {
+      assertThat(e).hasMessageThat().contains("dangling");
+      assertThat(e).hasMessageThat().contains("/exec/root/link");
+      assertThat(e).hasMessageThat().contains("target");
+    }
+  }
+
+  @Test
+  public void testDanglingSymlinkInDirectoryFail() throws Exception {
+    scratch.getFileSystem().getPath("/exec/root/foo");
+    Path dir = scratch.dir("/exec/root/dir");
+    Path link = scratch.getFileSystem().getPath("/exec/root/dir/link");
+    link.createSymbolicLink(PathFragment.create("../foo"));
+    Artifact dirInput = new Artifact(dir, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(true);
+    try {
+      buildFromActionInputs(repo, dirInput);
+      fail("Expected exception");
+    } catch (Exception e) {
+      assertThat(e).hasMessageThat().contains("Dangling");
+      assertThat(e).hasMessageThat().contains("/exec/root/dir/link");
+      assertThat(e).hasMessageThat().contains("../foo");
+    }
+  }
+
+  @Test
+  public void testAbsoluteDirectorySymlinkAsDirectory() throws Exception {
+    Path dir = scratch.dir("/exec/root/dir");
+    Path foo = scratch.file("/exec/root/dir/foo", "bla");
+    Path link = scratch.getFileSystem().getPath("/exec/root/link");
+    link.createSymbolicLink(dir);
+    Artifact linkInput = new Artifact(link, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(true);
+    TreeNode root = buildFromActionInputs(repo, linkInput);
+    repo.computeMerkleDigests(root);
+    Digest digest = digestUtil.compute(foo);
+    Directory childDir =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest).setIsExecutable(true))
+            .build();
+    Digest dirDigest = digestUtil.compute(childDir);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("link").setDigest(dirDigest))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir, childDir);
+  }
+
+  @Test
+  public void testAbsoluteDirectorySymlinkInDirectoryAsDirectory() throws Exception {
+    Path dir = scratch.dir("/exec/root/dir");
+    Path bardir = scratch.dir("/exec/root/bardir");
+    Path foo = scratch.file("/exec/root/bardir/foo", "bla");
+    Path link = scratch.getFileSystem().getPath("/exec/root/dir/link");
+    link.createSymbolicLink(bardir);
+    Artifact dirInput = new Artifact(dir, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(true);
+    TreeNode root = buildFromActionInputs(repo, dirInput);
+    repo.computeMerkleDigests(root);
+    Directory barDir =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("foo")
+                    .setDigest(digestUtil.compute(foo))
+                    .setIsExecutable(true))
+            .build();
+    Digest barDigest = digestUtil.compute(barDir);
+    Directory dirNode =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("link").setDigest(barDigest))
+            .build();
+    Digest dirDigest = digestUtil.compute(dirNode);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("dir").setDigest(dirDigest))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir, dirNode, barDir);
+  }
+
+  @Test
+  public void testRelativeDirectorySymlinkAsDirectory() throws Exception {
+    Path dir = scratch.dir("/exec/root/dir");
+    Path foo = scratch.file("/exec/root/dir/foo", "bla");
+    Path link = scratch.getFileSystem().getPath("/exec/root/link");
+    link.createSymbolicLink(dir.relativeTo(execRoot));
+    Artifact linkInput = new Artifact(link, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(false);
+    TreeNode root = buildFromActionInputs(repo, linkInput);
+    repo.computeMerkleDigests(root);
+    Digest digest = digestUtil.compute(foo);
+    Directory childDir =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest).setIsExecutable(true))
+            .build();
+    Digest dirDigest = digestUtil.compute(childDir);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("link").setDigest(dirDigest))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir, childDir);
+  }
+
+  @Test
+  public void testRelativeDirectorySymlinkInDirectoryAsDirectory() throws Exception {
+    Path dir = scratch.dir("/exec/root/dir");
+    scratch.dir("/exec/root/bardir");
+    Path foo = scratch.file("/exec/root/bardir/foo", "bla");
+    Path link = scratch.getFileSystem().getPath("/exec/root/dir/link");
+    link.createSymbolicLink(PathFragment.create("../bardir"));
+    Artifact dirInput = new Artifact(dir, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(false);
+    TreeNode root = buildFromActionInputs(repo, dirInput);
+    repo.computeMerkleDigests(root);
+    Directory barDir =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("foo")
+                    .setDigest(digestUtil.compute(foo))
+                    .setIsExecutable(true))
+            .build();
+    Digest barDigest = digestUtil.compute(barDir);
+    Directory dirNode =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("link").setDigest(barDigest))
+            .build();
+    Digest dirDigest = digestUtil.compute(dirNode);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("dir").setDigest(dirDigest))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir, dirNode, barDir);
+  }
+
+  @Test
+  public void testRelativeDirectorySymlink() throws Exception {
+    Path dir = scratch.dir("/exec/root/dir");
+    scratch.file("/exec/root/dir/foo", "bla");
+    Path link = scratch.getFileSystem().getPath("/exec/root/link");
+    link.createSymbolicLink(dir.relativeTo(execRoot));
+    Artifact linkInput = new Artifact(link, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(true);
+    TreeNode root = buildFromActionInputs(repo, linkInput);
+    repo.computeMerkleDigests(root);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("dir"))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir);
+  }
+
+  @Test
+  public void testRelativeDirectorySymlinkInDirectory() throws Exception {
+    Path dir = scratch.dir("/exec/root/dir");
+    scratch.dir("/exec/root/bardir");
+    scratch.file("/exec/root/bardir/foo", "bla");
+    Path link = scratch.getFileSystem().getPath("/exec/root/dir/link");
+    link.createSymbolicLink(PathFragment.create("../bardir"));
+    Artifact dirInput = new Artifact(dir, rootDir);
+    TreeNodeRepository repo = createTestTreeNodeRepository(true);
+    TreeNode root = buildFromActionInputs(repo, dirInput);
+    repo.computeMerkleDigests(root);
+    Directory dirNode =
+        Directory.newBuilder()
+            .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("../bardir"))
+            .build();
+    Digest dirDigest = digestUtil.compute(dirNode);
+    Directory rootDir =
+        Directory.newBuilder()
+            .addDirectories(DirectoryNode.newBuilder().setName("dir").setDigest(dirDigest))
+            .build();
+    assertThat(repo.treeToDirectories(root)).containsExactly(rootDir, dirNode);
   }
 }

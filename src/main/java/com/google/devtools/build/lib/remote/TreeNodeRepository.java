@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -62,9 +63,6 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public final class TreeNodeRepository {
   private static final BaseEncoding LOWER_CASE_HEX = BaseEncoding.base16().lowerCase();
-
-  // In this implementation, symlinks are NOT followed when expanding directory artifacts
-  public static final Symlinks SYMLINK_POLICY = Symlinks.NOFOLLOW;
 
   private final Traverser<TreeNode> traverser =
       Traverser.forTree((TreeNode node) -> children(node));
@@ -233,11 +231,17 @@ public final class TreeNodeRepository {
   private final Map<VirtualActionInput, Digest> virtualInputDigestCache = new HashMap<>();
   private final Map<Digest, VirtualActionInput> digestVirtualInputCache = new HashMap<>();
   private final DigestUtil digestUtil;
+  private final boolean uploadSymlinks;
 
-  public TreeNodeRepository(Path execRoot, MetadataProvider inputFileCache, DigestUtil digestUtil) {
+  public TreeNodeRepository(
+      Path execRoot,
+      MetadataProvider inputFileCache,
+      DigestUtil digestUtil,
+      boolean uploadSymlinks) {
     this.execRoot = execRoot;
     this.inputFileCache = inputFileCache;
     this.digestUtil = digestUtil;
+    this.uploadSymlinks = uploadSymlinks;
   }
 
   public MetadataProvider getInputFileCache() {
@@ -287,7 +291,7 @@ public final class TreeNodeRepository {
 
   // Expand the descendant of an artifact (input) directory
   private List<TreeNode.ChildEntry> buildInputDirectoryEntries(Path path) throws IOException {
-    List<Dirent> sortedDirent = new ArrayList<>(path.readdir(SYMLINK_POLICY));
+    List<Dirent> sortedDirent = new ArrayList<>(path.readdir(Symlinks.NOFOLLOW));
     sortedDirent.sort(Comparator.comparing(Dirent::getName));
 
     List<TreeNode.ChildEntry> entries = new ArrayList<>(sortedDirent.size());
@@ -297,6 +301,17 @@ public final class TreeNodeRepository {
       TreeNode childNode;
       if (dirent.getType() == Dirent.Type.DIRECTORY) {
         childNode = interner.intern(new TreeNode(buildInputDirectoryEntries(child), null));
+      } else if (dirent.getType() == Dirent.Type.SYMLINK) {
+        PathFragment target = child.readSymbolicLink();
+        // Need to resolve the symbolic link to know what to expand it to, file or directory.
+        FileStatus statFollow = child.statIfFound(Symlinks.FOLLOW);
+        Preconditions.checkNotNull(statFollow, "Dangling symbolic link %s to %s", child, target);
+        boolean uploadSymlinkAsDirectory = !uploadSymlinks || target.isAbsolute();
+        if (statFollow.isDirectory() && uploadSymlinkAsDirectory) {
+          childNode = interner.intern(new TreeNode(buildInputDirectoryEntries(child), null));
+        } else {
+          childNode = interner.intern(new TreeNode(ActionInputHelper.fromPath(child.asFragment())));
+        }
       } else {
         childNode = interner.intern(new TreeNode(ActionInputHelper.fromPath(child.asFragment())));
       }
@@ -325,14 +340,25 @@ public final class TreeNodeRepository {
       Preconditions.checkArgument(
           inputsStart == inputsEnd - 1, "Encountered two inputs with the same path.");
       ActionInput input = inputs.get(inputsStart);
+      Path leafPath = execRoot.getRelative(input.getExecPathString());
+      if (!(input instanceof VirtualActionInput) && uploadSymlinks) {
+        FileStatus stat = leafPath.stat(Symlinks.NOFOLLOW);
+        if (stat.isSymbolicLink()) {
+          PathFragment target = leafPath.readSymbolicLink();
+          FileStatus statFollow = leafPath.statIfFound(Symlinks.FOLLOW);
+          Preconditions.checkNotNull(
+              statFollow, "Action input %s is a dangling symbolic link to %s ", leafPath, target);
+          if (!target.isAbsolute()) {
+            return interner.intern(new TreeNode(input));
+          }
+        }
+      }
       try {
         if (!(input instanceof VirtualActionInput)
             && getInputMetadata(input).getType().isDirectory()) {
-          Path leafPath = execRoot.getRelative(input.getExecPathString());
           return interner.intern(new TreeNode(buildInputDirectoryEntries(leafPath), input));
         }
       } catch (DigestOfDirectoryException e) {
-        Path leafPath = execRoot.getRelative(input.getExecPathString());
         return interner.intern(new TreeNode(buildInputDirectoryEntries(leafPath), input));
       }
       return interner.intern(new TreeNode(input));
@@ -366,17 +392,30 @@ public final class TreeNodeRepository {
         TreeNode child = entry.getChild();
         if (child.isLeaf()) {
           ActionInput input = child.getActionInput();
-          final Digest digest;
           if (input instanceof VirtualActionInput) {
             VirtualActionInput virtualInput = (VirtualActionInput) input;
-            digest = digestUtil.compute(virtualInput);
+            Digest digest = digestUtil.compute(virtualInput);
             virtualInputDigestCache.put(virtualInput, digest);
             // There may be multiple inputs with the same digest. In that case, we don't care which
             // one we get back from the digestVirtualInputCache later.
             digestVirtualInputCache.put(digest, virtualInput);
-          } else {
-            digest = DigestUtil.getFromInputCache(input, inputFileCache);
+            b.addFilesBuilder().setName(entry.getSegment()).setDigest(digest).setIsExecutable(true);
+            continue;
           }
+          if (uploadSymlinks) {
+            // We need to stat the input to check whether it is a symlink.
+            // getInputMetadata only gives target metadata.
+            Path inputPath = execRoot.getRelative(input.getExecPath());
+            FileStatus stat = inputPath.stat(Symlinks.NOFOLLOW);
+            if (stat.isSymbolicLink()) {
+              PathFragment target = inputPath.readSymbolicLink();
+              if (!target.isAbsolute()) {
+                b.addSymlinksBuilder().setName(entry.getSegment()).setTarget(target.toString());
+                continue;
+              }
+            }
+          }
+          Digest digest = DigestUtil.getFromInputCache(input, inputFileCache);
           b.addFilesBuilder().setName(entry.getSegment()).setDigest(digest).setIsExecutable(true);
         } else {
           Digest childDigest = Preconditions.checkNotNull(treeNodeDigestCache.get(child));

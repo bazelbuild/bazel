@@ -34,6 +34,7 @@ function set_up() {
         --work_path="${work_path}" \
         --listen_port=${worker_port} \
         --http_listen_port=${http_port} \
+        --incompatible_remote_symlinks \
         --pid_file="${pid_file}" &
     local wait_seconds=0
     until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 15 ]; do
@@ -168,8 +169,12 @@ def _gen_output_dir_impl(ctx):
       inputs = [],
       command = """
         mkdir -p $1/sub1; \
-        echo "Hello, world!" > $1/foo.txt; \
-        echo "Shuffle, duffle, muzzle, muff" > $1/sub1/bar.txt
+        cd $1; \
+        echo "Hello, world!" > hello.txt; \
+        ln -s hello.txt foo.txt; \
+        cd sub1; \
+        echo "Shuffle, duffle, muzzle, muff" > shuffle.txt; \
+        ln -s $PWD/shuffle.txt bar.txt
       """,
       arguments = [output_dir.path],
   )
@@ -232,7 +237,9 @@ EOF
 function test_directory_artifact_skylark_local() {
   set_directory_artifact_skylark_testfixtures
 
-  bazel build //a:test >& $TEST_log \
+  bazel build \
+      --spawn_strategy=local \
+    //a:test >& $TEST_log \
     || fail "Failed to build //a:test without remote execution"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Local execution generated different result"
@@ -243,6 +250,7 @@ function test_directory_artifact_skylark() {
 
   bazel build \
       --spawn_strategy=remote \
+      --incompatible_remote_symlinks \
       --remote_executor=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
@@ -251,6 +259,7 @@ function test_directory_artifact_skylark() {
   bazel clean --expunge
   bazel build \
       --spawn_strategy=remote \
+      --incompatible_remote_symlinks \
       --remote_executor=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
@@ -264,6 +273,8 @@ function test_directory_artifact_skylark_grpc_cache() {
 
   bazel build \
       --remote_cache=localhost:${worker_port} \
+      --spawn_strategy=local \
+      --incompatible_remote_symlinks \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
@@ -271,6 +282,8 @@ function test_directory_artifact_skylark_grpc_cache() {
   bazel clean --expunge
   bazel build \
       --remote_cache=localhost:${worker_port} \
+      --spawn_strategy=local \
+      --incompatible_remote_symlinks \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache"
   expect_log "remote cache hit"
@@ -283,12 +296,16 @@ function test_directory_artifact_skylark_rest_cache() {
 
   bazel build \
       --remote_rest_cache=http://localhost:${http_port} \
+      --spawn_strategy=local \
+      --incompatible_remote_symlinks \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
   bazel clean --expunge
   bazel build \
+      --spawn_strategy=local \
+      --incompatible_remote_symlinks \
       --remote_rest_cache=http://localhost:${http_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache"
@@ -303,12 +320,16 @@ function test_directory_artifact_in_runfiles_skylark_rest_cache() {
   bazel build \
       --remote_rest_cache=http://localhost:${http_port} \
       //a:test2 >& $TEST_log \
+      --spawn_strategy=local \
+      --incompatible_remote_symlinks \
       || fail "Failed to build //a:test2 with remote REST cache"
   diff bazel-genfiles/a/test2-out.txt a/test_expected \
       || fail "Remote cache miss generated different result"
   bazel clean --expunge
   bazel build \
       --remote_rest_cache=http://localhost:${http_port} \
+      --spawn_strategy=local \
+      --incompatible_remote_symlinks \
       //a:test2 >& $TEST_log \
       || fail "Failed to build //a:test2 with remote REST cache"
   expect_log "remote cache hit"
