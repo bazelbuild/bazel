@@ -114,7 +114,7 @@ set -ex
 
     _if_debug(cond=ctx.attr.verbose, st=st, what='Checkout')
     if st.return_code:
-        fail("error cloning %s:\n%s" % (ctx.name, st.stderr))
+        fail("Error checking out worktree %s:\n%s" % (ctx.name, st.stderr))
 
     if ctx.attr.strip_prefix:
         dest_link = "{}/{}".format(directory, ctx.attr.strip_prefix)
