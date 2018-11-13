@@ -435,7 +435,11 @@ def configure_windows_toolchain(repository_ctx):
                                 "Please install Clang via http://releases.llvm.org/download.html\n")
         cl_path = find_llvm_tool(repository_ctx, llvm_path, "clang-cl.exe")
         link_path = find_llvm_tool(repository_ctx, llvm_path, "lld-link.exe")
+        if not link_path:
+            link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe")
         lib_path = find_llvm_tool(repository_ctx, llvm_path, "llvm-lib.exe")
+        if not lib_path:
+            lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe")
     else:
         cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe")
         link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe")
