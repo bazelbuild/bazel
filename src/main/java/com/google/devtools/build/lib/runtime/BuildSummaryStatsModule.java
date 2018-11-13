@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -86,6 +87,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
   }
