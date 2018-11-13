@@ -159,7 +159,7 @@ public final class SkyframeActionExecutor {
   // findAndStoreArtifactConflicts, and is preserved across builds otherwise.
   private ImmutableMap<ActionAnalysisMetadata, ConflictException> badActionMap = ImmutableMap.of();
   private OptionsProvider options;
-  private boolean usePerFileActionCache;
+  private boolean usePerActionFileCache;
   private boolean hadExecutionError;
   private MetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
@@ -369,7 +369,7 @@ public final class SkyframeActionExecutor {
     this.actionCacheChecker = Preconditions.checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
     this.options = options;
-    this.usePerFileActionCache =
+    this.usePerActionFileCache =
         options.getOptions(BuildRequestOptions.class).usePerActionFileCache;
     // Cache the finalizeActions value for performance, since we consult it on every action.
     this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
@@ -386,8 +386,8 @@ public final class SkyframeActionExecutor {
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
-  boolean usePerFileActionCache() {
-    return usePerFileActionCache;
+  boolean usePerActionFileCache() {
+    return usePerActionFileCache;
   }
 
   boolean usesActionFileSystem() {
