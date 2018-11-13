@@ -32,7 +32,7 @@ def java_library_impl(ctx):
     neverlink_jars = ctx.files.neverlink_jars
     compile_time_jars += jars + neverlink_jars
     runtime_jars += jars
-    compile_time_jars_list = list(compile_time_jars)  # TODO: This is weird.
+    compile_time_jars_list = compile_time_jars.to_list()  # TODO: This is weird.
 
     build_output = class_jar.path + ".build_output"
     java_output = class_jar.path + ".build_java"
