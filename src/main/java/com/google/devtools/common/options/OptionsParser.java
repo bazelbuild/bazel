@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.escape.Escaper;
 import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
+import com.google.devtools.common.options.OptionsParserImpl.ResidueAndPriority;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -176,6 +177,7 @@ public class OptionsParser implements OptionsParsingResult {
 
   private final OptionsParserImpl impl;
   private final List<String> residue = new ArrayList<String>();
+  private final List<String> postDoubleDashResidue = new ArrayList<>();
   private boolean allowResidue = true;
   private Map<String, Object> skylarkOptions = new HashMap<>();
 
@@ -623,7 +625,9 @@ public class OptionsParser implements OptionsParsingResult {
       throws OptionsParsingException {
     Preconditions.checkNotNull(priority);
     Preconditions.checkArgument(priority != OptionPriority.PriorityCategory.DEFAULT);
-    residue.addAll(impl.parse(priority, sourceFunction, args));
+    ResidueAndPriority residueAndPriority = impl.parse(priority, sourceFunction, args);
+    residue.addAll(residueAndPriority.getResidue());
+    postDoubleDashResidue.addAll(residueAndPriority.postDoubleDashResidue);
     if (!allowResidue && !residue.isEmpty()) {
       String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       throw new OptionsParsingException(errorMsg);
@@ -649,7 +653,10 @@ public class OptionsParser implements OptionsParsingResult {
         optionToExpand.getPriority().getPriorityCategory()
             != OptionPriority.PriorityCategory.DEFAULT,
         "Priority cannot be default, which was specified for arglist " + args);
-    residue.addAll(impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args));
+    ResidueAndPriority residueAndPriority =
+        impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args);
+    residue.addAll(residueAndPriority.getResidue());
+    postDoubleDashResidue.addAll(residueAndPriority.postDoubleDashResidue);
     if (!allowResidue && !residue.isEmpty()) {
       String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       throw new OptionsParsingException(errorMsg);
@@ -687,6 +694,15 @@ public class OptionsParser implements OptionsParsingResult {
   @Override
   public List<String> getResidue() {
     return ImmutableList.copyOf(residue);
+  }
+
+  @Override
+  public List<String> getPreDoubleDashResidue() {
+    return postDoubleDashResidue.isEmpty()
+        ? ImmutableList.copyOf(residue)
+        : residue.stream()
+            .filter(residue -> !postDoubleDashResidue.contains(residue))
+            .collect(Collectors.toList());
   }
 
   /** Returns a list of warnings about problems encountered by previous parse calls. */
