@@ -1081,7 +1081,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
-    assertContainsEvent("'default' is no longer a supported parameter for attr.output");
+    assertContainsEvent(
+        "parameter 'default' is deprecated and will be removed soon. It may be "
+            + "temporarily re-enabled by setting --incompatible_no_output_attr_default=false");
   }
 
   @Test
@@ -1129,7 +1131,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:r");
-    assertContainsEvent("'default' is no longer a supported parameter for attr.output_list");
+    assertContainsEvent(
+        "parameter 'default' is deprecated and will be removed soon. It may be "
+            + "temporarily re-enabled by setting --incompatible_no_output_attr_default=false");
   }
 
   @Test

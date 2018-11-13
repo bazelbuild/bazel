@@ -87,7 +87,8 @@ public final class MethodDescriptor {
   }
 
   /** @return Skylark method descriptor for provided Java method and signature annotation. */
-  public static MethodDescriptor of(Method method, SkylarkCallable annotation) {
+  public static MethodDescriptor of(
+      Method method, SkylarkCallable annotation, SkylarkSemantics semantics) {
     // This happens when the interface is public but the implementation classes
     // have reduced visibility.
     method.setAccessible(true);
@@ -99,10 +100,10 @@ public final class MethodDescriptor {
         annotation.documented(),
         annotation.structField(),
         Arrays.stream(annotation.parameters())
-            .map(ParamDescriptor::of)
+            .map(param -> ParamDescriptor.of(param, semantics))
             .collect(ImmutableList.toImmutableList()),
-        ParamDescriptor.of(annotation.extraPositionals()),
-        ParamDescriptor.of(annotation.extraKeywords()),
+        ParamDescriptor.of(annotation.extraPositionals(), semantics),
+        ParamDescriptor.of(annotation.extraKeywords(), semantics),
         annotation.selfCall(),
         annotation.allowReturnNones(),
         annotation.useLocation(),

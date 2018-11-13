@@ -254,7 +254,7 @@ public final class EvalUtils {
       return "List"; // This case shouldn't happen in normal code, but we keep it for debugging.
     } else if (Map.class.isAssignableFrom(c)) { // This is a Java Map that isn't a SkylarkDict
       return "Map"; // This case shouldn't happen in normal code, but we keep it for debugging.
-    } else if (BaseFunction.class.isAssignableFrom(c)) {
+    } else if (StarlarkFunction.class.isAssignableFrom(c)) {
       return "function";
     } else if (c.equals(SelectorValue.class)) {
       return "select";

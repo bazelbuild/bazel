@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -114,7 +115,7 @@ public final class FuncallExpression extends Expression {
                       }
                       if (semantics.isFeatureEnabledBasedOnTogglingFlags(
                           callable.enableOnlyWithFlag(), callable.disableWithFlag())) {
-                        returnValue = MethodDescriptor.of(method, callable);
+                        returnValue = MethodDescriptor.of(method, callable, semantics);
                       }
                     }
                   }
@@ -150,7 +151,8 @@ public final class FuncallExpression extends Expression {
                         }
                         if (semantics.isFeatureEnabledBasedOnTogglingFlags(
                             callable.enableOnlyWithFlag(), callable.disableWithFlag())) {
-                          methodMap.put(callable.name(), MethodDescriptor.of(method, callable));
+                          methodMap.put(
+                              callable.name(), MethodDescriptor.of(method, callable, semantics));
                         }
                       }
                       return methodMap.build();
@@ -428,19 +430,6 @@ public final class FuncallExpression extends Expression {
       throw new IllegalStateException("Method loading failed: " + e);
     }
   }
-  /**
-   * Returns a {@link BuiltinCallable} object representing a function which calls the selfCall java
-   * method of the given object (the {@link SkylarkCallable} method with {@link
-   * SkylarkCallable#selfCall()} set to true).
-   *
-   * @deprecated use {@link #getSelfCallMethodDescriptor} instead
-   * @throws IllegalStateException if no such method exists for the object
-   */
-  @Deprecated
-  public static BuiltinCallable getSelfCallMethod(SkylarkSemantics semantics, Object obj) {
-    MethodDescriptor descriptor = getSelfCallMethodDescriptor(semantics, obj);
-    return new BuiltinCallable(descriptor.getName(), obj, descriptor);
-  }
 
   /**
    * Returns a {@link BuiltinCallable} representing a {@link SkylarkCallable}-annotated instance
@@ -454,7 +443,7 @@ public final class FuncallExpression extends Expression {
           "Expected a method named '%s' in %s, but found none",
           methodName, objClass));
     }
-    return new BuiltinCallable(methodName, obj, methodDescriptor);
+    return new BuiltinCallable(obj, methodName);
   }
 
   /**
@@ -482,8 +471,22 @@ public final class FuncallExpression extends Expression {
     return methodDescriptor.call(obj, new Object[0], Location.BUILTIN, null);
   }
 
-  // Throws an EvalException when the arguments do not match the method signature.
-  private Object[] convertStarlarkArgumentsToJavaMethodArguments(
+  /**
+   * Converts Starlark-defined arguments to an array of argument {@link Object}s that may be passed
+   * to a given callable-from-Starlark Java method.
+   *
+   * @param method a descriptor for a java method callable from Starlark
+   * @param objClass the class of the java object on which to invoke this method
+   * @param args a list of positional Starlark arguments
+   * @param kwargs a map of keyword Starlark arguments; keys are the used keyword, and values are
+   *     their corresponding values in the method call
+   * @param environment the current Starlark environment
+   * @return the array of arguments which may be passed to {@link MethodDescriptor#call}
+   * @throws EvalException if the given set of arguments are invalid for the given method. For
+   *     example, if any arguments are of unexpected type, or not all mandatory parameters are
+   *     specified by the user
+   */
+  public Object[] convertStarlarkArgumentsToJavaMethodArguments(
       MethodDescriptor method,
       Class<?> objClass,
       List<Object> args,
@@ -511,6 +514,14 @@ public final class FuncallExpression extends Expression {
       ParamDescriptor param = parameters.get(i);
       SkylarkType type = param.getSkylarkType();
       Object value;
+
+      if (param.isDisabledInCurrentSemantics()) {
+        value =
+            SkylarkSignatureProcessor.getDefaultValue(
+                param.getName(), param.getValueOverride(), null);
+        builder.add(value);
+        continue;
+      }
 
       if (argIndex < args.size() && param.isPositional()) { // Positional args and params remain.
         value = args.get(argIndex);
@@ -582,12 +593,7 @@ public final class FuncallExpression extends Expression {
         }
         extraKwargs = extraKwargsBuilder.build();
       } else {
-        throw argumentMismatchException(
-            String.format(
-                "unexpected keyword%s %s",
-                keys.size() > 1 ? "s" : "",
-                Joiner.on(",").join(Iterables.transform(keys, s -> "'" + s + "'"))),
-            method, objClass, args, kwargs);
+        throw unexpectedKeywordArgumentException(keys, method, objClass, args, kwargs, environment);
       }
     }
 
@@ -603,10 +609,53 @@ public final class FuncallExpression extends Expression {
     return builder.build().toArray();
   }
 
+  private EvalException unexpectedKeywordArgumentException(
+      Set<String> unexpectedKeywords,
+      MethodDescriptor method,
+      Class<?> objClass,
+      List<Object> args,
+      Map<String, Object> kwargs,
+      Environment env) {
+    // Check if any of the unexpected keywords are for parameters which are disabled by the
+    // current semantic flags. Throwing an error with information about the misconfigured
+    // semantic flag is likely far more helpful.
+    for (ParamDescriptor param : method.getParameters()) {
+      if (param.isDisabledInCurrentSemantics() && unexpectedKeywords.contains(param.getName())) {
+        FlagIdentifier flagIdentifier = param.getFlagResponsibleForDisable();
+        // If the flag is True, it must be a deprecation flag. Otherwise it's an experimental flag.
+        if (env.getSemantics().flagValue(flagIdentifier)) {
+          return new EvalException(
+              getLocation(),
+              String.format(
+                  "parameter '%s' is deprecated and will be removed soon. It may be "
+                      + "temporarily re-enabled by setting --%s=false",
+                  param.getName(), flagIdentifier.getFlagName()));
+        } else {
+          return new EvalException(
+              getLocation(),
+              String.format(
+                  "parameter '%s' is experimental and thus unavailable with the current "
+                      + "flags. It may be enabled by setting --%s",
+                  param.getName(), flagIdentifier.getFlagName()));
+        }
+      }
+    }
+
+    return argumentMismatchException(
+        String.format(
+            "unexpected keyword%s %s",
+            unexpectedKeywords.size() > 1 ? "s" : "",
+            Joiner.on(",").join(Iterables.transform(unexpectedKeywords, s -> "'" + s + "'"))),
+        method,
+        objClass,
+        args,
+        kwargs);
+  }
+
   private EvalException argumentMismatchException(String errorDescription,
       MethodDescriptor methodDescriptor, Class<?> objClass, List<Object> args,
       Map<String, Object> kwargs) {
-    if (methodDescriptor.isSelfCall()) {
+    if (methodDescriptor.isSelfCall() || SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(objClass)) {
       return new EvalException(
           getLocation(),
           String.format(
@@ -927,8 +976,8 @@ public final class FuncallExpression extends Expression {
       ArrayList<Object> posargs, Map<String, Object> kwargs, Environment env)
       throws EvalException, InterruptedException {
 
-    if (funcValue instanceof BaseFunction) {
-      BaseFunction function = (BaseFunction) funcValue;
+    if (funcValue instanceof StarlarkFunction) {
+      StarlarkFunction function = (StarlarkFunction) funcValue;
       return function.call(posargs, ImmutableMap.copyOf(kwargs), this, env);
     } else if (hasSelfCallMethod(env.getSemantics(), funcValue.getClass())) {
       MethodDescriptor descriptor = getSelfCallMethodDescriptor(env.getSemantics(), funcValue);

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -141,7 +142,11 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         // TODO(bazel-team): need to give the types of these builtin attributes
         @Param(
             name = "outputs",
-            type = SkylarkDict.class,
+            allowedTypes = {
+              @ParamType(type = SkylarkDict.class),
+              @ParamType(type = NoneType.class),
+              @ParamType(type = BaseFunction.class)
+            },
             legacyNamed = true,
             callbackEnabled = true,
             noneable = true,

@@ -689,12 +689,6 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       throws EvalException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(env, "attr.output", ast.getLocation());
 
-    if (env.getSemantics().incompatibleNoOutputAttrDefault() && defaultO != Runtime.NONE) {
-      throw new EvalException(ast.getLocation(),
-          "'default' is no longer a supported parameter for attr.output. Use Starlark macros "
-              + "to set the default of output or output_list parameters instead. You can use "
-              + "--incompatible_no_output_attr_default=false to temporarily disable this check.");
-    }
     return createNonconfigurableAttrDescriptor(
         "output",
         EvalUtils.<String, Object>optionMap(env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
@@ -714,13 +708,6 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       Environment env)
       throws EvalException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(env, "attr.output_list", ast.getLocation());
-
-    if (env.getSemantics().incompatibleNoOutputAttrDefault() && defaultList != Runtime.NONE) {
-      throw new EvalException(ast.getLocation(),
-          "'default' is no longer a supported parameter for attr.output_list. Use Starlark macros "
-              + "to set the default of output or output_list parameters instead. You can use "
-              + "--incompatible_no_output_attr_default=false to temporarily disable this check.");
-    }
 
     return createAttrDescriptor(
         "output_list",

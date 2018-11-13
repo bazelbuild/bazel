@@ -317,6 +317,17 @@ public final class SkylarkCallableProcessorTest {
   }
 
   @Test
+  public void testEnablingAndDisablingFlag_param() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("EnablingAndDisablingFlagParam.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Parameter 'two' has enableOnlyWithFlag and disableWithFlag set. "
+                + "At most one may be set");
+  }
+
+  @Test
   public void testConflictingMethodNames() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ConflictingMethodNames.java"))
@@ -324,5 +335,34 @@ public final class SkylarkCallableProcessorTest {
         .failsToCompile()
         .withErrorContaining("Containing class has more than one method with name "
             + "'conflicting_method' defined");
+  }
+
+  @Test
+  public void testDisabledValueParamNoToggle() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("DisabledValueParamNoToggle.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining("Parameter 'two' has valueWhenDisabled set, but is always enabled");
+  }
+
+  @Test
+  public void testToggledKwargsParam() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ToggledKwargsParam.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining("The extraKeywords parameter may not be toggled by semantic flag");
+  }
+
+  @Test
+  public void testToggledParamNoDisabledValue() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ToggledParamNoDisabledValue.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Parameter 'two' may be disabled by semantic flag, "
+                + "thus valueWhenDisabled must be set");
   }
 }

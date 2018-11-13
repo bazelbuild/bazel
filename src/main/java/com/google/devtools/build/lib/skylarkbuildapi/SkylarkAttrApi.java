@@ -743,9 +743,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "output",
-      doc =
-          "Creates a schema for an output (label) attribute."
-              + OUTPUT_ATTR_TEXT,
+      doc = "Creates a schema for an output (label) attribute." + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -757,9 +755,13 @@ public interface SkylarkAttrApi extends SkylarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = "<b><code>default<code> is deprecated for <code>attr.output</code>. Use "
-                + "Starlark macros to set the default for <code>output<code> and "
-                + "<code>output_list</code> attributes. <p>" + DEFAULT_DOC),
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT,
+            valueWhenDisabled = "None",
+            doc =
+                "<b><code>default<code> is deprecated for <code>attr.output</code>. Use "
+                    + "Starlark macros to set the default for <code>output<code> and "
+                    + "<code>output_list</code> attributes. <p>"
+                    + DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
             type = String.class,
@@ -783,9 +785,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "output_list",
-      doc =
-          "Creates a schema for a list-of-outputs attribute."
-              + OUTPUT_ATTR_TEXT,
+      doc = "Creates a schema for a list-of-outputs attribute." + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
             name = ALLOW_EMPTY_ARG,
@@ -803,9 +803,13 @@ public interface SkylarkAttrApi extends SkylarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = "<b><code>default<code> is deprecated for <code>attr.output_list</code>. Use "
-                + "Starlark macros to set the default for <code>output<code> and "
-                + "<code>output_list</code> attributes. <p>" + DEFAULT_DOC),
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT,
+            valueWhenDisabled = "None",
+            doc =
+                "<b><code>default<code> is deprecated for <code>attr.output_list</code>. Use "
+                    + "Starlark macros to set the default for <code>output<code> and "
+                    + "<code>output_list</code> attributes. <p>"
+                    + DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
             type = String.class,

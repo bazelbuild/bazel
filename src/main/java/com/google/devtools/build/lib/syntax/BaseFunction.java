@@ -22,7 +22,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,22 +32,20 @@ import javax.annotation.Nullable;
 /**
  * A base class for Skylark functions, whether builtin or user-defined.
  *
- * <p>Nomenclature:
- * We call "Parameters" the formal parameters of a function definition.
- * We call "Arguments" the actual values supplied at the call site.
+ * <p>Nomenclature: We call "Parameters" the formal parameters of a function definition. We call
+ * "Arguments" the actual values supplied at the call site.
  *
- * <p>The outer calling convention is like that of python3,
- * with named parameters that can be mandatory or optional, and also be positional or named-only,
- * and rest parameters for extra positional and keyword arguments.
- * Callers supply a {@code List<Object>} args for positional arguments
- * and a {@code Map<String, Object>} for keyword arguments,
- * where positional arguments will be resolved first, then keyword arguments,
- * with errors for a clash between the two, for missing mandatory parameter,
- * or for unexpected extra positional or keyword argument in absence of rest parameter.
+ * <p>The outer calling convention is like that of python3, with named parameters that can be
+ * mandatory or optional, and also be positional or named-only, and rest parameters for extra
+ * positional and keyword arguments. Callers supply a {@code List<Object>} args for positional
+ * arguments and a {@code Map<String, Object>} for keyword arguments, where positional arguments
+ * will be resolved first, then keyword arguments, with errors for a clash between the two, for
+ * missing mandatory parameter, or for unexpected extra positional or keyword argument in absence of
+ * rest parameter.
  *
- * <p>The inner calling convention is to pass the underlying method
- * an {@code Object[]} of the type-checked argument values, one per expected parameter,
- * parameters being sorted as documented in {@link FunctionSignature}.
+ * <p>The inner calling convention is to pass the underlying method an {@code Object[]} of the
+ * type-checked argument values, one per expected parameter, parameters being sorted as documented
+ * in {@link FunctionSignature}.
  *
  * <p>The function may provide default values for optional parameters not provided by the caller.
  * These default values can be null if there are no optional parameters or for builtin functions,
@@ -58,7 +55,7 @@ import javax.annotation.Nullable;
 // Provide optimized argument frobbing depending of FunctionSignature and CallerSignature
 // (that FuncallExpression must supply), optimizing for the all-positional and all-keyword cases.
 // Also, use better pure maps to minimize map O(n) re-creation events when processing keyword maps.
-public abstract class BaseFunction implements SkylarkValue {
+public abstract class BaseFunction implements StarlarkFunction {
 
   /**
    * The name of the function.

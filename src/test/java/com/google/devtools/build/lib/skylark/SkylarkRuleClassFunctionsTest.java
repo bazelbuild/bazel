@@ -771,15 +771,14 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testRuleUnknownKeyword() throws Exception {
     registerDummyUserDefinedFunction();
     checkErrorContains(
-        "unexpected keyword 'bad_keyword' in call to " + "rule(implementation: function, ",
+        "unexpected keyword 'bad_keyword', in call to rule(function, string bad_keyword)",
         "rule(impl, bad_keyword = 'some text')");
   }
 
   @Test
   public void testRuleImplementationMissing() throws Exception {
     checkErrorContains(
-        "missing mandatory positional argument 'implementation' while calling "
-            + "rule(implementation",
+        "parameter 'implementation' has no default value, in call to rule(dict attrs)",
         "rule(attrs = {})");
   }
 
@@ -787,8 +786,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testRuleBadTypeForAdd() throws Exception {
     registerDummyUserDefinedFunction();
     checkErrorContains(
-        "expected dict or NoneType for 'attrs' while calling rule but got string instead: "
-            + "some text",
+        "expected value of type 'dict or NoneType' for parameter 'attrs', "
+            + "in call to rule(function, string attrs)",
         "rule(impl, attrs = 'some text')");
   }
 
@@ -804,7 +803,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testRuleBadTypeForDoc() throws Exception {
     registerDummyUserDefinedFunction();
     checkErrorContains(
-        "expected string for 'doc' while calling rule but got int instead",
+        "expected value of type 'string' for parameter 'doc', in call to rule(function, int doc)",
         "rule(impl, doc = 1)");
   }
 
@@ -1416,7 +1415,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void declaredProvidersBadTypeForDoc() throws Exception {
     checkErrorContains(
-        "expected string for 'doc' while calling provider but got int instead",
+        "expected value of type 'string' for parameter 'doc', in call to provider(int doc)",
         "provider(doc = 1)");
   }
 
@@ -1559,7 +1558,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void aspectBadTypeForDoc() throws Exception {
     registerDummyUserDefinedFunction();
     checkErrorContains(
-        "expected string for 'doc' while calling aspect but got int instead",
+        "expected value of type 'string' for parameter 'doc', in call to aspect(function, int doc)",
         "aspect(impl, doc = 1)");
   }
 

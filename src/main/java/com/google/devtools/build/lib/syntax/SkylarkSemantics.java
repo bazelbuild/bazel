@@ -47,6 +47,7 @@ public abstract class SkylarkSemantics {
     EXPERIMENTAL_PLATFORM_API(SkylarkSemantics::experimentalPlatformsApi),
     INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
         SkylarkSemantics::incompatibleDisableObjcProviderResources),
+    INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT(SkylarkSemantics::incompatibleNoOutputAttrDefault),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(
         SkylarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(SkylarkSemantics::incompatibleNoAttrLicense),
@@ -96,6 +97,11 @@ public abstract class SkylarkSemantics {
     } else {
       return disablingFlag == FlagIdentifier.NONE || !disablingFlag.semanticsFunction.apply(this);
     }
+  }
+
+  /** Returns the value of the given flag. */
+  public boolean flagValue(FlagIdentifier flagIdentifier) {
+    return flagIdentifier.semanticsFunction.apply(this);
   }
 
   /**
