@@ -169,6 +169,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean explicitJavaTestDeps;
   private final boolean experimentalTestRunner;
   private final boolean jplPropagateCcLinkParamsStore;
+  private final boolean addTestSupportToCompileTimeDeps;
   private final ImmutableList<Label> pluginList;
   private final boolean requireJavaToolchainHeaderCompilerDirect;
   private final boolean disallowResourceJars;
@@ -205,6 +206,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.experimentalTestRunner = javaOptions.experimentalTestRunner;
     this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
     this.disallowResourceJars = javaOptions.disallowResourceJars;
+    this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -422,6 +424,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean jplPropagateCcLinkParamsStore() {
     return jplPropagateCcLinkParamsStore;
+  }
+
+  public boolean addTestSupportToCompileTimeDeps() {
+    return addTestSupportToCompileTimeDeps;
   }
 
   public List<Label> getPlugins() {

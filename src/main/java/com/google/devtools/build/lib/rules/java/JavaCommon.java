@@ -108,7 +108,10 @@ public class JavaCommon {
     this(
         ruleContext,
         semantics,
-        /* sources= */ ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
+        ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
+        collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.COMPILE_ONLY),
+        collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY),
+        collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.BOTH));
   }
 
   public JavaCommon(
@@ -330,7 +333,7 @@ public class JavaCommon {
    * called by {@link #initCommon()} for the current target's runtime dependencies.
    */
   public static void checkRuntimeDeps(
-      RuleContext ruleContext, Iterable<? extends TransitiveInfoCollection> runtimeDepInfo) {
+      RuleContext ruleContext, List<TransitiveInfoCollection> runtimeDepInfo) {
     for (TransitiveInfoCollection c : runtimeDepInfo) {
       JavaInfo javaInfo = (JavaInfo) c.get(JavaInfo.PROVIDER.getKey());
       if (javaInfo == null) {
@@ -594,7 +597,6 @@ public class JavaCommon {
     processSrcs(javaTargetAttributes);
     javaTargetAttributes.addSourceArtifacts(sources);
     javaTargetAttributes.addSourceArtifacts(extraSrcs);
-    checkRuntimeDeps(ruleContext, getRuntimeDeps(ruleContext));
     processRuntimeDeps(javaTargetAttributes);
 
     if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
@@ -650,19 +652,15 @@ public class JavaCommon {
       builder.addAll(getRuntimeDeps(ruleContext));
       builder.addAll(getExports(ruleContext));
     }
-    if (!type.equals(ClasspathType.RUNTIME_ONLY)) {
-      builder.addAll(ruleContext.getPrerequisites("deps", Mode.TARGET));
-    }
+    builder.addAll(ruleContext.getPrerequisites("deps", Mode.TARGET));
 
     semantics.collectTargetsTreatedAsDeps(ruleContext, builder, type);
 
     // Implicitly add dependency on java launcher cc_binary when --java_launcher= is enabled,
     // or when launcher attribute is specified in a build rule.
-    if (!type.equals(ClasspathType.COMPILE_ONLY)) {
-      TransitiveInfoCollection launcher = JavaHelper.launcherForTarget(semantics, ruleContext);
-      if (launcher != null) {
-        builder.add(launcher);
-      }
+    TransitiveInfoCollection launcher = JavaHelper.launcherForTarget(semantics, ruleContext);
+    if (launcher != null) {
+      builder.add(launcher);
     }
 
     return builder.build();
@@ -744,8 +742,8 @@ public class JavaCommon {
 
   /** Processes the transitive runtime_deps of this target. */
   private void processRuntimeDeps(JavaTargetAttributes.Builder attributes) {
-    Iterable<? extends TransitiveInfoCollection> runtimeDepInfo =
-        targetsTreatedAsDeps(ClasspathType.RUNTIME_ONLY);
+    List<TransitiveInfoCollection> runtimeDepInfo = getRuntimeDeps(ruleContext);
+    checkRuntimeDeps(ruleContext, runtimeDepInfo);
     JavaCompilationArgsProvider provider =
         JavaCompilationArgsProvider.legacyFromTargets(
             runtimeDepInfo, semantics.isJavaProtoLibraryStrictDeps(ruleContext));
