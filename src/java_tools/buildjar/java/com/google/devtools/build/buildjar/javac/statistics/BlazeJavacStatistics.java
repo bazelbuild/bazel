@@ -16,6 +16,7 @@ package com.google.devtools.build.buildjar.javac.statistics;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.MustBeClosed;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Context.Factory;
@@ -69,6 +70,8 @@ public abstract class BlazeJavacStatistics {
 
   public abstract ImmutableListMultimap<String, Duration> errorProneTicks();
 
+  public abstract ImmutableSet<String> processors();
+
   public abstract int transitiveClasspathLength();
 
   public abstract int reducedClasspathLength();
@@ -98,6 +101,8 @@ public abstract class BlazeJavacStatistics {
 
     abstract ImmutableListMultimap.Builder<String, Duration> errorProneTicksBuilder();
 
+    abstract ImmutableSet.Builder<String> processorsBuilder();
+
     public abstract Builder transitiveClasspathLength(int length);
 
     public abstract Builder reducedClasspathLength(int length);
@@ -123,6 +128,11 @@ public abstract class BlazeJavacStatistics {
         stopwatch.stop();
         consumer.accept(stopwatch.elapsed());
       };
+    }
+
+    public Builder addProcessor(String processor) {
+      processorsBuilder().add(processor);
+      return this;
     }
   }
 
