@@ -1,0 +1,2 @@
+- Fixes regression #6662, by fixing tools/cpp/BUILD
+- Fixes regression #6665, by setting the toolchain identifier.
