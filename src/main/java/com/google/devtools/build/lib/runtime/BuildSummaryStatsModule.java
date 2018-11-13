@@ -50,7 +50,6 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private EventBus eventBus;
   private Reporter reporter;
   private boolean enabled;
-  private boolean discardActions;
 
   private SpawnStats spawnStats;
 
@@ -74,14 +73,12 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     enabled = env.getOptions().getOptions(ExecutionOptions.class).enableCriticalPathProfiling;
-    discardActions = !env.getSkyframeExecutor().tracksStateForIncrementality();
   }
 
   @Subscribe
   public void executionPhaseStarting(ExecutionStartingEvent event) {
     if (enabled) {
-      criticalPathComputer =
-          new CriticalPathComputer(actionKeyContext, BlazeClock.instance(), discardActions);
+      criticalPathComputer = new CriticalPathComputer(actionKeyContext, BlazeClock.instance());
       eventBus.register(criticalPathComputer);
     }
   }

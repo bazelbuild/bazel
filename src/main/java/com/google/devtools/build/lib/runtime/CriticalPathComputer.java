@@ -70,27 +70,22 @@ public class CriticalPathComputer {
   /** Maximum critical path found. */
   private final AtomicReference<CriticalPathComponent> maxCriticalPath;
   private final Clock clock;
-  protected final boolean discardActions;
 
-  protected CriticalPathComputer(
-      ActionKeyContext actionKeyContext, Clock clock, boolean discardActions) {
+  protected CriticalPathComputer(ActionKeyContext actionKeyContext, Clock clock) {
     this.actionKeyContext = actionKeyContext;
     this.clock = clock;
-    this.discardActions = discardActions;
     maxCriticalPath = new AtomicReference<>();
   }
 
   /**
    * Creates a critical path component for an action.
+   *
    * @param action the action for the critical path component
-   * @param relativeStartNanos time when the action started to run in nanos. Only mean to be used
-   * for computing time differences.
+   * @param relativeStartNanos time when the action started to run in nanos. Only meant to be used
+   *     for computing time differences.
    */
-  public CriticalPathComponent createComponent(Action action, long relativeStartNanos) {
-    int id = idGenerator.getAndIncrement();
-    return discardActions
-        ? new ActionDiscardingCriticalPathComponent(id, action, relativeStartNanos)
-        : new CriticalPathComponent(id, action, relativeStartNanos);
+  private CriticalPathComponent createComponent(Action action, long relativeStartNanos) {
+    return new CriticalPathComponent(idGenerator.getAndIncrement(), action, relativeStartNanos);
   }
 
   /**
@@ -343,23 +338,27 @@ public class CriticalPathComputer {
     if (depComponent != null) {
       Action action = depComponent.maybeGetAction();
       if (depComponent.isRunning && action != null) {
-        // Rare case that an action depending on a previously-cached shared action sees a different
-        // shared action that is in the midst of being an action cache hit.
-        for (Artifact actionOutput : action.getOutputs()) {
-          if (input.equals(actionOutput)
-              && Objects.equals(input.getArtifactOwner(), actionOutput.getArtifactOwner())) {
-            // As far as we can tell, this (currently running) action is the same action that
-            // produced input, not another shared action. This should be impossible.
-            throw new IllegalStateException(
-                String.format(
-                    "Cannot add critical path stats when the action is not finished. %s. %s. %s",
-                    input, actionStats.prettyPrintAction(), action));
-          }
-        }
+        checkCriticalPathInconsistency(input, action, actionStats);
         return;
       }
       actionStats.addDepInfo(depComponent);
     }
   }
-}
 
+  protected void checkCriticalPathInconsistency(
+      Artifact input, Action action, CriticalPathComponent actionStats) {
+    // Rare case that an action depending on a previously-cached shared action sees a different
+    // shared action that is in the midst of being an action cache hit.
+    for (Artifact actionOutput : action.getOutputs()) {
+      if (input.equals(actionOutput)
+          && Objects.equals(input.getArtifactOwner(), actionOutput.getArtifactOwner())) {
+        // As far as we can tell, this (currently running) action is the same action that
+        // produced input, not another shared action. This should be impossible.
+        throw new IllegalStateException(
+            String.format(
+                "Cannot add critical path stats when the action is not finished. %s. %s. %s",
+                input, actionStats.prettyPrintAction(), action));
+      }
+    }
+  }
+}
