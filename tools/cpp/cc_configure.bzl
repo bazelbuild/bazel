@@ -94,7 +94,7 @@ def cc_configure():
     """A C++ configuration rules that generate the crosstool file."""
     cc_autoconf(name = "local_config_cc")
     native.bind(name = "cc_toolchain", actual = "@local_config_cc//:toolchain")
-    native.register_toolchains(
-        # Use register_toolchain's target pattern expansion to register all toolchains in the package.
-        "@local_config_cc//:all",
-    )
+    #native.register_toolchains(
+    #    # Use register_toolchain's target pattern expansion to register all toolchains in the package.
+    #    "@local_config_cc//:all",
+    #)
