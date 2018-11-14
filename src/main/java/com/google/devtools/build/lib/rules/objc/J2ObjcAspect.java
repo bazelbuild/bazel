@@ -90,7 +90,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   public static final String NAME = "J2ObjcAspect";
 
   private static final ExtraCompileArgs EXTRA_COMPILE_ARGS = new ExtraCompileArgs(
-      "-fmodules", "-fno-strict-overflow");
+      "-fno-strict-overflow");
 
   private static LabelLateBoundDefault<ProtoConfiguration> getProtoToolchainLabel(
       String defaultValue) {
@@ -485,7 +485,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     Artifact outputDependencyMappingFile = j2ObjcOutputDependencyMappingFile(ruleContext);
     argBuilder.addExecPath("--output_dependency_mapping_file", outputDependencyMappingFile);
 
+    ImmutableList.Builder<Artifact> sourceJarOutputFiles = ImmutableList.builder();
     if (!Iterables.isEmpty(sourceJars)) {
+      sourceJarOutputFiles.addAll(sourceJarOutputs(ruleContext));
       argBuilder.addExecPaths(
           "--src_jars", VectorArg.join(",").each(ImmutableList.copyOf(sourceJars)));
       argBuilder.addAll(sourceJarFlags(ruleContext));
