@@ -34,7 +34,8 @@ import com.google.devtools.build.lib.syntax.EvalException;
     category = SkylarkModuleCategory.PROVIDER)
 public interface ProguardMappingProviderApi<FileT extends FileApi> extends StructApi {
 
-  public static final String NAME = "ProguardMappingInfo";
+  /** The name of the provider for this info object. */
+  String NAME = "ProguardMappingInfo";
 
   @SkylarkCallable(name = "proguard_mapping", structField = true, doc = "", documented = false)
   FileT getProguardMapping();

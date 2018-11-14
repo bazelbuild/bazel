@@ -42,7 +42,6 @@ import javax.annotation.Nullable;
 public final class AndroidIdeInfoProvider extends NativeInfo
     implements AndroidIdeInfoProviderApi<Artifact, OutputJar> {
 
-  public static final String PROVIDER_NAME = "AndroidIdeInfo";
   public static final Provider PROVIDER = new Provider();
 
   /** Builder for {@link AndroidIdeInfoProvider} */
@@ -313,7 +312,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
   public static class Provider extends BuiltinProvider<AndroidIdeInfoProvider>
       implements AndroidIdeInfoProviderApi.Provider<Artifact, OutputJar> {
     private Provider() {
-      super(PROVIDER_NAME, AndroidIdeInfoProvider.class);
+      super(NAME, AndroidIdeInfoProvider.class);
     }
 
     @Override

@@ -42,7 +42,7 @@ public interface AndroidSdkProviderApi<
     extends StructApi {
 
   /** Name of this info object. */
-  public static final String NAME = "AndroidSdkInfo";
+  String NAME = "AndroidSdkInfo";
 
   /** The value of build_tools_version. May be null or empty. */
   @SkylarkCallable(name = "build_tools_version", structField = true, doc = "", documented = false)

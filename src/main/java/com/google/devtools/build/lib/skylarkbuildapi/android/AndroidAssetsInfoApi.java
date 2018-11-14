@@ -40,7 +40,8 @@ import javax.annotation.Nullable;
 public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends ParsedAndroidAssetsApi>
     extends StructApi {
 
-  public static final String NAME = "AndroidAssetsInfo";
+  /** The name of the provider for this info object. */
+  String NAME = "AndroidAssetsInfo";
 
   @SkylarkCallable(name = "label", structField = true, doc = "", documented = false)
   Label getLabel();

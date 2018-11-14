@@ -344,7 +344,7 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
     final UsesDataBindingProvider usesDataBindingProvider = a.get(UsesDataBindingProvider.PROVIDER);
 
     Truth.assertThat(usesDataBindingProvider)
-        .named(UsesDataBindingProvider.PROVIDER_NAME)
+        .named(UsesDataBindingProvider.NAME)
         .isNotNull();
 
     Truth.assertThat(

@@ -30,6 +30,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidManifestInfoApi<FileT extends FileApi> extends StructApi {
 
+  /** The name of the provider for this info object. */
+  String NAME = "AndroidManifestInfo";
+
   @SkylarkCallable(
       name = "manifest",
       doc = "This target's manifest, merged with manifests from dependencies",

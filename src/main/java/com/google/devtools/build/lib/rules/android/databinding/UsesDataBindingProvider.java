@@ -30,7 +30,6 @@ import java.util.Collection;
 public final class UsesDataBindingProvider extends NativeInfo
     implements UsesDataBindingProviderApi<Artifact> {
 
-  public static final String PROVIDER_NAME = "UsesDataBindingInfo";
   public static final Provider PROVIDER = new Provider();
 
   private final ImmutableList<Artifact> metadataOutputs;
@@ -50,7 +49,7 @@ public final class UsesDataBindingProvider extends NativeInfo
       implements UsesDataBindingProviderApi.Provider<Artifact> {
 
     private Provider() {
-      super(PROVIDER_NAME, UsesDataBindingProvider.class);
+      super(NAME, UsesDataBindingProvider.class);
     }
 
     @Override

@@ -30,7 +30,6 @@ import javax.annotation.Nonnull;
 public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
     implements AndroidLibraryResourceClassJarProviderApi<Artifact> {
 
-  public static final String PROVIDER_NAME = "AndroidLibraryResourceClassJarProvider";
   public static final Provider PROVIDER = new Provider();
 
   private final NestedSet<Artifact> resourceClassJars;
@@ -56,11 +55,11 @@ public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
       implements AndroidLibraryResourceClassJarProviderApi.Provider<Artifact> {
 
     private Provider() {
-      super(PROVIDER_NAME, AndroidLibraryResourceClassJarProvider.class);
+      super(NAME, AndroidLibraryResourceClassJarProvider.class);
     }
 
     public String getName() {
-      return PROVIDER_NAME;
+      return NAME;
     }
 
     @Override

@@ -22,10 +22,26 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidAssetsInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidCcLinkParamsProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDex2OatInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdeInfoProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdlProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryAarInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryResourceClassJarProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidPreDexJarProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidProguardInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSdkProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.ProguardMappingProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.UsesDataBindingProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
@@ -442,8 +458,31 @@ public class SkydocMain {
     platformBootstrap.addBindingsToBuilder(envBuilder);
     repositoryBootstrap.addBindingsToBuilder(envBuilder);
     testingBootstrap.addBindingsToBuilder(envBuilder);
+    addNonBootstrapGlobals(envBuilder);
 
     return GlobalFrame.createForBuiltins(envBuilder.build());
+  }
+
+  // TODO(cparsons): Remove this constant by migrating the contained symbols to bootstraps.
+  private static final String[] nonBootstrapGlobals = {"android_data", AndroidDex2OatInfoApi.NAME,
+      AndroidManifestInfoApi.NAME, AndroidAssetsInfoApi.NAME,
+      AndroidLibraryAarInfoApi.NAME, AndroidProguardInfoApi.NAME,
+      AndroidIdlProviderApi.NAME, AndroidIdeInfoProviderApi.NAME,
+      AndroidPreDexJarProviderApi.NAME, UsesDataBindingProviderApi.NAME,
+      AndroidCcLinkParamsProviderApi.NAME, AndroidLibraryResourceClassJarProviderApi.NAME,
+      AndroidSdkProviderApi.NAME, AndroidFeatureFlagSetProviderApi.NAME,
+      ProguardMappingProviderApi.NAME, GeneratedExtensionRegistryProviderApi.NAME,
+      AndroidBinaryDataInfoApi.NAME };
+
+  /**
+   * A hack to add a number of global symbols which are part of the build API but are otherwise
+   * added by Bazel.
+   */
+  // TODO(cparsons): Remove this method by migrating the contained symbols to bootstraps.
+  private static void addNonBootstrapGlobals(ImmutableMap.Builder<String, Object> envBuilder) {
+    for (String global : nonBootstrapGlobals) {
+      envBuilder.put(global, global);
+    }
   }
 
   private static Environment createEnvironment(EventHandler eventHandler, GlobalFrame globals,

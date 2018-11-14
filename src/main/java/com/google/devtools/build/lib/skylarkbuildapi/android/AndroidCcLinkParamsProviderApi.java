@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidCcLinkParamsProviderApi<T extends CcInfoApi> extends StructApi {
   /** Name of this info object. */
-  public static String NAME = "AndroidCcLinkParamsInfo";
+  String NAME = "AndroidCcLinkParamsInfo";
 
   /** Returns the cc link params. */
   @SkylarkCallable(name = "link_params", structField = true, doc = "", documented = false)
