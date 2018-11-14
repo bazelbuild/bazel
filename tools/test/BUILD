@@ -72,6 +72,7 @@ cc_library(
             "//src/main/cpp/util:filesystem",
             "//src/main/cpp/util:strings",
             "//src/main/native/windows:lib-file",
+            "//src/main/native/windows:lib-util",
             "//third_party/ijar:zip",
             "@bazel_tools//tools/cpp/runfiles",
         ],

@@ -40,6 +40,9 @@ cc_library(
     name = "lib-util",
     srcs = ["util.cc"],
     hdrs = ["util.h"],
+    visibility = [
+        "//tools/test:__pkg__",
+    ],
 )
 
 cc_binary(
