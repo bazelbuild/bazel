@@ -136,7 +136,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       } else if (defaultValue instanceof SkylarkLateBoundDefault) {
         builder.value((SkylarkLateBoundDefault) defaultValue);
       } else {
-        builder.defaultValue(defaultValue, env.getGlobals().getTransitiveLabel(), DEFAULT_ARG);
+        builder.defaultValue(defaultValue, env.getGlobals().getLabel(), DEFAULT_ARG);
       }
     }
 

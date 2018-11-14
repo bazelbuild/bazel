@@ -439,13 +439,6 @@ public final class Environment implements Freezable, Debuggable {
       return label;
     }
 
-    /** Same as getLabel. */
-    @Nullable
-    public Label getTransitiveLabel() {
-      checkInitialized();
-      return label;
-    }
-
     /**
      * Returns a map of direct bindings of this {@link GlobalFrame}, ignoring universe.
      *

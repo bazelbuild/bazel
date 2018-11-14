@@ -349,8 +349,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             hostFragments.getContents(String.class, "host_fragments"));
     builder.setConfiguredTargetFunction(implementation);
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
-        funcallEnv.getGlobals().getTransitiveLabel(),
-        funcallEnv.getTransitiveContentHashCode());
+        funcallEnv.getGlobals().getLabel(), funcallEnv.getTransitiveContentHashCode());
     builder.addRequiredToolchains(
         collectToolchainLabels(
             toolchains.getContents(String.class, "toolchains"), ast.getLocation()));
@@ -703,7 +702,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     if (relativeToCallerRepository) {
       parentLabel = env.getCallerLabel();
     } else {
-      parentLabel = env.getGlobals().getTransitiveLabel();
+      parentLabel = env.getGlobals().getLabel();
     }
     try {
       if (parentLabel != null) {
