@@ -31,7 +31,7 @@ def success_target(ctx, msg):
       with actions that always succeed at execution time.
     """
     exe = ctx.outputs.executable
-    dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
+    dat = ctx.actions.declare_file(exe.basename + ".dat")
     ctx.actions.write(
         output = dat,
         content = msg,
@@ -69,12 +69,12 @@ def failure_target(ctx, msg):
 
     ### fail(msg) ### <--- This would fail at analysis time.
     exe = ctx.outputs.executable
-    dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
-    ctx.file_action(
+    dat = ctx.actions.declare_file(exe.basename + ".dat")
+    ctx.actions.write(
         output = dat,
         content = msg,
     )
-    ctx.file_action(
+    ctx.actions.write(
         output = exe,
         content = "(cat " + dat.short_path + " ; echo ) >&2 ; exit 1",
         executable = True,
@@ -240,16 +240,16 @@ def _rule_test_impl(ctx):
                 fail(("rule %s doesn't provide attribute %s. " +
                       "Its list of attributes is: %s") %
                      (rule_name, k, dir(rule_)))
-            file_ = ctx.new_file(ctx.genfiles_dir, exe, "." + k)
+            file_ = ctx.actions.declare_file(exe.basename + "." + k)
             files += [file_]
             regexp = provides[k]
             commands += [
                 "if ! grep %s %s ; then echo 'bad %s:' ; cat %s ; echo ; exit 1 ; fi" %
                 (repr(regexp), file_.short_path, k, file_.short_path),
             ]
-            ctx.file_action(output = file_, content = v)
+            ctx.actions.write(output = file_, content = v)
         script = "\n".join(commands + ["true"])
-        ctx.file_action(output = exe, content = script, executable = True)
+        ctx.actions.write(output = exe, content = script, executable = True)
         return struct(runfiles = ctx.runfiles([exe] + files))
     else:
         return success_target(ctx, "success")
@@ -277,15 +277,15 @@ def _file_test_impl(ctx):
     if content and matches != -1:
         fail("matches only makes sense with regexp")
     if content:
-        dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
-        ctx.file_action(
+        dat = ctx.actions.declare_file(exe.basename + ".dat")
+        ctx.actions.write(
             output = dat,
             content = content,
         )
-        ctx.file_action(
+        ctx.actions.write(
             output = exe,
             content = "diff -u %s %s" % (dat.short_path, file_.short_path),
-            executable = True,
+            is_executable = True,
         )
         return struct(runfiles = ctx.runfiles([exe, dat, file_]))
     if matches != -1:
@@ -296,10 +296,10 @@ def _file_test_impl(ctx):
         )
     else:
         script = "grep %s %s" % (repr(regexp), file_.short_path)
-    ctx.file_action(
+    ctx.actions.write(
         output = exe,
         content = script,
-        executable = True,
+        is_executable = True,
     )
     return struct(runfiles = ctx.runfiles([exe, file_]))
 
@@ -307,8 +307,7 @@ file_test = rule(
     attrs = {
         "file": attr.label(
             mandatory = True,
-            allow_files = True,
-            single_file = True,
+            allow_single_file = True,
         ),
         "content": attr.string(default = ""),
         "regexp": attr.string(default = ""),

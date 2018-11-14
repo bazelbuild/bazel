@@ -82,8 +82,7 @@ jekyll_build = rule(
         "bucket": attr.string(),
         "_jekyll_build_tpl": attr.label(
             default = ":jekyll_build.sh.tpl",
-            allow_files = True,
-            single_file = True,
+            allow_single_file = True,
         ),
     },
     outputs = {"out": "%{name}.tar"},

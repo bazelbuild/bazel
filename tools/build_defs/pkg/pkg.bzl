@@ -188,14 +188,14 @@ def _pkg_deb_impl(ctx):
     args += ["--pre_depends=" + d for d in ctx.attr.predepends]
     args += ["--recommends=" + d for d in ctx.attr.recommends]
 
-    ctx.action(
+    ctx.actions.run(
         executable = ctx.executable.make_deb,
         arguments = args,
         inputs = files,
         outputs = [ctx.outputs.deb, ctx.outputs.changes],
         mnemonic = "MakeDeb",
     )
-    ctx.action(
+    ctx.actions.run_shell(
         command = "ln -s %s %s" % (ctx.outputs.deb.basename, ctx.outputs.out.path),
         inputs = [ctx.outputs.deb],
         outputs = [ctx.outputs.out],

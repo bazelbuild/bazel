@@ -39,11 +39,11 @@ def java_library_impl(ctx):
     javalist_output = class_jar.path + ".build_java_list"
     sources = ctx.files.srcs
 
-    sources_param_file = ctx.new_file(ctx.bin_dir, class_jar, "-2.params")
-    ctx.file_action(
+    sources_param_file = ctx.actions.declare_file(class_jar.basename + "-2.params")
+    ctx.actions.write(
         output = sources_param_file,
         content = cmd_helper.join_paths("\n", depset(sources)),
-        executable = False,
+        is_executable = False,
     )
 
     # Cleaning build output directory
@@ -72,7 +72,7 @@ def java_library_impl(ctx):
         cmd += "cp %s %s\n" % (r.path, build_output)
     cmd += (jar_path + " cf " + class_jar.path + " -C " + build_output + " .\n" +
             "touch " + build_output + "\n")
-    ctx.action(
+    ctx.actions.run_shell(
         inputs = (sources + compile_time_jars_list + [sources_param_file] +
                   ctx.files._jdk + ctx.files.resources + ctx.files.srcjars),
         outputs = [class_jar],
@@ -99,10 +99,10 @@ def java_binary_impl(ctx):
     main_class = ctx.attr.main_class
     java_runtime = ctx.attr._jdk[java_common.JavaRuntimeInfo]
     jar_path = "%s/bin/jar" % java_runtime.java_home
-    ctx.file_action(
+    ctx.actions.write(
         output = manifest,
         content = "Main-Class: " + main_class + "\n",
-        executable = False,
+        is_executable = False,
     )
 
     # Cleaning build output directory
@@ -113,7 +113,7 @@ def java_binary_impl(ctx):
             deploy_jar.path + " -C " + build_output + " .\n" +
             "touch " + build_output + "\n")
 
-    ctx.action(
+    ctx.actions.run_shell(
         inputs = list(library_result.runtime_jars) + [manifest] + ctx.files._jdk,
         outputs = [deploy_jar],
         mnemonic = "Deployjar",
@@ -123,7 +123,7 @@ def java_binary_impl(ctx):
 
     # Write the wrapper.
     executable = ctx.outputs.executable
-    ctx.file_action(
+    ctx.actions.write(
         output = executable,
         content = "\n".join([
             "#!/bin/bash",
@@ -163,7 +163,7 @@ def java_binary_impl(ctx):
              " ".join(ctx.attr.jvm_flags)),
             "",
         ]),
-        executable = True,
+        is_executable = True,
     )
 
     runfiles = ctx.runfiles(files = [deploy_jar, executable] + ctx.files._jdk, collect_data = True)

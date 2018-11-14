@@ -15,8 +15,8 @@
 
 def sha256(ctx, artifact):
     """Create an action to compute the SHA-256 of an artifact."""
-    out = ctx.new_file(artifact.basename + ".sha256")
-    ctx.action(
+    out = ctx.actions.declare_file(artifact.basename + ".sha256")
+    ctx.actions.run(
         executable = ctx.executable.sha256,
         arguments = [artifact.path, out.path],
         inputs = [artifact],
