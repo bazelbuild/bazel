@@ -265,7 +265,7 @@ public class JavaOptions extends FragmentOptions {
       help = "Specifies which tool should be used to resolve missing dependencies.")
   public String fixDepsTool;
 
-  // TODO(b/113524892): This flag should ideally default to true (and eventually removed). We have
+  // TODO(bazel-team): This flag should ideally default to true (and eventually removed). We have
   // been accidentally supplying JUnit and Hamcrest deps to java_test targets indirectly via the
   // BazelTestRunner, and setting this flag to true fixes that behaviour.
   @Option(
@@ -275,7 +275,8 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Explicitly specify a dependency to JUnit or Hamcrest in a java_test instead of "
-              + " accidentally obtaining from the TestRunner's deps.")
+              + " accidentally obtaining from the TestRunner's deps. Only works for bazel right "
+              + "now.")
   public boolean explicitJavaTestDeps;
 
   @Option(
@@ -535,6 +536,16 @@ public class JavaOptions extends FragmentOptions {
   public boolean allowRuntimeDepsOnNeverLink;
 
   @Option(
+      name = "experimental_add_test_support_to_compile_time_deps",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Flag to help transition away from adding test support libraries to the compile-time"
+              + " deps of Java test rules.")
+  public boolean addTestSupportToCompileTimeDeps;
+
+  @Option(
       name = "jplPropagateCcLinkParamsStore",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -625,6 +636,7 @@ public class JavaOptions extends FragmentOptions {
     // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
     host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
+    host.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
