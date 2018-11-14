@@ -115,4 +115,58 @@ EOF
   expect_log "A failure message!"
 }
 
+function test_expected_failure_test() {
+  mkdir -p package
+  cat > package/test.bzl <<EOF
+def _rule_test_impl(ctx):
+  if AnalysisFailureInfo in ctx.attr.target_under_test[0]:
+    dep_failure = ctx.attr.target_under_test[0][AnalysisFailureInfo]
+    message = ("target_under_test failed: " +
+        dep_failure.causes.to_list()[0].message)
+    return [AnalysisTestResultInfo(success = True,
+                                   message = message)]
+  else:
+    return [AnalysisTestResultInfo(success = False,
+                                   message = "Expected dep failure")]
+
+test_transition = analysis_test_transition(
+  settings = {
+      "//command_line_option:experimental_allow_analysis_failures" : "True" }
+)
+
+def _rule_impl(ctx):
+    f = "foo".method_doesnt_exist()
+    return []
+
+my_rule = rule(
+    implementation = _rule_impl,
+)
+
+my_rule_test = rule(
+  implementation = _rule_test_impl,
+  analysis_test = True,
+  attrs = {
+      'target_under_test': attr.label(cfg = test_transition),
+  }
+)
+EOF
+
+  cat > package/BUILD <<EOF
+load(":test.bzl", "my_rule_test", "my_rule")
+
+my_rule(name = "target_under_test")
+
+my_rule_test(name = "test_target", target_under_test = ":target_under_test")
+EOF
+
+  bazel test package:test_target --experimental_analysis_testing_improvements \
+      >& "$TEST_log" || fail "Expected test to succeed"
+
+  expect_log "PASSED"
+
+  cat "${PRODUCT_NAME}-testlogs/package/test_target/test.log" > "$TEST_log"
+  expect_log "target_under_test failed"
+  expect_log "type 'string' has no method method_doesnt_exist()"
+}
+
 run_suite "analysis_test rule tests"
