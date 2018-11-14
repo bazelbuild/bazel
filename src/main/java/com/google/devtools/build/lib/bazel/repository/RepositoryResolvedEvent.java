@@ -22,7 +22,7 @@ import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunct
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -38,7 +38,7 @@ import java.util.Map;
 /**
  * Event indicating that a repository rule was executed, together with the return value of the rule.
  */
-public class RepositoryResolvedEvent implements ProgressLike {
+public class RepositoryResolvedEvent implements ResolvedEvent {
 
   /**
    * The entry for WORSPACE.resolved corresponding to that rule invocation.

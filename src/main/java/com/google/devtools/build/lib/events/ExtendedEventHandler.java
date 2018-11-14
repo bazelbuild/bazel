@@ -48,4 +48,14 @@ public interface ExtendedEventHandler extends EventHandler {
     /** Wether the fetch progress reported about is finished already */
     boolean isFinished();
   }
+
+  /** Interface for events reporting information to be added to a resolved file. */
+  public interface ResolvedEvent extends ProgressLike {
+
+    /** The name of the resolved entity, e.g., the name of an external repository */
+    String getName();
+
+    /** The entry for the list of resolved Information. */
+    Object getResolvedInformation();
+  }
 }
