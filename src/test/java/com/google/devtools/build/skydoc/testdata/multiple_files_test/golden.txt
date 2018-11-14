@@ -2,7 +2,7 @@
 ## my_rule
 
 <pre>
-my_rule(name, first, second)
+my_rule(<a href="#my_rule-name">name</a>, <a href="#my_rule-first">first</a>, <a href="#my_rule-second">second</a>)
 </pre>
 
 This is my rule. It does stuff.
@@ -15,28 +15,28 @@ This is my rule. It does stuff.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="#my_rule_name">
+    <tr id="my_rule-name">
       <td><code>name</code></td>
       <td>
-        String; required
+        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
         <p>
           A unique name for this target.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_first">
+    <tr id="my_rule-first">
       <td><code>first</code></td>
       <td>
-        Label; required
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
         <p>
           first my_rule doc string
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_second">
+    <tr id="my_rule-second">
       <td><code>second</code></td>
       <td>
-        Dictionary: String -> String; required
+        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
       </td>
     </tr>
   </tbody>
@@ -47,7 +47,7 @@ This is my rule. It does stuff.
 ## other_rule
 
 <pre>
-other_rule(name, fourth, third)
+other_rule(<a href="#other_rule-name">name</a>, <a href="#other_rule-fourth">fourth</a>, <a href="#other_rule-third">third</a>)
 </pre>
 
 This is another rule.
@@ -60,25 +60,25 @@ This is another rule.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="#other_rule_name">
+    <tr id="other_rule-name">
       <td><code>name</code></td>
       <td>
-        String; required
+        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
         <p>
           A unique name for this target.
         </p>
       </td>
     </tr>
-    <tr id="#other_rule_fourth">
+    <tr id="other_rule-fourth">
       <td><code>fourth</code></td>
       <td>
-        Dictionary: String -> String; required
+        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
       </td>
     </tr>
-    <tr id="#other_rule_third">
+    <tr id="other_rule-third">
       <td><code>third</code></td>
       <td>
-        Label; required
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
         <p>
           third other_rule doc string
         </p>
@@ -92,7 +92,7 @@ This is another rule.
 ## yet_another_rule
 
 <pre>
-yet_another_rule(name, fifth)
+yet_another_rule(<a href="#yet_another_rule-name">name</a>, <a href="#yet_another_rule-fifth">fifth</a>)
 </pre>
 
 This is yet another rule
@@ -105,19 +105,19 @@ This is yet another rule
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="#yet_another_rule_name">
+    <tr id="yet_another_rule-name">
       <td><code>name</code></td>
       <td>
-        String; required
+        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
         <p>
           A unique name for this target.
         </p>
       </td>
     </tr>
-    <tr id="#yet_another_rule_fifth">
+    <tr id="yet_another_rule-fifth">
       <td><code>fifth</code></td>
       <td>
-        Label; required
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
       </td>
     </tr>
   </tbody>
@@ -127,7 +127,7 @@ This is yet another rule
 ## my_rule_impl
 
 <pre>
-my_rule_impl(ctx)
+my_rule_impl(<a href="#my_rule_impl-ctx">ctx</a>)
 </pre>
 
 
@@ -140,7 +140,7 @@ my_rule_impl(ctx)
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr>
+    <tr id="my_rule_impl-ctx>
       <td><code>ctx</code></td>
       <td>
         required.
@@ -153,7 +153,7 @@ my_rule_impl(ctx)
 ## some_cool_function
 
 <pre>
-some_cool_function(name, srcs, beef)
+some_cool_function(<a href="#some_cool_function-name">name</a>, <a href="#some_cool_function-srcs">srcs</a>, <a href="#some_cool_function-beef">beef</a>)
 </pre>
 
 A pretty cool function. You should call it.
@@ -166,7 +166,7 @@ A pretty cool function. You should call it.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr>
+    <tr id="some_cool_function-name>
       <td><code>name</code></td>
       <td>
         required.
@@ -175,7 +175,7 @@ A pretty cool function. You should call it.
         </p>
       </td>
     </tr>
-    <tr>
+    <tr id="some_cool_function-srcs>
       <td><code>srcs</code></td>
       <td>
         optional. default is <code>[]</code>
@@ -184,7 +184,7 @@ A pretty cool function. You should call it.
         </p>
       </td>
     </tr>
-    <tr>
+    <tr id="some_cool_function-beef>
       <td><code>beef</code></td>
       <td>
         optional. default is <code>""</code>
@@ -200,7 +200,7 @@ A pretty cool function. You should call it.
 ## top_fun
 
 <pre>
-top_fun(a, b, c)
+top_fun(<a href="#top_fun-a">a</a>, <a href="#top_fun-b">b</a>, <a href="#top_fun-c">c</a>)
 </pre>
 
 
@@ -213,19 +213,19 @@ top_fun(a, b, c)
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr>
+    <tr id="top_fun-a>
       <td><code>a</code></td>
       <td>
         required.
       </td>
     </tr>
-    <tr>
+    <tr id="top_fun-b>
       <td><code>b</code></td>
       <td>
         required.
       </td>
     </tr>
-    <tr>
+    <tr id="top_fun-c>
       <td><code>c</code></td>
       <td>
         required.

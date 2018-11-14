@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor.Type;
 import com.google.devtools.build.skydoc.rendering.AttributeInfo;
+import com.google.devtools.build.skydoc.rendering.AttributeInfo.Type;
 import com.google.devtools.build.skydoc.rendering.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
@@ -52,7 +52,7 @@ import javax.annotation.Nullable;
 public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<FileApi> {
 
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
-      new FakeDescriptor(Type.STRING, "A unique name for this target.", true);
+      new FakeDescriptor(Type.NAME, "A unique name for this target.", true);
   private final List<RuleInfo> ruleInfoList;
   private final List<ProviderInfo> providerInfoList;
 
@@ -134,7 +134,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
         .map(entry -> new AttributeInfo(
             entry.getKey(),
             entry.getValue().getDocString(),
-            entry.getValue().getType().getDescription(),
+            entry.getValue().getType(),
             entry.getValue().isMandatory()))
         .collect(Collectors.toList());
     attrInfos.sort(new AttributeNameComparator());

@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor.Type;
+import com.google.devtools.build.skydoc.rendering.AttributeInfo.Type;
 
 /**
  * Fake implementation of {@link SkylarkAttrApi}.

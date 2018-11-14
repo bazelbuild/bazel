@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -30,7 +29,6 @@ import com.google.devtools.skylark.skylint.DocstringUtils.ParameterDoc;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /** Encapsulates information about a user-defined Starlark function. */
 public class UserDefinedFunctionInfo {
@@ -162,16 +160,6 @@ public class UserDefinedFunctionInfo {
    */
   public Collection<FunctionParamInfo> getParameters() {
     return parameters;
-  }
-
-  /** Returns the summary form string this function, for example, "my_function(foo, bar)". */
-  // TODO(cparsons): Compute summary form in the markdown template, as there should be links
-  // between the summary's parameter names and their corresponding documentation.
-  @SuppressWarnings("unused") // Used by markdown template.
-  public String getSummaryForm() {
-    List<String> paramNames =
-        parameters.stream().map(param -> param.getName()).collect(Collectors.toList());
-    return functionName + "(" + Joiner.on(", ").join(paramNames) + ")";
   }
 
   /**

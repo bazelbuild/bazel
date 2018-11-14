@@ -1,7 +1,7 @@
 ## check_sources
 
 <pre>
-check_sources(name, required_param, bool_param, srcs, string_param, int_param, dict_param, struct_param)
+check_sources(<a href="#check_sources-name">name</a>, <a href="#check_sources-required_param">required_param</a>, <a href="#check_sources-bool_param">bool_param</a>, <a href="#check_sources-srcs">srcs</a>, <a href="#check_sources-string_param">string_param</a>, <a href="#check_sources-int_param">int_param</a>, <a href="#check_sources-dict_param">dict_param</a>, <a href="#check_sources-struct_param">struct_param</a>)
 </pre>
 
 Runs some checks on the given source files.
@@ -18,7 +18,7 @@ Use `bazel build` to run the check.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr>
+    <tr id="check_sources-name>
       <td><code>name</code></td>
       <td>
         required.
@@ -27,7 +27,7 @@ Use `bazel build` to run the check.
         </p>
       </td>
     </tr>
-    <tr>
+    <tr id="check_sources-required_param>
       <td><code>required_param</code></td>
       <td>
         required.
@@ -36,13 +36,13 @@ Use `bazel build` to run the check.
         </p>
       </td>
     </tr>
-    <tr>
+    <tr id="check_sources-bool_param>
       <td><code>bool_param</code></td>
       <td>
         optional. default is <code>True</code>
       </td>
     </tr>
-    <tr>
+    <tr id="check_sources-srcs>
       <td><code>srcs</code></td>
       <td>
         optional. default is <code>[]</code>
@@ -51,13 +51,13 @@ Use `bazel build` to run the check.
         </p>
       </td>
     </tr>
-    <tr>
+    <tr id="check_sources-string_param>
       <td><code>string_param</code></td>
       <td>
         optional. default is <code>""</code>
       </td>
     </tr>
-    <tr>
+    <tr id="check_sources-int_param>
       <td><code>int_param</code></td>
       <td>
         optional. default is <code>2</code>
@@ -66,13 +66,13 @@ Use `bazel build` to run the check.
         </p>
       </td>
     </tr>
-    <tr>
+    <tr id="check_sources-dict_param>
       <td><code>dict_param</code></td>
       <td>
         optional. default is <code>{}</code>
       </td>
     </tr>
-    <tr>
+    <tr id="check_sources-struct_param>
       <td><code>struct_param</code></td>
       <td>
         optional.
@@ -85,7 +85,7 @@ Use `bazel build` to run the check.
 ## undocumented_function
 
 <pre>
-undocumented_function(a, b, c)
+undocumented_function(<a href="#undocumented_function-a">a</a>, <a href="#undocumented_function-b">b</a>, <a href="#undocumented_function-c">c</a>)
 </pre>
 
 
@@ -98,19 +98,19 @@ undocumented_function(a, b, c)
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr>
+    <tr id="undocumented_function-a>
       <td><code>a</code></td>
       <td>
         required.
       </td>
     </tr>
-    <tr>
+    <tr id="undocumented_function-b>
       <td><code>b</code></td>
       <td>
         required.
       </td>
     </tr>
-    <tr>
+    <tr id="undocumented_function-c>
       <td><code>c</code></td>
       <td>
         required.

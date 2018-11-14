@@ -1,7 +1,7 @@
 #[[##]]# ${funcInfo.name}
 
 <pre>
-${funcInfo.summaryForm}
+${util.funcSummary($funcInfo)}
 </pre>
 
 ${funcInfo.docString}
@@ -16,7 +16,7 @@ ${funcInfo.docString}
   </colgroup>
   <tbody>
 #foreach ($param in $funcInfo.parameters)
-    <tr>
+    <tr id="${funcInfo.name}-${param.name}>
       <td><code>${param.name}</code></td>
       <td>
         ${param.mandatoryString}.#if($param.hasDefaultValueString()) default is <code>${param.defaultString}</code>#end

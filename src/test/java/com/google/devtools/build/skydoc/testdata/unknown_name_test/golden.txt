@@ -2,7 +2,7 @@
 ## <unknown name>
 
 <pre>
-<unknown name>(name, first, fourth, second, third)
+<unknown name>(<a href="#<unknown name>-name">name</a>, <a href="#<unknown name>-first">first</a>, <a href="#<unknown name>-fourth">fourth</a>, <a href="#<unknown name>-second">second</a>, <a href="#<unknown name>-third">third</a>)
 </pre>
 
 
@@ -15,37 +15,37 @@
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="#<unknown name>_name">
+    <tr id="<unknown name>-name">
       <td><code>name</code></td>
       <td>
-        String; required
+        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
         <p>
           A unique name for this target.
         </p>
       </td>
     </tr>
-    <tr id="#<unknown name>_first">
+    <tr id="<unknown name>-first">
       <td><code>first</code></td>
       <td>
-        Label; required
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
       </td>
     </tr>
-    <tr id="#<unknown name>_fourth">
+    <tr id="<unknown name>-fourth">
       <td><code>fourth</code></td>
       <td>
         Boolean; optional
       </td>
     </tr>
-    <tr id="#<unknown name>_second">
+    <tr id="<unknown name>-second">
       <td><code>second</code></td>
       <td>
-        Dictionary: String -> String; required
+        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
       </td>
     </tr>
-    <tr id="#<unknown name>_third">
+    <tr id="<unknown name>-third">
       <td><code>third</code></td>
       <td>
-        Label; required
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
       </td>
     </tr>
   </tbody>
@@ -55,7 +55,7 @@
 ## my_rule_impl
 
 <pre>
-my_rule_impl(ctx)
+my_rule_impl(<a href="#my_rule_impl-ctx">ctx</a>)
 </pre>
 
 
@@ -68,7 +68,7 @@ my_rule_impl(ctx)
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr>
+    <tr id="my_rule_impl-ctx>
       <td><code>ctx</code></td>
       <td>
         required.

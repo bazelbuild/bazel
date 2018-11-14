@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor.Type;
+import com.google.devtools.build.skydoc.rendering.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.UserDefinedFunctionInfo;
 import com.google.devtools.build.skydoc.rendering.UserDefinedFunctionInfo.DocstringParseException;
@@ -96,11 +96,11 @@ public final class SkydocTest extends SkylarkTestCase {
     assertThat(getAttrNames(ruleInfo.getValue())).containsExactly(
         "name", "a", "b", "c", "d").inOrder();
     assertThat(getAttrTypes(ruleInfo.getValue())).containsExactly(
-        Type.STRING.getDescription(),
-        Type.LABEL.getDescription(),
-        Type.STRING_DICT.getDescription(),
-        Type.LABEL.getDescription(),
-        Type.BOOLEAN.getDescription()).inOrder();
+        AttributeInfo.Type.NAME,
+        AttributeInfo.Type.LABEL,
+        AttributeInfo.Type.STRING_DICT,
+        AttributeInfo.Type.OUTPUT,
+        AttributeInfo.Type.BOOLEAN).inOrder();
     assertThat(unexportedRuleInfos.build()).isEmpty();
   }
 
@@ -109,8 +109,8 @@ public final class SkydocTest extends SkylarkTestCase {
         .collect(Collectors.toList());
   }
 
-  private static Iterable<String> getAttrTypes(RuleInfo ruleInfo) {
-    return ruleInfo.getAttributes().stream().map(attr -> attr.getTypeString())
+  private static Iterable<AttributeInfo.Type> getAttrTypes(RuleInfo ruleInfo) {
+    return ruleInfo.getAttributes().stream().map(attr -> attr.getType())
         .collect(Collectors.toList());
   }
 

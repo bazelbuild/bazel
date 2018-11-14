@@ -2,7 +2,7 @@
 #[[##]]# ${ruleName}
 
 <pre>
-${summaryform}
+${util.ruleSummary($ruleName, $ruleInfo)}
 </pre>
 
 ${ruleInfo.docString}
@@ -17,10 +17,10 @@ ${ruleInfo.docString}
   </colgroup>
   <tbody>
 #foreach ($attribute in $ruleInfo.attributes)
-    <tr id="#${ruleName}_${attribute.name}">
+    <tr id="${ruleName}-${attribute.name}">
       <td><code>${attribute.name}</code></td>
       <td>
-        ${attribute.typeString}; ${attribute.mandatoryString}
+        ${util.attributeTypeString($attribute)}; ${attribute.mandatoryString}
 #if (!$attribute.docString.isEmpty())
         <p>
           ${attribute.docString}
