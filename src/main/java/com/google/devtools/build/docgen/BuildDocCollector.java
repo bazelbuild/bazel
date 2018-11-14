@@ -214,6 +214,17 @@ public class BuildDocCollector {
                 }
               }
               if (bestAttributeDoc != null) {
+                try {
+                  // We have to clone the matching RuleDocumentationAttribute here so that we don't
+                  // overwrite the reference to the actual attribute later by another attribute with
+                  // the same ancestor but different default values.
+                  bestAttributeDoc = (RuleDocumentationAttribute) bestAttributeDoc.clone();
+                } catch (CloneNotSupportedException e) {
+                  throw new BuildEncyclopediaDocException(
+                      bestAttributeDoc.getFileName(),
+                      bestAttributeDoc.getStartLineCnt(),
+                      "attribute doesn't support clone: " + e.toString());
+                }
                 // Add reference to the Attribute that the attribute doc is associated with
                 // in order to generate documentation for the Attribute.
                 bestAttributeDoc.setAttribute(attribute);
