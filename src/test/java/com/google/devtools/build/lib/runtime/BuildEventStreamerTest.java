@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
-import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
@@ -71,8 +70,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.LockSupport;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -282,11 +279,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     void transportsAnnounced(AnnounceBuildEventTransportsEvent evt) {
       transportSet = Collections.synchronizedSet(new HashSet<>(evt.transports()));
     }
-
-    @Subscribe
-    void transportClosed(BuildEventTransportClosedEvent evt) {
-      transportSet.remove(evt.transport());
-    }
   }
 
   @Before
@@ -335,10 +327,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     assertThat(transport.getEventProtos().get(0).getLastMessage()).isFalse();
     assertThat(transport.getEventProtos().get(1).getLastMessage()).isFalse();
     assertThat(transport.getEventProtos().get(2).getLastMessage()).isTrue();
-
-    while (!handler.transportSet.isEmpty()) {
-      LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(100));
-    }
   }
 
   @Test
