@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/native/windows/file.h"
+#include "src/main/native/windows/util.h"
 #include "src/test/cpp/util/windows_test_util.h"
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/zip.h"
@@ -40,11 +41,13 @@ using bazel::tools::test_wrapper::testing::
     TestOnly_CreateUndeclaredOutputsAnnotations;
 using bazel::tools::test_wrapper::testing::
     TestOnly_CreateUndeclaredOutputsManifest;
+using bazel::tools::test_wrapper::testing::TestOnly_CreateTee;
 using bazel::tools::test_wrapper::testing::TestOnly_CreateZip;
 using bazel::tools::test_wrapper::testing::TestOnly_GetEnv;
 using bazel::tools::test_wrapper::testing::TestOnly_GetFileListRelativeTo;
 using bazel::tools::test_wrapper::testing::TestOnly_GetMimeType;
 using bazel::tools::test_wrapper::testing::TestOnly_ToZipEntryPaths;
+using bazel::windows::AutoHandle;
 
 class TestWrapperWindowsTest : public ::testing::Test {
  public:
@@ -414,6 +417,39 @@ TEST_F(TestWrapperWindowsTest, TestCreateUndeclaredOutputsAnnotations) {
   CloseHandle(h);
   EXPECT_TRUE(success);
   ASSERT_EQ(std::string(content, read), std::string("Hello aHello c"));
+}
+
+TEST_F(TestWrapperWindowsTest, TestTee) {
+  AutoHandle read1, write1;
+  AutoHandle read2, write2;
+  AutoHandle read3, write3;
+  EXPECT_TRUE(CreatePipe(read1.GetPtr(), write1.GetPtr(), NULL, 0));
+  EXPECT_TRUE(CreatePipe(read2.GetPtr(), write2.GetPtr(), NULL, 0));
+  EXPECT_TRUE(CreatePipe(read3.GetPtr(), write3.GetPtr(), NULL, 0));
+
+  std::unique_ptr<bazel::tools::test_wrapper::Tee> tee;
+  EXPECT_TRUE(TestOnly_CreateTee(read1, write2, write3, &tee));
+
+  DWORD written, read;
+  char content[100];
+
+  EXPECT_TRUE(WriteFile(write1, "hello", 5, &written, NULL));
+  EXPECT_EQ(written, 5);
+  EXPECT_TRUE(ReadFile(read2, content, 100, &read, NULL));
+  EXPECT_EQ(read, 5);
+  EXPECT_EQ(std::string(content, read), "hello");
+  EXPECT_TRUE(ReadFile(read3, content, 100, &read, NULL));
+  EXPECT_EQ(read, 5);
+  EXPECT_EQ(std::string(content, read), "hello");
+
+  EXPECT_TRUE(WriteFile(write1, "foo", 3, &written, NULL));
+  EXPECT_EQ(written, 3);
+  EXPECT_TRUE(ReadFile(read2, content, 100, &read, NULL));
+  EXPECT_EQ(read, 3);
+  EXPECT_EQ(std::string(content, read), "foo");
+  EXPECT_TRUE(ReadFile(read3, content, 100, &read, NULL));
+  EXPECT_EQ(read, 3);
+  EXPECT_EQ(std::string(content, read), "foo");
 }
 
 }  // namespace

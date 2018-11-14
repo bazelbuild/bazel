@@ -1147,6 +1147,63 @@ bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
   return true;
 }
 
+// Streams data from an input to two outputs.
+// Inspired by tee(1) in the GNU coreutils.
+class TeeImpl : Tee {
+ public:
+  // Creates a background thread to stream data from `input` to the two outputs.
+  // The thread terminates when ReadFile fails on the input (e.g. the input is
+  // the reading end of a pipe and the writing end is closed) or when WriteFile
+  // fails on one of the outputs (e.g. a copy of the output handle is closed).
+  static bool Create(HANDLE input, HANDLE output1, HANDLE output2,
+                     std::unique_ptr<Tee>* result);
+
+ private:
+  static DWORD WINAPI ThreadFunc(LPVOID lpParam);
+
+  TeeImpl(HANDLE input, HANDLE output1, HANDLE output2)
+      : input_(input), output1_(output1), output2_(output2) {}
+  TeeImpl(const TeeImpl&) = delete;
+  TeeImpl& operator=(const TeeImpl&) = delete;
+
+  bool MainFunc() const;
+
+  HANDLE input_;
+  HANDLE output1_;
+  HANDLE output2_;
+};
+
+bool TeeImpl::Create(HANDLE input, HANDLE output1, HANDLE output2,
+                     std::unique_ptr<Tee>* result) {
+  std::unique_ptr<TeeImpl> tee(new TeeImpl(input, output1, output2));
+  bazel::windows::AutoHandle thread(
+      CreateThread(NULL, 0, ThreadFunc, tee.get(), 0, NULL));
+  if (!thread.IsValid()) {
+    return false;
+  }
+  result->reset(tee.release());
+  return true;
+}
+
+DWORD WINAPI TeeImpl::ThreadFunc(LPVOID lpParam) {
+  return reinterpret_cast<TeeImpl*>(lpParam)->MainFunc() ? 0 : 1;
+}
+
+bool TeeImpl::MainFunc() const {
+  static constexpr size_t kBufferSize = 0x10000;
+  DWORD read;
+  uint8_t content[kBufferSize];
+  while (ReadFile(input_, content, kBufferSize, &read, NULL)) {
+    DWORD written;
+    if (read > 0 &&
+        (!WriteFile(output1_, content, read, &written, NULL) ||
+         !WriteFile(output2_, content, read, &written, NULL))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 int RunSubprocess(const Path& test_path,
                   const std::vector<const wchar_t*>& args) {
   bazel::windows::AutoHandle process;
@@ -1327,6 +1384,11 @@ bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result) {
       AsMixedPath(bazel::windows::HasUncPrefix(path.c_str()) ? path.substr(4)
                                                              : path),
       result);
+}
+
+bool TestOnly_CreateTee(HANDLE input, HANDLE output1, HANDLE output2,
+                        std::unique_ptr<Tee>* result) {
+  return TeeImpl::Create(input, output1, output2, result);
 }
 
 }  // namespace testing

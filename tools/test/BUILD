@@ -94,6 +94,7 @@ cc_test(
     ] + select({
         "@bazel_tools//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
+            "//src/main/native/windows:lib-util",
             "//third_party/ijar:zip",
         ],
         "//conditions:default": [],

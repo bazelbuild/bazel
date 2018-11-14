@@ -91,6 +91,18 @@ class ZipEntryPaths {
   std::unique_ptr<char*[]> entry_path_ptrs_;
 };
 
+// Streams data from an input to two outputs.
+// Inspired by tee(1) in the GNU coreutils.
+class Tee {
+ public:
+  virtual ~Tee() {}
+
+ protected:
+  Tee() {}
+  Tee(const Tee&) = delete;
+  Tee& operator=(const Tee&) = delete;
+};
+
 // The main function of the test wrapper.
 int Main(int argc, wchar_t** argv);
 
@@ -132,6 +144,11 @@ bool TestOnly_CreateUndeclaredOutputsAnnotations(
     const std::wstring& abs_root, const std::wstring& abs_output);
 
 bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result);
+
+// Creates a Tee object. See the Tee class declaration for more info.
+bool TestOnly_CreateTee(void* /* HANDLE */ input, void* /* HANDLE */ output1,
+                        void* /* HANDLE */ output2,
+                        std::unique_ptr<Tee>* result);
 
 }  // namespace testing
 
