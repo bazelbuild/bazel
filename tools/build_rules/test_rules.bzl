@@ -77,7 +77,7 @@ def failure_target(ctx, msg):
     ctx.actions.write(
         output = exe,
         content = "(cat " + dat.short_path + " ; echo ) >&2 ; exit 1",
-        executable = True,
+        is_executable = True,
     )
     return struct(runfiles = ctx.runfiles([exe, dat]))
 
@@ -249,7 +249,7 @@ def _rule_test_impl(ctx):
             ]
             ctx.actions.write(output = file_, content = v)
         script = "\n".join(commands + ["true"])
-        ctx.actions.write(output = exe, content = script, executable = True)
+        ctx.actions.write(output = exe, content = script, is_executable = True)
         return struct(runfiles = ctx.runfiles([exe] + files))
     else:
         return success_target(ctx, "success")
