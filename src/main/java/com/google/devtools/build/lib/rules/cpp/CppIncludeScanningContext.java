@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import javax.annotation.Nullable;
 
 /**
@@ -35,6 +36,7 @@ public interface CppIncludeScanningContext extends ActionContext {
   Iterable<Artifact> findAdditionalInputs(
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,
-      IncludeProcessing includeProcessing)
+      IncludeProcessing includeProcessing,
+      IncludeScanningHeaderData includeScanningHeaderData)
       throws ExecException, InterruptedException, ActionExecutionException;
 }

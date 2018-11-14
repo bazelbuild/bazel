@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningPreparer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
@@ -31,7 +32,8 @@ public class IncludeScanning implements IncludeProcessing {
   public @Nullable Iterable<Artifact> determineAdditionalInputs(
       @Nullable IncludeScannerSupplier includeScannerSupplier,
       CppCompileAction action,
-      ActionExecutionContext actionExecutionContext)
+      ActionExecutionContext actionExecutionContext,
+      IncludeScanningHeaderData includeScanningHeaderData)
       throws ExecException, InterruptedException {
     // Return null when no include scanning occurs, as opposed to an empty set, to distinguish from
     // the case where includes are scanned but none are found.
@@ -42,7 +44,7 @@ public class IncludeScanning implements IncludeProcessing {
     return IncludeScanningPreparer.scanForIncludedInputs(
         action,
         Preconditions.checkNotNull(includeScannerSupplier, action),
-        action.getIncludeScanningHeaderData(),
+        includeScanningHeaderData,
         action,
         actionExecutionContext,
         actionExecutionContext.getInputPath(action.getSourceFile()).getPathString());

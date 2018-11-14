@@ -224,7 +224,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     return headerInfo.textualHeaders;
   }
 
-  public IncludeScanningHeaderData createIncludeScanningHeaderData(
+  public IncludeScanningHeaderData.Builder createIncludeScanningHeaderData(
       boolean usePic, boolean createModularHeaders) {
     // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
     // substantially more costly in a way that shows up in profiles.
@@ -248,7 +248,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     }
     removeArtifactsFromSet(modularHeaders, headerInfo.modularHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
-    return new IncludeScanningHeaderData(
+    return new IncludeScanningHeaderData.Builder(
         Collections.unmodifiableMap(pathToLegalOutputArtifact),
         Collections.unmodifiableSet(modularHeaders));
   }

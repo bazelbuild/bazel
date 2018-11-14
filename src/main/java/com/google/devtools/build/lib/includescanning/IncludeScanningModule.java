@@ -208,9 +208,9 @@ public class IncludeScanningModule extends BlazeModule {
           source,
           ImmutableList.of(source),
           // For Swig include scanning just point to the output file in the map.
-          new IncludeScanningHeaderData(
-              pathToLegalOutputArtifact.build(),
-              /*modularHeaders=*/ ImmutableSet.of()),
+          new IncludeScanningHeaderData.Builder(
+                  pathToLegalOutputArtifact.build(), /*modularHeaders=*/ ImmutableSet.of())
+              .build(),
           ImmutableList.of(),
           includes,
           actionExecutionMetadata,

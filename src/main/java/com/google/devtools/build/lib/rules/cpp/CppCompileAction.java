@@ -121,6 +121,13 @@ public class CppCompileAction extends AbstractAction
   // files--such as Clif--may use this mechanism.
   private final ImmutableList<Artifact> additionalIncludeScanningRoots;
   @VisibleForTesting public final CompileCommandLine compileCommandLine;
+
+  /**
+   * The fingerprint of {@link #compileCommandLine}. This is computed lazily so that the command
+   * line is not unnecessarily flattened outside of action execution.
+   */
+  byte[] commandLineKey = null;
+
   private final ImmutableMap<String, String> executionInfo;
   private final String actionName;
 
@@ -358,14 +365,19 @@ public class CppCompileAction extends AbstractAction
    * #mandatoryInputs}. Thus, even with include scanning turned off, we pretend that we "discover"
    * these headers.
    */
-  private Iterable<Artifact> findUsedHeaders(ActionExecutionContext actionExecutionContext)
+  private Iterable<Artifact> findUsedHeaders(
+      ActionExecutionContext actionExecutionContext, IncludeScanningHeaderData headerData)
       throws ActionExecutionException, InterruptedException {
     Iterable<Artifact> includeScanningResult;
     try {
       includeScanningResult =
           actionExecutionContext
               .getContext(CppIncludeScanningContext.class)
-              .findAdditionalInputs(this, actionExecutionContext, includeProcessing);
+              .findAdditionalInputs(
+                  this,
+                  actionExecutionContext,
+                  includeProcessing,
+                  headerData);
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Include scanning of rule '" + getOwner().getLabel() + "'",
@@ -443,7 +455,20 @@ public class CppCompileAction extends AbstractAction
     Preconditions.checkArgument(!sourceFile.isFileType(CppFileTypes.CPP_MODULE));
 
     if (additionalInputs == null) {
-      additionalInputs = findUsedHeaders(actionExecutionContext);
+      List<String> options = getCompilerOptions();
+      commandLineKey = computeCommandLineKey(options);
+      List<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
+      additionalInputs =
+          findUsedHeaders(
+              actionExecutionContext,
+              ccCompilationContext
+                  .createIncludeScanningHeaderData(usePic, useHeaderModules)
+                  .setSystemIncludeDirs(systemIncludeDirs)
+                  .setCmdlineIncludes(getCmdlineIncludes(options))
+                  .build());
+      if (needsIncludeValidation) {
+        verifyActionIncludePaths(systemIncludeDirs);
+      }
 
       if (!shouldScanIncludes) {
         return additionalInputs;
@@ -528,10 +553,6 @@ public class CppCompileAction extends AbstractAction
     return outputFile;
   }
 
-  public IncludeScanningHeaderData getIncludeScanningHeaderData() {
-    return ccCompilationContext.createIncludeScanningHeaderData(usePic, useHeaderModules);
-  }
-
   @Override
   @Nullable
   public Artifact getGrepIncludes() {
@@ -579,8 +600,12 @@ public class CppCompileAction extends AbstractAction
     return result.build();
   }
 
-  @Override
-  public List<PathFragment> getSystemIncludeDirs() {
+  @VisibleForTesting
+  List<PathFragment> getSystemIncludeDirs() {
+    return getSystemIncludeDirs(getCompilerOptions());
+  }
+
+  private List<PathFragment> getSystemIncludeDirs(List<String> compilerOptions) {
     // TODO(bazel-team): parsing the command line flags here couples us to gcc-style compiler
     // command lines; use a different way to specify system includes (for example through a
     // system_includes attribute in cc_toolchain); note that that would disallow users from
@@ -588,7 +613,6 @@ public class CppCompileAction extends AbstractAction
     // Currently, this works together with the include_paths features because getCommandLine() will
     // get the system include paths from the {@code CcCompilationContext} instead.
     ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
-    List<String> compilerOptions = getCompilerOptions();
     for (int i = 0; i < compilerOptions.size(); i++) {
       String opt = compilerOptions.get(i);
       if (opt.startsWith("-isystem")) {
@@ -605,10 +629,8 @@ public class CppCompileAction extends AbstractAction
     return result.build();
   }
 
-  @Override
-  public List<String> getCmdlineIncludes() {
+  private List<String> getCmdlineIncludes(List<String> args) {
     ImmutableList.Builder<String> cmdlineIncludes = ImmutableList.builder();
-    List<String> args = getArguments();
     for (Iterator<String> argi = args.iterator(); argi.hasNext();) {
       String arg = argi.next();
       if (arg.equals("-include") && argi.hasNext()) {
@@ -823,7 +845,8 @@ public class CppCompileAction extends AbstractAction
   }
 
   @VisibleForTesting
-  void verifyActionIncludePaths() throws ActionExecutionException {
+  void verifyActionIncludePaths(List<PathFragment> systemIncludeDirs)
+      throws ActionExecutionException {
     ImmutableSet<PathFragment> ignoredDirs = ImmutableSet.copyOf(getValidationIgnoredDirs());
     // We currently do not check the output of:
     // - getQuoteIncludeDirs(): those only come from includes attributes, and are checked in
@@ -832,7 +855,7 @@ public class CppCompileAction extends AbstractAction
     //   to use an absolute system root, in which case the builtin include dirs might be absolute.
 
     Iterable<PathFragment> includePathsToVerify =
-        Iterables.concat(getIncludeDirs(), getSystemIncludeDirs());
+        Iterables.concat(getIncludeDirs(), systemIncludeDirs);
     for (PathFragment includePath : includePathsToVerify) {
       // includePathsToVerify contains all paths that are added as -isystem directive on the command
       // line, most of which are added for include directives in the CcCompilationContext and are
@@ -1036,14 +1059,7 @@ public class CppCompileAction extends AbstractAction
     fp.addStringMap(compileCommandLine.getEnvironment());
     fp.addStringMap(executionInfo);
 
-    // For the argv part of the cache key, ignore all compiler flags that explicitly denote module
-    // file (.pcm) inputs. Depending on input discovery, some of the unused ones are removed from
-    // the command line. However, these actually don't have an influence on the compile itself and
-    // so ignoring them for the cache key calculation does not affect correctness. The compile
-    // itself is fully determined by the input source files and module maps.
-    // A better long-term solution would be to make the compiler to find them automatically and
-    // never hand in the .pcm files explicitly on the command line in the first place.
-    fp.addStrings(compileCommandLine.getArguments(/* overwrittenVariables= */ null));
+    fp.addBytes(getCommandLineKey());
     actionKeyContext.addNestedSetToFingerprint(fp, ccCompilationContext.getDeclaredIncludeSrcs());
     fp.addInt(0); // mark the boundary between input types
     actionKeyContext.addNestedSetToFingerprint(fp, getMandatoryInputs());
@@ -1066,14 +1082,30 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
+  private byte[] getCommandLineKey() {
+    if (commandLineKey == null) {
+      // For the argv part of the cache key, ignore all compiler flags that explicitly denote module
+      // file (.pcm) inputs. Depending on input discovery, some of the unused ones are removed from
+      // the command line. However, these actually don't have an influence on the compile itself and
+      // so ignoring them for the cache key calculation does not affect correctness. The compile
+      // itself is fully determined by the input source files and module maps.
+      // A better long-term solution would be to make the compiler to find them automatically and
+      // never hand in the .pcm files explicitly on the command line in the first place.
+      commandLineKey = computeCommandLineKey(getCompilerOptions());
+    }
+    return commandLineKey;
+  }
+
+  private byte[] computeCommandLineKey(List<String> compilerOptions) {
+    Fingerprint fp = new Fingerprint();
+    fp.addStrings(compilerOptions);
+    return fp.digestAndReset();
+  }
+
   @Override
   @ThreadCompatible
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    if (needsIncludeValidation) {
-      verifyActionIncludePaths();
-    }
-
     setModuleFileFlags();
     CppCompileActionContext.Reply reply;
     ShowIncludesFilter showIncludesFilterForStdout = null;
@@ -1270,10 +1302,15 @@ public class CppCompileAction extends AbstractAction
   public Iterable<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Iterable<Artifact> discoveredInputs = findUsedHeaders(actionExecutionContext);
-    return Sets.<Artifact>difference(
-        ImmutableSet.<Artifact>copyOf(discoveredInputs),
-        ImmutableSet.<Artifact>copyOf(getInputs()));
+    Iterable<Artifact> discoveredInputs =
+        findUsedHeaders(
+            actionExecutionContext,
+            ccCompilationContext
+                .createIncludeScanningHeaderData(usePic, useHeaderModules)
+                .setSystemIncludeDirs(getSystemIncludeDirs())
+                .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
+                .build());
+    return Sets.difference(ImmutableSet.copyOf(discoveredInputs), ImmutableSet.copyOf(getInputs()));
   }
 
   static String actionNameToMnemonic(String actionName) {

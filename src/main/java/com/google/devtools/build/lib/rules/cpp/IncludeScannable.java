@@ -51,21 +51,6 @@ public interface IncludeScannable {
   List<PathFragment> getIncludeDirs();
 
   /**
-   * Returns an immutable list of "-isystem" include paths that should be used
-   * by the IncludeScanner for this action. GCC searches these paths ahead of
-   * the built-in system include paths, but after all other paths. "-isystem"
-   * paths are treated the same as normal system directories.
-   */
-  List<PathFragment> getSystemIncludeDirs();
-
-  /**
-   * Returns an immutable list of "-include" inclusions specified explicitly on
-   * the command line of this action. GCC will imagine that these files have
-   * been quote-included at the beginning of each source file.
-   */
-  List<String> getCmdlineIncludes();
-
-  /**
    * Returns an artifact that the compiler may unconditionally include, even if the source file
    * does not mention it.
    */
