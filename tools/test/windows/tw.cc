@@ -40,6 +40,7 @@
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
+#include "src/main/native/windows/util.h"
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
@@ -99,6 +100,8 @@ struct UndeclaredOutputs {
   Path annotations;
   Path annotations_dir;
 };
+
+void LogError(const int line) { printf("ERROR(" __FILE__ ":%d)\n", line); }
 
 void LogError(const int line, const char* msg) {
   printf("ERROR(" __FILE__ ":%d) %s\n", line, msg);
@@ -484,7 +487,7 @@ bool ToZipEntryPaths(const Path& root, const std::vector<FileInfo>& files,
   for (const auto& e : files) {
     std::string acp_path;
     if (!WcsToAcp(AsMixedPath(e.RelativePath()), &acp_path)) {
-      LogError(__LINE__, (std::wstring(L"Failed to convert path ") +
+      LogError(__LINE__, (std::wstring(L"Failed to convert path \"") +
                           e.RelativePath() + L"\"")
                              .c_str());
       return false;
@@ -513,9 +516,9 @@ bool CreateZipBuilder(const Path& zip, const ZipEntryPaths& entry_paths,
 
   std::string acp_zip;
   if (!WcsToAcp(zip.Get(), &acp_zip)) {
-    LogError(
-        __LINE__,
-        (std::wstring(L"Failed to convert path ") + zip.Get() + L"\"").c_str());
+    LogError(__LINE__,
+             (std::wstring(L"Failed to convert path \"") + zip.Get() + L"\"")
+                 .c_str());
     return false;
   }
 
@@ -528,15 +531,16 @@ bool CreateZipBuilder(const Path& zip, const ZipEntryPaths& entry_paths,
   return true;
 }
 
-bool OpenFileForWriting(const std::wstring& path, HANDLE* result) {
-  *result = CreateFileW(bazel::windows::HasUncPrefix(path.c_str())
-                            ? path.c_str()
-                            : (L"\\\\?\\" + path).c_str(),
+bool OpenFileForWriting(const Path& path, HANDLE* result) {
+  *result = CreateFileW(bazel::windows::HasUncPrefix(path.Get().c_str())
+                            ? path.Get().c_str()
+                            : (L"\\\\?\\" + path.Get()).c_str(),
                         GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE,
                         NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
   if (*result == INVALID_HANDLE_VALUE) {
     DWORD err = GetLastError();
-    LogErrorWithArgAndValue(__LINE__, "Failed to open file", path.c_str(), err);
+    LogErrorWithArgAndValue(__LINE__, "Failed to open file", path.Get().c_str(),
+                            err);
     return false;
   }
   return true;
@@ -557,13 +561,9 @@ bool OpenExistingFileForRead(const Path& abs_path, HANDLE* result) {
   return true;
 }
 
-bool TouchFile(const std::wstring& path) {
-  HANDLE handle;
-  if (!OpenFileForWriting(path, &handle)) {
-    return false;
-  }
-  CloseHandle(handle);
-  return true;
+bool TouchFile(const Path& path) {
+  bazel::windows::AutoHandle handle;
+  return OpenFileForWriting(path, handle.GetPtr());
 }
 
 bool ReadCompleteFile(HANDLE handle, uint8_t* dest, DWORD max_read) {
@@ -602,14 +602,13 @@ bool WriteToFile(HANDLE output, const void* buffer, const size_t size) {
 }
 
 bool AppendFileTo(const Path& file, const size_t total_size, HANDLE output) {
-  HANDLE input;
-  if (!OpenExistingFileForRead(file, &input)) {
+  bazel::windows::AutoHandle input;
+  if (!OpenExistingFileForRead(file, input.GetPtr())) {
     LogError(
         __LINE__,
         (std::wstring(L"Failed to open file \"") + file.Get() + L"\"").c_str());
     return false;
   }
-  Defer close_input_file([input]() { CloseHandle(input); });
 
   const size_t buf_size = std::min<size_t>(total_size, /* 10 MB */ 10000000);
   std::unique_ptr<uint8_t[]> buffer(new uint8_t[buf_size]);
@@ -691,14 +690,13 @@ bool CreateUndeclaredOutputsManifest(const std::vector<FileInfo>& files,
     return false;
   }
 
-  HANDLE handle;
-  if (!OpenFileForWriting(output.Get(), &handle)) {
+  bazel::windows::AutoHandle handle;
+  if (!OpenFileForWriting(output, handle.GetPtr())) {
     LogError(__LINE__, (std::wstring(L"Failed to open file for writing \"") +
                         output.Get() + L"\"")
                            .c_str());
     return false;
   }
-  Defer close_file([handle]() { CloseHandle(handle); });
 
   if (!WriteToFile(handle, content.c_str(), content.size())) {
     LogError(__LINE__,
@@ -709,19 +707,23 @@ bool CreateUndeclaredOutputsManifest(const std::vector<FileInfo>& files,
   return true;
 }
 
-bool ExportXmlPath(const Path& cwd) {
-  Path result;
-  if (!GetPathEnv(L"XML_OUTPUT_FILE", &result)) {
+bool ExportXmlPath(const Path& cwd, Path* test_outerr) {
+  Path xml_log;
+  if (!GetPathEnv(L"XML_OUTPUT_FILE", &xml_log)) {
+    LogError(__LINE__);
     return false;
   }
-  result.Absolutize(cwd);
-  std::wstring unix_result = AsMixedPath(result.Get());
+  xml_log.Absolutize(cwd);
+  if (!test_outerr->Set(xml_log.Get() + L".log")) {
+    LogError(__LINE__);
+    return false;
+  }
+  std::wstring unix_result = AsMixedPath(xml_log.Get());
   return SetEnv(L"XML_OUTPUT_FILE", unix_result) &&
          // TODO(ulfjack): Update Gunit to accept XML_OUTPUT_FILE and drop the
          // GUNIT_OUTPUT env variable.
          SetEnv(L"GUNIT_OUTPUT", L"xml:" + unix_result) &&
-         CreateDirectories(result.Dirname()) &&
-         TouchFile(result.Get() + L".log");
+         CreateDirectories(xml_log.Dirname()) && TouchFile(*test_outerr);
 }
 
 devtools_ijar::u4 GetZipAttr(const FileInfo& info) {
@@ -779,16 +781,16 @@ bool CreateZip(const Path& root, const std::vector<FileInfo>& files,
   }
 
   for (size_t i = 0; i < files.size(); ++i) {
-    HANDLE handle = INVALID_HANDLE_VALUE;
+    bazel::windows::AutoHandle handle;
     Path path;
     if (!path.Set(root.Get() + L"\\" + files[i].RelativePath()) ||
-        (!files[i].IsDirectory() && !OpenExistingFileForRead(path, &handle))) {
+        (!files[i].IsDirectory() &&
+         !OpenExistingFileForRead(path, handle.GetPtr()))) {
       LogError(__LINE__,
                (std::wstring(L"Failed to open file \"") + path.Get() + L"\"")
                    .c_str());
       return false;
     }
-    Defer close_file([handle]() { CloseHandle(handle); });
 
     devtools_ijar::u1* dest;
     if (!GetZipEntryPtr(zip_builder.get(), zip_entry_paths.EntryPathPtrs()[i],
@@ -1089,14 +1091,13 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
     return true;
   }
 
-  HANDLE handle;
-  if (!OpenFileForWriting(output.Get(), &handle)) {
+  bazel::windows::AutoHandle handle;
+  if (!OpenFileForWriting(output, handle.GetPtr())) {
     LogError(__LINE__, (std::wstring(L"Failed to open for writing \"") +
                         output.Get() + L"\"")
                            .c_str());
     return false;
   }
-  Defer close_file([handle]() { CloseHandle(handle); });
 
   for (const auto& e : files) {
     if (!e.IsDirectory() &&
@@ -1148,11 +1149,10 @@ bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
 
 int RunSubprocess(const Path& test_path,
                   const std::vector<const wchar_t*>& args) {
-  HANDLE process;
-  if (!StartSubprocess(test_path, args, &process)) {
+  bazel::windows::AutoHandle process;
+  if (!StartSubprocess(test_path, args, process.GetPtr())) {
     return 1;
   }
-  Defer close_process([process]() { CloseHandle(process); });
 
   return WaitForSubprocess(process);
 }
@@ -1247,7 +1247,7 @@ int Main(int argc, wchar_t** argv) {
   Path argv0;
   std::wstring test_path_arg;
   bool suppress_output = false;
-  Path test_path, exec_root, srcdir, tmpdir, xml_output;
+  Path test_path, exec_root, srcdir, tmpdir, test_outerr;
   UndeclaredOutputs undecl;
   std::vector<const wchar_t*> args;
   if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &suppress_output, &args) ||
@@ -1258,7 +1258,7 @@ int Main(int argc, wchar_t** argv) {
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
       !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
       !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root) ||
-      !ExportXmlPath(exec_root) ||
+      !ExportXmlPath(exec_root, &test_outerr) ||
       !GetAndUnexportUndeclaredOutputsEnvvars(exec_root, &undecl)) {
     return 1;
   }

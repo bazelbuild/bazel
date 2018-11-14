@@ -27,15 +27,24 @@ using std::wstring;
 // A wrapper for the `HANDLE` type that calls CloseHandle in its d'tor.
 // WARNING: do not use for HANDLE returned by FindFirstFile; those must be
 // closed with FindClose (otherwise they aren't closed properly).
-struct AutoHandle {
-  AutoHandle(HANDLE _handle = INVALID_HANDLE_VALUE) : handle_(_handle) {}
+class AutoHandle {
+ public:
+  AutoHandle(HANDLE handle = INVALID_HANDLE_VALUE) : handle_(handle) {}
 
   ~AutoHandle() {
     ::CloseHandle(handle_);  // succeeds if handle == INVALID_HANDLE_VALUE
     handle_ = INVALID_HANDLE_VALUE;
   }
 
-  bool IsValid() { return handle_ != INVALID_HANDLE_VALUE && handle_ != NULL; }
+  HANDLE Release() {
+    HANDLE h = handle_;
+    handle_ = INVALID_HANDLE_VALUE;
+    return h;
+  }
+
+  bool IsValid() const {
+    return handle_ != INVALID_HANDLE_VALUE && handle_ != NULL;
+  }
 
   AutoHandle& operator=(const HANDLE& rhs) {
     if (IsValid()) {
@@ -44,6 +53,8 @@ struct AutoHandle {
     handle_ = rhs;
     return *this;
   }
+
+  HANDLE* GetPtr() { return &handle_; }
 
   operator HANDLE() const { return handle_; }
 
