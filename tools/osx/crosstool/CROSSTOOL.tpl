@@ -6767,6 +6767,7 @@ toolchain {
     name: "strip"
     path: "/usr/bin/strip"
   }
+  needsPic: false
   compiler_flag: "-D_FORTIFY_SOURCE=1"
   compiler_flag: "-fstack-protector"
   compiler_flag: "-fcolor-diagnostics"
@@ -6777,6 +6778,8 @@ toolchain {
   cxx_flag: "-std=c++11"
   linker_flag: "-headerpad_max_install_names"
   linker_flag: "-no-canonical-prefixes"
+  linker_flag: "-target"
+  linker_flag: "arm64_32-apple-watchos"
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
   compilation_mode_flags {
@@ -6802,12 +6805,15 @@ toolchain {
     name: "STACK_FRAME_UNLIMITED"
     value: "-Wframe-larger-than=100000000 -Wno-vla"
   }
+  builtin_sysroot: ""
   unfiltered_cxx_flag: "-no-canonical-prefixes"
   unfiltered_cxx_flag: "-Wno-builtin-macro-redefined"
   unfiltered_cxx_flag: "-D__DATE__=\"redacted\""
   unfiltered_cxx_flag: "-D__TIMESTAMP__=\"redacted\""
   unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
   default_python_version: "python2.7"
+  unfiltered_cxx_flag: "-target"
+  unfiltered_cxx_flag: "armv7k-apple-watchos"
   feature {
     name: "fastbuild"
   }
@@ -7723,7 +7729,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-m<platform_for_version_min>-version-min=%{version_min}"
+        flag: "-mwatchos-version-min=%{version_min}"
       }
     }
   }
@@ -8007,7 +8013,7 @@ toolchain {
     flag_set {
       flag_group {
         flag: "-arch"
-        flag: "<architecture>"
+        flag: "arm64_32"
       }
     }
     implies: "compiler_input_flags"
@@ -8037,7 +8043,7 @@ toolchain {
     flag_set {
       flag_group {
         flag: "-arch"
-        flag: "<architecture>"
+        flag: "arm64_32"
         flag: "-stdlib=libc++"
         flag: "-std=gnu++11"
       }
@@ -8109,7 +8115,7 @@ toolchain {
         flag: "-filelist"
         flag: "%{obj_list_path}"
         flag: "-arch_only"
-        flag: "<architecture>"
+        flag: "arm64_32"
         flag: "-syslibroot"
         flag: "%{sdk_dir}"
         flag: "-o"
@@ -8145,7 +8151,7 @@ toolchain {
     flag_set {
       flag_group {
         flag: "-arch"
-        flag: "<architecture>"
+        flag: "arm64_32"
       }
       flag_group {
         flag: "-framework"
@@ -8205,7 +8211,7 @@ toolchain {
       }
       flag_group {
         flag: "-arch"
-        flag: "<architecture>"
+        flag: "arm64_32"
       }
       flag_group {
         flag: "-Xlinker"
@@ -8352,7 +8358,7 @@ toolchain {
       flag_group {
         flag: "-static"
         flag: "-arch_only"
-        flag: "<architecture>"
+        flag: "arm64_32"
         flag: "-syslibroot"
         flag: "%{sdk_dir}"
         flag: "-o"
