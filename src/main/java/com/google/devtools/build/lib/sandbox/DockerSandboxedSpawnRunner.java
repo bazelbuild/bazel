@@ -363,7 +363,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     try {
       cmd.executeAsync(stdIn, stdOut, stdErr, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
     } catch (CommandException e) {
-      throw new UserExecException("Running command " + cmd.toDebugString() + " failed: " + stdErr);
+      throw new UserExecException(
+          "Running command " + cmd.toDebugString() + " failed: " + stdErr, e);
     }
     return stdOut.toString().trim();
   }
@@ -400,7 +401,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         throw new IllegalArgumentException(
             String.format(
                 "Platform %s contained multiple container-image entries, but only one is allowed.",
-                spawn.getExecutionPlatform().label()));
+                spawn.getExecutionPlatform().label()),
+            e);
       }
     } else {
       return Optional.empty();
