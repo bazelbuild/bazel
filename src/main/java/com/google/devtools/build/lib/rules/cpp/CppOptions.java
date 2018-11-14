@@ -471,19 +471,6 @@ public class CppOptions extends FragmentOptions {
   public boolean enableFdoProfileAbsolutePath;
 
   @Option(
-    name = "experimental_stl",
-    converter = LabelConverter.class,
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
-    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-    help =
-        "If set, use this label instead of the default STL implementation. "
-            + "This option is EXPERIMENTAL and may go away in a future release."
-  )
-  public Label stl;
-
-  @Option(
     name = "save_temps",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,

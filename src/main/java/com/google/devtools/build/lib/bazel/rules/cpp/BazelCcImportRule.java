@@ -39,7 +39,6 @@ public final class BazelCcImportRule implements RuleDefinition {
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
-        .add(attr(":stl", LABEL).value(BazelCppRuleClasses.STL))
         .build();
   }
 

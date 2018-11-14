@@ -317,23 +317,23 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
         "   s = depset([target.label])",
         "   c = depset([ctx.rule.kind])",
         "   a = ctx.rule.attr",
-        "   if hasattr(a, '_stl') and a._stl:",
-        "       s += a._stl.target_labels",
-        "       c += a._stl.rule_kinds",
-        "   if hasattr(a, '_stl_default') and a._stl_default:",
-        "       s += a._stl_default.target_labels",
-        "       c += a._stl_default.rule_kinds",
+        "   if hasattr(a, '_defaultattr') and a._defaultattr:",
+        "       s += a._defaultattr.target_labels",
+        "       c += a._defaultattr.rule_kinds",
+        "   if hasattr(a, '_cc_toolchain') and a._cc_toolchain:",
+        "       s += a._cc_toolchain.target_labels",
+        "       c += a._cc_toolchain.rule_kinds",
         "   return struct(target_labels = s, rule_kinds = c)",
         "",
         "def _rule_impl(ctx):",
         "   pass",
         "",
         "my_rule = rule(implementation = _rule_impl,",
-        "   attrs = { '_stl' : attr.label(default = Label('//test:xxx')) },",
+        "   attrs = { '_defaultattr' : attr.label(default = Label('//test:xxx')) },",
         ")",
         "MyAspect = aspect(",
         "   implementation=_impl,",
-        "   attr_aspects=['_stl', '_stl_default'],",
+        "   attr_aspects=['_defaultattr', '_cc_toolchain'],",
         ")");
     scratch.file(
         "test/BUILD",
@@ -349,16 +349,17 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     AspectValue aspectValue = analysisResult.getAspects().iterator().next();
     ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
     assertThat(configuredAspect).isNotNull();
-    Object names = configuredAspect.get("target_labels");
-    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
-    assertThat(
-            transform(
-                ((SkylarkNestedSet) names).toCollection(),
-                o -> {
-                  assertThat(o).isInstanceOf(Label.class);
-                  return ((Label) o).getName();
-                }))
-        .containsExactly("stl", "xxx", "yyy");
+    Object nameSet = configuredAspect.get("target_labels");
+    ImmutableList<String> names = ImmutableList.copyOf(transform(
+        ((SkylarkNestedSet) nameSet).toCollection(),
+        o -> {
+          assertThat(o).isInstanceOf(Label.class);
+          return ((Label) o).getName();
+        }));
+
+    assertThat(names).containsAllOf("xxx", "yyy");
+    // Third is the C++ toolchain; its name changes between Blaze and Bazel.
+    assertThat(names).hasSize(3);
   }
 
   @Test

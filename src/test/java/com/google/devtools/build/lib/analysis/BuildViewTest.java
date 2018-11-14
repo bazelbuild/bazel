@@ -1045,33 +1045,6 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
-  public void testCircularDependencyWithLateBoundLabel() throws Exception {
-    if (getInternalTestExecutionMode() != TestConstants.InternalTestExecutionMode.NORMAL) {
-      // TODO(b/67412276): handle cycles properly.
-      return;
-    }
-    scratch.file("cycle/BUILD",
-        "cc_library(name = 'foo', deps = [':bar'])",
-        "cc_library(name = 'bar')");
-    useConfiguration("--experimental_stl=//cycle:foo");
-    reporter.removeHandler(failFastHandler);
-    EventBus eventBus = new EventBus();
-    LoadingFailureRecorder loadingFailureRecorder = new LoadingFailureRecorder();
-    AnalysisFailureRecorder analysisFailureRecorder = new AnalysisFailureRecorder();
-    eventBus.register(loadingFailureRecorder);
-    eventBus.register(analysisFailureRecorder);
-    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//cycle:foo");
-    assertThat(result.hasError()).isTrue();
-    assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
-    // This needs to be reported as an anlysis-phase cycle; the cycle only occurs due to the stl
-    // command-line option, which is part of the configuration, and which is used due to the
-    // late-bound label.
-    assertThat(Iterables.transform(analysisFailureRecorder.events, ANALYSIS_EVENT_TO_STRING_PAIR))
-        .containsExactly(Pair.of("//cycle:foo", "//cycle:foo"));
-    assertThat(loadingFailureRecorder.events).isEmpty();
-  }
-
-  @Test
   public void testLoadingErrorReportedCorrectly() throws Exception {
     scratch.file("a/BUILD", "cc_library(name='a')");
     scratch.file("b/BUILD", "cc_library(name='b', deps = ['//missing:lib'])");

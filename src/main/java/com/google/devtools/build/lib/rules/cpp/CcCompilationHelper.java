@@ -1177,17 +1177,28 @@ public final class CcCompilationHelper {
         !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
   }
 
+  private static CcInfo getStlDependency(RuleContext ruleContext) {
+    if (ruleContext.attributes().has("$stl", BuildType.LABEL)) {
+      return ruleContext.getPrerequisite("$stl", Mode.TARGET, CcInfo.PROVIDER);
+    } else if (ruleContext.attributes().has(":stl", BuildType.LABEL)) {
+      // This is here because some Starlark rules use configuration_field() to depend on the STL
+      // which results in an attribute like this. In order to keep the world ticking along, we need
+      // to support that until they are deleted.
+      return ruleContext.getPrerequisite(":stl", Mode.TARGET, CcInfo.PROVIDER);
+    } else {
+      return null;
+    }
+  }
+
   private Iterable<CppModuleMap> collectModuleMaps() {
     // Cpp module maps may be null for some rules. We filter the nulls out at the end.
     List<CppModuleMap> result =
         ccCompilationContexts.stream()
             .map(CPP_DEPS_TO_MODULES)
             .collect(toCollection(ArrayList::new));
-    if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
-      CcInfo stl = ruleContext.getPrerequisite(":stl", Mode.TARGET, CcInfo.PROVIDER);
-      if (stl != null) {
-        result.add(stl.getCcCompilationContext().getCppModuleMap());
-      }
+    CcInfo stl = getStlDependency(ruleContext);
+    if (stl != null) {
+      result.add(stl.getCcCompilationContext().getCppModuleMap());
     }
 
     if (ccToolchain != null) {
@@ -2074,26 +2085,20 @@ public final class CcCompilationHelper {
 
   /**
    * Merges the STL and toolchain contexts into context builder. The STL is automatically determined
-   * using the ":stl" attribute.
+   * using the "$stl" (or, historically, ":stl") attribute.
    */
   private static void mergeToolchainDependentCcCompilationContext(
       RuleContext ruleContext,
       CcToolchainProvider toolchain,
       CcCompilationContext.Builder ccCompilationContextBuilder) {
-    if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
-      TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
-      if (stl != null) {
-        CcInfo ccInfo = stl.get(CcInfo.PROVIDER);
-        CcCompilationContext ccCompilationContext =
-            ccInfo != null ? ccInfo.getCcCompilationContext() : null;
-        if (ccCompilationContext == null) {
-          ruleContext.ruleError(
-              "Unable to merge the STL '" + stl.getLabel() + "' and toolchain contexts");
-          return;
-        }
+    CcInfo stl = getStlDependency(ruleContext);
+    if (stl != null) {
+      CcCompilationContext ccCompilationContext = stl.getCcCompilationContext();
+      if (ccCompilationContext != null) {
         ccCompilationContextBuilder.mergeDependentCcCompilationContext(ccCompilationContext);
       }
     }
+
     if (toolchain != null) {
       ccCompilationContextBuilder.mergeDependentCcCompilationContext(
           toolchain.getCcCompilationContext());

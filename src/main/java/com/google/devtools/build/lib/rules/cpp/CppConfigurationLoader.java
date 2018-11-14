@@ -86,7 +86,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final CppOptions cppOptions;
     protected final Label crosstoolTop;
     protected final Label ccToolchainLabel;
-    protected final Label stlLabel;
     protected final PathFragment fdoPath;
     protected final Label fdoOptimizeLabel;
     protected final Label sysrootLabel;
@@ -104,7 +103,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         Label fdoOptimizeLabel,
         Label crosstoolTop,
         Label ccToolchainLabel,
-        Label stlLabel,
         Label sysrootLabel,
         CcToolchainConfigInfo ccToolchainConfigInfo) {
       this.transformedCpu = transformedCpu;
@@ -116,7 +114,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       this.fdoOptimizeLabel = fdoOptimizeLabel;
       this.crosstoolTop = crosstoolTop;
       this.ccToolchainLabel = ccToolchainLabel;
-      this.stlLabel = stlLabel;
       this.sysrootLabel = sysrootLabel;
       this.ccToolchainConfigInfo = ccToolchainConfigInfo;
     }
@@ -201,14 +198,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
 
     Label sysrootLabel = getSysrootLabel(cToolchain, cppOptions.libcTopLabel);
 
-    Label stlLabel = null;
-    if (cppOptions.stl != null) {
-      stlLabel = RedirectChaser.followRedirects(env, cppOptions.stl, "stl");
-      if (stlLabel == null) {
-        return null;
-      }
-    }
-
     String ccToolchainSuiteProtoAttributeValue =
         StringUtil.emptyToNull(
             NonconfigurableAttributeMapper.of((Rule) crosstoolTop).get("proto", Type.STRING));
@@ -251,7 +240,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         fdoProfileLabel,
         crosstoolTopLabel,
         ccToolchainLabel,
-        stlLabel,
         sysrootLabel,
         ccToolchainConfigInfo);
   }

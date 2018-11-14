@@ -587,16 +587,16 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
     useConfiguration("--cpu=k8");
     ConfiguredTarget x =
+
         scratchConfiguredTarget(
             "foo",
             "x",
             "package(features = ['header_modules'])",
             "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'])",
             "cc_library(name = 'y', hdrs = ['y.h'])");
-    assertThat(
-            ActionsTestUtil.baseNamesOf(
-                getOutputGroup(x, OutputGroupInfo.COMPILATION_PREREQUISITES)))
-        .isEqualTo("y.h y.cppmap stl.cppmap crosstool.cppmap x.cppmap y.pic.pcm x.cc");
+    assertThat(ActionsTestUtil.baseArtifactNames(
+        getOutputGroup(x, OutputGroupInfo.COMPILATION_PREREQUISITES)))
+        .containsAllOf("y.h", "y.cppmap", "crosstool.cppmap", "x.cppmap", "y.pic.pcm", "x.cc");
   }
 
   @Test
@@ -1016,9 +1016,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration();
     writeSimpleCcLibrary();
     CppModuleMapAction action = getCppModuleMapAction("//module:map");
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getDependencyArtifacts())).containsExactly(
-        "stl.cppmap",
-        "crosstool.cppmap");
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getDependencyArtifacts()))
+        .contains("crosstool.cppmap");
     assertThat(artifactsToStrings(action.getPrivateHeaders()))
         .containsExactly("src module/a.h");
     assertThat(action.getPublicHeaders()).isEmpty();
@@ -1506,16 +1505,5 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=parse_headers", "-c", "opt");
     // Should not crash
     scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'])");
-  }
-
-  @Test
-  public void testStlWithAlias() throws Exception {
-    scratch.file("a/BUILD",
-        "cc_library(name='a')",
-        "alias(name='stl', actual=':realstl')",
-        "cc_library(name='realstl')");
-
-    useConfiguration("--experimental_stl=//a:stl");
-    getConfiguredTarget("//a:a");
   }
 }

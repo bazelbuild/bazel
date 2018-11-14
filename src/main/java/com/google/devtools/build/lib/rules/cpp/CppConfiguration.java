@@ -196,7 +196,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   // TODO(b/113849758): Remove once it's not needed for toolchain selection in CppConfiguration.
   private final Label ccToolchainLabel;
-  private final Label stlLabel;
 
   // TODO(kmensah): This is temporary until all the Skylark functions that need this can be removed.
   private final PathFragment nonConfiguredSysroot;
@@ -277,7 +276,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         params.fdoPath,
         params.fdoOptimizeLabel,
         params.ccToolchainLabel,
-        params.stlLabel,
         params.sysrootLabel == null
             ? cppToolchainInfo.getDefaultSysroot()
             : params.sysrootLabel.getPackageFragment(),
@@ -314,7 +312,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       PathFragment fdoPath,
       Label fdoOptimizeLabel,
       Label ccToolchainLabel,
-      Label stlLabel,
       PathFragment nonConfiguredSysroot,
       Label sysrootLabel,
       ImmutableList<String> compilerFlags,
@@ -343,7 +340,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoOptimizeLabel;
     this.ccToolchainLabel = ccToolchainLabel;
-    this.stlLabel = stlLabel;
     this.nonConfiguredSysroot = nonConfiguredSysroot;
     this.sysrootLabel = sysrootLabel;
     this.compilerFlags = compilerFlags;
@@ -792,14 +788,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.linkCompileOutputSeparately;
   }
 
-  /**
-   * Returns the STL label if given on the command line. {@code null}
-   * otherwise.
-   */
-  public Label getStl() {
-    return stlLabel;
-  }
-
   @SkylarkConfigurationField(
       name = "stl",
       doc = "The label of the STL target",
@@ -807,14 +795,11 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       defaultInToolRepository = false
   )
   public Label getSkylarkStl() {
-    if (stlLabel == null) {
-      try {
-        return Label.parseAbsolute("//third_party/stl", ImmutableMap.of());
-      } catch (LabelSyntaxException e) {
-        throw new IllegalStateException("STL label not formatted correctly", e);
-      }
+    try {
+      return Label.parseAbsolute("//third_party/stl", ImmutableMap.of());
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException("STL label not formatted correctly", e);
     }
-    return stlLabel;
   }
 
   public boolean isFdo() {
