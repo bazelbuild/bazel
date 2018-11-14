@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.MoreCollectors;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.OptionsDiffPredicate;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
@@ -48,36 +47,24 @@ import java.util.Set;
 
 /** Test-related options. */
 public class TestConfiguration extends Fragment {
-  public static final OptionsDiffPredicate HAVE_OPTIONS_AFFECTING_NON_TEST_TARGETS_CHANGED =
-      (diff, options) -> {
-          if (!options.contains(TestOptions.class)) {
-            // if there's a diff and there are no test options, a non-test option definitely changed
-            return true;
-          }
-          if (!options.get(TestOptions.class).trimTestConfiguration) {
-            // if trimTestConfiguration is off, test options affect all targets
-            return true;
-          }
-          for (OptionDefinition changedOption : diff.getFirst().keySet()) {
-            if (TestOptions.TRIM_TEST_CONFIGURATION.equals(changedOption)) {
-              // toggling trimTestConfiguration affects all non-test targets
-              return true;
-            }
-            if (!changedOption.getField().getDeclaringClass().equals(TestOptions.class)) {
-              // only TestOptions are trimmed; options from other classes affect all targets
-              return true;
-            }
-          }
-          return false;
+  public static final OptionsDiffPredicate SHOULD_INVALIDATE_FOR_OPTION_DIFF =
+      (options, changedOption, oldValue, newValue) -> {
+        if (TestOptions.TRIM_TEST_CONFIGURATION.equals(changedOption)) {
+          // changes in --trim_test_configuration itself always prompt invalidation
+          return true;
+        }
+        if (!changedOption.getField().getDeclaringClass().equals(TestOptions.class)) {
+          // options outside of TestOptions always prompt invalidation
+          return true;
+        }
+        // other options in TestOptions require invalidation when --trim_test_configuration is off
+        return !options.get(TestOptions.class).trimTestConfiguration;
       };
 
   /** Command-line options. */
   public static class TestOptions extends FragmentOptions {
     private static final OptionDefinition TRIM_TEST_CONFIGURATION =
-        OptionsParser.getOptionDefinitions(TestOptions.class)
-            .stream()
-            .filter(definition -> definition.getOptionName().equals("trim_test_configuration"))
-            .collect(MoreCollectors.onlyElement());
+        OptionsParser.getOptionDefinitionByName(TestOptions.class, "trim_test_configuration");
 
     @Option(
         name = "test_timeout",

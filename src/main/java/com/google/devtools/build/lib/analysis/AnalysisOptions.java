@@ -50,6 +50,18 @@ public class AnalysisOptions extends OptionsBase {
   public boolean discardAnalysisCache;
 
   @Option(
+    name = "max_config_changes_to_show",
+    defaultValue = "3",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+    help =
+        "When discarding the analysis cache due to a change in the build options, "
+        + "displays up to the given number of changed option names. "
+        + "If the number given is -1, all changed options will be displayed."
+  )
+  public int maxConfigChangesToShow;
+
+  @Option(
     name = "experimental_extra_action_filter",
     defaultValue = "",
     converter = RegexFilter.RegexFilterConverter.class,

@@ -174,7 +174,8 @@ public class BuildViewForTesting {
   @VisibleForTesting
   public void setConfigurationsForTesting(
       EventHandler eventHandler, BuildConfigurationCollection configurations) {
-    skyframeBuildView.setConfigurations(eventHandler, configurations);
+    skyframeBuildView.setConfigurations(
+        eventHandler, configurations, /* maxDifferencesToShow */ -1);
   }
 
   public ArtifactFactory getArtifactFactory() {

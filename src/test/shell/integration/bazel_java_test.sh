@@ -202,37 +202,44 @@ genrule(
 )
 EOF
 
-  bazel cquery --implicit_deps 'deps(//:without_java)' >& $TEST_log
+  # Use --max_config_changes_to_show=0, as changed option names may otherwise
+  # erroneously match the expected regexes.
+
+  bazel cquery --max_config_changes_to_show=0 --implicit_deps \
+    'deps(//:without_java)' >& $TEST_log
   expect_not_log "foo"
   expect_not_log "bar"
   expect_not_log "embedded_jdk"
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk10_"
 
-  bazel cquery --implicit_deps 'deps(//:with_java)' >& $TEST_log
+  bazel cquery --max_config_changes_to_show=0 --implicit_deps \
+    'deps(//:with_java)' >& $TEST_log
   expect_not_log "foo"
   expect_log "bar"
   expect_log "embedded_jdk"
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk10_"
 
-  bazel cquery --implicit_deps 'deps(//:with_java)' --host_javabase=:foo_javabase >& $TEST_log
+  bazel cquery --max_config_changes_to_show=0 --implicit_deps \
+    'deps(//:with_java)' --host_javabase=:foo_javabase >& $TEST_log
   expect_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk10_"
 
-  bazel cquery --implicit_deps 'deps(//:with_java)' \
-    --incompatible_use_remotejdk_as_host_javabase >& $TEST_log
+  bazel cquery --max_config_changes_to_show=0 --implicit_deps \
+    'deps(//:with_java)' --incompatible_use_remotejdk_as_host_javabase \
+    >& $TEST_log
   expect_not_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"
   expect_log "remotejdk_"
   expect_not_log "remotejdk10_"
 
-  bazel cquery --implicit_deps 'deps(//:with_java)' \
-    --host_javabase=:foo_javabase \
+  bazel cquery --max_config_changes_to_show=0 --implicit_deps \
+    'deps(//:with_java)' --host_javabase=:foo_javabase \
     --incompatible_use_remotejdk_as_host_javabase >& $TEST_log
   expect_log "foo"
   expect_log "bar"
@@ -240,8 +247,9 @@ EOF
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk10_"
 
-  bazel cquery --implicit_deps 'deps(//:with_java)' \
-    --incompatible_use_jdk10_as_host_javabase >& $TEST_log
+  bazel cquery --max_config_changes_to_show=0 --implicit_deps \
+    'deps(//:with_java)' --incompatible_use_jdk10_as_host_javabase \
+    >& $TEST_log
   expect_not_log "foo"
   expect_log "bar"
   expect_not_log "embedded_jdk"

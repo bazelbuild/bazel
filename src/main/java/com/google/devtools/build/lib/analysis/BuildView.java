@@ -251,7 +251,8 @@ public class BuildView {
       }
     }
 
-    skyframeBuildView.setConfigurations(eventHandler, configurations);
+    skyframeBuildView.setConfigurations(
+        eventHandler, configurations, viewOptions.maxConfigChangesToShow);
 
     if (configurations.getTargetConfigurations().size() == 1) {
       eventBus

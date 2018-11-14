@@ -22,6 +22,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.MoreCollectors;
 import com.google.common.escape.Escaper;
 import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
 import com.google.devtools.common.options.OptionsParserImpl.ResidueAndPriority;
@@ -749,6 +750,23 @@ public class OptionsParser implements OptionsParsingResult {
   public static ImmutableList<OptionDefinition> getOptionDefinitions(
       Class<? extends OptionsBase> optionsClass) {
     return OptionsData.getAllOptionDefinitionsForClass(optionsClass);
+  }
+
+  /**
+   * Returns the option with the given name from the given class.
+   *
+   * <p>The preferred way of using this method is as the initializer for a static final field in the
+   * options class which defines the option. This reduces the possibility that another contributor
+   * might change the name of the option without realizing it's used by name elsewhere.
+   *
+   * @throws IllegalArgumentException if there are two or more options with that name.
+   * @throws NoSuchElementException if there are no options with that name.
+   */
+  public static OptionDefinition getOptionDefinitionByName(
+      Class<? extends OptionsBase> optionsClass, String optionName) {
+    return getOptionDefinitions(optionsClass).stream()
+        .filter(definition -> definition.getOptionName().equals(optionName))
+        .collect(MoreCollectors.onlyElement());
   }
 
   /**

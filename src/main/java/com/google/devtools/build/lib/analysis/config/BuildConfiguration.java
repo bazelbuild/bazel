@@ -57,9 +57,11 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.util.ArrayList;
@@ -337,6 +339,9 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * input string.
    */
   public static class Options extends FragmentOptions implements Cloneable {
+    public static final OptionDefinition CPU =
+        OptionsParser.getOptionDefinitionByName(Options.class, "cpu");
+
     @Option(
       name = "experimental_separate_genfiles_directory",
       defaultValue = "true",
