@@ -185,6 +185,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     try {
       skyframeDepsResult = establishSkyframeDependencies(env, action);
     } catch (ActionExecutionException e) {
+      // Remove action from state map in case it's there (won't be unless it discovers inputs).
+      stateMap.remove(action);
       throw new ActionExecutionFunctionException(e);
     }
     if (env.valuesMissing()) {
