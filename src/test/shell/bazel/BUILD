@@ -141,6 +141,14 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_proto_library_test",
+    size = "large",  # Downloads and compiles protobuf for *every* *test* *case*
+    srcs = ["bazel_proto_library_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],  # Doesn't work on Windows for unknown reason
+)
+
+sh_test(
     name = "bazel_build_event_stream_test",
     size = "medium",
     srcs = ["bazel_build_event_stream_test.sh"],
