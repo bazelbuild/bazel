@@ -1,0 +1,5 @@
+- Fixes regression #6662, by fixing tools/cpp/BUILD
+- Fixes regression #6665, by setting the toolchain identifier.
+- CROSSTOOL file is now read from the package of cc_toolchain, not from the
+  package of cc_toolchain_suite. This is not expected to break anybody since
+  cc_toolchain_suite and cc_toolchain are commonly in the same package.
