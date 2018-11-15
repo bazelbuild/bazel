@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -92,17 +93,27 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   private final FeatureConfiguration getMockFeatureConfiguration() throws Exception {
-    return CcToolchainFeaturesTest.buildFeatures(
-            CppActionConfigs.getCppActionConfigs(
-                CppPlatform.LINUX,
-                ImmutableSet.of(),
-                "gcc_tool",
-                "dynamic_library_linker_tool",
-                "ar_tool",
-                "strip_tool",
-                /* supportsEmbeddedRuntimes= */ true,
-                /* supportsInterfaceSharedLibraries= */ false),
-            CppActionConfigs.getFeaturesToAppearLastInToolchain(ImmutableSet.of()))
+    ImmutableList<CToolchain.Feature> features =
+        new ImmutableList.Builder<CToolchain.Feature>()
+            .addAll(
+                CppActionConfigs.getLegacyFeatures(
+                    CppPlatform.LINUX,
+                    ImmutableSet.of(),
+                    "dynamic_library_linker_tool",
+                    /* supportsEmbeddedRuntimes= */ true,
+                    /* supportsInterfaceSharedLibraries= */ false))
+            .addAll(CppActionConfigs.getFeaturesToAppearLastInFeaturesList(ImmutableSet.of()))
+            .build();
+
+    ImmutableList<CToolchain.ActionConfig> actionConfigs =
+        CppActionConfigs.getLegacyActionConfigs(
+            CppPlatform.LINUX,
+            "gcc_tool",
+            "ar_tool",
+            "strip_tool",
+            /* supportsInterfaceSharedLibraries= */ false);
+
+    return CcToolchainFeaturesTest.buildFeatures(features, actionConfigs)
         .getFeatureConfiguration(
             ImmutableSet.of(
                 Link.LinkTargetType.EXECUTABLE.getActionName(),

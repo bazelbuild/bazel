@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithV
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
+import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -71,11 +72,15 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for C++ support. */
@@ -985,21 +990,103 @@ public class CcModule
     for (Object feature : features) {
       featureBuilder.add(featureFromSkylark((SkylarkInfo) feature));
     }
+    ImmutableList<Feature> featureList = featureBuilder.build();
+
+    ImmutableSet<String> featureNames =
+        featureList.stream()
+            .map(feature -> feature.getName())
+            .collect(ImmutableSet.toImmutableSet());
 
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (Object actionConfig : actionConfigs) {
       actionConfigBuilder.add(actionConfigFromSkylark((SkylarkInfo) actionConfig));
     }
+    ImmutableList<ActionConfig> actionConfigList = actionConfigBuilder.build();
 
     ImmutableList.Builder<ArtifactNamePattern> artifactNamePatternBuilder = ImmutableList.builder();
     for (Object artifactNamePattern : artifactNamePatterns) {
       artifactNamePatternBuilder.add(
           artifactNamePatternFromSkylark((SkylarkInfo) artifactNamePattern));
     }
+    getLegacyArtifactNamePatterns(artifactNamePatternBuilder);
 
+    // Pairs (toolName, toolPath)
     ImmutableList.Builder<Pair<String, String>> toolPathPairs = ImmutableList.builder();
     for (Object toolPath : toolPaths) {
       toolPathPairs.add(toolPathFromSkylark((SkylarkInfo) toolPath));
+    }
+    ImmutableList<Pair<String, String>> toolPathList = toolPathPairs.build();
+
+    if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
+      String gccToolPath = "DUMMY_GCC_TOOL";
+      String linkerToolPath = "DUMMY_LINKER_TOOL";
+      String arToolPath = "DUMMY_AR_TOOL";
+      String stripToolPath = "DUMMY_STRIP_TOOL";
+      for (Pair<String, String> tool : toolPathList) {
+        if (tool.first.equals(CppConfiguration.Tool.GCC.getNamePart())) {
+          gccToolPath = tool.second;
+          linkerToolPath =
+              skylarkRuleContext
+                  .getRuleContext()
+                  .getLabel()
+                  .getPackageIdentifier()
+                  .getPathUnderExecRoot()
+                  .getRelative(PathFragment.create(tool.second))
+                  .getPathString();
+        }
+        if (tool.first.equals(CppConfiguration.Tool.AR.getNamePart())) {
+          arToolPath = tool.second;
+        }
+        if (tool.first.equals(CppConfiguration.Tool.STRIP.getNamePart())) {
+          stripToolPath = tool.second;
+        }
+      }
+
+      ImmutableList.Builder<Feature> legacyFeaturesBuilder = ImmutableList.builder();
+      // TODO(b/30109612): Remove fragile legacyCompileFlags shuffle once there are no legacy
+      // crosstools.
+      // Existing projects depend on flags from legacy toolchain fields appearing first on the
+      // compile command line. 'legacy_compile_flags' feature contains all these flags, and so it
+      // needs to appear before other features from {@link CppActionConfigs}.
+      if (featureNames.contains(CppRuleClasses.LEGACY_COMPILE_FLAGS)) {
+        legacyFeaturesBuilder.add(
+            featureList.stream()
+                .filter(feature -> feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
+                .findFirst()
+                .get());
+      }
+
+      CppPlatform platform = targetLibc.equals("macos") ? CppPlatform.MAC : CppPlatform.LINUX;
+      for (CToolchain.Feature feature :
+          CppActionConfigs.getLegacyFeatures(
+              platform,
+              featureNames,
+              linkerToolPath,
+              // This should be toolchain-based, rather than feature based, because
+              // it controls whether or not to declare the feature at all.
+              supportsEmbeddedRuntimes,
+              supportsInterfaceSharedObjects)) {
+        legacyFeaturesBuilder.add(new Feature(feature));
+      }
+      legacyFeaturesBuilder.addAll(
+          featureList.stream()
+              .filter(feature -> !feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
+              .collect(ImmutableList.toImmutableList()));
+      for (CToolchain.Feature feature :
+          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames)) {
+        legacyFeaturesBuilder.add(new Feature(feature));
+      }
+
+      featureList = legacyFeaturesBuilder.build();
+
+      ImmutableList.Builder<ActionConfig> legacyActionConfigBuilder = ImmutableList.builder();
+      for (CToolchain.ActionConfig actionConfig :
+          CppActionConfigs.getLegacyActionConfigs(
+              platform, gccToolPath, arToolPath, stripToolPath, supportsEmbeddedRuntimes)) {
+        legacyActionConfigBuilder.add(new ActionConfig(actionConfig));
+      }
+      legacyActionConfigBuilder.addAll(actionConfigList);
+      actionConfigList = legacyActionConfigBuilder.build();
     }
 
     ImmutableList.Builder<Pair<String, String>> makeVariablePairs = ImmutableList.builder();
@@ -1012,8 +1099,8 @@ public class CcModule
     boolean hasDynamicLinkingModeFlags = dynamicModeFlags != null;
 
     return new CcToolchainConfigInfo(
-        actionConfigBuilder.build(),
-        featureBuilder.build(),
+        actionConfigList,
+        featureList,
         artifactNamePatternBuilder.build(),
         ImmutableList.copyOf(cxxBuiltInIncludeDirectories),
         toolchainIdentifier,
@@ -1033,7 +1120,7 @@ public class CcModule
         supportsFission,
         supportsDsym,
         needsPic,
-        toolPathPairs.build(),
+        toolPathList,
         ImmutableList.copyOf(compilerFlags),
         ImmutableList.copyOf(cxxFlags),
         ImmutableList.copyOf(unfilteredCxxFlags),
@@ -1522,5 +1609,30 @@ public class CcModule
               convertSkylarkListOrNestedSetToList(entry.getValue(), String.class)));
     }
     return compilationModeFlagsBuilder.build();
+  }
+
+  private static void getLegacyArtifactNamePatterns(
+      ImmutableList.Builder<ArtifactNamePattern> patterns) {
+    Set<ArtifactCategory> definedCategories = new HashSet<>();
+    for (ArtifactNamePattern pattern : patterns.build()) {
+      try {
+        definedCategories.add(
+            ArtifactCategory.valueOf(
+                pattern.getArtifactCategory().getCategoryName().toUpperCase(Locale.ENGLISH)));
+      } catch (IllegalArgumentException e) {
+        // Invalid category name, will be detected later.
+        continue;
+      }
+    }
+
+    for (ArtifactCategory category : ArtifactCategory.values()) {
+      if (!definedCategories.contains(category)
+          && category.getDefaultPrefix() != null
+          && category.getDefaultExtension() != null) {
+        patterns.add(
+            new ArtifactNamePattern(
+                category, category.getDefaultPrefix(), category.getDefaultExtension()));
+      }
+    }
   }
 }

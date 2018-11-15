@@ -4120,4 +4120,155 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
   }
+
+  @Test
+  public void testCcToolchainInfoFromSkylarkNoLegacyFeatures() throws Exception {
+    loadCcToolchainConfigLib();
+    scratch.file(
+        "foo/crosstool.bzl",
+        "load('//tools/cpp:cc_toolchain_config_lib.bzl',",
+        "        'feature',",
+        "        'action_config',",
+        "        'artifact_name_pattern',",
+        "        'env_entry',",
+        "        'variable_with_value',",
+        "        'make_variable',",
+        "        'feature_set',",
+        "        'with_feature_set',",
+        "        'env_set',",
+        "        'flag_group',",
+        "        'flag_set',",
+        "        'tool_path',",
+        "        'tool')",
+        "",
+        "def _impl(ctx):",
+        "    return cc_common.create_cc_toolchain_config_info(",
+        "                ctx = ctx,",
+        "                features = [",
+        "                    feature(name = 'no_legacy_features'),",
+        "                    feature(name = 'custom_feature'),",
+        "                ],",
+        "                action_configs = [action_config(action_name = 'custom_action')],",
+        "                artifact_name_patterns = [artifact_name_pattern(",
+        "                   category_name = 'static_library',",
+        "                   prefix = 'prefix',",
+        "                   extension = '.a')],",
+        "                toolchain_identifier = 'toolchain',",
+        "                host_system_name = 'host',",
+        "                target_system_name = 'target',",
+        "                target_cpu = 'cpu',",
+        "                target_libc = 'libc',",
+        "                default_libc_top = 'libc_top',",
+        "                compiler = 'compiler',",
+        "                abi_libc_version = 'abi_libc',",
+        "                abi_version = 'abi')",
+        "cc_toolchain_config_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        "    provides = [CcToolchainConfigInfo], ",
+        ")");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "cc_toolchain_config_rule(name='r')");
+    useConfiguration(
+        "--experimental_enable_cc_toolchain_config_info",
+        "--incompatible_disable_cc_configuration_make_variables");
+    ConfiguredTarget target = getConfiguredTarget("//foo:r");
+    assertThat(target).isNotNull();
+    CcToolchainConfigInfo ccToolchainConfigInfo =
+        (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
+    ImmutableSet<String> featureNames =
+        ccToolchainConfigInfo.getFeatures().stream()
+            .map(feature -> feature.getName())
+            .collect(ImmutableSet.toImmutableSet());
+    ImmutableSet<String> actionConfigNames =
+        ccToolchainConfigInfo.getActionConfigs().stream()
+            .map(actionConfig -> actionConfig.getActionName())
+            .collect(ImmutableSet.toImmutableSet());
+    assertThat(featureNames).containsExactly("no_legacy_features", "custom_feature");
+    assertThat(actionConfigNames).containsExactly("custom_action");
+  }
+
+  @Test
+  public void testCcToolchainInfoFromSkylarkWithLegacyFeatures() throws Exception {
+    loadCcToolchainConfigLib();
+    scratch.file(
+        "foo/crosstool.bzl",
+        "load('//tools/cpp:cc_toolchain_config_lib.bzl',",
+        "        'feature',",
+        "        'action_config',",
+        "        'artifact_name_pattern',",
+        "        'env_entry',",
+        "        'variable_with_value',",
+        "        'make_variable',",
+        "        'feature_set',",
+        "        'with_feature_set',",
+        "        'env_set',",
+        "        'flag_group',",
+        "        'flag_set',",
+        "        'tool_path',",
+        "        'tool')",
+        "",
+        "def _impl(ctx):",
+        "    return cc_common.create_cc_toolchain_config_info(",
+        "                ctx = ctx,",
+        "                features = [",
+        "                    feature(name = 'custom_feature'),",
+        "                    feature(name = 'legacy_compile_flags'),",
+        "                    feature(name = 'fdo_optimize'),",
+        "                ],",
+        "                action_configs = [action_config(action_name = 'custom-action')],",
+        "                artifact_name_patterns = [artifact_name_pattern(",
+        "                   category_name = 'static_library',",
+        "                   prefix = 'prefix',",
+        "                   extension = '.a')],",
+        "                toolchain_identifier = 'toolchain',",
+        "                host_system_name = 'host',",
+        "                target_system_name = 'target',",
+        "                target_cpu = 'cpu',",
+        "                target_libc = 'libc',",
+        "                default_libc_top = 'libc_top',",
+        "                compiler = 'compiler',",
+        "                abi_libc_version = 'abi_libc',",
+        "                abi_version = 'abi')",
+        "cc_toolchain_config_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        "    provides = [CcToolchainConfigInfo], ",
+        ")");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "cc_toolchain_config_rule(name='r')");
+    useConfiguration(
+        "--experimental_enable_cc_toolchain_config_info",
+        "--incompatible_disable_cc_configuration_make_variables");
+    ConfiguredTarget target = getConfiguredTarget("//foo:r");
+    assertThat(target).isNotNull();
+    CcToolchainConfigInfo ccToolchainConfigInfo =
+        (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
+    ImmutableList<String> featureNames =
+        ccToolchainConfigInfo.getFeatures().stream()
+            .map(feature -> feature.getName())
+            .collect(ImmutableList.toImmutableList());
+    ImmutableSet<String> actionConfigNames =
+        ccToolchainConfigInfo.getActionConfigs().stream()
+            .map(actionConfig -> actionConfig.getActionName())
+            .collect(ImmutableSet.toImmutableSet());
+    // fdo_optimize should not be re-added to the list of features by legacy behavior
+    assertThat(featureNames).containsNoDuplicates();
+    // legacy_compile_flags should appear first in the list of features
+    assertThat(featureNames.get(0)).isEqualTo("legacy_compile_flags");
+    assertThat(featureNames)
+        .containsAllOf("legacy_compile_flags", "custom_feature", "fdo_optimize")
+        .inOrder();
+    // assemble is one of the action_configs added as a legacy behavior, therefore it needs to be
+    // prepended to the action configs defined by the user.
+    assertThat(actionConfigNames).containsAllOf("assemble", "custom-action").inOrder();
+  }
 }

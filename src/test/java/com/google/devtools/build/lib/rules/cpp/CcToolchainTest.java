@@ -629,7 +629,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     assertThat(toolchainProvider.getAbi()).isEqualTo("banana");
     assertThat(toolchainProvider.getFeatures().getActivatableNames())
-        .containsExactly("simple_action", "simple_feature");
+        .containsExactly("simple_action", "simple_feature", "no_legacy_features");
   }
 
   @Test
@@ -718,7 +718,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "    return cc_common.create_cc_toolchain_config_info(",
         "                ctx = ctx,",
-        "                features = [feature(name = 'simple_feature')],",
+        "                features = [feature(name = 'simple_feature'), ",
+        "                            feature(name = 'no_legacy_features')],",
         "                action_configs = [",
         "                   action_config(action_name = 'simple_action', enabled=True)",
         "                ],",

@@ -37,8 +37,6 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CTool
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.ArtifactNamePattern;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.protobuf.Descriptors.FieldDescriptor;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -385,7 +383,6 @@ public final class CppToolchainInfo {
             .map(feature -> feature.getName())
             .collect(ImmutableSet.toImmutableSet());
     if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
-      try {
         String gccToolPath = "DUMMY_GCC_TOOL";
         String linkerToolPath = "DUMMY_LINKER_TOOL";
         String arToolPath = "DUMMY_AR_TOOL";
@@ -423,38 +420,33 @@ public final class CppToolchainInfo {
           toolchain = removeLegacyCompileFlagsFeatureFromToolchain(toolchain);
         }
 
-        TextFormat.merge(
-            CppActionConfigs.getCppActionConfigs(
-                toolchain.getTargetLibc().equals("macosx") ? CppPlatform.MAC : CppPlatform.LINUX,
-                featureNames,
-                gccToolPath,
-                linkerToolPath,
-                arToolPath,
-                stripToolPath,
-                // This should be toolchain-based, rather than feature based, because
-                // it controls whether or not to declare the feature at all.
-                toolchain.getSupportsEmbeddedRuntimes(),
-                toolchain.getSupportsInterfaceSharedObjects()),
-            toolchainBuilder);
-      } catch (ParseException e) {
-        // Can only happen if we change the proto definition without changing our
-        // configuration above.
-        throw new RuntimeException(e);
-      }
+      CppPlatform platform =
+          toolchain.getTargetLibc().equals("macosx") ? CppPlatform.MAC : CppPlatform.LINUX;
+
+      toolchainBuilder.addAllActionConfig(
+          CppActionConfigs.getLegacyActionConfigs(
+              platform,
+              gccToolPath,
+              arToolPath,
+              stripToolPath,
+              toolchain.getSupportsInterfaceSharedObjects()));
+
+      toolchainBuilder.addAllFeature(
+          CppActionConfigs.getLegacyFeatures(
+              platform,
+              featureNames,
+              linkerToolPath,
+              toolchain.getSupportsEmbeddedRuntimes(),
+              toolchain.getSupportsInterfaceSharedObjects()));
     }
 
     toolchainBuilder.mergeFrom(toolchain);
 
     if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
-      try {
-        TextFormat.merge(
-            CppActionConfigs.getFeaturesToAppearLastInToolchain(featureNames), toolchainBuilder);
-      } catch (ParseException e) {
-        // Can only happen if we change the proto definition without changing our
-        // configuration above.
-        throw new RuntimeException(e);
-      }
+      toolchainBuilder.addAllFeature(
+          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames));
     }
+
     return toolchainBuilder.build();
   }
 

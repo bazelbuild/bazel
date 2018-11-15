@@ -97,6 +97,19 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
         PathFragment.create("crosstool/"));
   }
 
+  /** Creates a CcToolchainFeatures from given features and action configs. */
+  public static CcToolchainFeatures buildFeatures(
+      ImmutableList<CToolchain.Feature> features,
+      ImmutableList<CToolchain.ActionConfig> actionConfigs)
+      throws Exception {
+    CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
+    toolchainBuilder.addAllFeature(features);
+    toolchainBuilder.addAllActionConfig(actionConfigs);
+    return new CcToolchainFeatures(
+        CcToolchainConfigInfo.fromToolchain(toolchainBuilder.buildPartial()),
+        PathFragment.create("crosstool/"));
+  }
+
   /** Creates an empty CcToolchainFeatures. */
   public static CcToolchainFeatures buildEmptyFeatures(String... toolchain) throws Exception {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
