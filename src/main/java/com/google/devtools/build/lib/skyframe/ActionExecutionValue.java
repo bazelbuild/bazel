@@ -72,8 +72,8 @@ public class ActionExecutionValue implements SkyValue {
   private final ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData;
 
   /**
-   * Contains all remaining data that weren't in the above maps. See
-   * {@link ActionMetadataHandler#getAdditionalOutputData}.
+   * Contains all remaining data that weren't in the above maps. See {@link
+   * OutputStore#getAllAdditionalOutputData}.
    */
   private final ImmutableMap<Artifact, FileArtifactValue> additionalOutputData;
 
@@ -86,9 +86,8 @@ public class ActionExecutionValue implements SkyValue {
    * @param treeArtifactData All tree artifact data.
    * @param additionalOutputData Map from Artifacts to values if the FileArtifactValue for this
    *     artifact cannot be derived from the corresponding FileValue (see {@link
-   *     ActionMetadataHandler#getAdditionalOutputData} for when this is necessary). These output
-   *     data are not used by the {@link FilesystemValueChecker} to invalidate
-   *     ActionExecutionValues.
+   *     OutputStore#getAllAdditionalOutputData} for when this is necessary). These output data are
+   *     not used by the {@link FilesystemValueChecker} to invalidate ActionExecutionValues.
    * @param outputSymlinks This represents the SymlinkTree which is the output of a fileset action.
    * @param discoveredModules cpp modules discovered
    */
@@ -140,7 +139,7 @@ public class ActionExecutionValue implements SkyValue {
   /**
    * Returns metadata for a given artifact, if that metadata cannot be inferred from the
    * corresponding {@link #getData} call for that Artifact. See {@link
-   * ActionMetadataHandler#getAdditionalOutputData} for when that can happen.
+   * OutputStore#getAllAdditionalOutputData} for when that can happen.
    */
   @Nullable
   public FileArtifactValue getArtifactValue(Artifact artifact) {

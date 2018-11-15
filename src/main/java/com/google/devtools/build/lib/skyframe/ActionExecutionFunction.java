@@ -397,7 +397,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           /* actionExecutionContext= */ null,
           actionLookupData);
     }
-    // The metadataHandler may be recreated (via the supplier) if we discover inputs.
+    // The metadataHandler may be recreated if we discover inputs.
     ArtifactPathResolver pathResolver = ArtifactPathResolver.createPathResolver(
         state.actionFileSystem, skyframeActionExecutor.getExecRoot());
     ActionMetadataHandler metadataHandler =

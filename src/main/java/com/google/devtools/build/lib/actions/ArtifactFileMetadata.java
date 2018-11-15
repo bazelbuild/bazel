@@ -42,10 +42,9 @@ public abstract class ArtifactFileMetadata {
    * com.google.devtools.build.lib.skyframe.ActionMetadataHandler#getMetadata}.
    *
    * <p>{@link com.google.devtools.build.lib.skyframe.ActionMetadataHandler#getMetadata} always
-   * checks {@link com.google.devtools.build.lib.skyframe.ActionMetadataHandler#outputArtifactData}
-   * before checking {@link
-   * com.google.devtools.build.lib.skyframe.ActionMetadataHandler#additionalOutputData} so some
-   * placeholder value is needed to allow an injected {@link FileArtifactValue} to be returned.
+   * checks {@link com.google.devtools.build.lib.skyframe.OutputStore#getArtifactData} before
+   * checking {@link com.google.devtools.build.lib.skyframe.OutputStore#getAdditionalOutputData} so
+   * some placeholder value is needed to allow an injected {@link FileArtifactValue} to be returned.
    *
    * <p>Similarly, {@link
    * com.google.devtools.build.lib.skyframe.ActionExecutionValue#getAllFileValues} replaces this
