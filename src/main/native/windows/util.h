@@ -32,8 +32,9 @@ class AutoHandle {
   AutoHandle(HANDLE handle = INVALID_HANDLE_VALUE) : handle_(handle) {}
 
   ~AutoHandle() {
-    ::CloseHandle(handle_);  // succeeds if handle == INVALID_HANDLE_VALUE
-    handle_ = INVALID_HANDLE_VALUE;
+    if (IsValid()) {
+      ::CloseHandle(handle_);
+    }
   }
 
   HANDLE Release() {
