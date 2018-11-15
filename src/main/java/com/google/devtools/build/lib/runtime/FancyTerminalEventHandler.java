@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Calendar;
@@ -242,10 +243,14 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
 
   private void handleFollowUpEvents(Event event) {
     if (event.getStdErr() != null) {
-      handle(Event.of(EventKind.STDERR, null, event.getStdErr()));
+      handle(
+          Event.of(
+              EventKind.STDERR, null, event.getStdErr().getBytes(StandardCharsets.ISO_8859_1)));
     }
     if (event.getStdOut() != null) {
-      handle(Event.of(EventKind.STDOUT, null, event.getStdOut()));
+      handle(
+          Event.of(
+              EventKind.STDOUT, null, event.getStdOut().getBytes(StandardCharsets.ISO_8859_1)));
     }
   }
 

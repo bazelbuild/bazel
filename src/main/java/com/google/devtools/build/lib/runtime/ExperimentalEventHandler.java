@@ -508,10 +508,16 @@ public class ExperimentalEventHandler implements EventHandler {
             break;
         }
         if (event.getStdErr() != null) {
-          handleLocked(Event.of(EventKind.STDERR, null, event.getStdErr()), /* isFollowUp= */ true);
+          handleLocked(
+              Event.of(
+                  EventKind.STDERR, null, event.getStdErr().getBytes(StandardCharsets.ISO_8859_1)),
+              /* isFollowUp= */ true);
         }
         if (event.getStdOut() != null) {
-          handleLocked(Event.of(EventKind.STDOUT, null, event.getStdOut()), /* isFollowUp= */ true);
+          handleLocked(
+              Event.of(
+                  EventKind.STDOUT, null, event.getStdOut().getBytes(StandardCharsets.ISO_8859_1)),
+              /* isFollowUp= */ true);
         }
       }
     } catch (IOException e) {

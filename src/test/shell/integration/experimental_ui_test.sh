@@ -206,6 +206,14 @@ EOF
   cat > pkgloadingerror/BUILD <<'EOF'
 load("//bzl:bzl.bzl", "x")
 EOF
+  mkdir -p fancyOutput
+  cat > fancyOutput/BUILD <<'EOF'
+genrule(
+  name = "withFancyOutput",
+  outs = ["out.txt"],
+  cmd = "echo $$'\\xF0\\x9F\\x8D\\x83'; echo Hello World > $@",
+)
+EOF
 }
 
 #### TESTS #############################################################
@@ -531,6 +539,12 @@ function test_experimental_ui_attempt_to_print_relative_paths_package_loading_er
         pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
     expect_log "^ERROR: bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
     expect_not_log "$(pwd)/bzl/bzl.bzl"
+}
+
+function test_fancy_symbol_encoding() {
+    bazel build //fancyOutput:withFancyOutput > "${TEST_log}" 2>&1 \
+        || fail "expected success"
+    expect_log $'\xF0\x9F\x8D\x83'
 }
 
 run_suite "Integration tests for ${PRODUCT_NAME}'s experimental UI"
