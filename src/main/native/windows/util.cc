@@ -19,6 +19,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -67,6 +68,51 @@ wstring GetLastErrorString(DWORD error_code) {
   wstring result(message);
   HeapFree(GetProcessHeap(), LMEM_FIXED, message);
   return result;
+}
+
+bool AutoAttributeList::Create(HANDLE* handles, size_t count,
+                               std::unique_ptr<AutoAttributeList>* result,
+                               wstring* error_msg) {
+  static constexpr DWORD kAttributeCount = 1;
+
+  SIZE_T size = 0;
+  // According to MSDN, the first call to InitializeProcThreadAttributeList is
+  // expected to fail.
+  InitializeProcThreadAttributeList(NULL, kAttributeCount, 0, &size);
+  std::unique_ptr<uint8_t> data(new uint8_t[size]);
+  LPPROC_THREAD_ATTRIBUTE_LIST attrs =
+      reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(data.get());
+  if (!InitializeProcThreadAttributeList(attrs, kAttributeCount, 0, &size)) {
+    if (error_msg) {
+      DWORD err = GetLastError();
+      *error_msg = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                    L"InitializeProcThreadAttributeList", L"",
+                                    err);
+    }
+    return false;
+  }
+
+  if (!UpdateProcThreadAttribute(attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+                                 handles, count * sizeof(HANDLE), NULL, NULL)) {
+    if (error_msg) {
+      DWORD err = GetLastError();
+      *error_msg = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                    L"UpdateProcThreadAttribute", L"", err);
+    }
+    return false;
+  }
+  result->reset(new AutoAttributeList(data.release()));
+  return true;
+}
+
+AutoAttributeList::AutoAttributeList(uint8_t* data) : data_(data) {}
+
+AutoAttributeList::~AutoAttributeList() {
+  DeleteProcThreadAttributeList(*this);
+}
+
+AutoAttributeList::operator LPPROC_THREAD_ATTRIBUTE_LIST() const {
+  return reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(data_.get());
 }
 
 static void QuotePath(const wstring& path, wstring* result) {
