@@ -1387,10 +1387,13 @@ into binaries ("stamping")</h3>
 <p>Bazel then writes the key-value pairs into two files:</p>
 <ul>
   <li>
-    <code>bazel-out/stable-status.txt</code> contains all keys and values where the key's name
-    starts with <code>STABLE_</code>
+    <code>bazel-out/stable-status.txt</code>
+    contains all keys and values where the key's name starts with <code>STABLE_</code>
   </li>
-  <li><code>bazel-out/volatile-status.txt</code> contains the rest of the keys and their values</li>
+  <li>
+    <code>bazel-out/volatile-status.txt</code>
+    contains the rest of the keys and their values
+  </li>
 </ul>
 
 <p>The contract is:</p>
@@ -1398,10 +1401,11 @@ into binaries ("stamping")</h3>
   <li>
     <p>
       "stable" keys' values should change rarely, if possible. If the contents of
-      <code>stable-status.txt</code> change, it invalidates the actions that depend on them. In
-      other words, if a stable key's value changes, it'll make Bazel rebuild stamped actions.
+    <code>bazel-out/stable-status.txt</code>
+      change, Bazel invalidates the actions that depend on them. In
+      other words, if a stable key's value changes, Bazel will rerun stamped actions.
       Therefore the stable status should not contain things like timestamps, because they change all
-      the time, and would make Bazel rebuild the stamped actions with each build.
+      the time, and would make Bazel rerun stamped actions with each build.
     </p>
     <p>Bazel always outputs the following stable keys:</p>
     <ul>
@@ -1413,11 +1417,13 @@ into binaries ("stamping")</h3>
   <li>
     <p>
       "volatile" keys' values may change often. Bazel expects them to change all the time, like
-      timestamps do, and duly updates the <code>volatile-status.txt</code> file. In order to avoid
-      rebuilding stamped actions all the time though, <b>Bazel pretends that the volatile file never
-      changes</b>. In other words, if the volatile status file is the only one whose contents
-      changed, that will not invalidate actions that depend on it. If other inputs of the actions
-      have changed, then Bazel rebuilds that action, and the action will use the updated volatile
+      timestamps do, and duly updates the
+    <code>bazel-out/stable-status.txt</code>
+      file. In order to avoid
+      rerunning stamped actions all the time though, <b>Bazel pretends that the volatile file never
+      changes</b>. In other words, if the volatile status file is the only file whose contents has
+      changed, Bazel will not invalidate actions that depend on it. If other inputs of the actions
+      have changed, then Bazel reruns that action, and the action will see the updated volatile
       status, but just the volatile status changing alone will not invalidate the action.
     </p>
     <p>Bazel always outputs the following volatile keys:</p>
