@@ -179,6 +179,7 @@ proto_library(
     srcs = ["google/bytestream/bytestream.proto"],
     deps = [
         ":google_api_annotations_proto",
+        "@com_google_protobuf//:descriptor_proto",
     ],
 )
 
@@ -252,5 +253,7 @@ proto_library(
 proto_library(
     name = "google_api_auth_proto",
     srcs = ["google/api/auth.proto"],
-    deps = [":google_api_annotations_proto"],
+    deps = [
+       ":google_api_annotations_proto",
+       "@com_google_protobuf//:descriptor_proto"],
 )
