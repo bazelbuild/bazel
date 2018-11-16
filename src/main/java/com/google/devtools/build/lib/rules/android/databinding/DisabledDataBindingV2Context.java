@@ -17,14 +17,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
-import java.util.ArrayList;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-class DisabledDataBindingV1Context implements DataBindingContext {
+class DisabledDataBindingV2Context implements DataBindingContext {
 
   @Override
   public void supplyJavaCoptsUsing(RuleContext ruleContext, boolean isBinary,
@@ -47,18 +50,35 @@ class DisabledDataBindingV1Context implements DataBindingContext {
   @Override
   public void addProvider(RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
 
-    ArrayList<Artifact> dataBindingMetadataOutputs = new ArrayList<>();
-    // Expose the data binding provider if there are outputs.
-    dataBindingMetadataOutputs.addAll(DataBinding.getTransitiveMetadata(ruleContext, "exports"));
-    if (!AndroidResources.definesAndroidResources(ruleContext.attributes())) {
-      // If this rule doesn't declare direct resources, no resource processing is run so no data
-      // binding outputs are produced. In that case, we need to explicitly propagate data binding
-      // outputs from the deps to make sure they continue up the build graph.
-      dataBindingMetadataOutputs.addAll(DataBinding.getTransitiveMetadata(ruleContext, "deps"));
+    ImmutableList.Builder<Artifact> setterStores = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> classInfos = ImmutableList.builder();
+    NestedSetBuilder<Artifact> brFiles = new NestedSetBuilder<>(Order.STABLE_ORDER);
+
+    // android_binary doesn't have "exports"
+    if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
+      Iterable<DataBindingV2Provider> exportsProviders =
+          ruleContext.getPrerequisites(
+              "exports", RuleConfiguredTarget.Mode.TARGET, DataBindingV2Provider.PROVIDER);
+      for (DataBindingV2Provider provider : exportsProviders) {
+        setterStores.addAll(provider.getSetterStores());
+        classInfos.addAll(provider.getClassInfos());
+        brFiles.addTransitive(provider.getTransitiveBRFiles());
+      }
     }
-    if (!dataBindingMetadataOutputs.isEmpty()) {
-      builder.addNativeDeclaredProvider(new UsesDataBindingProvider(dataBindingMetadataOutputs));
+
+
+    Iterable<DataBindingV2Provider> depsProviders = ruleContext.getPrerequisites(
+        "deps", RuleConfiguredTarget.Mode.TARGET, DataBindingV2Provider.PROVIDER);
+
+    for (DataBindingV2Provider provider : depsProviders) {
+      brFiles.addTransitive(provider.getTransitiveBRFiles());
     }
+
+    builder.addNativeDeclaredProvider(
+        new DataBindingV2Provider(
+            classInfos.build(),
+            setterStores.build(),
+            brFiles.build()));
   }
 
   @Override
@@ -68,7 +88,5 @@ class DisabledDataBindingV1Context implements DataBindingContext {
   }
 
   @Override
-  public void supplyLayoutInfo(Consumer<Artifact> consumer) {
-
-  }
+  public void supplyLayoutInfo(Consumer<Artifact> consumer) {  }
 }

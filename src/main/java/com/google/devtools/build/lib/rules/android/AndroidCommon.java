@@ -878,10 +878,17 @@ public class AndroidCommon {
       JavaSemantics semantics,
       DataBindingContext dataBindingContext,
       boolean isLibrary) {
-    ImmutableList<Artifact> srcs =
-        dataBindingContext.addAnnotationFileToSrcs(
-            ruleContext.getPrerequisiteArtifacts("srcs", RuleConfiguredTarget.Mode.TARGET).list(),
-            ruleContext);
+
+    ImmutableList<Artifact> ruleSources =
+        ruleContext.getPrerequisiteArtifacts("srcs", RuleConfiguredTarget.Mode.TARGET).list();
+
+    ImmutableList<Artifact> dataBindingSources =
+        dataBindingContext.getAnnotationSourceFiles(ruleContext);
+
+    ImmutableList<Artifact> srcs = ImmutableList.<Artifact>builder()
+        .addAll(ruleSources)
+        .addAll(dataBindingSources)
+        .build();
 
     ImmutableList<TransitiveInfoCollection> compileDeps;
     ImmutableList<TransitiveInfoCollection> runtimeDeps;

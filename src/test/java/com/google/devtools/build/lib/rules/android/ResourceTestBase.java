@@ -258,7 +258,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
                 includeAapt2Outs ? getOutput("symbols.zip") : null,
                 manifest.getManifest().getOwnerLabel(),
                 manifest,
-                DataBinding.asDisabledDataBindingContext()),
+                DataBinding.DISABLED_V1_CONTEXT),
             getOutput("merged/resources.zip"),
             getOutput("class.jar"),
             /* dataBindingInfoZip = */ null,

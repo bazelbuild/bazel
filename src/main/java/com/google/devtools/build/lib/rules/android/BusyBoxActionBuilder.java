@@ -98,6 +98,12 @@ public final class BusyBoxActionBuilder {
     return this;
   }
 
+  /** Adds the given input artifacts without any command line options. */
+  public BusyBoxActionBuilder addInputs(Iterable<Artifact> inputs) {
+    this.inputs.addAll(inputs);
+    return this;
+  }
+
   /** Adds an input artifact if it is non-null */
   public BusyBoxActionBuilder maybeAddInput(
       @CompileTimeConstant String arg, @Nullable Artifact value) {
@@ -147,6 +153,12 @@ public final class BusyBoxActionBuilder {
     Preconditions.checkNotNull(value);
     commandLine.addExecPath(arg, value);
     outputs.add(value);
+    return this;
+  }
+
+  /** Adds the given output artifacts without adding any command line options. */
+  public BusyBoxActionBuilder addOutputs(Iterable<Artifact> outputs) {
+    this.outputs.addAll(outputs);
     return this;
   }
 

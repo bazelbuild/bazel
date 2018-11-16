@@ -557,7 +557,10 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
   private ParsedAndroidResources makeParsedResources(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
-    return makeParsedResources(ruleContext, DataBinding.asDisabledDataBindingContext());
+    DataBindingContext dataBindingContext =
+        DataBinding.contextFrom(ruleContext,
+            ruleContext.getConfiguration().getFragment(AndroidConfiguration.class));
+    return makeParsedResources(ruleContext, dataBindingContext);
   }
 
   private ParsedAndroidResources makeParsedResources(

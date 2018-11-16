@@ -321,6 +321,14 @@ filegroup(
     srcs = ["bazel_debug.keystore"],
 )
 
+java_binary(
+    name = "exec_binary",
+    main_class = "android.databinding.AndroidDataBinding",
+    runtime_deps = [
+        "//third_party/java/android_databinding:exec",
+    ],
+)
+
 alias(
     name = "databinding_annotation_processor",
     actual = "//external:databinding_annotation_processor",

@@ -442,6 +442,11 @@ public final class AndroidRuleClasses {
               attr(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, LABEL)
                   .cfg(HostTransition.INSTANCE)
                   .value(env.getToolsLabel("//tools/android:databinding_annotation_processor")))
+          .add(
+              attr(DataBinding.DATABINDING_EXEC_PROCESSOR_ATTR, LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:databinding_exec")))
           .advertiseSkylarkProvider(
               SkylarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()))
           .advertiseSkylarkProvider(

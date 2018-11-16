@@ -214,12 +214,6 @@ public class AndroidResourcesProcessorBuilder {
       StampedAndroidManifest primaryManifest,
       DataBindingContext dataBindingContext) {
 
-    if (aaptVersion == AndroidAaptVersion.AAPT2) {
-      createAapt2ApkAction(dataContext, primaryResources, primaryAssets, primaryManifest);
-    } else {
-      createAaptAction(dataContext, primaryResources, primaryAssets, primaryManifest);
-    }
-
     // Wrap the new manifest, if any
     ProcessedAndroidManifest processedManifest =
         new ProcessedAndroidManifest(
@@ -227,10 +221,28 @@ public class AndroidResourcesProcessorBuilder {
             primaryManifest.getPackage(),
             primaryManifest.isExported());
 
+    // In databinding v2, this strips out the databinding and generates the layout info file.
+    AndroidResources databindingProcessedResources = dataBindingContext.processResources(
+        dataContext, primaryResources, processedManifest.getPackage());
+
+    if (aaptVersion == AndroidAaptVersion.AAPT2) {
+      createAapt2ApkAction(
+          dataContext,
+          databindingProcessedResources,
+          primaryAssets,
+          primaryManifest);
+    } else {
+      createAaptAction(
+          dataContext,
+          databindingProcessedResources,
+          primaryAssets,
+          primaryManifest);
+    }
+
     // Wrap the parsed resources
     ParsedAndroidResources parsedResources =
         ParsedAndroidResources.of(
-            primaryResources,
+            databindingProcessedResources,
             symbols,
             /* compiledSymbols = */ null,
             dataContext.getLabel(),

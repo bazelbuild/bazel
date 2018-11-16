@@ -93,7 +93,7 @@ public abstract class AndroidSkylarkData
       }
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
-              DataBinding.asDisabledDataBindingContext(),
+              DataBinding.getDisabledDataBindingContext(ctx),
               ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
               AssetDependencies.empty(),
               StampedAndroidManifest.createEmpty(
@@ -374,7 +374,7 @@ public abstract class AndroidSkylarkData
                 AndroidManifest.forAarImport(androidManifestArtifact),
                 ResourceDependencies.fromProviders(
                     getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
-                DataBinding.asDisabledDataBindingContext(),
+                DataBinding.getDisabledDataBindingContext(ctx),
                 aaptVersion);
 
     MergedAndroidAssets mergedAssets =
@@ -420,7 +420,7 @@ public abstract class AndroidSkylarkData
               ctx,
               getAndroidSemantics(),
               errorReporter,
-              DataBinding.asDisabledDataBindingContext(),
+              DataBinding.getDisabledDataBindingContext(ctx),
               rawManifest,
               AndroidResources.from(errorReporter, getFileProviders(resources), "resource_files"),
               AndroidAssets.from(
