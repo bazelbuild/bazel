@@ -97,7 +97,17 @@ nav: docs
                 <ul class="collapse sidebar-nav sidebar-submenu" id="remote-execution-menu">
                    <li><a href="/versions/{{ site.version }}/remote-execution.html">Remote Execution Overview</a></li>
                    <li><a href="/versions/{{ site.version }}/remote-execution-rules.html">Guidelines for Remote Execution</a></li>
-                   <li><a href="/versions/{{ site.version }}/remote-execution-sandbox.html">Troubleshooting Remote Execution</a></li>
+                   <li>
+                      <a class="sidebar-nav-heading" data-toggle="collapse"
+                          href="#troubleshoot-remote-execution-menu" aria-expanded="false"
+                          aria-controls="troubleshoot-remote-execution-menu">
+                        Troubleshooting Remote Execution<span class="caret"></span>
+                      </a>
+                      <ul class="collapse sidebar-nav sidebar-submenu" id="troubleshoot-remote-execution-menu">
+                         <li><a href="/versions/{{ site.version }}/remote-execution-sandbox.html">Troubleshooting Remote Execution with Bazel Sandbox</a></li>
+                         <li><a href="/versions/{{ site.version }}/workspace-log.html">Finding non-hermetic behavior in WORKSPACE rules</a></li>
+                      </ul>
+                  </li>
                    <li><a href="/versions/{{ site.version }}/remote-execution-ci.html">Configuring Bazel CI for Remote Execution Rule Testing</a></li>
                  </ul>
               </li>

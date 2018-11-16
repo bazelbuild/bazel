@@ -139,6 +139,8 @@ remote execution:
     `runfiles` tree, creating environment variables, and similar actions, as
      they may behave unexpectedly on the remote execution platform.
 
+To help find potential non-hermetic behavior you can use [Workspace rules log](/workspace-log.md).
+
 If an external dependency executes specific operations dependent on the host
 platform, we recommend splitting those operations between `WORKSPACE` and build
 rules as follows:
