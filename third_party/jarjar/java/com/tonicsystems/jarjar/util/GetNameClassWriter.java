@@ -24,7 +24,7 @@ public class GetNameClassWriter extends ClassVisitor {
   private String className;
 
   public GetNameClassWriter(int flags) {
-    super(Opcodes.ASM6, new ClassWriter(flags));
+    super(Opcodes.ASM7, new ClassWriter(flags));
   }
 
   public void visit(
