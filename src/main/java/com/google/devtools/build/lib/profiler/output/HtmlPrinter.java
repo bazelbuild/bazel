@@ -82,22 +82,22 @@ public abstract class HtmlPrinter extends TextPrinter {
   }
 
   /**
-   * Print a single element with attributes and possibly content.
-   *
-   * @see #open(String, Object...)
-   */
-  protected void element(String tag, Object... attributesAndContent) {
-    open(tag, attributesAndContent);
-    close();
-  }
-
-  /**
    * Print a newline, indent and a single element with attributes and possibly content.
    *
    * @see #lnOpen(String, Object...)
    */
   protected void lnElement(String tag, Object... attributesAndContent) {
     lnOpen(tag, attributesAndContent);
+    close();
+  }
+
+  /**
+   * Print a single element with attributes and possibly content.
+   *
+   * @see #open(String, Object...)
+   */
+  protected void element(String tag, Object... attributesAndContent) {
+    open(tag, attributesAndContent);
     close();
   }
 }
