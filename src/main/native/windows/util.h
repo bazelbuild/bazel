@@ -17,6 +17,7 @@
 
 #include <windows.h>
 
+#include <memory>
 #include <string>
 
 namespace bazel {
@@ -63,28 +64,19 @@ class AutoHandle {
   HANDLE handle_;
 };
 
-struct AutoAttributeList {
-  AutoAttributeList(DWORD dwAttributeCount) {
-    SIZE_T size = 0;
-    InitializeProcThreadAttributeList(NULL, dwAttributeCount, 0, &size);
-    lpAttributeList =
-        reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(malloc(size));
-    InitializeProcThreadAttributeList(lpAttributeList, dwAttributeCount, 0,
-                                      &size);
-  }
-
-  ~AutoAttributeList() {
-    if (lpAttributeList) {
-      DeleteProcThreadAttributeList(lpAttributeList);
-      free(lpAttributeList);
-    }
-    lpAttributeList = NULL;
-  }
-
-  operator LPPROC_THREAD_ATTRIBUTE_LIST() const { return lpAttributeList; }
+class AutoAttributeList {
+ public:
+  static bool Create(HANDLE* handles, size_t count,
+                     std::unique_ptr<AutoAttributeList>* result,
+                     wstring* error_msg = nullptr);
+  ~AutoAttributeList();
+  operator LPPROC_THREAD_ATTRIBUTE_LIST() const;
 
  private:
-  LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList;
+  AutoAttributeList(uint8_t* data);
+  AutoAttributeList(const AutoAttributeList&) = delete;
+  AutoAttributeList& operator=(const AutoAttributeList&) = delete;
+  std::unique_ptr<uint8_t[]> data_;
 };
 
 #define WSTR1(x) L##x

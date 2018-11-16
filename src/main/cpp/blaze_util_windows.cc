@@ -30,6 +30,7 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 #include <mutex>  // NOLINT
 #include <set>
 #include <sstream>
@@ -562,8 +563,7 @@ static void WriteProcessStartupTime(const string& server_dir, HANDLE process) {
   }
 }
 
-static HANDLE CreateJvmOutputFile(const wstring& path,
-                                  SECURITY_ATTRIBUTES* sa,
+static HANDLE CreateJvmOutputFile(const wstring& path, LPSECURITY_ATTRIBUTES sa,
                                   bool daemon_out_append) {
   // If the previous server process was asked to be shut down (but not killed),
   // it takes a while for it to comply, so wait until the JVM output file that
@@ -639,29 +639,25 @@ int ExecuteDaemon(const string& exe,
         << daemon_output << ") failed: " << error;
   }
 
-  SECURITY_ATTRIBUTES sa;
-  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-  // We redirect stdin to the NUL device, and redirect stdout and stderr to
-  // `stdout_file` and `stderr_file` (opened below) by telling CreateProcess to
-  // use these file handles, so they must be inheritable.
-  sa.bInheritHandle = TRUE;
-  sa.lpSecurityDescriptor = NULL;
+  SECURITY_ATTRIBUTES inheritable_handle_sa = {sizeof(SECURITY_ATTRIBUTES),
+                                               NULL, TRUE};
 
-  AutoHandle devnull(::CreateFileA("NUL", GENERIC_READ, FILE_SHARE_READ, NULL,
-                                   OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+  AutoHandle devnull(::CreateFileW(
+      L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+      &inheritable_handle_sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
   if (!devnull.IsValid()) {
+    error = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ExecuteDaemon(" << exe
-        << "): CreateFileA(NUL) failed: " << GetLastErrorString();
+        << "ExecuteDaemon(" << exe << "): CreateFileA(NUL) failed: " << error;
   }
 
-  AutoHandle stdout_file(CreateJvmOutputFile(wdaemon_output.c_str(), &sa,
-                                             daemon_out_append));
+  AutoHandle stdout_file(CreateJvmOutputFile(
+      wdaemon_output.c_str(), &inheritable_handle_sa, daemon_out_append));
   if (!stdout_file.IsValid()) {
+    error = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ExecuteDaemon(" << exe << "): CreateJvmOutputFile("
-        << blaze_util::WstringToString(wdaemon_output)
-        << ") failed: " << GetLastErrorString();
+        << blaze_util::WstringToString(wdaemon_output) << ") failed: " << error;
   }
   HANDLE stderr_handle;
   // We must duplicate the handle to stdout, otherwise "bazel clean --expunge"
@@ -683,16 +679,15 @@ int ExecuteDaemon(const string& exe,
   }
   AutoHandle stderr_file(stderr_handle);
 
-  // Create an attribute list with length of 1
-  AutoAttributeList lpAttributeList(1);
-
-  HANDLE handlesToInherit[2] = {stdout_file, stderr_handle};
-  if (!UpdateProcThreadAttribute(
-          lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-          handlesToInherit, 2 * sizeof(HANDLE), NULL, NULL)) {
+  // Create an attribute list.
+  wstring werror;
+  std::unique_ptr<AutoAttributeList> lpAttributeList;
+  HANDLE handlesToInherit[3] = {devnull, stdout_file, stderr_handle};
+  if (!AutoAttributeList::Create(handlesToInherit, 3, &lpAttributeList,
+                                 &werror)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ExecuteDaemon(" << exe
-        << "): UpdateProcThreadAttribute failed: " << GetLastErrorString();
+        << "ExecuteDaemon(" << exe << "): attribute list creation failed: "
+        << blaze_util::WstringToString(werror);
   }
 
   PROCESS_INFORMATION processInfo = {0};
@@ -702,8 +697,8 @@ int ExecuteDaemon(const string& exe,
   startupInfoEx.StartupInfo.hStdInput = devnull;
   startupInfoEx.StartupInfo.hStdOutput = stdout_file;
   startupInfoEx.StartupInfo.hStdError = stderr_handle;
-  startupInfoEx.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
-  startupInfoEx.lpAttributeList = lpAttributeList;
+  startupInfoEx.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+  startupInfoEx.lpAttributeList = *(lpAttributeList.get());
 
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
