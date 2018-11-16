@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -39,6 +38,7 @@ public class ResolvedHashesFunction implements SkyFunction {
   public static final String ATTRIBUTES = "attributes";
   public static final String OUTPUT_TREE_HASH = "output_tree_hash";
   public static final String REPOSITORIES = "repositories";
+  public static final String NATIVE = "native";
 
   @Override
   @Nullable

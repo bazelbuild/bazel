@@ -57,6 +57,9 @@ import java.util.Set;
 public final class SyncCommand implements BlazeCommand {
   public static final String NAME = "sync";
 
+  static final ImmutableSet<String> WHITELISTED_NATIVE_RULES =
+      ImmutableSet.<String>of("local_repository");
+
   @Override
   public void editOptions(OptionsParser optionsParser) {}
 
@@ -141,7 +144,7 @@ public final class SyncCommand implements BlazeCommand {
       // take all skylark workspace rules and get their values
       ImmutableSet.Builder<SkyKey> repositoriesToFetch = new ImmutableSet.Builder<>();
       for (Rule rule : fileValue.getPackage().getTargets(Rule.class)) {
-        if (rule.getRuleClassObject().getWorkspaceOnly() && rule.getRuleClassObject().isSkylark()) {
+        if (shouldSync(rule)) {
           // TODO(aehlig): avoid the detour of serializing and then parsing the repository name
           try {
             repositoriesToFetch.add(
@@ -180,5 +183,17 @@ public final class SyncCommand implements BlazeCommand {
             new NoBuildRequestFinishedEvent(
                 exitCode, env.getRuntime().getClock().currentTimeMillis()));
     return BlazeCommandResult.exitCode(exitCode);
+  }
+
+  private static boolean shouldSync(Rule rule) {
+    if (!rule.getRuleClassObject().getWorkspaceOnly()) {
+      // We should only sync workspace rules
+      return false;
+    }
+    if (rule.getRuleClassObject().isSkylark()) {
+      // Skylark rules are all whitelisted
+      return true;
+    }
+    return WHITELISTED_NATIVE_RULES.contains(rule.getRuleClassObject().getName());
   }
 }

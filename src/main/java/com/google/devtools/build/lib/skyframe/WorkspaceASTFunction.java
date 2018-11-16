@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ATTRIBUTES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.NATIVE;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
 
@@ -160,46 +161,58 @@ public class WorkspaceASTFunction implements SkyFunction {
     StringBuilder builder = new StringBuilder();
     for (Map<String, Object> entry : resolved) {
       Object repositories = entry.get(REPOSITORIES);
-      if (!(repositories instanceof List)) {
-        throw resolvedValueError(
-            "In 'resolved' the "
-                + REPOSITORIES
-                + " entry is missing or not a list for item "
-                + entry);
-      }
-      for (Object repo : (List) repositories) {
-        if (!(repo instanceof Map)) {
-          throw resolvedValueError("A description of an individual repository is not a map");
+      if (repositories != null) {
+        if (!(repositories instanceof List)) {
+          throw resolvedValueError(
+              "In 'resolved' the " + REPOSITORIES + " entry is or not a list for item " + entry);
         }
-        Object rule = ((Map) repo).get(RULE_CLASS);
-        if (!(rule instanceof String)) {
-          throw resolvedValueError("Expected " + RULE_CLASS + " to be a string.");
-        }
-        int separatorPosition = ((String) rule).lastIndexOf('%');
-        if (separatorPosition < 0) {
-          throw resolvedValueError("Malformed rule class: " + ((String) rule));
-        }
-        String fileName = ((String) rule).substring(0, separatorPosition);
-        String symbol = ((String) rule).substring(separatorPosition + 1);
-
-        Object args = ((Map) repo).get(ATTRIBUTES);
-        if (!(args instanceof Map)) {
-          throw resolvedValueError("Arguments for " + ((String) rule) + " not a dict.");
-        }
-
-        builder.append("load(\"").append(fileName).append("\", \"").append(symbol).append("\")\n");
-        builder.append(symbol).append("(\n");
-        for (Map.Entry<Object, Object> arg : ((Map<Object, Object>) args).entrySet()) {
-          Object key = arg.getKey();
-          if (!(key instanceof String)) {
-            throw resolvedValueError(
-                "In arguments to " + ((String) rule) + " found a non-string key.");
+        for (Object repo : (List) repositories) {
+          if (!(repo instanceof Map)) {
+            throw resolvedValueError("A description of an individual repository is not a map");
           }
-          builder.append("    ").append((String) key).append(" = ");
-          builder.append(Printer.getPrinter().repr(arg.getValue()).toString());
-          builder.append(",\n");
+          Object rule = ((Map) repo).get(RULE_CLASS);
+          if (!(rule instanceof String)) {
+            throw resolvedValueError("Expected " + RULE_CLASS + " to be a string.");
+          }
+          int separatorPosition = ((String) rule).lastIndexOf('%');
+          if (separatorPosition < 0) {
+            throw resolvedValueError("Malformed rule class: " + ((String) rule));
+          }
+          String fileName = ((String) rule).substring(0, separatorPosition);
+          String symbol = ((String) rule).substring(separatorPosition + 1);
+
+          Object args = ((Map) repo).get(ATTRIBUTES);
+          if (!(args instanceof Map)) {
+            throw resolvedValueError("Arguments for " + ((String) rule) + " not a dict.");
+          }
+
+          builder
+              .append("load(\"")
+              .append(fileName)
+              .append("\", \"")
+              .append(symbol)
+              .append("\")\n");
+          builder.append(symbol).append("(\n");
+          for (Map.Entry<Object, Object> arg : ((Map<Object, Object>) args).entrySet()) {
+            Object key = arg.getKey();
+            if (!(key instanceof String)) {
+              throw resolvedValueError(
+                  "In arguments to " + ((String) rule) + " found a non-string key.");
+            }
+            builder.append("    ").append((String) key).append(" = ");
+            builder.append(Printer.getPrinter().repr(arg.getValue()).toString());
+            builder.append(",\n");
+          }
+          builder.append(")\n\n");
         }
-        builder.append(")\n\n");
+      }
+      Object nativeEntry = entry.get(NATIVE);
+      if (nativeEntry != null) {
+        if (!(nativeEntry instanceof String)) {
+          throw resolvedValueError(
+              "In 'resolved' the " + NATIVE + " entry is not a string for item " + entry);
+        }
+        builder.append(nativeEntry).append("\n");
       }
     }
     return builder.toString();

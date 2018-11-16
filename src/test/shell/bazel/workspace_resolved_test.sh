@@ -955,4 +955,40 @@ EOF
       || fail "expected order to be reproducible"
 }
 
+test_non_starlarkrepo() {
+  # Verify that entries in the WORKSPACE that are not starlark repositoires
+  # are correctly reported in the resolved file.
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+
+  mkdir local
+  touch local/WORKSPACE
+  echo Hello World > local/data.txt
+  echo 'exports_files(["data.txt"])' > local/BUILD
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<'EOF'
+local_repository(name="thisislocal", path="../local")
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@thisislocal//:data.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  bazel build //:it || fail "Expected success"
+
+  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+        --experimental_repository_resolved_file=resolved.bzl
+  echo > WORKSPACE # remove workspace, only work from the resolved file
+  bazel clean --expunge
+  echo; cat resolved.bzl; echo
+  bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
+        //:it || fail "Expected success"
+}
+
 run_suite "workspace_resolved_test tests"
