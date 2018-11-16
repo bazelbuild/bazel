@@ -29,23 +29,23 @@ import org.objectweb.asm.Opcodes;
 public class EmptyClassVisitor extends ClassVisitor {
 
   public EmptyClassVisitor() {
-    super(Opcodes.ASM6);
+    super(Opcodes.ASM7);
   }
 
   @Override
   public MethodVisitor visitMethod(
       int access, String name, String desc, String signature, String[] exceptions) {
-    return new MethodVisitor(Opcodes.ASM6) {};
+    return new MethodVisitor(Opcodes.ASM7) {};
   }
 
   @Override
   public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-    return new AnnotationVisitor(Opcodes.ASM6) {};
+    return new AnnotationVisitor(Opcodes.ASM7) {};
   }
 
   @Override
   public FieldVisitor visitField(
       int access, String name, String desc, String signature, Object value) {
-    return new FieldVisitor(Opcodes.ASM6) {};
+    return new FieldVisitor(Opcodes.ASM7) {};
   }
 }
