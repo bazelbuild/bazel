@@ -449,6 +449,8 @@ TEST_F(TestWrapperWindowsTest, TestTee) {
   EXPECT_TRUE(ReadFile(read3, content, 100, &read, NULL));
   EXPECT_EQ(read, 3);
   EXPECT_EQ(std::string(content, read), "foo");
+
+  write1 = INVALID_HANDLE_VALUE;  // closes handle so the Tee thread can exit
 }
 
 }  // namespace
