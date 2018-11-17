@@ -152,29 +152,28 @@ public class VanillaJavaBuilder implements Closeable {
     DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
     StringWriter output = new StringWriter();
     JavaCompiler javaCompiler = ToolProvider.getSystemJavaCompiler();
-    StandardJavaFileManager fileManager =
-        javaCompiler.getStandardFileManager(diagnosticCollector, ENGLISH, UTF_8);
-
     Path tempDir = Paths.get(firstNonNull(optionsParser.getTempDir(), "_tmp"));
     Path nativeHeaderDir = tempDir.resolve("native_headers");
     Files.createDirectories(nativeHeaderDir);
-
-    setLocations(optionsParser, fileManager, nativeHeaderDir);
-    ImmutableList<JavaFileObject> sources = getSources(optionsParser, fileManager);
     boolean ok;
-    if (sources.isEmpty()) {
-      ok = true;
-    } else {
-      CompilationTask task =
-          javaCompiler.getTask(
-              new PrintWriter(output, true),
-              fileManager,
-              diagnosticCollector,
-              JavacOptions.removeBazelSpecificFlags(optionsParser.getJavacOpts()),
-              ImmutableList.<String>of() /*classes*/,
-              sources);
-      setProcessors(optionsParser, fileManager, task);
-      ok = task.call();
+    try (StandardJavaFileManager fileManager =
+        javaCompiler.getStandardFileManager(diagnosticCollector, ENGLISH, UTF_8)) {
+      setLocations(optionsParser, fileManager, nativeHeaderDir);
+      ImmutableList<JavaFileObject> sources = getSources(optionsParser, fileManager);
+      if (sources.isEmpty()) {
+        ok = true;
+      } else {
+        CompilationTask task =
+            javaCompiler.getTask(
+                new PrintWriter(output, true),
+                fileManager,
+                diagnosticCollector,
+                JavacOptions.removeBazelSpecificFlags(optionsParser.getJavacOpts()),
+                ImmutableList.<String>of() /*classes*/,
+                sources);
+        setProcessors(optionsParser, fileManager, task);
+        ok = task.call();
+      }
     }
     if (ok) {
       writeOutput(optionsParser);
