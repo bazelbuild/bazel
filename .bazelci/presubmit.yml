@@ -198,10 +198,6 @@ platforms:
     - "--copt=-w"
     - "--host_copt=-w"
     - "--test_env=JAVA_HOME"
-    # TODO(pcloudy): Need this for WindowsSubprocessTest.java.
-    # Remove this when release version Bazel sets SYSTEMDRIVE
-    # on Windows by default.
-    - "--test_env=SYSTEMDRIVE"
     - "--test_timeout=1200"
     test_targets:
     - "--"
