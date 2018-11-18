@@ -150,6 +150,8 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
   windows:
+    batch_commands:
+    - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
     build_flags:
     - "--copt=-w"
     - "--host_copt=-w"
