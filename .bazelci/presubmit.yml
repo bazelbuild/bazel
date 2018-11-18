@@ -189,6 +189,8 @@ platforms:
   windows:
     batch_commands:
     - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
+    shell_commands:
+    - type WORKSPACE
     build_flags:
     - "--copt=-w"
     - "--host_copt=-w"
