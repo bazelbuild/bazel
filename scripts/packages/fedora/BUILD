@@ -13,6 +13,7 @@ pkg_rpm(
     changelog = "//:changelog-file",
     data = [
         "//scripts:bash_completion",
+        "//scripts/zsh_completion:_bazel",
         "//scripts/packages:bazel.bazelrc",
         "//scripts/packages:without-jdk/bazel",
         "//scripts/packages:without-jdk/bazel-real",
