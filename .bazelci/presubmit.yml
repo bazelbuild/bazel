@@ -188,8 +188,7 @@ platforms:
     - "-//src/test/shell/bazel/android:android_integration_test"
   windows:
     batch_commands:
-    - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE; Get-Content WORKSPACE; Write-Host 'ANDROID_HOME: $([Environment]::GetEnvironme
-ntVariable(\"ANDROID_HOME\", \"Machine\"))'"
+    - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE; Get-Content WORKSPACE; Write-Host 'ANDROID_HOME: $([Environment]::GetEnvironmentVariable(\"ANDROID_HOME\", \"Machine\"))'"
     build_flags:
     - "--copt=-w"
     - "--host_copt=-w"
