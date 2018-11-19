@@ -338,7 +338,10 @@ public enum LinkBuildVariables {
   private static Iterable<String> removePieIfCreatingSharedLibrary(
       boolean isCreatingSharedLibrary, Iterable<String> flags) {
     if (isCreatingSharedLibrary) {
-      return Iterables.filter(flags, Predicates.not(Predicates.equalTo("-pie")));
+      return Iterables.filter(
+          flags,
+          Predicates.not(
+              Predicates.or(Predicates.equalTo("-pie"), Predicates.equalTo("-Wl,-pie"))));
     } else {
       return flags;
     }
