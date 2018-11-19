@@ -120,6 +120,7 @@ public abstract class ProtoSourcesProvider
   public abstract NestedSet<Artifact> transitiveDescriptorSets();
 
   /** The {@code proto_source_root} of the current library. */
+  @Override
   public abstract String getProtoSourceRoot();
 
   /**

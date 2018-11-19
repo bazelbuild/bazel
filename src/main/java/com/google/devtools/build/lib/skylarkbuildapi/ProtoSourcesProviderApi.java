@@ -88,4 +88,13 @@ public interface ProtoSourcesProviderApi<FileT extends FileApi> {
       doc = "A set of proto source roots collected from the transitive closure of this rule.",
       structField = true)
   public NestedSet<String> getTransitiveProtoSourceRoots();
+
+  @SkylarkCallable(
+      name = "proto_source_root",
+      doc =
+          "The directory relative to which the .proto files defined in the proto_library are "
+              + "defined. For example, if this is 'a/b' and the rule has the file 'a/b/c/d.proto'"
+              + " as a source, that source file would be imported as 'import c/d.proto'",
+      structField = true)
+  String getProtoSourceRoot();
 }

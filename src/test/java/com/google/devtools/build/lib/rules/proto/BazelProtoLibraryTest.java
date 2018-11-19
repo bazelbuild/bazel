@@ -353,6 +353,22 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         .containsAllOf("--proto_path=x/foo", "--proto_path=x/bar");
   }
 
+  @Test
+  public void testProtoSourceRoot() throws Exception {
+    scratch.file(
+        "x/foo/BUILD",
+        "proto_library(",
+        "    name = 'banana',",
+        "    srcs = ['foo.proto'],",
+        "    proto_source_root = 'x/foo',",
+        ")");
+
+    ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:banana");
+    ProtoSourcesProvider sourcesProvider = protoTarget.getProvider(ProtoSourcesProvider.class);
+
+    assertThat(sourcesProvider.getProtoSourceRoot()).isEqualTo("x/foo");
+  }
+
   private Artifact getDescriptorOutput(String label) throws Exception {
     return getFirstArtifactEndingWith(getFilesToBuild(getConfiguredTarget(label)), ".proto.bin");
   }
