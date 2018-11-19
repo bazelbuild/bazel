@@ -278,3 +278,11 @@ distdir_tar(
       "jdk10-server-release-1804.tar.xz" : ["https://mirror.bazel.build/openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz"],
   },
 )
+
+load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
+
+[http_file(
+    name = "jekyll_tree_%s" % DOC_VERSION["version"].replace(".", "_"),
+    sha256 = DOC_VERSION["sha256"],
+    urls = ["https://mirror.bazel.build/bazel_versioned_docs/jekyll-tree-%s.tar" % DOC_VERSION["version"]],
+) for DOC_VERSION in DOC_VERSIONS]

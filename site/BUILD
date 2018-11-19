@@ -1,5 +1,6 @@
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load("//scripts/docs:jekyll.bzl", "jekyll_build")
+load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
 
 exports_files(
     [
@@ -125,6 +126,7 @@ tar cf $$origdir/$@ *
     tools = ["//scripts/docs:generate_dot_graphs"],
 )
 
+# Generate the documentation tree in the current git worktree
 genrule(
     name = "jekyll-tree",
     srcs = [
@@ -148,6 +150,9 @@ genrule(
 
 jekyll_build(
     name = "site",
-    srcs = [":jekyll-tree"],
+    srcs = [
+        "@jekyll_tree_%s//file" % DOC_VERSION["version"].replace(".", "_")
+        for DOC_VERSION in DOC_VERSIONS
+    ] + [":jekyll-tree"],  # jekyll-tree *must* come last to be the default.
     bucket = "docs.bazel.build",
 )
