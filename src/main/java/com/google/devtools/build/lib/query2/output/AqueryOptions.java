@@ -22,7 +22,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 public class AqueryOptions extends CommonQueryOptions {
   @Option(
       name = "output",
-      defaultValue = "proto",
+      defaultValue = "text",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
