@@ -41,11 +41,12 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
         msys_root = tokens[0][:len(tokens[0]) - len("bin")]
     prefix = "mingw64" if use_mingw else "usr"
     tool_path_prefix = escape_string(msys_root) + prefix
+    tool_bin_path = tool_path_prefix + "/bin"
     tool_path = {}
 
     for tool in ["ar", "compat-ld", "cpp", "dwp", "gcc", "gcov", "ld", "nm", "objcopy", "objdump", "strip"]:
         if msys_root:
-            tool_path[tool] = tool_path_prefix + "/bin/" + tool
+            tool_path[tool] = tool_bin_path + "/" + tool
         else:
             tool_path[tool] = "msys_gcc_installation_error.bat"
 
@@ -77,8 +78,29 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
             '   linker_flag: "-lstdc++"\n' +
             '   objcopy_embed_flag: "-I"\n' +
             '   objcopy_embed_flag: "binary"\n' +
-            '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }' +
-            '   feature { name: "copy_dynamic_libraries_to_binary" }')
+            '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }\n' +
+            '   feature { name: "copy_dynamic_libraries_to_binary" }\n' +
+            "   feature {\n" +
+            '    name: "gcc_env"\n' +
+            "    enabled: true\n" +
+            "    env_set {\n" +
+            '      action: "c-compile"\n' +
+            '      action: "c++-compile"\n' +
+            '      action: "c++-module-compile"\n' +
+            '      action: "c++-module-codegen"\n' +
+            '      action: "c++-header-parsing"\n' +
+            '      action: "assemble"\n' +
+            '      action: "preprocess-assemble"\n' +
+            '      action: "c++-link-executable"\n' +
+            '      action: "c++-link-dynamic-library"\n' +
+            '      action: "c++-link-nodeps-dynamic-library"\n' +
+            '      action: "c++-link-static-library"\n' +
+            "      env_entry {\n" +
+            '        key: "PATH"\n' +
+            '        value: "%s"\n' % tool_bin_path +
+            "      }\n" +
+            "    }\n" +
+            "  }")
 
 def _get_system_root(repository_ctx):
     """Get System root path on Windows, default is C:\\\Windows. Doesn't %-escape the result."""

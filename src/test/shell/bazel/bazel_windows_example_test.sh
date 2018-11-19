@@ -92,20 +92,25 @@ function test_cpp_with_msys_gcc() {
 
 function test_cpp_with_mingw_gcc() {
   local cpp_pkg=examples/cpp
-  ( # mingw gcc should be in PATH
+  ( # /mingw64/bin should be in PATH because during runtime the built binary
+    # depends on some dynamic libraries in this directory.
   export PATH="/mingw64/bin:$PATH"
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
-    --compiler=mingw-gcc
+    --compiler=mingw-gcc --experimental_strict_action_env
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib.so ${cpp_pkg}:hello-lib\
-    --compiler=mingw-gcc --output_groups=dynamic_library
-  assert_build ${cpp_pkg}:hello-world --compiler=mingw-gcc
+    --compiler=mingw-gcc --output_groups=dynamic_library \
+    --experimental_strict_action_env
+  assert_build ${cpp_pkg}:hello-world --compiler=mingw-gcc \
+    --experimental_strict_action_env
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
     || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
   expect_log "Hello foo"
-  assert_test_ok "//examples/cpp:hello-success_test" --compiler=mingw-gcc
-  assert_test_fails "//examples/cpp:hello-fail_test" --compiler=mingw-gcc )
+  assert_test_ok "//examples/cpp:hello-success_test" --compiler=mingw-gcc \
+    --experimental_strict_action_env --test_env=PATH
+  assert_test_fails "//examples/cpp:hello-fail_test" --compiler=mingw-gcc \
+    --experimental_strict_action_env --test_env=PATH)
 }
 
 function test_cpp_alwayslink() {
