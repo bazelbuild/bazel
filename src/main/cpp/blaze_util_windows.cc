@@ -402,19 +402,34 @@ string GetOutputRoot() {
   string home = GetHomeDir();
   if (home.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Cannot find a good output root. Use the --output_user_root flag.";
+        << "Cannot find a good output root.\n"
+           "Set the USERPROFILE or the HOME environment variable.\n"
+           "Example (in cmd.exe):\n"
+           "    set USERPROFILE=c:\\_bazel\\<YOUR-USERNAME>\n"
+           "or:\n"
+           "    set HOME=c:\\_bazel\\<YOUR-USERNAME>";
   }
   return home;
 }
 
 string GetHomeDir() {
   PWSTR wpath;
+  // Look up the user's home directory. The default value of "FOLDERID_Profile"
+  // is the same as %USERPROFILE%, but it does not require the envvar to be set.
   if (SUCCEEDED(::SHGetKnownFolderPath(FOLDERID_Profile, KF_FLAG_DEFAULT, NULL,
                                        &wpath))) {
     string result = string(blaze_util::WstringToCstring(wpath).get());
     ::CoTaskMemFree(wpath);
     return result;
   }
+
+  // On Windows 2016 Server, Nano server: FOLDERID_Profile is unknown but
+  // %USERPROFILE% is set. See https://github.com/bazelbuild/bazel/issues/6701
+  string userprofile = GetEnv("USERPROFILE");
+  if (!userprofile.empty()) {
+    return userprofile;
+  }
+
   return GetEnv("HOME");  // only defined in MSYS/Cygwin
 }
 
