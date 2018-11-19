@@ -64,11 +64,11 @@ public class ProtoCompileActionBuilder {
   private static final String MNEMONIC = "GenProto";
   private static final Action[] NO_ACTIONS = new Action[0];
 
-  private RuleContext ruleContext;
-  private SupportData supportData;
-  private String language;
-  private String langPrefix;
-  private Iterable<Artifact> outputs;
+  private final RuleContext ruleContext;
+  private final ProtoSourcesProvider protoSourcesProvider;
+  private final String language;
+  private final String langPrefix;
+  private final Iterable<Artifact> outputs;
   private Iterable<Artifact> inputs;
   private String langParameter;
   private String langPluginName;
@@ -129,12 +129,12 @@ public class ProtoCompileActionBuilder {
 
   public ProtoCompileActionBuilder(
       RuleContext ruleContext,
-      SupportData supportData,
+      ProtoSourcesProvider protoSourcesProvider,
       String language,
       String langPrefix,
       Iterable<Artifact> outputs) {
     this.ruleContext = ruleContext;
-    this.supportData = supportData;
+    this.protoSourcesProvider = protoSourcesProvider;
     this.language = language;
     this.langPrefix = langPrefix;
     this.outputs = outputs;
@@ -220,7 +220,7 @@ public class ProtoCompileActionBuilder {
 
   private SpawnAction.Builder createAction() throws MissingPrerequisiteException {
     SpawnAction.Builder result =
-        new SpawnAction.Builder().addTransitiveInputs(supportData.getTransitiveImports());
+        new SpawnAction.Builder().addTransitiveInputs(protoSourcesProvider.getTransitiveImports());
 
     FilesToRunProvider langPluginTarget = getLangPluginTarget();
     if (langPluginTarget != null) {
@@ -302,9 +302,9 @@ public class ProtoCompileActionBuilder {
     // Add include maps
     addIncludeMapArguments(
         result,
-        areDepsStrict ? supportData.getProtosInDirectDeps() : null,
-        supportData.getDirectProtoSourceRoots(),
-        supportData.getTransitiveImports());
+        areDepsStrict ? protoSourcesProvider.getProtosInDirectDeps() : null,
+        protoSourcesProvider.getDirectProtoSourceRoots(),
+        protoSourcesProvider.getTransitiveImports());
 
     if (areDepsStrict) {
       // Note: the %s in the line below is used by proto-compiler. That is, the string we create
@@ -312,7 +312,7 @@ public class ProtoCompileActionBuilder {
       result.addFormatted(STRICT_DEPS_FLAG_TEMPLATE, ruleContext.getLabel());
     }
 
-    for (Artifact src : supportData.getDirectProtoSources()) {
+    for (Artifact src : protoSourcesProvider.getDirectProtoSources()) {
       result.addPath(src.getRootRelativePath());
     }
 
@@ -320,7 +320,7 @@ public class ProtoCompileActionBuilder {
       result.add("--disallow_services");
     }
     if (checkStrictImportPublic) {
-      NestedSet<Artifact> protosInExports = supportData.getProtosInExports();
+      NestedSet<Artifact> protosInExports = protoSourcesProvider.getProtosInExports();
       if (protosInExports.isEmpty()) {
         // This line is necessary to trigger the check.
         result.add("--allowed_public_imports=");
@@ -329,7 +329,7 @@ public class ProtoCompileActionBuilder {
             "--allowed_public_imports",
             VectorArg.join(":")
                 .each(protosInExports)
-                .mapped(new ExpandToPathFn(supportData.getTransitiveProtoPathFlags())));
+                .mapped(new ExpandToPathFn(protoSourcesProvider.getTransitiveProtoSourceRoots())));
       }
     }
 

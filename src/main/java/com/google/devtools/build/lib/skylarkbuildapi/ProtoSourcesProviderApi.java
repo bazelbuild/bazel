@@ -86,7 +86,6 @@ public interface ProtoSourcesProviderApi<FileT extends FileApi> {
   @SkylarkCallable(
       name = "transitive_proto_path",
       doc = "A set of proto source roots collected from the transitive closure of this rule.",
-      structField = true
-  )
-  public NestedSet<String> getTransitiveProtoPathFlags();
+      structField = true)
+  public NestedSet<String> getTransitiveProtoSourceRoots();
 }

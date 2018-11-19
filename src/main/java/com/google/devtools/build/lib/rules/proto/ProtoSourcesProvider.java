@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.ProtoSourcesProviderApi;
+import javax.annotation.Nullable;
 
 // TODO(carmi): Rename the class to ProtoInfoProvider.
 /**
@@ -42,19 +43,25 @@ public abstract class ProtoSourcesProvider
       NestedSet<Artifact> transitiveProtoSources,
       ImmutableList<Artifact> directProtoSources,
       NestedSet<Artifact> checkDepsProtoSources,
+      NestedSet<Artifact> protosInDirectDeps,
       Artifact directDescriptorSet,
       NestedSet<Artifact> transitiveDescriptorSets,
-      NestedSet<String> transitiveProtoPathFlags,
-      String protoSourceRoot) {
+      String protoSourceRoot,
+      NestedSet<String> directProtoSourceRoots,
+      NestedSet<String> transitiveProtoSourceRoots,
+      @Nullable NestedSet<Artifact> protosInExports) {
     return new AutoValue_ProtoSourcesProvider(
         transitiveImports,
         transitiveProtoSources,
         directProtoSources,
         checkDepsProtoSources,
+        protosInDirectDeps,
         directDescriptorSet,
         transitiveDescriptorSets,
-        transitiveProtoPathFlags,
-        protoSourceRoot);
+        protoSourceRoot,
+        directProtoSourceRoots,
+        transitiveProtoSourceRoots,
+        protosInExports);
   }
 
   /**
@@ -86,6 +93,15 @@ public abstract class ProtoSourcesProvider
   public abstract NestedSet<Artifact> getCheckDepsProtoSources();
 
   /**
+   * Returns the .proto files that are the direct srcs of the direct-dependencies of this rule. If
+   * the current rule is an alias proto_library (=no srcs), we use the direct srcs of the
+   * direct-dependencies of our direct-dependencies.
+   *
+   * <p>Used for strict deps checking.
+   */
+  public abstract NestedSet<Artifact> getProtosInDirectDeps();
+
+  /**
    * Be careful while using this artifact - it is the parsing of the transitive set of .proto files.
    * It's possible to cause a O(n^2) behavior, where n is the length of a proto chain-graph.
    * (remember that proto-compiler reads all transitive .proto files, even when producing the
@@ -103,15 +119,27 @@ public abstract class ProtoSourcesProvider
   @Override
   public abstract NestedSet<Artifact> transitiveDescriptorSets();
 
+  /** The {@code proto_source_root} of the current library. */
+  public abstract String getProtoSourceRoot();
+
+  /**
+   * Returns a set of the {@code proto_source_root} collected from the current library and the
+   * direct dependencies.
+   */
+  public abstract NestedSet<String> getDirectProtoSourceRoots();
+
   /**
    * Directories of .proto sources collected from the transitive closure. These flags will be passed
    * to {@code protoc} in the specified order, via the {@code --proto_path} flag.
    */
   @Override
-  public abstract NestedSet<String> getTransitiveProtoPathFlags();
+  public abstract NestedSet<String> getTransitiveProtoSourceRoots();
 
-  /** The {@code proto_source_root} of the current library. */
-  public abstract String getProtoSourceRoot();
+  /**
+   * Returns the .proto files that are the direct srcs of the exported dependencies of this rule.
+   */
+  @Nullable
+  public abstract NestedSet<Artifact> getProtosInExports();
 
   ProtoSourcesProvider() {}
 }
