@@ -568,18 +568,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bound_targets_test",
-    size = "large",
-    srcs = ["bound_targets_test.sh"],
-    data = [
-        ":test-deps",
-        "//:workspace-file",
-        "//src/test/shell/bazel/apple:objc-deps",
-    ],
-    tags = ["no_windows"],
-)
-
-sh_test(
     name = "client_test",
     size = "medium",
     srcs = ["client_test.sh"],
