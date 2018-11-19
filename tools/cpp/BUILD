@@ -128,10 +128,8 @@ cc_toolchain(
 toolchain(
     name = "cc-toolchain-local",
     exec_compatible_with = [
-        "@bazel_tools//platforms:autoconfigured",
     ],
     target_compatible_with = [
-        "@bazel_tools//platforms:autoconfigured",
     ],
     toolchain = ":cc-compiler-local",
     toolchain_type = ":toolchain_type",
