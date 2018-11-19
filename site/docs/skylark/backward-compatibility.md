@@ -37,7 +37,7 @@ General Starlark
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
 *   [String is no longer iterable](#string-is-no-longer-iterable)
-*   [Integer division operator is //](#integer-division-operator-is)
+*   [Integer division operator is //](#integer-division-operator-is-)
 *   [Package name is a function](#package-name-is-a-function)
 *   [FileType is deprecated](#filetype-is-deprecated)
 *   [Static Name Resolution](#static-name-resolution)
@@ -52,7 +52,7 @@ Starlark Rules
 *   [Disallow tools in action inputs](#disallow-tools-in-action-inputs)
 *   [Expand directories in Args](#expand-directories-in-args)
 *   [Disable late bound option defaults](#disable-late-bound-option-defaults)
-*   [Disallow `cfg = "data"`](#disallow-cfg-data)
+*   [Disallow `cfg = "data"`](#disallow-cfg--data)
 *   [Disallow conflicting providers](#disallow-conflicting-providers)
 
 Objc
