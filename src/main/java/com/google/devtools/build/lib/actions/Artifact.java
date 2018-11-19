@@ -54,7 +54,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -170,22 +169,6 @@ public class Artifact
     default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
       throw new UnsupportedOperationException();
     }
-
-    /**
-     * Returns a map from each expanded-to {@link Artifact} to its owner artifact.
-     *
-     * <p>The moral inverse of {@link #expand(Artifact, Collection)}.
-     *
-     * <p>This does not map inputs contained in Filesets back to Fileset artifacts because:
-     *
-     * <ul>
-     *   <li>{@link #expand(Artifact, Collection)} does not expand Fileset artifacts, and
-     *   <li>inputs contained in Filesets may not be {@link Artifact}s.
-     * </ul>
-     */
-    default Map<Artifact, Artifact> getReverseExpansion() {
-      throw new UnsupportedOperationException();
-    }
   }
 
   /** Implementation of {@link ArtifactExpander} */
@@ -208,18 +191,6 @@ public class Artifact
       if (result != null) {
         output.addAll(result);
       }
-    }
-
-    @Override
-    public Map<Artifact, Artifact> getReverseExpansion() {
-      // See this method's Javadoc for why this ignores expandedFilesets.
-      Map<Artifact, Artifact> reverseMap = new HashMap<>();
-      for (Map.Entry<Artifact, Collection<Artifact>> entry : expandedInputs.entrySet()) {
-        for (Artifact expandedArtifact : entry.getValue()) {
-          reverseMap.put(expandedArtifact, entry.getKey());
-        }
-      }
-      return reverseMap;
     }
 
     @Override

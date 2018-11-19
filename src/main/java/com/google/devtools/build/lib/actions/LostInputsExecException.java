@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -67,7 +68,10 @@ public class LostInputsExecException extends ExecException {
     }
   }
 
-  /** Specifies the owning {@link Artifact}s that were responsible for the lost inputs. */
+  /**
+   * Specifies the owning {@link Artifact}s that were responsible for the lost inputs and whether
+   * the inputs came from runfiles.
+   */
   public interface InputOwners {
 
     /**
@@ -76,5 +80,8 @@ public class LostInputsExecException extends ExecException {
      */
     @Nullable
     Artifact getOwner(ActionInput input);
+
+    /** Returns the lost {@link ActionInput}s that came from runfiles. */
+    Set<ActionInput> getRunfilesInputs();
   }
 }
