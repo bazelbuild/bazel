@@ -882,7 +882,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     @Option(
         name = "incompatible_disable_late_bound_option_defaults",
-        defaultValue = "true",
+        defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
         metadataTags = {
