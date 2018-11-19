@@ -15,7 +15,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/protobuf:remote_execution_log_java_proto",
-        "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "@googleapis//:google_bytestream_bytestream_java_grpc",

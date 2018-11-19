@@ -23,7 +23,6 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:guava-testlib",
-        "//third_party:junit4",
         "//third_party:truth",
     ],
 )

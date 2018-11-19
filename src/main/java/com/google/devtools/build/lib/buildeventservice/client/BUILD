@@ -14,11 +14,8 @@ java_library(
         "//third_party:netty_tcnative",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//third_party:auth",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party:netty",
         "//third_party/grpc:grpc-jar",
         "@googleapis//:google_devtools_build_v1_publish_build_event_java_grpc",
         "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
