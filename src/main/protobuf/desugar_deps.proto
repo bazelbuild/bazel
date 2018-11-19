@@ -16,7 +16,6 @@ syntax = "proto2";
 
 package bazel.tools.desugar;
 
-option optimize_for = LITE_RUNTIME;  // less generated C++ code
 // option java_api_version = 2;
 option java_package = "com.google.devtools.build.android.desugar.proto";
 
