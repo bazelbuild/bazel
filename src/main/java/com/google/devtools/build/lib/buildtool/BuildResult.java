@@ -19,10 +19,16 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.ByteString;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -44,6 +50,8 @@ public final class BuildResult {
   private Collection<ConfiguredTarget> successfulTargets;
   private Collection<ConfiguredTarget> skippedTargets;
   private Collection<AspectValue> successfulAspects;
+
+  private final BuildToolLogCollection buildToolLogCollection = new BuildToolLogCollection();
 
   public BuildResult(long startTimeMillis) {
     this.startTimeMillis = startTimeMillis;
@@ -241,6 +249,15 @@ public final class BuildResult {
     return skippedTargets;
   }
 
+  /**
+   * Collection of data for the build tool logs event. This may only be modified until the
+   * BuildCompleteEvent is posted; any changes after that event is handled will not be included in
+   * the build tool logs event.
+   */
+  public BuildToolLogCollection getBuildToolLogCollection() {
+    return buildToolLogCollection;
+  }
+
   /** For debugging. */
   @Override
   public String toString() {
@@ -253,6 +270,53 @@ public final class BuildResult {
         .add("actualTargets", actualTargets)
         .add("testTargets", testTargets)
         .add("successfulTargets", successfulTargets)
+        .add("buildToolLogCollection", buildToolLogCollection)
         .toString();
+  }
+
+  /** Collection of data for the build tool logs event. */
+  public static final class BuildToolLogCollection {
+    private final List<Pair<String, ByteString>> directValues = new ArrayList<>();
+    private final List<Pair<String, String>> directUris = new ArrayList<>();
+    private final List<Pair<String, Path>> logFiles = new ArrayList<>();
+    private boolean frozen;
+
+    public BuildToolLogCollection freeze() {
+      frozen = true;
+      return this;
+    }
+
+    public BuildToolLogCollection addDirectValue(String name, byte[] data) {
+      Preconditions.checkState(!frozen);
+      this.directValues.add(Pair.of(name, ByteString.copyFrom(data)));
+      return this;
+    }
+
+    public BuildToolLogCollection addUri(String name, String uri) {
+      Preconditions.checkState(!frozen);
+      this.directUris.add(Pair.of(name, uri));
+      return this;
+    }
+
+    public BuildToolLogCollection addLocalFile(String name, Path path) {
+      Preconditions.checkState(!frozen);
+      this.logFiles.add(Pair.of(name, path));
+      return this;
+    }
+
+    public BuildToolLogs toEvent() {
+      Preconditions.checkState(frozen);
+      return new BuildToolLogs(directValues, directUris, logFiles);
+    }
+
+    /** For debugging. */
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("directValues", directValues)
+          .add("directUris", directUris)
+          .add("logFiles", logFiles)
+          .toString();
+    }
   }
 }

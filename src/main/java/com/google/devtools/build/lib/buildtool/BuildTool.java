@@ -360,6 +360,7 @@ public class BuildTool {
             new BuildCompleteEvent(
                 result,
                 ImmutableList.of(BuildEventId.buildToolLogs(), BuildEventId.buildMetrics())));
+    env.getEventBus().post(result.getBuildToolLogCollection().freeze().toEvent());
     if (ie != null) {
       if (exitCondition.equals(ExitCode.SUCCESS)) {
         result.setExitCondition(ExitCode.INTERRUPTED);
