@@ -771,7 +771,7 @@ public final class SkyframeActionExecutor {
         if (message != null) {
           reporter.startTask(null, prependExecPhaseStats(message));
         }
-        statusReporterRef.get().setPreparing(action);
+        statusReporterRef.get().updateStatus(ActionStatusMessage.preparingStrategy(action));
 
         Preconditions.checkState(actionExecutionContext.getMetadataHandler() == metadataHandler,
             "%s %s", actionExecutionContext.getMetadataHandler(), metadataHandler);
