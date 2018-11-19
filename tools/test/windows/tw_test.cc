@@ -37,6 +37,7 @@ namespace {
 using bazel::tools::test_wrapper::FileInfo;
 using bazel::tools::test_wrapper::ZipEntryPaths;
 using bazel::tools::test_wrapper::testing::TestOnly_AsMixedPath;
+using bazel::tools::test_wrapper::testing::TestOnly_CdataEncodeBuffer;
 using bazel::tools::test_wrapper::testing::TestOnly_CreateTee;
 using bazel::tools::test_wrapper::testing::
     TestOnly_CreateUndeclaredOutputsAnnotations;
@@ -451,6 +452,105 @@ TEST_F(TestWrapperWindowsTest, TestTee) {
   EXPECT_EQ(std::string(content, read), "foo");
 
   write1 = INVALID_HANDLE_VALUE;  // closes handle so the Tee thread can exit
+}
+
+void AssertCdataEncodeBuffer(
+    int line, const std::string& input, const std::string& expected_output,
+    const std::vector<int>& expected_cdata_end_indices) {
+  ASSERT_EQ(input.size(), expected_output.size());
+
+  std::unique_ptr<uint8_t[]> mutable_buffer(new uint8_t[input.size()]);
+  memcpy(mutable_buffer.get(), input.c_str(), input.size());
+
+  std::vector<uint8_t*> cdata_ends;
+  EXPECT_TRUE(TestOnly_CdataEncodeBuffer(mutable_buffer.get(), input.size(),
+                                         &cdata_ends));
+  for (int i = 0; i < input.size(); ++i) {
+    EXPECT_EQ(mutable_buffer[i], static_cast<uint8_t>(expected_output[i]))
+        << "FAILED(in line " << line << "): mismatch at index " << i;
+  }
+
+  std::vector<int> actual_indices;
+  for (const auto& ptr : cdata_ends) {
+    actual_indices.push_back(ptr - mutable_buffer.get());
+  }
+  EXPECT_EQ(actual_indices, expected_cdata_end_indices);
+}
+
+TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferCdataEndings) {
+  AssertCdataEncodeBuffer(
+      __LINE__,
+      // === Input ===
+      // CDATA end sequence, followed by some arbitrary octet.
+      "]]>x"
+      // CDATA end sequence twice.
+      "]]>]]>x"
+      // CDATA end sequence at the end of the string.
+      "]]>",
+
+      // === Expected output ===
+      // "]]>" sequences are left alone but their position is stored in
+      "]]>x"
+      "]]>]]>x"
+      "]]>",
+
+      // === Expected CDATA end positions ===
+      {0, 4, 7, 11});
+}
+
+TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferSingleOctets) {
+  AssertCdataEncodeBuffer(__LINE__,
+                          // === Input ===
+                          // Legal single-octets.
+                          "AB\x9\xA\xD\x20\x7F"
+                          // Illegal single-octets.
+                          "\x8\xB\xC\x1F\x80\xFF"
+                          "x",
+
+                          // === Expected output ===
+                          // Legal single-octets.
+                          "AB\x9\xA\xD\x20\x7F"
+                          // Illegal single-octets.
+                          "??????"
+                          "x",
+                          {});
+}
+
+TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferDoubleOctets) {
+  // Legal range: [\xc0-\xdf][\x80-\xbf]
+  AssertCdataEncodeBuffer(
+      __LINE__,
+      "x"
+      // Legal double-octet sequences.
+      "\xC0\x80"
+      "\xDE\xB0"
+      "\xDF\xBF"
+      // Illegal double-octet sequences, first octet is bad, second is good.
+      "\xBF\x80"  // each are matched as single bad octets
+      "\xE0\x80"
+      // Illegal double-octet sequences, first octet is good, second is bad.
+      "\xC0\x7F"  // 0x7F is legal as a single-octet, retained
+      "\xDF\xC0"  // 0xC0 starts a legal two-octet sequence...
+      // Illegal double-octet sequences, both octets bad.
+      "\xBF\xFF"  // ...and 0xBF finishes that sequence
+      "x",
+
+      // === Expected output ===
+      "x"
+      // Legal double-octet sequences.
+      "\xC0\x80"
+      "\xDE\xB0"
+      "\xDF\xBF"
+      // Illegal double-octet sequences, first octet is bad, second is good.
+      "??"
+      "??"
+      // Illegal double-octet sequences, first octet is good, second is bad.
+      "?\x7F"  // 0x7F is legal as a single-octet, retained
+      "?\xC0"  // 0xC0 starts a legal two-octet sequence...
+      // Illegal double-octet sequences, both octets bad.
+      "\xBF?"  // ...and 0xBF finishes that sequence
+      "x",
+      {});
 }
 
 }  // namespace

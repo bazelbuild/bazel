@@ -1309,6 +1309,75 @@ int RunSubprocess(const Path& test_path,
   return WaitForSubprocess(process);
 }
 
+// Replace invalid XML characters and locate invalid CDATA sequences.
+//
+// The legal Unicode code points and ranges are U+0009, U+000A, U+000D,
+// U+0020..U+D7FF, U+E000..U+FFFD, and U+10000..U+10FFFF.
+//
+// Assuming the input is UTF-8 encoded, that translates to the following
+// regexps:
+//   [\x9\xa\xd\x20-\x7f]                         <--- (9,A,D,20-7F)
+//   [\xc0-\xdf][\x80-\xbf]                       <--- (0080-07FF)
+//   [\xe0-\xec][\x80-\xbf][\x80-\xbf]            <--- (0800-CFFF)
+//   [\xed][\x80-\x9f][\x80-\xbf]                 <--- (D000-D7FF)
+//   [\xee][\x80-\xbf][\x80-\xbf]                 <--- (E000-EFFF)
+//   [\xef][\x80-\xbe][\x80-\xbf]                 <--- (F000-FFEF)
+//   [\xef][\xbf][\x80-\xbd]                      <--- (FFF0-FFFD)
+//   [\xf0-\xf7][\x80-\xbf][\x80-\xbf][\x80-\xbf] <--- (010000-10FFFF)
+//
+// (See https://github.com/bazelbuild/bazel/issues/4691#issuecomment-408089257)
+//
+// Every octet-sequence matching one of these regexps will be left alone, all
+// other octet-sequences will be replaced by '?' characters.
+//
+// This function also memorizes the locations of "]]>" in `cdata_end_locations`.
+// The reason is "]]>" ends the CDATA section prematurely and cannot be escaped
+// (see https://stackoverflow.com/a/223782/7778502). A separate filtering step
+// can replace those sequences with the string "]]>]]&gt;<![CDATA[" (which ends
+// the current CDATA segment, adds "]]&gt;", then starts a new CDATA segment).
+void CdataEscape(uint8_t* p, const size_t size,
+                 std::vector<uint8_t*>* cdata_end_locations) {
+  for (size_t i = 0; i < size; ++i, ++p) {
+    if (p[0] == ']' && (i + 2 < size) && p[1] == ']' && p[2] == '>') {
+      // Mark where "]]>" is, then skip the next two octets.
+      cdata_end_locations->push_back(p);
+      i += 2;
+      p += 2;
+    } else if (*p == 0x9 || *p == 0xA || *p == 0xD ||
+               (*p >= 0x20 && *p <= 0x7F)) {
+      // Matched legal single-octet sequence. Nothing to do.
+    } else if ((i + 1 < size) && p[0] >= 0xC0 && p[0] <= 0xDF && p[1] >= 0x80 &&
+               p[1] <= 0xBF) {
+      // Matched legal double-octet sequence. Skip the next octet.
+      i += 1;
+      p += 1;
+    } else if ((i + 2 < size) &&
+               ((p[0] >= 0xE0 && p[0] <= 0xEC && p[1] >= 0x80 && p[1] <= 0xBF &&
+                 p[2] >= 0x80 && p[2] <= 0xBF) ||
+                (p[0] == 0xED && p[1] >= 0x80 && p[1] <= 0x9F && p[2] >= 0x80 &&
+                 p[2] <= 0xBF) ||
+                (p[0] == 0xEE && p[1] >= 0x80 && p[1] <= 0xBF && p[2] >= 0x80 &&
+                 p[2] <= 0xBF) ||
+                (p[0] == 0xEF && p[1] >= 0x80 && p[1] <= 0xBE && p[2] >= 0x80 &&
+                 p[2] <= 0xBF) ||
+                (p[0] == 0xEF && p[1] == 0xBF && p[2] >= 0x80 &&
+                 p[2] <= 0xBD))) {
+      // Matched legal triple-octet sequence. Skip the next two octets.
+      i += 2;
+      p += 2;
+    } else if ((i + 3 < size) && p[0] >= 0xF0 && p[0] <= 0xF7 && p[1] >= 0x80 &&
+               p[1] <= 0xBF && p[2] >= 0x80 && p[2] <= 0xBF && p[3] >= 0x80 &&
+               p[3] <= 0xBF) {
+      // Matched legal quadruple-octet sequence. Skip the next three octets.
+      i += 3;
+      p += 3;
+    } else {
+      // Illegal octet; replace.
+      *p = '?';
+    }
+  }
+}
+
 bool Path::Set(const std::wstring& path) {
   std::wstring result;
   std::string error;
@@ -1484,6 +1553,12 @@ bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result) {
 bool TestOnly_CreateTee(HANDLE input, HANDLE output1, HANDLE output2,
                         std::unique_ptr<Tee>* result) {
   return TeeImpl::Create(input, output1, output2, result);
+}
+
+bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const size_t size,
+                                std::vector<uint8_t*>* cdata_end_locations) {
+  CdataEscape(buffer, size, cdata_end_locations);
+  return true;
 }
 
 }  // namespace testing

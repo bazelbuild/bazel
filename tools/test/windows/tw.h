@@ -150,6 +150,9 @@ bool TestOnly_CreateTee(void* /* HANDLE */ input, void* /* HANDLE */ output1,
                         void* /* HANDLE */ output2,
                         std::unique_ptr<Tee>* result);
 
+bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const size_t size,
+                                std::vector<uint8_t*>* cdata_end_locations);
+
 }  // namespace testing
 
 }  // namespace test_wrapper
