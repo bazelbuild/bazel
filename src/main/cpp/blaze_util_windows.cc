@@ -417,6 +417,15 @@ string GetHomeDir() {
     ::CoTaskMemFree(wpath);
     return result;
   }
+
+  // On Windows 2016 Server, Datacenter edition, Nano server, FOLDERID_Profile
+  // us unknown but %USERPROFILE% is set.
+  // See https://github.com/bazelbuild/bazel/issues/6701
+  string userprofile = GetEnv("USERPROFILE");
+  if (!userprofile.empty()) {
+    return userprofile;
+  }
+
   return GetEnv("HOME");  // only defined in MSYS/Cygwin
 }
 
