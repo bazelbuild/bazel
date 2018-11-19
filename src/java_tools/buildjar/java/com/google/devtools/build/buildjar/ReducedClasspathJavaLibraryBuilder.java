@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -53,19 +54,10 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     BlazeJavacResult result =
         javacRunner.invokeJavac(build.toBlazeJavacArguments(compressedClasspath));
 
-    result =
-        result.withStatistics(
-            result
-                .statistics()
-                .toBuilder()
-                .transitiveClasspathLength(build.getClassPath().size())
-                .reducedClasspathLength(compressedClasspath.size())
-                .transitiveClasspathFallback(false)
-                .build());
-
     // If javac errored out because of missing entries on the classpath, give it another try.
     // TODO(bazel-team): check performance impact of additional retries.
-    if (shouldFallBack(result)) {
+    boolean fallback = shouldFallBack(result);
+    if (fallback) {
       // TODO(cushon): warn for transitive classpath fallback
 
       // Reset output directories
@@ -73,11 +65,19 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
 
       // Fall back to the regular compile, but add extra checks to catch transitive uses
       result = javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
-      result =
-          result.withStatistics(
-              result.statistics().toBuilder().transitiveClasspathFallback(true).build());
     }
-    return result;
+
+    BlazeJavacStatistics.Builder stats =
+        result
+            .statistics()
+            .toBuilder()
+            .transitiveClasspathLength(build.getClassPath().size())
+            .reducedClasspathLength(compressedClasspath.size())
+            .transitiveClasspathFallback(fallback);
+    build.getProcessors().stream()
+        .map(p -> p.substring(p.lastIndexOf('.') + 1))
+        .forEachOrdered(stats::addProcessor);
+    return result.withStatistics(stats.build());
   }
 
   private static boolean shouldFallBack(BlazeJavacResult result) {

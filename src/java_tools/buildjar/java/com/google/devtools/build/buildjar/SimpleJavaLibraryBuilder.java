@@ -21,6 +21,7 @@ import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.BlazeJavacMain;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
+import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
@@ -51,17 +52,17 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     BlazeJavacResult result =
         javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
 
-    result =
-        result.withStatistics(
-            result
-                .statistics()
-                .toBuilder()
-                .transitiveClasspathLength(build.getClassPath().size())
-                .reducedClasspathLength(build.getClassPath().size())
-                .transitiveClasspathFallback(false)
-                .build());
-
-    return result;
+    BlazeJavacStatistics.Builder stats =
+        result
+            .statistics()
+            .toBuilder()
+            .transitiveClasspathLength(build.getClassPath().size())
+            .reducedClasspathLength(build.getClassPath().size())
+            .transitiveClasspathFallback(false);
+    build.getProcessors().stream()
+        .map(p -> p.substring(p.lastIndexOf('.') + 1))
+        .forEachOrdered(stats::addProcessor);
+    return result.withStatistics(stats.build());
   }
 
   protected void prepareSourceCompilation(JavaLibraryBuildRequest build) throws IOException {

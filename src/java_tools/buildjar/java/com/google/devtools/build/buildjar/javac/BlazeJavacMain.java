@@ -105,9 +105,6 @@ public class BlazeJavacMain {
                   context);
       if (arguments.processors() != null) {
         task.setProcessors(arguments.processors());
-        arguments.processors().stream()
-            .map(p -> p.getClass().getSimpleName())
-            .forEachOrdered(builder::addProcessor);
       }
       fileManager.setContext(context);
       setLocations(fileManager, arguments);
