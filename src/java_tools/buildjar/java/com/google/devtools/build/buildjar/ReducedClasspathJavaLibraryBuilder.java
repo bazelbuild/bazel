@@ -55,16 +55,10 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
         javacRunner.invokeJavac(build.toBlazeJavacArguments(compressedClasspath));
 
     // If javac errored out because of missing entries on the classpath, give it another try.
-    // TODO(bazel-team): check performance impact of additional retries.
+    // TODO(b/119712048): check performance impact of additional retries.
     boolean fallback = shouldFallBack(result);
     if (fallback) {
-      // TODO(cushon): warn for transitive classpath fallback
-
-      // Reset output directories
-      prepareSourceCompilation(build);
-
-      // Fall back to the regular compile, but add extra checks to catch transitive uses
-      result = javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
+      result = fallback(build, javacRunner);
     }
 
     BlazeJavacStatistics.Builder stats =
@@ -78,6 +72,17 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
         .map(p -> p.substring(p.lastIndexOf('.') + 1))
         .forEachOrdered(stats::addProcessor);
     return result.withStatistics(stats.build());
+  }
+
+  private BlazeJavacResult fallback(JavaLibraryBuildRequest build, JavacRunner javacRunner)
+      throws IOException {
+    // TODO(cushon): warn for transitive classpath fallback
+
+    // Reset output directories
+    prepareSourceCompilation(build);
+
+    // Fall back to the regular compile, but add extra checks to catch transitive uses
+    return javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
   }
 
   private static boolean shouldFallBack(BlazeJavacResult result) {
