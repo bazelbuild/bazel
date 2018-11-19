@@ -78,9 +78,6 @@ cc_toolchain_suite(
     toolchain(
         name = "cc-toolchain-" + arch,
         exec_compatible_with = [
-            # This toolchain will only work with the local autoconfigured
-            # platforms.
-            "@bazel_tools//platforms:autoconfigured",
             # TODO(katre): add autodiscovered constraints for host CPU and OS.
         ],
         target_compatible_with = [
