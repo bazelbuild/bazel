@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
  *
  * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
  */
-public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
+public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
 
   // Default thread count is equal to the number of cores to exploit
   // that level of hardware parallelism, since invalidation should be CPU-bound.
@@ -77,16 +77,14 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
         }
       };
 
-  protected final TGraph graph;
+  protected final GraphT graph;
   protected final DirtyTrackingProgressReceiver progressReceiver;
   // Aliased to InvalidationState.pendingVisitations.
   protected final Set<Pair<SkyKey, InvalidationType>> pendingVisitations;
   protected final QuiescingExecutor executor;
 
   protected InvalidatingNodeVisitor(
-      TGraph graph,
-      DirtyTrackingProgressReceiver progressReceiver,
-      InvalidationState state) {
+      GraphT graph, DirtyTrackingProgressReceiver progressReceiver, InvalidationState state) {
     this.executor =
         new AbstractQueueVisitor(
             /*parallelism=*/ DEFAULT_THREAD_COUNT,
@@ -101,7 +99,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
   }
 
   protected InvalidatingNodeVisitor(
-      TGraph graph,
+      GraphT graph,
       DirtyTrackingProgressReceiver progressReceiver,
       InvalidationState state,
       ForkJoinPool forkJoinPool) {

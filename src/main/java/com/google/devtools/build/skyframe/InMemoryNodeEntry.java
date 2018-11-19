@@ -688,6 +688,12 @@ public class InMemoryNodeEntry implements NodeEntry {
     return isReady(getNumTemporaryDirectDeps());
   }
 
+  /** Returns whether all known children of this node have signaled that they are done. */
+  private boolean isReady(int numDirectDeps) {
+    Preconditions.checkState(signaledDeps <= numDirectDeps, "%s %s", numDirectDeps, this);
+    return signaledDeps == numDirectDeps;
+  }
+
   /** True if the child should cause re-evaluation of this node. */
   protected boolean childCausesReevaluation(
       Version lastEvaluatedVersion,
@@ -703,12 +709,6 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   protected void logError(RuntimeException error) {
     throw error;
-  }
-
-  /** Returns whether all known children of this node have signaled that they are done. */
-  private boolean isReady(int numDirectDeps) {
-    Preconditions.checkState(signaledDeps <= numDirectDeps, "%s %s", numDirectDeps, this);
-    return signaledDeps == numDirectDeps;
   }
 
   private boolean isEvaluating() {

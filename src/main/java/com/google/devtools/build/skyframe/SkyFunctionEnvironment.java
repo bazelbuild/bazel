@@ -191,7 +191,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           batchPrefetch(skyKey, directDeps, oldDeps, /*assertDone=*/ false, skyKey);
     } catch (UndonePreviouslyRequestedDep undonePreviouslyRequestedDep) {
       throw new IllegalStateException(
-          "batchPrefetch can't throw UndonePreviouslyRequestedDep unless assertDone is true");
+          "batchPrefetch can't throw UndonePreviouslyRequestedDep unless assertDone is true",
+          undonePreviouslyRequestedDep);
     }
     Preconditions.checkState(
         !this.previouslyRequestedDepsValues.containsKey(ErrorTransienceValue.KEY),
