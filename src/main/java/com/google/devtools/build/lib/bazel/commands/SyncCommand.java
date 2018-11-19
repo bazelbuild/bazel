@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -50,7 +51,7 @@ import java.util.Set;
 /** Syncs all repositories specifed in the workspace file */
 @Command(
     name = SyncCommand.NAME,
-    options = {PackageCacheOptions.class, KeepGoingOption.class},
+    options = {PackageCacheOptions.class, KeepGoingOption.class, LoadingPhaseThreadsOption.class},
     help = "resource:sync.txt",
     shortDescription = "Syncs all repositories specifed in the workspace file",
     allowResidue = false)
@@ -94,9 +95,10 @@ public final class SyncCommand implements BlazeCommand {
 
       // Obtain the key for the top-level WORKSPACE file
       SkyKey packageLookupKey = PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+      LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
-              .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+              .setNumThreads(threadsOption.threads)
               .setEventHander(env.getReporter())
               .build();
       EvaluationResult<SkyValue> packageLookupValue =

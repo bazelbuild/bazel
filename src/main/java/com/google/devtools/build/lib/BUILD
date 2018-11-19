@@ -831,6 +831,7 @@ java_library(
         ":events",
         ":exitcode-external",
         ":keep-going-option",
+        ":loading-phase-threads-option",
         ":packages-internal",
         ":runtime",
         ":util",
