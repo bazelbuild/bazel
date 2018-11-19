@@ -554,6 +554,17 @@ public class JavaOptions extends FragmentOptions {
       help = "Roll-out flag for making java_proto_library propagate CcLinkParamsStore. DO NOT USE.")
   public boolean jplPropagateCcLinkParamsStore;
 
+  @Option(
+      name = "experimental_jlpl_enforce_strict_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help =
+          "Turns on strict deps for all java_lite_proto_libraries even if they set strict_deps=0"
+              + " unless the java_library package disables the feature jpl_strict_deps."
+              + " Used for java_lite_proto_library.strict_deps migration.")
+  public boolean isJlplStrictDepsEnforced;
+
   // Plugins are built using the host config. To avoid cycles we just don't propagate
   // this option to the host config. If one day we decide to use plugins when building
   // host tools, we can improve this by (for example) creating a compiler configuration that is
@@ -639,6 +650,8 @@ public class JavaOptions extends FragmentOptions {
     host.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
+
+    host.isJlplStrictDepsEnforced = isJlplStrictDepsEnforced;
 
     host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
 

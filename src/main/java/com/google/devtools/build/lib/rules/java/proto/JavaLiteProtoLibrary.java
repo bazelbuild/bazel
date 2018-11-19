@@ -34,11 +34,13 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaStrictCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 
@@ -76,9 +78,19 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaRunfilesProvider javaRunfilesProvider = new JavaRunfilesProvider(runfiles);
 
-    JavaInfo javaInfo =
+    JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
-            .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
+            .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders);
+    if (ruleContext.getFragment(JavaConfiguration.class).isJlplStrictDepsEnforced()) {
+      JavaStrictCompilationArgsProvider strictDependencyArgsProviders =
+          new JavaStrictCompilationArgsProvider(
+              constructJcapFromAspectDeps(
+                  ruleContext, javaProtoLibraryAspectProviders, /* alwaysStrict= */ true));
+      javaInfoBuilder.addProvider(
+          JavaStrictCompilationArgsProvider.class, strictDependencyArgsProviders);
+    }
+    JavaInfo javaInfo =
+        javaInfoBuilder
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
             .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)
