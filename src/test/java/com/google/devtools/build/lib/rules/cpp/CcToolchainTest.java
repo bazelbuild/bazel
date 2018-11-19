@@ -518,6 +518,16 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testFdoOptimizeNotCompatibleWithCoverage() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')", "exports_files(['profile.afdo'])");
+    scratch.file("a/profile.afdo", "");
+    useConfiguration("-c", "opt", "--fdo_optimize=//a:profile.afdo", "--collect_code_coverage");
+    assertThat(getConfiguredTarget("//a:b")).isNull();
+    assertContainsEvent("coverage mode is not compatible with FDO optimization");
+  }
+
+  @Test
   public void testZipperInclusionDependsOnFdoOptimization() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(

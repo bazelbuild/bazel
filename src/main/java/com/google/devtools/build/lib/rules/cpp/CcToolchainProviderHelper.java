@@ -430,6 +430,10 @@ public class CcToolchainProviderHelper {
       return null;
     }
 
+    if (fdoMode != FdoMode.OFF && configuration.isCodeCoverageEnabled()) {
+      ruleContext.throwWithRuleError("coverage mode is not compatible with FDO optimization");
+    }
+
     CppToolchainInfo toolchainInfo =
         getCppToolchainInfo(
             ruleContext, cppConfiguration, attributes, ccSkyframeSupportValue, toolchain);
