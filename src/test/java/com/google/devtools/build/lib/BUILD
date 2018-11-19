@@ -178,6 +178,8 @@ java_test(
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        # TODO(https://github.com/bazelbuild/bazel/issues/5985): Added to suppress warnings.
+        "//src/main/java/com/google/devtools/build/lib:skylark-semantics",
     ],
 )
 

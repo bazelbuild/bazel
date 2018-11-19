@@ -26,6 +26,8 @@ java_library(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
+        # TODO(https://github.com/bazelbuild/bazel/issues/5985): Added to suppress warnings.
+        "//src/main/java/com/google/devtools/build/lib:skylark-semantics",
     ],
 )
 
@@ -39,6 +41,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
+        # TODO(https://github.com/bazelbuild/bazel/issues/5985): Added to suppress warnings.
+        "//src/main/java/com/google/devtools/build/lib:skylark-semantics",
     ],
 )
 

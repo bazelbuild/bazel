@@ -404,6 +404,8 @@ java_library(
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+        # TODO(https://github.com/bazelbuild/bazel/issues/5985): Added to suppress warnings.
+        "//src/main/java/com/google/devtools/build/lib:skylark-semantics",
     ],
 )
 
@@ -532,6 +534,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
+        # TODO(https://github.com/bazelbuild/bazel/issues/5985): Added to suppress warnings.
+        "//src/main/java/com/google/devtools/build/lib:skylark-semantics",
     ],
 )
 

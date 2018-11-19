@@ -24,5 +24,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+        # TODO(https://github.com/bazelbuild/bazel/issues/5985): Added to suppress warnings.
+        "//src/main/java/com/google/devtools/build/lib:skylark-semantics",
     ],
 )
