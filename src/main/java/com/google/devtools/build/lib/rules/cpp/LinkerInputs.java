@@ -532,11 +532,17 @@ public abstract class LinkerInputs {
       String libraryIdentifier,
       Iterable<Artifact> objectFiles,
       ImmutableMap<Artifact, Artifact> ltoBitcodeFiles,
-      ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends) {
+      ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
+      boolean mustKeepDebug) {
     return new CompoundLibraryToLink(
-        library, category, libraryIdentifier, objectFiles, ltoBitcodeFiles, sharedNonLtoBackends,
+        library,
+        category,
+        libraryIdentifier,
+        objectFiles,
+        ltoBitcodeFiles,
+        sharedNonLtoBackends,
         /* allowArchiveTypeInAlwayslink= */ false,
-        /* mustKeepDebug= */ false);
+        mustKeepDebug);
   }
 
   public static Iterable<Artifact> toNonSolibArtifacts(Iterable<LibraryToLink> libraries) {

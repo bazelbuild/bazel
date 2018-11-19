@@ -341,7 +341,8 @@ public class CppLinkActionBuilder {
               lib.getLibraryIdentifier(),
               newObjectFilesBuilder.build(),
               lib.getLtoBitcodeFiles(),
-              /* sharedNonLtoBackends= */ null));
+              /* sharedNonLtoBackends= */ null,
+              /* mustKeepDebug= */ false));
     }
     return uniqueLibrariesBuilder.build();
   }
@@ -706,7 +707,8 @@ public class CppLinkActionBuilder {
                 linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
                     ? ltoBitcodeFiles
                     : ImmutableMap.of(),
-                createSharedNonLtoArtifacts(isLtoIndexing));
+                createSharedNonLtoArtifacts(isLtoIndexing),
+                /* mustKeepDebug= */ false);
     final LibraryToLink interfaceOutputLibrary =
         (interfaceOutput == null)
             ? null
@@ -716,7 +718,8 @@ public class CppLinkActionBuilder {
                 libraryIdentifier,
                 combinedObjectArtifacts,
                 ltoBitcodeFiles,
-                /* sharedNonLtoBackends= */ null);
+                /* sharedNonLtoBackends= */ null,
+                /* mustKeepDebug= */ false);
 
     @Nullable Artifact thinltoParamFile = null;
     @Nullable Artifact thinltoMergedObjectFile = null;

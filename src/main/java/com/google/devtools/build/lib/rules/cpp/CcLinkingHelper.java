@@ -30,7 +30,10 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams.LinkOptions;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -364,14 +367,22 @@ public final class CcLinkingHelper {
   public CcLinkingInfo buildCcLinkingInfoFromLibraryToLinkWrappers(
       ImmutableCollection<LibraryToLinkWrapper> libraryToLinkWrappers,
       CcCompilationContext ccCompilationContext) {
+    NestedSetBuilder<Linkstamp> linkstampBuilder = NestedSetBuilder.stableOrder();
+    for (Artifact linkstamp : linkstamps.build()) {
+      linkstampBuilder.add(new Linkstamp(linkstamp, ccCompilationContext.getDeclaredIncludeSrcs()));
+    }
     CcLinkingInfo ccLinkingInfo =
         LibraryToLinkWrapper.toCcLinkingInfo(
             cppConfiguration.forcePic(),
             libraryToLinkWrappers,
-            ImmutableList.copyOf(linkopts),
-            linkstamps.build(),
-            ccCompilationContext,
-            nonCodeLinkerInputs);
+            // We want an empty set if there are no link options. We have to make sure we don't
+            // create a LinkOptions instance that contains an empty list.
+            linkopts.isEmpty()
+                ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
+                : NestedSetBuilder.create(Order.LINK_ORDER, LinkOptions.of(linkopts)),
+            linkstampBuilder.build(),
+            nonCodeLinkerInputs,
+            /* extraLinkTimeLibraries= */ null);
     ImmutableList.Builder<CcLinkingInfo> mergedCcLinkingInfos = ImmutableList.builder();
     mergedCcLinkingInfos.add(ccLinkingInfo);
     mergedCcLinkingInfos.addAll(ccLinkingInfos);
@@ -386,7 +397,7 @@ public final class CcLinkingHelper {
     BiFunction<Boolean, Boolean, CcLinkParams> createParams =
         (staticMode, forDynamicLibrary) -> {
           CcLinkParams.Builder builder = CcLinkParams.builder();
-          builder.addLinkstamps(linkstamps.build(), ccCompilationContext);
+          builder.addLinkstamps(linkstamps.build(), ccCompilationContext.getDeclaredIncludeSrcs());
           for (CcLinkingInfo ccLinkingInfo : ccLinkingInfos) {
             builder.addTransitiveArgs(
                 ccLinkingInfo.getCcLinkParams(

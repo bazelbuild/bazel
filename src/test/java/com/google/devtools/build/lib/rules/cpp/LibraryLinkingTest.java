@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -120,5 +121,72 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
     args = solibLink.getArguments();
     assertThat(args).contains(linkOpt1);
     assertThat(args).contains(linkOpt2);
+  }
+
+  /**
+   * Tests that the shared library version of a cc_library includes linkopts settings in its link
+   * command line, but the archive library version doesn't.
+   */
+  @Test
+  public void testBackAndForthCcLinkingInfoConversion() throws Exception {
+    scratch.overwriteFile(
+        "foo/BUILD",
+        "cc_library(name = 'a',",
+        "           srcs = ['a.cc'],",
+        "           linkopts = ['-La'],",
+        "           deps = [':b', ':c'])",
+        "cc_library(name = 'b',",
+        "           srcs = ['b.cc'],",
+        "           linkopts = ['-Lb1', '-Lb2', '-La']);",
+        "cc_library(name = 'c',",
+        "           srcs = ['c.so', 'c.pic.a', 'c1.a'],",
+        "           linkopts = ['-Lb1'],",
+        "           deps = [':d', 'script.lds'])",
+        "cc_library(name = 'd',",
+        "           srcs = ['d.cc', 'd.so'],",
+        "           deps = [':e'])",
+        "cc_library(name = 'e',",
+        "           srcs = ['e.c'],",
+        "           linkopts = ['-Le', '-La'])");
+
+    ConfiguredTarget ccLib = getConfiguredTarget("//foo:a");
+    CcLinkingInfo ccLinkingInfo = ccLib.get(CcInfo.PROVIDER).getCcLinkingInfo();
+    CcLinkingContext ccLinkingContext = LibraryToLinkWrapper.fromCcLinkingInfo(ccLinkingInfo);
+    CcLinkingInfo convertedCcLinkingInfo = ccLinkingContext.toCcLinkingInfo();
+    assertThat(
+            ccLinkParamsEquals(
+                ccLinkingInfo.getStaticModeParamsForExecutable(),
+                convertedCcLinkingInfo.getStaticModeParamsForExecutable()))
+        .isTrue();
+  }
+
+  /**
+   * We cannot implement equals() in CcLinkParams differently because that would change behavior.
+   * However, this test neeeds an equals method that is more thorough.
+   */
+  private boolean ccLinkParamsEquals(CcLinkParams thisObject, CcLinkParams otherObject) {
+    if (thisObject == otherObject) {
+      return true;
+    }
+    if (!thisObject.flattenedLinkopts().equals(otherObject.flattenedLinkopts())) {
+      return false;
+    }
+    if (!thisObject.getLinkstamps().toList().equals(otherObject.getLinkstamps().toList())) {
+      return false;
+    }
+    if (!thisObject.getLibraries().toList().equals(otherObject.getLibraries().toList())) {
+      return false;
+    }
+    if (!thisObject
+        .getDynamicLibrariesForRuntime()
+        .toList()
+        .equals(otherObject.getDynamicLibrariesForRuntime().toList())) {
+      return false;
+    }
+
+    if (!thisObject.getNonCodeInputs().toList().equals(otherObject.getNonCodeInputs().toList())) {
+      return false;
+    }
+    return true;
   }
 }

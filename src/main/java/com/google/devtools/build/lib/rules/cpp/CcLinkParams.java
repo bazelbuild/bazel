@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -70,6 +70,11 @@ public final class CcLinkParams implements CcLinkParamsApi {
     public static LinkOptions of(Iterable<String> linkOptions) {
       return new LinkOptions(linkOptions);
     }
+
+    @Override
+    public String toString() {
+      return '[' + Joiner.on(",").join(linkOptions) + ']';
+    }
   }
 
   private final NestedSet<LinkOptions> linkOpts;
@@ -104,7 +109,10 @@ public final class CcLinkParams implements CcLinkParamsApi {
   }
 
   public ImmutableList<String> flattenedLinkopts() {
-    return ImmutableList.copyOf(Iterables.concat(Iterables.transform(linkOpts, LinkOptions::get)));
+    return linkOpts.toList().stream()
+        .map(LinkOptions::get)
+        .flatMap(Collection::stream)
+        .collect(ImmutableList.toImmutableList());
   }
 
   @Override
@@ -112,7 +120,7 @@ public final class CcLinkParams implements CcLinkParamsApi {
     // TODO(plf): Shouldn't flatten nested set. Remove LinkOptions class and just have a nested set
     // of strings.
     return SkylarkNestedSet.of(
-        String.class, NestedSetBuilder.wrap(Order.COMPILE_ORDER, flattenedLinkopts()));
+        String.class, NestedSetBuilder.wrap(Order.LINK_ORDER, flattenedLinkopts()));
   }
 
   /**
@@ -189,7 +197,8 @@ public final class CcLinkParams implements CcLinkParamsApi {
     // booleans.
     private boolean linkingStaticallyLinkSharedSet;
 
-    private ImmutableList.Builder<String> localLinkoptsBuilder = ImmutableList.builder();
+    private final ImmutableList.Builder<String> localLinkoptsBuilder = ImmutableList.builder();
+    private final NestedSetBuilder<LinkOptions> localLinkOptions = NestedSetBuilder.linkOrder();
 
     private final NestedSetBuilder<LinkOptions> linkOptsBuilder =
         NestedSetBuilder.linkOrder();
@@ -227,9 +236,13 @@ public final class CcLinkParams implements CcLinkParamsApi {
       Preconditions.checkState(!built);
       // Not thread-safe, but builders should not be shared across threads.
       built = true;
+
       ImmutableList<String> localLinkopts = localLinkoptsBuilder.build();
       if (!localLinkopts.isEmpty()) {
         linkOptsBuilder.add(LinkOptions.of(localLinkopts));
+      }
+      if (!localLinkOptions.isEmpty()) {
+        linkOptsBuilder.addTransitive(localLinkOptions.build());
       }
       ExtraLinkTimeLibraries extraLinkTimeLibraries = null;
       if (extraLinkTimeLibrariesBuilder != null) {
@@ -246,6 +259,10 @@ public final class CcLinkParams implements CcLinkParamsApi {
           dynamicLibrariesForRuntimeBuilder.build(),
           extraLinkTimeLibraries,
           nonCodeInputs);
+    }
+
+    public NestedSet<LinkOptions> getLinkOptsBuilder() {
+      return linkOptsBuilder.build();
     }
 
     public boolean add(CcLinkingInfo ccLinkingInfo) {
@@ -344,19 +361,33 @@ public final class CcLinkParams implements CcLinkParamsApi {
     }
 
     /**
-     * Adds a collection of link options.
+     * Adds a collection of link options. This is deprecated, use {@link #addLinkOpts} version which
+     * takes a {@link NestedSet}.The reason for that is that this version of the method would force
+     * flattening of nested sets in some cases.
      */
+    @Deprecated
     public Builder addLinkOpts(Collection<String> linkOpts) {
       localLinkoptsBuilder.addAll(linkOpts);
       return this;
     }
 
+    public Builder addLinkOpts(NestedSet<LinkOptions> linkOpts) {
+      this.localLinkOptions.addTransitive(linkOpts);
+      return this;
+    }
+
     /** Adds a collection of linkstamps. */
     public Builder addLinkstamps(
-        NestedSet<Artifact> linkstamps, CcCompilationContext ccCompilationContext) {
+        NestedSet<Artifact> linkstamps, NestedSet<Artifact> declaredIncludeSrcs) {
       for (Artifact linkstamp : linkstamps) {
-        linkstampsBuilder.add(
-            new Linkstamp(linkstamp, ccCompilationContext.getDeclaredIncludeSrcs()));
+        linkstampsBuilder.add(new Linkstamp(linkstamp, declaredIncludeSrcs));
+      }
+      return this;
+    }
+
+    public Builder addLinkstamps(NestedSet<Linkstamp> linkstamps) {
+      for (Linkstamp linkstamp : linkstamps) {
+        linkstampsBuilder.add(linkstamp);
       }
       return this;
     }
@@ -392,6 +423,15 @@ public final class CcLinkParams implements CcLinkParamsApi {
         extraLinkTimeLibrariesBuilder = ExtraLinkTimeLibraries.builder();
       }
       extraLinkTimeLibrariesBuilder.add(e);
+      return this;
+    }
+
+    public Builder addTransitiveExtraLinkTimeLibrary(ExtraLinkTimeLibraries e) {
+      Preconditions.checkNotNull(e);
+      if (extraLinkTimeLibrariesBuilder == null) {
+        extraLinkTimeLibrariesBuilder = ExtraLinkTimeLibraries.builder();
+      }
+      extraLinkTimeLibrariesBuilder.addTransitive(e);
       return this;
     }
 
@@ -478,5 +518,5 @@ public final class CcLinkParams implements CcLinkParamsApi {
           NestedSetBuilder.<LibraryToLink>emptySet(Order.LINK_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           null,
-          null);
+          NestedSetBuilder.<Artifact>linkOrder().build());
 }
