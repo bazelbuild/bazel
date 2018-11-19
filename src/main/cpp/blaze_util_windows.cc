@@ -403,7 +403,9 @@ string GetOutputRoot() {
   if (home.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Cannot find a good output root.\n"
-           "Set the HOME environment variable. Example (in cmd.exe):\n"
+           "Set the USERPROFILE or the HOME environment variable. Example (in cmd.exe):\n"
+           "    set USERPROFILE=c:\\_bazel\\<YOUR-USERNAME>\n";
+           "or:\n"
            "    set HOME=c:\\_bazel\\<YOUR-USERNAME>";
   }
   return home;
