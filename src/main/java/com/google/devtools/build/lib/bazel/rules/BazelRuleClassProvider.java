@@ -101,6 +101,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.io.IOException;
 import java.util.Map;
 import java.util.TreeMap;
@@ -113,16 +114,20 @@ public class BazelRuleClassProvider {
   /** Command-line options. */
   public static class StrictActionEnvOptions extends FragmentOptions {
     @Option(
-        name = "experimental_strict_action_env",
-        defaultValue = "false",
+        name = "incompatible_strict_action_env",
+        oldName = "experimental_strict_action_env",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
         help =
             "If true, Bazel uses an environment with a static value for PATH and does not "
                 + "inherit LD_LIBRARY_PATH or TMPDIR. Use --action_env=ENV_VARIABLE if you want to "
                 + "inherit specific environment variables from the client, but note that doing so "
-                + "can prevent cross-user caching if a shared cache is used."
-    )
+                + "can prevent cross-user caching if a shared cache is used.")
     public boolean useStrictActionEnv;
 
     @Override

@@ -332,12 +332,6 @@ You can pass a user-specific path to the `--disk_cache` flag using the `~` alias
 when enabling the disk cache for all developers of a project via the project's
 checked in `.bazelrc` file.
 
-To enable cache hits across different workspaces, use the following flag:
-
-```
-build --experimental_strict_action_env
-```
-
 ## Known issues
 
 **Input file modification during a build**
@@ -352,15 +346,14 @@ build.
 
 **Environment variables leaking into an action**
 
-An action definition contains environment variables. This can be a problem
-for sharing remote cache hits across machines. For example, environments
-with different `$PATH` variables won't share cache hits. You can specify
-`--experimental_strict_action_env` to ensure that that's not the case and
-that only environment variables explicitly whitelisted via `--action_env`
-are included in an action definition. Bazel's Debian/Ubuntu package used
-to install `/etc/bazel.bazelrc` with a whitelist of environment variables
-including `$PATH`. If you are getting fewer cache hits than expected, check
-that your environment doesn't have an old `/etc/bazel.bazelrc` file.
+An action definition contains environment variables. This can be a problem for
+sharing remote cache hits across machines. For example, environments with
+different `$PATH` variables won't share cache hits. Only environment variables
+explicitly whitelisted via `--action_env` are included in an action
+definition. Bazel's Debian/Ubuntu package used to install `/etc/bazel.bazelrc`
+with a whitelist of environment variables including `$PATH`. If you are getting
+fewer cache hits than expected, check that your environment doesn't have an old
+`/etc/bazel.bazelrc` file.
 
 
 **Bazel does not track tools outside a workspace**

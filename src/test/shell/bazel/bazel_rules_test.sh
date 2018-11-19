@@ -287,29 +287,19 @@ EOF
   local new_tmpdir="$(mktemp -d "${TEST_TMPDIR}/newfancytmpdirXXXXXX")"
   [ -d "${new_tmpdir}" ] || \
     fail "Could not create new temporary directory ${new_tmpdir}"
-  export PATH="$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path"
   if is_windows; then
+    export PATH="$PATH_TO_BAZEL_WRAPPER;/bin;/usr/bin;/random/path;${old_path}"
     local old_tmpdir="${TMP:-}"
     export TMP="${new_tmpdir}"
   else
+    export PATH="$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path"
     local old_tmpdir="${TMPDIR:-}"
     export TMPDIR="${new_tmpdir}"
   fi
-  # shut down to force reload of the environment
-  bazel shutdown
-  bazel build //pkg:test --spawn_strategy=standalone \
+  bazel build //pkg:test --spawn_strategy=standalone --action_env=PATH \
     || fail "Failed to build //pkg:test"
   if is_windows; then
-    # As of 2018-07-10, Bazel on Windows sets the PATH to
-    # "/usr/bin:/bin:" + $PATH of the Bazel server process.
-    #
-    # MSYS appears to convert path entries in PATH to Windows style when running
-    # a native Windows process such as Bazel, but "cygpath -w /bin" returns
-    # MSYS_ROOT + "\usr\bin".
-    # The point is, the PATH will be quite different from what we expect on
-    # Linux. Therefore only assert that the PATH contains
-    # "$PATH_TO_BAZEL_WRAPPER" and "/random/path", ignore the rest.
-    local -r EXPECTED_PATH=".*:$PATH_TO_BAZEL_WRAPPER:.*:/random/path"
+    local -r EXPECTED_PATH="$PATH_TO_BAZEL_WRAPPER:.*/random/path"
     # new_tmpdir is based on $TEST_TMPDIR which is not Unix-style -- convert it.
     local -r EXPECTED_TMP="$(cygpath -u "$new_tmpdir")"
   else
