@@ -757,11 +757,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false,
             disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT,
             valueWhenDisabled = "None",
-            doc =
-                "<b><code>default<code> is deprecated for <code>attr.output</code>. Use "
-                    + "Starlark macros to set the default for <code>output<code> and "
-                    + "<code>output_list</code> attributes. <p>"
-                    + DEFAULT_DOC),
+            doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
             type = String.class,
@@ -805,11 +801,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false,
             disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT,
             valueWhenDisabled = "None",
-            doc =
-                "<b><code>default<code> is deprecated for <code>attr.output_list</code>. Use "
-                    + "Starlark macros to set the default for <code>output<code> and "
-                    + "<code>output_list</code> attributes. <p>"
-                    + DEFAULT_DOC),
+            doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
             type = String.class,

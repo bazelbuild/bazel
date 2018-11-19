@@ -15,6 +15,7 @@ package com.google.devtools.build.docgen.skylark;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 
 /**
  * A class containing the documentation for a Skylark method parameter.
@@ -77,6 +78,17 @@ public final class SkylarkParamDoc extends SkylarkDoc {
 
   @Override
   public String getDocumentation() {
-    return SkylarkDocUtils.substituteVariables(param.doc());
+    String prefixWarning = "";
+    if (param.enableOnlyWithFlag() != FlagIdentifier.NONE) {
+      prefixWarning = "<b>Experimental</b>. This parameter is experimental and may change at any "
+          + "time. Please do not depend on it. It may be enabled on an experimental basis by "
+          + "setting <code>--" + param.enableOnlyWithFlag().getFlagName() + "</code> <br>";
+    } else if (param.disableWithFlag() != FlagIdentifier.NONE) {
+      prefixWarning = "<b>Deprecated</b>. This parameter is deprecated and will be removed soon. "
+          + "Please do not depend on it. It is <i>disabled</i> with "
+          + "<code>--" + param.disableWithFlag().getFlagName() + "</code>. Use this flag "
+          + "to verify your code is compatible with its imminent removal. <br>";
+    }
+    return prefixWarning + SkylarkDocUtils.substituteVariables(param.doc());
   }
 }
