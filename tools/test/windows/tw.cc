@@ -68,6 +68,33 @@ class Defer {
 
 const std::function<void()> Defer::kEmpty = []() {};
 
+// Streams data from an input to two outputs.
+// Inspired by tee(1) in the GNU coreutils.
+class TeeImpl : Tee {
+ public:
+  // Creates a background thread to stream data from `input` to the two outputs.
+  // The thread terminates when ReadFile fails on the input (e.g. the input is
+  // the reading end of a pipe and the writing end is closed) or when WriteFile
+  // fails on one of the outputs (e.g. the same output handle is closed
+  // elsewhere).
+  static bool Create(HANDLE input, HANDLE output1, HANDLE output2,
+                     std::unique_ptr<Tee>* result);
+
+ private:
+  static DWORD WINAPI ThreadFunc(LPVOID lpParam);
+
+  TeeImpl(HANDLE input, HANDLE output1, HANDLE output2)
+      : input_(input), output1_(output1), output2_(output2) {}
+  TeeImpl(const TeeImpl&) = delete;
+  TeeImpl& operator=(const TeeImpl&) = delete;
+
+  bool MainFunc() const;
+
+  bazel::windows::AutoHandle input_;
+  bazel::windows::AutoHandle output1_;
+  bazel::windows::AutoHandle output2_;
+};
+
 // A lightweight path abstraction that stores a Unicode Windows path.
 //
 // The class allows extracting the underlying path as a (immutable) string so
@@ -798,7 +825,7 @@ bool CreateZip(const Path& root, const std::vector<FileInfo>& files,
         (!files[i].IsDirectory() &&
          !ReadCompleteFile(handle, dest, files[i].Size()))) {
       LogError(__LINE__, (std::wstring(L"Failed to dump file \"") + path.Get() +
-                          +L"\" into zip")
+                          L"\" into zip")
                              .c_str());
       return false;
     }
@@ -894,9 +921,9 @@ bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
   if (!blaze_util::IsAbsolute(test_path)) {
     std::string argv0_acp;
     if (!WcsToAcp(argv0.Get(), &argv0_acp)) {
-      LogError(__LINE__,
-               (std::wstring(L"Failed to convert path ") + argv0.Get() + L"\"")
-                   .c_str());
+      LogError(__LINE__, (std::wstring(L"Failed to convert path \"") +
+                          argv0.Get() + L"\"")
+                             .c_str());
       return false;
     }
 
@@ -1008,19 +1035,112 @@ bool CreateCommandLine(const Path& path,
 }
 
 bool StartSubprocess(const Path& path, const std::vector<const wchar_t*>& args,
-                     HANDLE* process) {
+                     const Path& outerr, std::unique_ptr<Tee>* tee,
+                     bazel::windows::AutoHandle* process) {
+  SECURITY_ATTRIBUTES inheritable_handle_sa = {sizeof(SECURITY_ATTRIBUTES),
+                                               NULL, TRUE};
+
+  // Create a pipe to stream the output of the subprocess to this process.
+  // The subprocess inherits two copies of the writing end (one for stdout, one
+  // for stderr). This process closes its copies of the handles.
+  // This process keeps the reading end and streams data from the pipe to the
+  // test log and to stdout.
+  bazel::windows::AutoHandle pipe_read, pipe_write;
+  if (!CreatePipe(pipe_read.GetPtr(), pipe_write.GetPtr(),
+                  &inheritable_handle_sa, 0)) {
+    DWORD err = GetLastError();
+    LogErrorWithValue(__LINE__, "CreatePipe", err);
+    return false;
+  }
+
+  // Duplicate the write end of the pipe.
+  // The original will be connected to the stdout of the process, the duplicate
+  // to stderr.
+  bazel::windows::AutoHandle pipe_write_dup;
+  if (!DuplicateHandle(GetCurrentProcess(), pipe_write, GetCurrentProcess(),
+                       pipe_write_dup.GetPtr(), 0, TRUE,
+                       DUPLICATE_SAME_ACCESS)) {
+    DWORD err = GetLastError();
+    LogErrorWithValue(__LINE__, "DuplicateHandle", err);
+    return false;
+  }
+
+  // Open a readonly handle to NUL. The subprocess inherits this handle that's
+  // connected to its stdin.
+  bazel::windows::AutoHandle devnull_read(CreateFileW(
+      L"NUL", GENERIC_READ,
+      FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE,
+      &inheritable_handle_sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+  if (devnull_read == INVALID_HANDLE_VALUE) {
+    DWORD err = GetLastError();
+    LogErrorWithValue(__LINE__, "CreateFileW", err);
+    return false;
+  }
+
+  // Create an attribute object that specifies which particular handles shall
+  // the subprocess inherit. We pass this object to CreateProcessW.
+  HANDLE handle_array[] = {devnull_read, pipe_write, pipe_write_dup};
+  std::unique_ptr<bazel::windows::AutoAttributeList> attr_list;
+  std::wstring werror;
+  if (!bazel::windows::AutoAttributeList::Create(handle_array, 3, &attr_list,
+                                                 &werror)) {
+    LogError(__LINE__, werror.c_str());
+    return false;
+  }
+
+  // Open a handle to the test log file. The "tee" thread will write everything
+  // into it that the subprocess writes to the pipe.
+  bazel::windows::AutoHandle test_outerr;
+  if (!OpenFileForWriting(outerr, test_outerr.GetPtr())) {
+    LogError(__LINE__, (std::wstring(L"Failed to open for writing \"") +
+                        outerr.Get() + L"\"")
+                           .c_str());
+    return false;
+  }
+
+  // Duplicate stdout's handle, and pass it to the tee thread, who will own it
+  // and close it in the end.
+  bazel::windows::AutoHandle stdout_dup;
+  if (!DuplicateHandle(GetCurrentProcess(), GetStdHandle(STD_OUTPUT_HANDLE),
+                       GetCurrentProcess(), stdout_dup.GetPtr(), 0, FALSE,
+                       DUPLICATE_SAME_ACCESS)) {
+    DWORD err = GetLastError();
+    LogErrorWithValue(__LINE__, "DuplicateHandle", err);
+    return false;
+  }
+
+  // Create the tee thread, and transfer ownerships of the `pipe_read`,
+  // `test_outerr`, and `stdout_dup` handles.
+  if (!TeeImpl::Create(pipe_read.Release(), test_outerr.Release(),
+                       stdout_dup.Release(), tee)) {
+    LogError(__LINE__);
+    return false;
+  }
+
+  PROCESS_INFORMATION process_info;
+  STARTUPINFOEXW startup_info;
+  ZeroMemory(&startup_info, sizeof(STARTUPINFOW));
+  startup_info.StartupInfo.cb = sizeof(STARTUPINFOEXW);
+  startup_info.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+  // Do not Release() `devnull_read`, `pipe_write`, and `pipe_write_dup`. The
+  // subprocess inherits a copy of these handles and we need to close them in
+  // this process (via ~AutoHandle()).
+  startup_info.StartupInfo.hStdInput = devnull_read;
+  startup_info.StartupInfo.hStdOutput = pipe_write;
+  startup_info.StartupInfo.hStdError = pipe_write_dup;
+  startup_info.lpAttributeList = *attr_list.get();
+
   std::unique_ptr<WCHAR[]> cmdline;
   if (!CreateCommandLine(path, args, &cmdline)) {
     return false;
   }
-  PROCESS_INFORMATION processInfo;
-  STARTUPINFOW startupInfo = {0};
 
-  if (CreateProcessW(NULL, cmdline.get(), NULL, NULL, FALSE,
-                     CREATE_UNICODE_ENVIRONMENT, NULL, NULL, &startupInfo,
-                     &processInfo) != 0) {
-    CloseHandle(processInfo.hThread);
-    *process = processInfo.hProcess;
+  if (CreateProcessW(NULL, cmdline.get(), NULL, NULL, TRUE,
+                     CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT,
+                     NULL, NULL, reinterpret_cast<STARTUPINFOW*>(&startup_info),
+                     &process_info) != 0) {
+    CloseHandle(process_info.hThread);
+    *process = process_info.hProcess;
     return true;
   } else {
     DWORD err = GetLastError();
@@ -1147,33 +1267,6 @@ bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
   return true;
 }
 
-// Streams data from an input to two outputs.
-// Inspired by tee(1) in the GNU coreutils.
-class TeeImpl : Tee {
- public:
-  // Creates a background thread to stream data from `input` to the two outputs.
-  // The thread terminates when ReadFile fails on the input (e.g. the input is
-  // the reading end of a pipe and the writing end is closed) or when WriteFile
-  // fails on one of the outputs (e.g. the same output handle is closed
-  // elsewhere).
-  static bool Create(HANDLE input, HANDLE output1, HANDLE output2,
-                     std::unique_ptr<Tee>* result);
-
- private:
-  static DWORD WINAPI ThreadFunc(LPVOID lpParam);
-
-  TeeImpl(HANDLE input, HANDLE output1, HANDLE output2)
-      : input_(input), output1_(output1), output2_(output2) {}
-  TeeImpl(const TeeImpl&) = delete;
-  TeeImpl& operator=(const TeeImpl&) = delete;
-
-  bool MainFunc() const;
-
-  HANDLE input_;
-  HANDLE output1_;
-  HANDLE output2_;
-};
-
 bool TeeImpl::Create(HANDLE input, HANDLE output1, HANDLE output2,
                      std::unique_ptr<Tee>* result) {
   std::unique_ptr<TeeImpl> tee(new TeeImpl(input, output1, output2));
@@ -1205,9 +1298,11 @@ bool TeeImpl::MainFunc() const {
 }
 
 int RunSubprocess(const Path& test_path,
-                  const std::vector<const wchar_t*>& args) {
+                  const std::vector<const wchar_t*>& args,
+                  const Path& test_outerr) {
+  std::unique_ptr<Tee> tee;
   bazel::windows::AutoHandle process;
-  if (!StartSubprocess(test_path, args, process.GetPtr())) {
+  if (!StartSubprocess(test_path, args, test_outerr, &tee, &process)) {
     return 1;
   }
 
@@ -1320,7 +1415,7 @@ int Main(int argc, wchar_t** argv) {
     return 1;
   }
 
-  int result = RunSubprocess(test_path, args);
+  int result = RunSubprocess(test_path, args, test_outerr);
   if (result != 0) {
     return result;
   }
