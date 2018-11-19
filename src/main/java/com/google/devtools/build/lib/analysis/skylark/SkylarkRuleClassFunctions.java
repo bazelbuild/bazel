@@ -279,14 +279,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       throws EvalException, ConversionException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(funcallEnv, "rule", ast.getLocation());
 
-    if (analysisTest != Runtime.UNBOUND
-        && !funcallEnv.getSemantics().experimentalAnalysisTestingImprovements()) {
-      throw new EvalException(
-          ast.getLocation(),
-          "analysis_test parameter is experimental and not available for "
-              + "general use. It is subject to change at any time. It may be enabled by specifying "
-              + "--experimental_analysis_testing_improvements");
-    }
     // analysis_test=true implies test=true.
     test |= Boolean.TRUE.equals(analysisTest);
 

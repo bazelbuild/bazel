@@ -2262,7 +2262,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
     AnalysisFailureInfo info = AnalysisFailureInfo.forAnalysisFailures(ImmutableList.of(cause));
 
-    new SkylarkTest("--experimental_analysis_testing_improvements=true")
+    new SkylarkTest()
         .update("val", info)
         .setUp(
             "causes = val.causes",
@@ -2270,15 +2270,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "message = causes.to_list()[0].message")
         .testLookup("label", Label.create("test", "test"))
         .testLookup("message", "ErrorMessage");
-
-    new SkylarkTest()
-        .update("val", info)
-        .testIfErrorContains("'AnalysisFailureInfo' has no field 'causes'", "val.causes");
-
-    new SkylarkTest()
-        .update("val", cause)
-        .testIfErrorContains("'AnalysisFailure' has no field 'message'", "val.message")
-        .testIfErrorContains("'AnalysisFailure' has no field 'label'", "val.label");
   }
 
   @Test
@@ -2286,36 +2277,25 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     // This test uses an arbitrary experimental flag to verify this functionality. If this
     // experimental flag were to go away, this test may be updated to use any experimental flag.
     // The flag itself is unimportant to the test.
-    FlagGuardedValue val = FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-        FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS,
-        "foo");
-    String errorMessage = "GlobalSymbol is experimental and thus unavailable with the current "
-        + "flags. It may be enabled by setting --experimental_analysis_testing_improvements";
+    FlagGuardedValue val =
+        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+            FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API, "foo");
+    String errorMessage =
+        "GlobalSymbol is experimental and thus unavailable with the current "
+            + "flags. It may be enabled by setting --experimental_build_setting_api";
 
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--experimental_analysis_testing_improvements=true")
+    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=true")
         .setUp("var = GlobalSymbol")
         .testLookup("var", "foo");
 
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--experimental_analysis_testing_improvements=false")
-        .testIfErrorContains(errorMessage,
-            "var = GlobalSymbol");
+    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=false")
+        .testIfErrorContains(errorMessage, "var = GlobalSymbol");
 
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--experimental_analysis_testing_improvements=false")
-        .testIfErrorContains(errorMessage,
-            "def my_function():",
-            "  var = GlobalSymbol");
+    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=false")
+        .testIfErrorContains(errorMessage, "def my_function():", "  var = GlobalSymbol");
 
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--experimental_analysis_testing_improvements=false")
-        .setUp("GlobalSymbol = 'other'",
-            "var = GlobalSymbol")
+    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=false")
+        .setUp("GlobalSymbol = 'other'", "var = GlobalSymbol")
         .testLookup("var", "other");
   }
 

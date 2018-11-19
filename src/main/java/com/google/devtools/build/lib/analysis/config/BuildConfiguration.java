@@ -791,17 +791,16 @@ public class BuildConfiguration implements BuildConfigurationApi {
     )
     public boolean isHost;
 
-    // TODO(cparsons): Make this flag non-experimental when it is fully implemented.
     @Option(
-        name = "experimental_allow_analysis_failures",
+        name = "allow_analysis_failures",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.TESTING,
-        effectTags = { OptionEffectTag.LOADING_AND_ANALYSIS },
-        metadataTags = { OptionMetadataTag.EXPERIMENTAL },
-        help = "If true, an analysis failure of a rule target results in the target's propagation "
-            + "of an instance of AnalysisFailureInfo containing the error description, instead of "
-            + "resulting in a build failure."
-    )
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help =
+            "If true, an analysis failure of a rule target results in the target's propagation "
+                + "of an instance of AnalysisFailureInfo containing the error description, instead "
+                + "of resulting in a build failure.")
     public boolean allowAnalysisFailures;
 
     @Option(

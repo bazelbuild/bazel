@@ -627,9 +627,6 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidNativeOptionOutput_analysisTest() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
-    writeWhitelistFile();
-
     scratch.file(
         "test/skylark/my_rule.bzl",
         "my_transition = analysis_test_transition(",
@@ -666,9 +663,6 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testInvalidOutputKey_analysisTest() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
-    writeWhitelistFile();
-
     scratch.file(
         "test/skylark/my_rule.bzl",
         "my_transition = analysis_test_transition(",

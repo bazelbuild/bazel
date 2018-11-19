@@ -63,15 +63,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   // <== Add new options here in alphabetic order ==>
 
   @Option(
-      name = "experimental_analysis_testing_improvements",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, enables pieces of experimental Starlark API for analysis-phase testing.")
-  public boolean experimentalAnalysisTestingImprovements;
-
-  @Option(
       name = "experimental_build_setting_api",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -542,7 +533,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public SkylarkSemantics toSkylarkSemantics() {
     return SkylarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
-        .experimentalAnalysisTestingImprovements(experimentalAnalysisTestingImprovements)
         .experimentalBuildSettingApi(experimentalBuildSettingApi)
         .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
         .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)

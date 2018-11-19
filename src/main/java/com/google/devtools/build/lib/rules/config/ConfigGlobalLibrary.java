@@ -63,14 +63,6 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
   public ConfigurationTransitionApi analysisTestTransition(
       SkylarkDict<String, String> changedSettings, Location location, SkylarkSemantics semantics)
       throws EvalException {
-    if (!semantics.experimentalAnalysisTestingImprovements()) {
-      throw new EvalException(
-          location,
-          "analysis_test_transition() is experimental "
-              + "and disabled by default. This API is in development and subject to change at "
-              + "any time. Use --experimental_analysis_testing_improvements to use this "
-              + "experimental API.");
-    }
     Map<String, Object> changedSettingsMap =
         changedSettings.getContents(String.class, Object.class, "changed_settings dict");
     validateBuildSettingKeys(changedSettingsMap.keySet(), "output", location);

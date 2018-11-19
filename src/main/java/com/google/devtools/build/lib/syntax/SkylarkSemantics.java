@@ -39,8 +39,6 @@ public abstract class SkylarkSemantics {
    * be the exact name of the flag transformed to upper case (for error representation).
    */
   public enum FlagIdentifier {
-    EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS(
-        SkylarkSemantics::experimentalAnalysisTestingImprovements),
     EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS(
         SkylarkSemantics::experimentalEnableAndroidMigrationApis),
     EXPERIMENTAL_BUILD_SETTING_API(SkylarkSemantics::experimentalBuildSettingApi),
@@ -114,8 +112,6 @@ public abstract class SkylarkSemantics {
       AutoValue_SkylarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
-  public abstract boolean experimentalAnalysisTestingImprovements();
-
   public abstract boolean experimentalBuildSettingApi();
 
   public abstract List<String> experimentalCcSkylarkApiEnabledPackages();
@@ -203,7 +199,6 @@ public abstract class SkylarkSemantics {
   public static final SkylarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
-          .experimentalAnalysisTestingImprovements(false)
           .experimentalBuildSettingApi(false)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableAndroidMigrationApis(false)
@@ -247,8 +242,6 @@ public abstract class SkylarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
-    public abstract Builder experimentalAnalysisTestingImprovements(boolean value);
-
     public abstract Builder experimentalBuildSettingApi(boolean value);
 
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);

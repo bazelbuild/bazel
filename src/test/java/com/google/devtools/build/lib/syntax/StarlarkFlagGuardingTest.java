@@ -50,7 +50,7 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               positional = true,
               named = false,
               type = Boolean.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS,
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
               valueWhenDisabled = "False"),
           @Param(name = "c", positional = true, named = false, type = Integer.class),
         },
@@ -69,7 +69,7 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               positional = false,
               named = true,
               type = Boolean.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS,
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
               valueWhenDisabled = "False"),
           @Param(name = "c", positional = false, named = true, type = Integer.class),
         },
@@ -88,14 +88,14 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               positional = true,
               named = false,
               type = Boolean.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS,
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
               valueWhenDisabled = "False"),
           @Param(
               name = "c",
               positional = false,
               named = true,
               type = Integer.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS,
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
               valueWhenDisabled = "3"),
           @Param(name = "d", positional = false, named = true, type = Boolean.class),
         },
@@ -121,7 +121,7 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
               positional = false,
               named = true,
               type = Integer.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS,
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
               valueWhenDisabled = "3"),
         },
         useEnvironment = true)
@@ -132,23 +132,23 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   @Test
   public void testPositionalsOnlyGuardedMethod() throws Exception {
-    new SkylarkTest("--experimental_analysis_testing_improvements=true")
+    new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testEval(
             "mock.positionals_only_method(1, True, 3)", "'positionals_only_method(1, true, 3)'");
 
-    new SkylarkTest("--experimental_analysis_testing_improvements=true")
+    new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             "expected value of type 'bool' for parameter 'b', "
                 + "in method call positionals_only_method(int, int) of 'Mock'",
             "mock.positionals_only_method(1, 3)");
 
-    new SkylarkTest("--experimental_analysis_testing_improvements=false")
+    new SkylarkTest("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testEval("mock.positionals_only_method(1, 3)", "'positionals_only_method(1, false, 3)'");
 
-    new SkylarkTest("--experimental_analysis_testing_improvements=false")
+    new SkylarkTest("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "expected value of type 'int' for parameter 'c', "
@@ -158,52 +158,52 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   @Test
   public void testKeywordOnlyGuardedMethod() throws Exception {
-    new SkylarkTest("--experimental_analysis_testing_improvements=true")
+    new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testEval(
             "mock.keywords_only_method(a=1, b=True, c=3)", "'keywords_only_method(1, true, 3)'");
 
-    new SkylarkTest("--experimental_analysis_testing_improvements=true")
+    new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             "parameter 'b' has no default value, in method call "
                 + "keywords_only_method(int a, int c) of 'Mock'",
             "mock.keywords_only_method(a=1, c=3)");
 
-    new SkylarkTest("--experimental_analysis_testing_improvements=false")
+    new SkylarkTest("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testEval("mock.keywords_only_method(a=1, c=3)", "'keywords_only_method(1, false, 3)'");
 
-    new SkylarkTest("--experimental_analysis_testing_improvements=false")
+    new SkylarkTest("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "parameter 'b' is experimental and thus unavailable with the current "
                 + "flags. It may be enabled by setting "
-                + "--experimental_analysis_testing_improvements",
+                + "--experimental_build_setting_api",
             "mock.keywords_only_method(a=1, b=True, c=3)");
   }
 
   @Test
   public void testMixedParamsMethod() throws Exception {
-    new SkylarkTest("--experimental_analysis_testing_improvements=true")
+    new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testEval(
             "mock.mixed_params_method(1, True, c=3, d=True)",
             "'mixed_params_method(1, true, 3, true)'");
 
-    new SkylarkTest("--experimental_analysis_testing_improvements=true")
+    new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             "parameter 'b' has no default value, in method call "
                 + "mixed_params_method(int, int c) of 'Mock'",
             "mock.mixed_params_method(1, c=3)");
 
-    new SkylarkTest("--experimental_analysis_testing_improvements=false")
+    new SkylarkTest("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testEval(
             "mock.mixed_params_method(1, d=True)", "'mixed_params_method(1, false, 3, true)'");
 
-    new SkylarkTest("--experimental_analysis_testing_improvements=false")
+    new SkylarkTest("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "expected no more than 1 positional arguments, but got 2, "
@@ -213,32 +213,24 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   @Test
   public void testKeywordsMultipleFlags() throws Exception {
-    new SkylarkTest(
-            "--experimental_analysis_testing_improvements=true",
-            "--incompatible_no_attr_license=false")
+    new SkylarkTest("--experimental_build_setting_api=true", "--incompatible_no_attr_license=false")
         .update("mock", new Mock())
         .testEval(
             "mock.keywords_multiple_flags(a=42, b=True, c=0)",
             "'keywords_multiple_flags(42, true, 0)'");
 
-    new SkylarkTest(
-            "--experimental_analysis_testing_improvements=true",
-            "--incompatible_no_attr_license=false")
+    new SkylarkTest("--experimental_build_setting_api=true", "--incompatible_no_attr_license=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "parameter 'b' has no default value, in method call "
                 + "keywords_multiple_flags(int a) of 'Mock'",
             "mock.keywords_multiple_flags(a=42)");
 
-    new SkylarkTest(
-            "--experimental_analysis_testing_improvements=false",
-            "--incompatible_no_attr_license=true")
+    new SkylarkTest("--experimental_build_setting_api=false", "--incompatible_no_attr_license=true")
         .update("mock", new Mock())
         .testEval("mock.keywords_multiple_flags(a=42)", "'keywords_multiple_flags(42, false, 3)'");
 
-    new SkylarkTest(
-            "--experimental_analysis_testing_improvements=false",
-            "--incompatible_no_attr_license=true")
+    new SkylarkTest("--experimental_build_setting_api=false", "--incompatible_no_attr_license=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             "parameter 'b' is deprecated and will be removed soon. It may be "

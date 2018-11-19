@@ -76,8 +76,7 @@ load(":test.bzl", "my_rule_test")
 my_rule_test(name = "r")
 EOF
 
-  bazel test package:r --experimental_analysis_testing_improvements \
-      >& "$TEST_log" || fail "Unexpected failure"
+  bazel test package:r >& "$TEST_log" || fail "Unexpected failure"
 
   expect_log "PASSED"
 
@@ -105,8 +104,7 @@ load(":test.bzl", "my_rule_test")
 my_rule_test(name = "r")
 EOF
 
-  ! bazel test package:r --experimental_analysis_testing_improvements \
-      >& "$TEST_log" || fail "Unexpected success"
+  ! bazel test package:r >& "$TEST_log" || fail "Unexpected success"
 
   expect_log "FAILED"
 
@@ -131,7 +129,7 @@ def _rule_test_impl(ctx):
 
 test_transition = analysis_test_transition(
   settings = {
-      "//command_line_option:experimental_allow_analysis_failures" : "True" }
+      "//command_line_option:allow_analysis_failures" : "True" }
 )
 
 def _rule_impl(ctx):
@@ -159,8 +157,8 @@ my_rule(name = "target_under_test")
 my_rule_test(name = "test_target", target_under_test = ":target_under_test")
 EOF
 
-  bazel test package:test_target --experimental_analysis_testing_improvements \
-      >& "$TEST_log" || fail "Expected test to succeed"
+  bazel test package:test_target >& "$TEST_log" \
+      || fail "Expected test to succeed"
 
   expect_log "PASSED"
 

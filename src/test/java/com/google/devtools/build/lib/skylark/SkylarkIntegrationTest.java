@@ -2056,8 +2056,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisFailureInfo() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
-
     scratch.file(
         "test/extension.bzl",
         "def custom_rule_impl(ctx):",
@@ -2072,7 +2070,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "",
         "custom_rule(name = 'r')");
 
-    useConfiguration("--experimental_allow_analysis_failures=true");
+    useConfiguration("--allow_analysis_failures=true");
 
     ConfiguredTarget target = getConfiguredTarget("//test:r");
     AnalysisFailureInfo info =
@@ -2084,8 +2082,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testTestResultInfo() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
-
     scratch.file(
         "test/extension.bzl",
         "def custom_rule_impl(ctx):",
@@ -2107,53 +2103,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTestResultInfoWithoutFlag() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=false");
-
-    scratch.file(
-        "test/extension.bzl",
-        "def custom_rule_impl(ctx):",
-        "  return [AnalysisTestResultInfo(success = True, message = 'message contents')]",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl)");
-
-    scratch.file(
-        "test/BUILD",
-        "load('//test:extension.bzl', 'custom_rule')",
-        "",
-        "custom_rule(name = 'r')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:r");
-    assertContainsEvent(
-        "AnalysisTestResultInfo is experimental and thus unavailable with the current flags. "
-            + "It may be enabled by setting --experimental_analysis_testing_improvements");
-  }
-
-  @Test
-  public void testAnalysisTestRuleWithoutFlag() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=false");
-
-    scratch.file(
-        "test/extension.bzl",
-        "def custom_rule_impl(ctx):",
-        "  return []",
-        "",
-        "custom_test = rule(implementation = custom_rule_impl, analysis_test = True)");
-
-    scratch.file(
-        "test/BUILD", "load('//test:extension.bzl', 'custom_test')", "", "custom_test(name = 'r')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:r");
-    assertContainsEvent(
-        "analysis_test parameter is experimental and not available for general use");
-  }
-
-  @Test
   public void testAnalysisTestRuleWithActionRegistration() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
-
     scratch.file(
         "test/extension.bzl",
         "def custom_rule_impl(ctx):",
@@ -2174,8 +2124,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestRuleWithFlag() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
-
     scratch.file(
         "test/extension.bzl",
         "def custom_rule_impl(ctx):",
@@ -2197,7 +2145,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestTransitionOnAnalysisTest() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
     useConfiguration("--experimental_strict_java_deps=OFF");
 
     scratch.file(
@@ -2249,8 +2196,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestTransitionOnNonAnalysisTest() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_analysis_testing_improvements=true");
-
     scratch.file(
         "test/extension.bzl",
         "def custom_rule_impl(ctx):",
@@ -2384,10 +2329,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testAnalysisTestCannotDependOnAnalysisTest() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_analysis_testing_improvements=true",
-        "--experimental_starlark_config_transitions=true");
-
     scratch.file(
         "test/extension.bzl",
         "",
@@ -2451,9 +2392,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   private void setupAnalysisTestDepsLimitTest(int limit, int dependencyChainSize) throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_analysis_testing_improvements=true",
-        "--experimental_starlark_config_transitions=true");
     useConfiguration("--analysis_testing_deps_limit=" + limit);
 
     scratch.file(

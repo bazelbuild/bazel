@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
@@ -37,20 +36,17 @@ public interface AnalysisFailureApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "label",
-      doc = "The label of the target that exhibited an analysis-phase error. This is the label "
-          + "of the target responsible for construction of this object.",
+      doc =
+          "The label of the target that exhibited an analysis-phase error. This is the label "
+              + "of the target responsible for construction of this object.",
       documented = false,
-      structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS
-  )
+      structField = true)
   public Label getLabel();
 
   @SkylarkCallable(
       name = "message",
       doc = "A string representation of the analysis-phase error which occurred.",
       documented = false,
-      structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS
-  )
+      structField = true)
   public String getMessage();
 }
