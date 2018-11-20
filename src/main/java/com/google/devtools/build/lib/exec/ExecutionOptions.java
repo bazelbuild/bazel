@@ -300,6 +300,15 @@ public class ExecutionOptions extends OptionsBase {
   public boolean enableCriticalPathProfiling;
 
   @Option(
+      name = "experimental_stats_summary",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      defaultValue = "false",
+      help = "Enable a modernized summary of the build stats."
+  )
+  public boolean statsSummary;
+
+  @Option(
     name = "experimental_execution_log_file",
     defaultValue = "",
     category = "verbosity",

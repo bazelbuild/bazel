@@ -20,6 +20,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -48,6 +49,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private Reporter reporter;
   private boolean enabled;
 
+  private boolean statsSummary;
+  private long commandStartMillis;
+  private long executionStartMillis;
+  private long executionEndMillis;
   private SpawnStats spawnStats;
 
   @Override
@@ -55,6 +60,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
     this.reporter = env.getReporter();
     this.eventBus = env.getEventBus();
     this.actionKeyContext = env.getSkyframeExecutor().getActionKeyContext();
+    commandStartMillis = env.getCommandStartTime();
     this.spawnStats = new SpawnStats();
     eventBus.register(this);
   }
@@ -74,10 +80,17 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
   @Subscribe
   public void executionPhaseStarting(ExecutionStartingEvent event) {
+    // TODO(ulfjack): Make sure to use the same clock as for commandStartMillis.
+    executionStartMillis = BlazeClock.instance().currentTimeMillis();
     if (enabled) {
       criticalPathComputer = new CriticalPathComputer(actionKeyContext, BlazeClock.instance());
       eventBus.register(criticalPathComputer);
     }
+  }
+
+  @Subscribe
+  public void executionPhaseFinish(@SuppressWarnings("unused") ExecutionFinishedEvent event) {
+    executionEndMillis = BlazeClock.instance().currentTimeMillis();
   }
 
   @Subscribe
@@ -98,11 +111,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
               String.format(
                   "%f", event.getResult().getElapsedSeconds()).getBytes(StandardCharsets.UTF_8));
 
+      AggregatedCriticalPath criticalPath = AggregatedCriticalPath.EMPTY;
       if (criticalPathComputer != null) {
         try (SilentCloseable c =
             Profiler.instance().profile(ProfilerTask.CRITICAL_PATH, "Critical path")) {
-          AggregatedCriticalPath criticalPath =
-              criticalPathComputer.aggregate();
+          criticalPath = criticalPathComputer.aggregate();
           items.add(criticalPath.toStringSummaryNoRemote());
           event.getResult().getBuildToolLogCollection()
               .addDirectValue(
@@ -125,10 +138,30 @@ public class BuildSummaryStatsModule extends BlazeModule {
         }
       }
 
-      reporter.handle(Event.info(Joiner.on(", ").join(items)));
-
       String spawnSummary = spawnStats.getSummary();
-      reporter.handle(Event.info(spawnSummary));
+      if (statsSummary) {
+        reporter.handle(Event.info(spawnStats.getSummary()));
+        reporter.handle(
+            Event.info(
+                String.format(
+                    "Total action wall time %.2fs", spawnStats.getTotalWallTimeMillis() / 1000.0)));
+        if (criticalPath != AggregatedCriticalPath.EMPTY) {
+          reporter.handle(Event.info(criticalPath.getNewStringSummary()));
+        }
+        long now = event.getResult().getStopTime();
+        long executionTime = executionEndMillis - executionStartMillis;
+        long overheadTime = now - commandStartMillis - executionTime;
+        reporter.handle(
+            Event.info(
+                String.format(
+                    "Elapsed time %.2fs (preparation %.2fs, execution %.2fs)",
+                    (now - commandStartMillis) / 1000.0,
+                    overheadTime / 1000.0,
+                    executionTime / 1000.0)));
+      } else {
+        reporter.handle(Event.info(Joiner.on(", ").join(items)));
+        reporter.handle(Event.info(spawnSummary));
+      }
 
       event.getResult().getBuildToolLogCollection()
           .addDirectValue("process stats", spawnSummary.getBytes(StandardCharsets.UTF_8));
