@@ -795,7 +795,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_provide_cc_toolchain_info_from_cc_toolchain_suite",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {

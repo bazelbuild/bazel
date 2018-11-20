@@ -183,8 +183,12 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "a/BUILD",
         "filegroup(",
         "   name='empty')",
-        "cc_toolchain(",
+        "cc_toolchain_suite(",
         "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
+        "cc_toolchain(",
+        "    name = 'b',",
         "    cpu = 'banana',",
         "    all_files = ':empty',",
         "    ar_files = ':empty',",
@@ -216,6 +220,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "      target_libc: \"banana\"",
         "    \"\"\")");
 
+    useConfiguration("--cpu=k8", "--host_cpu=k8");
     CcToolchainProvider ccToolchainProvider =
         (CcToolchainProvider) getConfiguredTarget("//a:a").get(ToolchainInfo.PROVIDER);
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
@@ -227,6 +232,10 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "b/BUILD",
         "filegroup(",
         "   name='empty')",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    cpu = 'banana',",
@@ -262,7 +271,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "    \"\"\")");
 
     ccToolchainProvider =
-        (CcToolchainProvider) getConfiguredTarget("//b:b").get(ToolchainInfo.PROVIDER);
+        (CcToolchainProvider) getConfiguredTarget("//b:a").get(ToolchainInfo.PROVIDER);
     builder = ImmutableMap.builder();
     ccToolchainProvider.addGlobalMakeVariables(builder);
     assertThat(builder.build().get("GCOVTOOL")).isNotNull();

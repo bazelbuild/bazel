@@ -74,6 +74,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
     useConfiguration("--host_crosstool_top=//b:my_custom_toolchain_suite", "--host_cpu=k8");
     ConfiguredTarget target = getConfiguredTarget("//a:current_cc_host_toolchain");
 
-    assertThat(target.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//b:toolchain_b"));
+    assertThat(target.getLabel())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//b:my_custom_toolchain_suite"));
   }
 }

@@ -630,7 +630,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     useConfiguration("--cpu=k8", "--experimental_enable_cc_toolchain_config_info");
 
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
@@ -648,7 +648,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     useConfiguration("--cpu=k8", "--experimental_enable_cc_toolchain_config_info");
 
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(toolchainProvider.getToolPathFragment(Tool.AR).toString())
@@ -664,6 +664,10 @@ public class CcToolchainTest extends BuildViewTestCase {
         "cc_toolchain_config_rule(name = 'toolchain_config')",
         "filegroup(",
         "   name='empty')",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    cpu = 'banana',",
@@ -917,6 +921,10 @@ public class CcToolchainTest extends BuildViewTestCase {
         "a/BUILD",
         "filegroup(",
         "    name='empty')",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    cpu = 'banana',",
@@ -952,7 +960,7 @@ public class CcToolchainTest extends BuildViewTestCase {
             mockToolsConfig,
             CrosstoolConfig.CToolchain.newBuilder().setDefaultGrteTop("//libc1").buildPartial());
     useConfiguration("--cpu=k8");
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider ccToolchainProvider =
         (CcToolchainProvider) target.get(CcToolchainProvider.PROVIDER);
 
@@ -965,6 +973,10 @@ public class CcToolchainTest extends BuildViewTestCase {
         "a/BUILD",
         "filegroup(",
         "    name='empty')",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    cpu = 'banana',",
@@ -1003,7 +1015,7 @@ public class CcToolchainTest extends BuildViewTestCase {
             CrosstoolConfig.CToolchain.newBuilder().setDefaultGrteTop("//libc1").buildPartial());
     useConfiguration(
         "--cpu=k8", "--grte_top=//libc3", "--incompatible_disable_sysroot_from_configuration");
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider ccToolchainProvider =
         (CcToolchainProvider) target.get(CcToolchainProvider.PROVIDER);
 

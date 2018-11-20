@@ -89,8 +89,7 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
     useConfiguration("--crosstool_top=//cc:suite", "--cpu=k8", "--host_cpu=k8");
     ConfiguredTarget c = getConfiguredTarget("//a:b");
     CppConfiguration config = getConfiguration(c).getFragment(CppConfiguration.class);
-    assertThat(config.getRuleProvidingCcToolchainProvider().toString())
-        .isEqualTo("//cc:cc-compiler-fruitie");
+    assertThat(config.getRuleProvidingCcToolchainProvider().toString()).isEqualTo("//cc:suite");
 
     useConfiguration(
         "--crosstool_top=//cc:suite",
