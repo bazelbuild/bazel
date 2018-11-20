@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilde
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -42,6 +41,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/** Unit tests for {@link ProtoCompileActionBuilder}. */
 @RunWith(JUnit4.class)
 public class ProtoCompileActionBuilderTest {
 
@@ -75,7 +75,6 @@ public class ProtoCompileActionBuilderTest {
 
     SupportData supportData =
         SupportData.create(
-            Predicates.alwaysFalse(),
             ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
             /* protosInDirectDeps= */ NestedSetBuilder.emptySet(STABLE_ORDER),
             NestedSetBuilder.create(
@@ -122,7 +121,6 @@ public class ProtoCompileActionBuilderTest {
     // Verify that the command line contains the correct path to a generated protocol buffers.
     SupportData supportData =
         SupportData.create(
-            Predicates.alwaysFalse(),
             ImmutableList.of(derivedArtifact("//:dont-care", "source_file.proto")),
             /* protosInDirectDeps= */ NestedSetBuilder.emptySet(STABLE_ORDER),
             /* transitiveImports= */ NestedSetBuilder.emptySet(STABLE_ORDER),
@@ -161,7 +159,6 @@ public class ProtoCompileActionBuilderTest {
 
     SupportData supportData =
         SupportData.create(
-            Predicates.alwaysFalse(),
             ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
             NestedSetBuilder.create(STABLE_ORDER, artifact("//:dont-care", "import1.proto")),
             NestedSetBuilder.create(
@@ -205,7 +202,6 @@ public class ProtoCompileActionBuilderTest {
   public void otherParameters() throws Exception {
     SupportData supportData =
         SupportData.create(
-            Predicates.alwaysFalse(),
             ImmutableList.of(),
             /* protosInDirectDeps= */ NestedSetBuilder.emptySet(STABLE_ORDER),
             NestedSetBuilder.emptySet(STABLE_ORDER),
@@ -256,7 +252,6 @@ public class ProtoCompileActionBuilderTest {
 
     SupportData supportData =
         SupportData.create(
-            Predicates.alwaysFalse(),
             ImmutableList.of(),
             /* protosInDirectDeps= */ NestedSetBuilder.emptySet(STABLE_ORDER),
             NestedSetBuilder.emptySet(STABLE_ORDER),
@@ -294,7 +289,6 @@ public class ProtoCompileActionBuilderTest {
   public void exceptionIfSameName() throws Exception {
     SupportData supportData =
         SupportData.create(
-            Predicates.alwaysFalse(),
             ImmutableList.of(),
             /* protosInDirectDeps= */ NestedSetBuilder.emptySet(STABLE_ORDER),
             NestedSetBuilder.emptySet(STABLE_ORDER),

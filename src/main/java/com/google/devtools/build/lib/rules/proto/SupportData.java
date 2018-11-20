@@ -15,10 +15,8 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -31,7 +29,6 @@ import javax.annotation.Nullable;
 public abstract class SupportData {
   @AutoCodec.Instantiator
   public static SupportData create(
-      Predicate<TransitiveInfoCollection> nonWeakDepsPredicate,
       ImmutableList<Artifact> directProtoSources,
       NestedSet<Artifact> protosInDirectDeps,
       NestedSet<Artifact> transitiveImports,
@@ -42,7 +39,6 @@ public abstract class SupportData {
       @Nullable NestedSet<Artifact> protosInExports,
       @Nullable NestedSet<String> exportedProtoSourceRoots) {
     return new AutoValue_SupportData(
-        nonWeakDepsPredicate,
         directProtoSources,
         transitiveImports,
         protosInDirectDeps,
@@ -53,8 +49,6 @@ public abstract class SupportData {
         protosInExports,
         exportedProtoSourceRoots);
   }
-
-  public abstract Predicate<TransitiveInfoCollection> getNonWeakDepsPredicate();
 
   public abstract ImmutableList<Artifact> getDirectProtoSources();
 
