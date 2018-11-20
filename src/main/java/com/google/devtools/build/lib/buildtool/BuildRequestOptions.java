@@ -412,7 +412,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_use_per_action_file_cache",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       metadataTags = {
