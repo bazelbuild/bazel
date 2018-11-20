@@ -216,14 +216,14 @@ public class JavaOptions extends FragmentOptions {
   public boolean javaDeps;
 
   @Option(
-      name = "java_classpath",
+      name = "experimental_java_classpath",
       allowMultiple = false,
       defaultValue = "javabuilder",
       converter = JavaClasspathModeConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Enables reduced classpaths for Java compilations.",
-      oldName = "experimental_java_classpath")
+      oldName = "java_classpath")
   public JavaClasspathMode javaClasspath;
 
   @Option(
