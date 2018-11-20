@@ -775,8 +775,7 @@ public final class SkyframeActionExecutor {
 
         Preconditions.checkState(actionExecutionContext.getMetadataHandler() == metadataHandler,
             "%s %s", actionExecutionContext.getMetadataHandler(), metadataHandler);
-        prepareScheduleExecuteAndCompleteAction(
-            eventHandler, actionExecutionContext, action, actionStartTime, actionLookupData);
+        prepareScheduleExecuteAndCompleteAction();
         Preconditions.checkState(
             actionExecutionContext.getOutputSymlinks() == null
                 || action instanceof SkyframeAwareAction,
@@ -791,6 +790,147 @@ public final class SkyframeActionExecutor {
                 ? ((IncludeScannable) action).getDiscoveredModules()
                 : null,
             ActionExecutionFunction.actionDependsOnBuildId(action));
+      }
+    }
+
+    /**
+     * Prepare, schedule, execute, and then complete the action. When this function is called, we
+     * know that this action needs to be executed. This function will prepare for the action's
+     * execution (i.e. delete the outputs); schedule its execution; execute the action; and then do
+     * some post-execution processing to complete the action: set the outputs readonly and
+     * executable, and insert the action results in the action cache.
+     *
+     * @throws ActionExecutionException if the execution of the specified action failed for any
+     *     reason.
+     * @throws InterruptedException if the thread was interrupted.
+     */
+    private void prepareScheduleExecuteAndCompleteAction()
+        throws ActionExecutionException, InterruptedException {
+      // Delete the outputs before executing the action, just to ensure that
+      // the action really does produce the outputs.
+      try {
+        if (!usesActionFileSystem()) {
+          action.prepare(
+              actionExecutionContext.getFileSystem(), actionExecutionContext.getExecRoot());
+        } else {
+          setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
+        }
+        createOutputDirectories(action, actionExecutionContext);
+      } catch (IOException e) {
+        reportError("failed to delete output files before executing action", e, action, null);
+      }
+
+      eventHandler.post(new ActionStartedEvent(action, actionStartTime));
+      ActionExecutionStatusReporter statusReporter = statusReporterRef.get();
+      try {
+        // Mark the current action as being prepared.
+        statusReporter.updateStatus(ActionStatusMessage.preparingStrategy(action));
+        boolean outputDumped = executeActionTask();
+        completeAction(outputDumped);
+      } finally {
+        statusReporterRef.get().remove(action);
+        eventHandler.post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
+      }
+    }
+
+    /**
+     * Execute the specified action, in a profiler task.
+     * The caller is responsible for having already checked that we need to
+     * execute it and for acquiring/releasing any scheduling locks needed.
+     *
+     * <p>This is thread-safe so long as you don't try to execute the same action
+     * twice at the same time (or overlapping times).
+     * May execute in a worker thread.
+     *
+     * @throws ActionExecutionException if the execution of the specified action
+     *   failed for any reason.
+     * @throws InterruptedException if the thread was interrupted.
+     * @return true if the action output was dumped, false otherwise.
+     */
+    private boolean executeActionTask()
+        throws ActionExecutionException, InterruptedException {
+      // ActionExecutionExceptions that occur as the thread is interrupted are
+      // assumed to be a result of that, so we throw InterruptedException
+      // instead.
+      FileOutErr outErrBuffer = actionExecutionContext.getFileOutErr();
+      try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_EXECUTE, action.describe())) {
+        ActionResult actionResult = action.execute(actionExecutionContext);
+        if (actionResult != ActionResult.EMPTY) {
+          eventHandler.post(new ActionResultReceivedEvent(action, actionResult));
+        }
+
+        // Action terminated fine, now report the output.
+        // The .showOutput() method is not necessarily a quick check: in its
+        // current implementation it uses regular expression matching.
+        if (outErrBuffer.hasRecordedOutput()
+            && (action.showsOutputUnconditionally()
+            || reporter.showOutput(Label.print(action.getOwner().getLabel())))) {
+          dumpRecordedOutErr(action, outErrBuffer);
+          return true;
+        }
+        // Defer reporting action success until outputs are checked
+      } catch (LostInputsActionExecutionException e) {
+        // If inputs are lost, then avoid publishing ActionExecutedEvents. A higher-level handler
+        // may try to fix things.
+        throw e;
+      } catch (ActionExecutionException e) {
+        throw processAndThrow(
+            eventHandler,
+            actionExecutionContext,
+            action,
+            e,
+            outErrBuffer,
+            ErrorTiming.AFTER_EXECUTION);
+      }
+      return false;
+    }
+
+    private void completeAction(boolean outputAlreadyDumped)
+        throws ActionExecutionException {
+      MetadataHandler metadataHandler = actionExecutionContext.getMetadataHandler();
+      FileOutErr fileOutErr = actionExecutionContext.getFileOutErr();
+      try {
+        Preconditions.checkState(action.inputsDiscovered(),
+            "Action %s successfully executed, but inputs still not known", action);
+
+        try (SilentCloseable c =
+            profiler.profile(ProfilerTask.ACTION_COMPLETE, action.describe())) {
+          if (!checkOutputs(action, metadataHandler)) {
+            reportError("not all outputs were created or valid", null, action,
+                outputAlreadyDumped ? null : fileOutErr);
+          }
+        }
+
+        if (outputService != null && finalizeActions) {
+          try {
+            outputService.finalizeAction(action, metadataHandler);
+          } catch (EnvironmentalExecException | IOException e) {
+            reportError("unable to finalize action", e, action, fileOutErr);
+          }
+        }
+
+        reportActionExecution(
+            eventHandler, actionExecutionContext, action, null, fileOutErr, ErrorTiming.NO_ERROR);
+      } catch (ActionExecutionException actionException) {
+        // Success in execution but failure in completion.
+        reportActionExecution(
+            eventHandler,
+            actionExecutionContext,
+            action,
+            actionException,
+            fileOutErr,
+            ErrorTiming.AFTER_EXECUTION);
+        throw actionException;
+      } catch (IllegalStateException exception) {
+        // More serious internal error, but failure still reported.
+        reportActionExecution(
+            eventHandler,
+            actionExecutionContext,
+            action,
+            new ActionExecutionException(exception, action, true),
+            fileOutErr,
+            ErrorTiming.AFTER_EXECUTION);
+        throw exception;
       }
     }
   }
@@ -895,60 +1035,6 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  /**
-   * Prepare, schedule, execute, and then complete the action. When this function is called, we know
-   * that this action needs to be executed. This function will prepare for the action's execution
-   * (i.e. delete the outputs); schedule its execution; execute the action; and then do some
-   * post-execution processing to complete the action: set the outputs readonly and executable, and
-   * insert the action results in the action cache.
-   *
-   * @param action The action to execute
-   * @param context services in the scope of the action
-   * @param actionStartTime time when we started the first phase of the action execution.
-   * @param actionLookupData key for action
-   * @throws ActionExecutionException if the execution of the specified action failed for any
-   *     reason.
-   * @throws InterruptedException if the thread was interrupted.
-   */
-  private void prepareScheduleExecuteAndCompleteAction(
-      ExtendedEventHandler eventHandler,
-      ActionExecutionContext context,
-      Action action,
-      long actionStartTime,
-      ActionLookupData actionLookupData)
-      throws ActionExecutionException, InterruptedException {
-    // Delete the outputs before executing the action, just to ensure that
-    // the action really does produce the outputs.
-    try {
-      if (!usesActionFileSystem()) {
-        action.prepare(context.getFileSystem(), context.getExecRoot());
-      } else {
-        setupActionFsFileOutErr(context.getFileOutErr(), action);
-      }
-      createOutputDirectories(action, context);
-    } catch (IOException e) {
-      reportError("failed to delete output files before executing action", e, action, null);
-    }
-
-    eventHandler.post(new ActionStartedEvent(action, actionStartTime));
-    ActionExecutionStatusReporter statusReporter = statusReporterRef.get();
-    try {
-      // Mark the current action as being prepared.
-      statusReporter.updateStatus(ActionStatusMessage.preparingStrategy(action));
-      boolean outputDumped = executeActionTask(eventHandler, action, context);
-      completeAction(
-          eventHandler,
-          context,
-          action,
-          context.getMetadataHandler(),
-          context.getFileOutErr(),
-          outputDumped);
-    } finally {
-      statusReporterRef.get().remove(action);
-      eventHandler.post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
-    }
-  }
-
   private ActionExecutionException processAndThrow(
       ExtendedEventHandler eventHandler,
       ActionExecutionContext actionExecutionContext,
@@ -980,113 +1066,6 @@ public final class SkyframeActionExecutor {
     // exception that initially caused it to abort will and not check the
     // exit status of any actions that had finished in the meantime.
     throw toThrow;
-  }
-
-  /**
-   * Execute the specified action, in a profiler task.
-   * The caller is responsible for having already checked that we need to
-   * execute it and for acquiring/releasing any scheduling locks needed.
-   *
-   * <p>This is thread-safe so long as you don't try to execute the same action
-   * twice at the same time (or overlapping times).
-   * May execute in a worker thread.
-   *
-   * @throws ActionExecutionException if the execution of the specified action
-   *   failed for any reason.
-   * @throws InterruptedException if the thread was interrupted.
-   * @return true if the action output was dumped, false otherwise.
-   */
-  private boolean executeActionTask(
-      ExtendedEventHandler eventHandler,
-      Action action,
-      ActionExecutionContext actionExecutionContext)
-          throws ActionExecutionException, InterruptedException {
-    // ActionExecutionExceptions that occur as the thread is interrupted are
-    // assumed to be a result of that, so we throw InterruptedException
-    // instead.
-    FileOutErr outErrBuffer = actionExecutionContext.getFileOutErr();
-    try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_EXECUTE, action.describe())) {
-      ActionResult actionResult = action.execute(actionExecutionContext);
-      if (actionResult != ActionResult.EMPTY) {
-        eventHandler.post(new ActionResultReceivedEvent(action, actionResult));
-      }
-
-      // Action terminated fine, now report the output.
-      // The .showOutput() method is not necessarily a quick check: in its
-      // current implementation it uses regular expression matching.
-      if (outErrBuffer.hasRecordedOutput()
-          && (action.showsOutputUnconditionally()
-          || reporter.showOutput(Label.print(action.getOwner().getLabel())))) {
-        dumpRecordedOutErr(action, outErrBuffer);
-        return true;
-      }
-      // Defer reporting action success until outputs are checked
-    } catch (LostInputsActionExecutionException e) {
-      // If inputs are lost, then avoid publishing ActionExecutedEvents. A higher-level handler may
-      // try to fix things.
-      throw e;
-    } catch (ActionExecutionException e) {
-      throw processAndThrow(
-          eventHandler,
-          actionExecutionContext,
-          action,
-          e,
-          outErrBuffer,
-          ErrorTiming.AFTER_EXECUTION);
-    }
-    return false;
-  }
-
-  private void completeAction(
-      ExtendedEventHandler eventHandler,
-      ActionExecutionContext actionExecutionContext,
-      Action action,
-      MetadataHandler metadataHandler,
-      FileOutErr fileOutErr,
-      boolean outputAlreadyDumped)
-      throws ActionExecutionException {
-    try {
-      Preconditions.checkState(action.inputsDiscovered(),
-          "Action %s successfully executed, but inputs still not known", action);
-
-      try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_COMPLETE, action.describe())) {
-        if (!checkOutputs(action, metadataHandler)) {
-          reportError("not all outputs were created or valid", null, action,
-              outputAlreadyDumped ? null : fileOutErr);
-        }
-      }
-
-      if (outputService != null && finalizeActions) {
-        try {
-          outputService.finalizeAction(action, metadataHandler);
-        } catch (EnvironmentalExecException | IOException e) {
-          reportError("unable to finalize action", e, action, fileOutErr);
-        }
-      }
-
-      reportActionExecution(
-          eventHandler, actionExecutionContext, action, null, fileOutErr, ErrorTiming.NO_ERROR);
-    } catch (ActionExecutionException actionException) {
-      // Success in execution but failure in completion.
-      reportActionExecution(
-          eventHandler,
-          actionExecutionContext,
-          action,
-          actionException,
-          fileOutErr,
-          ErrorTiming.AFTER_EXECUTION);
-      throw actionException;
-    } catch (IllegalStateException exception) {
-      // More serious internal error, but failure still reported.
-      reportActionExecution(
-          eventHandler,
-          actionExecutionContext,
-          action,
-          new ActionExecutionException(exception, action, true),
-          fileOutErr,
-          ErrorTiming.AFTER_EXECUTION);
-      throw exception;
-    }
   }
 
   private static void reportMissingOutputFile(
