@@ -1,166 +1,10 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// Test wrapper implementation for Windows.
-// Design:
-// https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
-
-#include "tools/test/windows/tw.h"
-
-#define WIN32_LEAN_AND_MEAN
-#include <lmcons.h>  // UNLEN
-#include <windows.h>
-
-#include <errno.h>
-#include <limits.h>  // INT_MAX
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
-#include <wchar.h>
-
-#include <algorithm>
-#include <functional>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <vector>
-
-#include "src/main/cpp/util/file_platform.h"
-#include "src/main/cpp/util/path_platform.h"
-#include "src/main/cpp/util/strings.h"
-#include "src/main/native/windows/file.h"
-#include "src/main/native/windows/util.h"
-#include "third_party/ijar/common.h"
-#include "third_party/ijar/platform_utils.h"
-#include "third_party/ijar/zip.h"
-#include "tools/cpp/runfiles/runfiles.h"
-
-namespace bazel {
-namespace tools {
-namespace test_wrapper {
-namespace {
-
-class Defer {
- public:
-  explicit Defer(std::function<void()> f) : f_(f) {}
-  ~Defer() { f_(); }
-
-  void DoNow() {
-    f_();
-    f_ = kEmpty;
-  }
-
- private:
-  std::function<void()> f_;
-  static const std::function<void()> kEmpty;
-};
-
-const std::function<void()> Defer::kEmpty = []() {};
-
-// Streams data from an input to two outputs.
-// Inspired by tee(1) in the GNU coreutils.
-class TeeImpl : Tee {
- public:
-  // Creates a background thread to stream data from `input` to the two outputs.
-  // The thread terminates when ReadFile fails on the input (e.g. the input is
-  // the reading end of a pipe and the writing end is closed) or when WriteFile
-  // fails on one of the outputs (e.g. the same output handle is closed
-  // elsewhere).
-  static bool Create(bazel::windows::AutoHandle* input,
-                     bazel::windows::AutoHandle* output1,
-                     bazel::windows::AutoHandle* output2,
-                     std::unique_ptr<Tee>* result);
-
- private:
-  static DWORD WINAPI ThreadFunc(LPVOID lpParam);
-
-  TeeImpl(bazel::windows::AutoHandle* input,
-          bazel::windows::AutoHandle* output1,
-          bazel::windows::AutoHandle* output2)
-      : input_(input), output1_(output1), output2_(output2) {}
-  TeeImpl(const TeeImpl&) = delete;
-  TeeImpl& operator=(const TeeImpl&) = delete;
-
-  bool MainFunc() const;
-
-  bazel::windows::AutoHandle input_;
-  bazel::windows::AutoHandle output1_;
-  bazel::windows::AutoHandle output2_;
-};
-
-// A lightweight path abstraction that stores a Unicode Windows path.
-//
-// The class allows extracting the underlying path as a (immutable) string so
-// it's easy to pass the path to WinAPI functions, but the class does not allow
-// mutating the unterlying path so it's safe to pass around Path objects.
-class Path {
- public:
-  Path() {}
-  Path(const Path& other) : path_(other.path_) {}
-  Path(Path&& other) : path_(std::move(other.path_)) {}
-  Path& operator=(const Path& other) = delete;
-  const std::wstring& Get() const { return path_; }
-  bool Set(const std::wstring& path);
-
-  // Makes this path absolute.
-  // Returns true if the path was changed (i.e. was not absolute before).
-  // Returns false and has no effect if this path was empty or already absolute.
-  bool Absolutize(const Path& cwd);
-
-  Path Dirname() const;
-
- private:
-  std::wstring path_;
-};
-
-struct UndeclaredOutputs {
-  Path root;
-  Path zip;
-  Path manifest;
-  Path annotations;
-  Path annotations_dir;
-};
-
-void LogError(const int line) { printf("ERROR(" __FILE__ ":%d)\n", line); }
-
-void LogError(const int line, const char* msg) {
-  printf("ERROR(" __FILE__ ":%d) %s\n", line, msg);
-}
-
-void LogError(const int line, const wchar_t* msg) {
-#define _WSTR_HELPER_1(x) L##x
-#define _WSTR_HELPER_2(x) _WSTR_HELPER_1(x)
-  wprintf(L"ERROR(" _WSTR_HELPER_2(__FILE__) L":%d) %s\n", line, msg);
-#undef _WSTR_HELPER_2
-#undef _WSTR_HELPER_1
-}
-
-void LogErrorWithValue(const int line, const char* msg, DWORD error_code) {
-  printf("ERROR(" __FILE__ ":%d) error code: %d (0x%08x): %s\n", line,
-         error_code, error_code, msg);
-}
-
-void LogErrorWithArgAndValue(const int line, const char* msg, const char* arg,
-                             DWORD error_code) {
-  printf("ERROR(" __FILE__ ":%d) error code: %d (0x%08x), argument: %s: %s\n",
-         line, error_code, error_code, arg, msg);
+g`"e, value, arg, msg);
 }
 
 void LogErrorWithArgAndValue(const int line, const char* msg,
-                             const wchar_t* arg, DWORD error_code) {
-  printf("ERROR(" __FILE__ ":%d) error code: %d (0x%08x), argument: %ls: %s\n",
-         line, error_code, error_code, arg, msg);
+                             const wchar_t* arg, DWORD value) {
+  printf("ERROR(" __FILE__ ":%d) value: %d (0x%08x), argument: %ls: %s\n", line,
+         value, value, arg, msg);
 }
 
 std::wstring AddUncPrefixMaybe(const Path& p) {
@@ -1351,12 +1195,12 @@ int RunSubprocess(const Path& test_path,
 // (see https://stackoverflow.com/a/223782/7778502). A separate filtering step
 // can replace those sequences with the string "]]>]]&gt;<![CDATA[" (which ends
 // the current CDATA segment, adds "]]&gt;", then starts a new CDATA segment).
-void CdataEscape(uint8_t* p, const size_t size,
-                 std::vector<uint8_t*>* cdata_end_locations) {
-  for (size_t i = 0; i < size; ++i, ++p) {
+void CdataEscape(uint8_t* p, const DWORD size,
+                 std::vector<DWORD>* cdata_end_locations) {
+  for (DWORD i = 0; i < size; ++i, ++p) {
     if (p[0] == ']' && (i + 2 < size) && p[1] == ']' && p[2] == '>') {
       // Mark where "]]>" is, then skip the next two octets.
-      cdata_end_locations->push_back(p);
+      cdata_end_locations->push_back(i);
       i += 2;
       p += 2;
     } else if (*p == 0x9 || *p == 0xA || *p == 0xD ||
@@ -1392,6 +1236,103 @@ void CdataEscape(uint8_t* p, const size_t size,
       *p = '?';
     }
   }
+}
+
+bool ReadCompleteFile(const Path& path, DWORD* size,
+                      std::unique_ptr<uint8_t[]>* data) {
+  bazel::windows::AutoHandle handle;
+  if (!OpenExistingFileForRead(path, &handle)) {
+    LogError(__LINE__, path.Get().c_str());
+    return false;
+  }
+
+  LARGE_INTEGER file_size;
+  if (!GetFileSizeEx(handle, &file_size)) {
+    DWORD err = GetLastError();
+    LogErrorWithValue(__LINE__, path.Get().c_str(), err);
+    return false;
+  }
+
+  // `ReadCompleteFile` doesn't support files larger than 4GB because most files
+  // that this function will be reading (test outerr logs) are typically smaller
+  // than that. (A buffered file reader would allow supporting larger files, but
+  // that seems like overkill here.)
+  if (file_size.QuadPart > 0xFFFFFFFF) {
+    LogError(__LINE__, path.Get().c_str());
+    return false;
+  }
+  const DWORD file_size_dw = file_size.QuadPart;
+  *size = file_size_dw;
+
+  // Allocate a buffer large enough to hold the whole file.
+  data->reset(new uint8_t[file_size_dw]);
+  if (!data->get()) {
+    // Memory allocation failed.
+    LogErrorWithValue(__LINE__, path.Get().c_str(), file_size_dw);
+    return false;
+  }
+
+  DWORD read = 0;
+  if (!ReadFile(handle, data->get(), file_size_dw, &read, NULL)) {
+    DWORD err = GetLastError();
+    LogErrorWithValue(__LINE__, path.Get().c_str(), err);
+    return false;
+  }
+
+  return true;
+}
+
+bool CdataEscapeAndAppend(const Path& input, HANDLE output) {
+  DWORD size;
+  std::unique_ptr<uint8_t[]> data;
+  if (!ReadCompleteFile(input, &size, &data)) {
+    LogError(__LINE__, input.Get().c_str());
+    return false;
+  }
+
+  std::vector<DWORD> cdata_end_locations;
+  CdataEscape(data.get(), size, &cdata_end_locations);
+
+  if (cdata_end_locations.empty()) {
+    // If there were no "]]>" occurrences, we can dump the whole buffer.
+    if (!WriteToFile(output, data.get(), size)) {
+      LogError(__LINE__, input.Get().c_str());
+      return false;
+    }
+  } else {
+    // If there were "]]>" occurrences, we must replace each occurrence with
+    // `kCdataReplace`.
+    //
+    // A possible optimization would be to record the length of each "]]>"
+    // sequence. This would allow replacing "]]>]]>]]>" by
+    // "]]>]]&gt;]]&gt;]]&gt;<![CDATA[" instead of by
+    // "]]>]]&gt;<![CDATA[]]>]]&gt;<![CDATA[]]>]]&gt;<![CDATA[", yielding a
+    // smaller XML file but a more complex algorithm and data structure. So we
+    // forgo that optimization for this rare corner-case in favour of the
+    // simpler code and store each location of "]]>" individually.
+    static const std::string kCdataReplace = "]]>]]&gt;<![CDATA[";
+    DWORD start = 0;
+    DWORD end = 0;
+    for (DWORD end : cdata_end_locations) {
+      // Dump the section of the buffer since the last "]]>" to the current one
+      // then write the replacement for the current "]]>".
+      if (!WriteToFile(output, data.get() + start, end - start) ||
+          !WriteToFile(output, kCdataReplace.c_str(), kCdataReplace.size())) {
+        LogError(__LINE__, input.Get().c_str());
+        return false;
+      }
+      start = end + 3;
+    }
+
+    if (start < size) {
+      // Write the remainder of the buffer after the last "]]>".
+      if (!WriteToFile(output, data.get() + start, size - start)) {
+        LogError(__LINE__, input.Get().c_str());
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 bool Path::Set(const std::wstring& path) {
@@ -1571,11 +1512,24 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
   return TeeImpl::Create(input, output1, output2, result);
 }
 
-bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const size_t size,
-                                std::vector<uint8_t*>* cdata_end_locations) {
+bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const DWORD size,
+                                std::vector<DWORD>* cdata_end_locations) {
   CdataEscape(buffer, size, cdata_end_locations);
   return true;
 }
+
+bool TestOnly_CdataEscapeAndAppend(const std::wstring& abs_input,
+                                   const std::wstring& abs_output) {
+  Path input_path, output_path;
+  if (!blaze_util::IsAbsolute(abs_input) || !input_path.Set(abs_input) &&
+      !blaze_util::IsAbsolute(abs_output) || !output_path.Set(abs_output)) {
+    return false;
+  }
+  bazel::windows::AutoHandle output;
+  return OpenFileForWriting(output_path, &output) &&
+         CdataEscapeAndAppend(input_path, output);
+}
+
 
 }  // namespace testing
 }  // namespace test_wrapper

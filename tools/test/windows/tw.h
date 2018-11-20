@@ -15,6 +15,9 @@
 #ifndef BAZEL_TOOLS_TEST_WINDOWS_TW_H_
 #define BAZEL_TOOLS_TEST_WINDOWS_TW_H_
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -156,8 +159,11 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
                         bazel::windows::AutoHandle* output2,
                         std::unique_ptr<Tee>* result);
 
-bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const size_t size,
-                                std::vector<uint8_t*>* cdata_end_locations);
+bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const DWORD size,
+                                std::vector<DWORD>* cdata_end_locations);
+
+bool TestOnly_CdataEscapeAndAppend(const std::wstring& abs_input,
+                                   const std::wstring& abs_output);
 
 }  // namespace testing
 
