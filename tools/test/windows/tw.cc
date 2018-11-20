@@ -77,13 +77,17 @@ class TeeImpl : Tee {
   // the reading end of a pipe and the writing end is closed) or when WriteFile
   // fails on one of the outputs (e.g. the same output handle is closed
   // elsewhere).
-  static bool Create(HANDLE input, HANDLE output1, HANDLE output2,
+  static bool Create(bazel::windows::AutoHandle* input,
+                     bazel::windows::AutoHandle* output1,
+                     bazel::windows::AutoHandle* output2,
                      std::unique_ptr<Tee>* result);
 
  private:
   static DWORD WINAPI ThreadFunc(LPVOID lpParam);
 
-  TeeImpl(HANDLE input, HANDLE output1, HANDLE output2)
+  TeeImpl(bazel::windows::AutoHandle* input,
+          bazel::windows::AutoHandle* output1,
+          bazel::windows::AutoHandle* output2)
       : input_(input), output1_(output1), output2_(output2) {}
   TeeImpl(const TeeImpl&) = delete;
   TeeImpl& operator=(const TeeImpl&) = delete;
@@ -159,11 +163,19 @@ void LogErrorWithArgAndValue(const int line, const char* msg,
          line, error_code, error_code, arg, msg);
 }
 
+std::wstring AddUncPrefixMaybe(const Path& p) {
+  return bazel::windows::HasUncPrefix(p.Get().c_str())
+             ? p.Get()
+             : (std::wstring(L"\\\\?\\") + p.Get());
+}
+
+std::wstring RemoveUncPrefixMaybe(const Path& p) {
+  return bazel::windows::HasUncPrefix(p.Get().c_str()) ? p.Get().substr(4)
+                                                       : p.Get();
+}
+
 inline bool CreateDirectories(const Path& path) {
-  blaze_util::MakeDirectoriesW(bazel::windows::HasUncPrefix(path.Get().c_str())
-                                   ? path.Get()
-                                   : L"\\\\?\\" + path.Get(),
-                               0777);
+  blaze_util::MakeDirectoriesW(AddUncPrefixMaybe(path), 0777);
   return true;
 }
 
@@ -217,9 +229,20 @@ bool GetEnv(const wchar_t* name, std::wstring* result) {
 bool GetPathEnv(const wchar_t* name, Path* result) {
   std::wstring value;
   if (!GetEnv(name, &value)) {
+    LogError(__LINE__, name);
     return false;
   }
   return result->Set(value);
+}
+
+bool GetIntEnv(const wchar_t* name, std::wstring* as_wstr, int* as_int) {
+  *as_int = 0;
+  if (!GetEnv(name, as_wstr) ||
+      (!as_wstr->empty() && !ToInt(as_wstr->c_str(), as_int))) {
+    LogError(__LINE__, name);
+    return false;
+  }
+  return true;
 }
 
 bool SetEnv(const wchar_t* name, const std::wstring& value) {
@@ -338,8 +361,7 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
 
   std::wstring mf_only_str;
   int mf_only_value = 0;
-  if (!GetEnv(L"RUNFILES_MANIFEST_ONLY", &mf_only_str) ||
-      (!mf_only_str.empty() && !ToInt(mf_only_str.c_str(), &mf_only_value))) {
+  if (!GetIntEnv(L"RUNFILES_MANIFEST_ONLY", &mf_only_str, &mf_only_value)) {
     return false;
   }
   if (mf_only_value == 1) {
@@ -372,9 +394,8 @@ bool ExportGtestVariables(const Path& test_tmpdir) {
   // # Tell googletest about Bazel sharding.
   std::wstring total_shards_str;
   int total_shards_value = 0;
-  if (!GetEnv(L"TEST_TOTAL_SHARDS", &total_shards_str) ||
-      (!total_shards_str.empty() &&
-       !ToInt(total_shards_str.c_str(), &total_shards_value))) {
+  if (!GetIntEnv(L"TEST_TOTAL_SHARDS", &total_shards_str,
+                 &total_shards_value)) {
     return false;
   }
   if (total_shards_value > 0) {
@@ -489,19 +510,14 @@ bool GetFileListRelativeTo(const Path& root, std::vector<FileInfo>* result,
     return false;
   }
 
-  return _GetFileListRelativeTo(bazel::windows::HasUncPrefix(root.Get().c_str())
-                                    ? root.Get()
-                                    : L"\\\\?\\" + root.Get(),
-                                std::wstring(), depth_limit, result);
+  return _GetFileListRelativeTo(AddUncPrefixMaybe(root), std::wstring(),
+                                depth_limit, result);
 }
 
 bool ToZipEntryPaths(const Path& root, const std::vector<FileInfo>& files,
                      ZipEntryPaths* result) {
   std::string acp_root;
-  if (!WcsToAcp(AsMixedPath(bazel::windows::HasUncPrefix(root.Get().c_str())
-                                ? root.Get().substr(4)
-                                : root.Get()),
-                &acp_root)) {
+  if (!WcsToAcp(AsMixedPath(RemoveUncPrefixMaybe(root)), &acp_root)) {
     LogError(__LINE__,
              (std::wstring(L"Failed to convert path \"") + root.Get() + L"\"")
                  .c_str());
@@ -558,39 +574,38 @@ bool CreateZipBuilder(const Path& zip, const ZipEntryPaths& entry_paths,
   return true;
 }
 
-bool OpenFileForWriting(const Path& path, HANDLE* result) {
-  *result = CreateFileW(bazel::windows::HasUncPrefix(path.Get().c_str())
-                            ? path.Get().c_str()
-                            : (L"\\\\?\\" + path.Get()).c_str(),
-                        GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE,
-                        NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-  if (*result == INVALID_HANDLE_VALUE) {
+bool OpenFileForWriting(const Path& path, bazel::windows::AutoHandle* result) {
+  HANDLE h = CreateFileW(AddUncPrefixMaybe(path).c_str(), GENERIC_WRITE,
+                         FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
+                         CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (h == INVALID_HANDLE_VALUE) {
     DWORD err = GetLastError();
     LogErrorWithArgAndValue(__LINE__, "Failed to open file", path.Get().c_str(),
                             err);
     return false;
   }
+  *result = h;
   return true;
 }
 
-bool OpenExistingFileForRead(const Path& abs_path, HANDLE* result) {
-  *result = CreateFileW(bazel::windows::HasUncPrefix(abs_path.Get().c_str())
-                            ? abs_path.Get().c_str()
-                            : (L"\\\\?\\" + abs_path.Get()).c_str(),
-                        GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
-                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-  if (*result == INVALID_HANDLE_VALUE) {
+bool OpenExistingFileForRead(const Path& abs_path,
+                             bazel::windows::AutoHandle* result) {
+  HANDLE h = CreateFileW(AddUncPrefixMaybe(abs_path).c_str(), GENERIC_READ,
+                         FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
+                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (h == INVALID_HANDLE_VALUE) {
     DWORD err = GetLastError();
     LogErrorWithArgAndValue(__LINE__, "Failed to open file",
                             abs_path.Get().c_str(), err);
     return false;
   }
+  *result = h;
   return true;
 }
 
 bool TouchFile(const Path& path) {
   bazel::windows::AutoHandle handle;
-  return OpenFileForWriting(path, handle.GetPtr());
+  return OpenFileForWriting(path, &handle);
 }
 
 bool ReadCompleteFile(HANDLE handle, uint8_t* dest, DWORD max_read) {
@@ -630,7 +645,7 @@ bool WriteToFile(HANDLE output, const void* buffer, const size_t size) {
 
 bool AppendFileTo(const Path& file, const size_t total_size, HANDLE output) {
   bazel::windows::AutoHandle input;
-  if (!OpenExistingFileForRead(file, input.GetPtr())) {
+  if (!OpenExistingFileForRead(file, &input)) {
     LogError(
         __LINE__,
         (std::wstring(L"Failed to open file \"") + file.Get() + L"\"").c_str());
@@ -718,7 +733,7 @@ bool CreateUndeclaredOutputsManifest(const std::vector<FileInfo>& files,
   }
 
   bazel::windows::AutoHandle handle;
-  if (!OpenFileForWriting(output, handle.GetPtr())) {
+  if (!OpenFileForWriting(output, &handle)) {
     LogError(__LINE__, (std::wstring(L"Failed to open file for writing \"") +
                         output.Get() + L"\"")
                            .c_str());
@@ -811,8 +826,7 @@ bool CreateZip(const Path& root, const std::vector<FileInfo>& files,
     bazel::windows::AutoHandle handle;
     Path path;
     if (!path.Set(root.Get() + L"\\" + files[i].RelativePath()) ||
-        (!files[i].IsDirectory() &&
-         !OpenExistingFileForRead(path, handle.GetPtr()))) {
+        (!files[i].IsDirectory() && !OpenExistingFileForRead(path, &handle))) {
       LogError(__LINE__,
                (std::wstring(L"Failed to open file \"") + path.Get() + L"\"")
                    .c_str());
@@ -1045,25 +1059,25 @@ bool StartSubprocess(const Path& path, const std::vector<const wchar_t*>& args,
   // for stderr). This process closes its copies of the handles.
   // This process keeps the reading end and streams data from the pipe to the
   // test log and to stdout.
-  bazel::windows::AutoHandle pipe_read, pipe_write;
-  if (!CreatePipe(pipe_read.GetPtr(), pipe_write.GetPtr(),
-                  &inheritable_handle_sa, 0)) {
+  HANDLE pipe_read_h, pipe_write_h;
+  if (!CreatePipe(&pipe_read_h, &pipe_write_h, &inheritable_handle_sa, 0)) {
     DWORD err = GetLastError();
     LogErrorWithValue(__LINE__, "CreatePipe", err);
     return false;
   }
+  bazel::windows::AutoHandle pipe_read(pipe_read_h), pipe_write(pipe_write_h);
 
   // Duplicate the write end of the pipe.
   // The original will be connected to the stdout of the process, the duplicate
   // to stderr.
-  bazel::windows::AutoHandle pipe_write_dup;
+  HANDLE pipe_write_dup_h;
   if (!DuplicateHandle(GetCurrentProcess(), pipe_write, GetCurrentProcess(),
-                       pipe_write_dup.GetPtr(), 0, TRUE,
-                       DUPLICATE_SAME_ACCESS)) {
+                       &pipe_write_dup_h, 0, TRUE, DUPLICATE_SAME_ACCESS)) {
     DWORD err = GetLastError();
     LogErrorWithValue(__LINE__, "DuplicateHandle", err);
     return false;
   }
+  bazel::windows::AutoHandle pipe_write_dup(pipe_write_dup_h);
 
   // Open a readonly handle to NUL. The subprocess inherits this handle that's
   // connected to its stdin.
@@ -1091,7 +1105,7 @@ bool StartSubprocess(const Path& path, const std::vector<const wchar_t*>& args,
   // Open a handle to the test log file. The "tee" thread will write everything
   // into it that the subprocess writes to the pipe.
   bazel::windows::AutoHandle test_outerr;
-  if (!OpenFileForWriting(outerr, test_outerr.GetPtr())) {
+  if (!OpenFileForWriting(outerr, &test_outerr)) {
     LogError(__LINE__, (std::wstring(L"Failed to open for writing \"") +
                         outerr.Get() + L"\"")
                            .c_str());
@@ -1100,19 +1114,19 @@ bool StartSubprocess(const Path& path, const std::vector<const wchar_t*>& args,
 
   // Duplicate stdout's handle, and pass it to the tee thread, who will own it
   // and close it in the end.
-  bazel::windows::AutoHandle stdout_dup;
+  HANDLE stdout_dup_h;
   if (!DuplicateHandle(GetCurrentProcess(), GetStdHandle(STD_OUTPUT_HANDLE),
-                       GetCurrentProcess(), stdout_dup.GetPtr(), 0, FALSE,
+                       GetCurrentProcess(), &stdout_dup_h, 0, FALSE,
                        DUPLICATE_SAME_ACCESS)) {
     DWORD err = GetLastError();
     LogErrorWithValue(__LINE__, "DuplicateHandle", err);
     return false;
   }
+  bazel::windows::AutoHandle stdout_dup(stdout_dup_h);
 
   // Create the tee thread, and transfer ownerships of the `pipe_read`,
   // `test_outerr`, and `stdout_dup` handles.
-  if (!TeeImpl::Create(pipe_read.Release(), test_outerr.Release(),
-                       stdout_dup.Release(), tee)) {
+  if (!TeeImpl::Create(&pipe_read, &test_outerr, &stdout_dup, tee)) {
     LogError(__LINE__);
     return false;
   }
@@ -1212,7 +1226,7 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
   }
 
   bazel::windows::AutoHandle handle;
-  if (!OpenFileForWriting(output, handle.GetPtr())) {
+  if (!OpenFileForWriting(output, &handle)) {
     LogError(__LINE__, (std::wstring(L"Failed to open for writing \"") +
                         output.Get() + L"\"")
                            .c_str());
@@ -1267,7 +1281,9 @@ bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
   return true;
 }
 
-bool TeeImpl::Create(HANDLE input, HANDLE output1, HANDLE output2,
+bool TeeImpl::Create(bazel::windows::AutoHandle* input,
+                     bazel::windows::AutoHandle* output1,
+                     bazel::windows::AutoHandle* output2,
                      std::unique_ptr<Tee>* result) {
   std::unique_ptr<TeeImpl> tee(new TeeImpl(input, output1, output2));
   bazel::windows::AutoHandle thread(
@@ -1544,13 +1560,13 @@ bool TestOnly_CreateUndeclaredOutputsAnnotations(
 }
 
 bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result) {
-  return WcsToAcp(
-      AsMixedPath(bazel::windows::HasUncPrefix(path.c_str()) ? path.substr(4)
-                                                             : path),
-      result);
+  Path p;
+  return p.Set(path) && WcsToAcp(AsMixedPath(RemoveUncPrefixMaybe(p)), result);
 }
 
-bool TestOnly_CreateTee(HANDLE input, HANDLE output1, HANDLE output2,
+bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
+                        bazel::windows::AutoHandle* output1,
+                        bazel::windows::AutoHandle* output2,
                         std::unique_ptr<Tee>* result) {
   return TeeImpl::Create(input, output1, output2, result);
 }

@@ -30,7 +30,11 @@ using std::wstring;
 // closed with FindClose (otherwise they aren't closed properly).
 class AutoHandle {
  public:
-  AutoHandle(HANDLE handle = INVALID_HANDLE_VALUE) : handle_(handle) {}
+  explicit AutoHandle(HANDLE handle = INVALID_HANDLE_VALUE) : handle_(handle) {}
+  AutoHandle(const AutoHandle&) = delete;
+  AutoHandle(AutoHandle&& other) = delete;
+  AutoHandle& operator=(const AutoHandle&) = delete;
+  AutoHandle& operator=(AutoHandle&& other) = delete;
 
   ~AutoHandle() {
     if (IsValid()) {
@@ -38,10 +42,8 @@ class AutoHandle {
     }
   }
 
-  HANDLE Release() {
-    HANDLE h = handle_;
-    handle_ = INVALID_HANDLE_VALUE;
-    return h;
+  AutoHandle(AutoHandle* other) : handle_(other->handle_) {
+    other->handle_ = INVALID_HANDLE_VALUE;
   }
 
   bool IsValid() const {
@@ -55,8 +57,6 @@ class AutoHandle {
     handle_ = rhs;
     return *this;
   }
-
-  HANDLE* GetPtr() { return &handle_; }
 
   operator HANDLE() const { return handle_; }
 

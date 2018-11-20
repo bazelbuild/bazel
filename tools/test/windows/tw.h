@@ -20,6 +20,11 @@
 #include <vector>
 
 namespace bazel {
+
+namespace windows {
+class AutoHandle;
+}  // namespace windows
+
 namespace tools {
 namespace test_wrapper {
 
@@ -146,8 +151,9 @@ bool TestOnly_CreateUndeclaredOutputsAnnotations(
 bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result);
 
 // Creates a Tee object. See the Tee class declaration for more info.
-bool TestOnly_CreateTee(void* /* HANDLE */ input, void* /* HANDLE */ output1,
-                        void* /* HANDLE */ output2,
+bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
+                        bazel::windows::AutoHandle* output1,
+                        bazel::windows::AutoHandle* output2,
                         std::unique_ptr<Tee>* result);
 
 bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const size_t size,
