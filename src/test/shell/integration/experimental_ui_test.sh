@@ -479,6 +479,7 @@ function test_error_message_despite_output_limit {
     bazel version
     bazel build --experimental_ui --curses=yes --color=yes \
           --experimental_ui_limit_console_output=10240 \
+          --noexperimental_ui_deduplicate \
           pkg/errorAfterWarning:failing >"${TEST_log}" 2>&1 \
         && fail "expected failure" || :
     expect_log 'This is the error message'
