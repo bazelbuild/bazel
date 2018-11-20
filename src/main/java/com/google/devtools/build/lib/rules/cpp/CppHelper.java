@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.CcModule.NonCcDepInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -853,6 +854,21 @@ public class CppHelper {
       if (dep.getProvider(ProtoSourcesProvider.class) != null && dep.get(CcInfo.PROVIDER) == null) {
         ruleContext.attributeError("deps",
             String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
+      }
+    }
+  }
+
+  /**
+   * TODO(b/77669139): Wrap C++ providers for rules that shouldn't be in deps.
+   *
+   * @param ruleContext
+   */
+  public static void checkAllowedDeps(RuleContext ruleContext) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+      if (dep.get(CcInfo.PROVIDER) != null && dep.get(NonCcDepInfo.PROVIDER) != null) {
+        ruleContext.attributeError(
+            "deps",
+            String.format("%s misplaced here as a dependency of a C++ rule", dep.getLabel()));
       }
     }
   }

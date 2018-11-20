@@ -129,9 +129,31 @@ public class CcModule
   }
 
   /**
-   * C++ Skylark rules should have this provider so that native rules can depend on them. This will
-   * eventually go away once b/73921130 is fixed.
+   * In the rule definition of C++ rules, the only requirement that exists now for a target to be
+   * allowed in the list of dependencies is for the target to provide CcInfo. However, there are
+   * several native rules that provide CcInfo which were never intended to be dependencies of C++
+   * rules, e.g.: Java rules. These rules must wrap the C++ provider in a different one, for now we
+   * check in analysis that these rules are not in deps. We mark them by having them provide {@link
+   * NonCcDepInfo}
+   *
+   * <p>TODO(b/77669139): Wrap C++ providers for rules that shouldn't be in deps.
    */
+  @Immutable
+  @AutoCodec
+  public static final class NonCcDepInfo extends NativeInfo {
+    public static final ObjectCodec<CcSkylarkInfo> CODEC = new CcModule_CcSkylarkInfo_AutoCodec();
+
+    public static final NativeProvider<NonCcDepInfo> PROVIDER =
+        new NativeProvider<NonCcDepInfo>(NonCcDepInfo.class, "NonCcDepInfo") {};
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    public NonCcDepInfo() {
+      super(PROVIDER);
+    }
+  }
+
+  /** TODO(b/119754358): Remove this provider after all Skylark rules have stopped using it. */
   @Immutable
   @AutoCodec
   public static final class CcSkylarkInfo extends NativeInfo implements CcSkylarkInfoApi {

@@ -115,6 +115,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean linkStatic,
       boolean addDynamicRuntimeInputArtifactsToRunfiles)
       throws RuleErrorException, InterruptedException {
+    CppHelper.checkAllowedDeps(ruleContext);
+
     final CcCommon common = new CcCommon(ruleContext);
 
     CcToolchainProvider ccToolchain = common.getToolchain();
