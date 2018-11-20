@@ -679,21 +679,6 @@ public class CppOptions extends FragmentOptions {
   public boolean strictSystemIncludes;
 
   @Option(
-      name = "incompatible_disable_cc_configuration_make_variables",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If enabled, the C++ configuration fragment supplies Make variables. This option "
-              + "is used in the migration to remove them in favor of requiring an explicit "
-              + "dependency on the C++ toolchain for rules that use them.")
-  public boolean disableMakeVariables;
-
-  @Option(
     name = "experimental_use_llvm_covmap",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -850,8 +835,6 @@ public class CppOptions extends FragmentOptions {
     } else {
       host.crosstoolTop = hostCrosstoolTop;
     }
-
-    host.disableMakeVariables = disableMakeVariables;
 
     // hostLibcTop doesn't default to the target's libcTop.
     // Only an explicit command-line option will change it.

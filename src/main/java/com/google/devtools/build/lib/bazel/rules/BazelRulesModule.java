@@ -41,6 +41,19 @@ public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
     @Option(
+        name = "incompatible_disable_cc_configuration_make_variables",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED,
+        },
+        help = "Deprecated no-op.")
+    public boolean disableMakeVariables;
+
+    @Option(
         name = "incompatible_disable_legacy_flags_cc_toolchain_api",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

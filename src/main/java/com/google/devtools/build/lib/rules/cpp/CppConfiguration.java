@@ -414,18 +414,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return ltobackendOptions;
   }
 
-  /**
-   * Returns a map of additional make variables for use by {@link
-   * BuildConfiguration}. These are to used to allow some build rules to
-   * avoid the limits on stack frame sizes and variable-length arrays.
-   *
-   * <p>The returned map must contain an entry for {@code STACK_FRAME_UNLIMITED},
-   * though the entry may be an empty string.
-   */
-  public ImmutableMap<String, String> getAdditionalMakeVariables() {
-    return cppToolchainInfo.getAdditionalMakeVariables();
-  }
-
   @SkylarkCallable(
       name = "minimum_os_version",
       doc = "The minimum OS version for C/C++ compilation.")
@@ -644,27 +632,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   @Override
-  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    if (cppOptions.disableMakeVariables) {
-      return;
-    }
-
-    if (!shouldProvideMakeVariables) {
-      return;
-    }
-    globalMakeEnvBuilder.putAll(
-        CcToolchainProvider.getCppBuildVariables(
-            this::getToolPathFragment,
-            cppToolchainInfo.getTargetLibc(),
-            cppToolchainInfo.getCompiler(),
-            desiredCpu,
-            crosstoolTopPathFragment,
-            cppToolchainInfo.getAbiGlibcVersion(),
-            cppToolchainInfo.getAbi(),
-            getAdditionalMakeVariables()));
-  }
-
-  @Override
   public String getOutputDirectoryName() {
     String toolchainPrefix = desiredCpu;
     if (!cppOptions.outputDirectoryTag.isEmpty()) {
@@ -723,10 +690,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean disableLinkingModeFlags() {
     return cppOptions.disableLinkingModeFlags;
-  }
-
-  public boolean disableMakeVariables() {
-    return cppOptions.disableMakeVariables;
   }
 
   public boolean disableCcToolchainFromCrosstool() {

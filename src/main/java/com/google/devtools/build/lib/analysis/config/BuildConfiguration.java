@@ -138,13 +138,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     }
 
     /**
-     * Adds mapping of names to values of "Make" variables defined by this configuration.
-     */
-    @SuppressWarnings("unused")
-    public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    }
-
-    /**
      * Returns a fragment of the output directory name for this configuration. The output
      * directory for the whole configuration contains all the short names by all fragments.
      */
@@ -1302,9 +1295,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
         TransitiveOptionDetails.forOptionsWithDefaults(buildOptions.getNativeOptions());
 
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
-    for (Fragment fragment : fragments.values()) {
-      fragment.addGlobalMakeVariables(globalMakeEnvBuilder);
-    }
 
     // TODO(configurability-team): Deprecate TARGET_CPU in favor of platforms.
     globalMakeEnvBuilder.put("TARGET_CPU", options.cpu);
