@@ -14,15 +14,12 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -32,12 +29,10 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
@@ -48,7 +43,6 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsParser;
-import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -668,25 +662,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "    },",
         ")");
     update();
-  }
-
-  private void assertNumberOfAnalyzedConfigurationsOfTargets(
-      Map<String, Integer> targetsWithCounts) {
-    ImmutableMultiset<Label> actualSet =
-        getSkyframeEvaluatedTargetKeys().stream()
-            .filter(key -> key instanceof ConfiguredTargetKey)
-            .map(key -> ((ConfiguredTargetKey) key).getLabel())
-            .collect(toImmutableMultiset());
-    ImmutableMap<Label, Integer> expected =
-        targetsWithCounts.entrySet().stream()
-            .collect(
-                toImmutableMap(
-                    entry -> Label.parseAbsoluteUnchecked(entry.getKey()),
-                    entry -> entry.getValue()));
-    ImmutableMap<Label, Integer> actual =
-        expected.keySet().stream()
-            .collect(toImmutableMap(label -> label, label -> actualSet.count(label)));
-    assertThat(actual).containsExactlyEntriesIn(expected);
   }
 
   @Test
