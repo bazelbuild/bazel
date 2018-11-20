@@ -133,16 +133,20 @@ std::wstring CstringToWstring(const std::string &input);
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 // Convert UTF-16 string to ASCII (using the Active Code Page).
-bool WcsToAcp(const std::wstring &input, std::string *output, uint32_t *error);
+bool WcsToAcp(const std::wstring &input, std::string *output,
+              uint32_t *error = nullptr);
 
 // Convert UTF-16 string to UTF-8.
-bool WcsToUtf8(const std::wstring &input, std::string *output, uint32_t *error);
+bool WcsToUtf8(const std::wstring &input, std::string *output,
+               uint32_t *error = nullptr);
 
 // Convert ASCII string (using the Active Code Page) to UTF-16 string.
-bool AcpToWcs(const std::string &input, std::wstring *output, uint32_t *error);
+bool AcpToWcs(const std::string &input, std::wstring *output,
+              uint32_t *error = nullptr);
 
 // Convert UTF-8 string to UTF-16.
-bool Utf8ToWcs(const std::string &input, std::wstring *output, uint32_t *error);
+bool Utf8ToWcs(const std::string &input, std::wstring *output,
+               uint32_t *error = nullptr);
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze_util
