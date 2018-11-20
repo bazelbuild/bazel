@@ -29,6 +29,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/** Unit tests for {@code proto_library}. */
 @RunWith(JUnit4.class)
 public class BazelProtoLibraryTest extends BuildViewTestCase {
 
@@ -253,10 +254,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ProtoSourcesProvider sourcesProvider = protoTarget.getProvider(ProtoSourcesProvider.class);
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots()).containsExactly("x/foo");
 
-    SupportData supportData =
-        protoTarget.getProvider(ProtoSupportDataProvider.class).getSupportData();
-    assertThat(supportData.getTransitiveProtoPathFlags()).containsExactly("x/foo");
-
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:nodeps"))
         .getRemainingArguments())
         .contains("--proto_path=x/foo");
@@ -306,10 +303,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ProtoSourcesProvider sourcesProvider = protoTarget.getProvider(ProtoSourcesProvider.class);
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots()).containsExactly("x/foo");
 
-    SupportData supportData =
-        protoTarget.getProvider(ProtoSupportDataProvider.class).getSupportData();
-    assertThat(supportData.getTransitiveProtoPathFlags()).containsExactly("x/foo");
-
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:withdeps"))
         .getRemainingArguments())
         .contains("--proto_path=x/foo");
@@ -342,12 +335,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
     ProtoSourcesProvider sourcesProvider = protoTarget.getProvider(ProtoSourcesProvider.class);
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots()).containsExactly("x/foo", "x/bar");
-
-    SupportData supportData =
-        protoTarget.getProvider(ProtoSupportDataProvider.class).getSupportData();
-    assertThat(supportData.getTransitiveProtoPathFlags())
-        .containsExactly("x/foo", "x/bar");
-
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:withdeps"))
         .getRemainingArguments())
         .containsAllOf("--proto_path=x/foo", "--proto_path=x/bar");
