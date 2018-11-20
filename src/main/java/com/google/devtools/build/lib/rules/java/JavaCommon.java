@@ -610,7 +610,8 @@ public class JavaCommon {
           JavaHelper.getJavaResourcePath(semantics, ruleContext, resource), resource);
     }
 
-    if (ruleContext.attributes().has("resource_jars", BuildType.LABEL_LIST)) {
+    if (ruleContext.attributes().has("resource_jars", BuildType.LABEL_LIST)
+        && ruleContext.getRule().isAttributeValueExplicitlySpecified("resource_jars")) {
       if (ruleContext.getFragment(JavaConfiguration.class).disallowResourceJars()) {
         ruleContext.attributeError(
             "resource_jars",
