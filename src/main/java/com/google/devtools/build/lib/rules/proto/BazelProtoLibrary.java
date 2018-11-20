@@ -55,18 +55,6 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
     NestedSet<String> protoPathFlags =
         ProtoCommon.collectTransitiveProtoPathFlags(ruleContext, protoSourceRoot);
 
-    final SupportData supportData =
-        SupportData.create(
-            protoSources,
-            protosInDirectDeps,
-            transitiveImports,
-            protoPathFlags,
-            protoSourceRoot,
-            directProtoSourceRoots,
-            !protoSources.isEmpty(),
-            protosInExports,
-            exportedProtoSourceRoots);
-
     Artifact descriptorSetOutput =
         ruleContext.getGenfilesArtifact(
             ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
@@ -112,7 +100,6 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, descriptorSetOutput))
         .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
         .addProvider(ProtoSourcesProvider.class, sourcesProvider)
-        .addProvider(ProtoSupportDataProvider.class, new ProtoSupportDataProvider(supportData))
         .addSkylarkTransitiveInfo(ProtoSourcesProvider.SKYLARK_NAME, sourcesProvider)
         .build();
   }
