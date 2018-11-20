@@ -710,64 +710,6 @@ public class CppOptions extends FragmentOptions {
   public boolean useLLVMCoverageMapFormat;
 
   @Option(
-      name = "incompatible_enable_legacy_cpp_toolchain_skylark_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "Do not use this flag. Use --incompatible_disable_legacy_cpp_toolchain_skylark_api "
-              + "instead.")
-  public boolean enableLegacyToolchainSkylarkApi;
-
-  @Option(
-      name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "Flag for disabling access to the C++ toolchain API through the ctx.fragments.cpp.")
-  public boolean disableLegacyToolchainSkylarkApi;
-
-  @Option(
-      name = "experimental_disable_legacy_cc_linking_api",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, C++ Starlark API exposing linking flags will be disabled.")
-  public boolean disableLegacyLinkingApi;
-
-  @Option(
-      name = "experimental_disable_legacy_cc_compilation_api",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, C++ Starlark API exposing compilation flags will be disabled.")
-  public boolean disableLegacyCompilationApi;
-
-  @Option(
-      name = "incompatible_disable_legacy_flags_cc_toolchain_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
-              + "CROSSTOOL fields.")
-  public boolean disableLegacyFlagsCcToolchainApi;
-
-  @Option(
       name = "experimental_disable_linking_mode_flags",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -938,7 +880,6 @@ public class CppOptions extends FragmentOptions {
     host.fdoProfileLabel = null;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
-    host.disableLegacyToolchainSkylarkApi = disableLegacyToolchainSkylarkApi;
     host.disableSysrootFromConfiguration = disableSysrootFromConfiguration;
 
     return host;

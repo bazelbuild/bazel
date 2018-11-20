@@ -420,7 +420,7 @@ public class CppLinkActionBuilder {
 
   private List<String> getLtoBackendCommandLineOptions() {
     List<String> argv = new ArrayList<>();
-    argv.addAll(toolchain.getLinkOptions());
+    argv.addAll(cppConfiguration.getLinkopts());
     argv.addAll(toolchain.getLegacyCompileOptionsWithCopts());
     argv.addAll(cppConfiguration.getLtoBackendOptions());
     return argv;
@@ -839,7 +839,7 @@ public class CppLinkActionBuilder {
         userLinkFlags =
             ImmutableList.<String>builder()
                 .addAll(linkopts)
-                .addAll(toolchain.getLinkOptions())
+                .addAll(cppConfiguration.getLinkopts())
                 .build();
       } else {
         userLinkFlags = ImmutableList.copyOf(linkopts);

@@ -40,6 +40,47 @@ import java.io.IOException;
 public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
+    @Option(
+        name = "incompatible_disable_legacy_flags_cc_toolchain_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED
+        },
+        help =
+            "Flag for disabling the legacy cc_toolchain Skylark API for accessing legacy "
+                + "CROSSTOOL fields.")
+    public boolean disableLegacyFlagsCcToolchainApi;
+
+    @Option(
+        name = "incompatible_enable_legacy_cpp_toolchain_skylark_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED
+        },
+        help = "Obsolete, no effect.")
+    public boolean enableLegacyToolchainSkylarkApi;
+
+    @Option(
+        name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED
+        },
+        help = "Obsolete, no effect.")
+    public boolean disableLegacyToolchainSkylarkApi;
+
     @Deprecated
     @Option(
         name = "direct_run",

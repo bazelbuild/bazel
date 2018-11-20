@@ -167,13 +167,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     // Need to clear out the android cpu options to avoid this split transition in Bazel.
     CppConfiguration toolchain =
-        create(
-            loader,
-            "--cpu=k8",
-            "--host_cpu=k8",
-            "--android_cpu=",
-            "--fat_apk_cpu=",
-            "--noincompatible_disable_legacy_flags_cc_toolchain_api");
+        create(loader, "--cpu=k8", "--host_cpu=k8", "--android_cpu=", "--fat_apk_cpu=");
     CcToolchainProvider ccProvider = getCcToolchainProvider(toolchain);
     assertThat(toolchain.getToolchainIdentifier()).isEqualTo("toolchain-identifier");
 
@@ -202,13 +196,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProvider.getLegacyCompileOptionsWithCopts())
         .containsExactly("c", "fastbuild")
         .inOrder();
-    assertThat(toolchain.getCOptions()).isEmpty();
-    assertThat(ccProvider.getCxxOptionsWithCopts())
-        .containsExactly("cxx", "cxx-fastbuild")
-        .inOrder();
     assertThat(ccProvider.getUnfilteredCompilerOptions()).containsExactly("unfiltered").inOrder();
 
-    assertThat(ccProvider.getLinkOptions()).isEmpty();
     assertThat(CppHelper.getFullyStaticLinkOptions(toolchain, ccProvider, false))
         .containsExactly("linker", "linker-fastbuild", "fully static")
         .inOrder();
@@ -447,13 +436,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     // Need to clear out the android cpu options to avoid this split transition in Bazel.
     CppConfiguration toolchainA =
-        create(
-            loader,
-            "--cpu=k8",
-            "--host_cpu=k8",
-            "--android_cpu=",
-            "--fat_apk_cpu=",
-            "--noincompatible_disable_legacy_flags_cc_toolchain_api");
+        create(loader, "--cpu=k8", "--host_cpu=k8", "--android_cpu=", "--fat_apk_cpu=");
     ConfiguredTarget ccToolchainA = getCcToolchainTarget(toolchainA);
     CcToolchainProvider ccProviderA =
         (CcToolchainProvider) ccToolchainA.get(ToolchainInfo.PROVIDER);
@@ -486,10 +469,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderA.getLegacyCompileOptionsWithCopts())
         .containsExactly(
             "compiler-flag-A-1", "compiler-flag-A-2", "fastbuild-flag-A-1", "fastbuild-flag-A-2")
-        .inOrder();
-    assertThat(ccProviderA.getCxxOptionsWithCopts())
-        .containsExactly(
-            "cxx-flag-A-1", "cxx-flag-A-2", "cxx-fastbuild-flag-A-1", "cxx-fastbuild-flag-A-2")
         .inOrder();
     assertThat(ccProviderA.getUnfilteredCompilerOptions())
         .containsExactly("unfiltered-flag-A-1", "unfiltered-flag-A-2")
@@ -572,8 +551,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "--cpu=k8",
             "--host_cpu=k8",
             "--android_cpu=",
-            "--fat_apk_cpu=",
-            "--noincompatible_disable_legacy_flags_cc_toolchain_api");
+            "--fat_apk_cpu=");
     CcToolchainProvider ccProviderC = getCcToolchainProvider(toolchainC);
     assertThat(toolchainC.getToolchainIdentifier()).isEqualTo("toolchain-identifier-C");
     assertThat(ccProviderC.getHostSystemName()).isEqualTo("host-system-name-C");
@@ -592,8 +570,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderC.supportsFission()).isFalse();
 
     assertThat(ccProviderC.getLegacyCompileOptionsWithCopts()).isEmpty();
-    assertThat(toolchainC.getCOptions()).isEmpty();
-    assertThat(ccProviderC.getCxxOptionsWithCopts()).isEmpty();
     assertThat(ccProviderC.getUnfilteredCompilerOptions()).isEmpty();
     assertThat(CppHelper.getDynamicLinkOptions(toolchainC, ccProviderC, true)).isEmpty();
     assertThat(

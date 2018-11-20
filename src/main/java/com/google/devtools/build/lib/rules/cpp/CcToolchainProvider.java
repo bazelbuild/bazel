@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -745,14 +744,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.supportsFission();
   }
 
-  @Override
-  // TODO(b/24373706): Remove this method once new C++ toolchain API is available
-  public ImmutableList<String> getUnfilteredCompilerOptionsWithSysroot(
-      Iterable<String> featuresNotUsedAnymore) throws EvalException {
-    cppConfiguration.checkForLegacyCompilationApiAvailability();
-    return toolchainInfo.getUnfilteredCompilerOptions(sysroot);
-  }
-
   public ImmutableList<String> getUnfilteredCompilerOptions() {
     return toolchainInfo.getUnfilteredCompilerOptions(/* sysroot= */ null);
   }
@@ -765,19 +756,6 @@ public final class CcToolchainProvider extends ToolchainInfo
   @Deprecated
   public String getTargetOS() {
     return toolchainInfo.getTargetOS();
-  }
-
-  @Override
-  public ImmutableList<String> getLinkOptionsWithSysroot() throws EvalException {
-    if (cppConfiguration == null) {
-      return ImmutableList.of();
-    }
-    cppConfiguration.checkForLegacyLinkingApiAvailability();
-    return cppConfiguration.getLinkOptionsDoNotUse(sysroot);
-  }
-
-  public ImmutableList<String> getLinkOptions() {
-    return cppConfiguration.getLinkOptionsDoNotUse(/* sysroot= */ null);
   }
 
   /**
@@ -925,105 +903,11 @@ public final class CcToolchainProvider extends ToolchainInfo
     return fdoMode;
   }
 
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   */
-  @Override
-  public ImmutableList<String> getCompilerOptions() throws EvalException {
-    cppConfiguration.checkForLegacyCompilationApiAvailability();
-    return getLegacyCompileOptionsWithCopts();
-  }
-
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   *
-   * <p>Returns the list of additional C-specific options to use for compiling C. These should be go
-   * on the command line after the common options returned by {@link
-   * CcToolchainProvider#getLegacyCompileOptionsWithCopts()}.
-   */
-  @Override
-  public ImmutableList<String> getCOptions() throws EvalException {
-    cppConfiguration.checkForLegacyCompilationApiAvailability();
-    return cppConfiguration.getCOptions();
-  }
-
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   *
-   * <p>Returns the list of additional C++-specific options to use for compiling C++. These should
-   * be on the command line after the common options returned by {@link #getCompilerOptions}.
-   */
-  @Override
-  @Deprecated
-  public ImmutableList<String> getCxxOptionsWithCopts() throws EvalException {
-    cppConfiguration.checkForLegacyCompilationApiAvailability();
-    return ImmutableList.<String>builder()
-        .addAll(getLegacyCxxOptions())
-        .addAll(cppConfiguration.getCxxopts())
-        .build();
-  }
-
   public ImmutableList<String> getLegacyCxxOptions() {
     return ImmutableList.<String>builder()
         .addAll(getToolchainCxxFlags())
         .addAll(getCxxFlagsByCompilationMode().get(cppConfiguration.getCompilationMode()))
         .build();
-  }
-
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   *
-   * <p>Returns the immutable list of linker options for fully statically linked outputs. Does not
-   * include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   */
-  @Override
-  @Deprecated
-  public ImmutableList<String> getFullyStaticLinkOptions(Boolean sharedLib) throws EvalException {
-    cppConfiguration.checkForLegacyLinkingApiAvailability();
-    if (!sharedLib) {
-      throw new EvalException(
-          Location.BUILTIN, "fully_static_link_options is deprecated, new uses are not allowed.");
-    }
-    return CppHelper.getFullyStaticLinkOptions(cppConfiguration, this, sharedLib);
-  }
-
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   *
-   * <p>Returns the immutable list of linker options for mostly statically linked outputs. Does not
-   * include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   */
-  @Override
-  @Deprecated
-  public ImmutableList<String> getMostlyStaticLinkOptions(Boolean sharedLib) throws EvalException {
-    cppConfiguration.checkForLegacyLinkingApiAvailability();
-    return CppHelper.getMostlyStaticLinkOptions(
-        cppConfiguration, this, sharedLib, /* shouldStaticallyLinkCppRuntimes= */ true);
-  }
-
-  /**
-   * WARNING: This method is only added to allow incremental migration of existing users. Please do
-   * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
-   *
-   * <p>Returns the immutable list of linker options for artifacts that are not fully or mostly
-   * statically linked. Does not include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   */
-  @Override
-  @Deprecated
-  public ImmutableList<String> getDynamicLinkOptions(Boolean sharedLib) throws EvalException {
-    cppConfiguration.checkForLegacyLinkingApiAvailability();
-    return CppHelper.getDynamicLinkOptions(cppConfiguration, this, sharedLib);
   }
 
   /**

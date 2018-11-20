@@ -32,12 +32,10 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
@@ -196,19 +194,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   // TODO(b/113849758): Remove once it's not needed for toolchain selection in CppConfiguration.
   private final Label ccToolchainLabel;
-
-  // TODO(kmensah): This is temporary until all the Skylark functions that need this can be removed.
-  private final PathFragment nonConfiguredSysroot;
   private final Label sysrootLabel;
-
-  private final ImmutableList<String> compilerFlags;
-  private final ImmutableList<String> cxxFlags;
-  private final ImmutableList<String> unfilteredCompilerFlags;
   private final ImmutableList<String> conlyopts;
 
-  private final ImmutableList<String> mostlyStaticLinkFlags;
-  private final ImmutableList<String> mostlyStaticSharedLinkFlags;
-  private final ImmutableList<String> dynamicLinkFlags;
   private final ImmutableList<String> copts;
   private final ImmutableList<String> cxxopts;
 
@@ -242,24 +230,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
     CompilationMode compilationMode = params.commonOptions.compilationMode;
 
-    ImmutableList.Builder<String> coptsBuilder =
-        ImmutableList.<String>builder()
-            .addAll(cppToolchainInfo.getCompilerFlags())
-            .addAll(cppToolchainInfo.getCFlagsByCompilationMode().get(compilationMode));
-    if (cppOptions.experimentalOmitfp) {
-      coptsBuilder.add("-fomit-frame-pointer");
-      coptsBuilder.add("-fasynchronous-unwind-tables");
-      coptsBuilder.add("-DNO_FRAME_POINTER");
-    }
-    coptsBuilder.addAll(cppOptions.coptList);
-
-    ImmutableList<String> cxxOpts =
-        ImmutableList.<String>builder()
-            .addAll(cppToolchainInfo.getCxxFlags())
-            .addAll(cppToolchainInfo.getCxxFlagsByCompilationMode().get(compilationMode))
-            .addAll(cppOptions.cxxoptList)
-            .build();
-
     ImmutableList.Builder<String> linkoptsBuilder = ImmutableList.builder();
     linkoptsBuilder.addAll(cppOptions.linkoptList);
     if (cppOptions.experimentalOmitfp) {
@@ -276,18 +246,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         params.fdoPath,
         params.fdoOptimizeLabel,
         params.ccToolchainLabel,
-        params.sysrootLabel == null
-            ? cppToolchainInfo.getDefaultSysroot()
-            : params.sysrootLabel.getPackageFragment(),
         params.sysrootLabel,
-        coptsBuilder.build(),
-        cxxOpts,
-        cppToolchainInfo.getUnfilteredCompilerOptions(/* sysroot= */ null),
         ImmutableList.copyOf(cppOptions.conlyoptList),
-        cppToolchainInfo.configureAllLegacyLinkOptions(compilationMode, LinkingMode.STATIC),
-        cppToolchainInfo.configureAllLegacyLinkOptions(
-            compilationMode, LinkingMode.LEGACY_MOSTLY_STATIC_LIBRARIES),
-        cppToolchainInfo.configureAllLegacyLinkOptions(compilationMode, LinkingMode.DYNAMIC),
         ImmutableList.copyOf(cppOptions.coptList),
         ImmutableList.copyOf(cppOptions.cxxoptList),
         linkoptsBuilder.build(),
@@ -312,15 +272,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       PathFragment fdoPath,
       Label fdoOptimizeLabel,
       Label ccToolchainLabel,
-      PathFragment nonConfiguredSysroot,
       Label sysrootLabel,
-      ImmutableList<String> compilerFlags,
-      ImmutableList<String> cxxFlags,
-      ImmutableList<String> unfilteredCompilerFlags,
       ImmutableList<String> conlyopts,
-      ImmutableList<String> mostlyStaticLinkFlags,
-      ImmutableList<String> mostlyStaticSharedLinkFlags,
-      ImmutableList<String> dynamicLinkFlags,
       ImmutableList<String> copts,
       ImmutableList<String> cxxopts,
       ImmutableList<String> linkopts,
@@ -340,15 +293,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoOptimizeLabel;
     this.ccToolchainLabel = ccToolchainLabel;
-    this.nonConfiguredSysroot = nonConfiguredSysroot;
     this.sysrootLabel = sysrootLabel;
-    this.compilerFlags = compilerFlags;
-    this.cxxFlags = cxxFlags;
-    this.unfilteredCompilerFlags = unfilteredCompilerFlags;
     this.conlyopts = conlyopts;
-    this.mostlyStaticLinkFlags = mostlyStaticLinkFlags;
-    this.mostlyStaticSharedLinkFlags = mostlyStaticSharedLinkFlags;
-    this.dynamicLinkFlags = dynamicLinkFlags;
     this.copts = copts;
     this.cxxopts = cxxopts;
     this.linkopts = linkopts;
@@ -409,45 +355,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   /**
-   * Returns the compiler version string (e.g. "gcc-4.1.1").
-   *
-   * <p>Deprecated: Use {@link CcToolchainProvider#getCompiler()}
-   */
-  // TODO(b/68038647): Remove once make variables are no longer derived from CppConfiguration.
-  @Override
-  @Deprecated
-  public String getCompiler() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    return cppToolchainInfo.getCompiler();
-  }
-
-  /**
-   * Returns the libc version string (e.g. "glibc-2.2.2").
-   *
-   * <p>Deprecated: Use {@link CcToolchainProvider#getTargetLibc()}
-   */
-  // TODO(b/68038647): Remove once make variables are no longer derived from CppConfiguration.
-  @Override
-  @Deprecated
-  public String getTargetLibc() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    return cppToolchainInfo.getTargetLibc();
-  }
-
-  /**
-   * Returns the target architecture using blaze-specific constants (e.g. "piii").
-   *
-   * <p>Deprecated: Use {@link CcToolchainProvider#getTargetCpu()}
-   */
-  // TODO(b/68038647): Remove once skylark callers are migrated.
-  @Override
-  @Deprecated
-  public String getTargetCpu() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    return cppToolchainInfo.getTargetCpu();
-  }
-
-  /**
    * Returns the path fragment that is either absolute or relative to the execution root that can be
    * used to execute the given tool.
    *
@@ -488,168 +395,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return compilationMode;
   }
 
-  @Override
-  @Deprecated
-  public ImmutableList<String> getBuiltInIncludeDirectoriesForSkylark()
-      throws InvalidConfigurationException, EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    return getBuiltInIncludeDirectories(nonConfiguredSysroot)
-            .stream()
-            .map(PathFragment::getPathString)
-            .collect(ImmutableList.toImmutableList());
-  }
-
-  /**
-   * Returns the built-in list of system include paths for the toolchain compiler. All paths in this
-   * list should be relative to the exec directory. They may be absolute if they are also installed
-   * on the remote build nodes or for local compilation.
-   *
-   * <p>TODO(b/64384912): Migrate skylark callers to
-   * CcToolchainProvider#getBuiltinIncludeDirectories and delete this method.
-   */
-  private ImmutableList<PathFragment> getBuiltInIncludeDirectories(PathFragment sysroot)
-      throws InvalidConfigurationException {
-    ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder = ImmutableList.builder();
-    for (String s : cppToolchainInfo.getRawBuiltInIncludeDirectories()) {
-      builtInIncludeDirectoriesBuilder.add(
-          CcToolchainProviderHelper.resolveIncludeDir(s, sysroot, crosstoolTopPathFragment));
-    }
-    return builtInIncludeDirectoriesBuilder.build();
-  }
-
-  /**
-   * Returns the sysroot to be used. If the toolchain compiler does not support
-   * different sysroots, or the sysroot is the same as the default sysroot, then
-   * this method returns <code>null</code>.
-   */
-  @Override
-  @Deprecated
-  public String getSysroot() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    return nonConfiguredSysroot.getPathString();
-  }
-
   public Label getSysrootLabel() {
     return sysrootLabel;
   }
 
-  /**
-   * Returns the default options to use for compiling C, C++, and assembler. This is just the
-   * options that should be used for all three languages. There may be additional C-specific or
-   * C++-specific options that should be used, in addition to the ones returned by this method.
-   *
-   * <p>Deprecated: Use {@link CcToolchainProvider#getLegacyCompileOptionsWithCopts()}
-   */
-  // TODO(b/64384912): Migrate skylark callers and remove.
-  @Override
-  @Deprecated
-  public ImmutableList<String> getCompilerOptions(Iterable<String> featuresNotUsedAnymore)
-    throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    checkForLegacyCompilationApiAvailability();
-    return compilerFlags;
-  }
-
-  /**
-   * Returns the list of additional C-specific options to use for compiling C. These should be go on
-   * the command line after the common options returned by {@link #getCompilerOptions}.
-   */
-  // TODO(b/64384912): Migrate skylark callers and remove.
-  @Override
-  @Deprecated
-  public ImmutableList<String> getCOptionsForSkylark() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    checkForLegacyCompilationApiAvailability();
-    return getCOptions();
-  }
-
-  public ImmutableList<String> getCOptions() {
-    return conlyopts;
-  }
-
-  /**
-   * Returns the list of additional C++-specific options to use for compiling C++. These should be
-   * on the command line after the common options returned by {@link #getCompilerOptions}.
-   *
-   * <p>Deprecated: Use {@link CcToolchainProvider#getCxxOptionsWithCopts}
-   */
-  // TODO(b/64384912): Migrate skylark callers and remove.
-  @Override
-  @Deprecated
-  public ImmutableList<String> getCxxOptions(Iterable<String> featuresNotUsedAnymore)
-    throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    checkForLegacyCompilationApiAvailability();
-    return cxxFlags;
-  }
-
-  /**
-   * Returns the default list of options which cannot be filtered by BUILD rules. These should be
-   * appended to the command line after filtering.
-   *
-   * @deprecated since it uses nonconfigured sysroot. Use {@link
-   *     CcToolchainProvider#getUnfilteredCompilerOptionsWithSysroot(Iterable)} if you *really* need
-   *     to.
-   */
-  // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
-  @Deprecated
-  @Override
-  public ImmutableList<String> getUnfilteredCompilerOptionsWithLegacySysroot(
-      Iterable<String> featuresNotUsedAnymore) throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    checkForLegacyCompilationApiAvailability();
-    return getUnfilteredCompilerOptionsDoNotUse(nonConfiguredSysroot);
-  }
-
-  /**
-   * @deprecated since it hardcodes --sysroot flag. Use {@link
-   *     com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration} instead.
-   */
-  // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
-  @Deprecated
-  ImmutableList<String> getUnfilteredCompilerOptionsDoNotUse(@Nullable PathFragment sysroot)
-    throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    if (sysroot == null) {
-      return unfilteredCompilerFlags;
-    }
-    return ImmutableList.<String>builder()
-        .add("--sysroot=" + sysroot)
-        .addAll(unfilteredCompilerFlags)
-        .build();
-  }
-
-  /**
-   * Returns the set of command-line linker options, including any flags inferred from the
-   * command-line options.
-   *
-   * @see Link
-   * @deprecated since it uses nonconfigured sysroot. Use
-   * {@link CcToolchainProvider#getLinkOptionsWithSysroot()} if you *really* need to.
-   */
-  // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
-  @Deprecated
-  @Override
-  public ImmutableList<String> getLinkOptionsWithLegacySysroot() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    checkForLegacyLinkingApiAvailability();
-    return getLinkOptionsDoNotUse(nonConfiguredSysroot);
-  }
-
-  /**
-   * @deprecated since it hardcodes --sysroot flag. Use
-   * {@link com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration}
-   * instead.
-   */
-  // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
-  @Deprecated
-  ImmutableList<String> getLinkOptionsDoNotUse(@Nullable PathFragment sysroot) {
-    if (sysroot == null) {
-      return linkopts;
-    } else {
-      return ImmutableList.<String>builder().addAll(linkopts).add("--sysroot=" + sysroot).build();
-    }
-  }
 
   public boolean hasSharedLinkOption() {
     return linkopts.contains("-shared");
@@ -666,89 +415,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   /**
-   * Returns the immutable list of linker options for fully statically linked outputs. Does not
-   * include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param featuresNotUsedAnymore
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   *     <p>Deprecated: Use {@link CppHelper#getFullyStaticLinkOptions(CppConfiguration,
-   *     CcToolchainProvider, boolean)}
-   */
-  // TODO(b/64384912): Migrate skylark users to cc_common and remove.
-  @Override
-  @Deprecated
-  public ImmutableList<String> getFullyStaticLinkOptions(
-      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    checkForLegacyLinkingApiAvailability();
-    if (!sharedLib) {
-      throw new EvalException(
-          Location.BUILTIN, "fully_static_link_options is deprecated, new uses are not allowed.");
-    }
-    return getSharedLibraryLinkOptions(mostlyStaticLinkFlags);
-  }
-
-  /**
-   * Returns the immutable list of linker options for mostly statically linked outputs. Does not
-   * include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param featuresNotUsedAnymore
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   *     <p>Deprecated: Use {@link CppHelper#getMostlyStaticLinkOptions( CppConfiguration,
-   *     CcToolchainProvider, boolean, boolean)}
-   */
-  // TODO(b/64384912): Migrate skylark users to cc_common and remove.
-  @Override
-  @Deprecated
-  public ImmutableList<String> getMostlyStaticLinkOptions(
-      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    checkForLegacyLinkingApiAvailability();
-    if (sharedLib) {
-      return getSharedLibraryLinkOptions(
-          cppToolchainInfo.supportsEmbeddedRuntimes()
-              ? mostlyStaticSharedLinkFlags
-              : dynamicLinkFlags);
-    } else {
-      return mostlyStaticLinkFlags;
-    }
-  }
-
-  /**
-   * Returns the immutable list of linker options for artifacts that are not fully or mostly
-   * statically linked. Does not include command-line options passed via --linkopt or --linkopts.
-   *
-   * @param featuresNotUsedAnymore
-   * @param sharedLib true if the output is a shared lib, false if it's an executable
-   *     <p>Deprecated: Use {@link CppHelper#getDynamicLinkOptions(CppConfiguration,
-   *     CcToolchainProvider, Boolean)}
-   */
-  // TODO(b/64384912): Migrate skylark users to cc_common and remove.
-  @Override
-  @Deprecated
-  public ImmutableList<String> getDynamicLinkOptions(
-      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    checkForLegacyLinkingApiAvailability();
-    if (sharedLib) {
-      return getSharedLibraryLinkOptions(dynamicLinkFlags);
-    } else {
-      return dynamicLinkFlags;
-    }
-  }
-
-  /**
-   * Returns link options for the specified flag list, combined with universal options for all
-   * shared libraries (regardless of link staticness).
-   *
-   * <p>Deprecated: Use {@link CcToolchainProvider#getSharedLibraryLinkOptions}
-   */
-  // TODO(b/64384912): Migrate skylark dependants and delete.
-  private ImmutableList<String> getSharedLibraryLinkOptions(ImmutableList<String> flags) {
-    return cppToolchainInfo.getSharedLibraryLinkOptions(flags);
-  }
-
-  /**
    * Returns a map of additional make variables for use by {@link
    * BuildConfiguration}. These are to used to allow some build rules to
    * avoid the limits on stack frame sizes and variable-length arrays.
@@ -758,18 +424,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    */
   public ImmutableMap<String, String> getAdditionalMakeVariables() {
     return cppToolchainInfo.getAdditionalMakeVariables();
-  }
-
-  /**
-   * Returns the execution path to the linker binary to use for this build. Relative paths are
-   * relative to the execution root.
-   */
-  @Override
-  @Deprecated
-  public String getLdExecutableForSkylark() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    PathFragment ldExecutable = getToolPathFragment(CppConfiguration.Tool.LD);
-    return ldExecutable != null ? ldExecutable.getPathString() : "";
   }
 
   @SkylarkCallable(
@@ -915,78 +569,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean getUseInterfaceSharedObjects() {
     return cppOptions.useInterfaceSharedObjects;
-  }
-
-  /**
-   * Returns the path to the GNU binutils 'objcopy' binary to use for this build. (Corresponds to
-   * $(OBJCOPY) in make-dbg.) Relative paths are relative to the execution root.
-   */
-  @Override
-  @Deprecated
-  public String getObjCopyExecutableForSkylark() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    PathFragment objCopyExecutable = getToolPathFragment(Tool.OBJCOPY);
-    return objCopyExecutable != null ? objCopyExecutable.getPathString() : "";
-  }
-
-  @Override
-  @Deprecated
-  public String getCppExecutableForSkylark() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    PathFragment cppExecutable = getToolPathFragment(Tool.GCC);
-    return cppExecutable != null ? cppExecutable.getPathString() : "";
-  }
-
-  @Override
-  @Deprecated
-  public String getCpreprocessorExecutableForSkylark() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    PathFragment cpreprocessorExecutable = getToolPathFragment(Tool.CPP);
-    return cpreprocessorExecutable != null ? cpreprocessorExecutable.getPathString() : "";
-  }
-
-  @Override
-  @Deprecated
-  public String getNmExecutableForSkylark() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    PathFragment nmExecutable = getToolPathFragment(Tool.NM);
-    return nmExecutable != null ? nmExecutable.getPathString() : "";
-  }
-
-  @Override
-  @Deprecated
-  public String getObjdumpExecutableForSkylark() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    PathFragment objdumpExecutable = getToolPathFragment(Tool.OBJDUMP);
-    return objdumpExecutable != null ? objdumpExecutable.getPathString() : "";
-  }
-
-  @Override
-  @Deprecated
-  public String getArExecutableForSkylark() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    PathFragment arExecutable = getToolPathFragment(Tool.AR);
-    return arExecutable != null ? arExecutable.getPathString() : "";
-  }
-
-  @Override
-  @Deprecated
-  public String getStripExecutableForSkylark() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    PathFragment stripExecutable = getToolPathFragment(Tool.STRIP);
-    return stripExecutable != null ? stripExecutable.getPathString() : "";
-  }
-
-  /**
-   * Returns the GNU System Name
-   *
-   */
-  //TODO(b/70225490): Migrate skylark dependants to CcToolchainProvider and delete.
-  @Override
-  @Deprecated
-  public String getTargetGnuSystemName() throws EvalException {
-    checkForToolchainSkylarkApiAvailability();
-    return cppToolchainInfo.getTargetGnuSystemName();
   }
 
   /** Returns whether this configuration will use libunwind for stack unwinding. */
@@ -1171,44 +753,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean disableDepsetInUserFlags() {
     return cppOptions.disableDepsetInUserFlags;
-  }
-
-  private void checkForToolchainSkylarkApiAvailability() throws EvalException {
-    if (cppOptions.disableLegacyToolchainSkylarkApi
-        || !cppOptions.enableLegacyToolchainSkylarkApi) {
-      throw new EvalException(
-          null,
-          "Information about the C++ toolchain API is not accessible "
-              + "anymore through ctx.fragments.cpp "
-              + "(see --incompatible_disable_legacy_cpp_toolchain_skylark_api on "
-              + "http://docs.bazel.build/versions/master/skylark/backward-compatibility.html"
-              + "#disable-legacy-c-configuration-api for migration notes). "
-              + "Use CcToolchainInfo instead.");
-    }
-  }
-
-  public void checkForLegacyCompilationApiAvailability() throws EvalException {
-    if (cppOptions.disableLegacyCompilationApi || cppOptions.disableLegacyFlagsCcToolchainApi) {
-      throw new EvalException(
-          null,
-          "Starlark APIs accessing compilation flags has been removed. "
-              + "Use the new API on cc_common (see "
-              + "--incompatible_disable_legacy_flags_cc_toolchain_api on"
-              + "https://docs.bazel.build/versions/master/skylark/backward-compatibility.html"
-              + "#disable-legacy-c-toolchain-api for migration notes).");
-    }
-  }
-
-  public void checkForLegacyLinkingApiAvailability() throws EvalException {
-    if (cppOptions.disableLegacyLinkingApi || cppOptions.disableLegacyFlagsCcToolchainApi) {
-      throw new EvalException(
-          null,
-          "Starlark APIs accessing linking flags has been removed. "
-              + "Use the new API on cc_common (see "
-              + "--incompatible_disable_legacy_flags_cc_toolchain_api on"
-              + "https://docs.bazel.build/versions/master/skylark/backward-compatibility.html"
-              + "#disable-legacy-c-toolchain-api for migration notes).");
-    }
   }
 
   public static PathFragment computeDefaultSysroot(String builtInSysroot) {

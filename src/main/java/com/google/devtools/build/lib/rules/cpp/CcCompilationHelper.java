@@ -1503,7 +1503,7 @@ public final class CcCompilationHelper {
     flagsBuilder.addAll(config.getCopts());
 
     if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
-      flagsBuilder.addAll(config.getCOptions());
+      flagsBuilder.addAll(config.getConlyopts());
     }
 
     if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
