@@ -13,7 +13,10 @@ title: Site Search
     var s = document.getElementsByTagName('script')[0];
     s.parentNode.insertBefore(gcse, s);
   })();
+
+  // Keep the search term in the search area.
+  var urlParams = new URLSearchParams(window.location.search);
+  document.getElementById('q').value = urlParams.get('q');
 </script>
 
 <gcse:searchresults-only></gcse:searchresults-only>
-
