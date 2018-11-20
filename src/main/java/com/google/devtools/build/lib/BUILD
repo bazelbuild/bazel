@@ -408,12 +408,25 @@ java_library(
 )
 
 java_library(
+    name = "skylark-semantics",
+    srcs = ["syntax/SkylarkSemantics.java"],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "syntax",
-    srcs = glob([
-        "syntax/**/*.java",
-    ]),
+    srcs = glob(
+        [
+            "syntax/**/*.java",
+        ],
+        exclude = ["syntax/SkylarkSemantics.java"],
+    ),
     deps = [
         ":events",
+        ":skylark-semantics",
         ":skylarkinterface",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -464,6 +477,7 @@ java_library(
         ":config-matching-provider",
         ":config-transitions",
         ":events",
+        ":skylark_semantics",
         ":skylarkinterface",
         ":syntax",
         ":transitive-info-provider",
@@ -595,6 +609,7 @@ java_library(
         ":packages-internal",
         ":process_util",
         ":provider-collection",
+        ":skylark_semantics",
         ":skylarkinterface",
         ":syntax",
         ":transitive-info-provider",
@@ -861,6 +876,7 @@ java_library(
         ":maven-connector",
         ":packages-internal",
         ":runtime",
+        ":skylark_semantics",
         ":skylarkinterface",
         ":util",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
