@@ -25,7 +25,11 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
+import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionInputMapSink;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
@@ -70,6 +74,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.IntFunction;
 import javax.annotation.Nullable;
 
 /**
@@ -214,7 +219,28 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     } catch (LostInputsActionExecutionException e) {
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
       stateMap.remove(action);
-      RewindPlan rewindPlan = actionRewindStrategy.getRewindPlan(action, inputDepKeys, e, env);
+
+      // Reconstruct the relationship between lost inputs and this action's direct deps if any of
+      // the lost inputs came from runfiles:
+      ActionInputDepOwners runfilesDepOwners;
+      Set<ActionInput> lostRunfiles = e.getInputOwners().getRunfilesInputsAndOwners();
+      if (!lostRunfiles.isEmpty()) {
+        try {
+          runfilesDepOwners = getInputDepOwners(env, action, inputDeps, lostRunfiles);
+        } catch (ActionExecutionException unexpected) {
+          // getInputDepOwners should not be able to throw, because it does the same work as
+          // checkInputs, so if getInputDepOwners throws then checkInputs should have thrown, and if
+          // checkInputs threw then we shouldn't have reached this point in action execution.
+          throw new IllegalStateException(unexpected);
+        }
+      } else {
+        runfilesDepOwners = ActionInputDepOwners.EMPTY_INSTANCE;
+      }
+
+      // TODO(b/19539699): discovered deps aren't necessarily in inputDepKeys. They're discovered
+      // under checkCacheAndExecuteIfNeeded. Thread them through to here.
+      RewindPlan rewindPlan =
+          actionRewindStrategy.getRewindPlan(action, inputDepKeys, e, runfilesDepOwners, env);
       for (Action actionToRestart : rewindPlan.getActionsToRestart()) {
         skyframeActionExecutor.resetActionExecution(actionToRestart);
       }
@@ -559,7 +585,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         // execution, and found some new ones, but the new ones were already present in the graph.
         // We must therefore cache the metadata for those new ones.
         for (Map.Entry<SkyKey, SkyValue> entry : metadataFoundDuringActionExecution.entrySet()) {
-          state.inputArtifactData.put(
+          state.inputArtifactData.putWithNoDepOwner(
               ArtifactSkyKey.artifact(entry.getKey()), (FileArtifactValue) entry.getValue());
         }
         // TODO(ulfjack): This causes information loss about omitted and injected outputs. Also see
@@ -620,11 +646,11 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           expandedArtifacts.put(input, ImmutableSet.<Artifact>copyOf(treeValue.getChildren()));
           for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
               treeValue.getChildValues().entrySet()) {
-            inputData.put(child.getKey(), child.getValue());
+            inputData.putWithNoDepOwner(child.getKey(), child.getValue());
           }
-          inputData.put(input, treeValue.getSelfData());
+          inputData.putWithNoDepOwner(input, treeValue.getSelfData());
         } else {
-          inputData.put(input, (FileArtifactValue) entry.getValue());
+          inputData.putWithNoDepOwner(input, (FileArtifactValue) entry.getValue());
         }
       }
     }
@@ -695,6 +721,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
   }
 
+  private interface AccumulateInputResultsFactory<S extends ActionInputMapSink, R> {
+    R create(
+        S actionInputMapSink,
+        Map<Artifact, Collection<Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets);
+  }
+
   /**
    * Declare dependency on all known inputs of action. Throws exception if any are known to be
    * missing. Some inputs may not yet be in the graph, in which case the builder should abort.
@@ -704,6 +737,33 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Action action,
       Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps)
       throws ActionExecutionException, InterruptedException {
+    return accumulateInputs(env, action, inputDeps, ActionInputMap::new, CheckInputResults::new);
+  }
+
+  /**
+   * Reconstructs the relationships between lost inputs and the direct deps responsible for them.
+   */
+  private ActionInputDepOwners getInputDepOwners(
+      Environment env,
+      Action action,
+      Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps,
+      Collection<ActionInput> lostInputs)
+      throws ActionExecutionException, InterruptedException {
+    return accumulateInputs(
+        env,
+        action,
+        inputDeps,
+        ignoredInputDepsSize -> new ActionInputDepOwnerMap(lostInputs),
+        (actionInputMapSink, expandedArtifacts, expandedFilesets) -> actionInputMapSink);
+  }
+
+  private <S extends ActionInputMapSink, R> R accumulateInputs(
+      Environment env,
+      Action action,
+      Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps,
+      IntFunction<S> actionInputMapSinkFactory,
+      AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory)
+      throws ActionExecutionException, InterruptedException {
     int missingCount = 0;
     int actionFailures = 0;
     // Only populate input data if we have the input values, otherwise they'll just go unused.
@@ -712,7 +772,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // some deps are still missing.
     boolean populateInputData = !env.valuesMissing();
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
-    ActionInputMap inputArtifactData = new ActionInputMap(populateInputData ? inputDeps.size() : 0);
+    S inputArtifactData = actionInputMapSinkFactory.apply(populateInputData ? inputDeps.size() : 0);
     Map<Artifact, Collection<Artifact>> expandedArtifacts =
         new HashMap<>(populateInputData ? 128 : 0);
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
@@ -779,7 +839,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           rootCauses.build(),
           /*catastrophe=*/ false);
     }
-    return new CheckInputResults(inputArtifactData, expandedArtifacts, expandedFilesets);
+    return accumulateInputResultsFactory.create(
+        inputArtifactData, expandedArtifacts, expandedFilesets);
   }
 
   private static Iterable<Artifact> filterKnownInputs(

@@ -81,7 +81,7 @@ public class LostInputsExecException extends ExecException {
     @Nullable
     Artifact getOwner(ActionInput input);
 
-    /** Returns the lost {@link ActionInput}s that came from runfiles. */
-    Set<ActionInput> getRunfilesInputs();
+    /** Returns the lost {@link ActionInput}s that came from runfiles along with their owners. */
+    Set<ActionInput> getRunfilesInputsAndOwners();
   }
 }

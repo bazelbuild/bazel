@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  *
  * <p>This class is thread-compatible.
  */
-public final class ActionInputMap implements MetadataProvider {
+public final class ActionInputMap implements MetadataProvider, ActionInputMapSink {
   /** The number of elements contained in this map. */
   int size;
 
@@ -116,8 +116,12 @@ public final class ActionInputMap implements MetadataProvider {
     return size;
   }
 
-  /** @return true if an entry was added, false if the map already contains {@code input} */
-  public boolean put(ActionInput input, FileArtifactValue metadata) {
+  @Override
+  public boolean put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner) {
+    return putWithNoDepOwner(input, metadata);
+  }
+
+  public boolean putWithNoDepOwner(ActionInput input, FileArtifactValue metadata) {
     Preconditions.checkNotNull(input);
     if (size >= keys.length) {
       resize();
