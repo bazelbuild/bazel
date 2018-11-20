@@ -27,7 +27,6 @@
 #include <shlobj.h>        // SHGetKnownFolderPath
 
 #include <algorithm>
-#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -91,14 +90,16 @@ class WindowsDumper : public Dumper {
 
  private:
   WindowsDumper()
-      : threadpool_(NULL), cleanup_group_(NULL), was_error_(false) {}
+      : threadpool_(NULL), cleanup_group_(NULL) {}
 
   PTP_POOL threadpool_;
   PTP_CLEANUP_GROUP cleanup_group_;
   TP_CALLBACK_ENVIRON threadpool_env_;
+
   std::mutex dir_cache_lock_;
   std::set<string> dir_cache_;
-  std::atomic_bool was_error_;
+
+  std::mutex error_lock_;
   string error_msg_;
 };
 
@@ -108,7 +109,7 @@ class DumpContext {
  public:
   DumpContext(unique_ptr<uint8_t[]> data, const size_t size, const string path,
               std::mutex* dir_cache_lock, std::set<string>* dir_cache,
-              std::atomic_bool* was_error, string* error_msg);
+              std::mutex* error_lock_, string* error_msg);
   void Run();
 
  private:
@@ -117,9 +118,11 @@ class DumpContext {
   unique_ptr<uint8_t[]> data_;
   const size_t size_;
   const string path_;
+
   std::mutex* dir_cache_lock_;
   std::set<string>* dir_cache_;
-  std::atomic_bool* was_error_;
+
+  std::mutex* error_lock_;
   string* error_msg_;
 };
 
@@ -169,27 +172,25 @@ WindowsDumper* WindowsDumper::Create(string* error) {
 
 void WindowsDumper::Dump(const void* data, const size_t size,
                          const string& path) {
-  if (was_error_) {
-    return;
+  {
+    std::lock_guard<std::mutex> g(error_lock_);
+    if (!error_msg_.empty()) {
+      return;
+    }
   }
 
   unique_ptr<uint8_t[]> data_copy(new uint8_t[size]);
   memcpy(data_copy.get(), data, size);
   unique_ptr<DumpContext> ctx(new DumpContext(std::move(data_copy), size, path,
                                               &dir_cache_lock_, &dir_cache_,
-                                              &was_error_, &error_msg_));
+                                              &error_lock_, &error_msg_));
   PTP_WORK w = CreateThreadpoolWork(WorkCallback, ctx.get(), &threadpool_env_);
   if (w == NULL) {
     string err = GetLastErrorString();
-    if (!was_error_.exchange(true)) {
-      // Benign race condition: though we use no locks to access `error_msg_`,
-      // only one thread may ever flip `was_error_` from false to true and enter
-      // the body of this if-clause. Since `was_error_` is the same object as
-      // used by all other threads trying to write to `error_msg_` (see
-      // DumpContext::MaybeSignalError), using it provides adequate mutual
-      // exclusion to write `error_msg_`.
-      error_msg_ = string("WindowsDumper::Dump() couldn't submit work: ") + err;
-    }
+    err = string("WindowsDumper::Dump() couldn't submit work: ") + err;
+
+    std::lock_guard<std::mutex> g(error_lock_);
+    error_msg_ = err;
   } else {
     ctx.release();  // release pointer ownership
     SubmitThreadpoolWork(w);
@@ -205,12 +206,12 @@ bool WindowsDumper::Finish(string* error) {
   CloseThreadpool(threadpool_);
   threadpool_ = NULL;
   cleanup_group_ = NULL;
-  if (was_error_ && error) {
-    // No race condition reading `error_msg_`: all worker threads terminated
-    // by now.
+
+  std::lock_guard<std::mutex> g(error_lock_);
+  if (!error_msg_.empty() && error) {
     *error = error_msg_;
   }
-  return !was_error_;
+  return !error_msg_.empty();
 }
 
 namespace {
@@ -218,13 +219,12 @@ namespace {
 DumpContext::DumpContext(unique_ptr<uint8_t[]> data, const size_t size,
                          const string path, std::mutex* dir_cache_lock,
                          std::set<string>* dir_cache,
-                         std::atomic_bool* was_error, string* error_msg)
+                         std::mutex* error_lock_, string* error_msg)
     : data_(std::move(data)),
       size_(size),
       path_(path),
       dir_cache_lock_(dir_cache_lock),
       dir_cache_(dir_cache),
-      was_error_(was_error),
       error_msg_(error_msg) {}
 
 void DumpContext::Run() {
@@ -253,14 +253,8 @@ void DumpContext::Run() {
 }
 
 void DumpContext::MaybeSignalError(const string& msg) {
-  if (!was_error_->exchange(true)) {
-    // Benign race condition: though we use no locks to access `error_msg_`,
-    // only one thread may ever flip `was_error_` from false to true and enter
-    // the body of this if-clause. Since `was_error_` is the same object as used
-    // by all other threads and by WindowsDumper::Dump(), using it provides
-    // adequate mutual exclusion to write `error_msg_`.
-    *error_msg_ = msg;
-  }
+  std::lock_guard<std::mutex> g(*error_lock_);
+  *error_msg_ = msg;
 }
 
 VOID CALLBACK WorkCallback(_Inout_ PTP_CALLBACK_INSTANCE Instance,
