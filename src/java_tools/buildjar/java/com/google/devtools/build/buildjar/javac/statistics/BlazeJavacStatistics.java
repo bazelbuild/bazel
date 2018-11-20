@@ -16,10 +16,8 @@ package com.google.devtools.build.buildjar.javac.statistics;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.MustBeClosed;
-import com.google.protobuf.Any;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Context.Factory;
 import java.time.Duration;
@@ -68,9 +66,6 @@ public abstract class BlazeJavacStatistics {
         .transitiveClasspathFallback(false);
   }
 
-  public abstract ImmutableMap<TickKey, Any> protoTicks();
-
-  @Deprecated // use protoTicks() instead.
   public abstract ImmutableListMultimap<TickKey, Duration> timingTicks();
 
   public abstract ImmutableListMultimap<String, Duration> errorProneTicks();
@@ -102,9 +97,6 @@ public abstract class BlazeJavacStatistics {
   @AutoValue.Builder
   public abstract static class Builder {
 
-    abstract ImmutableMap.Builder<TickKey, Any> protoTicksBuilder();
-
-    @Deprecated // use protoTicksBuilder() instead
     abstract ImmutableListMultimap.Builder<TickKey, Duration> timingTicksBuilder();
 
     abstract ImmutableListMultimap.Builder<String, Duration> errorProneTicksBuilder();
@@ -124,12 +116,6 @@ public abstract class BlazeJavacStatistics {
 
     public abstract BlazeJavacStatistics build();
 
-    public Builder addTick(TickKey key, Any elapsed) {
-      protoTicksBuilder().put(key, elapsed);
-      return this;
-    }
-
-    @Deprecated // use addTick(key, Any) with a custom proto message.
     public Builder addTick(TickKey key, Duration elapsed) {
       timingTicksBuilder().put(key, elapsed);
       return this;
