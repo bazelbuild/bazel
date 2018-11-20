@@ -460,24 +460,6 @@ public class JavaOptions extends FragmentOptions {
               + "'strict_deps' attribute.")
   public boolean strictDepsJavaProtos;
 
-  // TODO(b/111180047): Remove flag after it's removed from the global .blazerc.
-  @Option(
-      name = "experimental_proto_generated_strict_deps",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public boolean protoGeneratedStrictDeps;
-
-  // TODO(b/111180047): Remove flag after it's removed from the global .blazerc.
-  @Option(
-      name = "experimental_enable_java_proto_exports",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public boolean isJavaProtoExportsEnabled;
-
   @Option(
       name = "experimental_java_header_compilation_disable_javac_fallback",
       defaultValue = "false",
