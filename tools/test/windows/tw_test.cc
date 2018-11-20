@@ -420,15 +420,18 @@ TEST_F(TestWrapperWindowsTest, TestCreateUndeclaredOutputsAnnotations) {
 }
 
 TEST_F(TestWrapperWindowsTest, TestTee) {
-  bazel::windows::AutoHandle read1, write1;
-  bazel::windows::AutoHandle read2, write2;
-  bazel::windows::AutoHandle read3, write3;
-  EXPECT_TRUE(CreatePipe(read1.GetPtr(), write1.GetPtr(), NULL, 0));
-  EXPECT_TRUE(CreatePipe(read2.GetPtr(), write2.GetPtr(), NULL, 0));
-  EXPECT_TRUE(CreatePipe(read3.GetPtr(), write3.GetPtr(), NULL, 0));
+  HANDLE read1_h, write1_h;
+  EXPECT_TRUE(CreatePipe(&read1_h, &write1_h, NULL, 0));
+  bazel::windows::AutoHandle read1(read1_h), write1(write1_h);
+  HANDLE read2_h, write2_h;
+  EXPECT_TRUE(CreatePipe(&read2_h, &write2_h, NULL, 0));
+  bazel::windows::AutoHandle read2(read2_h), write2(write2_h);
+  HANDLE read3_h, write3_h;
+  EXPECT_TRUE(CreatePipe(&read3_h, &write3_h, NULL, 0));
+  bazel::windows::AutoHandle read3(read3_h), write3(write3_h);
 
   std::unique_ptr<bazel::tools::test_wrapper::Tee> tee;
-  EXPECT_TRUE(TestOnly_CreateTee(read1, write2, write3, &tee));
+  EXPECT_TRUE(TestOnly_CreateTee(&read1, &write2, &write3, &tee));
 
   DWORD written, read;
   char content[100];
