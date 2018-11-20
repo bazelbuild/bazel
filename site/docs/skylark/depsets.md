@@ -274,7 +274,7 @@ def create(order):
   a = depset(["a"], order=order)
   b = depset(["b"], transitive = [a], order = order)
   c = depset(["c"], transitive = [a], order = order)
-  d = depset(["d"], transtive = [b, c], order = order)
+  d = depset(["d"], transitive = [b, c], order = order)
   return d
 
 print(create("postorder").to_list())    # ["a", "b", "c", "d"]

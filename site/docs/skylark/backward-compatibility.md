@@ -144,7 +144,7 @@ depset1.union(depset2)  # deprecated
 The recommended solution is to use the `depset` constructor:
 
 ``` python
-depset(transtive = [depset1, depset2])
+depset(transitive = [depset1, depset2])
 ```
 
 See the [`depset documentation`](depsets.md) for more information.
