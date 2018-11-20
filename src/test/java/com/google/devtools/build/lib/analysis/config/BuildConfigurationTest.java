@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -196,58 +195,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
     BuildConfiguration noEnvsConfig = create();
     assertThat(noEnvsConfig.getTargetEnvironments()).isEmpty();
-  }
-
-  @SafeVarargs
-  @SuppressWarnings("unchecked")
-  private final ConfigurationFragmentFactory createMockFragment(
-      final Class<? extends Fragment> creates, final Class<? extends Fragment>... dependsOn) {
-    return new ConfigurationFragmentFactory() {
-
-      @Override
-      public Class<? extends Fragment> creates() {
-        return creates;
-      }
-
-      @Override
-      public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-        return ImmutableSet.of();
-      }
-
-      @Override
-      public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
-          throws InvalidConfigurationException, InterruptedException {
-        for (Class<? extends Fragment> fragmentType : dependsOn) {
-          env.getFragment(buildOptions, fragmentType);
-        }
-        return new Fragment() {};
-      }
-    };
-  }
-
-  @Test
-  public void testCycleInFragments() throws Exception {
-    configurationFragmentFactories = ImmutableList.of(
-        createMockFragment(CppConfiguration.class, JavaConfiguration.class),
-        createMockFragment(JavaConfiguration.class, CppConfiguration.class));
-    try {
-      createCollection();
-      fail();
-    } catch (IllegalStateException e) {
-      // expected
-    }
-  }
-
-  @Test
-  public void testMissingFragment() throws Exception {
-    configurationFragmentFactories = ImmutableList.of(
-        createMockFragment(CppConfiguration.class, JavaConfiguration.class));
-    try {
-      createCollection();
-      fail();
-    } catch (RuntimeException e) {
-      // expected
-    }
   }
 
   @Test
