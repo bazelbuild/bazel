@@ -26,8 +26,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
-import com.google.devtools.build.lib.rules.proto.SupportData;
+import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaProtoCommonApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
@@ -42,8 +41,7 @@ public class JavaProtoSkylarkCommon
       String protoToolchainAttr,
       String flavour)
       throws EvalException {
-    SupportData supportData =
-        checkNotNull(target.getProvider(ProtoSupportDataProvider.class).getSupportData());
+    ProtoSourcesProvider protoProvider = target.getProvider(ProtoSourcesProvider.class);
     ProtoCompileActionBuilder.registerActions(
         skylarkRuleContext.getRuleContext(),
         ImmutableList.of(
@@ -51,11 +49,11 @@ public class JavaProtoSkylarkCommon
                 flavour,
                 getProtoToolchainProvider(skylarkRuleContext, protoToolchainAttr),
                 sourceJar.getExecPathString())),
-        supportData.getDirectProtoSources(),
-        supportData.getTransitiveImports(),
-        supportData.getProtosInDirectDeps(),
-        supportData.getTransitiveProtoPathFlags(),
-        supportData.getDirectProtoSourceRoots(),
+        protoProvider.getDirectProtoSources(),
+        protoProvider.getTransitiveImports(),
+        protoProvider.getProtosInDirectDeps(),
+        protoProvider.getTransitiveProtoSourceRoots(),
+        protoProvider.getDirectProtoSourceRoots(),
         skylarkRuleContext.getLabel(),
         ImmutableList.of(sourceJar),
         "JavaLite",
@@ -64,9 +62,7 @@ public class JavaProtoSkylarkCommon
 
   @Override
   public boolean hasProtoSources(ConfiguredTarget target) {
-    SupportData supportData =
-        checkNotNull(target.getProvider(ProtoSupportDataProvider.class).getSupportData());
-    return supportData.hasProtoSources();
+    return !target.getProvider(ProtoSourcesProvider.class).getDirectProtoSources().isEmpty();
   }
 
   @Override

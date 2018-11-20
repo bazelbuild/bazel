@@ -105,7 +105,8 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             protoSourceRoot,
             directProtoSourceRoots,
             protoPathFlags,
-            protosInExports);
+            protosInExports,
+            exportedProtoSourceRoots);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, descriptorSetOutput))

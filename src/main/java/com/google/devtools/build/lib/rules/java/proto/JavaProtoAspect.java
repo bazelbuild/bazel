@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -51,8 +50,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Toolc
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
-import com.google.devtools.build.lib.rules.proto.SupportData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import javax.annotation.Nullable;
 
@@ -101,14 +98,12 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       return aspect.build();
     }
 
-    // Get SupportData, which is provided by the proto_library rule we attach to.
-    SupportData supportData =
-        checkNotNull(ctadBase.getConfiguredTarget().getProvider(ProtoSupportDataProvider.class))
-            .getSupportData();
+    ProtoSourcesProvider protoProvider =
+        ctadBase.getConfiguredTarget().getProvider(ProtoSourcesProvider.class);
 
     JavaProtoAspectCommon aspectCommon =
         JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
-    Impl impl = new Impl(ruleContext, supportData, aspectCommon, rpcSupport);
+    Impl impl = new Impl(ruleContext, protoProvider, aspectCommon, rpcSupport);
     impl.addProviders(aspect);
     return aspect.build();
   }
@@ -156,7 +151,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
   private static class Impl {
 
     private final RuleContext ruleContext;
-    private final SupportData supportData;
+    private final ProtoSourcesProvider protoProvider;
 
     private final RpcSupport rpcSupport;
     private final JavaProtoAspectCommon aspectCommon;
@@ -174,11 +169,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     Impl(
         RuleContext ruleContext,
-        SupportData supportData,
+        ProtoSourcesProvider protoProvider,
         JavaProtoAspectCommon aspectCommon,
         RpcSupport rpcSupport) {
       this.ruleContext = ruleContext;
-      this.supportData = supportData;
+      this.protoProvider = protoProvider;
       this.rpcSupport = rpcSupport;
       this.aspectCommon = aspectCommon;
       this.javaProtoLibraryAspectProviders =
@@ -275,7 +270,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
      * proto_library.
      */
     private boolean shouldGenerateCode() {
-      if (!supportData.hasProtoSources()) {
+      if (protoProvider.getDirectProtoSources().isEmpty()) {
         return false;
       }
 
@@ -286,7 +281,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
       protoBlackList = new ProtoSourceFileBlacklist(ruleContext, blacklistedProtos.build());
 
-      return protoBlackList.checkSrcs(supportData.getDirectProtoSources(), "java_proto_library");
+      return protoBlackList.checkSrcs(protoProvider.getDirectProtoSources(), "java_proto_library");
     }
 
     private void createProtoCompileAction(Artifact sourceJar) {
@@ -298,17 +293,17 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ProtoCompileActionBuilder.registerActions(
           ruleContext,
           invocations.build(),
-          supportData.getDirectProtoSources(),
-          supportData.getTransitiveImports(),
-          supportData.getProtosInDirectDeps(),
-          supportData.getTransitiveProtoPathFlags(),
-          supportData.getDirectProtoSourceRoots(),
+          protoProvider.getDirectProtoSources(),
+          protoProvider.getTransitiveImports(),
+          protoProvider.getProtosInDirectDeps(),
+          protoProvider.getTransitiveProtoSourceRoots(),
+          protoProvider.getDirectProtoSourceRoots(),
           ruleContext.getLabel(),
           ImmutableList.of(sourceJar),
           "Java (Immutable)",
           rpcSupport.allowServices(ruleContext),
-          supportData.getProtosInExports(),
-          supportData.getExportedProtoSourceRoots());
+          protoProvider.getProtosInExports(),
+          protoProvider.getExportedProtoSourceRoots());
     }
   }
 }

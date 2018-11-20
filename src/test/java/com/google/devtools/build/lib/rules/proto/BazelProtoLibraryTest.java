@@ -354,6 +354,47 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExportedProtoSourceRoots() throws Exception {
+    useConfiguration("--proto_compiler=//proto:compiler");
+    scratch.file("ad/BUILD",
+        "proto_library(name='ad', proto_source_root='ad', srcs=['ad.proto'])");
+    scratch.file("ae/BUILD",
+        "proto_library(name='ae', proto_source_root='ae', srcs=['ae.proto'])");
+    scratch.file("bd/BUILD",
+        "proto_library(name='bd', proto_source_root='bd', srcs=['bd.proto'])");
+    scratch.file("be/BUILD",
+        "proto_library(name='be', proto_source_root='be', srcs=['be.proto'])");
+    scratch.file("a/BUILD",
+        "proto_library(",
+        "    name='a',",
+        "    proto_source_root='a',",
+        "    srcs=['a.proto'],",
+        "    exports=['//ae:ae'],",
+        "    deps=['//ad:ad'])");
+    scratch.file("b/BUILD",
+        "proto_library(",
+        "    name='b',",
+        "    proto_source_root='b',",
+        "    srcs=['b.proto'],",
+        "    exports=['//be:be'],",
+        "    deps=['//bd:bd'])");
+    scratch.file("c/BUILD",
+        "proto_library(",
+        "    name='c',",
+        "    proto_source_root='c',",
+        "    srcs=['c.proto'],",
+        "    exports=['//a:a'],",
+        "    deps=['//b:b'])");
+
+    ConfiguredTarget c = getConfiguredTarget("//c:c");
+    // exported proto source roots should be the source root of the rule and the direct source roots
+    // of its exports and nothing else (not the exports of its exports or the deps of its exports
+    // or the exports of its deps)
+    assertThat(c.getProvider(ProtoSourcesProvider.class).getExportedProtoSourceRoots())
+        .containsExactly("a", "c");
+  }
+
+  @Test
   public void testProtoSourceRoot() throws Exception {
     scratch.file(
         "x/foo/BUILD",

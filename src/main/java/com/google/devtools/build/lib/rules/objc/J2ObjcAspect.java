@@ -75,8 +75,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
-import com.google.devtools.build.lib.rules.proto.SupportData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
@@ -451,12 +449,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         depsArchiveSourceMappingsBuilder.build());
   }
 
-  private static List<Artifact> sourceJarOutputs(RuleContext ruleContext) {
-    return ImmutableList.of(
-        j2ObjcSourceJarTranslatedSourceFiles(ruleContext),
-        j2objcSourceJarTranslatedHeaderFiles(ruleContext));
-  }
-
   private static ImmutableList<String> sourceJarFlags(RuleContext ruleContext) {
     return ImmutableList.of(
         "--output_gen_source_dir",
@@ -485,9 +477,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     Artifact outputDependencyMappingFile = j2ObjcOutputDependencyMappingFile(ruleContext);
     argBuilder.addExecPath("--output_dependency_mapping_file", outputDependencyMappingFile);
 
-    ImmutableList.Builder<Artifact> sourceJarOutputFiles = ImmutableList.builder();
     if (!Iterables.isEmpty(sourceJars)) {
-      sourceJarOutputFiles.addAll(sourceJarOutputs(ruleContext));
       argBuilder.addExecPaths(
           "--src_jars", VectorArg.join(",").each(ImmutableList.copyOf(sourceJars)));
       argBuilder.addAll(sourceJarFlags(ruleContext));
@@ -626,7 +616,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     String genfilesPath = getProtoOutputRoot(ruleContext).getPathString();
 
-    SupportData supportData = base.getProvider(ProtoSupportDataProvider.class).getSupportData();
+    ProtoSourcesProvider protoProvider = base.getProvider(ProtoSourcesProvider.class);
 
     ImmutableList.Builder<ProtoCompileActionBuilder.ToolchainInvocation> invocations =
         ImmutableList.builder();
@@ -636,11 +626,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ProtoCompileActionBuilder.registerActions(
         ruleContext,
         invocations.build(),
-        supportData.getDirectProtoSources(),
-        supportData.getTransitiveImports(),
-        supportData.getProtosInDirectDeps(),
-        supportData.getTransitiveProtoPathFlags(),
-        supportData.getDirectProtoSourceRoots(),
+        protoProvider.getDirectProtoSources(),
+        protoProvider.getTransitiveImports(),
+        protoProvider.getProtosInDirectDeps(),
+        protoProvider.getTransitiveProtoSourceRoots(),
+        protoProvider.getDirectProtoSourceRoots(),
         ruleContext.getLabel(),
         outputs,
         "j2objc",
