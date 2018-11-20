@@ -180,7 +180,7 @@ new_git_repository = repository_rule(
 
 Clones a Git repository, checks out the specified tag, or commit, and
 makes its targets available for binding. Also determine the id of the
-commit actually checked out and its date, and return a dict with paramters
+commit actually checked out and its date, and return a dict with parameters
 that provide a reproducible version of this rule (which a tag not necessarily
 is).
 
@@ -216,7 +216,7 @@ Args:
   shallow_since: an optional date, not after the specified commit; the
     argument is not allowed if a tag is specified (which allows cloning
     with depth 1). Setting such a date close to the specified commit
-    allows for a more shallow clone of the repository, saving bandwith and
+    allows for a more shallow clone of the repository, saving bandwidth and
     wall-clock time.
 
   init_submodules: Whether to clone submodules in the repository.
@@ -240,7 +240,7 @@ git_repository = repository_rule(
 
 Clones a Git repository, checks out the specified tag, or commit, and
 makes its targets available for binding. Also determine the id of the
-commit actually checked out and its date, and return a dict with paramters
+commit actually checked out and its date, and return a dict with parameters
 that provide a reproducible version of this rule (which a tag not necessarily
 is).
 
@@ -263,7 +263,7 @@ Args:
     the specified commit; the argument is not allowed if a tag is specified
     (which allows cloning with depth 1). Setting such a date close to the
     specified commit allows for a more shallow clone of the repository, saving
-    bandwith and wall-clock time.
+    bandwidth and wall-clock time.
 
   strip_prefix: A directory prefix to strip from the extracted files.
 
