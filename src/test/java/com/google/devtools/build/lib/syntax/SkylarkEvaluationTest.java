@@ -1785,7 +1785,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testFunctionCallBadOrdering() throws Exception {
     new SkylarkTest()
         .testIfErrorContains(
-            "name 'foo' is not defined",
+            "global variable 'foo' is referenced before assignment.",
             "def func(): return foo() * 2",
             "x = func()",
             "def foo(): return 2");
@@ -2207,7 +2207,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testListComprehensionsDoNotLeakVariables() throws Exception {
     checkEvalErrorContains(
-        "name 'a' is not defined",
+        // TODO(laurentlb): This happens because the variable gets undefined after the list
+        // comprehension. We should do better.
+        "local variable 'a' is referenced before assignment.",
         "def foo():",
         "  a = 10",
         "  b = [a for a in range(3)]",

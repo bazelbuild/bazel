@@ -105,7 +105,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionDefLocalVariableReferencedBeforeAssignment() throws Exception {
-    checkEvalErrorContains("Variable 'a' is referenced before assignment.",
+    checkEvalErrorContains(
+        "local variable 'a' is referenced before assignment.",
         "a = 1",
         "def func():",
         "  b = a",
@@ -116,7 +117,8 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionDefLocalVariableReferencedInCallBeforeAssignment() throws Exception {
-    checkEvalErrorContains("Variable 'a' is referenced before assignment.",
+    checkEvalErrorContains(
+        "local variable 'a' is referenced before assignment.",
         "def dummy(x):",
         "  pass",
         "a = 1",

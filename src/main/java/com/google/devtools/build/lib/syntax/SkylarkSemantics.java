@@ -231,7 +231,7 @@ public abstract class SkylarkSemantics {
           .incompatibleRangeType(true)
           .incompatibleRemoveNativeGitRepository(true)
           .incompatibleRemoveNativeHttpArchive(true)
-          .incompatibleStaticNameResolution(false)
+          .incompatibleStaticNameResolution(true)
           .incompatibleStricArgumentOrdering(false)
           .incompatibleStringIsNotIterable(false)
           .internalSkylarkFlagTestCanary(false)

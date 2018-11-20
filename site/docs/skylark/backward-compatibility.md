@@ -542,7 +542,7 @@ for background and examples.
 The proposal is not fully implemented yet.
 
 *   Flag: `--incompatible_static_name_resolution`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5637](https://github.com/bazelbuild/bazel/issues/5637)
 
 

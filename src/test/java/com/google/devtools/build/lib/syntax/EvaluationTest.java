@@ -357,8 +357,13 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListComprehensionDefinitionOrder() throws Exception {
-    newTest().testIfErrorContains("name 'y' is not defined",
-        "[x for x in (1, 2) if y for y in (3, 4)]");
+    new BuildTest()
+        .testIfErrorContains("name 'y' is not defined", "[x for x in (1, 2) if y for y in (3, 4)]");
+
+    new SkylarkTest()
+        .testIfErrorContains(
+            "local variable 'y' is referenced before assignment",
+            "[x for x in (1, 2) if y for y in (3, 4)]");
   }
 
   @Test
