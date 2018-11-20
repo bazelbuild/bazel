@@ -274,7 +274,9 @@ public final class BuildResult {
         .toString();
   }
 
-  /** Collection of data for the build tool logs event. */
+  /**
+   * Collection of data for the build tool logs event. See {@link BuildToolLogs} for details.
+   */
   public static final class BuildToolLogCollection {
     private final List<Pair<String, ByteString>> directValues = new ArrayList<>();
     private final List<Pair<String, String>> directUris = new ArrayList<>();

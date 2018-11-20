@@ -360,6 +360,9 @@ public class BuildTool {
             new BuildCompleteEvent(
                 result,
                 ImmutableList.of(BuildEventId.buildToolLogs(), BuildEventId.buildMetrics())));
+    // Post the build tool logs event; the corresponding local files may be contributed from
+    // modules, and this has to happen after posting the BuildCompleteEvent because that's when
+    // modules add their data to the collection.
     env.getEventBus().post(result.getBuildToolLogCollection().freeze().toEvent());
     if (ie != null) {
       if (exitCondition.equals(ExitCode.SUCCESS)) {
