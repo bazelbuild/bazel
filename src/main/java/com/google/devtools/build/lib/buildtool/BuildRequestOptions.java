@@ -410,18 +410,17 @@ public class BuildRequestOptions extends OptionsBase {
       help = "This option is deprecated and has no effect.")
   public boolean discardActionsAfterExecution;
 
+  @Deprecated
   @Option(
       name = "incompatible_use_per_action_file_cache",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "Whether to use the per action file cache. We saw issues with a previous rollout "
-          + "attempt (which we could not track down to a root cause), so we are extra careful now "
-          + "and use a flag to enable the new code path.")
+      help = "Deprecated no-op.")
   public boolean usePerActionFileCache;
 
   /** Converter for jobs: [0, MAX_JOBS] or "auto". */

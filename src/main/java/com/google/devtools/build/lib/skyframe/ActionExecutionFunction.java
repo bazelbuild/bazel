@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsExecException.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MissingDepException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
@@ -469,10 +468,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // This may be recreated if we discover inputs.
     // TODO(shahan): this isn't used when using ActionFileSystem so we can avoid creating some
     // unused objects.
-    MetadataProvider perActionFileCache = skyframeActionExecutor.usePerActionFileCache()
-        ? new PerActionFileCache(
-            state.inputArtifactData, /*missingArtifactsAllowed=*/ action.discoversInputs())
-        : metadataHandler;
     if (action.discoversInputs()) {
       if (state.discoveredInputs == null) {
         try {
@@ -485,7 +480,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           }
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
-                  action, perActionFileCache, metadataHandler, env, state.actionFileSystem);
+                  action, metadataHandler, metadataHandler, env, state.actionFileSystem);
           Preconditions.checkState(
               env.valuesMissing() == (state.discoveredInputs == null),
               "discoverInputs() must return null iff requesting more dependencies.");
@@ -512,10 +507,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
               state.actionFileSystem == null ? new OutputStore() : new MinimalOutputStore());
       // Set the MetadataHandler to accept output information.
       metadataHandler.discardOutputMetadata();
-
-      perActionFileCache = skyframeActionExecutor.usePerActionFileCache()
-          ? new PerActionFileCache(state.inputArtifactData, /*missingArtifactsAllowed=*/ false)
-          : metadataHandler;
     }
 
     // Make sure this is a regular HashMap rather than ImmutableMapBuilder so that we are safe
@@ -550,7 +541,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
     try (ActionExecutionContext actionExecutionContext =
         skyframeActionExecutor.getContext(
-            perActionFileCache,
+            metadataHandler,
             metadataHandler,
             Collections.unmodifiableMap(state.expandedArtifacts),
             expandedFilesets,
