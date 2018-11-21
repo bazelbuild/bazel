@@ -37,8 +37,16 @@ public final class ExecutionPolicy {
     this.locality = locality;
   }
 
+  public boolean canRunRemotelyOnly() {
+    return locality == Locality.REMOTE_ONLY;
+  }
+
   public boolean canRunRemotely() {
     return locality != Locality.LOCAL_ONLY;
+  }
+
+  public boolean canRunLocallyOnly() {
+    return locality == Locality.LOCAL_ONLY;
   }
 
   public boolean canRunLocally() {

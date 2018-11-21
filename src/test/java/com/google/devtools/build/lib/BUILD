@@ -242,6 +242,29 @@ java_test(
 )
 
 java_test(
+    name = "dynamic_test",
+    size = "small",
+    srcs = glob(["dynamic/*.java"]),
+    tags = [
+        "no_windows",
+    ],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        ":actions_testutil",
+        ":foundations_testutil",
+        ":guava_junit_truth",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+    ],
+)
+
+java_test(
     name = "events_test",
     size = "small",
     srcs = glob(["events/*.java"]),
