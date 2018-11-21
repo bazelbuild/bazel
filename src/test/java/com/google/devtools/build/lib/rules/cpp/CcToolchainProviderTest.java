@@ -219,7 +219,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "      target_cpu: \"banana\"",
         "      target_libc: \"banana\"",
         "    \"\"\")");
-
     useConfiguration("--cpu=k8", "--host_cpu=k8");
     CcToolchainProvider ccToolchainProvider =
         (CcToolchainProvider) getConfiguredTarget("//a:a").get(ToolchainInfo.PROVIDER);
@@ -269,7 +268,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "      target_cpu: \"banana\"",
         "      target_libc: \"banana\"",
         "    \"\"\")");
-
+    useConfiguration("--cpu=k8", "--host_cpu=k8");
     ccToolchainProvider =
         (CcToolchainProvider) getConfiguredTarget("//b:a").get(ToolchainInfo.PROVIDER);
     builder = ImmutableMap.builder();

@@ -57,12 +57,10 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       ruleConfiguredTargetBuilder.add(LicensesProvider.class, attributes.getLicensesProvider());
     }
 
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     PlatformConfiguration platformConfig =
         Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
-    if (cppConfiguration.provideCcToolchainInfoFromCcToolchainSuite()
-        && !platformConfig.isToolchainTypeEnabled(
-            CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
+    if (!platformConfig.isToolchainTypeEnabled(
+        CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
       // This is not a platforms-backed build, let's provide CcToolchainAttributesProvider
       // and have cc_toolchain_suite select one of its toolchains and create CcToolchainProvider
       // from its attributes.

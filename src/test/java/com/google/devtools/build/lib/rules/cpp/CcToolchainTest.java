@@ -422,7 +422,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    dynamic_runtime_libs = ['dynamic-runtime-libs-cherry'],",
         "    static_runtime_libs = ['static-runtime-libs-cherry'])");
   }
-  
+
   @Test
   public void testModuleMapAttributeOptional() throws Exception {
     scratchConfiguredTarget(

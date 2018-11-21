@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import java.util.Map;
 
@@ -47,20 +45,6 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    if (!cppConfiguration.provideCcToolchainInfoFromCcToolchainSuite()) {
-      NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
-      for (TransitiveInfoCollection dep : ruleContext.getPrerequisiteMap("toolchains").values()) {
-        CcToolchainProvider provider = (CcToolchainProvider) dep.get(ToolchainInfo.PROVIDER);
-        if (provider != null) {
-          filesToBuild.addTransitive(provider.getCrosstool());
-        }
-      }
-
-      return new RuleConfiguredTargetBuilder(ruleContext)
-          .setFilesToBuild(filesToBuild.build())
-          .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
-          .build();
-    }
 
     String transformedCpu = cppConfiguration.getTransformedCpuFromOptions();
     String compiler = cppConfiguration.getCompilerFromOptions();
