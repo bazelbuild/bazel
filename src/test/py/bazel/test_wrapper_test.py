@@ -495,8 +495,7 @@ class TestWrapperTest(test_base.TestBase):
     stderr_lines = []
     with open(test_xml, 'rt') as f:
       xml_contents = [line.strip() for line in f]
-    for i in xrange(0, len(xml_contents)):
-      line = xml_contents[i]
+    for line in xml_contents:
       if "duration=" in line:
         line = line[line.find('duration="') + len('duration="'):]
         line = line[:line.find('"')]
