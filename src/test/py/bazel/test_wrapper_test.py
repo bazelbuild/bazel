@@ -95,6 +95,14 @@ class TestWrapperTest(test_base.TestBase):
         '    name = "annot_test",',
         '    srcs = ["annot_test.py"],',
         ')',
+        'py_test(',
+        '    name = "xml_test",',
+        '    srcs = ["xml_test.py"],',
+        ')',
+        'py_test(',
+        '    name = "xml2_test",',
+        '    srcs = ["xml2_test.py"],',
+        ')',
     ])
     self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
     self.ScratchFile('foo/failing.bat', ['@exit /B 1'], executable=True)
@@ -210,6 +218,27 @@ class TestWrapperTest(test_base.TestBase):
             '  f.write("Hello d")',
             'with open(os.path.join(dir2, "e.part"), "wt") as f:',
             '  f.write("Hello e")',
+        ],
+        executable=True)
+
+    self.ScratchFile(
+        'foo/xml_test.py', [
+            'from __future__ import print_function',
+            'import time',
+            'import sys',
+            'print("stdout_line_1")',
+            'print("stdout_line_2")',
+            'time.sleep(2)',
+            'print("stderr_line_1", file=sys.stderr)',
+            'print("stderr_line_2", file=sys.stderr)',
+        ],
+        executable=True)
+
+    self.ScratchFile(
+        'foo/xml2_test.py', [
+            'import os',
+            'with open(os.environ.get("XML_OUTPUT_FILE"), "wt") as f:',
+            '  f.write("leave this")'
         ],
         executable=True)
 
@@ -443,6 +472,77 @@ class TestWrapperTest(test_base.TestBase):
 
     self.assertListEqual(annot_content, ['Hello aHello c'])
 
+  def _AssertXmlGeneration(self, flag):
+    exit_code, bazel_testlogs, stderr = self.RunBazel(
+        ['info', 'bazel-testlogs'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_testlogs = bazel_testlogs[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:xml_test',
+        '-t-',
+        '--test_output=errors',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    test_xml = os.path.join(bazel_testlogs, 'foo', 'xml_test', 'test.xml')
+    self.assertTrue(os.path.exists(test_xml))
+    duration = 0
+    xml_contents = []
+    stdout_lines = []
+    stderr_lines = []
+    with open(test_xml, 'rt') as f:
+      xml_contents = [line.strip() for line in f]
+    for line in xml_contents:
+      if 'duration=' in line:
+        line = line[line.find('duration="') + len('duration="'):]
+        line = line[:line.find('"')]
+        duration = int(line)
+      elif 'stdout_line' in line:
+        stdout_lines.append(line)
+      elif 'stderr_line' in line:
+        stderr_lines.append(line)
+    # Since stdout and stderr of the test are redirected to the same file, it's
+    # possible that a line L1 written to stdout before a line L2 written to
+    # stderr is dumped to the file later, i.e. the file will have lines L2 then
+    # L1. It is however true that lines printed to the same stream (stdout or
+    # stderr) have to preserve their ordering, i.e. if line L3 is printed to
+    # stdout after L1, then it must be strictly ordered after L1 (but not
+    # necessarily after L2).
+    # Therefore we only assert partial ordering of lines.
+    if duration <= 1:
+      self._FailWithOutput(xml_contents)
+    if (len(stdout_lines) != 2 or 'stdout_line_1' not in stdout_lines[0] or
+        'stdout_line_2' not in stdout_lines[1]):
+      self._FailWithOutput(xml_contents)
+    if (len(stderr_lines) != 2 or 'stderr_line_1' not in stderr_lines[0] or
+        'stderr_line_2' not in stderr_lines[1]):
+      self._FailWithOutput(xml_contents)
+
+  def _AssertXmlGeneratedByTestIsRetained(self, flag):
+    exit_code, bazel_testlogs, stderr = self.RunBazel(
+        ['info', 'bazel-testlogs'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_testlogs = bazel_testlogs[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:xml2_test',
+        '-t-',
+        '--test_output=errors',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    test_xml = os.path.join(bazel_testlogs, 'foo', 'xml2_test', 'test.xml')
+    self.assertTrue(os.path.exists(test_xml))
+    xml_contents = []
+    with open(test_xml, 'rt') as f:
+      xml_contents = [line.strip() for line in f.readlines()]
+    self.assertListEqual(xml_contents, ['leave this'])
+
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
     flag = '--noincompatible_windows_native_test_wrapper'
@@ -476,6 +576,8 @@ class TestWrapperTest(test_base.TestBase):
         ])
     self._AssertUndeclaredOutputs(flag)
     self._AssertUndeclaredOutputsAnnotations(flag)
+    self._AssertXmlGeneration(flag)
+    self._AssertXmlGeneratedByTestIsRetained(flag)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
@@ -508,6 +610,8 @@ class TestWrapperTest(test_base.TestBase):
         ])
     self._AssertUndeclaredOutputs(flag)
     self._AssertUndeclaredOutputsAnnotations(flag)
+    self._AssertXmlGeneration(flag)
+    self._AssertXmlGeneratedByTestIsRetained(flag)
 
 
 if __name__ == '__main__':
