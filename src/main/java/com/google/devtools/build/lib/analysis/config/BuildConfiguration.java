@@ -860,29 +860,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     )
     public Label autoCpuEnvironmentGroup;
 
-    /** The source of make variables for this configuration. */
-    public enum MakeVariableSource {
-      CONFIGURATION,
-      TOOLCHAIN
-    }
-
-    /** Converter for --make_variables_source. */
-    public static class MakeVariableSourceConverter extends EnumConverter<MakeVariableSource> {
-      public MakeVariableSourceConverter() {
-        super(MakeVariableSource.class, "Make variable source");
-      }
-    }
-
-    @Option(
-      name = "make_variables_source",
-      converter = MakeVariableSourceConverter.class,
-      defaultValue = "configuration",
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN}
-    )
-    public MakeVariableSource makeVariableSource;
-
     /** Values for --experimental_dynamic_configs. */
     public enum ConfigsMode {
       /** Only include the configuration fragments each rule needs. */

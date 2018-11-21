@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -187,7 +186,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   // it here so that the output directory doesn't depend on the CToolchain. When we will eventually
   // verify that the two are the same, we can remove one of desiredCpu and targetCpu.
   private final String desiredCpu;
-  private final PathFragment crosstoolTopPathFragment;
 
   private final PathFragment fdoPath;
   private final Label fdoOptimizeLabel;
@@ -210,18 +208,14 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
 
-  private final boolean shouldProvideMakeVariables;
-
   private final CppToolchainInfo cppToolchainInfo;
 
   static CppConfiguration create(CppConfigurationParameters params)
       throws InvalidConfigurationException {
     CppOptions cppOptions = params.cppOptions;
-    PathFragment crosstoolTopPathFragment =
-        params.crosstoolTop.getPackageIdentifier().getPathUnderExecRoot();
     CppToolchainInfo cppToolchainInfo =
         CppToolchainInfo.create(
-            crosstoolTopPathFragment,
+            params.crosstoolTop.getPackageIdentifier().getPathUnderExecRoot(),
             params.ccToolchainLabel,
             params.ccToolchainConfigInfo,
             cppOptions.disableLegacyCrosstoolFields,
@@ -242,7 +236,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         params.transformedCpu,
         params.compiler,
         Preconditions.checkNotNull(params.commonOptions.cpu),
-        crosstoolTopPathFragment,
         params.fdoPath,
         params.fdoOptimizeLabel,
         params.ccToolchainLabel,
@@ -258,7 +251,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
             || (cppOptions.stripBinaries == StripMode.SOMETIMES
                 && compilationMode == CompilationMode.FASTBUILD)),
         compilationMode,
-        params.commonOptions.makeVariableSource == MakeVariableSource.CONFIGURATION,
         cppToolchainInfo);
   }
 
@@ -268,7 +260,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       String transformedCpuFromOptions,
       String compilerFromOptions,
       String desiredCpu,
-      PathFragment crosstoolTopPathFragment,
       PathFragment fdoPath,
       Label fdoOptimizeLabel,
       Label ccToolchainLabel,
@@ -282,14 +273,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       CppOptions cppOptions,
       boolean stripBinaries,
       CompilationMode compilationMode,
-      boolean shouldProvideMakeVariables,
       CppToolchainInfo cppToolchainInfo) {
     this.crosstoolTop = crosstoolTop;
     this.crosstoolFromCcToolchainProtoAttribute = crosstoolFromCcToolchainProtoAttribute;
     this.transformedCpuFromOptions = transformedCpuFromOptions;
     this.compilerFromOptions = compilerFromOptions;
     this.desiredCpu = desiredCpu;
-    this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoOptimizeLabel;
     this.ccToolchainLabel = ccToolchainLabel;
@@ -303,7 +292,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.cppOptions = cppOptions;
     this.stripBinaries = stripBinaries;
     this.compilationMode = compilationMode;
-    this.shouldProvideMakeVariables = shouldProvideMakeVariables;
     this.cppToolchainInfo = cppToolchainInfo;
   }
 

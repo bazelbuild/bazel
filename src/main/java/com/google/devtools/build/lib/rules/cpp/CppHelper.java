@@ -43,8 +43,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -116,11 +114,9 @@ public class CppHelper {
    */
   public static boolean shouldUseToolchainForMakeVariables(RuleContext ruleContext) {
     Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
-    return (ruleContext.getConfiguration().getOptions().get(Options.class).makeVariableSource
-            == MakeVariableSource.TOOLCHAIN)
-        && (ruleContext
-            .getFragment(PlatformConfiguration.class)
-            .isToolchainTypeEnabled(toolchainType));
+    return ruleContext
+        .getFragment(PlatformConfiguration.class)
+        .isToolchainTypeEnabled(toolchainType);
   }
 
   /**

@@ -54,6 +54,14 @@ public class BazelRulesModule extends BlazeModule {
     public boolean disableMakeVariables;
 
     @Option(
+        name = "make_variables_source",
+        defaultValue = "configuration",
+        metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN})
+    public String makeVariableSource;
+
+    @Option(
         name = "incompatible_disable_legacy_flags_cc_toolchain_api",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

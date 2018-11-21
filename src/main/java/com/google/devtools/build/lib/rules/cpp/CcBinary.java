@@ -241,15 +241,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcCommon common = new CcCommon(ruleContext);
     CcToolchainProvider ccToolchain = common.getToolchain();
 
-    if (CppHelper.shouldUseToolchainForMakeVariables(ruleContext)) {
       ImmutableMap.Builder<String, String> toolchainMakeVariables = ImmutableMap.builder();
       ccToolchain.addGlobalMakeVariables(toolchainMakeVariables);
       ruleContext.initConfigurationMakeVariableContext(
           new MapBackedMakeVariableSupplier(toolchainMakeVariables.build()),
           new CcFlagsSupplier(ruleContext));
-    } else {
-      ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
-    }
+
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
     LinkTargetType linkType =

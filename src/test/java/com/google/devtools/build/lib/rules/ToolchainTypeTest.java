@@ -76,8 +76,7 @@ public class ToolchainTypeTest extends BuildViewTestCase {
             + TestConstants.TOOLS_REPOSITORY
             + "//tools/cpp:toolchain_type",
         "--experimental_platforms=//a:mock-platform",
-        "--extra_toolchains=//a:toolchain_b",
-        "--make_variables_source=toolchain");
+        "--extra_toolchains=//a:toolchain_b");
 
     // for cc_library, cc_binary, and cc_test, we check that $(TARGET_CPU) is a valid Make variable
     ConfiguredTarget cclibrary =
