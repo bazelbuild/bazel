@@ -226,9 +226,11 @@ class TestWrapperTest(test_base.TestBase):
             'from __future__ import print_function',
             'import time',
             'import sys',
-            'print("hello")',
+            'print("stdout_line_1")',
+            'print("stdout_line_2")',
             'time.sleep(2)',
-            'print("world", file=sys.stderr)',
+            'print("stderr_line_1", file=sys.stderr)',
+            'print("stderr_line_2", file=sys.stderr)',
         ],
         executable=True)
 
@@ -489,24 +491,35 @@ class TestWrapperTest(test_base.TestBase):
     self.assertTrue(os.path.exists(test_xml))
     duration = 0
     xml_contents = []
-    hello_found = False
-    world_found = False
+    stdout_lines = []
+    stderr_lines = []
     with open(test_xml, 'rt') as f:
       xml_contents = [line.strip() for line in f]
-    for line in xml_contents:
+    for i in xrange(0, len(xml_contents)):
+      line = xml_contents[i]
       if "duration=" in line:
         line = line[line.find('duration="') + len('duration="'):]
         line = line[:line.find('"')]
         duration = int(line)
-      elif "CDATA" in line and "hello" in line:
-        hello_found = True
-      elif "world" in line:
-        world_found = True
+      elif "stdout_line" in line:
+        stdout_lines.append(line)
+      elif "stderr_line" in line:
+        stderr_lines.append(line)
+    # Since stdout and stderr of the test are redirected to the same file, it's
+    # possible that a line L1 written to stdout before a line L2 written to
+    # stderr is dumped to the file later, i.e. the file will have lines L2 then
+    # L1. It is however true that lines printed to the same stream (stdout or
+    # stderr) have to preserve their ordering, i.e. if line L3 is printed to
+    # stdout after L1, then it must be strictly ordered after L1 (but not
+    # necessarily after L2).
+    # Therefore we only assert partial ordering of lines.
     if duration <= 1:
       self._FailWithOutput(xml_contents)
-    if not hello_found:
+    if (len(stdout_lines) != 2 or 'stdout_line_1' not in stdout_lines[0] or
+        'stdout_line_2' not in stdout_lines[1]):
       self._FailWithOutput(xml_contents)
-    if not world_found:
+    if (len(stderr_lines) != 2 or 'stderr_line_1' not in stderr_lines[0] or
+        'stderr_line_2' not in stderr_lines[1]):
       self._FailWithOutput(xml_contents)
 
   def _AssertXmlGeneratedByTestIsRetained(self, flag):
