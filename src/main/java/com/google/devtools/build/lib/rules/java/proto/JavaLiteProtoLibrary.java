@@ -81,7 +81,8 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders);
-    if (ruleContext.getFragment(JavaConfiguration.class).isJlplStrictDepsEnforced()) {
+    if (ruleContext.getFragment(JavaConfiguration.class).isJlplStrictDepsEnforced()
+        && !ruleContext.getDisabledFeatures().contains("jlpl_strict_deps")) {
       JavaStrictCompilationArgsProvider strictDependencyArgsProviders =
           new JavaStrictCompilationArgsProvider(
               constructJcapFromAspectDeps(
