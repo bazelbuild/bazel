@@ -263,7 +263,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                   aspectCommon.getProtoToolchainProvider(),
                   sourceJar.getExecPathString())),
           protoProvider.getDirectProtoSources(),
-          protoProvider.getTransitiveImports(),
+          protoProvider.getTransitiveProtoSources(),
           protoProvider.getProtosInDirectDeps(),
           protoProvider.getTransitiveProtoSourceRoots(),
           protoProvider.getDirectProtoSourceRoots(),

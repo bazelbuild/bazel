@@ -41,8 +41,8 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
         ProtoCommon.getCheckDepsProtoSources(ruleContext, protoSources);
     ProtoCommon.checkSourceFilesAreInSamePackage(ruleContext);
 
-    NestedSet<Artifact> transitiveImports =
-        ProtoCommon.collectTransitiveImports(ruleContext, protoSources);
+    NestedSet<Artifact> transitiveProtoSources =
+        ProtoCommon.collectTransitiveProtoSources(ruleContext, protoSources);
     NestedSet<Artifact> protosInDirectDeps = ProtoCommon.computeProtosInDirectDeps(ruleContext);
 
     NestedSet<Artifact> protosInExports = ProtoCommon.computeProtosInExportedDeps(ruleContext);
@@ -67,7 +67,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
         ruleContext,
         descriptorSetOutput.getExecPathString(),
         protoSources,
-        transitiveImports,
+        transitiveProtoSources,
         protosInDirectDeps,
         descriptorSetOutput,
         /* allowServices= */ true,
@@ -76,15 +76,14 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
         directProtoSourceRoots);
 
     Runfiles dataRunfiles =
-        ProtoCommon.createDataRunfilesProvider(transitiveImports, ruleContext)
+        ProtoCommon.createDataRunfilesProvider(transitiveProtoSources, ruleContext)
             .addArtifact(descriptorSetOutput)
             .build();
 
     // TODO(bazel-team): this second constructor argument is superfluous and should be removed.
     ProtoSourcesProvider sourcesProvider =
         ProtoSourcesProvider.create(
-            transitiveImports,
-            transitiveImports,
+            transitiveProtoSources,
             protoSources,
             checkDepsProtoSources,
             protosInDirectDeps,

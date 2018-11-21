@@ -39,7 +39,6 @@ public abstract class ProtoSourcesProvider
 
   @AutoCodec.Instantiator
   public static ProtoSourcesProvider create(
-      NestedSet<Artifact> transitiveImports,
       NestedSet<Artifact> transitiveProtoSources,
       ImmutableList<Artifact> directProtoSources,
       NestedSet<Artifact> checkDepsProtoSources,
@@ -52,7 +51,6 @@ public abstract class ProtoSourcesProvider
       @Nullable NestedSet<Artifact> protosInExports,
       NestedSet<String> exportedProtoSourceRoots) {
     return new AutoValue_ProtoSourcesProvider(
-        transitiveImports,
         transitiveProtoSources,
         directProtoSources,
         checkDepsProtoSources,
@@ -66,19 +64,18 @@ public abstract class ProtoSourcesProvider
         exportedProtoSourceRoots);
   }
 
-  /**
-   * Transitive imports including weak dependencies This determines the order of "-I" arguments to
-   * the protocol compiler, and that is probably important
-   */
-  @Override
-  public abstract NestedSet<Artifact> getTransitiveImports();
-
   /** Returns the proto sources for this rule and all its dependent protocol buffer rules. */
   @Override
   // TODO(bazel-team): The difference between transitive imports and transitive proto sources
   // should never be used by Skylark or by an Aspect. One of these two should be removed,
   // preferably soon, before Skylark users start depending on them.
   public abstract NestedSet<Artifact> getTransitiveProtoSources();
+
+  @Deprecated
+  @Override
+  public NestedSet<Artifact> getTransitiveImports() {
+    return getTransitiveProtoSources();
+  }
 
   /** Returns the proto sources from the 'srcs' attribute. */
   @Override

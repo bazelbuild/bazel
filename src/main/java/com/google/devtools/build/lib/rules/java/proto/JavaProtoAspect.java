@@ -294,7 +294,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           ruleContext,
           invocations.build(),
           protoProvider.getDirectProtoSources(),
-          protoProvider.getTransitiveImports(),
+          protoProvider.getTransitiveProtoSources(),
           protoProvider.getProtosInDirectDeps(),
           protoProvider.getTransitiveProtoSourceRoots(),
           protoProvider.getDirectProtoSourceRoots(),

@@ -220,7 +220,8 @@ public class ProtoCompileActionBuilder {
 
   private SpawnAction.Builder createAction() throws MissingPrerequisiteException {
     SpawnAction.Builder result =
-        new SpawnAction.Builder().addTransitiveInputs(protoSourcesProvider.getTransitiveImports());
+        new SpawnAction.Builder()
+            .addTransitiveInputs(protoSourcesProvider.getTransitiveProtoSources());
 
     FilesToRunProvider langPluginTarget = getLangPluginTarget();
     if (langPluginTarget != null) {
@@ -304,7 +305,7 @@ public class ProtoCompileActionBuilder {
         result,
         areDepsStrict ? protoSourcesProvider.getProtosInDirectDeps() : null,
         protoSourcesProvider.getDirectProtoSourceRoots(),
-        protoSourcesProvider.getTransitiveImports());
+        protoSourcesProvider.getTransitiveProtoSources());
 
     if (areDepsStrict) {
       // Note: the %s in the line below is used by proto-compiler. That is, the string we create

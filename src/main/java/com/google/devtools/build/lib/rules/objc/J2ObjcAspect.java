@@ -627,7 +627,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ruleContext,
         invocations.build(),
         protoProvider.getDirectProtoSources(),
-        protoProvider.getTransitiveImports(),
+        protoProvider.getTransitiveProtoSources(),
         protoProvider.getProtosInDirectDeps(),
         protoProvider.getTransitiveProtoSourceRoots(),
         protoProvider.getDirectProtoSourceRoots(),
