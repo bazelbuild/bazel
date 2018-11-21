@@ -40,8 +40,10 @@ java_library(
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/protobuf:desugar_deps_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -56,8 +58,10 @@ java_binary(
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/protobuf:desugar_deps_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -79,7 +83,10 @@ bootstrap_java_binary(
     name = "bootstrap",
     srcs = glob(
         ["**/*.java"],
-        exclude = ["**/SingleJarWorker.java"],
+        exclude = [
+            "Java8DesugarDepsJarEntryFilter.java",
+            "SingleJarWorker.java",
+        ],
     ) + [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip:java-srcs",
     ],
