@@ -488,22 +488,26 @@ class TestWrapperTest(test_base.TestBase):
     test_xml = os.path.join(bazel_testlogs, 'foo', 'xml_test', 'test.xml')
     self.assertTrue(os.path.exists(test_xml))
     duration = 0
+    xml_contents = []
     hello_found = False
     world_found = False
     with open(test_xml, 'rt') as f:
-      for line in f.readlines():
-        line = line.strip()
-        if "duration=" in line:
-          line = line[line.find('duration="') + len('duration="'):]
-          line = line[:line.find('"')]
-          duration = int(line)
-        elif "CDATA" in line and "hello" in line:
-          hello_found = True
-        elif "world" in line:
-          world_found = True
-    self.assertGreater(duration, 1)
-    self.assertTrue(hello_found)
-    self.assertTrue(world_found)
+      xml_contents = [line.strip() for line in f]
+    for line in xml_contents:
+      if "duration=" in line:
+        line = line[line.find('duration="') + len('duration="'):]
+        line = line[:line.find('"')]
+        duration = int(line)
+      elif "CDATA" in line and "hello" in line:
+        hello_found = True
+      elif "world" in line:
+        world_found = True
+    if duration <= 1:
+      self._FailWithOutput(xml_contents)
+    if not hello_found:
+      self._FailWithOutput(xml_contents)
+    if not world_found:
+      self._FailWithOutput(xml_contents)
 
   def _AssertXmlGeneratedByTestIsRetained(self, flag):
     exit_code, bazel_testlogs, stderr = self.RunBazel(
