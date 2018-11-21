@@ -285,7 +285,6 @@ common --show_progress_rate_limit=-1
 # Disable terminal-specific features.
 common --color=no --curses=no
 
-build -j 8
 ${EXTRA_BAZELRC:-}
 EOF
 }
