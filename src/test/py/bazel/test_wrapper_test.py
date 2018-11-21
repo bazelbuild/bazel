@@ -95,6 +95,14 @@ class TestWrapperTest(test_base.TestBase):
         '    name = "annot_test",',
         '    srcs = ["annot_test.py"],',
         ')',
+        'py_test(',
+        '    name = "xml_test",',
+        '    srcs = ["xml_test.py"],',
+        ')',
+        'py_test(',
+        '    name = "xml2_test",',
+        '    srcs = ["xml2_test.py"],',
+        ')',
     ])
     self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
     self.ScratchFile('foo/failing.bat', ['@exit /B 1'], executable=True)
@@ -210,6 +218,25 @@ class TestWrapperTest(test_base.TestBase):
             '  f.write("Hello d")',
             'with open(os.path.join(dir2, "e.part"), "wt") as f:',
             '  f.write("Hello e")',
+        ],
+        executable=True)
+
+    self.ScratchFile(
+        'foo/xml_test.py', [
+            'from __future__ import print_function',
+            'import time',
+            'import sys',
+            'print("hello")',
+            'time.sleep(2)',
+            'print("world", file=sys.stderr)',
+        ],
+        executable=True)
+
+    self.ScratchFile(
+        'foo/xml2_test.py', [
+            'import os',
+            'with open(os.environ.get("XML_OUTPUT_FILE"), "wt") as f:',
+            '  f.write("leave this")'
         ],
         executable=True)
 
@@ -443,6 +470,63 @@ class TestWrapperTest(test_base.TestBase):
 
     self.assertListEqual(annot_content, ['Hello aHello c'])
 
+  def _AssertXmlGeneration(self, flag):
+    exit_code, bazel_testlogs, stderr = self.RunBazel(
+        ['info', 'bazel-testlogs'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_testlogs = bazel_testlogs[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:xml_test',
+        '-t-',
+        '--test_output=errors',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    test_xml = os.path.join(bazel_testlogs, 'foo', 'xml_test', 'test.xml')
+    self.assertTrue(os.path.exists(test_xml))
+    duration = 0
+    hello_found = False
+    world_found = False
+    with open(test_xml, 'rt') as f:
+      for line in f.readlines():
+        line = line.strip()
+        if "duration=" in line:
+          line = line[line.find('duration="') + len('duration="'):]
+          line = line[:line.find('"')]
+          duration = int(line)
+        elif "CDATA" in line and "hello" in line:
+          hello_found = True
+        elif "world" in line:
+          world_found = True
+    self.assertGreater(duration, 1)
+    self.assertTrue(hello_found)
+    self.assertTrue(world_found)
+
+  def _AssertXmlGeneratedByTestIsRetained(self, flag):
+    exit_code, bazel_testlogs, stderr = self.RunBazel(
+        ['info', 'bazel-testlogs'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_testlogs = bazel_testlogs[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:xml2_test',
+        '-t-',
+        '--test_output=errors',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    test_xml = os.path.join(bazel_testlogs, 'foo', 'xml2_test', 'test.xml')
+    self.assertTrue(os.path.exists(test_xml))
+    xml_contents = []
+    with open(test_xml, 'rt') as f:
+      xml_contents = [line.strip() for line in f.readlines()]
+    self.assertListEqual(xml_contents, ["leave this"])
+
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
     flag = '--noincompatible_windows_native_test_wrapper'
@@ -476,6 +560,8 @@ class TestWrapperTest(test_base.TestBase):
         ])
     self._AssertUndeclaredOutputs(flag)
     self._AssertUndeclaredOutputsAnnotations(flag)
+    self._AssertXmlGeneration(flag)
+    self._AssertXmlGeneratedByTestIsRetained(flag)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
@@ -508,6 +594,8 @@ class TestWrapperTest(test_base.TestBase):
         ])
     self._AssertUndeclaredOutputs(flag)
     self._AssertUndeclaredOutputsAnnotations(flag)
+    self._AssertXmlGeneration(flag)
+    self._AssertXmlGeneratedByTestIsRetained(flag)
 
 
 if __name__ == '__main__':
