@@ -38,6 +38,7 @@ using bazel::tools::test_wrapper::FileInfo;
 using bazel::tools::test_wrapper::ZipEntryPaths;
 using bazel::tools::test_wrapper::testing::TestOnly_AsMixedPath;
 using bazel::tools::test_wrapper::testing::TestOnly_CdataEncodeBuffer;
+using bazel::tools::test_wrapper::testing::TestOnly_CdataEscapeAndAppend;
 using bazel::tools::test_wrapper::testing::TestOnly_CreateTee;
 using bazel::tools::test_wrapper::testing::
     TestOnly_CreateUndeclaredOutputsAnnotations;
@@ -459,13 +460,13 @@ TEST_F(TestWrapperWindowsTest, TestTee) {
 
 void AssertCdataEncodeBuffer(
     int line, const std::string& input, const std::string& expected_output,
-    const std::vector<int>& expected_cdata_end_indices) {
+    const std::vector<DWORD>& expected_cdata_end_indices) {
   ASSERT_EQ(input.size(), expected_output.size());
 
   std::unique_ptr<uint8_t[]> mutable_buffer(new uint8_t[input.size()]);
   memcpy(mutable_buffer.get(), input.c_str(), input.size());
 
-  std::vector<uint8_t*> cdata_ends;
+  std::vector<DWORD> cdata_ends;
   EXPECT_TRUE(TestOnly_CdataEncodeBuffer(mutable_buffer.get(), input.size(),
                                          &cdata_ends));
   for (int i = 0; i < input.size(); ++i) {
@@ -473,11 +474,7 @@ void AssertCdataEncodeBuffer(
         << "FAILED(in line " << line << "): mismatch at index " << i;
   }
 
-  std::vector<int> actual_indices;
-  for (const auto& ptr : cdata_ends) {
-    actual_indices.push_back(ptr - mutable_buffer.get());
-  }
-  EXPECT_EQ(actual_indices, expected_cdata_end_indices);
+  EXPECT_EQ(cdata_ends, expected_cdata_end_indices);
 }
 
 TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferCdataEndings) {
@@ -554,6 +551,54 @@ TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferDoubleOctets) {
       "\xBF?"  // ...and 0xBF finishes that sequence
       "x",
       {});
+}
+
+TEST_F(TestWrapperWindowsTest, TestCdataEscapeAndAppend) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+
+  // Create a directory structure to parse.
+  std::wstring root = tmpdir + L"\\tmp" + WLINE;
+  EXPECT_TRUE(CreateDirectoryW(root.c_str(), NULL));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a",
+                                          "AB\xA\xC\xD"
+                                          "]]>"
+                                          "]]]>"
+                                          "\xC0\x80"
+                                          "a"
+                                          "\xED\x9F\xBF"
+                                          "b"
+                                          "\xEF\xBF\xB0"
+                                          "c"
+                                          "\xF7\xB0\x80\x81"
+                                          "d"
+                                          "]]>"));
+
+  ASSERT_TRUE(TestOnly_CdataEscapeAndAppend(root + L"\\a", root + L"\\b"));
+
+  HANDLE h = CreateFileW((root + L"\\b").c_str(), GENERIC_READ,
+                         FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
+                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  ASSERT_NE(h, INVALID_HANDLE_VALUE);
+  char content[200];
+  DWORD read;
+  bool success = ReadFile(h, content, 200, &read, NULL) != FALSE;
+  CloseHandle(h);
+  EXPECT_TRUE(success);
+
+  ASSERT_EQ(std::string(content, read),
+            "AB\xA?\xD"
+            "]]>]]&gt;<![CDATA["
+            "]]]>]]&gt;<![CDATA["
+            "\xC0\x80"
+            "a"
+            "\xED\x9F\xBF"
+            "b"
+            "\xEF\xBF\xB0"
+            "c"
+            "\xF7\xB0\x80\x81"
+            "d"
+            "]]>]]&gt;<![CDATA[");
 }
 
 }  // namespace

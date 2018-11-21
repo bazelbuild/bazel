@@ -146,21 +146,30 @@ void LogError(const int line, const wchar_t* msg) {
 #undef _WSTR_HELPER_1
 }
 
-void LogErrorWithValue(const int line, const char* msg, DWORD error_code) {
-  printf("ERROR(" __FILE__ ":%d) error code: %d (0x%08x): %s\n", line,
-         error_code, error_code, msg);
+void LogErrorWithValue(const int line, const char* msg, DWORD value) {
+  printf("ERROR(" __FILE__ ":%d) value: %d (0x%08x): %s\n", line, value, value,
+         msg);
+}
+
+void LogErrorWithValue(const int line, const wchar_t* msg, DWORD value) {
+#define _WSTR_HELPER_1(x) L##x
+#define _WSTR_HELPER_2(x) _WSTR_HELPER_1(x)
+  wprintf(L"ERROR(" _WSTR_HELPER_2(__FILE__) L":%d) value: %d (0x%08x): %s\n",
+          line, value, value, msg);
+#undef _WSTR_HELPER_2
+#undef _WSTR_HELPER_1
 }
 
 void LogErrorWithArgAndValue(const int line, const char* msg, const char* arg,
-                             DWORD error_code) {
-  printf("ERROR(" __FILE__ ":%d) error code: %d (0x%08x), argument: %s: %s\n",
-         line, error_code, error_code, arg, msg);
+                             DWORD value) {
+  printf("ERROR(" __FILE__ ":%d) value: %d (0x%08x), argument: %s: %s\n", line,
+         value, value, arg, msg);
 }
 
 void LogErrorWithArgAndValue(const int line, const char* msg,
-                             const wchar_t* arg, DWORD error_code) {
-  printf("ERROR(" __FILE__ ":%d) error code: %d (0x%08x), argument: %ls: %s\n",
-         line, error_code, error_code, arg, msg);
+                             const wchar_t* arg, DWORD value) {
+  printf("ERROR(" __FILE__ ":%d) value: %d (0x%08x), argument: %ls: %s\n", line,
+         value, value, arg, msg);
 }
 
 std::wstring AddUncPrefixMaybe(const Path& p) {
@@ -608,7 +617,7 @@ bool TouchFile(const Path& path) {
   return OpenFileForWriting(path, &handle);
 }
 
-bool ReadCompleteFile(HANDLE handle, uint8_t* dest, DWORD max_read) {
+bool ReadFromFile(HANDLE handle, uint8_t* dest, DWORD max_read) {
   if (max_read == 0) {
     return true;
   }
@@ -625,6 +634,43 @@ bool ReadCompleteFile(HANDLE handle, uint8_t* dest, DWORD max_read) {
     total_read += read;
   } while (read > 0 && total_read < max_read);
   return true;
+}
+
+bool ReadCompleteFile(const Path& path, std::unique_ptr<uint8_t[]>* data,
+                      DWORD* size) {
+  bazel::windows::AutoHandle handle;
+  if (!OpenExistingFileForRead(path, &handle)) {
+    LogError(__LINE__, path.Get().c_str());
+    return false;
+  }
+
+  LARGE_INTEGER file_size;
+  if (!GetFileSizeEx(handle, &file_size)) {
+    DWORD err = GetLastError();
+    LogErrorWithValue(__LINE__, path.Get().c_str(), err);
+    return false;
+  }
+
+  // `ReadCompleteFile` doesn't support files larger than 4GB because most files
+  // that this function will be reading (test outerr logs) are typically smaller
+  // than that. (A buffered file reader would allow supporting larger files, but
+  // that seems like overkill here.)
+  if (file_size.QuadPart > 0xFFFFFFFF) {
+    LogError(__LINE__, path.Get().c_str());
+    return false;
+  }
+  const DWORD file_size_dw = file_size.QuadPart;
+  *size = file_size_dw;
+
+  // Allocate a buffer large enough to hold the whole file.
+  data->reset(new uint8_t[file_size_dw]);
+  if (!data->get()) {
+    // Memory allocation failed.
+    LogErrorWithValue(__LINE__, path.Get().c_str(), file_size_dw);
+    return false;
+  }
+
+  return ReadFromFile(handle, data->get(), file_size_dw);
 }
 
 bool WriteToFile(HANDLE output, const void* buffer, const size_t size) {
@@ -837,7 +883,7 @@ bool CreateZip(const Path& root, const std::vector<FileInfo>& files,
     if (!GetZipEntryPtr(zip_builder.get(), zip_entry_paths.EntryPathPtrs()[i],
                         GetZipAttr(files[i]), &dest) ||
         (!files[i].IsDirectory() &&
-         !ReadCompleteFile(handle, dest, files[i].Size()))) {
+         !ReadFromFile(handle, dest, files[i].Size()))) {
       LogError(__LINE__, (std::wstring(L"Failed to dump file \"") + path.Get() +
                           L"\" into zip")
                              .c_str());
@@ -1351,12 +1397,12 @@ int RunSubprocess(const Path& test_path,
 // (see https://stackoverflow.com/a/223782/7778502). A separate filtering step
 // can replace those sequences with the string "]]>]]&gt;<![CDATA[" (which ends
 // the current CDATA segment, adds "]]&gt;", then starts a new CDATA segment).
-void CdataEscape(uint8_t* p, const size_t size,
-                 std::vector<uint8_t*>* cdata_end_locations) {
-  for (size_t i = 0; i < size; ++i, ++p) {
+void CdataEscape(uint8_t* p, const DWORD size,
+                 std::vector<DWORD>* cdata_end_locations) {
+  for (DWORD i = 0; i < size; ++i, ++p) {
     if (p[0] == ']' && (i + 2 < size) && p[1] == ']' && p[2] == '>') {
       // Mark where "]]>" is, then skip the next two octets.
-      cdata_end_locations->push_back(p);
+      cdata_end_locations->push_back(i);
       i += 2;
       p += 2;
     } else if (*p == 0x9 || *p == 0xA || *p == 0xD ||
@@ -1392,6 +1438,59 @@ void CdataEscape(uint8_t* p, const size_t size,
       *p = '?';
     }
   }
+}
+
+bool CdataEscapeAndAppend(const Path& input, HANDLE output) {
+  DWORD size;
+  std::unique_ptr<uint8_t[]> data;
+  if (!ReadCompleteFile(input, &data, &size)) {
+    LogError(__LINE__, input.Get().c_str());
+    return false;
+  }
+
+  std::vector<DWORD> cdata_end_locations;
+  CdataEscape(data.get(), size, &cdata_end_locations);
+
+  if (cdata_end_locations.empty()) {
+    // If there were no "]]>" occurrences, we can dump the whole buffer.
+    if (!WriteToFile(output, data.get(), size)) {
+      LogError(__LINE__, input.Get().c_str());
+      return false;
+    }
+  } else {
+    // If there were "]]>" occurrences, we must replace each occurrence with
+    // `kCdataReplace`.
+    //
+    // A possible optimization would be to record the length of each "]]>"
+    // sequence. This would allow replacing "]]>]]>]]>" by
+    // "]]>]]&gt;]]&gt;]]&gt;<![CDATA[" instead of by
+    // "]]>]]&gt;<![CDATA[]]>]]&gt;<![CDATA[]]>]]&gt;<![CDATA[", yielding a
+    // smaller XML file but a more complex algorithm and data structure. So we
+    // forgo that optimization for this rare corner-case in favour of the
+    // simpler code and store each location of "]]>" individually.
+    static const std::string kCdataReplace = "]]>]]&gt;<![CDATA[";
+    DWORD start = 0;
+    DWORD end = 0;
+    for (DWORD end : cdata_end_locations) {
+      // Dump the section of the buffer since the last "]]>" to the current one
+      // then write the replacement for the current "]]>".
+      if (!WriteToFile(output, data.get() + start, end - start) ||
+          !WriteToFile(output, kCdataReplace.c_str(), kCdataReplace.size())) {
+        LogError(__LINE__, input.Get().c_str());
+        return false;
+      }
+      start = end + 3;
+    }
+
+    if (start < size) {
+      // Write the remainder of the buffer after the last "]]>".
+      if (!WriteToFile(output, data.get() + start, size - start)) {
+        LogError(__LINE__, input.Get().c_str());
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 bool Path::Set(const std::wstring& path) {
@@ -1571,10 +1670,23 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
   return TeeImpl::Create(input, output1, output2, result);
 }
 
-bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const size_t size,
-                                std::vector<uint8_t*>* cdata_end_locations) {
+bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const DWORD size,
+                                std::vector<DWORD>* cdata_end_locations) {
   CdataEscape(buffer, size, cdata_end_locations);
   return true;
+}
+
+bool TestOnly_CdataEscapeAndAppend(const std::wstring& abs_input,
+                                   const std::wstring& abs_output) {
+  Path input_path, output_path;
+  if (!blaze_util::IsAbsolute(abs_input) ||
+      !input_path.Set(abs_input) && !blaze_util::IsAbsolute(abs_output) ||
+      !output_path.Set(abs_output)) {
+    return false;
+  }
+  bazel::windows::AutoHandle output;
+  return OpenFileForWriting(output_path, &output) &&
+         CdataEscapeAndAppend(input_path, output);
 }
 
 }  // namespace testing
