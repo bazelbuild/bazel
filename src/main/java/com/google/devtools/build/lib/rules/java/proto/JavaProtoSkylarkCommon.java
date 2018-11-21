@@ -42,18 +42,14 @@ public class JavaProtoSkylarkCommon
       String flavour)
       throws EvalException {
     ProtoSourcesProvider protoProvider = target.getProvider(ProtoSourcesProvider.class);
-    ProtoCompileActionBuilder.registerActions(
+    ProtoCompileActionBuilder.registerActionsWithoutExports(
         skylarkRuleContext.getRuleContext(),
         ImmutableList.of(
             new ProtoCompileActionBuilder.ToolchainInvocation(
                 flavour,
                 getProtoToolchainProvider(skylarkRuleContext, protoToolchainAttr),
                 sourceJar.getExecPathString())),
-        protoProvider.getDirectProtoSources(),
-        protoProvider.getTransitiveProtoSources(),
-        protoProvider.getProtosInDirectDeps(),
-        protoProvider.getTransitiveProtoSourceRoots(),
-        protoProvider.getDirectProtoSourceRoots(),
+        protoProvider,
         skylarkRuleContext.getLabel(),
         ImmutableList.of(sourceJar),
         "JavaLite",

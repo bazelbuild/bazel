@@ -293,17 +293,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ProtoCompileActionBuilder.registerActions(
           ruleContext,
           invocations.build(),
-          protoProvider.getDirectProtoSources(),
-          protoProvider.getTransitiveProtoSources(),
-          protoProvider.getProtosInDirectDeps(),
-          protoProvider.getTransitiveProtoSourceRoots(),
-          protoProvider.getDirectProtoSourceRoots(),
+          protoProvider,
           ruleContext.getLabel(),
           ImmutableList.of(sourceJar),
           "Java (Immutable)",
-          rpcSupport.allowServices(ruleContext),
-          protoProvider.getProtosInExports(),
-          protoProvider.getExportedProtoSourceRoots());
+          rpcSupport.allowServices(ruleContext));
     }
   }
 }

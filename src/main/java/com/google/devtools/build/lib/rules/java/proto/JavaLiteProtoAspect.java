@@ -262,17 +262,11 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                   "javalite",
                   aspectCommon.getProtoToolchainProvider(),
                   sourceJar.getExecPathString())),
-          protoProvider.getDirectProtoSources(),
-          protoProvider.getTransitiveProtoSources(),
-          protoProvider.getProtosInDirectDeps(),
-          protoProvider.getTransitiveProtoSourceRoots(),
-          protoProvider.getDirectProtoSourceRoots(),
+          protoProvider,
           ruleContext.getLabel(),
           ImmutableList.of(sourceJar),
           "JavaLite",
-          /* allowServices= */ true,
-          protoProvider.getProtosInExports(),
-          protoProvider.getExportedProtoSourceRoots());
+          /* allowServices= */ true);
     }
   }
 }
