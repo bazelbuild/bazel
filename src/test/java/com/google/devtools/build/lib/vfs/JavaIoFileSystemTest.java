@@ -23,8 +23,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Paths;
@@ -137,47 +135,5 @@ public class JavaIoFileSystemTest extends SymlinkAwareFileSystemTest {
       subDirs.add(path);
     }
     return subDirs;
-  }
-
-  @Test
-  public void testDeleteFileOpenForReading() throws Exception {
-    Path path = absolutize("foo.txt");
-    FileSystemUtils.writeIsoLatin1(path, "foo");
-    // Sanity check: attempt reading from the file.
-    try (InputStream is = path.getInputStream()) {
-      byte[] contents = new byte[3];
-      assertThat(is.read(contents)).isEqualTo(3);
-      assertThat(contents).isEqualTo(new byte[] {'f', 'o', 'o'});
-    }
-    // Actual test: attempt deleting the file while open, then reading from it.
-    try (InputStream is = path.getInputStream()) {
-      assertThat(path.delete()).isTrue();
-      assertThat(path.exists()).isFalse();
-
-      byte[] contents = new byte[3];
-      assertThat(is.read(contents)).isEqualTo(3);
-      assertThat(contents).isEqualTo(new byte[] {'f', 'o', 'o'});
-    }
-  }
-
-  @Test
-  public void testDeleteFileOpenForWriting() throws Exception {
-    Path path = absolutize("foo.txt");
-    // Sanity check: attempt writing to the file.
-    assertThat(path.exists()).isFalse();
-    try (OutputStream os = path.getOutputStream(/* append */ false)) {
-      os.write(new byte[] {'b', 'a', 'r'});
-    }
-    try (InputStream is = path.getInputStream()) {
-      byte[] contents = new byte[3];
-      assertThat(is.read(contents)).isEqualTo(3);
-      assertThat(contents).isEqualTo(new byte[] {'b', 'a', 'r'});
-    }
-    // Actual test: attempt deleting the file while open, then writing to it.
-    try (OutputStream os = path.getOutputStream(/* append */ false)) {
-      assertThat(path.delete()).isTrue();
-      assertThat(path.exists()).isFalse();
-      os.write(new byte[] {'b', 'a', 'r'});
-    }
   }
 }

@@ -31,9 +31,6 @@ import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -333,60 +330,6 @@ public class WindowsFileSystemTest {
       assertThat(WindowsFileOperations.isJunction(p.getPathString())).isFalse();
       assertThat(p.isSymbolicLink()).isFalse();
       assertThat(p.isFile()).isTrue();
-    }
-  }
-
-  @Test
-  public void testDeleteFileOpenForReading() throws Exception {
-    testUtil.scratchFile("foo.txt", "foo");
-    Path path = testUtil.createVfsPath(fs, "foo.txt");
-    // Sanity check: attempt reading from the file.
-    try (InputStream is = path.getInputStream()) {
-      byte[] contents = new byte[3];
-      assertThat(is.read(contents)).isEqualTo(3);
-      assertThat(contents).isEqualTo(new byte[] {'f', 'o', 'o'});
-    }
-    // Actual test: attempt deleting the file while open, then reading from it.
-    try (InputStream is = path.getInputStream()) {
-      assertThat(path.delete()).isTrue();
-      assertThat(path.exists()).isFalse();
-
-      byte[] contents = new byte[3];
-      assertThat(is.read(contents)).isEqualTo(3);
-      assertThat(contents).isEqualTo(new byte[] {'f', 'o', 'o'});
-    }
-  }
-
-  @Test
-  public void testDeleteFileOpenForWriting() throws Exception {
-    testUtil.scratchFile("bar.txt", "bar");
-    Path path = testUtil.createVfsPath(fs, "bar.txt");
-    // Sanity check: attempt writing to the file.
-    try (InputStream is = path.getInputStream()) {
-      byte[] contents = new byte[3];
-      assertThat(is.read(contents)).isEqualTo(3);
-      assertThat(contents).isEqualTo(new byte[] {'b', 'a', 'r'});
-    }
-    // Actual test: attempt deleting the file while open, then writing to it.
-    try (OutputStream os = path.getOutputStream(/* append */ false)) {
-      assertThat(path.delete()).isTrue();
-      assertThat(path.exists()).isFalse();
-      os.write(new byte[] {'b', 'a', 'r'});
-    }
-  }
-
-  @Test
-  public void testCannotOpenDirectoryAsFile() throws Exception {
-    testUtil.scratchFile("foo/bar.txt", "bar");
-    Path file = testUtil.createVfsPath(fs, "foo/bar.txt");
-    Path dir = file.getParentDirectory();
-    // Sanity check: we can open the file.
-    try (InputStream is = file.getInputStream()) {}
-    assertThat(dir.isDirectory()).isTrue();
-    try (InputStream is = dir.getInputStream()) {
-      fail("Expected failure");
-    } catch (IOException e) {
-      assertThat(e).isInstanceOf(AccessDeniedException.class);
     }
   }
 }

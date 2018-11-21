@@ -58,7 +58,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   /** Returns either normal or profiled FileInputStream. */
-  private InputStream createFileInputStream(Path path) throws IOException {
+  private InputStream createFileInputStream(Path path) throws FileNotFoundException {
     final String name = path.toString();
     if (profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_READ)
@@ -66,41 +66,34 @@ public abstract class AbstractFileSystem extends FileSystem {
       long startTime = Profiler.nanoTimeMaybe();
       try {
         // Replace default FileInputStream instance with the custom one that does profiling.
-        return new ProfiledInputStream(name, newFileInputStream(name));
+        return new ProfiledFileInputStream(name);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
       }
     } else {
       // Use normal FileInputStream instance if profiler is not enabled.
-      return newFileInputStream(name);
+      return new FileInputStream(path.toString());
     }
-  }
-
-  protected InputStream newFileInputStream(String path) throws IOException {
-    return new FileInputStream(path);
-  }
-
-  protected OutputStream newFileOutputStream(String path, boolean append) throws IOException {
-    return new FileOutputStream(path, append);
   }
 
   /**
    * Returns either normal or profiled FileOutputStream. Should be used by subclasses to create
    * default OutputStream instance.
    */
-  protected OutputStream createFileOutputStream(Path path, boolean append) throws IOException {
+  protected OutputStream createFileOutputStream(Path path, boolean append)
+      throws FileNotFoundException {
     final String name = path.toString();
     if (profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
       long startTime = Profiler.nanoTimeMaybe();
       try {
-        return new ProfiledFileOutputStream(name, newFileOutputStream(name, append));
+        return new ProfiledFileOutputStream(name, append);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
       }
     } else {
-      return newFileOutputStream(name, append);
+      return new FileOutputStream(name, append);
     }
   }
 
@@ -119,34 +112,12 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
-  private static final class ProfiledInputStream extends InputStream implements
-      FileChannelSupplier {
+  private static final class ProfiledFileInputStream extends FileInputStream {
     private final String name;
-    private final InputStream stm;
 
-    public ProfiledInputStream(String name, InputStream stm) {
+    public ProfiledFileInputStream(String name) throws FileNotFoundException {
+      super(name);
       this.name = name;
-      this.stm = stm;
-    }
-
-    @Override
-    public int available() throws IOException {
-      return stm.available();
-    }
-
-    @Override
-    public void close() throws IOException {
-      stm.close();
-    }
-
-    @Override
-    public void mark(int readlimit) {
-      stm.mark(readlimit);
-    }
-
-    @Override
-    public boolean markSupported() {
-      return stm.markSupported();
     }
 
     @Override
@@ -155,7 +126,7 @@ public abstract class AbstractFileSystem extends FileSystem {
       try {
         // Note that FileInputStream#read() does *not* call any of our overridden methods,
         // so there's no concern with double counting here.
-        return stm.read();
+        return super.read();
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
       }
@@ -170,55 +141,19 @@ public abstract class AbstractFileSystem extends FileSystem {
     public int read(byte[] b, int off, int len) throws IOException {
       long startTime = Profiler.nanoTimeMaybe();
       try {
-        return stm.read(b, off, len);
+        return super.read(b, off, len);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
       }
     }
-
-    @Override
-    public void reset() throws IOException {
-      stm.reset();
-    }
-
-    @Override
-    public long skip(long n) throws IOException {
-      return stm.skip(n);
-    }
-
-    @Override
-    public FileChannel getChannel() {
-      return stm instanceof FileInputStream
-          ? ((FileInputStream) stm).getChannel()
-          : null;
-    }
   }
 
-  /**
-   * Interface to return a {@link FileChannel}.
-   */
-  public interface FileChannelSupplier {
-    @Nullable
-    FileChannel getChannel();
-  }
-
-  private static final class ProfiledFileOutputStream extends OutputStream {
+  private static final class ProfiledFileOutputStream extends FileOutputStream {
     private final String name;
-    private final OutputStream stm;
 
-    public ProfiledFileOutputStream(String name, OutputStream stm) {
+    public ProfiledFileOutputStream(String name, boolean append) throws FileNotFoundException {
+      super(name, append);
       this.name = name;
-      this.stm = stm;
-    }
-
-    @Override
-    public void close() throws IOException {
-      stm.close();
-    }
-
-    @Override
-    public void flush() throws IOException {
-      stm.flush();
     }
 
     @Override
@@ -230,17 +165,7 @@ public abstract class AbstractFileSystem extends FileSystem {
     public void write(byte[] b, int off, int len) throws IOException {
       long startTime = Profiler.nanoTimeMaybe();
       try {
-        stm.write(b, off, len);
-      } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
-      }
-    }
-
-    @Override
-    public void write(int b) throws IOException {
-      long startTime = Profiler.nanoTimeMaybe();
-      try {
-        stm.write(b);
+        super.write(b, off, len);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
       }
