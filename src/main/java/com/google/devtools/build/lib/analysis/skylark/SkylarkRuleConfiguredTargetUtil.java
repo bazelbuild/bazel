@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -260,14 +260,14 @@ public final class SkylarkRuleConfiguredTargetUtil {
         new InstrumentationSpec(fileTypeSet)
             .withSourceAttributes(sourceAttributes.toArray(new String[0]))
             .withDependencyAttributes(dependencyAttributes.toArray(new String[0]));
-    InstrumentedFilesProvider instrumentedFilesProvider =
+    InstrumentedFilesInfo instrumentedFilesProvider =
         InstrumentedFilesCollector.collect(
             ruleContext,
             instrumentationSpec,
             InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
             /* rootFiles= */ Collections.emptySet(),
             /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
-    builder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
+    builder.addNativeDeclaredProvider(instrumentedFilesProvider);
   }
 
   public static NestedSet<Artifact> convertToOutputGroupValue(Location loc, String outputGroup,

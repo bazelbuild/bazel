@@ -92,7 +92,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTa
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -2018,9 +2018,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Iterable<String> baselineCoverageArtifactBasenames(ConfiguredTarget target)
       throws Exception {
     ImmutableList.Builder<String> basenames = ImmutableList.builder();
-    for (Artifact baselineCoverage : target
-        .getProvider(InstrumentedFilesProvider.class)
-        .getBaselineCoverageArtifacts()) {
+    for (Artifact baselineCoverage :
+        target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR).getBaselineCoverageArtifacts()) {
       BaselineCoverageAction baselineAction =
           (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
       ByteArrayOutputStream bytes = new ByteArrayOutputStream();

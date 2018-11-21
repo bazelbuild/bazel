@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -152,8 +152,8 @@ public final class TargetCompleteEvent
         isTest
             ? targetAndData.getConfiguredTarget().getProvider(TestProvider.class).getTestParams()
             : null;
-    InstrumentedFilesProvider instrumentedFilesProvider =
-        targetAndData.getConfiguredTarget().getProvider(InstrumentedFilesProvider.class);
+    InstrumentedFilesInfo instrumentedFilesProvider =
+        targetAndData.getConfiguredTarget().get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
     if (instrumentedFilesProvider == null) {
       this.baselineCoverageArtifacts = null;
     } else {

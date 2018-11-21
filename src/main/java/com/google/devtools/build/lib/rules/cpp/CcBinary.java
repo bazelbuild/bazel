@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -913,7 +913,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     List<Artifact> instrumentedObjectFiles = new ArrayList<>();
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(true));
-    InstrumentedFilesProvider instrumentedFilesProvider =
+    InstrumentedFilesInfo instrumentedFilesProvider =
         common.getInstrumentedFilesProvider(
             instrumentedObjectFiles,
             !TargetUtils.isTestRule(ruleContext.getRule()) && !fake,
@@ -934,7 +934,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             new CcNativeLibraryProvider(
                 collectTransitiveCcNativeLibraries(
                     ruleContext, linkingOutputs.getDynamicLibrariesForLinking())))
-        .addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
+        .addNativeDeclaredProvider(instrumentedFilesProvider)
         .addProvider(
             CppDebugFileProvider.class,
             new CppDebugFileProvider(

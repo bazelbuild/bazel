@@ -42,13 +42,13 @@ import java.util.List;
 public final class InstrumentedFilesCollector {
 
   /**
-   * Forwards any instrumented files from the given target's dependencies (as defined in
-   * {@code dependencyAttributes}) for further export. No files from this target are considered
+   * Forwards any instrumented files from the given target's dependencies (as defined in {@code
+   * dependencyAttributes}) for further export. No files from this target are considered
    * instrumented.
    *
    * @return instrumented file provider of all dependencies in {@code dependencyAttributes}
    */
-  public static InstrumentedFilesProvider forward(
+  public static InstrumentedFilesInfo forward(
       RuleContext ruleContext, String... dependencyAttributes) {
     return collect(
         ruleContext,
@@ -58,7 +58,7 @@ public final class InstrumentedFilesCollector {
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
-  public static InstrumentedFilesProvider collect(
+  public static InstrumentedFilesInfo collect(
       RuleContext ruleContext,
       InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector,
@@ -71,7 +71,7 @@ public final class InstrumentedFilesCollector {
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
-  public static InstrumentedFilesProvider collect(
+  public static InstrumentedFilesInfo collect(
       RuleContext ruleContext,
       InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector,
@@ -95,7 +95,7 @@ public final class InstrumentedFilesCollector {
    * coverage actions for the transitive closure of source files (if <code>withBaselineCoverage
    * </code> is true).
    */
-  public static InstrumentedFilesProvider collect(
+  public static InstrumentedFilesInfo collect(
       RuleContext ruleContext,
       InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector,
@@ -114,7 +114,7 @@ public final class InstrumentedFilesCollector {
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
 
-  public static InstrumentedFilesProvider collect(
+  public static InstrumentedFilesInfo collect(
       RuleContext ruleContext,
       InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector,
@@ -127,7 +127,7 @@ public final class InstrumentedFilesCollector {
     Preconditions.checkNotNull(spec);
 
     if (!ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return InstrumentedFilesProviderImpl.EMPTY;
+      return InstrumentedFilesInfo.EMPTY;
     }
 
     NestedSetBuilder<Artifact> instrumentedFilesBuilder = NestedSetBuilder.stableOrder();
@@ -145,7 +145,7 @@ public final class InstrumentedFilesCollector {
     // Transitive instrumentation data.
     for (TransitiveInfoCollection dep :
         getAllPrerequisites(ruleContext, spec.dependencyAttributes)) {
-      InstrumentedFilesProvider provider = dep.getProvider(InstrumentedFilesProvider.class);
+      InstrumentedFilesInfo provider = dep.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
       if (provider != null) {
         instrumentedFilesBuilder.addTransitive(provider.getInstrumentedFiles());
         metadataFilesBuilder.addTransitive(provider.getInstrumentationMetadataFiles());
@@ -162,7 +162,7 @@ public final class InstrumentedFilesCollector {
       NestedSetBuilder<Artifact> localSourcesBuilder = NestedSetBuilder.stableOrder();
       for (TransitiveInfoCollection dep :
           getAllPrerequisites(ruleContext, spec.sourceAttributes)) {
-        if (!spec.splitLists && dep.getProvider(InstrumentedFilesProvider.class) != null) {
+        if (!spec.splitLists && dep.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR) != null) {
           continue;
         }
         for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild()) {
@@ -194,7 +194,7 @@ public final class InstrumentedFilesCollector {
     // Create one baseline coverage action per target, but for the transitive closure of files.
     NestedSet<Artifact> baselineCoverageArtifacts =
         BaselineCoverageAction.create(ruleContext, baselineCoverageFiles);
-    return new InstrumentedFilesProviderImpl(
+    return new InstrumentedFilesInfo(
         instrumentedFilesBuilder.build(),
         metadataFilesBuilder.build(),
         baselineCoverageFiles,

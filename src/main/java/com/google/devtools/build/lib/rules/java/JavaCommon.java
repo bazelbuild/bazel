@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -687,8 +687,7 @@ public class JavaCommon {
     JavaExportsProvider exportsProvider = collectTransitiveExports();
 
     builder
-        .add(
-            InstrumentedFilesProvider.class,
+        .addNativeDeclaredProvider(
             getInstrumentationFilesProvider(ruleContext, filesToBuild, instrumentationSpec))
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
@@ -696,7 +695,7 @@ public class JavaCommon {
     javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
   }
 
-  private static InstrumentedFilesProvider getInstrumentationFilesProvider(
+  private static InstrumentedFilesInfo getInstrumentationFilesProvider(
       RuleContext ruleContext,
       NestedSet<Artifact> filesToBuild,
       InstrumentationSpec instrumentationSpec) {

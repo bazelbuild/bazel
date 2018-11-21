@@ -50,7 +50,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -611,7 +611,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       return InstrumentedFilesCollector.shouldIncludeLocalSources(ruleContext);
     }
     TransitiveInfoCollection target = (TransitiveInfoCollection) targetUnchecked;
-    return (target.getProvider(InstrumentedFilesProvider.class) != null)
+    return (target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR) != null)
         && InstrumentedFilesCollector.shouldIncludeLocalSources(config, target);
   }
 

@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -675,7 +675,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
 
     assertThat(target.getLabel().toString()).isEqualTo("//test/skylark:cr");
-    InstrumentedFilesProvider provider = target.getProvider(InstrumentedFilesProvider.class);
+    InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
     assertWithMessage("InstrumentedFilesProvider should be set.").that(provider).isNotNull();
     assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles())).isEmpty();
   }
@@ -707,7 +707,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
 
     assertThat(target.getLabel().toString()).isEqualTo("//test/skylark:cr");
-    InstrumentedFilesProvider provider = target.getProvider(InstrumentedFilesProvider.class);
+    InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
     assertWithMessage("InstrumentedFilesProvider should be set.").that(provider).isNotNull();
     assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles()))
         .containsExactly("a.txt", "A.java");

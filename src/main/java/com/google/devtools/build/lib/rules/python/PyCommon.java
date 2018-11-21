@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -163,8 +162,7 @@ public final class PyCommon {
       NestedSet<String> imports) {
 
     builder
-        .add(
-            InstrumentedFilesProvider.class,
+        .addNativeDeclaredProvider(
             InstrumentedFilesCollector.collect(
                 ruleContext,
                 semantics.getCoverageInstrumentationSpec(),

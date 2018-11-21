@@ -75,7 +75,7 @@ public final class TestActionBuilder {
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
   private ExecutionInfo executionRequirements;
-  private InstrumentedFilesProvider instrumentedFiles;
+  private InstrumentedFilesInfo instrumentedFiles;
   private int explicitShardCount;
   private Map<String, String> extraEnv;
 
@@ -125,8 +125,7 @@ public final class TestActionBuilder {
     return this;
   }
 
-  public TestActionBuilder setInstrumentedFiles(
-      @Nullable InstrumentedFilesProvider instrumentedFiles) {
+  public TestActionBuilder setInstrumentedFiles(@Nullable InstrumentedFilesInfo instrumentedFiles) {
     this.instrumentedFiles = instrumentedFiles;
     return this;
   }

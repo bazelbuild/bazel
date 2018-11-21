@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
@@ -120,8 +119,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(common.getObjcProvider())
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
-        .addProvider(
-            InstrumentedFilesProvider.class,
+        .addNativeDeclaredProvider(
             compilationSupport.getInstrumentedFilesProvider(objectFilesCollector.build()))
         .addNativeDeclaredProvider(
             CcInfo.builder()

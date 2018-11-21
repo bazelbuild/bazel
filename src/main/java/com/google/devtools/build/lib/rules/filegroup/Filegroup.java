@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -72,7 +72,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
         CompilationHelper.getAggregatingMiddleman(
             ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild);
 
-    InstrumentedFilesProvider instrumentedFilesProvider =
+    InstrumentedFilesInfo instrumentedFilesProvider =
         InstrumentedFilesCollector.collect(
             ruleContext,
             // what do *we* know about whether this is a source file or not
@@ -98,10 +98,9 @@ public class Filegroup implements RuleConfiguredTargetFactory {
         .add(RunfilesProvider.class, runfilesProvider)
         .setFilesToBuild(filesToBuild)
         .setRunfilesSupport(null, getExecutable(filesToBuild))
-        .add(InstrumentedFilesProvider.class, instrumentedFilesProvider)
+        .addNativeDeclaredProvider(instrumentedFilesProvider)
         .add(MiddlemanProvider.class, new MiddlemanProvider(middleman))
-        .add(FilegroupPathProvider.class,
-            new FilegroupPathProvider(getFilegroupPath(ruleContext)))
+        .add(FilegroupPathProvider.class, new FilegroupPathProvider(getFilegroupPath(ruleContext)))
         .build();
   }
 

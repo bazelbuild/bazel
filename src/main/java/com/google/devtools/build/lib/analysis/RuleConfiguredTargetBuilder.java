@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsP
 import com.google.devtools.build.lib.analysis.test.AnalysisTestActionBuilder;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -269,7 +269,10 @@ public final class RuleConfiguredTargetBuilder {
     }
     TestActionBuilder testActionBuilder =
         new TestActionBuilder(ruleContext)
-            .setInstrumentedFiles(providersBuilder.getProvider(InstrumentedFilesProvider.class));
+            .setInstrumentedFiles(
+                (InstrumentedFilesInfo)
+                    providersBuilder.getProvider(
+                        InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR.getKey()));
 
     TestEnvironmentInfo environmentProvider =
         (TestEnvironmentInfo)

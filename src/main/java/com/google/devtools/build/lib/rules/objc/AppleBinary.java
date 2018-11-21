@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -344,15 +344,15 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       targetBuilder.addNativeDeclaredProvider(objcProvider);
     }
 
-    InstrumentedFilesProvider instrumentedFilesProvider =
+    InstrumentedFilesInfo instrumentedFilesProvider =
         InstrumentedFilesCollector.forward(ruleContext, "deps", "bundle_loader");
 
-    return targetBuilder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
+    return targetBuilder
+        .addNativeDeclaredProvider(instrumentedFilesProvider)
         .addNativeDeclaredProvider(nativeInfo)
         .addNativeDeclaredProvider(appleBinaryOutput.getDebugOutputsProvider())
         .addOutputGroups(appleBinaryOutput.getOutputGroups())
         .build();
-
   }
 
   /**

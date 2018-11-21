@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -406,7 +406,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     List<Artifact> instrumentedObjectFiles = new ArrayList<>();
     instrumentedObjectFiles.addAll(compilationInfo.getCcCompilationOutputs().getObjectFiles(false));
     instrumentedObjectFiles.addAll(compilationInfo.getCcCompilationOutputs().getObjectFiles(true));
-    InstrumentedFilesProvider instrumentedFilesProvider =
+    InstrumentedFilesInfo instrumentedFilesProvider =
         common.getInstrumentedFilesProvider(
             instrumentedObjectFiles,
             /* withBaselineCoverage= */ true,
@@ -444,7 +444,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addOutputGroups(
             CcCommon.mergeOutputGroups(
                 ImmutableList.of(compilationInfo.getOutputGroups(), outputGroups.build())))
-        .addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
+        .addNativeDeclaredProvider(instrumentedFilesProvider)
         .addProvider(RunfilesProvider.withData(defaultRunfiles.build(), dataRunfiles.build()))
         .addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL,

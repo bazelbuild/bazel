@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -613,7 +613,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "cc_library(name = 'x', srcs = ['x.cc'])");
     assertThat(
             ActionsTestUtil.baseArtifactNames(
-                x.getProvider(InstrumentedFilesProvider.class).getInstrumentationMetadataFiles()))
+                x.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR).getInstrumentationMetadataFiles()))
         .containsExactly("x.pic.gcno");
   }
 
