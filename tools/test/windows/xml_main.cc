@@ -19,5 +19,5 @@
 #include "tools/test/windows/tw.h"
 
 int wmain(int argc, wchar_t** argv) {
-  return bazel::tools::test_wrapper::TestWrapperMain(argc, argv);
+  return bazel::tools::test_wrapper::XmlGeneratorMain(argc, argv);
 }

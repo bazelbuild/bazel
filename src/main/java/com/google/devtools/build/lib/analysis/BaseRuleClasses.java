@@ -180,6 +180,11 @@ public class BaseRuleClasses {
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:test_setup")))
           .add(
+              attr("$xml_generator", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/test:xml_generator")))
+          .add(
               attr("$xml_generator_script", LABEL)
                   .cfg(HostTransition.INSTANCE)
                   .singleArtifact()

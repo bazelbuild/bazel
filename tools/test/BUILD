@@ -48,6 +48,15 @@ cc_binary(
     deps = [":tw_lib"],
 )
 
+# XML generator binary to generate test XMLs on Windows.
+# This is only used when building with --experimental_split_xml_generation.
+cc_binary(
+    name = "xmlg",
+    srcs = ["windows/xml_main.cc"],
+    visibility = ["//visibility:private"],
+    deps = [":tw_lib"],
+)
+
 # Test wrapper binary to run tests on Windows.
 # See https://github.com/bazelbuild/bazel/issues/5508
 cc_library(
@@ -115,7 +124,10 @@ filegroup(
         "collect_coverage.sh",
         "collect_cc_coverage.sh",
     ] + glob(["LcovMerger/**"]) + select({
-        "@bazel_tools//src/conditions:windows": ["tw"],
+        "@bazel_tools//src/conditions:windows": [
+            ":tw",
+            ":xmlg",
+        ],
         "//conditions:default": [],
     }),
     visibility = ["//tools:__pkg__"],

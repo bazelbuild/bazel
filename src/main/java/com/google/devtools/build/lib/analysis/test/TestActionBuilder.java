@@ -242,7 +242,9 @@ public final class TestActionBuilder {
 
     inputsBuilder.add(testActionExecutable);
     Artifact testXmlGeneratorScript =
-        ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
+        isUsingTestWrapperInsteadOfTestSetupScript
+            ? ruleContext.getHostPrerequisiteArtifact("$xml_generator")
+            : ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
     inputsBuilder.add(testXmlGeneratorScript);
 
     Artifact collectCoverageScript = null;

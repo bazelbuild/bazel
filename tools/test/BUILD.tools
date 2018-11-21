@@ -49,3 +49,15 @@ filegroup(
         "//conditions:default": ["tw"],
     }),
 )
+
+filegroup(
+    name = "xml_generator",
+    # "tw" is the Windows-native test wrapper. It has a short name because paths
+    # have short limits on Windows.
+    # On other platforms this binary is a no-op.
+    # See https://github.com/bazelbuild/bazel/issues/5508
+    srcs = select({
+        "@bazel_tools//src/conditions:windows": ["xmlg.exe"],
+        "//conditions:default": ["xmlg"],
+    }),
+)

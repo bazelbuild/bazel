@@ -161,7 +161,7 @@ void LogError(const int line, const std::string& msg) {
 
 void LogError(const int line, const std::wstring& msg) {
   std::string acp_msg;
-  if (!blaze_util::WcsToAcp(msg, &acp_msg)) {
+  if (blaze_util::WcsToAcp(msg, &acp_msg)) {
     LogError(line, acp_msg);
   }
 }
@@ -178,7 +178,7 @@ void LogErrorWithValue(const int line, const std::string& msg, DWORD value) {
 
 void LogErrorWithValue(const int line, const std::wstring& msg, DWORD value) {
   std::string acp_msg;
-  if (!blaze_util::WcsToAcp(msg, &acp_msg)) {
+  if (blaze_util::WcsToAcp(msg, &acp_msg)) {
     LogErrorWithValue(line, acp_msg, value);
   }
 }
@@ -197,7 +197,7 @@ void LogErrorWithArgAndValue(const int line, const std::string& msg,
 void LogErrorWithArgAndValue(const int line, const std::string& msg,
                              const std::wstring& arg, DWORD value) {
   std::string acp_arg;
-  if (!blaze_util::WcsToAcp(arg, &acp_arg)) {
+  if (blaze_util::WcsToAcp(arg, &acp_arg)) {
     LogErrorWithArgAndValue(line, msg, acp_arg, value);
   }
 }
@@ -1303,9 +1303,9 @@ bool CreateUndeclaredOutputsAnnotations(const Path& undecl_annot_dir,
   return true;
 }
 
-bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
-               std::wstring* out_test_path_arg,
-               std::vector<const wchar_t*>* out_args) {
+bool ParseTestWrapperArgs(int argc, wchar_t** argv, Path* out_argv0,
+                          std::wstring* out_test_path_arg,
+                          std::vector<const wchar_t*>* out_args) {
   if (!out_argv0->Set(argv[0])) {
     return false;
   }
@@ -1323,6 +1323,44 @@ bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
   for (int i = 1; i < argc; i++) {
     out_args->push_back(argv[i]);
   }
+  return true;
+}
+
+bool ParseXmlWriterArgs(int argc, wchar_t** argv, const Path& cwd,
+                        Path* out_test_log, Path* out_xml_log,
+                        Duration* out_duration, int* out_exit_code) {
+  if (argc < 5) {
+    LogError(__LINE__, "Usage: $0 <test_output_path> <xml_log_path>"
+                       " <duration_in_seconds> <exit_code>");
+    return false;
+  }
+  if (!out_test_log->Set(argv[1]) || out_test_log->Get().empty()) {
+    LogError(__LINE__,
+             std::wstring(L"Failed to parse test log path from \"") + argv[1] +
+                 L"\"");
+    return false;
+  }
+  out_test_log->Absolutize(cwd);
+  if (!out_xml_log->Set(argv[2]) || out_xml_log->Get().empty()) {
+    LogError(__LINE__,
+             std::wstring(L"Failed to parse XML log path from \"") + argv[2] +
+                 L"\"");
+    return false;
+  }
+  out_xml_log->Absolutize(cwd);
+  if (!out_duration->FromString(argv[3])) {
+    LogError(__LINE__,
+             std::wstring(L"Failed to parse test duration from \"") + argv[3] +
+                 L"\"");
+    return false;
+  }
+  if (!ToInt(argv[4], out_exit_code)) {
+    LogError(__LINE__,
+             std::wstring(L"Failed to parse exit code from \"") + argv[4] +
+                 L"\"");
+    return false;
+  }
+
   return true;
 }
 
@@ -1552,36 +1590,29 @@ std::string CreateErrorTag(int exit_code) {
   }
 }
 
-bool CreateXmlLog(const Path& output, const Path& test_outerr,
-                  const Duration duration, const int exit_code) {
+bool DecideIfShouldWriteXmlLog(const Path& test_xml, bool* result) {
   std::wstring split_xml_generation;
   if (!GetEnv(L"EXPERIMENTAL_SPLIT_XML_GENERATION", &split_xml_generation)) {
     LogError(__LINE__, "Failed to get %EXPERIMENTAL_SPLIT_XML_GENERATION%");
     return false;
   }
-  if (split_xml_generation == L"1") {
-    // Bazel generates the test xml as a separate action.
-    return true;
-  }
+  *result =
+    // If Bazel does not generate the XML as a separate action (when
+    // EXPERIMENTAL_SPLIT_XML_GENERATION=1), then write it now.
+    (split_xml_generation != L"1") &&
+    // If the XML file does not exist, write it. Otherwise the test framework
+    // wrote it; leave that alone.
+    (INVALID_FILE_ATTRIBUTES ==
+     GetFileAttributesW(AddUncPrefixMaybe(test_xml).c_str()));
+  return true;
+}
 
-  Defer delete_test_outerr([test_outerr]() {
-    // Delete the test's outerr file after we have the XML file.
-    // We don't care if this succeeds or not, because the outerr file is not a
-    // declared output.
-    DeleteFileW(test_outerr.Get().c_str());
-  });
-
-  DWORD attr = GetFileAttributesW(AddUncPrefixMaybe(output).c_str());
-  if (attr != INVALID_FILE_ATTRIBUTES) {
-    // The XML file already exists, maybe the test framework wrote it.
-    // Leave the file alone.
-    return true;
-  }
-
+bool CreateXmlLog(const Path& output, const Path& test_outerr,
+                  const Duration duration, const int exit_code) {
   std::wstring test_name;
   int errors = (exit_code == 0) ? 0 : 1;
   std::string error_msg = CreateErrorTag(exit_code);
-  if (!GetTestName(&test_name)) {
+  if (!GetTestName(&test_name) || test_name.empty()) {
     LogError(__LINE__);
     return false;
   }
@@ -1729,13 +1760,13 @@ void ZipEntryPaths::Create(const std::string& root,
   entry_path_ptrs_.get()[relative_paths.size()] = nullptr;
 }
 
-int Main(int argc, wchar_t** argv) {
+int TestWrapperMain(int argc, wchar_t** argv) {
   Path argv0;
   std::wstring test_path_arg;
   Path test_path, exec_root, srcdir, tmpdir, test_outerr, xml_log;
   UndeclaredOutputs undecl;
   std::vector<const wchar_t*> args;
-  if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &args) ||
+  if (!ParseTestWrapperArgs(argc, argv, &argv0, &test_path_arg, &args) ||
       !PrintTestLogStartMarker() ||
       !FindTestBinary(argv0, test_path_arg, &test_path) ||
       !GetCwd(&exec_root) || !ExportUserName() ||
@@ -1750,13 +1781,36 @@ int Main(int argc, wchar_t** argv) {
 
   Duration test_duration;
   int result = RunSubprocess(test_path, args, test_outerr, &test_duration);
-  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result) ||
+  bool should_write_xml = false;
+  if (!DecideIfShouldWriteXmlLog(xml_log, &should_write_xml) ||
+      (should_write_xml &&
+       !CreateXmlLog(xml_log, test_outerr, test_duration, result)) ||
       !ArchiveUndeclaredOutputs(undecl) ||
       !CreateUndeclaredOutputsAnnotations(undecl.annotations_dir,
                                           undecl.annotations)) {
     return 1;
   }
+
+  // Delete the test's outerr file after we have the XML file.
+  // We don't care if this succeeds or not, because the outerr file is not a
+  // declared output.
+  DeleteFileW(test_outerr.Get().c_str());
   return result;
+}
+
+int XmlGeneratorMain(int argc, wchar_t** argv) {
+  Path cwd, test_outerr, test_xml_log;
+  Duration duration;
+  int exit_code = 0;
+
+  if (!GetCwd(&cwd) ||
+      !ParseXmlWriterArgs(argc, argv, cwd, &test_outerr, &test_xml_log,
+                          &duration, &exit_code) ||
+      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code)) {
+    return 1;
+  }
+
+  return 0;
 }
 
 namespace testing {
