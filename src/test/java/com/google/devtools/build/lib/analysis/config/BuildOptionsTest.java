@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.common.options.OptionsParser;
+import java.util.AbstractMap;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -326,5 +328,16 @@ public class BuildOptionsTest {
     assertThat(TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)))
         .isEqualTo(
             TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)));
+  }
+
+  @Test
+  public void testMultiValueOptionImmutability() throws Exception {
+    BuildOptions options =
+        BuildOptions.of(TEST_OPTIONS, OptionsParser.newOptionsParser(TEST_OPTIONS));
+    BuildConfiguration.Options coreOptions = options.get(Options.class);
+    assertThrows(
+        UnsupportedOperationException.class,
+        () ->
+            coreOptions.commandLineBuildVariables.add(new AbstractMap.SimpleEntry<>("foo", "bar")));
   }
 }
