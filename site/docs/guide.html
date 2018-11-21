@@ -692,7 +692,7 @@ $ bazel fetch //...
   In some cases, the Bazel sandbox fails to execute rules because of the system setup. The symptom
   is generally a failure that output a message similar to
   <code>namespace-sandbox.c:633: execvp(argv[0], argv): No such file or directory</code>. In that
-  case, try to deactivate the sandbox for genrules with <code>--genrule_strategy=standalone</code>
+  case, try to deactivate the sandbox for genrules with <code>--strategy=Genrule=standalone</code>
   and for other rules with <code>--spawn_strategy=standalone</code>. Also please report a bug on our
   issue tracker and mention which Linux distribution you're using so that we can investigate and
   provide a fix in a subsequent release.
