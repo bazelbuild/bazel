@@ -821,7 +821,7 @@ EOF
   cat > $r/bin/bin.py <<EOF
 import lib.lib
 
-print "Hello " + lib.lib.User()
+print("Hello " + lib.lib.User())
 EOF
 
   chmod +x $r/bin/bin.py
