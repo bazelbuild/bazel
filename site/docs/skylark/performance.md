@@ -147,7 +147,7 @@ all instances of your rule.
 * If the args are too long for the command line an `ctx.actions.args()` object
 can be conditionally or unconditionally written to a param file using
 [`ctx.actions.args#use_param_file`](lib/Args.html#use_param_file). This is
-done behind the scenes when the action is executed. If you need to explictly
+done behind the scenes when the action is executed. If you need to explicitly
 control the params file you can write it manually using
 [`ctx.actions.write`](lib/actions.html#write).
 

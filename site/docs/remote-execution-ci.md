@@ -80,7 +80,7 @@ If your build or tests fail, it's likely due to the following:
 *   **Build or test targets are using rules that are incompatible with remote
     execution.** See
     [Adapting Bazel Rules for Remote Execution](https://docs.bazel.build/versions/master/remote-execution-rules.html)
-    for details about compatibility wtih remote execution.
+    for details about compatibility with remote execution.
 
 ## Using a custom container in the `rbe_ubuntu1604` CI config
 

@@ -31,7 +31,7 @@ If you don't need the merge operation, consider using another type, such as
 ## Full example
 
 
-This example is avalable at
+This example is available at
 [https://github.com/bazelbuild/examples/tree/master/rules/depsets](https://github.com/bazelbuild/examples/tree/master/rules/depsets).
 
 Suppose we have a hypothetical interpreted language Foo. In order to build each
