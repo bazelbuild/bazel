@@ -110,7 +110,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
    */
   @ThreadSafety.ThreadSafe
   private class InclusionCache {
-    private final ConcurrentMap<InclusionWithContext, FutureTask<LocateOnPathResult>> cache =
+    private final ConcurrentMap<InclusionWithContext, LocateOnPathResult> cache =
         new ConcurrentHashMap<>();
 
     /**
@@ -126,8 +126,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
     private LocateOnPathResult locateOnPaths(
         InclusionWithContext inclusion,
         Map<PathFragment, Artifact> pathToLegalOutputArtifact,
-        boolean onlyCheckGenerated)
-        throws InterruptedException {
+        boolean onlyCheckGenerated) {
       PathFragment name = inclusion.getInclusion().pathFragment;
 
       // For #include_next directives we start searching on the include path where
@@ -159,7 +158,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
             continue;
           }
         }
-        checkForInterrupt("locate on path", fileFragment);
         if (onlyCheckGenerated && !isRealOutputFile(fileFragment)) {
           continue;
         }
@@ -217,40 +215,26 @@ public class LegacyIncludeScanner implements IncludeScanner {
      * @return a LocateOnPathResult
      */
     public LocateOnPathResult lookup(
-        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact)
-        throws InterruptedException {
-      if (!cache.containsKey(inclusion)) {
-        FutureTask<LocateOnPathResult> task =
-            new FutureTask<>(() -> locateOnPaths(inclusion, pathToLegalOutputArtifact, false));
-        if (cache.putIfAbsent(inclusion, task) == null) {
-          task.run();
-        }
-      }
-      LocateOnPathResult previousValue;
-      try {
-        previousValue = cache.get(inclusion).get();
-        // It is not safe to cache lookups which viewed illegal output files. Their nonexistence do
-        // not imply nonexistence for actions using the same include scanner, but executed later on.
-        // See bug 2097998. For performance reasons, take a small shortcut: only avoid caching when
-        // the path lookup result from locateOnPaths() is empty.
-        if (previousValue.path != null || !previousValue.viewedIllegalOutputFile) {
-          return previousValue;
-        }
-        LocateOnPathResult result = locateOnPaths(inclusion, pathToLegalOutputArtifact, true);
-        if (result.path != null || !result.viewedIllegalOutputFile) {
-          // In this case, the result is now cachable either because a file has been found or
-          // because there are no more illegal output files. This is rare in practice. Avoid
-          // creating a future and modifying the cache in the common case.
-          FutureTask<LocateOnPathResult> task = new FutureTask<>(() -> result);
-          cache.put(inclusion, task);
-          task.run();
-        }
+        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact) {
+      LocateOnPathResult result =
+          cache.computeIfAbsent(
+              inclusion, key -> locateOnPaths(key, pathToLegalOutputArtifact, false));
+      // It is not safe to cache lookups which viewed illegal output files. Their nonexistence do
+      // not imply nonexistence for actions using the same include scanner, but executed later on.
+      // See bug 2097998. For performance reasons, take a small shortcut: only avoid caching when
+      // the path lookup result from locateOnPaths() is empty.
+      if (result.path != null || !result.viewedIllegalOutputFile) {
         return result;
-      } catch (ExecutionException e) {
-        Throwable cause = e.getCause();
-        Throwables.propagateIfPossible(cause, InterruptedException.class);
-        throw new AssertionError(cause); // Shouldn't get here.
       }
+
+      result = locateOnPaths(inclusion, pathToLegalOutputArtifact, true);
+      if (result.path != null || !result.viewedIllegalOutputFile) {
+        // In this case, the result is now cachable either because a file has been found or
+        // because there are no more illegal output files. This is rare in practice. Avoid
+        // creating a future and modifying the cache in the common case.
+        cache.put(inclusion, result);
+      }
+      return result;
     }
   }
 
