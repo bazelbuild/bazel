@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.toReleaseConfiguration;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -29,17 +28,10 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportFunction.CcSkyframeSupportException;
-import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.StringUtil;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Map;
 
 /**
@@ -76,26 +68,6 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     Map<String, Label> toolchains =
         ruleContext.attributes().get("toolchains", BuildType.LABEL_DICT_UNARY);
     Label selectedCcToolchain = toolchains.get(key);
-    if (selectedCcToolchain == null && !cppConfiguration.disableCcToolchainFromCrosstool()) {
-      try {
-        CrosstoolRelease crosstoolRelease = getCrosstoolRelease(ruleContext);
-        if (crosstoolRelease == null) {
-          // Skyframe restart
-          return null;
-        }
-        selectedCcToolchain =
-            CppConfigurationLoader.selectCcToolchainLabelUsingCrosstool(
-                transformedCpu,
-                compiler,
-                ruleContext.getLabel(),
-                toolchains,
-                crosstoolRelease,
-                /* usingCrosstoolForToolchainSelectionDisabled= */ false);
-      } catch (InvalidConfigurationException e) {
-        ruleContext.throwWithRuleError(e.getMessage());
-      }
-    }
-
     CcToolchainProvider ccToolchainProvider;
     PlatformConfiguration platformConfig =
         Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
@@ -172,42 +144,12 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
 
     String errorMessage =
         String.format(
-            "cc_toolchain_suite '%s' does not contain a toolchain for CPU '%s'",
+            "cc_toolchain_suite '%s' does not contain a toolchain for cpu '%s'",
             ruleContext.getLabel(), cpu);
     if (compiler != null) {
-      errorMessage = errorMessage + " and compiler " + compiler;
+      errorMessage = errorMessage + " and compiler '" + compiler + "'.";
     }
     ruleContext.throwWithRuleError(errorMessage);
     throw new IllegalStateException("Should not be reached");
-  }
-
-  private CrosstoolRelease getCrosstoolRelease(RuleContext ruleContext)
-      throws InvalidConfigurationException, InterruptedException, RuleErrorException {
-    String protoAttribute = ruleContext.attributes().get("proto", Type.STRING);
-    if (StringUtil.emptyToNull(protoAttribute) != null) {
-      return toReleaseConfiguration(
-          "cc_toolchain_suite rule " + ruleContext.getLabel(),
-          () -> protoAttribute,
-          /* digestOrNull= */ null);
-    }
-
-    SkyKey ccSupportKey =
-        CcSkyframeSupportValue.key(
-            /* fdoZipPath= */ null, ruleContext.getLabel().getPackageIdentifier());
-
-    SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-    CcSkyframeSupportValue ccSkyframeSupportValue;
-    try {
-      ccSkyframeSupportValue =
-          (CcSkyframeSupportValue)
-              skyframeEnv.getValueOrThrow(ccSupportKey, CcSkyframeSupportException.class);
-    } catch (CcSkyframeSupportException e) {
-      ruleContext.throwWithRuleError(e.getMessage());
-      throw new IllegalStateException("Should not be reached");
-    }
-    if (skyframeEnv.valuesMissing()) {
-      return null;
-    }
-    return ccSkyframeSupportValue.getCrosstoolRelease();
   }
 }

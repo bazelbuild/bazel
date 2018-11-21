@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
@@ -83,11 +82,7 @@ public class CrosstoolConfigurationHelper {
         CrosstoolConfig.CrosstoolRelease.newBuilder()
             .setMajorVersion("12")
             .setMinorVersion("0")
-            .setDefaultTargetCpu(defaultCpu())
-            .addDefaultToolchain(
-                DefaultCpuToolchain.newBuilder()
-                    .setCpu(defaultCpu())
-                    .setToolchainIdentifier(defaultCpu() + "-toolchain"));
+            .setDefaultTargetCpu(defaultCpu());
     CrosstoolConfig.CToolchain.Builder toolchainBuilder = newIncompleteToolchain();
     toolchainBuilder
         .setToolchainIdentifier(defaultCpu() + "-toolchain")

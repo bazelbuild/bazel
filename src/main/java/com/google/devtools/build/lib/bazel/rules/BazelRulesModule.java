@@ -41,6 +41,19 @@ public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
     @Option(
+        name = "incompatible_disable_cc_toolchain_label_from_crosstool_proto",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableCcToolchainFromCrosstool;
+
+    @Option(
         name = "incompatible_disable_cc_configuration_make_variables",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

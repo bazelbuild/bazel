@@ -131,7 +131,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
       create("--cpu=bogus");
       fail();
     } catch (InvalidConfigurationException e) {
-      assertThat(e).hasMessageThat().startsWith("No toolchain found for cpu 'bogus'");
+      assertThat(e).hasMessageThat().contains("does not contain a toolchain for cpu 'bogus'");
     }
   }
 

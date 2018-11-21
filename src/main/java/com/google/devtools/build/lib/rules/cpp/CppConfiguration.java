@@ -680,9 +680,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableLinkingModeFlags;
   }
 
-  public boolean disableCcToolchainFromCrosstool() {
-    return cppOptions.disableCcToolchainFromCrosstool;
-  }
   /**
    * cc_toolchain_suite allows to override CROSSTOOL by using proto attribute. This attribute value
    * is stored here so cc_toolchain can access it in the analysis. Don't use this for anything, it

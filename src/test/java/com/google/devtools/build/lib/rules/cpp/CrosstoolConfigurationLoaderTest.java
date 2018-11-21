@@ -694,17 +694,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
       fail("Expected an error that no toolchain matched.");
     } catch (InvalidConfigurationException e) {
       String message =
-          "No toolchain found for --cpu='banana_cpu' --compiler='nonexistent-compiler'. "
-              + "Valid toolchains are: [\n"
-              + "  toolchain-identifier-A: --cpu='banana_cpu' --compiler='compiler-A',\n"
-              + "  toolchain-identifier-C: --cpu='banana_cpu' --compiler='compiler-C',\n"
-              + "  toolchain-identifier-A-avocado_cpu: --cpu='avocado_cpu' "
-              + "--compiler='compiler-A',\n"
-              + "  toolchain-identifier-B-avocado_cpu: --cpu='avocado_cpu' "
-              + "--compiler='compiler-B',\n"
-              + "  toolchain-identifier-B: --cpu='banana_cpu' --compiler='compiler-B',\n"
-              + "]";
-      assertThat(e).hasMessage(message);
+          "does not contain a toolchain for cpu 'banana_cpu' and compiler 'nonexistent-compiler'";
+      assertThat(e).hasMessageThat().contains(message);
     }
   }
 

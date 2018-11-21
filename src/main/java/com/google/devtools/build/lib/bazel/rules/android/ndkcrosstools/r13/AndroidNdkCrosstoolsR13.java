@@ -15,15 +15,12 @@
 package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r13;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkPaths;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /** Generates a CrosstoolRelease proto for the Android NDK. */
 final class AndroidNdkCrosstoolsR13 {
@@ -44,7 +41,6 @@ final class AndroidNdkCrosstoolsR13 {
         .setMajorVersion("android")
         .setMinorVersion("")
         .setDefaultTargetCpu("armeabi")
-        .addAllDefaultToolchain(getDefaultCpuToolchains(stlImpl))
         .addAllToolchain(createToolchains(ndkPaths, stlImpl, hostPlatform, clangVersion))
         .build();
   }
@@ -75,35 +71,5 @@ final class AndroidNdkCrosstoolsR13 {
     }
 
     return toolchains.build();
-  }
-
-  private static ImmutableList<DefaultCpuToolchain> getDefaultCpuToolchains(StlImpl stlImpl) {
-    // TODO(bazel-team): It would be better to auto-generate this somehow.
-
-    ImmutableMap<String, String> defaultCpus =
-        ImmutableMap.<String, String>builder()
-            // arm
-            .put("armeabi", "arm-linux-androideabi-clang3.8")
-            .put("armeabi-v7a", "arm-linux-androideabi-clang3.8-v7a")
-            .put("arm64-v8a", "aarch64-linux-android-clang3.8")
-
-            // mips
-            .put("mips", "mipsel-linux-android-clang3.8")
-            .put("mips64", "mips64el-linux-android-clang3.8")
-
-            // x86
-            .put("x86", "x86-clang3.8")
-            .put("x86_64", "x86_64-clang3.8")
-            .build();
-
-    ImmutableList.Builder<DefaultCpuToolchain> defaultCpuToolchains = ImmutableList.builder();
-    for (Map.Entry<String, String> defaultCpu : defaultCpus.entrySet()) {
-      defaultCpuToolchains.add(
-          DefaultCpuToolchain.newBuilder()
-              .setCpu(defaultCpu.getKey())
-              .setToolchainIdentifier(defaultCpu.getValue() + "-" + stlImpl.getName())
-              .build());
-    }
-    return defaultCpuToolchains.build();
   }
 }
