@@ -367,8 +367,6 @@ EOF
 function test_skylark_repository_which_and_execute() {
   setup_skylark_repository
 
-  # Test we are using the client environment, not the server one
-  bazel info &> /dev/null  # Start up the server.
   echo "#!/bin/sh" > bin.sh
   echo "exit 0" >> bin.sh
   chmod +x bin.sh
@@ -392,6 +390,9 @@ def _impl(repository_ctx):
   print(result.stdout)
 repo = repository_rule(implementation=_impl, local=True)
 EOF
+
+  # Test we are using the client environment, not the server one
+  bazel info &> /dev/null  # Start up the server.
 
   FOO="BAZ" PATH="${PATH}:${PWD}" bazel build @foo//:bar >& $TEST_log \
       || fail "Failed to build"
