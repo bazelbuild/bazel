@@ -49,8 +49,11 @@ java_binary(
 java_library(
     name = "skydoc_lib",
     srcs = glob(["*.java"]),
+    visibility = ["//src/test:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
+        "//src/main/java/com/google/devtools/build/lib:skylark_semantics_options",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
@@ -73,6 +76,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/repository",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi/test",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],
 )

@@ -21,6 +21,7 @@ java_test(
     shard_count = 1,
     visibility = ["//devtools/blaze/main:__pkg__"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",

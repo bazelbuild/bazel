@@ -385,6 +385,19 @@ java_library(
     ],
 )
 
+java_library(
+    name = "skylark_semantics_options",
+    srcs = [
+        "packages/SkylarkSemanticsOptions.java",
+    ],
+    deps = [
+        ":skylark_semantics",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
 # Provides core configuration transition abstractions and Blaze-common (i.e not
 # rule-specific) transitions.
 java_library(
