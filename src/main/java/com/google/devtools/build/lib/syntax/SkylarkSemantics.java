@@ -227,7 +227,7 @@ public abstract class SkylarkSemantics {
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(false)
-          .incompatiblePackageNameIsAFunction(true)
+          .incompatiblePackageNameIsAFunction(false)
           .incompatibleRangeType(true)
           .incompatibleRemoveNativeGitRepository(true)
           .incompatibleRemoveNativeHttpArchive(true)

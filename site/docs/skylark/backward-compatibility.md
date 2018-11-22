@@ -216,7 +216,7 @@ Likewise, the magic `REPOSITORY_NAME` variable is replaced by
 same flag.
 
 *   Flag: `--incompatible_package_name_is_a_function`
-*   Default: `true`
+*   Default: `false`
 *   Tracking issue: [#5827](https://github.com/bazelbuild/bazel/issues/5827)
 
 
