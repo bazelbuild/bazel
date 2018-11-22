@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
+import com.google.devtools.build.runfiles.Runfiles;
 
 import java.io.File;
 import java.nio.charset.Charset;
@@ -45,7 +46,8 @@ public class WindowsSubprocessTest {
 
   @Before
   public void loadJni() throws Exception {
-    mockSubprocess = WindowsTestUtil.getRunfile(
+    Runfiles runfiles = Runfiles.create();
+    mockSubprocess = runfiles.rlocation(
         "io_bazel/src/test/java/com/google/devtools/build/lib/MockSubprocess_deploy.jar");
     mockBinary = System.getProperty("java.home") + "\\bin\\java.exe";
 

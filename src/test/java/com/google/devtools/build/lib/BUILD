@@ -495,7 +495,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/build/lib/windows/jni",
-        "//src/main/java/com/google/devtools/build/lib/windows/runfiles",
     ],
 )
 
@@ -523,6 +522,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
         "//src/main/java/com/google/devtools/build/lib/windows/jni",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )
 
