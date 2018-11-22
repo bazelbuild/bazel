@@ -321,12 +321,16 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  public static final String IS_CC_FAKE_BINARY_CONFIGURATION =
+      "feature { name: 'is_cc_fake_binary' }";
+
   public static final String XBINARY_FDO_CONFIGURATION =
       ""
           + "feature {"
           + "  name: 'xbinaryfdo'"
           + "  provides: 'profile'"
           + "  flag_set {"
+          + "    with_feature { not_feature: 'is_cc_fake_binary' }"
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'lto-backend'"

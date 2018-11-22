@@ -279,17 +279,19 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     LinkingMode linkingMode = getLinkStaticness(ruleContext, cppConfiguration);
+    ImmutableSet.Builder<String> requestedFeaturesBuilder = new ImmutableSet.Builder<>();
+    requestedFeaturesBuilder
+        .addAll(ruleContext.getFeatures())
+        .add(linkingMode == Link.LinkingMode.DYNAMIC ? DYNAMIC_LINKING_MODE : STATIC_LINKING_MODE);
+    if (fake) {
+      requestedFeaturesBuilder.add(CppRuleClasses.IS_CC_FAKE_BINARY);
+    }
+
     FdoProvider fdoProvider = common.getFdoProvider();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,
-            /* requestedFeatures= */ ImmutableSet.<String>builder()
-                .addAll(ruleContext.getFeatures())
-                .add(
-                    linkingMode == Link.LinkingMode.DYNAMIC
-                        ? DYNAMIC_LINKING_MODE
-                        : STATIC_LINKING_MODE)
-                .build(),
+            requestedFeaturesBuilder.build(),
             /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
             ccToolchain);
 
