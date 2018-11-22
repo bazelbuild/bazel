@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -61,8 +60,7 @@ public class AndroidLocalTestConfiguration extends BuildConfiguration.Fragment {
 
     @Nullable
     @Override
-    public Fragment create(BuildOptions buildOptions)
-        throws InvalidConfigurationException, InterruptedException {
+    public Fragment create(BuildOptions buildOptions) {
       return new AndroidLocalTestConfiguration(buildOptions.get(Options.class));
     }
 

@@ -25,7 +25,6 @@ import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -46,8 +45,7 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
    */
   public static final class Loader implements ConfigurationFragmentFactory {
     @Override
-    public BuildConfiguration.Fragment create(
-        ConfigurationEnvironment env, BuildOptions buildOptions)
+    public BuildConfiguration.Fragment create(BuildOptions buildOptions)
         throws InvalidConfigurationException {
       ConfigFeatureFlagOptions options = buildOptions.get(ConfigFeatureFlagOptions.class);
       if (!options.unknownFlags.isEmpty()) {

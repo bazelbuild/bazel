@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -32,8 +31,7 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
   }
 
   @Override
-  public JavaConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
-      throws InvalidConfigurationException {
+  public JavaConfiguration create(BuildOptions buildOptions) throws InvalidConfigurationException {
     return new JavaConfiguration(buildOptions.get(JavaOptions.class));
   }
 

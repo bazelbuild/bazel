@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -33,32 +32,26 @@ public class PlatformConfigurationLoader implements ConfigurationFragmentFactory
   }
 
   @Override
-  public PlatformConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
-      throws InvalidConfigurationException, InterruptedException {
+  public PlatformConfiguration create(BuildOptions buildOptions)
+      throws InvalidConfigurationException {
     PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
-    return create(platformOptions);
+    if (platformOptions.hostPlatform == null) {
+      throw new InvalidConfigurationException("Host platform not set");
+    }
+    Label targetPlatform = Iterables.getFirst(platformOptions.platforms, null);
+    if (targetPlatform == null) {
+      throw new InvalidConfigurationException("Target platform not set");
+    }
+    return new PlatformConfiguration(
+        platformOptions.hostPlatform,
+        ImmutableList.copyOf(platformOptions.extraExecutionPlatforms),
+        targetPlatform,
+        ImmutableList.copyOf(platformOptions.extraToolchains),
+        ImmutableList.copyOf(platformOptions.enabledToolchainTypes));
   }
 
   @Override
   public Class<? extends BuildConfiguration.Fragment> creates() {
     return PlatformConfiguration.class;
-  }
-
-  private PlatformConfiguration create(PlatformOptions options)
-      throws InvalidConfigurationException {
-
-    if (options.hostPlatform == null) {
-      throw new InvalidConfigurationException("Host platform not set");
-    }
-    Label targetPlatform = Iterables.getFirst(options.platforms, null);
-    if (targetPlatform == null) {
-      throw new InvalidConfigurationException("Target platform not set");
-    }
-    return new PlatformConfiguration(
-        options.hostPlatform,
-        ImmutableList.copyOf(options.extraExecutionPlatforms),
-        targetPlatform,
-        ImmutableList.copyOf(options.extraToolchains),
-        ImmutableList.copyOf(options.enabledToolchainTypes));
   }
 }
