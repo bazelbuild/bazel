@@ -71,6 +71,8 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraCompileA
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
+import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
+import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
@@ -623,14 +625,15 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     invocations.add(
         new ProtoCompileActionBuilder.ToolchainInvocation(
             "j2objc", checkNotNull(protoToolchain), genfilesPath));
-    ProtoCompileActionBuilder.registerActionsWithoutExports(
+    ProtoCompileActionBuilder.registerActions(
         ruleContext,
         invocations.build(),
         protoProvider,
         ruleContext.getLabel(),
         outputs,
         "j2objc",
-        shouldAllowProtoServices(ruleContext));
+        Exports.DO_NOT_USE,
+        shouldAllowProtoServices(ruleContext) ? Services.ALLOW : Services.DISALLOW);
 
     return new J2ObjcMappingFileProvider(
         NestedSetBuilder.<Artifact>stableOrder().addAll(outputHeaderMappingFiles).build(),

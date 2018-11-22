@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
+import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
+import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaProtoCommonApi;
@@ -42,7 +44,7 @@ public class JavaProtoSkylarkCommon
       String flavour)
       throws EvalException {
     ProtoSourcesProvider protoProvider = target.getProvider(ProtoSourcesProvider.class);
-    ProtoCompileActionBuilder.registerActionsWithoutExports(
+    ProtoCompileActionBuilder.registerActions(
         skylarkRuleContext.getRuleContext(),
         ImmutableList.of(
             new ProtoCompileActionBuilder.ToolchainInvocation(
@@ -53,7 +55,8 @@ public class JavaProtoSkylarkCommon
         skylarkRuleContext.getLabel(),
         ImmutableList.of(sourceJar),
         "JavaLite",
-        /* allowServices= */ true);
+        Exports.DO_NOT_USE,
+        Services.ALLOW);
   }
 
   @Override
