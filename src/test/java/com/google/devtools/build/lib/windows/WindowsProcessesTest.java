@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
-import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -47,8 +47,10 @@ public class WindowsProcessesTest {
 
   @Before
   public void loadJni() throws Exception {
-    mockSubprocess = WindowsTestUtil.getRunfile(
-        "io_bazel/src/test/java/com/google/devtools/build/lib/MockSubprocess_deploy.jar");
+    Runfiles runfiles = Runfiles.create();
+    mockSubprocess =
+        runfiles.rlocation(
+            "io_bazel/src/test/java/com/google/devtools/build/lib/MockSubprocess_deploy.jar");
     mockBinary = System.getProperty("java.home") + "\\bin\\java.exe";
 
     process = -1;
