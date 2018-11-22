@@ -28,7 +28,6 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -114,95 +113,6 @@ public class BuildRequestOptions extends OptionsBase {
     help = "Only shows warnings for rules with a name matching the provided regular expression."
   )
   public Pattern outputFilter;
-
-  @Deprecated
-  @Option(
-    name = "dump_makefile",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "this flag has no effect."
-  )
-  public boolean dumpMakefile;
-
-  @Deprecated
-  @Option(
-    name = "dump_action_graph",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "this flag has no effect."
-  )
-  public boolean dumpActionGraph;
-
-  @Deprecated
-  @Option(
-    name = "dump_action_graph_for_package",
-    allowMultiple = true,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "this flag has no effect."
-  )
-  public List<String> dumpActionGraphForPackage = new ArrayList<>();
-
-  @Deprecated
-  @Option(
-    name = "dump_action_graph_with_middlemen",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "this flag has no effect."
-  )
-  public boolean dumpActionGraphWithMiddlemen;
-
-  @Deprecated
-  @Option(
-    name = "dump_providers",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "This is a no-op."
-  )
-  public boolean dumpProviders;
-
-  @Deprecated
-  @Option(
-    name = "dump_targets",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "this flag has no effect."
-  )
-  public String dumpTargets;
-
-  @Deprecated
-  @Option(
-    name = "dump_host_deps",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "Deprecated"
-  )
-  public boolean dumpHostDeps;
-
-  @Deprecated
-  @Option(
-    name = "dump_to_stdout",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "Deprecated"
-  )
-  public boolean dumpToStdout;
 
   @Option(
     name = "analyze",
