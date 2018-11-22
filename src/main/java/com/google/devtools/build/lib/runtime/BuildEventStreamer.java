@@ -16,15 +16,19 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.events.Event.of;
+import static com.google.devtools.build.lib.events.EventKind.PROGRESS;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -70,6 +74,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -108,6 +117,8 @@ public class BuildEventStreamer implements EventHandler {
 
   // True, if we already closed the stream.
   private boolean closed;
+
+  private static final Logger logger = Logger.getLogger(BuildEventStreamer.class.getName());
 
   /**
    * Provider for stdout and stderr output.
@@ -195,9 +206,6 @@ public class BuildEventStreamer implements EventHandler {
    * come before their parents.
    */
   private void post(BuildEvent event) {
-    Preconditions.checkState(!isClosed(),
-        String.format("Received event of type '%s' after close. This is a bug.",
-            event.getClass().getName()));
     BuildEvent linkEvent = null;
     BuildEventId id = event.getEventId();
     List<BuildEvent> flushEvents = null;
@@ -333,17 +341,70 @@ public class BuildEventStreamer implements EventHandler {
     }
   }
 
-  @VisibleForTesting
-  boolean isClosed() {
+  private ScheduledFuture<?> bepUploadWaitEvent(ScheduledExecutorService executor) {
+    final long startNanos = System.nanoTime();
+    return executor.scheduleAtFixedRate(
+        () -> {
+          long deltaNanos = System.nanoTime() - startNanos;
+          long deltaSeconds = TimeUnit.NANOSECONDS.toSeconds(deltaNanos);
+          Event waitEvt =
+              of(PROGRESS, null, "Waiting for Build Event Protocol upload: " + deltaSeconds + "s");
+          if (reporter != null) {
+            reporter.handle(waitEvt);
+          }
+        },
+        0,
+        1,
+        TimeUnit.SECONDS);
+  }
+
+  public boolean isClosed() {
     return closed;
   }
 
-  /**
-   * Close marks the streamer as closed but does not release any resources. We only set
-   * {@code closed} to {@code true} so that we can call {@link #isClosed()} in tests.
-   */
   private void close() {
-    closed = true;
+    synchronized (this) {
+      if (closed) {
+        return;
+      }
+      closed = true;
+    }
+
+    ScheduledExecutorService executor = null;
+    try {
+      executor = Executors.newSingleThreadScheduledExecutor(
+          new ThreadFactoryBuilder().setNameFormat("build-event-streamer-%d").build());
+      List<ListenableFuture<Void>> closeFutures = new ArrayList<>(transports.size());
+      for (final BuildEventTransport transport : transports) {
+        ListenableFuture<Void> closeFuture = transport.close();
+        closeFuture.addListener(
+            () -> {
+              if (reporter != null) {
+                reporter.post(new BuildEventTransportClosedEvent(transport));
+              }
+            },
+            executor);
+        closeFutures.add(closeFuture);
+      }
+
+      try {
+        if (closeFutures.isEmpty()) {
+          // Don't spam events if there is nothing to close.
+          return;
+        }
+
+        ScheduledFuture<?> f = bepUploadWaitEvent(executor);
+        // Wait for all transports to close.
+        Futures.allAsList(closeFutures).get();
+        f.cancel(true);
+      } catch (Exception e) {
+        logger.severe("Failed to close a build event transport: " + e);
+      }
+    } finally {
+      if (executor != null) {
+        executor.shutdown();
+      }
+    }
   }
 
   private void maybeReportArtifactSet(
