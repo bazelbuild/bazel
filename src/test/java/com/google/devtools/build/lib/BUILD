@@ -1098,6 +1098,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//third_party:jsr305",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )
 

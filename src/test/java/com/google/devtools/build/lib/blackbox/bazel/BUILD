@@ -34,7 +34,7 @@ java_library(
     deps = [
         "//src/test/java/com/google/devtools/build/lib/blackbox:base_deps",
         "//src/test/java/com/google/devtools/build/lib/blackbox/framework",
-        "@bazel_tools//tools/runfiles:java-runfiles",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )
 
