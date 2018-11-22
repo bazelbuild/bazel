@@ -1961,7 +1961,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--cpu=ios_x86_64",
         "--ios_cpu=x86_64",
-        "--incompatible_disable_sysroot_from_configuration",
         "--apple_grte_top=//x");
     scratch.file(
         "x/BUILD",

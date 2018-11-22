@@ -275,4 +275,44 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     ccToolchainProvider.addGlobalMakeVariables(builder);
     assertThat(builder.build().get("GCOVTOOL")).isNotNull();
   }
+
+  @Test
+  public void testUnsupportedSysrootErrorMessage() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(name='empty') ",
+        "filegroup(name='everything')",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    proto = \"\"\"",
+        "      toolchain_identifier: \"a\"",
+        "      host_system_name: \"a\"",
+        "      target_system_name: \"a\"",
+        "      target_cpu: \"a\"",
+        "      target_libc: \"a\"",
+        "      compiler: \"a\"",
+        "      abi_version: \"a\"",
+        "      abi_libc_version: \"a\"",
+        // Not specifying `builtin_sysroot` means the toolchain doesn't support --grte_top,
+        "\"\"\")");
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--grte_top=//a", "--cpu=k8", "--host_cpu=k8");
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("does not support setting --grte_top");
+  }
 }

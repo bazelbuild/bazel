@@ -31,6 +31,6 @@ public class CcLibcTopAlias extends CommonAliasRule {
     return LabelLateBoundDefault.fromTargetConfiguration(
         CppConfiguration.class,
         null,
-        (rules, attributes, cppConfig) -> cppConfig.getSysrootLabel());
+        (rules, attributes, cppConfig) -> cppConfig.getLibcTopLabel());
   }
 }

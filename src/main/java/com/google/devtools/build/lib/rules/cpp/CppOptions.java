@@ -780,22 +780,6 @@ public class CppOptions extends FragmentOptions {
               + "`create_link_variables`. Use list instead.")
   public boolean disableDepsetInUserFlags;
 
-  // TODO(--incompatible_disable_systool_from_configration): Deprecate the feature and remove.
-  @Option(
-      name = "incompatible_disable_sysroot_from_configuration",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, cc_toolchain will no longer determine the sysroot from the CROSSTOOL "
-              + "(default_grte_top property_ during configuration, instead only using the "
-              + "libc_top attribute.")
-  public boolean disableSysrootFromConfiguration;
-
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -834,8 +818,6 @@ public class CppOptions extends FragmentOptions {
     host.fdoProfiles = null;
     host.fdoProfileLabel = null;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
-
-    host.disableSysrootFromConfiguration = disableSysrootFromConfiguration;
 
     return host;
   }

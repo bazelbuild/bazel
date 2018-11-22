@@ -190,8 +190,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final PathFragment fdoPath;
   private final Label fdoOptimizeLabel;
 
-  private final Label sysrootLabel;
-
   private final ImmutableList<String> conlyopts;
 
   private final ImmutableList<String> copts;
@@ -237,7 +235,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         Preconditions.checkNotNull(params.commonOptions.cpu),
         params.fdoPath,
         params.fdoOptimizeLabel,
-        params.sysrootLabel,
         ImmutableList.copyOf(cppOptions.conlyoptList),
         ImmutableList.copyOf(cppOptions.coptList),
         ImmutableList.copyOf(cppOptions.cxxoptList),
@@ -260,7 +257,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       String desiredCpu,
       PathFragment fdoPath,
       Label fdoOptimizeLabel,
-      Label sysrootLabel,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
       ImmutableList<String> cxxopts,
@@ -278,7 +274,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.desiredCpu = desiredCpu;
     this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoOptimizeLabel;
-    this.sysrootLabel = sysrootLabel;
     this.conlyopts = conlyopts;
     this.copts = copts;
     this.cxxopts = cxxopts;
@@ -373,10 +368,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    */
   public CompilationMode getCompilationMode() {
     return compilationMode;
-  }
-
-  public Label getSysrootLabel() {
-    return sysrootLabel;
   }
 
 
@@ -715,9 +706,5 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    */
   public Label getLibcTopLabel() {
     return cppOptions.libcTopLabel;
-  }
-
-  public boolean disableSysrootFromConfiguration() {
-    return cppOptions.disableSysrootFromConfiguration;
   }
 }

@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -88,7 +87,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final Label ccToolchainLabel;
     protected final PathFragment fdoPath;
     protected final Label fdoOptimizeLabel;
-    protected final Label sysrootLabel;
     protected final CcToolchainConfigInfo ccToolchainConfigInfo;
     protected final String transformedCpu;
     protected final String compiler;
@@ -103,7 +101,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         Label fdoOptimizeLabel,
         Label crosstoolTop,
         Label ccToolchainLabel,
-        Label sysrootLabel,
         CcToolchainConfigInfo ccToolchainConfigInfo) {
       this.transformedCpu = transformedCpu;
       this.compiler = compiler;
@@ -114,7 +111,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       this.fdoOptimizeLabel = fdoOptimizeLabel;
       this.crosstoolTop = crosstoolTop;
       this.ccToolchainLabel = ccToolchainLabel;
-      this.sysrootLabel = sysrootLabel;
       this.ccToolchainConfigInfo = ccToolchainConfigInfo;
     }
   }
@@ -195,8 +191,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
             cToolchain, crosstoolTopLabel.getPackageIdentifier().getPathUnderExecRoot());
     CcToolchainConfigInfo ccToolchainConfigInfo = CcToolchainConfigInfo.fromToolchain(cToolchain);
 
-    Label sysrootLabel = getSysrootLabel(cToolchain, cppOptions.libcTopLabel);
-
     String ccToolchainSuiteProtoAttributeValue =
         StringUtil.emptyToNull(
             NonconfigurableAttributeMapper.of((Rule) crosstoolTop).get("proto", Type.STRING));
@@ -239,7 +233,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         fdoProfileLabel,
         crosstoolTopLabel,
         ccToolchainLabel,
-        sysrootLabel,
         ccToolchainConfigInfo);
   }
 
@@ -292,34 +285,5 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       errorMessage = errorMessage + " and compiler '" + compiler + "'.";
     }
     return errorMessage;
-  }
-
-  @Nullable
-  public static Label getSysrootLabel(CToolchain toolchain, Label libcTopLabel)
-      throws InvalidConfigurationException {
-    PathFragment defaultSysroot =
-        CppConfiguration.computeDefaultSysroot(toolchain.getBuiltinSysroot());
-
-    if ((libcTopLabel != null) && (defaultSysroot == null)) {
-      throw new InvalidConfigurationException(
-          "The selected toolchain "
-              + toolchain.getToolchainIdentifier()
-              + " does not support setting --grte_top.");
-    }
-
-    if (libcTopLabel != null) {
-      return libcTopLabel;
-    }
-
-    if (!toolchain.getDefaultGrteTop().isEmpty()) {
-      try {
-        Label grteTopLabel =
-            new CppOptions.LibcTopLabelConverter().convert(toolchain.getDefaultGrteTop());
-        return grteTopLabel;
-      } catch (OptionsParsingException e) {
-        throw new InvalidConfigurationException(e.getMessage(), e);
-      }
-    }
-    return null;
   }
 }

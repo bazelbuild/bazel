@@ -76,13 +76,9 @@ public final class CcToolchainRule implements RuleDefinition {
               return cppOptionLibcTop;
             }
 
-            // Should we use the version from the configuration?
-            Label cppConfigSysrootLabel =
-                cppConfig.disableSysrootFromConfiguration() ? null : cppConfig.getSysrootLabel();
-
             // Look up the value from the attribute.
             // This avoids analyzing the label from the CROSSTOOL if the attribute is set.
-            return getLabel(attributes, "libc_top", cppConfigSysrootLabel);
+            return getLabel(attributes, "libc_top", /* defaultValue= */ null);
           });
 
   private static final LabelLateBoundDefault<?> FDO_OPTIMIZE_VALUE =

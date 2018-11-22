@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.syntax.Type;
@@ -61,6 +62,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final NestedSet<Artifact> ar;
   private final NestedSet<Artifact> link;
   private final NestedSet<Artifact> dwp;
+  private final Label libcTopAttribute;
   private final NestedSet<Artifact> libc;
   private final NestedSet<Artifact> libcMiddleman;
   private final NestedSet<Artifact> fullInputsForCrosstool;
@@ -126,7 +128,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
             .addTransitive(crosstoolMiddleman)
             .addTransitive(libcMiddleman)
             .build();
-    ;
     this.fullInputsForLink = fullInputsForLink(ruleContext, link, libcMiddleman, isAppleToolchain);
     NestedSet<Artifact> coverageAttribute =
         getOptionalMiddlemanOrFiles(ruleContext, "coverage_files");
@@ -150,6 +151,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.fdoPrefetch =
         ruleContext.getPrerequisite(
             ":fdo_prefetch_hints", Mode.TARGET, FdoPrefetchHintsProvider.PROVIDER);
+    this.libcTopAttribute = ruleContext.attributes().get("libc_top", BuildType.LABEL);
     this.libcTop = ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
     this.moduleMap = ruleContext.getPrerequisite("module_map", Mode.HOST);
     this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map", Mode.HOST);
@@ -344,6 +346,10 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   public NestedSet<Artifact> getLibc() {
     return libc;
+  }
+
+  public Label getLibcTopAttribute() {
+    return libcTopAttribute;
   }
 
   public String getCompiler() {
