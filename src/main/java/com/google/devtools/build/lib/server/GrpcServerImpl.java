@@ -551,19 +551,18 @@ public class GrpcServerImpl implements RPCServer {
    * lock file, and there is a small possibility of the following sequence of events:
    *
    * <ol>
-   *   <li> Client 1 runs "blaze clean --expunge"
-   *   <li> Client 2 runs a command and waits for client 1 to finish
-   *   <li> The clean command deletes everything including the lock file
-   *   <li> Client 2 starts running and since the output base is empty, starts up a new server,
-   *     which creates its own socket and PID files
-   *   <li> The server used by client runs its shutdown hooks, deleting the PID files created by
-   *     the new server
+   *   <li>Client 1 runs "blaze clean --expunge"
+   *   <li>Client 2 runs a command and waits for client 1 to finish
+   *   <li>The clean command deletes everything including the lock file
+   *   <li>Client 2 starts running and since the output base is empty, starts up a new server, which
+   *       creates its own socket and PID files
+   *   <li>The server used by client runs its shutdown hooks, deleting the PID files created by the
+   *       new server
    * </ol>
    *
    * It also disables the "die when the PID file changes" handler so that it doesn't kill the server
-   * while the "clean --expunge" commmand is running.
+   * while the "clean --expunge" command is running.
    */
-
   @Override
   public void prepareForAbruptShutdown() {
     disableShutdownHooks();

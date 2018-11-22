@@ -1024,7 +1024,7 @@ EOF
 
 
 function test_inherit_build() {
-  # Verify that http_archive can use a BUILD file shiped with the
+  # Verify that http_archive can use a BUILD file shipped with the
   # external archive.
   mkdir ext
   cat > ext/BUILD <<'EOF'
@@ -1105,7 +1105,7 @@ http_archive(
   urls=["file://${EXTREPODIR}/ext.zip"],
 )
 EOF
-  bazel build '@ext//:bar' || fail "expected sucess"
+  bazel build '@ext//:bar' || fail "expected success"
 
   # Simulate going offline by removing the external archive
   rm -f "${EXTREPODIR}/ext.zip"
@@ -1159,7 +1159,7 @@ http_archive(
 EOF
   # Use the external repository once to make sure it is cached.
   bazel build --repository_cache="../cache" '@ext//:bar' \
-      || fail "expected sucess"
+      || fail "expected success"
 
   # Now "go offline" and clean local resources.
   rm -f "${WRKDIR}/ext.zip"
@@ -1174,7 +1174,7 @@ EOF
 
   # Clean again.
   bazel clean --expunge
-  # Even with a different source URL, the cache sould be consulted.
+  # Even with a different source URL, the cache should be consulted.
 
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -1229,7 +1229,7 @@ http_archive(
 )
 EOF
   # Use the external repository once to make sure it is cached.
-  bazel build '@ext//:bar' || fail "expected sucess"
+  bazel build '@ext//:bar' || fail "expected success"
 
   # Now "go offline" and clean local resources.
   rm -f "${WRKDIR}/ext.zip"
@@ -1241,7 +1241,7 @@ EOF
 
   # Clean again.
   bazel clean --expunge
-  # Even with a different source URL, the cache sould be consulted.
+  # Even with a different source URL, the cache should be consulted.
 
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -1287,7 +1287,7 @@ http_archive(
 )
 EOF
   # Use the external repository once to make sure it is cached.
-  bazel build '@ext//:foo' || fail "expected sucess"
+  bazel build '@ext//:foo' || fail "expected success"
 
   # Now "go offline" and clean local resources.
   rm -f "${TOPDIR}/ext.zip"
@@ -1328,11 +1328,11 @@ http_archive(
 )
 EOF
   # Use `--repository_cache` with no path to explicitly disable repository cache
-  bazel build --repository_cache= '@ext//:foo' || fail "expected sucess"
+  bazel build --repository_cache= '@ext//:foo' || fail "expected success"
 
   # make sure, the empty path is not interpreted relative to `pwd`; i.e., we do
   # not expect any new directories generated in the workspace, in particular
-  # none named conent_adressable, which is the directory where the cache puts
+  # none named conent_addressable, which is the directory where the cache puts
   # its artifacts into.
   ls -al | grep content_addressable \
       && fail "Should not interpret empty path as cache directly in the work space" || :
@@ -1388,7 +1388,7 @@ http_archive(
 EOF
   # Use the external repository once to make sure it is cached.
   bazel build --repository_cache="${TOPDIR}/cache}" '@ext//:bar' \
-      || fail "expected sucess"
+      || fail "expected success"
 
   # Now "go offline" and clean local resources.
   rm -f "${TOPDIR}/ext.zip"
@@ -1403,7 +1403,7 @@ EOF
 
   # Clean again.
   bazel clean --expunge
-  # Even with a different source URL, the cache sould be consulted.
+  # Even with a different source URL, the cache should be consulted.
 
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")

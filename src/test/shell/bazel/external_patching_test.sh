@@ -264,7 +264,7 @@ EOF
 }
 
 test_override_buildfile() {
-  ## Verify that the BUILD file of an external repository can be overriden
+  ## Verify that the BUILD file of an external repository can be overridden
   ## via the http_archive rule.
   EXTREPODIR=`pwd`
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
@@ -322,7 +322,7 @@ EOF
 }
 
 test_override_buildfile_content() {
-  ## Verify that the BUILD file of an external repository can be overriden
+  ## Verify that the BUILD file of an external repository can be overridden
   ## via specified content in the http_archive rule.
   EXTREPODIR=`pwd`
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
@@ -379,7 +379,7 @@ EOF
 }
 
 test_override_buildfile_git() {
-  ## Verify that the BUILD file of an external repository can be overriden
+  ## Verify that the BUILD file of an external repository can be overridden
   ## via the git_repository rule.
   EXTREPODIR=`pwd`
   if is_windows; then
@@ -447,7 +447,7 @@ EOF
 }
 
 test_override_buildfilecontents_git() {
-  ## Verify that the BUILD file of an external repository can be overriden
+  ## Verify that the BUILD file of an external repository can be overridden
   ## via specified content in the git_repository rule.
   EXTREPODIR=`pwd`
   if is_windows; then
@@ -514,7 +514,7 @@ EOF
 }
 
 test_build_file_build_bazel() {
-  ## Verify that the BUILD file of an external repository can be overriden
+  ## Verify that the BUILD file of an external repository can be overridden
   ## via the http_archive rule.
   EXTREPODIR=`pwd`
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"

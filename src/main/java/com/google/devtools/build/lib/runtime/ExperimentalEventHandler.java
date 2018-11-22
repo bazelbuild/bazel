@@ -602,7 +602,7 @@ public class ExperimentalEventHandler implements EventHandler {
     }
     if (event.getStdOut() == null && event.getStdErr() == null) {
       // We deduplicate on the attached output (assuming the event itself only describes
-      // the source of the output). If no output is attached it is a differnt kind of event
+      // the source of the output). If no output is attached it is a different kind of event
       // and should not be deduplicated.
       return false;
     }
@@ -686,7 +686,7 @@ public class ExperimentalEventHandler implements EventHandler {
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
     // The final progress bar will flow into the scroll-back buffer, to if treat
-    // it as an event and add a timestamp, if events are supposed to have a timestmap.
+    // it as an event and add a timestamp, if events are supposed to have a timestamp.
     boolean done = false;
     synchronized (this) {
       stateTracker.buildComplete(event);
@@ -963,10 +963,7 @@ public class ExperimentalEventHandler implements EventHandler {
     startUpdateThread();
   }
 
-  /**
-   * Decide wheter the progress bar should be redrawn only for the reason
-   * that time has passed.
-   */
+  /** Decide whether the progress bar should be redrawn only for the reason that time has passed. */
   private synchronized boolean timeBasedRefresh() {
     if (!stateTracker.progressBarTimeDependent()) {
       return false;

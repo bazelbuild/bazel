@@ -292,9 +292,9 @@ public class TestConfiguration extends Fragment {
         == TestActionBuilder.TestShardingStrategy.EXPERIMENTAL_HEURISTIC) {
       reporter.handle(
           Event.warn(
-              "Heuristic sharding is intended as a one-off experimentation tool for determing the "
-                  + "benefit from sharding certain tests. Please don't keep this option in your "
-                  + ".blazerc or continuous build"));
+              "Heuristic sharding is intended as a one-off experimentation tool for determining "
+                  + "the benefit from sharding certain tests. Please don't keep this option in "
+                  + "your .blazerc or continuous build"));
     }
   }
 

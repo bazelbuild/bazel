@@ -48,7 +48,7 @@ EOF
 
 test_pkg_tar_quoting() {
   # Verify that pkg_tar can handle file names that are allowed as lablels
-  # but contain cahracters that could mess up options.
+  # but contain characters that could mess up options.
   rm -rf main out
   mkdir main
   cd main

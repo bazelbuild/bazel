@@ -37,7 +37,7 @@ package com.google.devtools.build.lib.view.config.crosstool;
 // examples are 'x86_64-unknown-linux-gnu' and 'i686-unknown-cygwin'.
 //
 // The system name is used to determine if a given machine can execute a given
-// exectuable. In particular, it is used to check if the compilation products of
+// executable. In particular, it is used to check if the compilation products of
 // a toolchain can run on the host machine.
 message CToolchain {
 

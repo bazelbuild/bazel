@@ -752,7 +752,7 @@ public class Artifact
     } else {
       // Derived Artifact: path and root are under execRoot
       //
-      // TODO(blaze-team): this is misleading beacuse execution_root isn't unique. Dig the
+      // TODO(blaze-team): this is misleading because execution_root isn't unique. Dig the
       // workspace name out and print that also.
       return "[[<execution_root>]" + root.getExecPath() + "]" + rootRelativePath;
     }

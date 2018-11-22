@@ -37,7 +37,7 @@ TEST_DEVICE_ID=$(xcrun simctl create TestDevice com.apple.CoreSimulator.SimDevic
 # It's the only way I know of to launch the simulator safely using xcrun.
 # This will launch the simulator with a given device. If the simulator is already running
 # it will switch to the given device.
-# Radar 21392428 xcrun should allow me to specifiy "iOS Simulator" in some manner
+# Radar 21392428 xcrun should allow me to specify "iOS Simulator" in some manner
 xcrun instruments -w $TEST_DEVICE_ID &>/dev/null || true
 
 xcrun simctl install $TEST_DEVICE_ID $1

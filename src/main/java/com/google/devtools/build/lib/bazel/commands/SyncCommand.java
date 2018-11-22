@@ -48,12 +48,12 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Syncs all repositories specifed in the workspace file */
+/** Syncs all repositories specified in the workspace file */
 @Command(
     name = SyncCommand.NAME,
     options = {PackageCacheOptions.class, KeepGoingOption.class, LoadingPhaseThreadsOption.class},
     help = "resource:sync.txt",
-    shortDescription = "Syncs all repositories specifed in the workspace file",
+    shortDescription = "Syncs all repositories specified in the workspace file",
     allowResidue = false)
 public final class SyncCommand implements BlazeCommand {
   public static final String NAME = "sync";

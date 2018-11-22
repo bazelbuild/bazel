@@ -764,7 +764,7 @@ class BlazercImportTest : public ParseOptionsTest {
         args, blaze_exit_code::SUCCESS, "",
         "WARNING: Duplicate rc file: .*myimportedbazelrc is read multiple "
         "times, "
-        "it is a standard rc file location but must have been unnecessarilly "
+        "it is a standard rc file location but must have been unnecessarily "
         "imported earlier.\n");
   }
 };
@@ -920,7 +920,7 @@ TEST_F(ParseOptionsTest, ImportingStandardRcBeforeItIsLoadedCausesAWarning) {
       args, blaze_exit_code::SUCCESS, "",
       "WARNING: Duplicate rc file: .*workspace.*bazelrc is read multiple "
       "times, it is a standard rc file location but must have been "
-      "unnecessarilly imported earlier.\n");
+      "unnecessarily imported earlier.\n");
 }
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 

@@ -146,7 +146,7 @@ using command_server::CommandServer;
 //   to deliver a SIGKILL to the server after three SIGINTs. It would only be
 //   possible with gRPC anyway.
 //
-// - Have the server check that the PID file containts the correct things
+// - Have the server check that the PID file contains the correct things
 //   before deleting them: there is a window of time between checking the file
 //   and deleting it in which a new server can overwrite the PID file. The
 //   output base lock cannot be acquired, either, because when starting up a

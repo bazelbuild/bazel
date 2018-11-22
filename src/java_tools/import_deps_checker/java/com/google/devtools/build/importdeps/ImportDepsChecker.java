@@ -82,7 +82,7 @@ public final class ImportDepsChecker implements Closeable {
   }
 
   /**
-   * Checks for dependency problems in the given input jars agains the classpath.
+   * Checks for dependency problems in the given input jars against the classpath.
    *
    * @return {@literal true} for no problems, {@literal false} otherwise.
    */

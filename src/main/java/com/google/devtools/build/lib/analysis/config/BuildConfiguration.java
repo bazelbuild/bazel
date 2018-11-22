@@ -1572,12 +1572,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * Returns a new, unordered mapping of names to values of "Make" variables defined by this
    * configuration.
    *
-   * <p>This does *not* include package-defined overrides (e.g. vardef)
-   * and so should not be used by the build logic.  This is used only for
-   * the 'info' command.
+   * <p>This does *not* include package-defined overrides (e.g. vardef) and so should not be used by
+   * the build logic. This is used only for the 'info' command.
    *
-   * <p>Command-line definitions of make enviroments override variables defined by
-   * {@code Fragment.addGlobalMakeVariables()}.
+   * <p>Command-line definitions of make environments override variables defined by {@code
+   * Fragment.addGlobalMakeVariables()}.
    */
   public Map<String, String> getMakeEnvironment() {
     Map<String, String> makeEnvironment = new HashMap<>();

@@ -104,7 +104,7 @@ static uint64_t GetUsedSystemTimeMillis() {
   return my_rusage.ru_stime.tv_sec * 1000 + my_rusage.ru_stime.tv_usec / 1000;
 }
 
-// Substracts subtrahend from minuend, or returns zero if the subtrahend is
+// Subtracts subtrahend from minuend, or returns zero if the subtrahend is
 // larger than the minuend.
 static uint64_t SubtractOrZero(const uint64_t minuend,
                                const uint64_t subtrahend) {

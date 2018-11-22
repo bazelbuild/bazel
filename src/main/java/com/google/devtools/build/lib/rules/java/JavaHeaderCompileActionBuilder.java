@@ -317,7 +317,7 @@ public class JavaHeaderCompileActionBuilder {
     }
 
     // If we get here the action requires annotation processing, so add additional inputs and
-    // flags needed for the javac-based header compiler implementatino that supports
+    // flags needed for the javac-based header compiler implementations that supports
     // annotation processing.
 
     builder.addTransitiveInputs(classpathEntries);

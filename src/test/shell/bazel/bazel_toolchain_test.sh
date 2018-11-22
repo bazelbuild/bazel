@@ -33,7 +33,7 @@ cd "${TEST_TMPDIR}/TEMP_TEMP_TEMP"
 
 # Copy the project package here
 # We must use -L here; the files may be symlinks into the source tree, which we
-# could inadvertantly modify below.
+# could inadvertently modify below.
 cp -rL ${testdata_path}/bazel_toolchain_test_data/* .
 
 # Rename WORKSPACE.linaro file to WORKSPACE

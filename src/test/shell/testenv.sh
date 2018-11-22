@@ -64,7 +64,7 @@ PATH_TO_BAZEL_BIN=$(rlocation io_bazel/src/bazel)
 PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation io_bazel/src/test/shell/bin/bazel))"
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
 # added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,
-# because ':' is used as both path seperator and in C:/msys64/...
+# because ':' is used as both path separator and in C:/msys64/...
 if is_windows; then
   PATH_TO_BAZEL_WRAPPER="$(cygpath -u "$PATH_TO_BAZEL_WRAPPER")"
 fi
@@ -221,7 +221,7 @@ exit 1;
 }
 
 #
-# A uniform SHA-256 commands that works accross platform
+# A uniform SHA-256 commands that works across platform
 #
 case "${PLATFORM}" in
   darwin|freebsd)

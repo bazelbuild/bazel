@@ -15,7 +15,6 @@
 package com.google.devtools.build.singlejar;
 
 import com.google.devtools.build.singlejar.OptionFileExpander.OptionFileProvider;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,9 +40,6 @@ public interface SimpleFileSystem extends OptionFileProvider {
    */
   File getFile(String filename) throws IOException;
 
-  /**
-   * Delete the file with the given name and return whether deleting it was
-   * successfull.
-   */
+  /** Delete the file with the given name and return whether deleting it was successful. */
   boolean delete(String filename);
 }

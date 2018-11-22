@@ -186,7 +186,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
         actionBuilder.addAllCommandLine(((CommandAction) action).getArguments());
       }
     } catch (CommandLineExpansionException e) {
-      // Command-line not avaiable, so just not report it
+      // Command-line not available, so just not report it
       logger.log(Level.INFO, "Could no compute commandline of reported action", e);
     }
     return GenericBuildEvent.protoChaining(this).setAction(actionBuilder.build()).build();

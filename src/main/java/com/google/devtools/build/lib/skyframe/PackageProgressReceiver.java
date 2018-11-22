@@ -19,9 +19,8 @@ import com.google.devtools.build.lib.util.Pair;
 import java.util.LinkedHashSet;
 
 /**
- * A class that, when beeing told about start and end of a package
- * being loaded, keeps track of the loading progress and provides it
- * as a human-readable string intended for the progress bar.
+ * A class that, when being told about start and end of a package being loaded, keeps track of the
+ * loading progress and provides it as a human-readable string intended for the progress bar.
  */
 public class PackageProgressReceiver {
 

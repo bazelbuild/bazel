@@ -845,7 +845,7 @@ public final class Runfiles implements RunfilesApi {
 
     /**
      * @deprecated Use {@link #addTransitiveArtifacts} instead, to prevent increased memory use.
-     *     <p>See alse {@link Builder#addTransitiveArtifactsWrappedInStableOrder}
+     *     <p>See also {@link Builder#addTransitiveArtifactsWrappedInStableOrder}
      */
     @Deprecated
     public Builder addArtifacts(NestedSet<Artifact> artifacts) {

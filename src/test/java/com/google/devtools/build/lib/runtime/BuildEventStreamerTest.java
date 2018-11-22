@@ -752,7 +752,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   public void testEarlyFlushBadInitialEvent() throws Exception {
     // Verify that an early flush works correctly with an unusual start event.
     // In this case, we expect 3 events in the stream, in that order:
-    // - an artifical progress event as initial event, to properly link in
+    // - an artificial progress event as initial event, to properly link in
     //   all events
     // - the unusal first event we have seen, and
     // - a progress event reporting the flushed messages.

@@ -39,7 +39,7 @@ public final class ParamDescriptor {
   // The next two fields relate to toggling this parameter via semantic flag -- they will
   // be null if and only if this parameter is enabled, and will otherwise contain information
   // about what to do with the disabled parameter. (If the parameter is 'disabled', it will be
-  // treated as unusuable from Starlark.)
+  // treated as unusable from Starlark.)
 
   // The value of this disabled parameter (as interpreted in Starlark) will be passed to the Java
   // method.

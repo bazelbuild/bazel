@@ -239,7 +239,7 @@ public class ParallelEvaluatorTest {
       throws InterruptedException {
     // This is a regression test for a crash bug in
     // AbstractExceptionalParallelEvaluator#doMutatingEvaluation in a very specific window of time
-    // inbetween enqueueing one top-level node for evaluation and checking if another top-level node
+    // between enqueueing one top-level node for evaluation and checking if another top-level node
     // is done.
 
     // When we have two top-level nodes, A and B,

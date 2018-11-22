@@ -147,16 +147,16 @@ public class BuildDocCollector {
    * Creates a map of rule names (keys) to rule documentation (values).
    *
    * <p>This method crawls the specified input directories for rule class definitions (as Java
-   * source files) which contain the rules' and attributes' definitions as comments in a
-   * specific format. The keys in the returned Map correspond to these rule classes.
+   * source files) which contain the rules' and attributes' definitions as comments in a specific
+   * format. The keys in the returned Map correspond to these rule classes.
    *
    * <p>In the Map's values, all references pointing to other rules, rule attributes, and general
-   * documentation (e.g. common definitions, make variables, etc.) are expanded into hyperlinks.
-   * The links generated follow the multi-page Build Encyclopedia model (one page per rule clas.).
+   * documentation (e.g. common definitions, make variables, etc.) are expanded into hyperlinks. The
+   * links generated follow the multi-page Build Encyclopedia model (one page per rule class.).
    *
    * @param inputDirs list of directories to scan for documentation
-   * @param blackList specify an optional blacklist file that list some rules that should
-   *                  not be listed in the output.
+   * @param blackList specify an optional blacklist file that list some rules that should not be
+   *     listed in the output.
    * @throws BuildEncyclopediaDocException
    * @throws IOException
    * @return Map of rule class to rule documentation.

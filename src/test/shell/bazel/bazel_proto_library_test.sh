@@ -214,7 +214,7 @@ EOF
   cat > proto_library/src/zip_code.proto <<EOF
 syntax = "proto3";
 
-package demo; // Requried to generate valid code.
+package demo; // Required to generate valid code.
 
 message ZipCode {
   string code = 1;
@@ -267,7 +267,7 @@ EOF
   cat > a/b/src/zip_code.proto <<EOF
 syntax = "proto3";
 
-package demo; // Requried to generate valid code.
+package demo; // Required to generate valid code.
 
 message ZipCode {
   string code = 1;

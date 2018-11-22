@@ -273,7 +273,7 @@ void WarnAboutDuplicateRcFiles(const std::set<std::string>& read_files,
         BAZEL_LOG(WARNING)
             << "Duplicate rc file: " << loaded_rc
             << " is read multiple times, it is a standard rc file location "
-               "but must have been unnecessarilly imported earlier.";
+               "but must have been unnecessarily imported earlier.";
       } else {
         BAZEL_LOG(WARNING)
             << "Duplicate rc file: " << loaded_rc
@@ -487,7 +487,7 @@ void OptionProcessor::PrintStartupOptionsProvenanceMessage() const {
   StartupOptions* parsed_startup_options = GetParsedStartupOptions();
 
   // Print the startup flags in the order they are parsed, to keep the
-  // precendence clear. In order to minimize the number of lines of output in
+  // precedence clear. In order to minimize the number of lines of output in
   // the terminal, group sequential flags by origin. Note that an rc file may
   // turn up multiple times in this list, if, for example, it imports another
   // rc file and contains startup options on either side of the import

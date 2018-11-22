@@ -312,8 +312,8 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   }
 
   /**
-   * Returns true iff the value of the specified attribute is explicitly set in the BUILD file.
-   * This returns true also if the value explicity specified in the BUILD file is the same as the
+   * Returns true iff the value of the specified attribute is explicitly set in the BUILD file. This
+   * returns true also if the value explicitly specified in the BUILD file is the same as the
    * attribute's default value. In addition, this method return false if the rule has no attribute
    * with the given name.
    */

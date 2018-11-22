@@ -307,7 +307,7 @@ EOF
     local -r EXPECTED_TMP="$new_tmpdir"
   fi
   assert_contains "PATH=$EXPECTED_PATH" bazel-genfiles/pkg/test.out
-  # Bazel respectes the client environment's TMPDIR.
+  # Bazel respects the client environment's TMPDIR.
   assert_contains "TMPDIR=${EXPECTED_TMP}$" bazel-genfiles/pkg/test.out
   if is_windows; then
     export TMP="${old_tmpdir}"

@@ -63,7 +63,7 @@ function ensure_contains_exactly() {
   num=`grep "${1}" output.log.txt | wc -l`
   if [ "$num" -ne $2 ]
   then
-    fail "Expected exactly $2 occurences of $1, got $num: " `cat output.log.txt`
+    fail "Expected exactly $2 occurrences of $1, got $num: " `cat output.log.txt`
   fi
 }
 
@@ -71,7 +71,7 @@ function ensure_contains_atleast() {
   num=`grep "${1}" output.log.txt | wc -l`
   if [ "$num" -lt $2 ]
   then
-    fail "Expected at least $2 occurences of $1, got $num: " `cat output.log.txt`
+    fail "Expected at least $2 occurrences of $1, got $num: " `cat output.log.txt`
   fi
 }
 
