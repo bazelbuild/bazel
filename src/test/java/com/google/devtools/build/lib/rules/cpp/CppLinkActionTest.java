@@ -267,6 +267,41 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCompilesDynamicModeSourcesWithoutFeatureIntoDynamicLibrary() throws Exception {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // Skip the test on Windows.
+      // TODO(bazel-team): maybe we should move that test that doesn't work with MSVC toolchain to
+      // its own suite with a TestSpec?
+      return;
+    }
+    scratch.file(
+        "x/BUILD",
+        "cc_test(name = 'a', srcs = ['a.cc'], features = ['-static_link_srcs'])",
+        "cc_binary(name = 'b', srcs = ['a.cc'])");
+    scratch.file("x/a.cc", "int main() {}");
+    useConfiguration("--force_pic");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
+    String cpu = CrosstoolConfigurationHelper.defaultCpu();
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
+    assertThat(artifactsToStrings(linkAction.getInputs()))
+        .contains("bin _solib_" + cpu + "/libx_Sliba.ifso");
+    assertThat(linkAction.getArguments())
+        .contains(
+            getBinArtifactWithNoOwner("_solib_" + cpu + "/libx_Sliba.ifso").getExecPathString());
+    RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
+    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
+        .contains("bin _solib_" + cpu + "/libx_Sliba.so");
+
+    configuredTarget = getConfiguredTarget("//x:b");
+    linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/b");
+    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/b/a.pic.o");
+    runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
+    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
+        .containsExactly("bin x/b");
+  }
+
+  @Test
   public void testToolchainFeatureEnv() throws Exception {
     FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
