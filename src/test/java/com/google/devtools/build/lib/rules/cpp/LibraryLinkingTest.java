@@ -144,10 +144,13 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
         "           deps = [':d', 'script.lds'])",
         "cc_library(name = 'd',",
         "           srcs = ['d.cc', 'd.so'],",
-        "           deps = [':e'])",
+        "           deps = [':e', ':f'])",
         "cc_library(name = 'e',",
         "           srcs = ['e.c'],",
-        "           linkopts = ['-Le', '-La'])");
+        "           linkopts = ['-Le', '-La'])",
+        "cc_import(name = 'f',",
+        "          interface_library = 'f.ifso',",
+        "          system_provided = 1)");
 
     ConfiguredTarget ccLib = getConfiguredTarget("//foo:a");
     CcLinkingInfo ccLinkingInfo = ccLib.get(CcInfo.PROVIDER).getCcLinkingInfo();

@@ -14,40 +14,46 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
- * Interface for a store of information needed for C++ compilation aggregated across dependencies.
+ * A library the user can link to. This is different from a simple linker input in that it also has
+ * a library identifier.
  */
 @SkylarkModule(
-    name = "CompilationContext",
+    name = "LibraryToLink",
+    category = SkylarkModuleCategory.BUILTIN,
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER,
-    doc =
-        "Immutable store of information needed for C++ compilation that is aggregated across "
-            + "dependencies.")
-public interface CcCompilationContextApi {
+    doc = "A library the user can link against.")
+public interface LibraryToLinkWrapperApi {
   @SkylarkCallable(
-      name = "defines",
+      name = "static_library",
       documented = false,
       allowReturnNones = true,
       structField = true)
-  SkylarkNestedSet getSkylarkDefines();
+  Artifact getStaticLibrary();
 
   @SkylarkCallable(
-      name = "headers",
+      name = "pic_static_library",
       documented = false,
       allowReturnNones = true,
       structField = true)
-  SkylarkNestedSet getSkylarkHeaders();
+  Artifact getPicStaticLibrary();
 
   @SkylarkCallable(
-      name = "system_includes",
+      name = "dynamic_library",
       documented = false,
       allowReturnNones = true,
       structField = true)
-  SkylarkNestedSet getSkylarkDeclaredIncludeDirs();
+  Artifact getDynamicLibrary();
+
+  @SkylarkCallable(
+      name = "interface_library",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  Artifact getInterfaceLibrary();
 }

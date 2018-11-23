@@ -541,7 +541,7 @@ public abstract class LinkerInputs {
         objectFiles,
         ltoBitcodeFiles,
         sharedNonLtoBackends,
-        /* allowArchiveTypeInAlwayslink= */ false,
+        /* allowArchiveTypeInAlwayslink= */ true,
         mustKeepDebug);
   }
 

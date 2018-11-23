@@ -21,40 +21,11 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /** Wrapper for every C++ linking provider. */
 @SkylarkModule(
-    name = "CcLinkingContext",
+    name = "LinkingContext",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER,
-    doc = "Wrapper for every C++ linking provider")
-public interface CcLinkingInfoApi {
-
-  @SkylarkCallable(
-      name = "static_mode_params_for_dynamic_library",
-      documented = false,
-      allowReturnNones = true,
-      structField = true)
-  CcLinkParamsApi getStaticModeParamsForDynamicLibrary();
-
-  @SkylarkCallable(
-      name = "static_mode_params_for_executable",
-      documented = false,
-      allowReturnNones = true,
-      structField = true)
-  CcLinkParamsApi getStaticModeParamsForExecutable();
-
-  @SkylarkCallable(
-      name = "dynamic_mode_params_for_dynamic_library",
-      documented = false,
-      allowReturnNones = true,
-      structField = true)
-  CcLinkParamsApi getDynamicModeParamsForDynamicLibrary();
-
-  @SkylarkCallable(
-      name = "dynamic_mode_params_for_executable",
-      documented = false,
-      allowReturnNones = true,
-      structField = true)
-  CcLinkParamsApi getDynamicModeParamsForExecutable();
-
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "")
+public interface CcLinkingContextApi {
   @SkylarkCallable(name = "user_link_flags", documented = false, structField = true)
   SkylarkList<String> getSkylarkUserLinkFlags();
 

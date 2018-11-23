@@ -16,10 +16,16 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams.LinkOptions;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkWrapperApi;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import java.util.Collection;
 
 /** Wrapper for every C++ linking provider. */
@@ -71,6 +77,22 @@ public final class CcLinkingInfo implements CcLinkingInfoApi {
   @Override
   public CcLinkParams getDynamicModeParamsForDynamicLibrary() {
     return dynamicModeParamsForDynamicLibrary;
+  }
+
+  @Override
+  public SkylarkList<String> getSkylarkUserLinkFlags() {
+    CcLinkingContext ccLinkingContext = LibraryToLinkWrapper.fromCcLinkingInfo(this);
+    return SkylarkList.createImmutable(
+        Streams.stream(ccLinkingContext.getUserLinkFlags())
+            .map(LinkOptions::get)
+            .flatMap(Collection::stream)
+            .collect(ImmutableList.toImmutableList()));
+  }
+
+  @Override
+  public SkylarkList<LibraryToLinkWrapperApi> getSkylarkLibrariesToLink() {
+    CcLinkingContext ccLinkingContext = LibraryToLinkWrapper.fromCcLinkingInfo(this);
+    return SkylarkList.createImmutable(ccLinkingContext.getLibraries().toList());
   }
 
   public static CcLinkingInfo merge(Collection<CcLinkingInfo> ccLinkingInfos) {

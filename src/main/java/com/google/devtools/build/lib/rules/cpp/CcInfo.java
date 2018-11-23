@@ -18,9 +18,12 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import java.util.Collection;
@@ -127,12 +130,30 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
     }
 
     @Override
-    public CcInfoApi createInfo(Object skylarkCcCompilationContext, Object skylarkCcLinkingInfo)
+    public CcInfoApi createInfo(
+        Object skylarkCcCompilationContext,
+        Object skylarkCcLinkingInfo,
+        Location location,
+        Environment environment)
         throws EvalException {
+      CcCommon.checkLocationWhitelisted(
+          environment.getSemantics(),
+          location,
+          environment.getGlobals().getLabel().getPackageIdentifier().toString());
       CcCompilationContext ccCompilationContext =
           nullIfNone(skylarkCcCompilationContext, CcCompilationContext.class);
-      CcLinkingInfo ccLinkingInfo = nullIfNone(skylarkCcLinkingInfo, CcLinkingInfo.class);
-
+      CcLinkingInfo ccLinkingInfo = null;
+      try {
+        ccLinkingInfo = nullIfNone(skylarkCcLinkingInfo, CcLinkingInfo.class);
+      } catch (ClassCastException e) {
+        // TODO(b/118663806): Eventually only CcLinkingContext will be allowed, this is for
+        // backwards compatibility.
+        CcLinkingContext ccLinkingContext =
+            nullIfNone(skylarkCcLinkingInfo, CcLinkingContext.class);
+        if (ccLinkingContext != null) {
+          ccLinkingInfo = ccLinkingContext.toCcLinkingInfo();
+        }
+      }
       CcInfo.Builder ccInfoBuilder = CcInfo.builder();
       if (ccCompilationContext != null) {
         ccInfoBuilder.setCcCompilationContext(ccCompilationContext);

@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
  * a library identifier.
  */
 @SkylarkModule(
-    name = "LibraryToLink",
+    name = "OldLibraryToLink",
     category = SkylarkModuleCategory.BUILTIN,
     documented = false,
     doc = "A library the user can link to.")

@@ -16,12 +16,15 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -465,18 +468,24 @@ public interface CcModuleApi<
   @SkylarkCallable(
       name = "create_library_to_link",
       documented = false,
+      useLocation = true,
+      useEnvironment = true,
       parameters = {
         @Param(
             name = "ctx",
             doc = "Starlark rule context.",
             positional = false,
             named = true,
+            noneable = true,
+            defaultValue = "None",
             type = SkylarkRuleContext.class),
         @Param(
             name = "library",
             doc = "Library to be linked.",
             positional = false,
             named = true,
+            noneable = true,
+            defaultValue = "None",
             type = Artifact.class),
         @Param(
             name = "artifact_category",
@@ -485,10 +494,161 @@ public interface CcModuleApi<
                     + "dynamic_library or interface_library",
             positional = false,
             named = true,
-            type = String.class)
+            noneable = true,
+            defaultValue = "None",
+            type = String.class),
+        @Param(
+            name = "actions",
+            type = SkylarkActionFactoryApi.class,
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            doc = "Actions."),
+        @Param(
+            name = "feature_configuration",
+            doc = "Feature configuration to be queried.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = FeatureConfigurationApi.class),
+        @Param(
+            name = "cc_toolchain",
+            doc = "C++ toolchain provider to be used.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = CcToolchainProviderApi.class),
+        @Param(
+            name = "static_library",
+            doc = "Library to be linked.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = Artifact.class),
+        @Param(
+            name = "pic_static_library",
+            doc = "Library to be linked.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = Artifact.class),
+        @Param(
+            name = "dynamic_library",
+            doc = "Library to be linked.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = Artifact.class),
+        @Param(
+            name = "interface_library",
+            doc = "Library to be linked.",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = Artifact.class),
+        @Param(
+            name = "alwayslink",
+            doc = "Alwayslink.",
+            positional = false,
+            named = true,
+            defaultValue = "False"),
       })
-  LibraryToLinkT createLibraryLinkerInput(
-      SkylarkRuleContext skylarkRuleContext, Artifact library, String skylarkArtifactCategory)
+  Object createLibraryLinkerInput(
+      Object skylarkRuleContext,
+      Object library,
+      Object skylarkArtifactCategory,
+      Object actions,
+      Object featureConfiguration,
+      Object ccToolchainProvider,
+      Object staticLibrary,
+      Object picStaticLibrary,
+      Object dynamicLibrary,
+      Object interfaceLibrary,
+      boolean alwayslink,
+      Location location,
+      Environment environment)
+      throws EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "create_linking_context",
+      documented = false,
+      useLocation = true,
+      useEnvironment = true,
+      parameters = {
+        @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+        @Param(
+            name = "static_mode_params_for_dynamic_library",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = CcLinkParamsApi.class,
+            doc = "Parameters for linking a dynamic library statically."),
+        @Param(
+            name = "static_mode_params_for_executable",
+            doc = "Parameters for linking an executable statically",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = CcLinkParamsApi.class),
+        @Param(
+            name = "dynamic_mode_params_for_dynamic_library",
+            doc = "Parameters for linking a dynamic library dynamically",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = CcLinkParamsApi.class),
+        @Param(
+            name = "dynamic_mode_params_for_executable",
+            doc = "Parameters for linking an executable dynamically",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = CcLinkParamsApi.class),
+        @Param(
+            name = "libraries_to_link",
+            doc = "The libraries to link",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = SkylarkList.class),
+        @Param(
+            name = "user_link_flags",
+            doc = "User link flags",
+            positional = false,
+            named = true,
+            noneable = true,
+            defaultValue = "None",
+            type = SkylarkList.class)
+      })
+  Object createCcLinkingInfo(
+      Object skylarkRuleContextObject,
+      Object staticModeParamsForDynamicLibraryObject,
+      Object staticModeParamsForExecutableObject,
+      Object dynamicModeParamsForDynamicLibraryObject,
+      Object dynamicModeParamsForExecutableObject,
+      Object librariesToLinkObject,
+      Object userLinkFlagsObject,
+      Location location,
+      Environment environment)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
@@ -1053,6 +1055,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  @Deprecated
+  // TODO(118663806): Libraries won't be created this way from Skylark after removing CcLinkParams.
   public void testLibraryLinkerInputs() throws Exception {
     scratch.file("a/BUILD", "load('//tools/build_defs/cc:rule.bzl', 'crule')", "crule(name='r')");
     scratch.file("a/lib.a", "");
@@ -1108,6 +1112,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  @Deprecated
+  // TODO(118663806): Artifact category won't be part of API.
   public void testLibraryLinkerInputArtifactCategoryError() throws Exception {
     scratch.file("a/BUILD", "load('//tools/build_defs/cc:rule.bzl', 'crule')", "crule(name='r')");
     scratch.file("a/lib.a", "");
@@ -1147,14 +1153,14 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcLinkingProvider() throws Exception {
+  public void testOldCcLinkingProvider() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(
             mockToolsConfig,
             "supports_interface_shared_objects: false");
     useConfiguration();
-    setUpCcLinkingProviderParamsTest();
+    setUpOldCcLinkingProviderParamsTest();
     ConfiguredTarget r = getConfiguredTarget("//a:r");
 
     List<String> staticSharedLinkopts =
@@ -1242,7 +1248,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         .containsAllOf("lib.so", "liba_Slibdep1.so", "liba_Slibdep2.so");
   }
 
-  private void setUpCcLinkingProviderParamsTest() throws Exception {
+  private void setUpOldCcLinkingProviderParamsTest() throws Exception {
     scratch.file(
         "a/BUILD",
         "load('//tools/build_defs/cc:rule.bzl', 'crule')",
@@ -1309,6 +1315,165 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    'liba': attr.label(default='//a:lib.a', allow_single_file=True),",
         "    'libso': attr.label(default='//a:lib.so', allow_single_file=True),",
         "    '_deps': attr.label_list(default=['//a:dep1', '//a:dep2']),",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+  }
+
+  @Test
+  public void testCcLinkingContext() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.PIC_FEATURE,
+            "supports_interface_shared_objects: false",
+            "needsPic: true");
+    useConfiguration();
+    setUpCcLinkingContextTest();
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+
+    StructImpl info = ((StructImpl) a.get("info"));
+    @SuppressWarnings("unchecked")
+    SkylarkList<String> userLinkFlags =
+        (SkylarkList<String>) info.getValue("user_link_flags", SkylarkList.class);
+    assertThat(userLinkFlags.getImmutableList())
+        .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
+    @SuppressWarnings("unchecked")
+    SkylarkList<LibraryToLinkWrapper> librariesToLink =
+        (SkylarkList<LibraryToLinkWrapper>) info.getValue("libraries_to_link", SkylarkList.class);
+    assertThat(
+            librariesToLink.stream()
+                .filter(x -> x.getStaticLibrary() != null)
+                .map(x -> x.getStaticLibrary().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("a.a", "b.a", "c.a", "d.a");
+    assertThat(
+            librariesToLink.stream()
+                .filter(x -> x.getPicStaticLibrary() != null)
+                .map(x -> x.getPicStaticLibrary().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a");
+    assertThat(
+            librariesToLink.stream()
+                .filter(x -> x.getDynamicLibrary() != null)
+                .map(x -> x.getDynamicLibrary().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so");
+    assertThat(
+            librariesToLink.stream()
+                .filter(x -> x.getInterfaceLibrary() != null)
+                .map(x -> x.getInterfaceLibrary().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsExactly("a.ifso");
+    Artifact staticLibrary = info.getValue("static_library", Artifact.class);
+    assertThat(staticLibrary.getFilename()).isEqualTo("a.a");
+    Artifact picStaticLibrary = info.getValue("pic_static_library", Artifact.class);
+    assertThat(picStaticLibrary.getFilename()).isEqualTo("a.pic.a");
+    Artifact dynamicLibrary = info.getValue("dynamic_library", Artifact.class);
+    assertThat(dynamicLibrary.getFilename()).isEqualTo("a.so");
+    Artifact interfaceLibrary = info.getValue("interface_library", Artifact.class);
+    assertThat(interfaceLibrary.getFilename()).isEqualTo("a.ifso");
+
+    ConfiguredTarget bin = getConfiguredTarget("//a:bin");
+    assertThat(bin).isNotNull();
+  }
+
+  private void setUpCcLinkingContextTest() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "cc_binary(name='bin',",
+        "   deps = [':a'],",
+        ")",
+        "crule(name='a',",
+        "   static_library = 'a.a',",
+        "   pic_static_library = 'a.pic.a',",
+        "   dynamic_library = 'a.so',",
+        "   interface_library = 'a.ifso',",
+        "   user_link_flags = ['-la', '-lc2'],",
+        "   deps = [':c', ':dep2', ':b'],",
+        ")",
+        "crule(name='b',",
+        "   static_library = 'b.a',",
+        "   pic_static_library = 'b.pic.a',",
+        "   dynamic_library = 'b.so',",
+        "   deps = [':c', ':d'],",
+        ")",
+        "crule(name='c',",
+        "   static_library = 'c.a',",
+        "   pic_static_library = 'c.pic.a',",
+        "   user_link_flags = ['-lc1', '-lc2'],",
+        ")",
+        "crule(name='d',",
+        "   static_library = 'd.a',",
+        "   deps = [':e'],",
+        ")",
+        "crule(name='e',",
+        "   pic_static_library = 'e.pic.a',",
+        "   dynamic_library = 'e.so',",
+        "   deps = [':dep1'],",
+        ")",
+        "cc_toolchain_alias(name='alias')",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = ['dep1.cc'],",
+        "    hdrs = ['dep1.h'],",
+        "    linkopts = ['-DEP1_LINKOPT'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['dep2.cc'],",
+        "    hdrs = ['dep2.h'],",
+        "    linkopts = ['-DEP2_LINKOPT'],",
+        ")");
+    scratch.file("a/lib.a", "");
+    scratch.file("a/lib.so", "");
+    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.file(
+        "tools/build_defs/cc/rule.bzl",
+        "def _create(ctx, feature_configuration, static_library, pic_static_library,",
+        "  dynamic_library, interface_library, alwayslink):",
+        "  return cc_common.create_library_to_link(",
+        "    actions=ctx.actions, feature_configuration=feature_configuration, ",
+        "    cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo], ",
+        "    static_library=static_library, pic_static_library=pic_static_library,",
+        "    dynamic_library=dynamic_library, interface_library=interface_library,",
+        "    alwayslink=alwayslink)",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(cc_toolchain = toolchain)",
+        "  library_to_link = _create(ctx, feature_configuration, ctx.file.static_library, ",
+        "     ctx.file.pic_static_library, ctx.file.dynamic_library, ctx.file.interface_library,",
+        "     ctx.attr.alwayslink)",
+        "  linking_context = cc_common.create_linking_context(libraries_to_link=[library_to_link],",
+        "     user_link_flags=ctx.attr.user_link_flags)",
+        "  cc_infos = [CcInfo(linking_context=linking_context)]",
+        "  for dep in ctx.attr.deps:",
+        "      cc_infos.append(dep[CcInfo])",
+        "  merged_cc_info = cc_common.merge_cc_infos(cc_infos=cc_infos)",
+        "  return struct(",
+        "     info = struct(",
+        "       cc_info = merged_cc_info,",
+        "       user_link_flags = merged_cc_info.linking_context.user_link_flags,",
+        "       libraries_to_link = merged_cc_info.linking_context.libraries_to_link,",
+        "       static_library = library_to_link.static_library,",
+        "       pic_static_library = library_to_link.pic_static_library,",
+        "       dynamic_library = library_to_link.dynamic_library,",
+        "       interface_library = library_to_link.interface_library),",
+        "     providers = [merged_cc_info]",
+        "  )",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    'user_link_flags' : attr.string_list(),",
+        "    'static_library': attr.label(allow_single_file=True),",
+        "    'pic_static_library': attr.label(allow_single_file=True),",
+        "    'dynamic_library': attr.label(allow_single_file=True),",
+        "    'interface_library': attr.label(allow_single_file=True),",
+        "    'alwayslink': attr.bool(),",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias')),",
+        "    'deps': attr.label_list(),",
         "  },",
         "  fragments = ['cpp'],",
         ");");

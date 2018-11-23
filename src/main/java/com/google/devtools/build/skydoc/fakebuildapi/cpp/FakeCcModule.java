@@ -16,6 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -110,9 +112,34 @@ public class FakeCcModule
   }
 
   @Override
-  public LibraryToLinkApi createLibraryLinkerInput(
-      SkylarkRuleContext skylarkRuleContext, Artifact library, String skylarkArtifactCategory)
-      throws EvalException, InterruptedException {
+  public Object createLibraryLinkerInput(
+      Object skylarkRuleContext,
+      Object library,
+      Object skylarkArtifactCategory,
+      Object actions,
+      Object featureConfiguration,
+      Object ccToolchainProvider,
+      Object staticLibrary,
+      Object picStaticLibrary,
+      Object dynamicLibrary,
+      Object interfaceLibrary,
+      boolean alwayslink,
+      Location location,
+      Environment environment) {
+    return null;
+  }
+
+  @Override
+  public Object createCcLinkingInfo(
+      Object skylarkRuleContextObject,
+      Object staticModeParamsForDynamicLibraryObject,
+      Object staticModeParamsForExecutableObject,
+      Object dynamicModeParamsForDynamicLibraryObject,
+      Object dynamicModeParamsForExecutableObject,
+      Object librariesToLinkObject,
+      Object userLinkFlagsObject,
+      Location location,
+      Environment environment) {
     return null;
   }
 

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule.CcSkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
@@ -53,6 +55,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -63,8 +66,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -356,18 +361,170 @@ public class CcModule
     }
   }
 
+  /**
+   * This method returns either {@link LibraryToLink} object (old API) or a {@link
+   * LibraryToLinkWrapper} object (new API) that will be used to contain linking artifacts and
+   * information for a single library that will later be used by a linking action.
+   *
+   * <p>This method supports the old and the new API. Attributes of the old API are marked
+   * deprecated. They cannot be mixed. If using the old API a {@link CcLinkingInfo} object is
+   * returned, if using the new API then a {@link
+   * com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext}
+   *
+   * @param skylarkRuleContextObject deprecated
+   * @param libraryObject deprecated
+   * @param skylarkArtifactCategoryObject deprecated
+   * @param actionsObject SkylarkActionFactory
+   * @param featureConfigurationObject FeatureConfiguration
+   * @param staticLibraryObject Artifact
+   * @param picStaticLibraryObject Artifact
+   * @param dynamicLibraryObject Artifact
+   * @param interfaceLibraryObject Artifact
+   * @param alwayslink boolean
+   * @return
+   * @throws EvalException
+   * @throws InterruptedException
+   */
   @Override
-  public LibraryToLink createLibraryLinkerInput(
-      SkylarkRuleContext skylarkRuleContext, Artifact library, String skylarkArtifactCategory)
+  public Object createLibraryLinkerInput(
+      Object skylarkRuleContextObject,
+      Object libraryObject,
+      Object skylarkArtifactCategoryObject,
+      Object actionsObject,
+      Object featureConfigurationObject,
+      Object ccToolchainProviderObject,
+      Object staticLibraryObject,
+      Object picStaticLibraryObject,
+      Object dynamicLibraryObject,
+      Object interfaceLibraryObject,
+      boolean alwayslink,
+      Location location,
+      Environment environment)
       throws EvalException, InterruptedException {
-    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
-    ArtifactCategory artifactCategory =
-        ArtifactCategory.fromString(
-            skylarkArtifactCategory,
-            skylarkRuleContext.getRuleContext().getRule().getLocation(),
-            "artifact_category");
-    return LinkerInputs.opaqueLibraryToLink(
-        library, artifactCategory, CcLinkingOutputs.libraryIdentifierOf(library));
+    CcCommon.checkLocationWhitelisted(
+        environment.getSemantics(),
+        location,
+        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    SkylarkRuleContext skylarkRuleContext =
+        nullIfNone(skylarkRuleContextObject, SkylarkRuleContext.class);
+    Artifact library = nullIfNone(libraryObject, Artifact.class);
+    String skylarkArtifactCategory = nullIfNone(skylarkArtifactCategoryObject, String.class);
+    SkylarkActionFactory skylarkActionFactory =
+        nullIfNone(actionsObject, SkylarkActionFactory.class);
+    FeatureConfiguration featureConfiguration =
+        nullIfNone(featureConfigurationObject, FeatureConfiguration.class);
+    CcToolchainProvider ccToolchainProvider =
+        nullIfNone(ccToolchainProviderObject, CcToolchainProvider.class);
+    Artifact staticLibrary = nullIfNone(staticLibraryObject, Artifact.class);
+    Artifact picStaticLibrary = nullIfNone(picStaticLibraryObject, Artifact.class);
+    Artifact dynamicLibrary = nullIfNone(dynamicLibraryObject, Artifact.class);
+    Artifact interfaceLibrary = nullIfNone(interfaceLibraryObject, Artifact.class);
+
+    String parameters =
+        "actions*, feature_configuration*, "
+            + "cc_toolchain*, static_library, pic_static_library, dynamic_library, "
+            + "interface_library and alwayslink. Those with * are required.";
+    String oldAndNewApiMixError =
+        "Do not mix parameter of old and new API. Old API parameters are: ctx*, library* and "
+            + "artifact_category*. New API parameters are: "
+            + parameters;
+
+    if (skylarkRuleContext != null || library != null || skylarkArtifactCategory != null) {
+      if (skylarkRuleContext == null
+          || library == null
+          || skylarkArtifactCategory == null
+          || skylarkActionFactory != null
+          || featureConfiguration != null
+          || ccToolchainProvider != null
+          || staticLibrary != null
+          || picStaticLibrary != null
+          || dynamicLibrary != null
+          || interfaceLibrary != null) {
+        throw new EvalException(location, oldAndNewApiMixError);
+      }
+      CcCommon.checkRuleWhitelisted(skylarkRuleContext);
+      ArtifactCategory artifactCategory =
+          ArtifactCategory.fromString(
+              skylarkArtifactCategory,
+              skylarkRuleContext.getRuleContext().getRule().getLocation(),
+              "artifact_category");
+      return LinkerInputs.opaqueLibraryToLink(
+          library, artifactCategory, CcLinkingOutputs.libraryIdentifierOf(library));
+    }
+
+    if (skylarkActionFactory != null
+        || featureConfiguration != null
+        || ccToolchainProvider != null
+        || staticLibrary != null
+        || picStaticLibrary != null
+        || dynamicLibrary != null
+        || interfaceLibrary != null) {
+      if (skylarkActionFactory == null
+          || featureConfiguration == null
+          || ccToolchainProvider == null
+          || skylarkRuleContext != null
+          || library != null
+          || skylarkArtifactCategory != null) {
+        throw new EvalException(location, oldAndNewApiMixError);
+      }
+      Artifact notNullArtifactForIdentifier = null;
+      if (staticLibrary != null) {
+        notNullArtifactForIdentifier = staticLibrary;
+      } else if (picStaticLibrary != null) {
+        notNullArtifactForIdentifier = picStaticLibrary;
+      } else if (dynamicLibrary != null) {
+        notNullArtifactForIdentifier = dynamicLibrary;
+      } else if (interfaceLibrary != null) {
+        notNullArtifactForIdentifier = interfaceLibrary;
+      } else {
+        throw new EvalException(location, "Must pass at least one artifact");
+      }
+
+      Artifact resolvedSymlinkDynamicLibrary = null;
+      Artifact resolvedSymlinkInterfaceLibrary = null;
+      if (!featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
+        if (dynamicLibrary != null) {
+          resolvedSymlinkDynamicLibrary = dynamicLibrary;
+          dynamicLibrary =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
+                      location, skylarkActionFactory),
+                  /* actionConstructionContext= */ skylarkActionFactory
+                      .getActionConstructionContext(),
+                  ccToolchainProvider.getSolibDirectory(),
+                  dynamicLibrary,
+                  /* preserveName= */ true,
+                  /* prefixConsumer= */ true,
+                  /* configuration= */ null);
+        }
+        if (interfaceLibrary != null) {
+          resolvedSymlinkInterfaceLibrary = interfaceLibrary;
+          interfaceLibrary =
+              SolibSymlinkAction.getDynamicLibrarySymlink(
+                  /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
+                      location, skylarkActionFactory),
+                  /* actionConstructionContext= */ skylarkActionFactory
+                      .getActionConstructionContext(),
+                  ccToolchainProvider.getSolibDirectory(),
+                  interfaceLibrary,
+                  /* preserveName= */ true,
+                  /* prefixConsumer= */ true,
+                  /* configuration= */ null);
+        }
+      }
+
+      return LibraryToLinkWrapper.builder()
+          .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(notNullArtifactForIdentifier))
+          .setStaticLibrary(staticLibrary)
+          .setPicStaticLibrary(picStaticLibrary)
+          .setDynamicLibrary(dynamicLibrary)
+          .setResolvedSymlinkDynamicLibrary(resolvedSymlinkDynamicLibrary)
+          .setInterfaceLibrary(interfaceLibrary)
+          .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
+          .setAlwayslink(alwayslink)
+          .build();
+    }
+    throw new EvalException(location, "Must pass parameters: " + parameters);
   }
 
   @Override
@@ -493,56 +650,90 @@ public class CcModule
     return ccCompilationContext.build();
   }
 
-  @SkylarkCallable(
-      name = "create_linking_context",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            type = SkylarkRuleContextApi.class,
-            doc = "The rule context."),
-        @Param(
-            name = "static_mode_params_for_dynamic_library",
-            positional = false,
-            named = true,
-            type = CcLinkParams.class,
-            doc = "Parameters for linking a dynamic library statically."),
-        @Param(
-            name = "static_mode_params_for_executable",
-            doc = "Parameters for linking an executable statically",
-            positional = false,
-            named = true,
-            type = CcLinkParams.class),
-        @Param(
-            name = "dynamic_mode_params_for_dynamic_library",
-            doc = "Parameters for linking a dynamic library dynamically",
-            positional = false,
-            named = true,
-            type = CcLinkParams.class),
-        @Param(
-            name = "dynamic_mode_params_for_executable",
-            doc = "Parameters for linking an executable dynamically",
-            positional = false,
-            named = true,
-            type = CcLinkParams.class)
-      })
-  public CcLinkingInfo createCcLinkingInfo(
-      SkylarkRuleContext skylarkRuleContext,
-      CcLinkParams staticModeParamsForDynamicLibrary,
-      CcLinkParams staticModeParamsForExecutable,
-      CcLinkParams dynamicModeParamsForDynamicLibrary,
-      CcLinkParams dynamicModeParamsForExecutable)
+  @Override
+  public Object createCcLinkingInfo(
+      Object skylarkRuleContextObject,
+      Object staticModeParamsForDynamicLibraryObject,
+      Object staticModeParamsForExecutableObject,
+      Object dynamicModeParamsForDynamicLibraryObject,
+      Object dynamicModeParamsForExecutableObject,
+      Object librariesToLinkObject,
+      Object userLinkFlagsObject,
+      Location location,
+      Environment environment)
       throws EvalException, InterruptedException {
-    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder
-        .setStaticModeParamsForDynamicLibrary(staticModeParamsForDynamicLibrary)
-        .setStaticModeParamsForExecutable(staticModeParamsForExecutable)
-        .setDynamicModeParamsForDynamicLibrary(dynamicModeParamsForDynamicLibrary)
-        .setDynamicModeParamsForExecutable(dynamicModeParamsForExecutable);
-    return ccLinkingInfoBuilder.build();
+    CcCommon.checkLocationWhitelisted(
+        environment.getSemantics(),
+        location,
+        environment.getGlobals().getLabel().getPackageIdentifier().toString());
+    SkylarkRuleContext skylarkRuleContext =
+        nullIfNone(skylarkRuleContextObject, SkylarkRuleContext.class);
+    CcLinkParams staticModeParamsForDynamicLibrary =
+        nullIfNone(staticModeParamsForDynamicLibraryObject, CcLinkParams.class);
+    CcLinkParams staticModeParamsForExecutable =
+        nullIfNone(staticModeParamsForExecutableObject, CcLinkParams.class);
+    CcLinkParams dynamicModeParamsForDynamicLibrary =
+        nullIfNone(dynamicModeParamsForDynamicLibraryObject, CcLinkParams.class);
+    CcLinkParams dynamicModeParamsForExecutable =
+        nullIfNone(dynamicModeParamsForExecutableObject, CcLinkParams.class);
+    @SuppressWarnings("unchecked")
+    SkylarkList<LibraryToLinkWrapper> librariesToLink =
+        nullIfNone(librariesToLinkObject, SkylarkList.class);
+    @SuppressWarnings("unchecked")
+    SkylarkList<String> userLinkFlags = nullIfNone(userLinkFlagsObject, SkylarkList.class);
+
+    String oldAndNewApiMixError =
+        "Do not mix parameter of old and new API. Old API parameters are: ctx, "
+            + "static_mode_params_for_dynamic_library, "
+            + "static_mode_params_for_executable, "
+            + "dynamic_mode_params_for_dynamic_library and dynamic_mode_params_for_executable."
+            + " New API parameters are: libraries_to_link and user_link_flags.";
+
+    if (skylarkRuleContext != null
+        || staticModeParamsForDynamicLibrary != null
+        || staticModeParamsForExecutable != null
+        || dynamicModeParamsForDynamicLibrary != null
+        || dynamicModeParamsForExecutable != null) {
+      if (skylarkRuleContext == null
+          || staticModeParamsForDynamicLibrary == null
+          || staticModeParamsForExecutable == null
+          || dynamicModeParamsForDynamicLibrary == null
+          || dynamicModeParamsForExecutable == null
+          || librariesToLink != null
+          || userLinkFlags != null) {
+        throw new EvalException(location, oldAndNewApiMixError);
+      }
+      CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
+      ccLinkingInfoBuilder
+          .setStaticModeParamsForDynamicLibrary(staticModeParamsForDynamicLibrary)
+          .setStaticModeParamsForExecutable(staticModeParamsForExecutable)
+          .setDynamicModeParamsForDynamicLibrary(dynamicModeParamsForDynamicLibrary)
+          .setDynamicModeParamsForExecutable(dynamicModeParamsForExecutable);
+      return ccLinkingInfoBuilder.build();
+    }
+    if (librariesToLink != null || userLinkFlags != null) {
+      if (staticModeParamsForDynamicLibrary != null
+          || staticModeParamsForExecutable != null
+          || dynamicModeParamsForDynamicLibrary != null
+          || dynamicModeParamsForExecutable != null
+          || dynamicModeParamsForExecutable != null) {
+        throw new EvalException(location, oldAndNewApiMixError);
+      }
+      CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
+      if (librariesToLink != null) {
+        ccLinkingContextBuilder.addLibraries(
+            NestedSetBuilder.wrap(Order.LINK_ORDER, librariesToLink.getImmutableList()));
+      }
+      if (userLinkFlags != null) {
+        ccLinkingContextBuilder.addUserLinkFlags(
+            NestedSetBuilder.wrap(
+                Order.LINK_ORDER,
+                ImmutableList.of(LinkOptions.of(userLinkFlags.getImmutableList()))));
+      }
+      return ccLinkingContextBuilder.build();
+    }
+
+    throw new EvalException(location, "Must pass libraries_to_link, user_link_flags or both.");
   }
 
   protected static CompilationInfo compile(
@@ -1658,5 +1849,10 @@ public class CcModule
                 category, category.getDefaultPrefix(), category.getDefaultExtension()));
       }
     }
+  }
+
+  @Nullable
+  private static <T> T nullIfNone(Object object, Class<T> type) {
+    return object != Runtime.NONE ? type.cast(object) : null;
   }
 }
