@@ -7,18 +7,12 @@ filegroup(
 )
 
 filegroup(
-    name = "cc-srcs",
+    name = "embedded_tools",
     srcs = glob([
         "*.cc",
         "*.h",
-    ]),
-)
-
-filegroup(
-    name = "embedded_tools",
-    srcs = [
+    ]) + [
         "BUILD",
-        ":cc-srcs",
     ],
     visibility = ["//src/main/native:__pkg__"],
 )
@@ -48,9 +42,16 @@ cc_library(
 cc_binary(
     name = "windows_jni.dll",
     srcs = [
-        ":cc-srcs",
+        "file-jni.cc",
+        "jni-util.h",
+        "jni-util.cc",
+        "processes-jni.cc",
         "//src/main/native:jni.h",
         "//src/main/native:jni_md.h",
+    ],
+    deps = [
+        ":lib-file",
+        ":lib-util",
     ],
     linkshared = 1,
     visibility = [
