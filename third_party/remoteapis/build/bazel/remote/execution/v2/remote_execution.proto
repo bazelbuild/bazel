@@ -429,7 +429,8 @@ message Command {
   // A list of the output files that the client expects to retrieve from the
   // action. Only the listed files, as well as directories listed in
   // `output_directories`, will be returned to the client as output.
-  // Other files that may be created during command execution are discarded.
+  // Other files or directories that may be created during command execution
+  // are discarded.
   //
   // The paths are relative to the working directory of the action execution.
   // The paths are specified using a single forward slash (`/`) as a path
@@ -446,10 +447,12 @@ message Command {
   repeated string output_files = 3;
 
   // A list of the output directories that the client expects to retrieve from
-  // the action. Only the contents of the indicated directories (recursively
-  // including the contents of their subdirectories) will be
-  // returned, as well as files listed in `output_files`. Other files that may
-  // be created during command execution are discarded.
+  // the action. Only the listed directories will be returned (an entire
+  // directory structure will be returned as a
+  // [Tree][build.bazel.remote.execution.v2.Tree] message digest, see
+  // [OutputDirectory][build.bazel.remote.execution.v2.OutputDirectory]), as
+  // well as files listed in `output_files`. Other files or directories that
+  // may be created during command execution are discarded.
   //
   // The paths are relative to the working directory of the action execution.
   // The paths are specified using a single forward slash (`/`) as a path
@@ -1024,6 +1027,10 @@ message ExecuteResponse {
   // phase. The keys SHOULD be human readable so that a client can display them
   // to a user.
   map<string, LogFile> server_logs = 4;
+
+  // Freeform informational message with details on the execution of the action
+  // that may be displayed to the user upon failure or when requested explicitly.
+  string message = 5;
 }
 
 // Metadata about an ongoing
