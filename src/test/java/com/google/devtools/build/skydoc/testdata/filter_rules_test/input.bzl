@@ -14,8 +14,7 @@ my_rule = rule(
         "first": attr.label(
             mandatory = True,
             doc = "first my_rule doc string",
-            allow_files = True,
-            single_file = True,
+            allow_single_file = True,
         ),
         "second": attr.string_dict(mandatory = True),
     },

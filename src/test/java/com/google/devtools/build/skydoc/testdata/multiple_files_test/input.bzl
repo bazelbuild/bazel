@@ -9,15 +9,14 @@ my_rule = rule(
         "first": attr.label(
             mandatory = True,
             doc = "first my_rule doc string",
-            allow_files = True,
-            single_file = True,
+            allow_single_file = True,
         ),
         "second": attr.string_dict(mandatory = True),
     },
 )
 
 def top_fun(a, b, c):
-    _ignore = [a, b, c]
+    some_cool_function(a, b, c)
     return 6
 
 other_rule = rule(
@@ -27,8 +26,7 @@ other_rule = rule(
         "third": attr.label(
             mandatory = True,
             doc = "third other_rule doc string",
-            allow_files = True,
-            single_file = True,
+            allow_single_file = True,
         ),
         "fourth": attr.string_dict(mandatory = True),
     },
@@ -38,6 +36,6 @@ yet_another_rule = rule(
     implementation = my_rule_impl,
     doc = "This is yet another rule",
     attrs = {
-        "fifth": attr.label(mandatory = True, allow_files = True, single_file = True),
+        "fifth": attr.label(mandatory = True, allow_single_file = True),
     },
 )
