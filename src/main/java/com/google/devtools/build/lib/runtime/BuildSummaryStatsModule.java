@@ -140,7 +140,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
       String spawnSummary = spawnStats.getSummary();
       if (statsSummary) {
-        reporter.handle(Event.info(spawnStats.getSummary()));
+        reporter.handle(Event.info(spawnSummary));
         reporter.handle(
             Event.info(
                 String.format(

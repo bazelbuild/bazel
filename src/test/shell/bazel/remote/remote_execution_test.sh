@@ -149,6 +149,30 @@ EOF
       || fail "Remote cache generated different result"
 }
 
+function test_cc_binary_grpc_cache_statsline() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_binary(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello world!" << std::endl; return 0; }
+EOF
+  bazel build \
+      --remote_cache=localhost:${worker_port} \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote gRPC cache service"
+  bazel clean --expunge >& $TEST_log
+  bazel build \
+      --remote_cache=localhost:${worker_port} \
+      //a:test 2>&1 | tee $TEST_log | grep "remote cache hit" \
+      || fail "Output does not contain remote cache hits"
+}
+
 function test_failing_cc_test() {
   mkdir -p a
   cat > a/BUILD <<EOF
