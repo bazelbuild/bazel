@@ -344,7 +344,9 @@ public class CcToolchainProviderHelper {
   }
 
   static CcToolchainProvider getCcToolchainProvider(
-      RuleContext ruleContext, CcToolchainAttributesProvider attributes)
+      RuleContext ruleContext,
+      CcToolchainAttributesProvider attributes,
+      CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute)
       throws RuleErrorException, InterruptedException {
     BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
     CppConfiguration cppConfiguration =
@@ -383,7 +385,7 @@ public class CcToolchainProviderHelper {
     // Is there a toolchain proto available on the target directly?
     CToolchain toolchain = parseToolchainFromAttributes(ruleContext, attributes);
     PackageIdentifier packageWithCrosstoolInIt = null;
-    if (toolchain == null && cppConfiguration.getCrosstoolFromCcToolchainProtoAttribute() == null) {
+    if (toolchain == null && crosstoolFromCcToolchainSuiteProtoAttribute == null) {
       packageWithCrosstoolInIt = ruleContext.getLabel().getPackageIdentifier();
     }
 
@@ -437,7 +439,12 @@ public class CcToolchainProviderHelper {
 
     CppToolchainInfo toolchainInfo =
         getCppToolchainInfo(
-            ruleContext, cppConfiguration, attributes, ccSkyframeSupportValue, toolchain);
+            ruleContext,
+            cppConfiguration,
+            attributes,
+            ccSkyframeSupportValue,
+            toolchain,
+            crosstoolFromCcToolchainSuiteProtoAttribute);
 
     String purposePrefix = attributes.getPurposePrefix();
     String runtimeSolibDirBase = attributes.getRuntimeSolibDirBase();
@@ -654,7 +661,8 @@ public class CcToolchainProviderHelper {
       CppConfiguration cppConfiguration,
       CcToolchainAttributesProvider attributes,
       CcSkyframeSupportValue ccSkyframeSupportValue,
-      CToolchain toolchainFromCcToolchainAttribute)
+      CToolchain toolchainFromCcToolchainAttribute,
+      CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute)
       throws RuleErrorException {
 
     if (cppConfiguration.enableCcToolchainConfigInfoFromSkylark()) {
@@ -681,7 +689,11 @@ public class CcToolchainProviderHelper {
     if (toolchain == null) {
       toolchain =
           getToolchainFromAttributes(
-              ruleContext, attributes, cppConfiguration, ccSkyframeSupportValue);
+              ruleContext,
+              attributes,
+              cppConfiguration,
+              crosstoolFromCcToolchainSuiteProtoAttribute,
+              ccSkyframeSupportValue);
     }
 
     // If we found a toolchain, use it.
@@ -749,13 +761,14 @@ public class CcToolchainProviderHelper {
       RuleContext ruleContext,
       CcToolchainAttributesProvider attributes,
       CppConfiguration cppConfiguration,
+      CrosstoolRelease crosstoolFromCcToolchainSuiteProtoAttribute,
       CcSkyframeSupportValue ccSkyframeSupportValue)
       throws RuleErrorException {
     try {
       CrosstoolRelease crosstoolRelease;
-      if (cppConfiguration.getCrosstoolFromCcToolchainProtoAttribute() != null) {
+      if (crosstoolFromCcToolchainSuiteProtoAttribute != null) {
         // We have cc_toolchain_suite.proto attribute set, let's use it
-        crosstoolRelease = cppConfiguration.getCrosstoolFromCcToolchainProtoAttribute();
+        crosstoolRelease = crosstoolFromCcToolchainSuiteProtoAttribute;
       } else {
         // We use the proto from the CROSSTOOL file
         crosstoolRelease = ccSkyframeSupportValue.getCrosstoolRelease();

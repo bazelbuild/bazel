@@ -27,9 +27,13 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import java.util.Map;
 
 /**
@@ -51,6 +55,18 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     String key = transformedCpu + (compiler == null ? "" : ("|" + compiler));
     Map<String, Label> toolchains =
         ruleContext.attributes().get("toolchains", BuildType.LABEL_DICT_UNARY);
+    CrosstoolRelease crosstoolFromProtoAttribute = null;
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("proto")) {
+      try {
+        crosstoolFromProtoAttribute =
+            CrosstoolConfigurationLoader.toReleaseConfiguration(
+                "cc_toolchain_suite rule " + ruleContext.getLabel(),
+                () -> ruleContext.attributes().get("proto", Type.STRING),
+                /* digestOrNull= */ null);
+      } catch (InvalidConfigurationException e) {
+        ruleContext.throwWithRuleError(e.getMessage());
+      }
+    }
     Label selectedCcToolchain = toolchains.get(key);
     CcToolchainProvider ccToolchainProvider;
     PlatformConfiguration platformConfig =
@@ -78,7 +94,8 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
               compiler,
               selectedCcToolchain);
       ccToolchainProvider =
-          CcToolchainProviderHelper.getCcToolchainProvider(ruleContext, selectedAttributes);
+          CcToolchainProviderHelper.getCcToolchainProvider(
+              ruleContext, selectedAttributes, crosstoolFromProtoAttribute);
 
       if (ccToolchainProvider == null) {
         // Skyframe restart
