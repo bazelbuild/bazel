@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -62,6 +63,8 @@ public class CriticalPathComponent {
   /** May be nulled out after finished running to allow the action to be GC'ed. */
   @Nullable protected Action action;
 
+  private final Artifact primaryOutput;
+
   /** Spawn metrics for this action. */
   private SpawnMetrics spawnMetrics = SpawnMetrics.EMPTY;
   /** An unique identifier of the component for one build execution */
@@ -75,7 +78,8 @@ public class CriticalPathComponent {
 
   public CriticalPathComponent(int id, Action action, long startNanos) {
     this.id = id;
-    this.action = action;
+    this.action = Preconditions.checkNotNull(action);
+    this.primaryOutput = action.getPrimaryOutput();
     this.startNanos = startNanos;
   }
 
@@ -95,6 +99,12 @@ public class CriticalPathComponent {
       this.finishNanos = finishNanos;
       isRunning = false;
     }
+  }
+
+  boolean isPrimaryOutput(Artifact possiblePrimaryOutput) {
+    // We know that the keys in the CriticalPathComputer are exactly the values returned from
+    // action.getPrimaryOutput(), so pointer equality is safe here.
+    return possiblePrimaryOutput == primaryOutput;
   }
 
   /**
