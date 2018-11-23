@@ -264,4 +264,10 @@ public final class RemoteOptions extends OptionsBase {
               + "If this option is not enabled, "
               + "cachable actions that output symlinks will fail.")
   public boolean allowSymlinkUpload;
+
+  // The below options are not configurable by users, only tests.
+  // This is part of the effort to reduce the overall number of flags.
+
+  /** The maximum size of an outbound message sent via a gRPC channel. */
+  public int maxOutboundMessageSize = 1024 * 1024;
 }

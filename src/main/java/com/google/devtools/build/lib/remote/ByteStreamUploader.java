@@ -168,14 +168,8 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       }
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
-      if (cause instanceof RetryException) {
-        throw (RetryException) cause;
-      } else {
-        throw Throwables.propagate(cause);
-      }
-    } catch (InterruptedException e) {
-      Thread.interrupted();
-      throw e;
+      Throwables.propagateIfInstanceOf(cause, IOException.class);
+      throw new RuntimeException(cause);
     }
   }
 

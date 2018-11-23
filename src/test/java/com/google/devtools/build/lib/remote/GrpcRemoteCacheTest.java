@@ -83,6 +83,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -171,6 +172,10 @@ public class GrpcRemoteCacheTest {
   }
 
   private GrpcRemoteCache newClient() throws IOException {
+    return newClient(Options.getDefaults(RemoteOptions.class));
+  }
+
+  private GrpcRemoteCache newClient(RemoteOptions remoteOptions) throws IOException {
     AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
     authTlsOptions.useGoogleDefaultCredentials = true;
     authTlsOptions.googleCredentials = "/exec/root/creds.json";
@@ -188,7 +193,6 @@ public class GrpcRemoteCacheTest {
     try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
       creds = GoogleAuthUtils.newCallCredentials(in, authTlsOptions.googleAuthScopes);
     }
-    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     RemoteRetrier retrier =
         new RemoteRetrier(
             remoteOptions,
@@ -795,6 +799,58 @@ public class GrpcRemoteCacheTest {
         .setDigest(barDigest)
         .setIsExecutable(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void testUploadSplitMissingDigestsCall() throws Exception {
+    final Digest fooDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
+    final Digest barDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar"), "x");
+    final Path fooFile = execRoot.getRelative("a/foo");
+    final Path barFile = execRoot.getRelative("bar");
+    barFile.setExecutable(true);
+    Command command = Command.newBuilder().addOutputFiles("a/foo").build();
+    final Digest cmdDigest = DIGEST_UTIL.compute(command.toByteArray());
+    Action action = Action.newBuilder().setCommandDigest(cmdDigest).build();
+    final Digest actionDigest = DIGEST_UTIL.compute(action.toByteArray());
+    AtomicInteger numGetMissingCalls = new AtomicInteger();
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            numGetMissingCalls.incrementAndGet();
+            assertThat(request.getBlobDigestsCount()).isEqualTo(1);
+            // Nothing is missing.
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.maxOutboundMessageSize = 80; // Enough for one digest, but not two.
+    final GrpcRemoteCache client = newClient(options);
+    ActionResult.Builder result = ActionResult.newBuilder();
+    client.upload(
+        execRoot,
+        DIGEST_UTIL.asActionKey(actionDigest),
+        action,
+        command,
+        ImmutableList.<Path>of(fooFile, barFile),
+        outErr,
+        true,
+        result);
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    expectedResult
+        .addOutputFilesBuilder()
+        .setPath("bar")
+        .setDigest(barDigest)
+        .setIsExecutable(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+    assertThat(numGetMissingCalls.get()).isEqualTo(4);
   }
 
   @Test
