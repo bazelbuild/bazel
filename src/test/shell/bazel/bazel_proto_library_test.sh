@@ -412,8 +412,7 @@ function test_proto_source_root_glob() {
       || fail "Expected success"
 }
 
-# TODO(elenairina): Enable this after #4665 is fixed.
-function DISABLED_test_proto_source_root_multiple_workspaces() {
+function test_proto_source_root_multiple_workspaces() {
   write_workspace "a/b/"
   write_workspace "c/d/"
   write_workspace ""

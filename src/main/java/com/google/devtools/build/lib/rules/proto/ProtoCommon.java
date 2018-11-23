@@ -109,11 +109,7 @@ public class ProtoCommon {
       RuleContext ruleContext, String currentProtoSourceRoot) {
     NestedSetBuilder<String> protoPath = NestedSetBuilder.stableOrder();
 
-    // first add the protoSourceRoot of the current target, if any
-    if (currentProtoSourceRoot != null && !currentProtoSourceRoot.isEmpty()) {
-      protoPath.add(currentProtoSourceRoot);
-    }
-
+    protoPath.add(currentProtoSourceRoot);
     for (ProtoSourcesProvider provider :
         ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class)) {
       protoPath.addTransitive(provider.getTransitiveProtoSourceRoots());
@@ -123,19 +119,32 @@ public class ProtoCommon {
   }
 
   /**
-   * Returns the {@code proto_source_root} of the current library or null if none is specified.
+   * Returns the source root of the currentl {@code proto_library} or "." if it's the source root.
    *
-   * <p>Build will fail if the {@code proto_source_root} of the current library is different than
-   * the package name.
+   * <p>Build will fail if the {@code proto_source_root} of the current library is neither the
+   * package name nor the source root.
    */
+  // TODO(lberki): This should really be a PathFragment. Unfortunately, it's on the Starlark API of
+  // ProtoSourcesProvider so it's not an easy change :(
   @Nullable
   public static String getProtoSourceRoot(RuleContext ruleContext) {
     String protoSourceRoot =
         ruleContext.attributes().get("proto_source_root", Type.STRING);
-    if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
+    if (!protoSourceRoot.isEmpty()) {
       checkProtoSourceRootIsTheSameAsPackage(protoSourceRoot, ruleContext);
     }
-    return protoSourceRoot;
+
+    // This is the same as getPackageIdentifier().getPathUnderExecRoot() due to the check above for
+    // protoSourceRoot == package name, but it's a bit more future-proof.
+    String result =
+        ruleContext
+            .getLabel()
+            .getPackageIdentifier()
+            .getRepository()
+            .getPathUnderExecRoot()
+            .getRelative(protoSourceRoot)
+            .getPathString();
+    return result.isEmpty() ? "." : result;
   }
 
   /**
@@ -147,16 +156,11 @@ public class ProtoCommon {
   private static NestedSet<String> getProtoSourceRootsOfAttribute(
       RuleContext ruleContext, String currentProtoSourceRoot, String attributeName) {
     NestedSetBuilder<String> protoSourceRoots = NestedSetBuilder.stableOrder();
-    if (currentProtoSourceRoot != null && !currentProtoSourceRoot.isEmpty()) {
-      protoSourceRoots.add(currentProtoSourceRoot);
-    }
+    protoSourceRoots.add(currentProtoSourceRoot);
 
     for (ProtoSourcesProvider provider :
         ruleContext.getPrerequisites(attributeName, Mode.TARGET, ProtoSourcesProvider.class)) {
-      String protoSourceRoot = provider.getProtoSourceRoot();
-      if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
-        protoSourceRoots.add(provider.getProtoSourceRoot());
-      }
+      protoSourceRoots.add(provider.getProtoSourceRoot());
     }
 
     return protoSourceRoots.build();

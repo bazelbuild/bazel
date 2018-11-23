@@ -330,10 +330,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
     ProtoSourcesProvider sourcesProvider = protoTarget.getProvider(ProtoSourcesProvider.class);
-    assertThat(sourcesProvider.getTransitiveProtoSourceRoots()).containsExactly("x/foo", "x/bar");
-    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:withdeps"))
-        .getRemainingArguments())
-        .containsAllOf("--proto_path=x/foo", "--proto_path=x/bar");
+    assertThat(sourcesProvider.getTransitiveProtoSourceRoots())
+        .containsExactly("x/foo", "x/bar", ".");
   }
 
   @Test

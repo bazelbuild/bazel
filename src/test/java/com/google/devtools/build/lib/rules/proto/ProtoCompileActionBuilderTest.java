@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import javax.annotation.Nullable;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -116,7 +115,7 @@ public class ProtoCompileActionBuilderTest {
                     artifact("//:dont-care", "import2.proto")),
 
                 /* transitiveProtoPathFlags= */ NestedSetBuilder.<String>stableOrder().build(),
-                /* directProtoSourceRoots= */ NestedSetBuilder.<String>stableOrder().build(),
+                /* directProtoSourceRoots= */ NestedSetBuilder.create(Order.STABLE_ORDER, "."),
                 /* protosInDirectDeps= */ NestedSetBuilder.emptySet(STABLE_ORDER)),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             Deps.NON_STRICT,
@@ -146,7 +145,7 @@ public class ProtoCompileActionBuilderTest {
                     derivedArtifact("//:dont-care", "source_file.proto")),
                 /* transitiveSources */ NestedSetBuilder.emptySet(STABLE_ORDER),
                 /* transitiveProtoPathFlags= */ NestedSetBuilder.emptySet(STABLE_ORDER),
-                /* directProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
+                /* directProtoSourceRoots= */ NestedSetBuilder.create(Order.STABLE_ORDER, "."),
                 /* protosInDirectDeps= */ NestedSetBuilder.emptySet(STABLE_ORDER)),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             Deps.NON_STRICT,
@@ -310,20 +309,23 @@ public class ProtoCompileActionBuilderTest {
     assertThat(
             protoArgv(
                 null /* directDependencies */,
-                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto"))))
+                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")),
+                ImmutableList.of(".")))
         .containsExactly("-Ifoo.proto=out/foo.proto");
 
     assertThat(
             protoArgv(
                 ImmutableList.of() /* directDependencies */,
-                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto"))))
+                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")),
+                ImmutableList.of(".")))
         .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=");
 
     assertThat(
             protoArgv(
                 ImmutableList.of(
                     derivedArtifact("//:dont-care", "foo.proto")) /* directDependencies */,
-                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto"))))
+                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")),
+                ImmutableList.of(".")))
         .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto");
 
     assertThat(
@@ -331,7 +333,8 @@ public class ProtoCompileActionBuilderTest {
                 ImmutableList.of(
                     derivedArtifact("//:dont-care", "foo.proto"),
                     derivedArtifact("//:dont-care", "bar.proto")) /* directDependencies */,
-                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto"))))
+                ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")),
+                ImmutableList.of(".")))
         .containsExactly(
             "-Ifoo.proto=out/foo.proto", "--direct_dependencies", "foo.proto:bar.proto");
   }
@@ -347,17 +350,18 @@ public class ProtoCompileActionBuilderTest {
     assertThat(
             protoArgv(
                 null /* protosInDirectoDependencies */,
-                ImmutableList.of(artifact("@bla//foo:bar", "external/bla/foo/bar.proto"))))
+                ImmutableList.of(artifact("@bla//foo:bar", "external/bla/foo/bar.proto")),
+                ImmutableList.of("external/bla")))
         .containsExactly("-Ifoo/bar.proto=external/bla/foo/bar.proto");
   }
 
-  // TODO(b/34107586): Fix and enable test.
-  @Ignore
   @Test
   public void directDependenciesOnExternalFiles() throws Exception {
     ImmutableList<Artifact> protos =
         ImmutableList.of(artifact("@bla//foo:bar", "external/bla/foo/bar.proto"));
-    assertThat(protoArgv(protos, protos)).containsExactly("--direct_dependencies", "foo/bar.proto");
+    assertThat(protoArgv(protos, protos, ImmutableList.of("external/bla")))
+        .containsExactly(
+            "-Ifoo/bar.proto=external/bla/foo/bar.proto", "--direct_dependencies", "foo/bar.proto");
   }
 
   private Artifact artifact(String ownerLabel, String path) {
@@ -377,7 +381,8 @@ public class ProtoCompileActionBuilderTest {
 
   private static Iterable<String> protoArgv(
       @Nullable Iterable<Artifact> protosInDirectDependencies,
-      Iterable<Artifact> transitiveImports) {
+      Iterable<Artifact> transitiveImports,
+      Iterable<String> protoSourceRoots) {
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
     NestedSet<Artifact> protosInDirectDependenciesBuilder =
         protosInDirectDependencies != null
@@ -388,7 +393,7 @@ public class ProtoCompileActionBuilderTest {
     ProtoCompileActionBuilder.addIncludeMapArguments(
         commandLine,
         protosInDirectDependenciesBuilder,
-        NestedSetBuilder.emptySet(STABLE_ORDER),
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, protoSourceRoots),
         transitiveImportsNestedSet);
     return commandLine.build().arguments();
   }

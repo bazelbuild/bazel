@@ -356,13 +356,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           ruleContext
               .getConfiguration()
               .getGenfilesFragment()
-              .getRelative(
-                  ruleContext
-                      .getLabel()
-                      .getPackageIdentifier()
-                      .getRepository()
-                      .getPathUnderExecRoot())
-              .getRelative(protoRoot == null ? "" : protoRoot)
+              .getRelative(protoRoot)
               .getPathString();
 
       ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
