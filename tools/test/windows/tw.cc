@@ -1149,10 +1149,10 @@ bool StartSubprocess(const Path& path, const std::vector<const wchar_t*>& args,
 
   // Create an attribute object that specifies which particular handles shall
   // the subprocess inherit. We pass this object to CreateProcessW.
-  HANDLE handle_array[] = {devnull_read, pipe_write, pipe_write_dup};
   std::unique_ptr<bazel::windows::AutoAttributeList> attr_list;
   std::wstring werror;
-  if (!bazel::windows::AutoAttributeList::Create(handle_array, 3, &attr_list,
+  if (!bazel::windows::AutoAttributeList::Create(devnull_read, pipe_write,
+                                                 pipe_write_dup, &attr_list,
                                                  &werror)) {
     LogError(__LINE__, werror);
     return false;
@@ -1188,16 +1188,7 @@ bool StartSubprocess(const Path& path, const std::vector<const wchar_t*>& args,
 
   PROCESS_INFORMATION process_info;
   STARTUPINFOEXW startup_info;
-  ZeroMemory(&startup_info, sizeof(STARTUPINFOEXW));
-  startup_info.StartupInfo.cb = sizeof(STARTUPINFOEXW);
-  startup_info.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-  // Do not Release() `devnull_read`, `pipe_write`, and `pipe_write_dup`. The
-  // subprocess inherits a copy of these handles and we need to close them in
-  // this process (via ~AutoHandle()).
-  startup_info.StartupInfo.hStdInput = devnull_read;
-  startup_info.StartupInfo.hStdOutput = pipe_write;
-  startup_info.StartupInfo.hStdError = pipe_write_dup;
-  startup_info.lpAttributeList = *attr_list.get();
+  attr_list->InitStartupInfoExW(&startup_info);
 
   std::unique_ptr<WCHAR[]> cmdline;
   if (!CreateCommandLine(path, args, &cmdline)) {
