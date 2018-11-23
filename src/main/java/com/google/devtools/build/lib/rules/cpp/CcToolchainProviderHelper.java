@@ -540,7 +540,7 @@ public class CcToolchainProviderHelper {
     for (String s : toolchainInfo.getRawBuiltInIncludeDirectories()) {
       try {
         builtInIncludeDirectoriesBuilder.add(
-            resolveIncludeDir(s, sysroot, toolchainInfo.getCrosstoolTopPathFragment()));
+            resolveIncludeDir(s, sysroot, toolchainInfo.getToolsDirectory()));
       } catch (InvalidConfigurationException e) {
         ruleContext.ruleError(e.getMessage());
       }
@@ -581,7 +581,7 @@ public class CcToolchainProviderHelper {
         getToolchainForSkylark(toolchainInfo),
         cppConfiguration,
         toolchainInfo,
-        cppConfiguration.getCrosstoolTopPathFragment(),
+        toolchainInfo.getToolsDirectory(),
         attributes.getCrosstool(),
         attributes.getFullInputsForCrosstool(),
         attributes.getCompile(),
@@ -672,7 +672,6 @@ public class CcToolchainProviderHelper {
       if (configInfo != null) {
         try {
           return CppToolchainInfo.create(
-              ruleContext.getLabel().getPackageIdentifier().getPathUnderExecRoot(),
               ruleContext.getLabel(),
               configInfo,
               cppConfiguration.disableLegacyCrosstoolFields(),
@@ -700,10 +699,9 @@ public class CcToolchainProviderHelper {
     try {
       toolchain =
           CppToolchainInfo.addLegacyFeatures(
-              toolchain, cppConfiguration.getCrosstoolTopPathFragment());
+              toolchain, CppToolchainInfo.getToolsDirectory(attributes.getCcToolchainLabel()));
       CcToolchainConfigInfo ccToolchainConfigInfo = CcToolchainConfigInfo.fromToolchain(toolchain);
       return CppToolchainInfo.create(
-          cppConfiguration.getCrosstoolTopPathFragment(),
           attributes.getCcToolchainLabel(),
           ccToolchainConfigInfo,
           cppConfiguration.disableLegacyCrosstoolFields(),

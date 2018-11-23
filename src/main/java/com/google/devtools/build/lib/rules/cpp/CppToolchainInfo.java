@@ -57,8 +57,6 @@ import javax.annotation.Nullable;
 @AutoCodec
 @Immutable
 public final class CppToolchainInfo {
-  private final CcToolchainConfigInfo ccToolchainConfigInfo;
-  private final PathFragment crosstoolTopPathFragment;
   private final String toolchainIdentifier;
   private final CcToolchainFeatures toolchainFeatures;
 
@@ -112,7 +110,6 @@ public final class CppToolchainInfo {
    * Creates a CppToolchainInfo from CROSSTOOL info encapsulated in {@link CcToolchainConfigInfo}.
    */
   public static CppToolchainInfo create(
-      PathFragment crosstoolTopPathFragment,
       Label toolchainLabel,
       CcToolchainConfigInfo ccToolchainConfigInfo,
       boolean disableLegacyCrosstoolFields,
@@ -120,7 +117,7 @@ public final class CppToolchainInfo {
       boolean disableLinkingModeFlags)
       throws EvalException {
     ImmutableMap<String, PathFragment> toolPaths =
-        computeToolPaths(ccToolchainConfigInfo, crosstoolTopPathFragment);
+        computeToolPaths(ccToolchainConfigInfo, getToolsDirectory(toolchainLabel));
     PathFragment defaultSysroot =
         CppConfiguration.computeDefaultSysroot(ccToolchainConfigInfo.getBuiltinSysroot());
 
@@ -185,9 +182,8 @@ public final class CppToolchainInfo {
 
     try {
       return new CppToolchainInfo(
-          ccToolchainConfigInfo,
-          crosstoolTopPathFragment,
           ccToolchainConfigInfo.getToolchainIdentifier(),
+          new CcToolchainFeatures(ccToolchainConfigInfo, getToolsDirectory(toolchainLabel)),
           toolPaths,
           ccToolchainConfigInfo.getCompiler(),
           ccToolchainConfigInfo.getAbiLibcVersion(),
@@ -255,9 +251,8 @@ public final class CppToolchainInfo {
 
   @AutoCodec.Instantiator
   CppToolchainInfo(
-      CcToolchainConfigInfo ccToolchainConfigInfo,
-      PathFragment crosstoolTopPathFragment,
       String toolchainIdentifier,
+      CcToolchainFeatures toolchainFeatures,
       ImmutableMap<String, PathFragment> toolPaths,
       String compiler,
       String abiGlibcVersion,
@@ -295,12 +290,9 @@ public final class CppToolchainInfo {
       boolean supportsGoldLinker,
       boolean toolchainNeedsPic)
       throws EvalException {
-    this.ccToolchainConfigInfo = ccToolchainConfigInfo;
-    this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.toolchainIdentifier = toolchainIdentifier;
     // Since this field can be derived from `crosstoolInfo`, it is re-derived instead of serialized.
-    this.toolchainFeatures =
-        new CcToolchainFeatures(ccToolchainConfigInfo, crosstoolTopPathFragment);
+    this.toolchainFeatures = toolchainFeatures;
     this.toolPaths = toolPaths;
     this.compiler = compiler;
     this.abiGlibcVersion = abiGlibcVersion;
@@ -482,24 +474,11 @@ public final class CppToolchainInfo {
   }
 
   /**
-   * Returns the {@link CcToolchainConfigInfo} instance that was used to initialize this {@link
-   * CppToolchainInfo}.
-   */
-  public CcToolchainConfigInfo getCcToolchainConfigInfo() {
-    return ccToolchainConfigInfo;
-  }
-
-  /**
    * Returns the toolchain identifier, which uniquely identifies the compiler version, target libc
    * version, and target cpu.
    */
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
-  }
-
-  /** Returns the path of the crosstool. */
-  public PathFragment getCrosstoolTopPathFragment() {
-    return crosstoolTopPathFragment;
   }
 
   /** Returns the system name which is required by the toolchain to run. */
@@ -828,5 +807,13 @@ public final class CppToolchainInfo {
   private static PathFragment getToolPathFragment(
       ImmutableMap<String, PathFragment> toolPaths, CppConfiguration.Tool tool) {
     return toolPaths.get(tool.getNamePart());
+  }
+
+  public PathFragment getToolsDirectory() {
+    return getToolsDirectory(ccToolchainLabel);
+  }
+
+  static PathFragment getToolsDirectory(Label ccToolchainLabel) {
+    return ccToolchainLabel.getPackageIdentifier().getPathUnderExecRoot();
   }
 }

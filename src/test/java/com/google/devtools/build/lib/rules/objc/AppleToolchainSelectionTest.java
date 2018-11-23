@@ -39,10 +39,9 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     CppConfiguration cppConfig =
         getAppleCrosstoolConfiguration().getFragment(CppConfiguration.class);
 
-    assertThat(cppConfig.getCrosstoolTopPathFragment().toString())
-        .isEqualTo("tools/osx/crosstool");
-    assertThat(cppConfig.getToolchainIdentifier())
-        .isEqualTo("ios_x86_64");
+    assertThat(cppConfig.getRuleProvidingCcToolchainProvider().toString())
+        .isEqualTo("//tools/osx/crosstool:crosstool");
+    assertThat(cppConfig.getTransformedCpuFromOptions()).isEqualTo("ios_x86_64");
   }
 
   @Test
@@ -52,10 +51,9 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     CppConfiguration cppConfig =
         getAppleCrosstoolConfiguration().getFragment(CppConfiguration.class);
 
-    assertThat(cppConfig.getCrosstoolTopPathFragment().toString())
-        .isEqualTo("tools/osx/crosstool");
-    assertThat(cppConfig.getToolchainIdentifier())
-        .isEqualTo("ios_armv7");
+    assertThat(cppConfig.getRuleProvidingCcToolchainProvider().toString())
+        .isEqualTo("//tools/osx/crosstool:crosstool");
+    assertThat(cppConfig.getTransformedCpuFromOptions()).isEqualTo("ios_armv7");
   }
 
   @Test

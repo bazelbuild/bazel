@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -84,10 +85,10 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "\"\"\"",
         ")");
 
-    scratch.file("a/BUILD", "cc_binary(name='b', srcs=['b.cc'])");
-
     useConfiguration("--crosstool_top=//cc:suite", "--cpu=k8", "--host_cpu=k8");
-    ConfiguredTarget c = getConfiguredTarget("//a:b");
+    ConfiguredTarget c =
+        getConfiguredTarget(
+            ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain");
     CppConfiguration config = getConfiguration(c).getFragment(CppConfiguration.class);
     assertThat(config.getRuleProvidingCcToolchainProvider().toString()).isEqualTo("//cc:suite");
   }
@@ -160,11 +161,12 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "\"\"\"",
         ")");
 
-    scratch.file("a/BUILD", "cc_binary(name='b', srcs=['b.cc'])");
-
     useConfiguration("--crosstool_top=//cc:suite", "--cpu=k8", "--host_cpu=k8");
-    ConfiguredTarget c = getConfiguredTarget("//a:b");
-    CppConfiguration config = getConfiguration(c).getFragment(CppConfiguration.class);
-    assertThat(config.getToolchainIdentifier()).isEqualTo("toolchain-identifier-fruitie");
+    ConfiguredTarget c =
+        getConfiguredTarget(
+            ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain");
+    CcToolchainProvider ccToolchainProvider = (CcToolchainProvider) c.get(ToolchainInfo.PROVIDER);
+    assertThat(ccToolchainProvider.getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-fruitie");
   }
 }

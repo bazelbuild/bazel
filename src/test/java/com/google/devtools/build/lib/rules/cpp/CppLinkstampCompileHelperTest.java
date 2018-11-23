@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import java.util.List;
@@ -60,10 +61,16 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
 
+    CcToolchainProvider ccToolchainProvider =
+        (CcToolchainProvider)
+            getConfiguredTarget(
+                    ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
+                .get(ToolchainInfo.PROVIDER);
+
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
         arguments,
-        getConfiguration(target).getFragment(CppConfiguration.class).toString(),
+        ccToolchainProvider.getToolchainIdentifier(),
         target.getLabel().getCanonicalForm(),
         executable.getFilename());
   }
@@ -114,11 +121,16 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
 
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
+    CcToolchainProvider ccToolchainProvider =
+        (CcToolchainProvider)
+            getConfiguredTarget(
+                    ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
+                .get(ToolchainInfo.PROVIDER);
 
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
         arguments,
-        getConfiguration(target).getFragment(CppConfiguration.class).toString(),
+        ccToolchainProvider.getToolchainIdentifier(),
         target.getLabel().getCanonicalForm(),
         executable.getFilename());
   }

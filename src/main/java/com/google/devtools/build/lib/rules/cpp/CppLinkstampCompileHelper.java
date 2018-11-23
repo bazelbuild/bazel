@@ -85,14 +85,14 @@ public class CppLinkstampCompileHelper {
       String labelReplacement,
       String outputReplacement,
       Iterable<String> additionalLinkstampDefines,
-      CppConfiguration cppConfiguration,
+      CcToolchainProvider ccToolchainProvider,
       String fdoBuildStamp,
       boolean codeCoverageEnabled) {
     String labelPattern = Pattern.quote("${LABEL}");
     String outputPathPattern = Pattern.quote("${OUTPUT_PATH}");
     ImmutableList.Builder<String> defines =
         ImmutableList.<String>builder()
-            .add("GPLATFORM=\"" + cppConfiguration + "\"")
+            .add("GPLATFORM=\"" + ccToolchainProvider.getToolchainIdentifier() + "\"")
             .add("BUILD_COVERAGE_ENABLED=" + (codeCoverageEnabled ? "1" : "0"))
             // G3_TARGET_NAME is a C string literal that normally contain the label of the target
             // being linked.  However, they are set differently when using shared native deps. In
@@ -150,8 +150,7 @@ public class CppLinkstampCompileHelper {
         /* gcnoFile= */ null,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
-        buildInfoHeaderArtifacts
-            .stream()
+        buildInfoHeaderArtifacts.stream()
             .map(Artifact::getExecPathString)
             .collect(ImmutableList.toImmutableList()),
         CcCompilationHelper.getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()),
@@ -170,7 +169,7 @@ public class CppLinkstampCompileHelper {
             labelReplacement,
             outputReplacement,
             additionalLinkstampDefines,
-            cppConfiguration,
+            ccToolchainProvider,
             fdoBuildStamp,
             codeCoverageEnabled));
   }

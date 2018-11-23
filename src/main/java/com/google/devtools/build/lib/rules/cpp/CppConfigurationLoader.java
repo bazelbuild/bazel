@@ -33,11 +33,8 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -53,7 +50,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
 
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-    return ImmutableSet.<Class<? extends FragmentOptions>>of(CppOptions.class);
+    return ImmutableSet.of(CppOptions.class);
   }
 
   private final CpuTransformer cpuTransformer;
@@ -86,7 +83,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final Label ccToolchainLabel;
     protected final PathFragment fdoPath;
     protected final Label fdoOptimizeLabel;
-    protected final CcToolchainConfigInfo ccToolchainConfigInfo;
     protected final String transformedCpu;
     protected final String compiler;
 
@@ -97,8 +93,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         PathFragment fdoPath,
         Label fdoOptimizeLabel,
         Label crosstoolTop,
-        Label ccToolchainLabel,
-        CcToolchainConfigInfo ccToolchainConfigInfo) {
+        Label ccToolchainLabel) {
       this.transformedCpu = transformedCpu;
       this.compiler = compiler;
       this.commonOptions = buildOptions.get(BuildConfiguration.Options.class);
@@ -107,7 +102,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       this.fdoOptimizeLabel = fdoOptimizeLabel;
       this.crosstoolTop = crosstoolTop;
       this.ccToolchainLabel = ccToolchainLabel;
-      this.ccToolchainConfigInfo = ccToolchainConfigInfo;
     }
   }
 
@@ -161,37 +155,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       return null;
     }
 
-    // If cc_toolchain_suite contains an entry for the given --cpu and --compiler options, we
-    // select the toolchain by its identifier if "toolchain_identifier" attribute is present.
-    // Otherwise, we fall back to going through the CROSSTOOL file to select the toolchain using
-    // the legacy selection mechanism.
-    String identifierAttribute =
-        NonconfigurableAttributeMapper.of((Rule) ccToolchain)
-            .get("toolchain_identifier", Type.STRING);
-    String cpuAttribute =
-        NonconfigurableAttributeMapper.of((Rule) ccToolchain).get("cpu", Type.STRING);
-    String compilerAttribute =
-        NonconfigurableAttributeMapper.of((Rule) ccToolchain).get("compiler", Type.STRING);
-
-    CToolchain cToolchain =
-        CToolchainSelectionUtils.selectCToolchain(
-            identifierAttribute,
-            cpuAttribute,
-            compilerAttribute,
-            transformedCpu,
-            cppOptions.cppCompiler,
-            crosstoolRelease);
-
-    cToolchain =
-        CppToolchainInfo.addLegacyFeatures(
-            cToolchain, crosstoolTopLabel.getPackageIdentifier().getPathUnderExecRoot());
-    CcToolchainConfigInfo ccToolchainConfigInfo;
-    try {
-      ccToolchainConfigInfo = CcToolchainConfigInfo.fromToolchain(cToolchain);
-    } catch (EvalException e) {
-      throw new InvalidConfigurationException(e);
-    }
-
     PathFragment fdoPath = null;
     Label fdoProfileLabel = null;
     if (cppOptions.getFdoOptimize() != null) {
@@ -219,8 +182,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         fdoPath,
         fdoProfileLabel,
         crosstoolTopLabel,
-        ccToolchainLabel,
-        ccToolchainConfigInfo);
+        ccToolchainLabel);
   }
 
   private Target loadCcToolchainTarget(ConfigurationEnvironment env, Label ccToolchainLabel)
