@@ -104,7 +104,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
           spawnResult = Preconditions.checkNotNull(cacheHandle.getResult());
         } else {
           // Actual execution.
-          spawnResult = spawnRunner.exec(spawn, context);
+          spawnResult = spawnRunner.execAsync(spawn, context).get();
           if (cacheHandle.willStore()) {
             cacheHandle.store(spawnResult);
           }
