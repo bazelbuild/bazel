@@ -23,13 +23,14 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -117,7 +118,7 @@ public final class CppToolchainInfo {
       boolean disableLegacyCrosstoolFields,
       boolean disableCompilationModeFlags,
       boolean disableLinkingModeFlags)
-      throws InvalidConfigurationException {
+      throws EvalException {
     ImmutableMap<String, PathFragment> toolPaths =
         computeToolPaths(ccToolchainConfigInfo, crosstoolTopPathFragment);
     PathFragment defaultSysroot =
@@ -248,7 +249,7 @@ public final class CppToolchainInfo {
     } catch (LabelSyntaxException e) {
       // All of the above label.getRelativeWithRemapping() calls are valid labels, and the
       // crosstool_top was already checked earlier in the process.
-      throw new AssertionError(e);
+      throw new EvalException(Location.BUILTIN, e);
     }
   }
 
@@ -293,7 +294,7 @@ public final class CppToolchainInfo {
       boolean supportsInterfaceSharedObjects,
       boolean supportsGoldLinker,
       boolean toolchainNeedsPic)
-      throws InvalidConfigurationException {
+      throws EvalException {
     this.ccToolchainConfigInfo = ccToolchainConfigInfo;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.toolchainIdentifier = toolchainIdentifier;
@@ -776,7 +777,8 @@ public final class CppToolchainInfo {
   }
 
   private static ImmutableMap<String, PathFragment> computeToolPaths(
-      CcToolchainConfigInfo ccToolchainConfigInfo, PathFragment crosstoolTopPathFragment) {
+      CcToolchainConfigInfo ccToolchainConfigInfo, PathFragment crosstoolTopPathFragment)
+      throws EvalException {
     Map<String, PathFragment> toolPathsCollector = Maps.newHashMap();
     for (Pair<String, String> tool : ccToolchainConfigInfo.getToolPaths()) {
       String pathStr = tool.getSecond();
@@ -815,8 +817,8 @@ public final class CppToolchainInfo {
               });
       for (CppConfiguration.Tool tool : neededTools) {
         if (!toolPathsCollector.containsKey(tool.getNamePart())) {
-          throw new IllegalArgumentException(
-              "Tool path for '" + tool.getNamePart() + "' is missing");
+          throw new EvalException(
+              Location.BUILTIN, "Tool path for '" + tool.getNamePart() + "' is missing");
         }
       }
     }

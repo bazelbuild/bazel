@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigu
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
@@ -210,14 +211,19 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   static CppConfiguration create(CppConfigurationParameters params)
       throws InvalidConfigurationException {
     CppOptions cppOptions = params.cppOptions;
-    CppToolchainInfo cppToolchainInfo =
-        CppToolchainInfo.create(
-            params.crosstoolTop.getPackageIdentifier().getPathUnderExecRoot(),
-            params.ccToolchainLabel,
-            params.ccToolchainConfigInfo,
-            cppOptions.disableLegacyCrosstoolFields,
-            cppOptions.disableCompilationModeFlags,
-            cppOptions.disableLinkingModeFlags);
+    CppToolchainInfo cppToolchainInfo;
+    try {
+      cppToolchainInfo =
+          CppToolchainInfo.create(
+              params.crosstoolTop.getPackageIdentifier().getPathUnderExecRoot(),
+              params.ccToolchainLabel,
+              params.ccToolchainConfigInfo,
+              cppOptions.disableLegacyCrosstoolFields,
+              cppOptions.disableCompilationModeFlags,
+              cppOptions.disableLinkingModeFlags);
+    } catch (EvalException e) {
+      throw new InvalidConfigurationException(e);
+    }
 
     CompilationMode compilationMode = params.commonOptions.compilationMode;
 

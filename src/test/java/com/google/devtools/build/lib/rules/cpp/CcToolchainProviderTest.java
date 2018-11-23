@@ -315,4 +315,98 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     getConfiguredTarget("//a:a");
     assertContainsEvent("does not support setting --grte_top");
   }
+
+  @Test
+  public void testConfigWithMissingToolDefs() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(name='empty') ",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    proto = \"\"\"",
+        "      toolchain_identifier: \"a\"",
+        "      host_system_name: \"a\"",
+        "      target_system_name: \"a\"",
+        "      target_cpu: \"a\"",
+        "      target_libc: \"a\"",
+        "      compiler: \"a\"",
+        "      abi_version: \"a\"",
+        "      abi_libc_version: \"a\"",
+        "      tool_path { name: 'gcc' path: 'path-to-gcc-tool' }",
+        "      tool_path { name: 'ar' path: 'ar' }",
+        "      tool_path { name: 'cpp' path: 'cpp' }",
+        "      tool_path { name: 'gcov' path: 'gcov' }",
+        "      tool_path { name: 'ld' path: 'ld' }",
+        "      tool_path { name: 'nm' path: 'nm' }",
+        "      tool_path { name: 'objdump' path: 'objdump' }",
+        // "      tool_path { name: 'strip' path: 'strip' }",
+        "\"\"\")");
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--cpu=k8", "--host_cpu=k8");
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("Tool path for 'strip' is missing");
+  }
+
+  /** For a fission-supporting crosstool: check the dwp tool path. */
+  @Test
+  public void testFissionConfigWithMissingDwp() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(name='empty') ",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    proto = \"\"\"",
+        "      toolchain_identifier: \"a\"",
+        "      host_system_name: \"a\"",
+        "      target_system_name: \"a\"",
+        "      target_cpu: \"a\"",
+        "      target_libc: \"a\"",
+        "      compiler: \"a\"",
+        "      abi_version: \"a\"",
+        "      abi_libc_version: \"a\"",
+        "      supports_fission: 1",
+        "      tool_path { name: 'gcc' path: 'path-to-gcc-tool' }",
+        "      tool_path { name: 'ar' path: 'ar' }",
+        "      tool_path { name: 'cpp' path: 'cpp' }",
+        "      tool_path { name: 'gcov' path: 'gcov' }",
+        "      tool_path { name: 'ld' path: 'ld' }",
+        "      tool_path { name: 'nm' path: 'nm' }",
+        "      tool_path { name: 'objdump' path: 'objdump' }",
+        "      tool_path { name: 'strip' path: 'strip' }",
+        "\"\"\")");
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--cpu=k8", "--host_cpu=k8");
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("Tool path for 'dwp' is missing");
+  }
 }

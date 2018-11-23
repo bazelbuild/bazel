@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.SolibLibraryToLink;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -278,7 +278,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                         .getArtifactNameForCategory(
                             ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
             linkingHelper.setDefFile(generatedDefFile);
-          } catch (InvalidConfigurationException e) {
+          } catch (EvalException e) {
             ruleContext.throwWithRuleError(e.getMessage());
             throw new IllegalStateException("Should not be reached");
           }

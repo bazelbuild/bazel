@@ -148,8 +148,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
           .contains(
               String.format(
                   "Unrecognized file extension '.wrong_ext', allowed "
-                     + "extensions are %s, please check artifact_name_pattern configuration for %s "
-                     + "in your CROSSTOOL.",
+                      + "extensions are %s, please check artifact_name_pattern configuration for "
+                      + "%s in your CROSSTOOL.",
                   StringUtil.joinEnglishList(correctExtensions, "or", "'"), categoryName));
     }
   }

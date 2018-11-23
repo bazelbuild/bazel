@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -123,7 +123,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
                 outputTreeArtifact, PathFragment.create(outputName), artifactOwner);
         expandedActions.add(
             createAction(inputTreeFileArtifact, outputTreeFileArtifact, privateHeaders));
-      } catch (InvalidConfigurationException e) {
+      } catch (EvalException e) {
         throw new ActionTemplateExpansionException(e);
       }
     }
@@ -167,7 +167,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   }
 
   private String outputTreeFileArtifactName(TreeFileArtifact inputTreeFileArtifact)
-      throws InvalidConfigurationException {
+      throws EvalException {
     String outputName = FileSystemUtils.removeExtension(
         inputTreeFileArtifact.getParentRelativePath().getPathString());
     for (ArtifactCategory category : categories) {

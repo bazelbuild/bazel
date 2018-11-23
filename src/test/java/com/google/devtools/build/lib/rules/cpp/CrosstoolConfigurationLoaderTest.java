@@ -169,7 +169,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     CppConfiguration toolchain =
         create(loader, "--cpu=k8", "--host_cpu=k8", "--android_cpu=", "--fat_apk_cpu=");
     CcToolchainProvider ccProvider = getCcToolchainProvider(toolchain);
-    assertThat(toolchain.getToolchainIdentifier()).isEqualTo("toolchain-identifier");
+    assertThat(ccProvider.getToolchainIdentifier()).isEqualTo("toolchain-identifier");
 
     assertThat(ccProvider.getHostSystemName()).isEqualTo("host-system-name");
     assertThat(ccProvider.getCompiler()).isEqualTo("compiler");
@@ -177,7 +177,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProvider.getTargetCpu()).isEqualTo("k8");
     assertThat(ccProvider.getTargetGnuSystemName()).isEqualTo("target-system-name");
 
-    assertThat(toolchain.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("path-to-ar"));
+    assertThat(ccProvider.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("path-to-ar"));
 
     assertThat(ccProvider.getAbi()).isEqualTo("abi-version");
     assertThat(ccProvider.getAbiGlibcVersion()).isEqualTo("abi-libc-version");
@@ -222,8 +222,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                     "CC_FLAGS", "")
                 .entrySet());
 
-    assertThat(toolchain.getToolPathFragment(Tool.LD)).isEqualTo(getToolPath("path-to-ld"));
-    assertThat(toolchain.getToolPathFragment(Tool.DWP)).isEqualTo(getToolPath("path-to-dwp"));
+    assertThat(ccProvider.getToolPathFragment(Tool.LD)).isEqualTo(getToolPath("path-to-ld"));
+    assertThat(ccProvider.getToolPathFragment(Tool.DWP)).isEqualTo(getToolPath("path-to-dwp"));
   }
 
   /**
@@ -441,7 +441,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     CcToolchainProvider ccProviderA =
         (CcToolchainProvider) ccToolchainA.get(ToolchainInfo.PROVIDER);
     TemplateVariableInfo makeProviderA = ccToolchainA.get(TemplateVariableInfo.PROVIDER);
-    assertThat(toolchainA.getToolchainIdentifier()).isEqualTo("toolchain-identifier-A");
+    assertThat(ccProviderA.getToolchainIdentifier()).isEqualTo("toolchain-identifier-A");
     assertThat(ccProviderA.getHostSystemName()).isEqualTo("host-system-name-A");
     assertThat(ccProviderA.getTargetGnuSystemName()).isEqualTo("target-system-name-A");
     assertThat(ccProviderA.getTargetCpu()).isEqualTo("k8");
@@ -449,17 +449,17 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderA.getCompiler()).isEqualTo("compiler-A");
     assertThat(ccProviderA.getAbi()).isEqualTo("abi-version-A");
     assertThat(ccProviderA.getAbiGlibcVersion()).isEqualTo("abi-libc-version-A");
-    assertThat(toolchainA.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("path/to/ar-A"));
-    assertThat(toolchainA.getToolPathFragment(Tool.CPP)).isEqualTo(getToolPath("path/to/cpp-A"));
-    assertThat(toolchainA.getToolPathFragment(Tool.GCC)).isEqualTo(getToolPath("path/to/gcc-A"));
-    assertThat(toolchainA.getToolPathFragment(Tool.GCOV)).isEqualTo(getToolPath("path/to/gcov-A"));
-    assertThat(toolchainA.getToolPathFragment(Tool.LD)).isEqualTo(getToolPath("path/to/ld-A"));
-    assertThat(toolchainA.getToolPathFragment(Tool.NM)).isEqualTo(getToolPath("path/to/nm-A"));
-    assertThat(toolchainA.getToolPathFragment(Tool.OBJCOPY))
+    assertThat(ccProviderA.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("path/to/ar-A"));
+    assertThat(ccProviderA.getToolPathFragment(Tool.CPP)).isEqualTo(getToolPath("path/to/cpp-A"));
+    assertThat(ccProviderA.getToolPathFragment(Tool.GCC)).isEqualTo(getToolPath("path/to/gcc-A"));
+    assertThat(ccProviderA.getToolPathFragment(Tool.GCOV)).isEqualTo(getToolPath("path/to/gcov-A"));
+    assertThat(ccProviderA.getToolPathFragment(Tool.LD)).isEqualTo(getToolPath("path/to/ld-A"));
+    assertThat(ccProviderA.getToolPathFragment(Tool.NM)).isEqualTo(getToolPath("path/to/nm-A"));
+    assertThat(ccProviderA.getToolPathFragment(Tool.OBJCOPY))
         .isEqualTo(getToolPath("path/to/objcopy-A"));
-    assertThat(toolchainA.getToolPathFragment(Tool.OBJDUMP))
+    assertThat(ccProviderA.getToolPathFragment(Tool.OBJDUMP))
         .isEqualTo(getToolPath("path/to/objdump-A"));
-    assertThat(toolchainA.getToolPathFragment(Tool.STRIP))
+    assertThat(ccProviderA.getToolPathFragment(Tool.STRIP))
         .isEqualTo(getToolPath("path/to/strip-A"));
     assertThat(ccProviderA.supportsGoldLinker()).isTrue();
     assertThat(ccProviderA.supportsStartEndLib()).isTrue();
@@ -553,7 +553,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             "--android_cpu=",
             "--fat_apk_cpu=");
     CcToolchainProvider ccProviderC = getCcToolchainProvider(toolchainC);
-    assertThat(toolchainC.getToolchainIdentifier()).isEqualTo("toolchain-identifier-C");
+    assertThat(ccProviderC.getToolchainIdentifier()).isEqualTo("toolchain-identifier-C");
     assertThat(ccProviderC.getHostSystemName()).isEqualTo("host-system-name-C");
     assertThat(ccProviderC.getTargetGnuSystemName()).isEqualTo("target-system-name-C");
     assertThat(ccProviderC.getTargetCpu()).isEqualTo("k8");
@@ -605,7 +605,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   private void checkToolchainB(CppConfigurationLoader loader, String... args) throws Exception {
     CppConfiguration toolchainB = create(loader, args);
     CcToolchainProvider ccProviderB = getCcToolchainProvider(toolchainB);
-    assertThat(toolchainB.getToolchainIdentifier()).isEqualTo("toolchain-identifier-B");
+    assertThat(ccProviderB.getToolchainIdentifier()).isEqualTo("toolchain-identifier-B");
     assertThat(ccProviderB.configureAllLegacyLinkOptions(CompilationMode.DBG, LinkingMode.DYNAMIC))
         .containsExactly(
             "linker-flag-B-1", "linker-flag-B-2", "linker-dbg-flag-B-1", "linker-dbg-flag-B-2")
@@ -749,32 +749,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     }
     s.append("}");
     return s.toString();
-  }
-
-  @Test
-  public void testConfigWithMissingToolDefs() throws Exception {
-    CppConfigurationLoader loader = loader(getConfigWithMissingToolDef(Tool.STRIP));
-    try {
-      create(loader, "--cpu=banana_cpu");
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().contains("Tool path for 'strip' is missing");
-    }
-  }
-
-  /**
-   * For a fission-supporting crosstool: check the dwp tool path.
-   */
-  @Test
-  public void testFissionConfigWithMissingDwp() throws Exception {
-    CppConfigurationLoader loader =
-        loader(getConfigWithMissingToolDef(Tool.DWP, "supports_fission: true"));
-    try {
-      create(loader, "--cpu=banana_cpu");
-      fail("Expected failed check on 'dwp' tool path");
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().contains("Tool path for 'dwp' is missing");
-    }
   }
 
   /**

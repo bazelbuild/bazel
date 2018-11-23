@@ -17,7 +17,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -187,13 +186,10 @@ public enum LinkBuildVariables {
           binDirectoryPath.getSafePathString()
               + ";"
               + binDirectoryPath.getRelative(ltoOutputRootPrefix));
-      String objectFileExtension;
-      try {
-        objectFileExtension = ccToolchainProvider.getFeatures()
-            .getArtifactNameExtensionForCategory(ArtifactCategory.OBJECT_FILE);
-      } catch (InvalidConfigurationException e) {
-        throw new EvalException(null, "artifact name pattern for object_file must be specified", e);
-      }
+      String objectFileExtension =
+          ccToolchainProvider
+              .getFeatures()
+              .getArtifactNameExtensionForCategory(ArtifactCategory.OBJECT_FILE);
       buildVariables.addStringVariable(
           THINLTO_OBJECT_SUFFIX_REPLACE.getVariableName(),
           Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
