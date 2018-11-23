@@ -52,7 +52,7 @@ public class ProtoCommon {
    * @param protoSources the direct proto sources.
    * @return the direct sources of a proto library.
    */
-  public static NestedSet<Artifact> getCheckDepsProtoSources(
+  public static NestedSet<Artifact> computeStrictImportableProtosForDependents(
       RuleContext ruleContext, ImmutableList<Artifact> protoSources) {
 
     if (protoSources.isEmpty()) {
@@ -61,7 +61,7 @@ public class ProtoCommon {
       for (TransitiveInfoCollection provider : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
         ProtoSourcesProvider sources = provider.getProvider(ProtoSourcesProvider.class);
         if (sources != null) {
-          builder.addTransitive(sources.getCheckDepsProtoSources());
+          builder.addTransitive(sources.getStrictImportableProtoSourcesForDependents());
         }
       }
       return builder.build();
@@ -94,7 +94,7 @@ public class ProtoCommon {
 
     for (ProtoSourcesProvider provider :
         ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class)) {
-      result.addTransitive(provider.transitiveDescriptorSets());
+      result.addTransitive(provider.getTransitiveDescriptorSets());
     }
     return result.build();
   }
@@ -105,7 +105,7 @@ public class ProtoCommon {
    *
    * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
    */
-  public static NestedSet<String> collectTransitiveProtoPathFlags(
+  public static NestedSet<String> computeTransitiveProtoSourceRoots(
       RuleContext ruleContext, String currentProtoSourceRoot) {
     NestedSetBuilder<String> protoPath = NestedSetBuilder.stableOrder();
 
@@ -160,7 +160,7 @@ public class ProtoCommon {
 
     for (ProtoSourcesProvider provider :
         ruleContext.getPrerequisites(attributeName, Mode.TARGET, ProtoSourcesProvider.class)) {
-      protoSourceRoots.add(provider.getProtoSourceRoot());
+      protoSourceRoots.add(provider.getDirectProtoSourceRoot());
     }
 
     return protoSourceRoots.build();
@@ -172,7 +172,7 @@ public class ProtoCommon {
    *
    * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
    */
-  public static NestedSet<String> getProtoSourceRootsOfDirectDependencies(
+  public static NestedSet<String> computeStrictImportableProtoSourceRoots(
       RuleContext ruleContext, String currentProtoSourceRoot) {
     return getProtoSourceRootsOfAttribute(ruleContext, currentProtoSourceRoot, "deps");
   }
@@ -183,7 +183,7 @@ public class ProtoCommon {
    *
    * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
    */
-  public static NestedSet<String> getProtoSourceRootsOfExportedDependencies(
+  public static NestedSet<String> computeExportedProtoSourceRoots(
       RuleContext ruleContext, String currentProtoSourceRoot) {
     return getProtoSourceRootsOfAttribute(ruleContext, currentProtoSourceRoot, "exports");
   }
@@ -292,18 +292,18 @@ public class ProtoCommon {
    * direct-dependencies of our direct-dependencies.
    */
   @Nullable
-  public static NestedSet<Artifact> computeProtosInDirectDeps(RuleContext ruleContext) {
+  public static NestedSet<Artifact> computeStrictImportableProtos(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
     ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs", TARGET).list();
     if (srcs.isEmpty()) {
       for (ProtoSourcesProvider provider :
           ruleContext.getPrerequisites("deps", TARGET, ProtoSourcesProvider.class)) {
-        result.addTransitive(provider.getProtosInDirectDeps());
+        result.addTransitive(provider.getStrictImportableProtoSources());
       }
     } else {
       for (ProtoSourcesProvider provider :
           ruleContext.getPrerequisites("deps", TARGET, ProtoSourcesProvider.class)) {
-        result.addTransitive(provider.getCheckDepsProtoSources());
+        result.addTransitive(provider.getStrictImportableProtoSourcesForDependents());
       }
       result.addAll(srcs);
     }
@@ -314,11 +314,11 @@ public class ProtoCommon {
    * Returns the .proto files that are the direct srcs of the exported dependencies of this rule.
    */
   @Nullable
-  public static NestedSet<Artifact> computeProtosInExportedDeps(RuleContext ruleContext) {
+  public static NestedSet<Artifact> computeExportedProtos(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
     for (ProtoSourcesProvider provider :
         ruleContext.getPrerequisites("exports", TARGET, ProtoSourcesProvider.class)) {
-      result.addTransitive(provider.getProtosInDirectDeps());
+      result.addTransitive(provider.getStrictImportableProtoSources());
     }
     return result.build();
   }

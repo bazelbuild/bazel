@@ -303,8 +303,8 @@ public class ProtoCompileActionBuilder {
     // Add include maps
     addIncludeMapArguments(
         result,
-        areDepsStrict ? protoSourcesProvider.getProtosInDirectDeps() : null,
-        protoSourcesProvider.getDirectProtoSourceRoots(),
+        areDepsStrict ? protoSourcesProvider.getStrictImportableProtoSources() : null,
+        protoSourcesProvider.getStrictImportableProtoSourceRoots(),
         protoSourcesProvider.getTransitiveProtoSources());
 
     if (areDepsStrict) {
@@ -321,7 +321,7 @@ public class ProtoCompileActionBuilder {
       result.add("--disallow_services");
     }
     if (checkStrictImportPublic) {
-      NestedSet<Artifact> protosInExports = protoSourcesProvider.getProtosInExports();
+      NestedSet<Artifact> protosInExports = protoSourcesProvider.getExportedProtoSources();
       if (protosInExports.isEmpty()) {
         // This line is necessary to trigger the check.
         result.add("--allowed_public_imports=");
@@ -571,8 +571,8 @@ public class ProtoCompileActionBuilder {
     // Add include maps
     addIncludeMapArguments(
         cmdLine,
-        strictDeps == Deps.STRICT ? protoProvider.getProtosInDirectDeps() : null,
-        protoProvider.getDirectProtoSourceRoots(),
+        strictDeps == Deps.STRICT ? protoProvider.getStrictImportableProtoSources() : null,
+        protoProvider.getStrictImportableProtoSourceRoots(),
         protoProvider.getTransitiveProtoSources());
 
     if (strictDeps == Deps.STRICT) {
@@ -580,14 +580,14 @@ public class ProtoCompileActionBuilder {
     }
 
     if (useExports == Exports.USE) {
-      if (protoProvider.getProtosInExports().isEmpty()) {
+      if (protoProvider.getExportedProtoSources().isEmpty()) {
         // This line is necessary to trigger the check.
         cmdLine.add("--allowed_public_imports=");
       } else {
         cmdLine.addAll(
             "--allowed_public_imports",
             VectorArg.join(":")
-                .each(protoProvider.getProtosInExports())
+                .each(protoProvider.getExportedProtoSources())
                 .mapped(new ExpandToPathFn(protoProvider.getExportedProtoSourceRoots())));
       }
     }

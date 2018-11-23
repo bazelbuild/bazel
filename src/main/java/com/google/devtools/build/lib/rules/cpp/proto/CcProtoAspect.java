@@ -351,7 +351,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     }
 
     private void createProtoCompileAction(Collection<Artifact> outputs) {
-      String protoRoot = protoProvider.getProtoSourceRoot();
+      String protoRoot = protoProvider.getDirectProtoSourceRoot();
       String genfilesPath =
           ruleContext
               .getConfiguration()
