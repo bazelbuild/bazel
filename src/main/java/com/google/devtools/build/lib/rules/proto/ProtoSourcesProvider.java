@@ -46,7 +46,7 @@ public abstract class ProtoSourcesProvider
       NestedSet<Artifact> strictImportableProtoSourcesForDependents,
       NestedSet<Artifact> strictImportableProtoSources,
       NestedSet<String> strictImportableProtoSourceRoots,
-      @Nullable NestedSet<Artifact> exportedProtoSources,
+      NestedSet<Artifact> exportedProtoSources,
       NestedSet<String> exportedProtoSourceRoots,
       Artifact directDescriptorSet,
       NestedSet<Artifact> transitiveDescriptorSets) {

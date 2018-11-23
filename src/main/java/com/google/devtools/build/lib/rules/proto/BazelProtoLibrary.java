@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -26,74 +23,26 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 
-/** An implementation for the "proto_library" rule. */
+/** The implementation of the <code>proto_library</code> rule. */
 public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
-    ImmutableList<Artifact> protoSources =
-        ruleContext.getPrerequisiteArtifacts("srcs", TARGET).list();
-    NestedSet<Artifact> strictImportableProtosForDependents =
-        ProtoCommon.computeStrictImportableProtosForDependents(ruleContext, protoSources);
-    ProtoCommon.checkSourceFilesAreInSamePackage(ruleContext);
-
-    NestedSet<Artifact> transitiveProtoSources =
-        ProtoCommon.collectTransitiveProtoSources(ruleContext, protoSources);
-    NestedSet<Artifact> strictImportableProtos =
-        ProtoCommon.computeStrictImportableProtos(ruleContext);
-
-    NestedSet<Artifact> exportedProtos = ProtoCommon.computeExportedProtos(ruleContext);
-
-    String protoSourceRoot = ProtoCommon.getProtoSourceRoot(ruleContext);
-    NestedSet<String> strictImportableProtoSourceRoots =
-        ProtoCommon.computeStrictImportableProtoSourceRoots(ruleContext, protoSourceRoot);
-    NestedSet<String> exportedProtoSourceRoots =
-        ProtoCommon.computeExportedProtoSourceRoots(ruleContext, protoSourceRoot);
-    NestedSet<String> transitiveProtoSourceRoots =
-        ProtoCommon.computeTransitiveProtoSourceRoots(ruleContext, protoSourceRoot);
-
-    Artifact directDescriptorSet =
-        ruleContext.getGenfilesArtifact(
-            ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
-    NestedSet<Artifact> dependenciesDescriptorSets =
-        ProtoCommon.collectDependenciesDescriptorSets(ruleContext);
-    NestedSet<Artifact> transitiveDescriptorSetOutput =
-        NestedSetBuilder.fromNestedSet(dependenciesDescriptorSets).add(directDescriptorSet).build();
-
-    ProtoSourcesProvider protoProvider =
-        ProtoSourcesProvider.create(
-            protoSources,
-            protoSourceRoot,
-            transitiveProtoSources,
-            transitiveProtoSourceRoots,
-            strictImportableProtosForDependents,
-            strictImportableProtos,
-            strictImportableProtoSourceRoots,
-            exportedProtos,
-            exportedProtoSourceRoots,
-            directDescriptorSet,
-            transitiveDescriptorSetOutput);
-
-    ProtoCompileActionBuilder.writeDescriptorSet(
-        ruleContext,
-        directDescriptorSet.getExecPathString(),
-        protoProvider,
-        directDescriptorSet,
-        Services.ALLOW,
-        dependenciesDescriptorSets);
+  public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
+    ProtoSourcesProvider protoProvider = ProtoCommon.createProtoProvider(ruleContext);
+    ProtoCompileActionBuilder.writeDescriptorSet(ruleContext, protoProvider, Services.ALLOW);
 
     Runfiles dataRunfiles =
-        ProtoCommon.createDataRunfilesProvider(transitiveProtoSources, ruleContext)
-            .addArtifact(directDescriptorSet)
+        ProtoCommon.createDataRunfilesProvider(
+                protoProvider.getTransitiveProtoSources(), ruleContext)
+            .addArtifact(protoProvider.getDirectDescriptorSet())
             .build();
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, directDescriptorSet))
+        .setFilesToBuild(
+            NestedSetBuilder.create(STABLE_ORDER, protoProvider.getDirectDescriptorSet()))
         .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
         .addProvider(ProtoSourcesProvider.class, protoProvider)
         .addSkylarkTransitiveInfo(ProtoSourcesProvider.SKYLARK_NAME, protoProvider)
