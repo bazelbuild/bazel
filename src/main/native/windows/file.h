@@ -34,6 +34,17 @@ bool HasUncPrefix(const char_type* path) {
          path[3] == '\\';
 }
 
+template <typename char_type>
+bool IsDevNull(const char_type* path) {
+  return (path[0] == 'N' || path[0] == 'n') &&
+         (path[1] == 'U' || path[1] == 'u') &&
+         (path[2] == 'L' || path[2] == 'l');
+}
+
+std::wstring AddUncPrefixMaybe(const std::wstring& path);
+
+std::wstring RemoveUncPrefixMaybe(const std::wstring& path);
+
 // Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
 enum {
   IS_JUNCTION_YES = 0,

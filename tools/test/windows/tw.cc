@@ -203,14 +203,11 @@ void LogErrorWithArgAndValue(const int line, const std::string& msg,
 }
 
 std::wstring AddUncPrefixMaybe(const Path& p) {
-  return bazel::windows::HasUncPrefix(p.Get().c_str())
-             ? p.Get()
-             : (std::wstring(L"\\\\?\\") + p.Get());
+  return bazel::windows::AddUncPrefixMaybe(p.Get());
 }
 
 std::wstring RemoveUncPrefixMaybe(const Path& p) {
-  return bazel::windows::HasUncPrefix(p.Get().c_str()) ? p.Get().substr(4)
-                                                       : p.Get();
+  return bazel::windows::RemoveUncPrefixMaybe(p.Get());
 }
 
 inline bool CreateDirectories(const Path& path) {

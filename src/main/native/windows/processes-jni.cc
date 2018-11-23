@@ -25,11 +25,8 @@
 
 #include "src/main/native/jni.h"
 #include "src/main/native/windows/jni-util.h"
+#include "src/main/native/windows/file.h"
 #include "src/main/native/windows/util.h"
-
-// Maximum command line length is 2^15 characters including the null terminator.
-// https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx
-static const size_t MAX_CMDLINE = 1 << 15;
 
 template <typename T>
 static std::wstring ToString(const T& e) {
@@ -67,10 +64,6 @@ struct NativeOutputStream {
     handle_ = INVALID_HANDLE_VALUE;
   }
 };
-
-static std::wstring AddUncPrefixMaybe(const std::wstring& path) {
-  return (path.size() >= MAX_PATH) ? (std::wstring(L"\\\\?\\") + path) : path;
-}
 
 struct NativeProcess {
   HANDLE stdin_;
@@ -151,12 +144,15 @@ static std::wstring CreateProcessWithExplicitHandles(
     /* __out       */ LPPROCESS_INFORMATION lpProcessInformation,
     /* __in        */ DWORD cHandlesToInherit,
     /* __in_ecount(cHandlesToInherit) */ HANDLE* handlesToInherit) {
-  if (wcsnlen_s(lpCommandLine, MAX_CMDLINE) == MAX_CMDLINE) {
+  // kMaxCmdline value: see lpCommandLine parameter of CreateProcessW.
+  static constexpr size_t kMaxCmdline = 32767;
+
+  if (wcsnlen_s(lpCommandLine, kMaxCmdline) == kMaxCmdline) {
     std::wstring cmd_sample(lpCommandLine, 200);
     cmd_sample.append(L"(...)");
     std::wstringstream error_msg;
     error_msg << L"command is longer than CreateProcessW's limit ("
-              << MAX_CMDLINE << L" characters)";
+              << kMaxCmdline << L" characters)";
     return bazel::windows::MakeErrorMessage(
         WSTR(__FILE__), __LINE__, L"CreateProcessWithExplicitHandles",
         cmd_sample.c_str(), error_msg.str().c_str());
@@ -251,7 +247,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
   NativeProcess* result = new NativeProcess();
 
   std::wstring argv0;
-  std::wstring wpath(bazel::windows::GetJavaWstring(env, java_argv0));
+  std::wstring wpath(bazel::windows::GetJavaWpath(env, java_argv0));
   std::wstring error_msg(
       bazel::windows::AsExecutablePathForCreateProcess(wpath, &argv0));
   if (!error_msg.empty()) {
@@ -262,12 +258,12 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
 
   std::wstring commandline =
       argv0 + L" " + bazel::windows::GetJavaWstring(env, java_argv_rest);
-  std::wstring stdout_redirect = AddUncPrefixMaybe(
-      bazel::windows::GetJavaWstring(env, java_stdout_redirect));
-  std::wstring stderr_redirect = AddUncPrefixMaybe(
-      bazel::windows::GetJavaWstring(env, java_stderr_redirect));
+  std::wstring stdout_redirect = bazel::windows::AddUncPrefixMaybe(
+      bazel::windows::GetJavaWpath(env, java_stdout_redirect));
+  std::wstring stderr_redirect = bazel::windows::AddUncPrefixMaybe(
+      bazel::windows::GetJavaWpath(env, java_stderr_redirect));
   std::wstring cwd;
-  std::wstring wcwd(bazel::windows::GetJavaWstring(env, java_cwd));
+  std::wstring wcwd(bazel::windows::GetJavaWpath(env, java_cwd));
   error_msg = bazel::windows::AsShortPath(wcwd, &cwd);
   if (!error_msg.empty()) {
     result->error_ = bazel::windows::MakeErrorMessage(
@@ -337,7 +333,8 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
     if (!stdout_process.IsValid()) {
       DWORD err_code = GetLastError();
       result->error_ = bazel::windows::MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", stdout_redirect,
+          err_code);
       return PtrAsJlong(result);
     }
   } else {
