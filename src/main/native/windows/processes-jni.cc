@@ -223,7 +223,8 @@ static std::wstring CreateProcessWithExplicitHandles(
           /* dwCreationFlags */ CREATE_NO_WINDOW  // Don't create console window
               | CREATE_NEW_PROCESS_GROUP  // So that Ctrl-Break isn't propagated
               | CREATE_SUSPENDED  // So that it doesn't start a new job itself
-              | EXTENDED_STARTUPINFO_PRESENT,
+              | EXTENDED_STARTUPINFO_PRESENT
+              | CREATE_UNICODE_ENVIRONMENT,
           /* lpEnvironment */ lpEnvironment,
           /* lpCurrentDirectory */ lpCurrentDirectory,
           /* lpStartupInfo */ &info.StartupInfo,
@@ -298,16 +299,19 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
 
   JavaByteArray env_map(env, java_env);
   if (env_map.ptr() != nullptr) {
-    if (env_map.size() < 2) {
+    if (env_map.size() < 4) {
       result->error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath,
-          L"the environment must be at least two bytes long");
+          std::wstring(L"the environment must be at least 4 bytes long, was ") +
+              ToString(env_map.size()) + L" bytes");
       return PtrAsJlong(result);
     } else if (env_map.ptr()[env_map.size() - 1] != 0 ||
-               env_map.ptr()[env_map.size() - 2] != 0) {
+               env_map.ptr()[env_map.size() - 2] != 0 ||
+               env_map.ptr()[env_map.size() - 3] != 0 ||
+               env_map.ptr()[env_map.size() - 4] != 0) {
       result->error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath,
-          L"environment array must end with two null bytes");
+          L"environment array must end with 4 null bytes");
       return PtrAsJlong(result);
     }
   }

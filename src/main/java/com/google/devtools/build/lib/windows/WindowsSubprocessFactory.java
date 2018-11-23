@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.windows;
 
-import com.google.common.base.Charsets;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -131,7 +131,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     if (realEnv.isEmpty()) {
       // Special case: CreateProcess() always expects the environment block to be terminated
       // with two zeros.
-      return new byte[] { 0, 0, };
+      return "\0".toString().getBytes(StandardCharsets.UTF_16LE);
     }
 
     StringBuilder result = new StringBuilder();
@@ -146,6 +146,6 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     }
 
     result.append("\0");
-    return result.toString().getBytes(Charsets.UTF_8);
+    return result.toString().getBytes(StandardCharsets.UTF_16LE);
   }
 }
