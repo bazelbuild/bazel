@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.TargetProviderForQueryEnvironment;
+import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
+import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Either;
@@ -143,6 +145,14 @@ public final class QueryCommand implements BlazeCommand {
     Set<Setting> settings = queryOptions.toSettings();
     boolean streamResults = QueryOutputUtils.shouldStreamResults(queryOptions, formatter);
 
+    env.getEventBus()
+        .post(
+            new NoBuildEvent(
+                env.getCommandName(),
+                env.getCommandStartTime(),
+                /* separateFinishedEvent= */ true,
+                /* showProgress= */ true,
+                /* id= */ null));
     Either<BlazeCommandResult, QueryEvalResult> result;
     try (AbstractBlazeQueryEnvironment<Target> queryEnv =
         newQueryEnvironment(
@@ -260,9 +270,6 @@ public final class QueryCommand implements BlazeCommand {
         }
       }
     }
-
-    env.getEventBus()
-        .post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime(), true));
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
       try {
@@ -322,6 +329,13 @@ public final class QueryCommand implements BlazeCommand {
 
     TargetProviderForQueryEnvironment targetProviderForQueryEnvironment =
         new TargetProviderForQueryEnvironment(walkableGraph, env.getPackageManager());
+
+    PackageProgressReceiver progressReceiver =
+        env.getSkyframeExecutor().getPackageProgressReceiver();
+    if (progressReceiver != null) {
+      progressReceiver.reset();
+      env.getReporter().post(new LoadingPhaseStartedEvent(progressReceiver));
+    }
 
     return env.getRuntime()
         .getQueryEnvironmentFactory()

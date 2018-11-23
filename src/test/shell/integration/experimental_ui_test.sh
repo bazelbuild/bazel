@@ -300,6 +300,12 @@ function test_query_spacing() {
   fi
 }
 
+function test_query_progress() {
+  # Verify that some form of progress is reported during bazel query
+  bazel query --experimental_ui 'deps(//pkg:true)' 2> "${TEST_log}"
+  expect_log 'Loading:.*packages loaded'
+}
+
 function test_clean_nobuild {
   bazel clean --experimental_ui 2>$TEST_log \
    || fail "bazel shutdown failed"

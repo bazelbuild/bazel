@@ -2369,6 +2369,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public abstract void deleteOldNodes(long versionWindowForDirtyGc);
 
+  @Nullable
+  public PackageProgressReceiver getPackageProgressReceiver() {
+    return packageProgress;
+  }
+
   public TargetPatternPhaseValue loadTargetPatterns(
       ExtendedEventHandler eventHandler,
       List<String> targetPatterns,
