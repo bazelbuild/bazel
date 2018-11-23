@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
@@ -245,7 +245,7 @@ public class MultiArchBinarySupport {
                     ruleContext,
                     childToolchainConfig,
                     protosToAvoid,
-                    ImmutableList.<ProtoSourcesProvider>of(),
+                    ImmutableList.<ProtoInfo>of(),
                     depProtoProviders,
                     ProtobufSupport.getTransitivePortableProtoFilters(depProtoProviders),
                     childConfigurationsAndToolchains.get(childToolchainConfig))

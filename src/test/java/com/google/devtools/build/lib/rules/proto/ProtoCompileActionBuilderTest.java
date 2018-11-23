@@ -53,13 +53,13 @@ public class ProtoCompileActionBuilderTest {
   private final ArtifactRoot derivedRoot =
       ArtifactRoot.asDerivedRoot(FILE_SYSTEM.getPath("/"), FILE_SYSTEM.getPath("/out"));
 
-  private ProtoSourcesProvider protoProvider(
+  private ProtoInfo protoInfo(
       ImmutableList<Artifact> directProtos,
       NestedSet<Artifact> transitiveProtos,
       NestedSet<String> transitiveProtoSourceRoots,
       NestedSet<String> strictImportableProtoSourceRoots,
       NestedSet<Artifact> strictImportableProtos) {
-    return ProtoSourcesProvider.create(
+    return ProtoInfo.create(
         directProtos,
         "",
         transitiveProtos,
@@ -101,7 +101,7 @@ public class ProtoCompileActionBuilderTest {
                 new ToolchainInvocation(
                     "dontcare_because_no_plugin", toolchainNoPlugin, "foo.srcjar"),
                 new ToolchainInvocation("pluginName", toolchainWithPlugin, "bar.srcjar")),
-            protoProvider(
+            protoInfo(
                 /* directProtos */ ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
                 /* transitiveProtos */ NestedSetBuilder.create(
                     STABLE_ORDER,
@@ -135,7 +135,7 @@ public class ProtoCompileActionBuilderTest {
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
             /* toolchainInvocations= */ ImmutableList.of(),
-            protoProvider(
+            protoInfo(
                 /* directProtos */ ImmutableList.of(
                     derivedArtifact("//:dont-care", "source_file.proto")),
                 /* transitiveProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
@@ -164,7 +164,7 @@ public class ProtoCompileActionBuilderTest {
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
             ImmutableList.of(new ToolchainInvocation("dontcare", toolchain, "foo.srcjar")),
-            protoProvider(
+            protoInfo(
                 /* directProtos */ ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
                 /* transitiveProtos */ NestedSetBuilder.create(
                     STABLE_ORDER,
@@ -197,7 +197,7 @@ public class ProtoCompileActionBuilderTest {
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
             ImmutableList.of(),
-            protoProvider(
+            protoInfo(
                 /* directProtos */ ImmutableList.of(),
                 /* transitiveProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
                 /* transitiveProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
@@ -236,7 +236,7 @@ public class ProtoCompileActionBuilderTest {
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
             ImmutableList.of(new ToolchainInvocation("pluginName", toolchain, outReplacement)),
-            protoProvider(
+            protoInfo(
                 /* directProtos*/ ImmutableList.of(),
                 /* transitiveProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
                 /* transitiveProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),
@@ -278,7 +278,7 @@ public class ProtoCompileActionBuilderTest {
           ImmutableList.of(
               new ToolchainInvocation("pluginName", toolchain1, "outReplacement"),
               new ToolchainInvocation("pluginName", toolchain2, "outReplacement")),
-          protoProvider(
+          protoInfo(
               /* directProtos */ ImmutableList.of(),
               /* transitiveProtos */ NestedSetBuilder.emptySet(STABLE_ORDER),
               /* transitiveProtoSourceRoots= */ NestedSetBuilder.emptySet(STABLE_ORDER),

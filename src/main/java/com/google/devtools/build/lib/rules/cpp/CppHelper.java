@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.rules.cpp.CcModule.NonCcDepInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -847,7 +847,7 @@ public class CppHelper {
   public static void checkProtoLibrariesInDeps(RuleContext ruleContext,
       Iterable<TransitiveInfoCollection> deps) {
     for (TransitiveInfoCollection dep : deps) {
-      if (dep.getProvider(ProtoSourcesProvider.class) != null && dep.get(CcInfo.PROVIDER) == null) {
+      if (dep.getProvider(ProtoInfo.class) != null && dep.get(CcInfo.PROVIDER) == null) {
         ruleContext.attributeError("deps",
             String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
       }

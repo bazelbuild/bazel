@@ -64,8 +64,8 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.HashMap;
@@ -139,7 +139,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .requireSkylarkProviders(forKey(AndroidSdkProvider.PROVIDER.getKey()))
             .requireProviderSets(
                 ImmutableList.of(
-                    ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
+                    ImmutableSet.<Class<?>>of(ProtoInfo.class),
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
                     ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class)))

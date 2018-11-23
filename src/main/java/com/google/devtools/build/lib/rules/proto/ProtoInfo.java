@@ -21,10 +21,9 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.ProtoSourcesProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi;
 import javax.annotation.Nullable;
 
-// TODO(carmi): Rename the class to ProtoInfoProvider.
 /**
  * Configured target classes that implement this class can contribute .proto files to the
  * compilation of proto_library rules.
@@ -32,13 +31,12 @@ import javax.annotation.Nullable;
 @AutoValue
 @Immutable
 @AutoCodec
-public abstract class ProtoSourcesProvider
-    implements TransitiveInfoProvider, ProtoSourcesProviderApi<Artifact> {
+public abstract class ProtoInfo implements TransitiveInfoProvider, ProtoInfoApi<Artifact> {
   /** The name of the field in Skylark used to access this class. */
   public static final String SKYLARK_NAME = "proto";
 
   @AutoCodec.Instantiator
-  public static ProtoSourcesProvider create(
+  public static ProtoInfo create(
       ImmutableList<Artifact> directProtoSources,
       String directProtoSourceRoot,
       NestedSet<Artifact> transitiveProtoSources,
@@ -50,7 +48,7 @@ public abstract class ProtoSourcesProvider
       NestedSet<String> exportedProtoSourceRoots,
       Artifact directDescriptorSet,
       NestedSet<Artifact> transitiveDescriptorSets) {
-    return new AutoValue_ProtoSourcesProvider(
+    return new AutoValue_ProtoInfo(
         directProtoSources,
         directProtoSourceRoot,
         transitiveProtoSources,
@@ -143,5 +141,5 @@ public abstract class ProtoSourcesProvider
   @Override
   public abstract NestedSet<Artifact> getTransitiveDescriptorSets();
 
-  ProtoSourcesProvider() {}
+  ProtoInfo() {}
 }

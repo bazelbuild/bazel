@@ -31,21 +31,19 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
-    ProtoSourcesProvider protoProvider = ProtoCommon.createProtoProvider(ruleContext);
-    ProtoCompileActionBuilder.writeDescriptorSet(ruleContext, protoProvider, Services.ALLOW);
+    ProtoInfo protoInfo = ProtoCommon.createProtoInfo(ruleContext);
+    ProtoCompileActionBuilder.writeDescriptorSet(ruleContext, protoInfo, Services.ALLOW);
 
     Runfiles dataRunfiles =
-        ProtoCommon.createDataRunfilesProvider(
-                protoProvider.getTransitiveProtoSources(), ruleContext)
-            .addArtifact(protoProvider.getDirectDescriptorSet())
+        ProtoCommon.createDataRunfilesProvider(protoInfo.getTransitiveProtoSources(), ruleContext)
+            .addArtifact(protoInfo.getDirectDescriptorSet())
             .build();
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .setFilesToBuild(
-            NestedSetBuilder.create(STABLE_ORDER, protoProvider.getDirectDescriptorSet()))
+        .setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, protoInfo.getDirectDescriptorSet()))
         .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
-        .addProvider(ProtoSourcesProvider.class, protoProvider)
-        .addSkylarkTransitiveInfo(ProtoSourcesProvider.SKYLARK_NAME, protoProvider)
+        .addProvider(ProtoInfo.class, protoInfo)
+        .addSkylarkTransitiveInfo(ProtoInfo.SKYLARK_NAME, protoInfo)
         .build();
   }
 }

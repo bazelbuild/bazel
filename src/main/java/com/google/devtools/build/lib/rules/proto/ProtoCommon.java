@@ -59,7 +59,7 @@ public class ProtoCommon {
       /* a proxy/alias library, return the sources of the direct deps */
       NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
       for (TransitiveInfoCollection provider : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
-        ProtoSourcesProvider sources = provider.getProvider(ProtoSourcesProvider.class);
+        ProtoInfo sources = provider.getProvider(ProtoInfo.class);
         if (sources != null) {
           builder.addTransitive(sources.getStrictImportableProtoSourcesForDependents());
         }
@@ -81,8 +81,7 @@ public class ProtoCommon {
 
     result.addAll(protoSources);
 
-    for (ProtoSourcesProvider dep : ruleContext.getPrerequisites(
-        "deps", Mode.TARGET, ProtoSourcesProvider.class)) {
+    for (ProtoInfo dep : ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.class)) {
       result.addTransitive(dep.getTransitiveProtoSources());
     }
 
@@ -92,8 +91,7 @@ public class ProtoCommon {
   static NestedSet<Artifact> computeDependenciesDescriptorSets(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
 
-    for (ProtoSourcesProvider provider :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class)) {
+    for (ProtoInfo provider : ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.class)) {
       result.addTransitive(provider.getTransitiveDescriptorSets());
     }
     return result.build();
@@ -110,8 +108,7 @@ public class ProtoCommon {
     NestedSetBuilder<String> protoPath = NestedSetBuilder.stableOrder();
 
     protoPath.add(currentProtoSourceRoot);
-    for (ProtoSourcesProvider provider :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class)) {
+    for (ProtoInfo provider : ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.class)) {
       protoPath.addTransitive(provider.getTransitiveProtoSourceRoots());
     }
 
@@ -125,7 +122,7 @@ public class ProtoCommon {
    * package name nor the source root.
    */
   // TODO(lberki): This should really be a PathFragment. Unfortunately, it's on the Starlark API of
-  // ProtoSourcesProvider so it's not an easy change :(
+  // ProtoInfo so it's not an easy change :(
   private static String getProtoSourceRoot(RuleContext ruleContext) {
     String protoSourceRoot =
         ruleContext.attributes().get("proto_source_root", Type.STRING);
@@ -157,8 +154,8 @@ public class ProtoCommon {
     NestedSetBuilder<String> protoSourceRoots = NestedSetBuilder.stableOrder();
     protoSourceRoots.add(currentProtoSourceRoot);
 
-    for (ProtoSourcesProvider provider :
-        ruleContext.getPrerequisites(attributeName, Mode.TARGET, ProtoSourcesProvider.class)) {
+    for (ProtoInfo provider :
+        ruleContext.getPrerequisites(attributeName, Mode.TARGET, ProtoInfo.class)) {
       protoSourceRoots.add(provider.getDirectProtoSourceRoot());
     }
 
@@ -220,10 +217,10 @@ public class ProtoCommon {
   }
 
   /**
-   * Creates the {@link ProtoSourcesProvider} for the {@code proto_library} rule associated with
-   * {@code ruleContext}.
+   * Creates the {@link ProtoInfo} for the {@code proto_library} rule associated with {@code
+   * ruleContext}.
    */
-  public static ProtoSourcesProvider createProtoProvider(RuleContext ruleContext) {
+  public static ProtoInfo createProtoInfo(RuleContext ruleContext) {
     checkSourceFilesAreInSamePackage(ruleContext);
     ImmutableList<Artifact> directProtoSources =
         ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
@@ -252,8 +249,8 @@ public class ProtoCommon {
     NestedSet<Artifact> transitiveDescriptorSets =
         NestedSetBuilder.fromNestedSet(dependenciesDescriptorSets).add(directDescriptorSet).build();
 
-    ProtoSourcesProvider protoProvider =
-        ProtoSourcesProvider.create(
+    ProtoInfo protoInfo =
+        ProtoInfo.create(
             directProtoSources,
             protoSourceRoot,
             transitiveProtoSources,
@@ -266,7 +263,7 @@ public class ProtoCommon {
             directDescriptorSet,
             transitiveDescriptorSets);
 
-    return protoProvider;
+    return protoInfo;
   }
 
   public static Runfiles.Builder createDataRunfilesProvider(
@@ -345,13 +342,11 @@ public class ProtoCommon {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
     ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs", TARGET).list();
     if (srcs.isEmpty()) {
-      for (ProtoSourcesProvider provider :
-          ruleContext.getPrerequisites("deps", TARGET, ProtoSourcesProvider.class)) {
+      for (ProtoInfo provider : ruleContext.getPrerequisites("deps", TARGET, ProtoInfo.class)) {
         result.addTransitive(provider.getStrictImportableProtoSources());
       }
     } else {
-      for (ProtoSourcesProvider provider :
-          ruleContext.getPrerequisites("deps", TARGET, ProtoSourcesProvider.class)) {
+      for (ProtoInfo provider : ruleContext.getPrerequisites("deps", TARGET, ProtoInfo.class)) {
         result.addTransitive(provider.getStrictImportableProtoSourcesForDependents());
       }
       result.addAll(srcs);
@@ -364,8 +359,7 @@ public class ProtoCommon {
    */
   private static NestedSet<Artifact> computeExportedProtos(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    for (ProtoSourcesProvider provider :
-        ruleContext.getPrerequisites("exports", TARGET, ProtoSourcesProvider.class)) {
+    for (ProtoInfo provider : ruleContext.getPrerequisites("exports", TARGET, ProtoInfo.class)) {
       result.addTransitive(provider.getStrictImportableProtoSources());
     }
     return result.build();

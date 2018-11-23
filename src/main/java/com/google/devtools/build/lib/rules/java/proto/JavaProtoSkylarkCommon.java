@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaProtoCommonApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
@@ -43,7 +43,7 @@ public class JavaProtoSkylarkCommon
       String protoToolchainAttr,
       String flavour)
       throws EvalException {
-    ProtoSourcesProvider protoProvider = target.getProvider(ProtoSourcesProvider.class);
+    ProtoInfo protoInfo = target.getProvider(ProtoInfo.class);
     ProtoCompileActionBuilder.registerActions(
         skylarkRuleContext.getRuleContext(),
         ImmutableList.of(
@@ -51,7 +51,7 @@ public class JavaProtoSkylarkCommon
                 flavour,
                 getProtoToolchainProvider(skylarkRuleContext, protoToolchainAttr),
                 sourceJar.getExecPathString())),
-        protoProvider,
+        protoInfo,
         skylarkRuleContext.getLabel(),
         ImmutableList.of(sourceJar),
         "JavaLite",
@@ -61,7 +61,7 @@ public class JavaProtoSkylarkCommon
 
   @Override
   public boolean hasProtoSources(ConfiguredTarget target) {
-    return !target.getProvider(ProtoSourcesProvider.class).getDirectProtoSources().isEmpty();
+    return !target.getProvider(ProtoInfo.class).getDirectProtoSources().isEmpty();
   }
 
   @Override

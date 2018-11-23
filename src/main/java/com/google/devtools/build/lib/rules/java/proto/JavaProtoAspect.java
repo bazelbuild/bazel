@@ -50,8 +50,8 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Expor
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
-import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import javax.annotation.Nullable;
 
@@ -100,12 +100,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       return aspect.build();
     }
 
-    ProtoSourcesProvider protoProvider =
-        ctadBase.getConfiguredTarget().getProvider(ProtoSourcesProvider.class);
+    ProtoInfo protoInfo = ctadBase.getConfiguredTarget().getProvider(ProtoInfo.class);
 
     JavaProtoAspectCommon aspectCommon =
         JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
-    Impl impl = new Impl(ruleContext, protoProvider, aspectCommon, rpcSupport);
+    Impl impl = new Impl(ruleContext, protoInfo, aspectCommon, rpcSupport);
     impl.addProviders(aspect);
     return aspect.build();
   }
@@ -117,7 +116,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
             .propagateAlongAttribute("deps")
             .propagateAlongAttribute("exports")
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
-            .requireProviders(ProtoSourcesProvider.class)
+            .requireProviders(ProtoInfo.class)
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
             .advertiseProvider(
                 ImmutableList.of(
@@ -153,7 +152,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
   private static class Impl {
 
     private final RuleContext ruleContext;
-    private final ProtoSourcesProvider protoProvider;
+    private final ProtoInfo protoInfo;
 
     private final RpcSupport rpcSupport;
     private final JavaProtoAspectCommon aspectCommon;
@@ -171,11 +170,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     Impl(
         RuleContext ruleContext,
-        ProtoSourcesProvider protoProvider,
+        ProtoInfo protoInfo,
         JavaProtoAspectCommon aspectCommon,
         RpcSupport rpcSupport) {
       this.ruleContext = ruleContext;
-      this.protoProvider = protoProvider;
+      this.protoInfo = protoInfo;
       this.rpcSupport = rpcSupport;
       this.aspectCommon = aspectCommon;
       this.javaProtoLibraryAspectProviders =
@@ -272,7 +271,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
      * proto_library.
      */
     private boolean shouldGenerateCode() {
-      if (protoProvider.getDirectProtoSources().isEmpty()) {
+      if (protoInfo.getDirectProtoSources().isEmpty()) {
         return false;
       }
 
@@ -283,7 +282,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
       protoBlackList = new ProtoSourceFileBlacklist(ruleContext, blacklistedProtos.build());
 
-      return protoBlackList.checkSrcs(protoProvider.getDirectProtoSources(), "java_proto_library");
+      return protoBlackList.checkSrcs(protoInfo.getDirectProtoSources(), "java_proto_library");
     }
 
     private void createProtoCompileAction(Artifact sourceJar) {
@@ -295,7 +294,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ProtoCompileActionBuilder.registerActions(
           ruleContext,
           invocations.build(),
-          protoProvider,
+          protoInfo,
           ruleContext.getLabel(),
           ImmutableList.of(sourceJar),
           "Java (Immutable)",

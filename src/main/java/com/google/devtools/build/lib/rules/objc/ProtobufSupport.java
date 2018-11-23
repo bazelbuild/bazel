@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
@@ -101,20 +101,20 @@ final class ProtobufSupport {
    * @param ruleContext context this proto library is constructed in
    * @param buildConfiguration the configuration from which to get prerequisites when building proto
    *     targets in a split configuration
-   * @param protoProviders the list of ProtoSourcesProviders that this proto support should process
+   * @param protoInfos the list of ProtoInfos that this proto support should process
    * @param objcProtoProviders the list of ObjcProtoProviders that this proto support should process
    */
   public ProtobufSupport(
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
-      Iterable<ProtoSourcesProvider> protoProviders,
+      Iterable<ProtoInfo> protoInfos,
       Iterable<ObjcProtoProvider> objcProtoProviders,
       NestedSet<Artifact> portableProtoFilters) {
     this(
         ruleContext,
         buildConfiguration,
         NestedSetBuilder.<Artifact>stableOrder().build(),
-        protoProviders,
+        protoInfos,
         objcProtoProviders,
         portableProtoFilters,
         null);
@@ -132,7 +132,7 @@ final class ProtobufSupport {
    * @param dylibHandledProtos a set of protos linked into dynamic libraries that the current rule
    *     depends on; these protos will not be output by this support, thus avoiding duplicate
    *     symbols
-   * @param protoProviders the list of ProtoSourcesProviders that this proto support should process
+   * @param protoInfos the list of ProtoInfos that this proto support should process
    * @param objcProtoProviders the list of ObjcProtoProviders that this proto support should process
    * @param toolchain if not null, the toolchain to override the default toolchain for the rule
    *     context.
@@ -141,7 +141,7 @@ final class ProtobufSupport {
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       NestedSet<Artifact> dylibHandledProtos,
-      Iterable<ProtoSourcesProvider> protoProviders,
+      Iterable<ProtoInfo> protoInfos,
       Iterable<ObjcProtoProvider> objcProtoProviders,
       NestedSet<Artifact> portableProtoFilters,
       CcToolchainProvider toolchain) {
@@ -153,7 +153,7 @@ final class ProtobufSupport {
     this.portableProtoFilters = portableProtoFilters;
     this.intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration);
-    this.inputsToOutputsMap = getInputsToOutputsMap(attributes, protoProviders, objcProtoProviders);
+    this.inputsToOutputsMap = getInputsToOutputsMap(attributes, protoInfos, objcProtoProviders);
     this.toolchain = toolchain;
   }
 
@@ -308,18 +308,18 @@ final class ProtobufSupport {
 
   private static ImmutableSetMultimap<ImmutableSet<Artifact>, Artifact> getInputsToOutputsMap(
       ProtoAttributes attributes,
-      Iterable<ProtoSourcesProvider> protoProviders,
+      Iterable<ProtoInfo> protoInfos,
       Iterable<ObjcProtoProvider> objcProtoProviders) {
     ImmutableList.Builder<NestedSet<Artifact>> protoSets =
         new ImmutableList.Builder<NestedSet<Artifact>>();
 
-    // Traverse all the dependencies ObjcProtoProviders and ProtoSourcesProviders to aggregate
+    // Traverse all the dependencies ObjcProtoProviders and ProtoInfos to aggregate
     // all the transitive groups of proto.
     for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
       protoSets.addAll(objcProtoProvider.getProtoGroups());
     }
-    for (ProtoSourcesProvider protoProvider : protoProviders) {
-      protoSets.add(protoProvider.getTransitiveProtoSources());
+    for (ProtoInfo protoInfo : protoInfos) {
+      protoSets.add(protoInfo.getTransitiveProtoSources());
     }
 
     HashMap<Artifact, Set<Artifact>> protoToGroupMap = new HashMap<>();
@@ -554,27 +554,25 @@ final class ProtobufSupport {
   }
 
   /**
-   * Registers a FileWriteAction what writes a filter file into the given artifact. The contents
-   * of this file is a portable filter that allows all the transitive proto files contained in the
-   * given {@link ProtoSourcesProvider} providers.
+   * Registers a FileWriteAction what writes a filter file into the given artifact. The contents of
+   * this file is a portable filter that allows all the transitive proto files contained in the
+   * given {@link ProtoInfo} providers.
    */
   public static void registerPortableFilterGenerationAction(
-      RuleContext ruleContext,
-      Artifact generatedPortableFilter,
-      Iterable<ProtoSourcesProvider> protoProviders) {
+      RuleContext ruleContext, Artifact generatedPortableFilter, Iterable<ProtoInfo> protoInfos) {
     ruleContext.registerAction(
         FileWriteAction.create(
             ruleContext,
             generatedPortableFilter,
-            getGeneratedPortableFilterContents(ruleContext, protoProviders),
+            getGeneratedPortableFilterContents(ruleContext, protoInfos),
             false));
   }
 
   private static String getGeneratedPortableFilterContents(
-      RuleContext ruleContext, Iterable<ProtoSourcesProvider> protoProviders) {
+      RuleContext ruleContext, Iterable<ProtoInfo> protoInfos) {
     NestedSetBuilder<Artifact> protoFilesBuilder = NestedSetBuilder.stableOrder();
-    for (ProtoSourcesProvider protoProvider : protoProviders) {
-      protoFilesBuilder.addTransitive(protoProvider.getTransitiveProtoSources());
+    for (ProtoInfo protoInfo : protoInfos) {
+      protoFilesBuilder.addTransitive(protoInfo.getTransitiveProtoSources());
     }
 
     Iterable<String> protoFilePaths =

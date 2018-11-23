@@ -19,17 +19,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
-/**
- * Info object propagating information about protocol buffer sources.
- */
-@SkylarkModule(name = "ProtoSourcesProvider", doc = "")
-public interface ProtoSourcesProviderApi<FileT extends FileApi> {
+/** Info object propagating information about protocol buffer sources. */
+@SkylarkModule(name = "ProtoInfo", doc = "")
+public interface ProtoInfoApi<FileT extends FileApi> {
 
   @SkylarkCallable(
-    name = "transitive_imports",
-    doc = "Transitive imports including weak dependencies.",
-    structField = true
-  )
+      name = "transitive_imports",
+      doc = "Transitive imports including weak dependencies.",
+      structField = true)
   public NestedSet<FileT> getTransitiveImports();
 
   @SkylarkCallable(
