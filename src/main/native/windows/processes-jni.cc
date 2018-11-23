@@ -275,6 +275,17 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
     return PtrAsJlong(result);
   }
 
+  const bool stdout_is_stream = stdout_redirect.empty();
+  const bool stderr_is_stream = redirectErrorStream
+                                    ? stdout_is_stream
+                                    : stderr_redirect.empty();
+  const bool stderr_same_handle_as_stdout =
+      redirectErrorStream ||
+      (!stderr_redirect.empty() &&
+       stderr_redirect.size() == stdout_redirect.size() &&
+       _wcsnicmp(stderr_redirect.c_str(), stdout_redirect.c_str(),
+                 stderr_redirect.size()) == 0);
+
   std::unique_ptr<WCHAR[]> mutable_commandline(
       new WCHAR[commandline.size() + 1]);
   wcsncpy(mutable_commandline.get(), commandline.c_str(),
@@ -312,17 +323,19 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
     }
   }
 
-  HANDLE temp_stdin_handle = INVALID_HANDLE_VALUE;
-  if (!CreatePipe(&temp_stdin_handle, &result->stdin_, &sa, 0)) {
-    DWORD err_code = GetLastError();
-    result->error_ = bazel::windows::MakeErrorMessage(
-        WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-    CloseHandle(temp_stdin_handle);
-    return PtrAsJlong(result);
+  {
+    HANDLE pipe_read_h, pipe_write_h;
+    if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, 0)) {
+      DWORD err_code = GetLastError();
+      result->error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
+      return PtrAsJlong(result);
+    }
+    stdin_process = pipe_read_h;
+    result->stdin_ = pipe_write_h;
   }
-  stdin_process = temp_stdin_handle;
 
-  if (!stdout_redirect.empty()) {
+  if (!stdout_is_stream) {
     result->stdout_.close();
 
     stdout_process = CreateFileW(
@@ -341,65 +354,60 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
       return PtrAsJlong(result);
     }
   } else {
-    HANDLE temp_stdout_handle = INVALID_HANDLE_VALUE;
-    if (!CreatePipe(&result->stdout_.handle_, &temp_stdout_handle, &sa, 0)) {
+    HANDLE pipe_read_h, pipe_write_h;
+    if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, 0)) {
       DWORD err_code = GetLastError();
       result->error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-      CloseHandle(temp_stdout_handle);
       return PtrAsJlong(result);
     }
-    stdout_process = temp_stdout_handle;
+    result->stdout_.handle_ = pipe_read_h;
+    stdout_process = pipe_write_h;
   }
 
-  // The value of the stderr HANDLE.
-  // If stdout and stderr are redirected to the same file, this will be equal to
-  // stdout_process.handle and stderr_process.handle will be
-  // INVALID_HANDLE_VALUE, so the two AutoHandle objects' d'tors will not
-  // attempt to close stdout's handle twice.
-  // If stdout != stderr, then stderr_handle = stderr_process.handle, and these
-  // are distinct from stdout_process.handle, so again the d'tors will do the
-  // right thing, closing the handles.
-  // In both cases, we DO NOT close stderr_handle, since it's either
-  // stdout_process's or stderr_process's d'tor doing so.
-  HANDLE stderr_handle = INVALID_HANDLE_VALUE;
-
-  if (redirectErrorStream) {
-    stderr_handle = stdout_process;
-  } else if (!stderr_redirect.empty()) {
-    result->stderr_.close();
-    if (stdout_redirect == stderr_redirect) {
-      stderr_handle = stdout_process;
-      // do not set stderr_process.handle; it equals stdout_process.handle and
-      // the AutoHandle d'tor would attempt to close it again
-    } else {
-      stderr_handle = CreateFileW(
-          /* lpFileName */ stderr_redirect.c_str(),
-          /* dwDesiredAccess */ FILE_APPEND_DATA,
-          /* dwShareMode */ 0,
-          /* lpSecurityAttributes */ &sa,
-          /* dwCreationDisposition */ OPEN_ALWAYS,
-          /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-          /* hTemplateFile */ NULL);
-
-      if (stderr_handle == INVALID_HANDLE_VALUE) {
-        DWORD err_code = GetLastError();
-        result->error_ = bazel::windows::MakeErrorMessage(
-            WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-        return PtrAsJlong(result);
-      }
-      // stderr_process != stdout_process, so set its handle, so the AutoHandle
-      // d'tor will close it
-      stderr_process = stderr_handle;
-    }
-  } else {
-    if (!CreatePipe(&result->stderr_.handle_, &stderr_handle, &sa, 0)) {
+  if (stderr_same_handle_as_stdout) {
+    HANDLE stdout_process_dup_h;
+    if (!DuplicateHandle(GetCurrentProcess(), stdout_process,
+                         GetCurrentProcess(), &stdout_process_dup_h, 0, TRUE,
+                         DUPLICATE_SAME_ACCESS)) {
       DWORD err_code = GetLastError();
       result->error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return PtrAsJlong(result);
     }
-    stderr_process = stderr_handle;
+    if (!stderr_is_stream) {
+      result->stderr_.close();
+    }
+
+    stderr_process = stdout_process_dup_h;
+  } else if (!stderr_redirect.empty()) {
+    result->stderr_.close();
+    stderr_process = CreateFileW(
+        /* lpFileName */ stderr_redirect.c_str(),
+        /* dwDesiredAccess */ FILE_APPEND_DATA,
+        /* dwShareMode */ 0,
+        /* lpSecurityAttributes */ &sa,
+        /* dwCreationDisposition */ OPEN_ALWAYS,
+        /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+        /* hTemplateFile */ NULL);
+
+    if (!stderr_process.IsValid()) {
+      DWORD err_code = GetLastError();
+      result->error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", stderr_redirect,
+          err_code);
+      return PtrAsJlong(result);
+    }
+  } else {
+    HANDLE pipe_read_h, pipe_write_h;
+    if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, 0)) {
+      DWORD err_code = GetLastError();
+      result->error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
+      return PtrAsJlong(result);
+    }
+    result->stderr_.handle_ = pipe_read_h;
+    stderr_process = pipe_write_h;
   }
 
   // MDSN says that the default for job objects is that breakaway is not
@@ -427,17 +435,17 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
   startup_info.cb = sizeof(STARTUPINFOW);
   startup_info.hStdInput = stdin_process;
   startup_info.hStdOutput = stdout_process;
-  startup_info.hStdError = stderr_handle;
+  startup_info.hStdError = stderr_process;
   startup_info.dwFlags |= STARTF_USESTDHANDLES;
 
-  HANDLE handlesToInherit[3] = {stdin_process, stdout_process, stderr_handle};
+  HANDLE handlesToInherit[3] = {stdin_process, stdout_process, stderr_process};
   std::wstring err_msg(CreateProcessWithExplicitHandles(
       /* lpCommandLine */ mutable_commandline.get(),
       /* lpEnvironment */ env_map.ptr(),
       /* lpCurrentDirectory */ cwd.empty() ? nullptr : cwd.c_str(),
       /* lpStartupInfo */ &startup_info,
       /* lpProcessInformation */ &process_info,
-      /* cHandlesToInherit */ (stderr_handle == stdout_process) ? 2 : 3,
+      /* cHandlesToInherit */ 3,
       /* handlesToInherit */ handlesToInherit));
 
   if (!err_msg.empty()) {
