@@ -44,6 +44,73 @@ import javax.annotation.Nullable;
  * able to convert from this representation to the old four CcLinkParams variables.
  */
 public class LibraryToLinkWrapper {
+
+  public static LibraryToLinkWrapper convertLinkOutputsToLibraryToLinkWrapper(
+      CcLinkingOutputs ccLinkingOutputs) {
+    Preconditions.checkState(!ccLinkingOutputs.isEmpty());
+
+    Builder libraryToLinkWrapperBuilder = builder();
+    if (!ccLinkingOutputs.getStaticLibraries().isEmpty()) {
+      Preconditions.checkState(ccLinkingOutputs.getStaticLibraries().size() == 1);
+      LibraryToLink staticLibrary = ccLinkingOutputs.getStaticLibraries().get(0);
+      libraryToLinkWrapperBuilder.setStaticLibrary(staticLibrary.getArtifact());
+      libraryToLinkWrapperBuilder.setObjectFiles(
+          ImmutableList.copyOf(staticLibrary.getObjectFiles()));
+      libraryToLinkWrapperBuilder.setLtoBitcodeFiles(
+          ImmutableMap.copyOf(staticLibrary.getLtoBitcodeFiles()));
+      libraryToLinkWrapperBuilder.setSharedNonLtoBackends(
+          ImmutableMap.copyOf(staticLibrary.getSharedNonLtoBackends()));
+      libraryToLinkWrapperBuilder.setAlwayslink(
+          staticLibrary.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY);
+      libraryToLinkWrapperBuilder.setLibraryIdentifier(staticLibrary.getLibraryIdentifier());
+    }
+
+    if (!ccLinkingOutputs.getPicStaticLibraries().isEmpty()) {
+      Preconditions.checkState(ccLinkingOutputs.getPicStaticLibraries().size() == 1);
+      LibraryToLink picStaticLibrary = ccLinkingOutputs.getPicStaticLibraries().get(0);
+      libraryToLinkWrapperBuilder.setPicStaticLibrary(picStaticLibrary.getArtifact());
+      libraryToLinkWrapperBuilder.setPicObjectFiles(
+          ImmutableList.copyOf(picStaticLibrary.getObjectFiles()));
+      libraryToLinkWrapperBuilder.setPicLtoBitcodeFiles(
+          ImmutableMap.copyOf(picStaticLibrary.getLtoBitcodeFiles()));
+      libraryToLinkWrapperBuilder.setPicSharedNonLtoBackends(
+          ImmutableMap.copyOf(picStaticLibrary.getSharedNonLtoBackends()));
+      libraryToLinkWrapperBuilder.setAlwayslink(
+          picStaticLibrary.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY);
+      libraryToLinkWrapperBuilder.setLibraryIdentifier(picStaticLibrary.getLibraryIdentifier());
+    }
+
+    if (!ccLinkingOutputs.getDynamicLibrariesForLinking().isEmpty()) {
+      Preconditions.checkState(ccLinkingOutputs.getDynamicLibrariesForLinking().size() == 1);
+      Preconditions.checkState(ccLinkingOutputs.getDynamicLibrariesForRuntime().size() == 1);
+      LibraryToLink dynamicLibraryForLinking =
+          ccLinkingOutputs.getDynamicLibrariesForLinking().get(0);
+      LibraryToLink dynamicLibraryForRuntime =
+          ccLinkingOutputs.getDynamicLibrariesForRuntime().get(0);
+      if (dynamicLibraryForLinking != dynamicLibraryForRuntime) {
+        libraryToLinkWrapperBuilder.setInterfaceLibrary(dynamicLibraryForLinking.getArtifact());
+        if (dynamicLibraryForLinking instanceof SolibLibraryToLink) {
+          libraryToLinkWrapperBuilder.setResolvedSymlinkInterfaceLibrary(
+              dynamicLibraryForLinking.getOriginalLibraryArtifact());
+        }
+        libraryToLinkWrapperBuilder.setDynamicLibrary(dynamicLibraryForRuntime.getArtifact());
+        if (dynamicLibraryForRuntime instanceof SolibLibraryToLink) {
+          libraryToLinkWrapperBuilder.setResolvedSymlinkDynamicLibrary(
+              dynamicLibraryForRuntime.getOriginalLibraryArtifact());
+        }
+      } else {
+        libraryToLinkWrapperBuilder.setDynamicLibrary(dynamicLibraryForRuntime.getArtifact());
+        if (dynamicLibraryForRuntime instanceof SolibLibraryToLink) {
+          libraryToLinkWrapperBuilder.setResolvedSymlinkDynamicLibrary(
+              dynamicLibraryForRuntime.getOriginalLibraryArtifact());
+        }
+      }
+      libraryToLinkWrapperBuilder.setLibraryIdentifier(
+          dynamicLibraryForLinking.getLibraryIdentifier());
+    }
+    return libraryToLinkWrapperBuilder.build();
+  }
+
   /** Structure of the new CcLinkingContext. This will replace {@link CcLinkingInfo}. */
   public static class CcLinkingContext {
     private final NestedSet<LibraryToLinkWrapper> libraries;

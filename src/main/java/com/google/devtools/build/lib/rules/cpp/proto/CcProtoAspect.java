@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
@@ -206,14 +207,18 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
         ccLinkingHelper.emitInterfaceSharedObjects(true);
       }
       CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
+      ImmutableList.Builder<LibraryToLinkWrapper> libraryToLinkWrapperBuilder =
+          ImmutableList.builder();
       if (!ccCompilationOutputs.isEmpty()) {
         ccLinkingOutputs = ccLinkingHelper.link(ccCompilationOutputs);
+        libraryToLinkWrapperBuilder.add(
+            LibraryToLinkWrapper.convertLinkOutputsToLibraryToLinkWrapper(ccLinkingOutputs));
       }
       CcNativeLibraryProvider ccNativeLibraryProvider =
           CppHelper.collectNativeCcLibraries(deps, ccLinkingOutputs);
       CcLinkingInfo ccLinkingInfo =
-          ccLinkingHelper.buildCcLinkingInfo(
-              ccLinkingOutputs, compilationInfo.getCcCompilationContext());
+          ccLinkingHelper.buildCcLinkingInfoFromLibraryToLinkWrappers(
+              libraryToLinkWrapperBuilder.build(), compilationInfo.getCcCompilationContext());
 
       ccLibraryProviders =
           new TransitiveInfoProviderMapBuilder()

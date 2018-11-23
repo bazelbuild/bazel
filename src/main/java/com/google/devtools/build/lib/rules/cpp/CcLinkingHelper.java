@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 /**
@@ -331,11 +330,6 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  public CcLinkingHelper setNeverlink(boolean neverlink) {
-    this.neverlink = neverlink;
-    return this;
-  }
-
   /**
    * Create the C++ link actions, and the corresponding linking related providers.
    *
@@ -371,68 +365,25 @@ public final class CcLinkingHelper {
     for (Artifact linkstamp : linkstamps.build()) {
       linkstampBuilder.add(new Linkstamp(linkstamp, ccCompilationContext.getDeclaredIncludeSrcs()));
     }
-    CcLinkingInfo ccLinkingInfo =
-        LibraryToLinkWrapper.toCcLinkingInfo(
-            cppConfiguration.forcePic(),
-            libraryToLinkWrappers,
-            // We want an empty set if there are no link options. We have to make sure we don't
-            // create a LinkOptions instance that contains an empty list.
-            linkopts.isEmpty()
-                ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
-                : NestedSetBuilder.create(Order.LINK_ORDER, LinkOptions.of(linkopts)),
-            linkstampBuilder.build(),
-            nonCodeLinkerInputs,
-            /* extraLinkTimeLibraries= */ null);
+    CcLinkingInfo ccLinkingInfo = CcLinkingInfo.EMPTY;
+    if (!neverlink) {
+      ccLinkingInfo =
+          LibraryToLinkWrapper.toCcLinkingInfo(
+              cppConfiguration.forcePic(),
+              libraryToLinkWrappers,
+              // We want an empty set if there are no link options. We have to make sure we don't
+              // create a LinkOptions instance that contains an empty list.
+              linkopts.isEmpty()
+                  ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
+                  : NestedSetBuilder.create(Order.LINK_ORDER, LinkOptions.of(linkopts)),
+              linkstampBuilder.build(),
+              nonCodeLinkerInputs,
+              /* extraLinkTimeLibraries= */ null);
+    }
     ImmutableList.Builder<CcLinkingInfo> mergedCcLinkingInfos = ImmutableList.builder();
     mergedCcLinkingInfos.add(ccLinkingInfo);
     mergedCcLinkingInfos.addAll(ccLinkingInfos);
     return CcLinkingInfo.merge(mergedCcLinkingInfos.build());
-  }
-
-  public CcLinkingInfo buildCcLinkingInfo(
-      CcLinkingOutputs ccLinkingOutputs, CcCompilationContext ccCompilationContext) {
-    Preconditions.checkNotNull(ccCompilationContext);
-
-    final CcLinkingOutputs ccLinkingOutputsFinalized = ccLinkingOutputs;
-    BiFunction<Boolean, Boolean, CcLinkParams> createParams =
-        (staticMode, forDynamicLibrary) -> {
-          CcLinkParams.Builder builder = CcLinkParams.builder();
-          builder.addLinkstamps(linkstamps.build(), ccCompilationContext.getDeclaredIncludeSrcs());
-          for (CcLinkingInfo ccLinkingInfo : ccLinkingInfos) {
-            builder.addTransitiveArgs(
-                ccLinkingInfo.getCcLinkParams(
-                    /* staticMode= */ staticMode, /* forDynamicLibrary */ forDynamicLibrary));
-          }
-          if (!neverlink) {
-            builder.addLibraries(
-                ccLinkingOutputsFinalized.getPreferredLibraries(
-                    staticMode,
-                    /*preferPic=*/ forDynamicLibrary
-                        || ruleContext.getFragment(CppConfiguration.class).forcePic()));
-            if (!staticMode
-                || (ccLinkingOutputsFinalized.getStaticLibraries().isEmpty()
-                    && ccLinkingOutputsFinalized.getPicStaticLibraries().isEmpty())) {
-              builder.addDynamicLibrariesForRuntime(
-                  LinkerInputs.toLibraryArtifacts(
-                      ccLinkingOutputsFinalized.getDynamicLibrariesForRuntime()));
-            }
-            builder.addLinkOpts(linkopts);
-            builder.addNonCodeInputs(nonCodeLinkerInputs);
-          }
-          return builder.build();
-        };
-
-    CcLinkingInfo.Builder ccLinkingInfoBuilder =
-        CcLinkingInfo.Builder.create()
-            .setStaticModeParamsForDynamicLibrary(
-                createParams.apply(/* staticMode= */ true, /* forDynamicLibrary= */ true))
-            .setStaticModeParamsForExecutable(
-                createParams.apply(/* staticMode= */ true, /* forDynamicLibrary= */ false))
-            .setDynamicModeParamsForDynamicLibrary(
-                createParams.apply(/* staticMode= */ false, /* forDynamicLibrary= */ true))
-            .setDynamicModeParamsForExecutable(
-                createParams.apply(/* staticMode= */ false, /* forDynamicLibrary= */ false));
-    return ccLinkingInfoBuilder.build();
   }
 
   /**
