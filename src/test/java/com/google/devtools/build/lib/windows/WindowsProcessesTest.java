@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_16LE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -22,7 +24,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -40,7 +41,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 @TestSpec(localOnly = true, supportedOs = OS.WINDOWS)
 public class WindowsProcessesTest {
-  private static final Charset UTF8 = Charset.forName("UTF-8");
   private String mockSubprocess;
   private String mockBinary;
   private long process;
@@ -125,13 +125,13 @@ public class WindowsProcessesTest {
             mockBinary, mockArgs("Ia5", "Oa"), null, null, null, null);
     assertNoProcessError();
 
-    byte[] input = "HELLO".getBytes(UTF8);
+    byte[] input = "HELLO".getBytes(UTF_8);
     byte[] output = new byte[5];
     WindowsProcesses.writeStdin(process, input, 0, 5);
     assertNoProcessError();
     readStdout(output, 0, 5);
     assertNoStreamError(WindowsProcesses.getStdout(process));
-    assertThat(new String(output, UTF8)).isEqualTo("HELLO");
+    assertThat(new String(output, UTF_8)).isEqualTo("HELLO");
   }
 
   @Test
@@ -146,12 +146,12 @@ public class WindowsProcessesTest {
         WindowsProcesses.createProcess(
             mockBinary, mockArgs(args.toArray(new String[] {})), null, null, null, null);
     for (int i = 0; i < 100; i++) {
-      byte[] input = String.format("%03d", i).getBytes(UTF8);
+      byte[] input = String.format("%03d", i).getBytes(UTF_8);
       assertThat(input.length).isEqualTo(3);
       assertThat(WindowsProcesses.writeStdin(process, input, 0, 3)).isEqualTo(3);
       byte[] output = new byte[3];
       assertThat(readStdout(output, 0, 3)).isEqualTo(3);
-      assertThat(Integer.parseInt(new String(output, UTF8))).isEqualTo(i);
+      assertThat(Integer.parseInt(new String(output, UTF_8))).isEqualTo(i);
     }
   }
 
@@ -187,8 +187,8 @@ public class WindowsProcessesTest {
     assertThat(readStdout(two, 0, 3)).isEqualTo(3);
     assertNoStreamError(WindowsProcesses.getStdout(process));
 
-    assertThat(new String(one, UTF8)).isEqualTo("HE");
-    assertThat(new String(two, UTF8)).isEqualTo("LLO");
+    assertThat(new String(one, UTF_8)).isEqualTo("HE");
+    assertThat(new String(two, UTF_8)).isEqualTo("LLO");
   }
 
   @Test
@@ -218,7 +218,7 @@ public class WindowsProcessesTest {
         .isEqualTo(-1);
 
     assertThat(readStdout(buf, 0, 3)).isEqualTo(3);
-    assertThat(new String(buf, UTF8)).isEqualTo("oob");
+    assertThat(new String(buf, UTF_8)).isEqualTo("oob");
   }
 
   @Test
@@ -226,8 +226,8 @@ public class WindowsProcessesTest {
     process =
         WindowsProcesses.createProcess(
             mockBinary, mockArgs("Ia3", "Oa"), null, null, null, null);
-    byte[] input = "01234".getBytes(UTF8);
-    byte[] output = "abcde".getBytes(UTF8);
+    byte[] input = "01234".getBytes(UTF_8);
+    byte[] output = "abcde".getBytes(UTF_8);
 
     assertThat(WindowsProcesses.writeStdin(process, input, 1, 3)).isEqualTo(3);
     assertNoProcessError();
@@ -235,7 +235,7 @@ public class WindowsProcessesTest {
     assertNoProcessError();
     assertThat(rv).isEqualTo(3);
 
-    assertThat(new String(output, UTF8)).isEqualTo("a123e");
+    assertThat(new String(output, UTF_8)).isEqualTo("a123e");
   }
 
   @Test
@@ -252,24 +252,24 @@ public class WindowsProcessesTest {
 
     byte[] buf = new byte[4];
     assertThat(readStdout(buf, 0, 4)).isEqualTo(4);
-    assertThat(new String(buf, UTF8)).isEqualTo("out1");
+    assertThat(new String(buf, UTF_8)).isEqualTo("out1");
     assertThat(readStderr(buf, 0, 4)).isEqualTo(4);
-    assertThat(new String(buf, UTF8)).isEqualTo("err1");
+    assertThat(new String(buf, UTF_8)).isEqualTo("err1");
 
     assertThat(readStderr(buf, 0, 4)).isEqualTo(4);
-    assertThat(new String(buf, UTF8)).isEqualTo("err2");
+    assertThat(new String(buf, UTF_8)).isEqualTo("err2");
     assertThat(readStdout(buf, 0, 4)).isEqualTo(4);
-    assertThat(new String(buf, UTF8)).isEqualTo("out2");
+    assertThat(new String(buf, UTF_8)).isEqualTo("out2");
 
     assertThat(readStdout(buf, 0, 4)).isEqualTo(4);
-    assertThat(new String(buf, UTF8)).isEqualTo("out3");
+    assertThat(new String(buf, UTF_8)).isEqualTo("out3");
     assertThat(readStderr(buf, 0, 4)).isEqualTo(4);
-    assertThat(new String(buf, UTF8)).isEqualTo("err3");
+    assertThat(new String(buf, UTF_8)).isEqualTo("err3");
 
     assertThat(readStderr(buf, 0, 4)).isEqualTo(4);
-    assertThat(new String(buf, UTF8)).isEqualTo("err4");
+    assertThat(new String(buf, UTF_8)).isEqualTo("err4");
     assertThat(readStdout(buf, 0, 4)).isEqualTo(4);
-    assertThat(new String(buf, UTF8)).isEqualTo("out4");
+    assertThat(new String(buf, UTF_8)).isEqualTo("out4");
   }
 
   @Test
@@ -295,50 +295,50 @@ public class WindowsProcessesTest {
 
   @Test
   public void testNewEnvironmentVariables() throws Exception {
-    byte[] data = "ONE=one\0TWO=twotwo\0\0".getBytes(UTF8);
+    byte[] data = "ONE=one\0TWO=twotwo\0\0".getBytes(UTF_16LE);
     process =
         WindowsProcesses.createProcess(
             mockBinary, mockArgs("O$ONE", "O$TWO"), data, null, null, null);
     assertNoProcessError();
     byte[] buf = new byte[3];
     assertThat(readStdout(buf, 0, 3)).isEqualTo(3);
-    assertThat(new String(buf, UTF8)).isEqualTo("one");
+    assertThat(new String(buf, UTF_8)).isEqualTo("one");
     buf = new byte[6];
     assertThat(readStdout(buf, 0, 6)).isEqualTo(6);
-    assertThat(new String(buf, UTF8)).isEqualTo("twotwo");
+    assertThat(new String(buf, UTF_8)).isEqualTo("twotwo");
   }
 
   @Test
   public void testNoZeroInEnvBuffer() throws Exception {
-    byte[] data = "clown".getBytes(UTF8);
+    byte[] data = "clown".getBytes(UTF_16LE);
     process = WindowsProcesses.createProcess(mockBinary, mockArgs(), data, null, null, null);
     assertThat(WindowsProcesses.processGetLastError(process)).isNotEmpty();
   }
 
   @Test
   public void testMissingFinalDoubleZeroInEnvBuffer() throws Exception {
-    byte[] data = "FOO=bar\0".getBytes(UTF8);
+    byte[] data = "FOO=bar\0".getBytes(UTF_16LE);
     process = WindowsProcesses.createProcess(mockBinary, mockArgs(), data, null, null, null);
     assertThat(WindowsProcesses.processGetLastError(process)).isNotEmpty();
   }
 
   @Test
   public void testOneByteEnvBuffer() throws Exception {
-    byte[] data = "a".getBytes(UTF8);
+    byte[] data = "a".getBytes(UTF_16LE);
     process = WindowsProcesses.createProcess(mockBinary, mockArgs(), data, null, null, null);
     assertThat(WindowsProcesses.processGetLastError(process)).isNotEmpty();
   }
 
   @Test
   public void testOneZeroEnvBuffer() throws Exception {
-    byte[] data = "\0".getBytes(UTF8);
+    byte[] data = "\0".getBytes(UTF_16LE);
     process = WindowsProcesses.createProcess(mockBinary, mockArgs(), data, null, null, null);
     assertThat(WindowsProcesses.processGetLastError(process)).isNotEmpty();
   }
 
   @Test
   public void testTwoZerosInEnvBuffer() throws Exception {
-    byte[] data = "\0\0".getBytes(UTF8);
+    byte[] data = "\0\0".getBytes(UTF_16LE);
     process = WindowsProcesses.createProcess(mockBinary, mockArgs(), data, null, null, null);
     assertThat(WindowsProcesses.processGetLastError(process)).isEmpty();
   }
@@ -358,8 +358,8 @@ public class WindowsProcessesTest {
     assertNoProcessError();
     byte[] stdout = Files.readAllBytes(Paths.get(stdoutFile));
     byte[] stderr = Files.readAllBytes(Paths.get(stderrFile));
-    assertThat(new String(stdout, UTF8)).isEqualTo("one");
-    assertThat(new String(stderr, UTF8)).isEqualTo("two");
+    assertThat(new String(stdout, UTF_8)).isEqualTo("one");
+    assertThat(new String(stderr, UTF_8)).isEqualTo("two");
   }
 
   @Test
@@ -375,7 +375,7 @@ public class WindowsProcessesTest {
     WindowsProcesses.getExitCode(process);
     assertNoProcessError();
     byte[] bytes = Files.readAllBytes(Paths.get(file));
-    assertThat(new String(bytes, UTF8)).isEqualTo("onetwo");
+    assertThat(new String(bytes, UTF_8)).isEqualTo("onetwo");
   }
 
   @Test
@@ -402,7 +402,7 @@ public class WindowsProcessesTest {
     byte[] buf = new byte[6];
     assertThat(readStdout(buf, 0, 3)).isEqualTo(3);
     assertThat(readStdout(buf, 3, 3)).isEqualTo(3);
-    assertThat(new String(buf, UTF8)).isEqualTo("onetwo");
+    assertThat(new String(buf, UTF_8)).isEqualTo("onetwo");
     assertThat(readStderr(buf, 0, 1)).isEqualTo(0);
     WindowsProcesses.waitFor(process, -1);
   }
@@ -413,8 +413,8 @@ public class WindowsProcessesTest {
     String stderrFile = System.getenv("TEST_TMPDIR") + "\\stderr_atef";
     Path stdout = Paths.get(stdoutFile);
     Path stderr = Paths.get(stderrFile);
-    Files.write(stdout, "out1".getBytes(UTF8));
-    Files.write(stderr, "err1".getBytes(UTF8));
+    Files.write(stdout, "out1".getBytes(UTF_8));
+    Files.write(stderr, "err1".getBytes(UTF_8));
 
     process =
         WindowsProcesses.createProcess(
@@ -425,8 +425,8 @@ public class WindowsProcessesTest {
     assertNoProcessError();
     byte[] stdoutBytes = Files.readAllBytes(Paths.get(stdoutFile));
     byte[] stderrBytes = Files.readAllBytes(Paths.get(stderrFile));
-    assertThat(new String(stdoutBytes, UTF8)).isEqualTo("out1out2");
-    assertThat(new String(stderrBytes, UTF8)).isEqualTo("err1err2");
+    assertThat(new String(stdoutBytes, UTF_8)).isEqualTo("out1out2");
+    assertThat(new String(stderrBytes, UTF_8)).isEqualTo("err1err2");
   }
 
   @Test
@@ -440,7 +440,7 @@ public class WindowsProcessesTest {
     byte[] buf = new byte[1024]; // Windows MAX_PATH is 260, but whatever
     int len = readStdout(buf, 0, 1024);
     assertNoProcessError();
-    assertThat(new String(buf, 0, len, UTF8).replace("\\", "/")).isEqualTo(dir1);
+    assertThat(new String(buf, 0, len, UTF_8).replace("\\", "/")).isEqualTo(dir1);
   }
 
   @Test
