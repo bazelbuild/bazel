@@ -1180,11 +1180,6 @@ public final class CcCompilationHelper {
   private static CcInfo getStlDependency(RuleContext ruleContext) {
     if (ruleContext.attributes().has("$stl", BuildType.LABEL)) {
       return ruleContext.getPrerequisite("$stl", Mode.TARGET, CcInfo.PROVIDER);
-    } else if (ruleContext.attributes().has(":stl", BuildType.LABEL)) {
-      // This is here because some Starlark rules use configuration_field() to depend on the STL
-      // which results in an attribute like this. In order to keep the world ticking along, we need
-      // to support that until they are deleted.
-      return ruleContext.getPrerequisite(":stl", Mode.TARGET, CcInfo.PROVIDER);
     } else {
       return null;
     }

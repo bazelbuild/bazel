@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -302,20 +300,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean getLinkCompileOutputSeparately() {
     return cppOptions.linkCompileOutputSeparately;
-  }
-
-  @SkylarkConfigurationField(
-      name = "stl",
-      doc = "The label of the STL target",
-      defaultLabel = "//third_party/stl",
-      defaultInToolRepository = false
-  )
-  public Label getSkylarkStl() {
-    try {
-      return Label.parseAbsolute("//third_party/stl", ImmutableMap.of());
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException("STL label not formatted correctly", e);
-    }
   }
 
   public boolean isFdo() {
