@@ -69,15 +69,15 @@ to make your files easy to process, both by humans and tools.
     convention when calling macros and native rules, and the Python convention
     for other functions, e.g.
 
-```python
-def fct(name, srcs):
-    filtered_srcs = my_filter(source = srcs)
-    native.cc_library(
-        name = name,
-        srcs = filtered_srcs,
-        testonly = True,
-    )
-```
+    ```python
+    def fct(name, srcs):
+        filtered_srcs = my_filter(source = srcs)
+        native.cc_library(
+            name = name,
+            srcs = filtered_srcs,
+            testonly = True,
+        )
+    ```
 
 *   Prefer values `True` and `False` instead of `0` and `1` for boolean values
     (e.g. when using a boolean attribute in a rule).
