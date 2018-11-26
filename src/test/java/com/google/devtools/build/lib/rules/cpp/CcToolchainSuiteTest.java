@@ -69,19 +69,6 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "  target_libc: 'local'",
         "  builtin_sysroot: 'sysroot'",
         "}",
-        // Stub toolchain to make default cc toolchains happy
-        // TODO(b/113849758): Remove once CppConfiguration doesn't load packages
-        "toolchain {",
-        "  compiler: 'orange'",
-        "  target_cpu: 'banana'",
-        "  toolchain_identifier: 'toolchain-identifier-k8'",
-        "  host_system_name: 'linux'",
-        "  target_system_name: 'linux'",
-        "  abi_version: 'cpu-abi'",
-        "  abi_libc_version: ''",
-        "  target_libc: 'local'",
-        "  builtin_sysroot: 'sysroot'",
-        "}",
         "\"\"\"",
         ")");
 
@@ -145,19 +132,6 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "  target_libc: 'local'",
         "  builtin_sysroot: 'sysroot'",
         "}",
-        // Stub toolchain to make default cc toolchains happy
-        // TODO(b/113849758): Remove once CppConfiguration doesn't load packages
-        "toolchain {",
-        "  compiler: 'orange'",
-        "  target_cpu: 'banana'",
-        "  toolchain_identifier: 'toolchain-identifier-k8'",
-        "  host_system_name: 'linux'",
-        "  target_system_name: 'linux'",
-        "  abi_version: 'cpu-abi'",
-        "  abi_libc_version: ''",
-        "  target_libc: 'local'",
-        "  builtin_sysroot: 'sysroot'",
-        "}",
         "\"\"\"",
         ")");
 
@@ -168,5 +142,14 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
     CcToolchainProvider ccToolchainProvider = (CcToolchainProvider) c.get(ToolchainInfo.PROVIDER);
     assertThat(ccToolchainProvider.getToolchainIdentifier())
         .isEqualTo("toolchain-identifier-fruitie");
+  }
+
+  @Test
+  public void testInvalidCpu() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--cpu=bogus");
+    getConfiguredTarget(
+        ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain");
+    assertContainsEvent("does not contain a toolchain for cpu 'bogus'");
   }
 }

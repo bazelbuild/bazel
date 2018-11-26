@@ -126,6 +126,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                     .value(PROTO_TOOLCHAIN_LABEL))
             .add(
                 attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+                    .mandatoryProviders(CcToolchainProvider.PROVIDER.id())
                     .value(ccToolchainAttrValue));
 
     return result.build();

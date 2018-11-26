@@ -630,6 +630,7 @@ public final class SkyframeBuildView {
       Preconditions.checkState(
           cause instanceof ConfiguredValueCreationException
               || cause instanceof ActionConflictException
+              || cause instanceof CcCrosstoolException
               // For top-level aspects
               || cause instanceof AspectCreationException
               || cause instanceof SkylarkImportFailedException
@@ -639,6 +640,15 @@ public final class SkyframeBuildView {
           "%s -> %s",
           key,
           errorInfo);
+    }
+  }
+
+  /** Special flake for error cases when loading CROSSTOOL for C++ rules */
+  // TODO(b/110087561): Remove when CROSSTOOL file is not loaded anymore
+  public static class CcCrosstoolException extends Exception {
+
+    public CcCrosstoolException(String message) {
+      super(message);
     }
   }
 

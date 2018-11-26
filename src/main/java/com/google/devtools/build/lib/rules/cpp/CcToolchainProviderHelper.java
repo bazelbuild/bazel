@@ -399,8 +399,7 @@ public class CcToolchainProviderHelper {
             (CcSkyframeSupportValue)
                 skyframeEnv.getValueOrThrow(ccSupportKey, CcSkyframeSupportException.class);
       } catch (CcSkyframeSupportException e) {
-        ruleContext.throwWithRuleError(e.getMessage());
-        throw new IllegalStateException("Should not be reached");
+        throw ruleContext.throwWithRuleError(e.getMessage());
       }
       if (skyframeEnv.valuesMissing()) {
         return null;

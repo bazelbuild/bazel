@@ -18,15 +18,11 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
@@ -121,18 +117,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     // different objects, if they were created with the same options (no options in this case).
     assertThat(b.toString()).isEqualTo(a.toString());
     assertThat(b.cacheKey()).isEqualTo(a.cacheKey());
-  }
-
-  @Test
-  public void testInvalidCpu() throws Exception {
-    // TODO(ulfjack): It would be better to get the better error message also if the Jvm is enabled.
-    // Currently: "No JVM target found under //tools/jdk:jdk that would work for bogus"
-    try {
-      create("--cpu=bogus");
-      fail();
-    } catch (InvalidConfigurationException e) {
-      assertThat(e).hasMessageThat().contains("does not contain a toolchain for cpu 'bogus'");
-    }
   }
 
   @Test
@@ -304,59 +288,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   public void testHostCompilationModeNonDefault() throws Exception {
     BuildConfiguration cfg = createHost("--host_compilation_mode=dbg");
     assertThat(cfg.getCompilationMode()).isEqualTo(CompilationMode.DBG);
-  }
-
-  /**
-   * Returns a mock config fragment that loads the given label and does nothing else.
-   */
-  private static ConfigurationFragmentFactory createMockFragmentWithLabelDep(final String label) {
-    return new ConfigurationFragmentFactory() {
-      @Override
-      public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
-          throws InterruptedException {
-        try {
-          env.getTarget(Label.parseAbsoluteUnchecked(label));
-        } catch (NoSuchPackageException e) {
-          fail("cannot load mock fragment's dep label " + label + ": " + e.getMessage());
-        } catch (NoSuchTargetException e) {
-          fail("cannot load mock fragment's dep label " + label + ": " + e.getMessage());
-        }
-        return new Fragment() {};
-      }
-
-      @Override
-      public Class<? extends Fragment> creates() {
-        return CppConfiguration.class;
-      }
-
-      @Override
-      public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-        return ImmutableSet.<Class<? extends FragmentOptions>>of();
-      }
-    };
-  }
-
-  @Test
-  public void depLabelCycleOnConfigurationLoading() throws Exception {
-    configurationFragmentFactories = ImmutableList.of(createMockFragmentWithLabelDep("//foo"));
-    getScratch().file("foo/BUILD",
-        "load('//skylark:one.bzl', 'one')",
-        "cc_library(name = 'foo')");
-    getScratch().file("skylark/BUILD");
-    getScratch().file("skylark/one.bzl",
-        "load('//skylark:two.bzl', 'two')",
-        "def one():",
-        "  pass");
-    getScratch().file("skylark/two.bzl",
-        "load('//skylark:one.bzl', 'one')",
-        "def two():",
-        "  pass");
-    checkError(String.join("\n",
-        "ERROR <no location>: cycle detected in extension files: ",
-        "    foo/BUILD",
-        ".-> //skylark:one.bzl",
-        "|   //skylark:two.bzl",
-        "`-- //skylark:one.bzl"));
   }
 
   @Test

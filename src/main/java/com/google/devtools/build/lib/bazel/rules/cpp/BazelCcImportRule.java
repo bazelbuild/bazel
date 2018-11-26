@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CcImportRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
@@ -35,6 +36,7 @@ public final class BazelCcImportRule implements RuleDefinition {
         .requiresConfigurationFragments(CppConfiguration.class)
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+                .mandatoryProviders(CcToolchainProvider.PROVIDER.id())
                 .value(CppRuleClasses.ccToolchainAttribute(env)))
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)

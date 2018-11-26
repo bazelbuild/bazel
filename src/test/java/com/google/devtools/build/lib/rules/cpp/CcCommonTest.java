@@ -923,6 +923,7 @@ public class CcCommonTest extends BuildViewTestCase {
   public void
   testConfigureFeaturesDoesntCrashOnCollidingFeaturesExceptionButReportsRuleErrorCleanly()
       throws Exception {
+    reporter.removeHandler(failFastHandler);
     getAnalysisMock()
         .ccSupport()
         .setupCrosstool(
@@ -934,7 +935,6 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
-    reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//x:foo");
     assertContainsEvent("Symbol a is provided by all of the following features: a1 a2");
   }

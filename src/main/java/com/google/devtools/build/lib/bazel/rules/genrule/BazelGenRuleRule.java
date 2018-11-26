@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -54,6 +55,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .add(attr("stamp", BOOLEAN).value(false))
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+                .mandatoryProviders(CcToolchainProvider.PROVIDER.id())
                 .value(GenRuleBaseRule.ccToolchainAttribute(env)))
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
@@ -26,48 +27,19 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /**
  * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
- * architecture, target architecture, compiler version, and a standard library version. It has
- * information about the tools locations and the flags required for compiling.
- *
- * <p>Before {@link CppConfiguration} is created, two things need to be done:
- *
- * <ol>
- *   <li>choosing a {@link CcToolchainRule} label from {@code toolchains} map attribute of {@link
- *       CcToolchainSuiteRule}.
- *   <li>selection of a {@link
- *       com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain} from the
- *       CROSSTOOL file.
- * </ol>
- *
- * <p>The process goes as follows:
- *
- * <p>Check for existence of {@link CcToolchainSuiteRule}.toolchains[<cpu>|<compiler>], if
- * --compiler is specified, otherwise check for {@link CcToolchainSuiteRule}.toolchains[<cpu>].
- *
- * <ul>
- *   <li>if a value is found, load the {@link CcToolchainRule} rule and look for the {@code
- *       toolchain_identifier} attribute.
- *   <li>
- *       <ul>
- *         <li>if the attribute exists, loop through all the {@code CToolchain}s in CROSSTOOL and
- *             select the one with the matching toolchain identifier.
- *         <li>otherwise fall back to selecting the CToolchain from CROSSTOOL by matching the --cpu
- *             and --compiler values.
- *       </ul>
- *   <li>If a value is not found, select the CToolchain from CROSSTOOL by matching the --cpu and
- *       --compiler values, and construct the key as follows: <toolchain.cpu>|<toolchain.compiler>.
- * </ul>
+ * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable
 public final class CppConfiguration extends BuildConfiguration.Fragment
@@ -191,10 +163,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
 
-  static CppConfiguration create(CppConfigurationParameters params) {
-    CppOptions cppOptions = params.cppOptions;
+  static CppConfiguration create(
+      CpuTransformer cpuTransformer, Label redirectChasedCrosstoolTop, BuildOptions options)
+      throws InvalidConfigurationException {
+    CppOptions cppOptions = options.get(CppOptions.class);
 
-    Options commonOptions = params.commonOptions;
+    Options commonOptions = options.get(Options.class);
     CompilationMode compilationMode = commonOptions.compilationMode;
 
     ImmutableList.Builder<String> linkoptsBuilder = ImmutableList.builder();
@@ -203,12 +177,32 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       linkoptsBuilder.add("-Wl,--eh-frame-hdr");
     }
 
+    PathFragment fdoPath = null;
+    Label fdoProfileLabel = null;
+    if (cppOptions.getFdoOptimize() != null) {
+      if (cppOptions.getFdoOptimize().startsWith("//")) {
+        try {
+          fdoProfileLabel = Label.parseAbsolute(cppOptions.getFdoOptimize(), ImmutableMap.of());
+        } catch (LabelSyntaxException e) {
+          throw new InvalidConfigurationException(e);
+        }
+      } else {
+        fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
+        try {
+          // We don't check for file existence, but at least the filename should be well-formed.
+          FileSystemUtils.checkBaseName(fdoPath.getBaseName());
+        } catch (IllegalArgumentException e) {
+          throw new InvalidConfigurationException(e);
+        }
+      }
+    }
+
     return new CppConfiguration(
-        params.transformedCpu,
-        params.crosstoolTop,
+        cpuTransformer.getTransformer().apply(commonOptions.cpu),
+        redirectChasedCrosstoolTop,
         Preconditions.checkNotNull(commonOptions.cpu),
-        params.fdoPath,
-        params.fdoOptimizeLabel,
+        fdoPath,
+        fdoProfileLabel,
         ImmutableList.copyOf(cppOptions.conlyoptList),
         ImmutableList.copyOf(cppOptions.coptList),
         ImmutableList.copyOf(cppOptions.cxxoptList),

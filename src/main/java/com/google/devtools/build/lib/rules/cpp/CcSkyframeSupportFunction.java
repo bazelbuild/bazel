@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView.CcCrosstoolException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -93,6 +94,13 @@ public class CcSkyframeSupportFunction implements SkyFunction {
 
         // 3. Parse the crosstool file the into CrosstoolRelease
         Path crosstoolFile = crosstoolFileValue.realRootedPath().asPath();
+        if (!crosstoolFile.exists()) {
+          throw new CcSkyframeSupportException(
+              String.format(
+                  "there is no CROSSTOOL file at %s, which is needed for this cc_toolchain",
+                  crosstool.toString()),
+              key);
+        }
         try (InputStream inputStream = crosstoolFile.getInputStream()) {
           String crosstoolContent = new String(FileSystemUtils.readContentAsLatin1(inputStream));
           crosstoolRelease =
@@ -116,8 +124,12 @@ public class CcSkyframeSupportFunction implements SkyFunction {
   /** Exception encapsulating IOExceptions thrown in {@link CcSkyframeSupportFunction} */
   public static class CcSkyframeSupportException extends SkyFunctionException {
 
-    public CcSkyframeSupportException(Exception cause, SkyKey childKey) {
-      super(cause, childKey);
+    public CcSkyframeSupportException(Exception cause, CcSkyframeSupportValue.Key key) {
+      super(cause, key);
+    }
+
+    public CcSkyframeSupportException(String message, CcSkyframeSupportValue.Key key) {
+      super(new CcCrosstoolException(message), key);
     }
   }
 }
