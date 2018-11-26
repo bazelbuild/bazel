@@ -218,7 +218,7 @@ class RemoteSpawnRunner implements SpawnRunner {
         // Remote execution is disabled and so execute the spawn on the local machine.
         return execLocallyAndUpload(
             spawn, context, inputMap, remoteCache, actionKey, action, command, uploadLocalResults);
-       }
+      }
 
       ExecuteRequest request =
           ExecuteRequest.newBuilder()
