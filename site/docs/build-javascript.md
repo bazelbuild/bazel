@@ -165,7 +165,7 @@ the `--config=ci` argument to your Bazel/iBazel commands.
 
 ## Building JavaScript
 
-Use the <code>[rules_nodejs](https://github.com/bazelbuild/rules_nodejs)</code>
+Use the [`rules_nodejs`](https://github.com/bazelbuild/rules_nodejs)
 rules to build NodeJS applications and execute JavaScript code within Bazel. You
 can execute JavaScript tools in the Bazel toolchain, binary programs, or tests.
 The NodeJS rules add the NodeJS runtime to your Bazel project.
@@ -182,7 +182,7 @@ Most notable NodeJS rules include:
 
 ## Building TypeScript
 
-Use the <code>[rules_typescript](https://github.com/bazelbuild/rules_typescript)</code>
+Use the [`rules_typescript`](https://github.com/bazelbuild/rules_typescript)
 rules to build JavaScript outputs from TypeScript inputs.
 
 To set up your Bazel project for building TypeScript inputs, do the following:
