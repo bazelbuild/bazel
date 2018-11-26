@@ -28,6 +28,16 @@ namespace windows {
 using std::unique_ptr;
 using std::wstring;
 
+wstring AddUncPrefixMaybe(const wstring& path) {
+  return path.empty() || IsDevNull(path.c_str()) || HasUncPrefix(path.c_str())
+             ? path
+             : (wstring(L"\\\\?\\") + path);
+}
+
+wstring RemoveUncPrefixMaybe(const wstring& path) {
+  return bazel::windows::HasUncPrefix(path.c_str()) ? path.substr(4) : path;
+}
+
 static wstring uint32asHexString(uint32_t value) {
   WCHAR attr_str[8];
   for (int i = 0; i < 8; ++i) {

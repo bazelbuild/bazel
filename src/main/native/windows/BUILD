@@ -7,18 +7,12 @@ filegroup(
 )
 
 filegroup(
-    name = "cc-srcs",
+    name = "embedded_tools",
     srcs = glob([
         "*.cc",
         "*.h",
-    ]),
-)
-
-filegroup(
-    name = "embedded_tools",
-    srcs = [
+    ]) + [
         "BUILD",
-        ":cc-srcs",
     ],
     visibility = ["//src/main/native:__pkg__"],
 )
@@ -48,7 +42,10 @@ cc_library(
 cc_binary(
     name = "windows_jni.dll",
     srcs = [
-        ":cc-srcs",
+        "file-jni.cc",
+        "jni-util.cc",
+        "jni-util.h",
+        "processes-jni.cc",
         "//src/main/native:jni.h",
         "//src/main/native:jni_md.h",
     ],
@@ -57,6 +54,10 @@ cc_binary(
         "//src:__pkg__",
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
         "//src/tools/android/java/com/google/devtools/build/android:__subpackages__",
+    ],
+    deps = [
+        ":lib-file",
+        ":lib-util",
     ],
 )
 

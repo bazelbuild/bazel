@@ -23,6 +23,8 @@ namespace windows {
 
 std::wstring GetJavaWstring(JNIEnv* env, jstring str);
 
+std::wstring GetJavaWpath(JNIEnv* env, jstring str);
+
 }  // namespace windows
 }  // namespace bazel
 
