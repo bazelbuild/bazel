@@ -16,15 +16,25 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagGroup;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagSet;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainConfigInfoApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -81,6 +91,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final String defaultLibcTop;
   private final String ccTargetOs;
   private final boolean hasDynamicLinkingModeFlags;
+  private final String proto;
 
   @AutoCodec.Instantiator
   public CcToolchainConfigInfo(
@@ -125,7 +136,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       String builtinSysroot,
       String defaultLibcTop,
       String ccTargetOs,
-      boolean hasDynamicLinkingModeFlags) {
+      boolean hasDynamicLinkingModeFlags,
+      String proto) {
     super(PROVIDER);
     this.actionConfigs = actionConfigs;
     this.features = features;
@@ -169,6 +181,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.defaultLibcTop = defaultLibcTop;
     this.ccTargetOs = ccTargetOs;
     this.hasDynamicLinkingModeFlags = hasDynamicLinkingModeFlags;
+    this.proto = proto;
   }
 
   public static CcToolchainConfigInfo fromToolchain(CToolchain toolchain) throws EvalException {
@@ -312,7 +325,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         toolchain.getBuiltinSysroot(),
         toolchain.getDefaultGrteTop(),
         toolchain.getCcTargetOs(),
-        hasDynamicLinkingModeFlags);
+        hasDynamicLinkingModeFlags,
+        /* proto= */ "");
   }
 
   public ImmutableList<ActionConfig> getActionConfigs() {
@@ -604,5 +618,149 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   @Deprecated
   public boolean hasDynamicLinkingModeFlags() {
     return hasDynamicLinkingModeFlags;
+  }
+
+  @SkylarkCallable(
+      name = "proto",
+      doc = "Returns text proto from the CcToolchainConfigInfo data.",
+      structField = true)
+  public String getProto() {
+    return proto;
+  }
+
+  private static CToolchain.WithFeatureSet withFeatureSetToProto(WithFeatureSet withFeatureSet) {
+    return CToolchain.WithFeatureSet.newBuilder()
+        .addAllFeature(withFeatureSet.getFeatures())
+        .addAllNotFeature(withFeatureSet.getNotFeatures())
+        .build();
+  }
+
+  private static CToolchain.EnvEntry envEntryToProto(EnvEntry envEntry) {
+    return CToolchain.EnvEntry.newBuilder()
+        .setKey(envEntry.getKey())
+        .setValue(envEntry.getValue())
+        .build();
+  }
+
+  private static CToolchain.EnvSet envSetToProto(EnvSet envSet) {
+    return CToolchain.EnvSet.newBuilder()
+        .addAllAction(envSet.getActions())
+        .addAllEnvEntry(
+            envSet.getEnvEntries().stream()
+                .map(envEntry -> envEntryToProto(envEntry))
+                .collect(ImmutableList.toImmutableList()))
+        .addAllWithFeature(
+            envSet.getWithFeatureSets().stream()
+                .map(withFeatureSet -> withFeatureSetToProto(withFeatureSet))
+                .collect(ImmutableList.toImmutableList()))
+        .build();
+  }
+
+  private static CToolchain.FlagGroup flagGroupToProto(FlagGroup flagGroup) {
+    ImmutableList.Builder<CToolchain.FlagGroup> flagGroups = ImmutableList.builder();
+    ImmutableList.Builder<String> flags = ImmutableList.builder();
+    for (Expandable expandable : flagGroup.getExpandables()) {
+      if (expandable instanceof FlagGroup) {
+        flagGroups.add(flagGroupToProto((FlagGroup) expandable));
+      } else {
+        flags.add(((CcToolchainFeatures.Flag) expandable).getString());
+      }
+    }
+
+    CToolchain.FlagGroup.Builder flagGroupBuilder = CToolchain.FlagGroup.newBuilder();
+    if (flagGroup.getIterateOverVariable() != null) {
+      flagGroupBuilder.setIterateOver(flagGroup.getIterateOverVariable());
+    }
+    if (flagGroup.getExpandIfTrue() != null) {
+      flagGroupBuilder.setExpandIfTrue(flagGroup.getExpandIfTrue());
+    }
+    if (flagGroup.getExpandIfFalse() != null) {
+      flagGroupBuilder.setExpandIfFalse(flagGroup.getExpandIfFalse());
+    }
+    if (flagGroup.getExpandIfEqual() != null) {
+      flagGroupBuilder.setExpandIfEqual(variableWithValueFromProto(flagGroup.getExpandIfEqual()));
+    }
+    return flagGroupBuilder
+        .addAllExpandIfAllAvailable(flagGroup.getExpandIfAllAvailable())
+        .addAllExpandIfNoneAvailable(flagGroup.getExpandIfNoneAvailable())
+        .addAllFlagGroup(flagGroups.build())
+        .addAllFlag(flags.build())
+        .build();
+  }
+
+  private static CToolchain.VariableWithValue variableWithValueFromProto(
+      VariableWithValue variable) {
+    return CToolchain.VariableWithValue.newBuilder()
+        .setValue(variable.getValue())
+        .setVariable(variable.getVariable())
+        .build();
+  }
+
+  static CToolchain.Feature featureToProto(Feature feature) {
+    return CToolchain.Feature.newBuilder()
+        .setName(feature.getName())
+        .setEnabled(feature.isEnabled())
+        .addAllFlagSet(
+            feature.getFlagSets().stream()
+                .map(flagSet -> flagSetToProto(flagSet))
+                .collect(ImmutableList.toImmutableList()))
+        .addAllEnvSet(
+            feature.getEnvSets().stream()
+                .map(envSet -> envSetToProto(envSet))
+                .collect(ImmutableList.toImmutableList()))
+        .addAllRequires(
+            feature.getRequires().stream()
+                .map(featureSet -> featureSetToProto(featureSet))
+                .collect(ImmutableList.toImmutableList()))
+        .addAllImplies(feature.getImplies())
+        .addAllProvides(feature.getProvides())
+        .build();
+  }
+
+  private static CToolchain.FlagSet flagSetToProto(FlagSet flagSet) {
+    return CToolchain.FlagSet.newBuilder()
+        .addAllAction(flagSet.getActions())
+        .addAllFlagGroup(
+            flagSet.getFlagGroups().stream()
+                .map(flagGroup -> flagGroupToProto(flagGroup))
+                .collect(ImmutableList.toImmutableList()))
+        .addAllWithFeature(
+            flagSet.getWithFeatureSets().stream()
+                .map(withFeatureSet -> withFeatureSetToProto(withFeatureSet))
+                .collect(ImmutableList.toImmutableList()))
+        .addAllExpandIfAllAvailable(flagSet.getExpandIfAllAvailable())
+        .build();
+  }
+
+  private static CToolchain.FeatureSet featureSetToProto(ImmutableSet<String> features) {
+    return CToolchain.FeatureSet.newBuilder().addAllFeature(features).build();
+  }
+
+  private static CToolchain.Tool toolToProto(Tool tool) {
+    return CToolchain.Tool.newBuilder()
+        .setToolPath(tool.getToolPathFragment().toString())
+        .addAllWithFeature(
+            tool.getWithFeatureSetSets().stream()
+                .map(withFeatureSet -> withFeatureSetToProto(withFeatureSet))
+                .collect(ImmutableList.toImmutableList()))
+        .addAllExecutionRequirement(tool.getExecutionRequirements())
+        .build();
+  }
+
+  static CToolchain.ActionConfig actionConfigToProto(ActionConfig actionConfig) {
+    return CToolchain.ActionConfig.newBuilder()
+        .setConfigName(actionConfig.getName())
+        .setActionName(actionConfig.getActionName())
+        .setEnabled(actionConfig.isEnabled())
+        .addAllTool(
+            actionConfig.getTools().stream()
+                .map(tool -> toolToProto(tool))
+                .collect(ImmutableList.toImmutableList()))
+        .addAllFlagSet(
+            actionConfig.getFlagSets().stream()
+                .map(flagSet -> flagSetToProto(flagSet))
+                .collect(ImmutableList.toImmutableList()))
+        .addAllImplies(actionConfig.getImplies())
+        .build();
   }
 }

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -114,6 +115,14 @@ public class CcToolchainFeatures implements Serializable {
       this.chunks = chunks;
     }
 
+    String getString() {
+      return Joiner.on("")
+          .join(
+              chunks.stream()
+                  .map(chunk -> chunk.getString())
+                  .collect(ImmutableList.toImmutableList()));
+    }
+
     /** Expand this flag into a single new entry in {@code commandLine}. */
     @Override
     public void expand(
@@ -210,6 +219,18 @@ public class CcToolchainFeatures implements Serializable {
       this.valueChunks = valueChunks;
     }
 
+    String getKey() {
+      return key;
+    }
+
+    String getValue() {
+      return Joiner.on("")
+          .join(
+              valueChunks.stream()
+                  .map(stringChunk -> stringChunk.getString())
+                  .collect(ImmutableList.toImmutableList()));
+    }
+
     /**
      * Adds the key/value pair this object represents to the given map of environment variables. The
      * value of the entry is expanded with the given {@code variables}.
@@ -252,6 +273,14 @@ public class CcToolchainFeatures implements Serializable {
     public VariableWithValue(String variable, String value) {
       this.variable = variable;
       this.value = value;
+    }
+
+    String getVariable() {
+      return variable;
+    }
+
+    String getValue() {
+      return value;
     }
   }
 
@@ -433,6 +462,34 @@ public class CcToolchainFeatures implements Serializable {
           expandIfFalse,
           expandIfEqual);
     }
+
+    ImmutableList<Expandable> getExpandables() {
+      return expandables;
+    }
+
+    String getIterateOverVariable() {
+      return iterateOverVariable;
+    }
+
+    ImmutableSet<String> getExpandIfAllAvailable() {
+      return expandIfAllAvailable;
+    }
+
+    ImmutableSet<String> getExpandIfNoneAvailable() {
+      return expandIfNoneAvailable;
+    }
+
+    String getExpandIfTrue() {
+      return expandIfTrue;
+    }
+
+    String getExpandIfFalse() {
+      return expandIfFalse;
+    }
+
+    VariableWithValue getExpandIfEqual() {
+      return expandIfEqual;
+    }
   }
 
   private static boolean isWithFeaturesSatisfied(
@@ -536,6 +593,22 @@ public class CcToolchainFeatures implements Serializable {
     public int hashCode() {
       return Objects.hash(actions, expandIfAllAvailable, withFeatureSets, flagGroups);
     }
+
+    ImmutableSet<String> getActions() {
+      return actions;
+    }
+
+    ImmutableSet<String> getExpandIfAllAvailable() {
+      return expandIfAllAvailable;
+    }
+
+    ImmutableSet<WithFeatureSet> getWithFeatureSets() {
+      return withFeatureSets;
+    }
+
+    ImmutableList<FlagGroup> getFlagGroups() {
+      return flagGroups;
+    }
   }
 
   /**
@@ -619,6 +692,18 @@ public class CcToolchainFeatures implements Serializable {
       this.actions = actions;
       this.envEntries = envEntries;
       this.withFeatureSets = withFeatureSets;
+    }
+
+    ImmutableSet<String> getActions() {
+      return actions;
+    }
+
+    ImmutableList<EnvEntry> getEnvEntries() {
+      return envEntries;
+    }
+
+    ImmutableSet<WithFeatureSet> getWithFeatureSets() {
+      return withFeatureSets;
     }
 
     /**
@@ -774,6 +859,14 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
 
+    ImmutableList<FlagSet> getFlagSets() {
+      return flagSets;
+    }
+
+    ImmutableList<EnvSet> getEnvSets() {
+      return envSets;
+    }
+
     @Override
     public boolean equals(@Nullable Object object) {
       if (this == object) {
@@ -843,7 +936,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /** Returns the path to this action's tool relative to the provided crosstool path. */
-    public String getToolPathString(PathFragment ccToolchainPath) {
+    String getToolPathString(PathFragment ccToolchainPath) {
       return ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
     }
 
@@ -858,8 +951,12 @@ public class CcToolchainFeatures implements Serializable {
      * Returns a set of {@link WithFeatureSet} instances used to decide whether to use this tool
      * given a set of enabled features.
      */
-    public ImmutableSet<WithFeatureSet> getWithFeatureSetSets() {
+    ImmutableSet<WithFeatureSet> getWithFeatureSetSets() {
       return withFeatureSetSets;
+    }
+
+    PathFragment getToolPathFragment() {
+      return toolPathFragment;
     }
   }
 
@@ -1034,6 +1131,14 @@ public class CcToolchainFeatures implements Serializable {
     @Override
     public int hashCode() {
       return Objects.hash(configName, actionName, enabled, tools, flagSets, implies);
+    }
+
+    ImmutableList<Tool> getTools() {
+      return tools;
+    }
+
+    ImmutableList<FlagSet> getFlagSets() {
+      return flagSets;
     }
   }
 

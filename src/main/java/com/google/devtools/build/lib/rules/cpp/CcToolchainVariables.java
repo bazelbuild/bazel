@@ -66,6 +66,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      * @param variables binding of variable names to their values for a single flag expansion.
      */
     String expand(CcToolchainVariables variables);
+
+    String getString();
   }
 
   /** A plain text chunk of a string (containing no variables). */
@@ -100,6 +102,11 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     public int hashCode() {
       return Objects.hash(text);
+    }
+
+    @Override
+    public String getString() {
+      return text;
     }
   }
 
@@ -138,6 +145,11 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     public int hashCode() {
       return Objects.hash(variableName);
+    }
+
+    @Override
+    public String getString() {
+      return "%{" + variableName + "}";
     }
   }
 

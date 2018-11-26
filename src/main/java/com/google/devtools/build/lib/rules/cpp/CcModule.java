@@ -77,7 +77,12 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationModeFlags;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingMode;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -1201,11 +1206,17 @@ public class CcModule
       throw new InvalidConfigurationException("Creating a CcToolchainConfigInfo is not enabled.");
     }
 
+    CToolchain.Builder cToolchain = CToolchain.newBuilder();
+
     ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
     for (Object feature : features) {
       featureBuilder.add(featureFromSkylark((SkylarkInfo) feature));
     }
     ImmutableList<Feature> featureList = featureBuilder.build();
+    cToolchain.addAllFeature(
+        featureList.stream()
+            .map(feature -> CcToolchainConfigInfo.featureToProto(feature))
+            .collect(ImmutableList.toImmutableList()));
 
     ImmutableSet<String> featureNames =
         featureList.stream()
@@ -1217,18 +1228,39 @@ public class CcModule
       actionConfigBuilder.add(actionConfigFromSkylark((SkylarkInfo) actionConfig));
     }
     ImmutableList<ActionConfig> actionConfigList = actionConfigBuilder.build();
+    cToolchain.addAllActionConfig(
+        actionConfigList.stream()
+            .map(actionConfig -> CcToolchainConfigInfo.actionConfigToProto(actionConfig))
+            .collect(ImmutableList.toImmutableList()));
 
     ImmutableList.Builder<ArtifactNamePattern> artifactNamePatternBuilder = ImmutableList.builder();
     for (Object artifactNamePattern : artifactNamePatterns) {
       artifactNamePatternBuilder.add(
           artifactNamePatternFromSkylark((SkylarkInfo) artifactNamePattern));
     }
+    cToolchain.addAllArtifactNamePattern(
+        artifactNamePatternBuilder.build().stream()
+            .map(
+                artifactNamePattern ->
+                    CToolchain.ArtifactNamePattern.newBuilder()
+                        .setCategoryName(
+                            artifactNamePattern.getArtifactCategory().getCategoryName())
+                        .setPrefix(artifactNamePattern.getPrefix())
+                        .setExtension(artifactNamePattern.getExtension())
+                        .build())
+            .collect(ImmutableList.toImmutableList()));
     getLegacyArtifactNamePatterns(artifactNamePatternBuilder);
 
     // Pairs (toolName, toolPath)
     ImmutableList.Builder<Pair<String, String>> toolPathPairs = ImmutableList.builder();
     for (Object toolPath : toolPaths) {
-      toolPathPairs.add(toolPathFromSkylark((SkylarkInfo) toolPath));
+      Pair<String, String> toolPathPair = toolPathFromSkylark((SkylarkInfo) toolPath);
+      toolPathPairs.add(toolPathPair);
+      cToolchain.addToolPath(
+          ToolPath.newBuilder()
+              .setName(toolPathPair.getFirst())
+              .setPath(toolPathPair.getSecond())
+              .build());
     }
     ImmutableList<Pair<String, String>> toolPathList = toolPathPairs.build();
 
@@ -1306,12 +1338,126 @@ public class CcModule
 
     ImmutableList.Builder<Pair<String, String>> makeVariablePairs = ImmutableList.builder();
     for (Object makeVariable : makeVariables) {
-      makeVariablePairs.add(makeVariableFromSkylark((SkylarkInfo) makeVariable));
+      Pair<String, String> makeVariablePair = makeVariableFromSkylark((SkylarkInfo) makeVariable);
+      makeVariablePairs.add(makeVariablePair);
+      cToolchain.addMakeVariable(
+          CrosstoolConfig.MakeVariable.newBuilder()
+              .setName(makeVariablePair.getFirst())
+              .setValue(makeVariablePair.getSecond())
+              .build());
     }
 
     SkylarkList<String> dynamicModeFlags =
         convertFromNoneable(dynamicLinkingModeFlags, /* defaultValue= */ null);
     boolean hasDynamicLinkingModeFlags = dynamicModeFlags != null;
+
+    cToolchain
+        .addAllCxxBuiltinIncludeDirectory(cxxBuiltInIncludeDirectories)
+        .setToolchainIdentifier(toolchainIdentifier)
+        .setHostSystemName(hostSystemName)
+        .setTargetSystemName(targetSystemName)
+        .setTargetCpu(targetCpu)
+        .setTargetLibc(targetLibc)
+        .setCompiler(compiler)
+        .setAbiVersion(abiVersion)
+        .setAbiLibcVersion(abiLibcVersion)
+        .setSupportsGoldLinker(supportsGoldLinker)
+        .setSupportsStartEndLib(supportsStartEndLib)
+        .setSupportsInterfaceSharedObjects(supportsInterfaceSharedObjects)
+        .setSupportsEmbeddedRuntimes(supportsEmbeddedRuntimes);
+
+    if (convertFromNoneable(staticRuntimesFilegroup, /* defaultValue= */ null) != null) {
+      cToolchain.setStaticRuntimesFilegroup((String) staticRuntimesFilegroup);
+    }
+    if (convertFromNoneable(dynamicRuntimesFilegroup, /* defaultValue= */ null) != null) {
+      cToolchain.setDynamicRuntimesFilegroup((String) dynamicRuntimesFilegroup);
+    }
+
+    cToolchain
+        .setSupportsFission(supportsFission)
+        .setSupportsDsym(supportsDsym)
+        .setNeedsPic(needsPic);
+
+    cToolchain
+        .addAllCompilerFlag(compilerFlags)
+        .addAllCxxFlag(cxxFlags)
+        .addAllUnfilteredCxxFlag(unfilteredCxxFlags)
+        .addAllLinkerFlag(linkerFlags)
+        .addAllDynamicLibraryLinkerFlag(dynamicLibraryLinkerFlags)
+        .addAllTestOnlyLinkerFlag(testOnlyLinkerFlags)
+        .addAllObjcopyEmbedFlag(objcopyEmbedFlags)
+        .addAllLdEmbedFlag(ldEmbedFlags);
+
+    ImmutableList.Builder<CompilationModeFlags> compilationModeFlagsBuilder =
+        ImmutableList.builder();
+
+    ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeCompilerFlags =
+        getCompilationModeFlagsFromSkylark(
+            compilationModeCompilerFlagsUnchecked, "compilation_mode_compiler_flags");
+    ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeCxxFlags =
+        getCompilationModeFlagsFromSkylark(
+            compilationModeCxxFlagsUnchecked, "compilation_mode_cxx_flags");
+    ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeLinkerFlags =
+        getCompilationModeFlagsFromSkylark(
+            compilationModeLinkerFlagsUnchecked, "compilation_mode_linker_flags");
+
+    compilationModeFlagsBuilder.add(
+        getCompilationModeFlags(
+            CrosstoolConfig.CompilationMode.FASTBUILD,
+            compilationModeCompilerFlags,
+            compilationModeCxxFlags,
+            compilationModeLinkerFlags));
+    compilationModeFlagsBuilder.add(
+        getCompilationModeFlags(
+            CrosstoolConfig.CompilationMode.OPT,
+            compilationModeCompilerFlags,
+            compilationModeCxxFlags,
+            compilationModeLinkerFlags));
+    compilationModeFlagsBuilder.add(
+        getCompilationModeFlags(
+            CrosstoolConfig.CompilationMode.DBG,
+            compilationModeCompilerFlags,
+            compilationModeCxxFlags,
+            compilationModeLinkerFlags));
+
+    cToolchain.addAllCompilationModeFlags(compilationModeFlagsBuilder.build());
+
+    ImmutableList.Builder<CrosstoolConfig.LinkingModeFlags> linkingModeFlags =
+        ImmutableList.builder();
+    if (hasDynamicLinkingModeFlags) {
+      linkingModeFlags.add(
+          LinkingModeFlags.newBuilder()
+              .setMode(LinkingMode.DYNAMIC)
+              .addAllLinkerFlag(dynamicModeFlags)
+              .build());
+    }
+    linkingModeFlags.add(
+        LinkingModeFlags.newBuilder()
+            .setMode(LinkingMode.FULLY_STATIC)
+            .addAllLinkerFlag(fullyStaticLinkingModeFlags)
+            .build());
+    linkingModeFlags.add(
+        LinkingModeFlags.newBuilder()
+            .setMode(LinkingMode.MOSTLY_STATIC)
+            .addAllLinkerFlag(mostlyStaticLinkingModeFlags)
+            .build());
+    linkingModeFlags.add(
+        LinkingModeFlags.newBuilder()
+            .setMode(LinkingMode.MOSTLY_STATIC_LIBRARIES)
+            .addAllLinkerFlag(mostlyStaticLibrariesLinkingModeFlags)
+            .build());
+
+    cToolchain.addAllLinkingModeFlags(linkingModeFlags.build());
+
+    if (convertFromNoneable(ccTargetOs, /* defaultValue= */ null) != null) {
+      cToolchain.setCcTargetOs((String) ccTargetOs);
+    }
+    if (convertFromNoneable(builtinSysroot, /* defaultValue= */ null) != null) {
+      cToolchain.setBuiltinSysroot((String) builtinSysroot);
+    }
+    if (convertFromNoneable(defaultLibcTop, /* defaultValue= */ null) != null) {
+      cToolchain.setDefaultGrteTop((String) defaultLibcTop);
+    }
 
     return new CcToolchainConfigInfo(
         actionConfigList,
@@ -1344,12 +1490,9 @@ public class CcModule
         ImmutableList.copyOf(testOnlyLinkerFlags),
         ImmutableList.copyOf(objcopyEmbedFlags),
         ImmutableList.copyOf(ldEmbedFlags),
-        getCompilationModeFlagsFromSkylark(
-            compilationModeCompilerFlagsUnchecked, "compilation_mode_compiler_flags"),
-        getCompilationModeFlagsFromSkylark(
-            compilationModeCxxFlagsUnchecked, "compilation_mode_cxx_flags"),
-        getCompilationModeFlagsFromSkylark(
-            compilationModeLinkerFlagsUnchecked, "compilation_mode_linker_flags"),
+        compilationModeCompilerFlags,
+        compilationModeCxxFlags,
+        compilationModeLinkerFlags,
         ImmutableList.copyOf(mostlyStaticLinkingModeFlags),
         hasDynamicLinkingModeFlags ? ImmutableList.copyOf(dynamicModeFlags) : ImmutableList.of(),
         ImmutableList.copyOf(fullyStaticLinkingModeFlags),
@@ -1358,7 +1501,27 @@ public class CcModule
         convertFromNoneable(builtinSysroot, /* defaultValue= */ ""),
         convertFromNoneable(defaultLibcTop, /* defaultValue= */ ""),
         convertFromNoneable(ccTargetOs, /* defaultValue= */ ""),
-        hasDynamicLinkingModeFlags);
+        hasDynamicLinkingModeFlags,
+        cToolchain.build().toString());
+  }
+
+  private static CrosstoolConfig.CompilationModeFlags getCompilationModeFlags(
+      CrosstoolConfig.CompilationMode mode,
+      ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeCompilerFlags,
+      ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeCxxFlags,
+      ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeLinkerFlags) {
+    return CompilationModeFlags.newBuilder()
+        .setMode(mode)
+        .addAllCompilerFlag(
+            compilationModeCompilerFlags.getOrDefault(
+                CppToolchainInfo.importCompilationMode(mode), ImmutableList.of()))
+        .addAllCxxFlag(
+            compilationModeCxxFlags.getOrDefault(
+                CppToolchainInfo.importCompilationMode(mode), ImmutableList.of()))
+        .addAllLinkerFlag(
+            compilationModeLinkerFlags.getOrDefault(
+                CppToolchainInfo.importCompilationMode(mode), ImmutableList.of()))
+        .build();
   }
 
   /** Checks whether the {@link SkylarkInfo} is of the required type. */
