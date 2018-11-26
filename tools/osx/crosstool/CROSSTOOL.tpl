@@ -6813,7 +6813,7 @@ toolchain {
   unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
   default_python_version: "python2.7"
   unfiltered_cxx_flag: "-target"
-  unfiltered_cxx_flag: "armv7k-apple-watchos"
+  unfiltered_cxx_flag: "arm64_32-apple-watchos"
   feature {
     name: "fastbuild"
   }
