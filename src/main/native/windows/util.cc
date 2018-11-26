@@ -92,14 +92,12 @@ bool AutoAttributeList::Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
     return false;
   }
 
+  std::unique_ptr<AutoAttributeList> attr_list(
+      new AutoAttributeList(std::move(data), stdin_h, stdout_h, stderr_h));
   static constexpr size_t kHandleCount = 3;
-  std::unique_ptr<HANDLE[]> handles(new HANDLE[kHandleCount]);
-  handles[0] = stdin_h;
-  handles[1] = stdout_h;
-  handles[2] = stderr_h;
   if (!UpdateProcThreadAttribute(attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-                                 handles.get(), kHandleCount * sizeof(HANDLE),
-                                 NULL, NULL)) {
+                                 attr_list->handles_.handle_array,
+                                 kHandleCount * sizeof(HANDLE), NULL, NULL)) {
     if (error_msg) {
       DWORD err = GetLastError();
       *error_msg = MakeErrorMessage(WSTR(__FILE__), __LINE__,
@@ -107,13 +105,14 @@ bool AutoAttributeList::Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
     }
     return false;
   }
-  result->reset(new AutoAttributeList(&data, &handles));
+  *result = std::move(attr_list);
   return true;
 }
 
-AutoAttributeList::AutoAttributeList(std::unique_ptr<uint8_t[]>* data,
-                                     std::unique_ptr<HANDLE[]>* handles)
-    : data_(data->release()), handles_(handles->release()) {}
+AutoAttributeList::AutoAttributeList(std::unique_ptr<uint8_t[]>&& data,
+                                     HANDLE stdin_h, HANDLE stdout_h,
+                                     HANDLE stderr_h)
+  : data_(std::move(data)) {}
 
 AutoAttributeList::~AutoAttributeList() {
   DeleteProcThreadAttributeList(*this);
@@ -127,9 +126,9 @@ void AutoAttributeList::InitStartupInfoExA(STARTUPINFOEXA* startup_info) const {
   ZeroMemory(startup_info, sizeof(STARTUPINFOEXA));
   startup_info->StartupInfo.cb = sizeof(STARTUPINFOEXA);
   startup_info->StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-  startup_info->StartupInfo.hStdInput = handles_[0];
-  startup_info->StartupInfo.hStdOutput = handles_[1];
-  startup_info->StartupInfo.hStdError = handles_[2];
+  startup_info->StartupInfo.hStdInput = handles_.stdin_h;
+  startup_info->StartupInfo.hStdOutput = handles_.stdout_h;
+  startup_info->StartupInfo.hStdError = handles_.stderr_h;
   startup_info->lpAttributeList = *this;
 }
 
@@ -137,9 +136,9 @@ void AutoAttributeList::InitStartupInfoExW(STARTUPINFOEXW* startup_info) const {
   ZeroMemory(startup_info, sizeof(STARTUPINFOEXW));
   startup_info->StartupInfo.cb = sizeof(STARTUPINFOEXW);
   startup_info->StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-  startup_info->StartupInfo.hStdInput = handles_[0];
-  startup_info->StartupInfo.hStdOutput = handles_[1];
-  startup_info->StartupInfo.hStdError = handles_[2];
+  startup_info->StartupInfo.hStdInput = handles_.stdin_h;
+  startup_info->StartupInfo.hStdOutput = handles_.stdout_h;
+  startup_info->StartupInfo.hStdError = handles_.stderr_h;
   startup_info->lpAttributeList = *this;
 }
 

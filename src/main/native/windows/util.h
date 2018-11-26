@@ -76,15 +76,26 @@ class AutoAttributeList {
   void InitStartupInfoExW(STARTUPINFOEXW* startup_info) const;
 
  private:
-  AutoAttributeList(std::unique_ptr<uint8_t[]>* data,
-                    std::unique_ptr<HANDLE[]>* handles);
+  struct StdHandles {
+    union {
+      HANDLE handle_array[3];
+      struct {
+        HANDLE stdin_h;
+        HANDLE stdout_h;
+        HANDLE stderr_h;
+      };
+    };
+  };
+
+  AutoAttributeList(std::unique_ptr<uint8_t[]>&& data, HANDLE stdin_h,
+                    HANDLE stdout_h, HANDLE stderr_h);
   AutoAttributeList(const AutoAttributeList&) = delete;
   AutoAttributeList& operator=(const AutoAttributeList&) = delete;
 
   operator LPPROC_THREAD_ATTRIBUTE_LIST() const;
 
   std::unique_ptr<uint8_t[]> data_;
-  std::unique_ptr<HANDLE[]> handles_;
+  StdHandles handles_;
 };
 
 #define WSTR1(x) L##x
