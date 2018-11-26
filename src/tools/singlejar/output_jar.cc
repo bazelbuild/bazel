@@ -100,6 +100,8 @@ int OutputJar::Doit(Options *options) {
                            EntryInfo{&build_properties_});
   }
 
+  // TODO(b/28294322): do we need to resolve the path to be absolute or
+  // canonical?
   build_properties_.AddProperty("build.target", options_->output_jar.c_str());
   if (options_->verbose) {
     fprintf(stderr, "combined_file_name=%s\n", options_->output_jar.c_str());

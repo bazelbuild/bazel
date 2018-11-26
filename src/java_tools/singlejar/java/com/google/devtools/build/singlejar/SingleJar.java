@@ -160,7 +160,7 @@ public class SingleJar {
     }
 
     // finally add generic information
-    // TODO(bazel-team) do we need to resolve the path to be absolute or canonical?
+    // TODO(b/28294322): do we need to resolve the path to be absolute or canonical?
     properties.put("build.target", outputJar);
     if (mainClass != null) {
       properties.put("main.class", mainClass);
