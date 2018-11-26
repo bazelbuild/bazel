@@ -336,14 +336,16 @@ public class BuildConfiguration implements BuildConfigurationApi {
         OptionsParser.getOptionDefinitionByName(Options.class, "cpu");
 
     @Option(
-      name = "experimental_separate_genfiles_directory",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Whether to have a separate genfiles directory or fold it into the bin directory"
-    )
-    public boolean separateGenfilesDirectory;
+        name = "incompatible_merge_genfiles_directory",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "If true, the genfiles directory is folded into the bin directory.")
+    public boolean mergeGenfilesDirectory;
 
     @Option(
       name = "define",
@@ -942,7 +944,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       host.executionInfoModifier = executionInfoModifier;
       host.commandLineBuildVariables = commandLineBuildVariables;
       host.enforceConstraints = enforceConstraints;
-      host.separateGenfilesDirectory = separateGenfilesDirectory;
+      host.mergeGenfilesDirectory = mergeGenfilesDirectory;
       host.cpu = hostCpu;
 
       // === Runfiles ===
@@ -1074,7 +1076,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private final ArtifactRoot testlogsDirectoryForMainRepository;
   private final ArtifactRoot middlemanDirectoryForMainRepository;
 
-  private final boolean separateGenfilesDirectory;
+  private final boolean mergeGenfilesDirectory;
 
   /**
    * The global "make variables" such as "$(TARGET_CPU)"; these get applied to all rules analyzed in
@@ -1233,7 +1235,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     this.buildOptions = buildOptions.clone();
     this.buildOptionsDiff = buildOptionsDiff;
     this.options = buildOptions.get(Options.class);
-    this.separateGenfilesDirectory = options.separateGenfilesDirectory;
+    this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
     this.mainRepositoryName = mainRepositoryName;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
@@ -1434,7 +1436,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   public ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
-    if (!separateGenfilesDirectory) {
+    if (mergeGenfilesDirectory) {
       return getBinDirectory(repositoryName);
     }
 

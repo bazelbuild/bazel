@@ -291,9 +291,9 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testNoSeparateGenfilesDirectory() throws Exception {
-    BuildConfiguration target = create("--noexperimental_separate_genfiles_directory");
-    BuildConfiguration host = createHost("--noexperimental_separate_genfiles_directory");
+  public void testIncompatibleMergeGenfilesDirectory() throws Exception {
+    BuildConfiguration target = create("--incompatible_merge_genfiles_directory");
+    BuildConfiguration host = createHost("--incompatible_merge_genfiles_directory");
     assertThat(target.getGenfilesDirectory(RepositoryName.MAIN))
         .isEqualTo(target.getBinDirectory(RepositoryName.MAIN));
     assertThat(host.getGenfilesDirectory(RepositoryName.MAIN))
@@ -307,7 +307,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         create("--javacopt=foo"),
         create("--platform_suffix=-test"),
         create("--target_environment=//foo", "--target_environment=//bar"),
-        create("--noexperimental_separate_genfiles_directory"),
+        create("--incompatible_merge_genfiles_directory"),
         create(
             "--define",
             "foo=#foo",
