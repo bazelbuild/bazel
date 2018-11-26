@@ -402,12 +402,6 @@ function setup_clean_workspace() {
   [ "${new_workspace_dir}" = "${WORKSPACE_DIR}" ] \
     || log_fatal "Failed to create workspace"
 
-  _BAZEL_INSTALL_BASE=$(bazel info install_base 2>/dev/null)
-  # Shut down this server in case the tests will run Bazel in a different output
-  # root, otherwise we could not clean up $WORKSPACE_DIR (under $TEST_TMPDIR)
-  # once the test is finished.
-  bazel shutdown >&/dev/null
-
   if is_windows; then
     export BAZEL_SH="$(cygpath --windows /bin/bash)"
   fi
@@ -436,16 +430,6 @@ function cleanup_workspace() {
     fi
   done
   workspaces=()
-}
-
-# Clean-up the bazel install base
-function cleanup() {
-  if [ -d "${_BAZEL_INSTALL_BASE:-/dev/null}" ]; then
-    log_info "Cleaning up _BAZEL_INSTALL_BASE under $_BAZEL_INSTALL_BASE"
-    # Windows takes its time to shut down Bazel and we can't delete A-server.jar
-    # until then, so just give it time and keep trying for 2 minutes.
-    try_with_timeout rm -fr "${_BAZEL_INSTALL_BASE}" >&/dev/null
-  fi
 }
 
 function tear_down() {
