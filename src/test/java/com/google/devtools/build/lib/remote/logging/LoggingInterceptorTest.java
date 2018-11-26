@@ -43,6 +43,7 @@ import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamBlockingStub;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.GetCapabi
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.ReadDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.UpdateActionResultDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WaitExecutionDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WriteDetails;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -528,6 +530,52 @@ public class LoggingInterceptorTest {
                         GetActionResultDetails.newBuilder()
                             .setRequest(request)
                             .setResponse(response)))
+            .setStatus(com.google.rpc.Status.getDefaultInstance())
+            .setStartTime(Timestamp.newBuilder().setSeconds(11).setNanos(111000000))
+            .setEndTime(Timestamp.newBuilder().setSeconds(33).setNanos(333000000))
+            .build();
+    verify(logStream).write(expectedEntry);
+  }
+
+  @Test
+  public void testUpdateActionResultCallOk() {
+    Digest testDigest = DigestUtil.buildDigest("test", 8);
+    ActionResult actionResult =
+        ActionResult.newBuilder()
+            .addOutputFiles(OutputFile.newBuilder().setDigest(testDigest).setPath("root/test"))
+            .setExitCode(1)
+            .build();
+
+    UpdateActionResultRequest request =
+        UpdateActionResultRequest.newBuilder()
+            .setActionDigest(testDigest)
+            .setInstanceName("test-instance")
+            .setActionResult(actionResult)
+            .build();
+
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void updateActionResult(
+              UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            clock.advanceMillis(22222);
+            responseObserver.onNext(actionResult);
+            responseObserver.onCompleted();
+          }
+        });
+    ActionCacheBlockingStub stub = ActionCacheGrpc.newBlockingStub(loggedChannel);
+
+    clock.advanceMillis(11111);
+    stub.updateActionResult(request);
+    LogEntry expectedEntry =
+        LogEntry.newBuilder()
+            .setMethodName(ActionCacheGrpc.getUpdateActionResultMethod().getFullMethodName())
+            .setDetails(
+                RpcCallDetails.newBuilder()
+                    .setUpdateActionResult(
+                        UpdateActionResultDetails.newBuilder()
+                            .setRequest(request)
+                            .setResponse(actionResult)))
             .setStatus(com.google.rpc.Status.getDefaultInstance())
             .setStartTime(Timestamp.newBuilder().setSeconds(11).setNanos(111000000))
             .setEndTime(Timestamp.newBuilder().setSeconds(33).setNanos(333000000))
