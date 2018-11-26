@@ -70,7 +70,7 @@ wstring GetLastErrorString(DWORD error_code) {
   return result;
 }
 
-bool AutoAttributeList::Create(HANDLE* handles, size_t count,
+bool AutoAttributeList::Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
                                std::unique_ptr<AutoAttributeList>* result,
                                wstring* error_msg) {
   static constexpr DWORD kAttributeCount = 1;
@@ -79,7 +79,7 @@ bool AutoAttributeList::Create(HANDLE* handles, size_t count,
   // According to MSDN, the first call to InitializeProcThreadAttributeList is
   // expected to fail.
   InitializeProcThreadAttributeList(NULL, kAttributeCount, 0, &size);
-  std::unique_ptr<uint8_t> data(new uint8_t[size]);
+  std::unique_ptr<uint8_t[]> data(new uint8_t[size]);
   LPPROC_THREAD_ATTRIBUTE_LIST attrs =
       reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(data.get());
   if (!InitializeProcThreadAttributeList(attrs, kAttributeCount, 0, &size)) {
@@ -92,8 +92,12 @@ bool AutoAttributeList::Create(HANDLE* handles, size_t count,
     return false;
   }
 
+  std::unique_ptr<AutoAttributeList> attr_list(
+      new AutoAttributeList(std::move(data), stdin_h, stdout_h, stderr_h));
   if (!UpdateProcThreadAttribute(attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-                                 handles, count * sizeof(HANDLE), NULL, NULL)) {
+                                 attr_list->handles_.handle_array,
+                                 StdHandles::kHandleCount * sizeof(HANDLE),
+                                 NULL, NULL)) {
     if (error_msg) {
       DWORD err = GetLastError();
       *error_msg = MakeErrorMessage(WSTR(__FILE__), __LINE__,
@@ -101,11 +105,18 @@ bool AutoAttributeList::Create(HANDLE* handles, size_t count,
     }
     return false;
   }
-  result->reset(new AutoAttributeList(data.release()));
+  *result = std::move(attr_list);
   return true;
 }
 
-AutoAttributeList::AutoAttributeList(uint8_t* data) : data_(data) {}
+AutoAttributeList::AutoAttributeList(std::unique_ptr<uint8_t[]>&& data,
+                                     HANDLE stdin_h, HANDLE stdout_h,
+                                     HANDLE stderr_h)
+    : data_(std::move(data)) {
+  handles_.stdin_h = stdin_h;
+  handles_.stdout_h = stdout_h;
+  handles_.stderr_h = stderr_h;
+}
 
 AutoAttributeList::~AutoAttributeList() {
   DeleteProcThreadAttributeList(*this);
@@ -113,6 +124,26 @@ AutoAttributeList::~AutoAttributeList() {
 
 AutoAttributeList::operator LPPROC_THREAD_ATTRIBUTE_LIST() const {
   return reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(data_.get());
+}
+
+void AutoAttributeList::InitStartupInfoExA(STARTUPINFOEXA* startup_info) const {
+  ZeroMemory(startup_info, sizeof(STARTUPINFOEXA));
+  startup_info->StartupInfo.cb = sizeof(STARTUPINFOEXA);
+  startup_info->StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+  startup_info->StartupInfo.hStdInput = handles_.stdin_h;
+  startup_info->StartupInfo.hStdOutput = handles_.stdout_h;
+  startup_info->StartupInfo.hStdError = handles_.stderr_h;
+  startup_info->lpAttributeList = *this;
+}
+
+void AutoAttributeList::InitStartupInfoExW(STARTUPINFOEXW* startup_info) const {
+  ZeroMemory(startup_info, sizeof(STARTUPINFOEXW));
+  startup_info->StartupInfo.cb = sizeof(STARTUPINFOEXW);
+  startup_info->StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+  startup_info->StartupInfo.hStdInput = handles_.stdin_h;
+  startup_info->StartupInfo.hStdOutput = handles_.stdout_h;
+  startup_info->StartupInfo.hStdError = handles_.stderr_h;
+  startup_info->lpAttributeList = *this;
 }
 
 static void QuotePath(const wstring& path, wstring* result) {

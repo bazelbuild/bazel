@@ -66,17 +66,37 @@ class AutoHandle {
 
 class AutoAttributeList {
  public:
-  static bool Create(HANDLE* handles, size_t count,
+  static bool Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
                      std::unique_ptr<AutoAttributeList>* result,
                      wstring* error_msg = nullptr);
   ~AutoAttributeList();
-  operator LPPROC_THREAD_ATTRIBUTE_LIST() const;
+
+  void InitStartupInfoExA(STARTUPINFOEXA* startup_info) const;
+
+  void InitStartupInfoExW(STARTUPINFOEXW* startup_info) const;
 
  private:
-  AutoAttributeList(uint8_t* data);
+  struct StdHandles {
+    static constexpr size_t kHandleCount = 3;
+    union {
+      HANDLE handle_array[kHandleCount];
+      struct {
+        HANDLE stdin_h;
+        HANDLE stdout_h;
+        HANDLE stderr_h;
+      };
+    };
+  };
+
+  AutoAttributeList(std::unique_ptr<uint8_t[]>&& data, HANDLE stdin_h,
+                    HANDLE stdout_h, HANDLE stderr_h);
   AutoAttributeList(const AutoAttributeList&) = delete;
   AutoAttributeList& operator=(const AutoAttributeList&) = delete;
+
+  operator LPPROC_THREAD_ATTRIBUTE_LIST() const;
+
   std::unique_ptr<uint8_t[]> data_;
+  StdHandles handles_;
 };
 
 #define WSTR1(x) L##x

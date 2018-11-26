@@ -690,9 +690,8 @@ int ExecuteDaemon(const string& exe,
   // Create an attribute list.
   wstring werror;
   std::unique_ptr<AutoAttributeList> lpAttributeList;
-  HANDLE handlesToInherit[3] = {devnull, stdout_file, stderr_handle};
-  if (!AutoAttributeList::Create(handlesToInherit, 3, &lpAttributeList,
-                                 &werror)) {
+  if (!AutoAttributeList::Create(devnull, stdout_file, stderr_handle,
+                                 &lpAttributeList, &werror)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "ExecuteDaemon(" << exe << "): attribute list creation failed: "
         << blaze_util::WstringToString(werror);
@@ -700,13 +699,7 @@ int ExecuteDaemon(const string& exe,
 
   PROCESS_INFORMATION processInfo = {0};
   STARTUPINFOEXA startupInfoEx = {0};
-
-  startupInfoEx.StartupInfo.cb = sizeof(startupInfoEx);
-  startupInfoEx.StartupInfo.hStdInput = devnull;
-  startupInfoEx.StartupInfo.hStdOutput = stdout_file;
-  startupInfoEx.StartupInfo.hStdError = stderr_handle;
-  startupInfoEx.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
-  startupInfoEx.lpAttributeList = *(lpAttributeList.get());
+  lpAttributeList->InitStartupInfoExA(&startupInfoEx);
 
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
