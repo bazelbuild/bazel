@@ -249,6 +249,7 @@ public class WindowsProcessesTest {
             null,
             null,
             null);
+    assertNoProcessError();
 
     byte[] buf = new byte[4];
     assertThat(readStdout(buf, 0, 4)).isEqualTo(4);
