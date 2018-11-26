@@ -160,7 +160,10 @@ public class BlazeJavacMain {
           "compiler.warn.big.major.version",
           // don't want about incompatible processor source versions when running javac9 on JDK 10
           // TODO(cushon): remove after the next javac update
-          "compiler.warn.proc.processor.incompatible.source.version");
+          "compiler.warn.proc.processor.incompatible.source.version",
+          // https://github.com/bazelbuild/bazel/issues/5985
+          "compiler.warn.unknown.enum.constant",
+          "compiler.warn.unknown.enum.constant.reason");
 
   private static ImmutableList<FormattedDiagnostic> filterDiagnostics(
       ImmutableList<FormattedDiagnostic> diagnostics) {
