@@ -330,7 +330,7 @@ public class SkydocMain {
     ImmutableSet.Builder<RuleInfo> handledRuleDefinitions = ImmutableSet.builder();
 
     // Sort the bindings so their ordering is deterministic.
-    TreeMap<String, Object> sortedBindings = new TreeMap<>(env.getGlobals().getBindings());
+    TreeMap<String, Object> sortedBindings = new TreeMap<>(env.getGlobals().getExportedBindings());
 
     for (Entry<String, Object> envEntry : sortedBindings.entrySet()) {
       if (ruleFunctions.containsKey(envEntry.getValue())) {
