@@ -357,6 +357,12 @@ Enter the following:
 bazel mobile-install //src/main:app
 ```
 
+> **Note**: `mobile-install` may not work if your device is running Android 9
+> (Pie). This issue is being tracked
+> [here](https://github.com/bazelbuild/examples/issues/77).
+> As a workaround, use `adb install bazel-bin/src/main/app.apk` to install the
+> APK on the device.
+
 Next, find and launch the "Bazel Tutorial App", which looks as follows:
 
 <img src="/assets/android_tutorial_before.png" alt="screenshot of tutorial app" width="500">
