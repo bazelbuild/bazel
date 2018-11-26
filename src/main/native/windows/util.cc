@@ -112,7 +112,11 @@ bool AutoAttributeList::Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
 AutoAttributeList::AutoAttributeList(std::unique_ptr<uint8_t[]>&& data,
                                      HANDLE stdin_h, HANDLE stdout_h,
                                      HANDLE stderr_h)
-  : data_(std::move(data)) {}
+    : data_(std::move(data)) {
+  handles_.stdin_h = stdin_h;
+  handles_.stdout_h = stdout_h;
+  handles_.stderr_h = stderr_h;
+}
 
 AutoAttributeList::~AutoAttributeList() {
   DeleteProcThreadAttributeList(*this);
