@@ -258,7 +258,13 @@ pid=$!
 has_tail=true
 tail -fq --pid $pid -s 0.001 /dev/null &> /dev/null || has_tail=false
 
-if [ "$has_tail" == true ] && [  -z "$no_echo" ]; then
+if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
+  if [ -z "$COVERAGE_DIR" ]; then
+    "${TEST_PATH}" "$@" 2>&1 || exitCode=$?
+  else
+    "$1" "$TEST_PATH" "${@:3}" 2>&1 || exitCode=$?
+  fi
+elif [ "$has_tail" == true ] && [  -z "$no_echo" ]; then
   touch "${XML_OUTPUT_FILE}.log"
   if [ -z "$COVERAGE_DIR" ]; then
     ("${TEST_PATH}" "$@" &>"${XML_OUTPUT_FILE}.log") &
@@ -271,18 +277,10 @@ if [ "$has_tail" == true ] && [  -z "$no_echo" ]; then
   wait $pid
   exitCode=$?
 else
-  if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
-    if [ -z "$COVERAGE_DIR" ]; then
-      "${TEST_PATH}" "$@" 2>&1 || exitCode=$?
-    else
-      "$1" "$TEST_PATH" "${@:3}" 2>&1 || exitCode=$?
-    fi
+  if [ -z "$COVERAGE_DIR" ]; then
+    "${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
   else
-    if [ -z "$COVERAGE_DIR" ]; then
-      "${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
-    else
-      "$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
-    fi
+    "$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
   fi
 fi
 
