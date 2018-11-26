@@ -143,10 +143,19 @@ function __release_notes() {
   done
 
   # Add a list of contributors to thank.
+  # Stages:
+  #   1. Get the list of authors from the last release til now, both name and
+  #     email.
+  #   2. Sort and uniqify.
+  #   3. Remove googlers. (This is why the email is needed)
+  #   4. Cut the email address, leaving only the name.
+  #   5-n. Remove trailing spaces and newlines, substituting with a comman and a
+  #     space, removing any trailing spaces again.
   local external_authors=$(git log $last_release..HEAD --format="%aN <%aE>" \
     | sort \
     | uniq \
     | grep -v "google.com" \
+    | cut -d'<' -f 1 \
     | sed -e 's/[[:space:]]$//' \
     | tr '\n' ',' \
     | sed -e 's/,$/\n/' \
