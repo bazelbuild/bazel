@@ -628,7 +628,11 @@ public class ProtoCompileActionBuilder {
 
   @AutoCodec @AutoCodec.VisibleForSerialization
   static final CommandLineItem.MapFn<String> EXPAND_TRANSITIVE_PROTO_PATH_FLAGS =
-      (flag, args) -> args.accept("--proto_path=" + flag);
+      (flag, args) -> {
+        if (!flag.equals(".")) {
+          args.accept("--proto_path=" + flag);
+        }
+      };
 
   @AutoCodec
   @AutoCodec.VisibleForSerialization
