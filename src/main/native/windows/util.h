@@ -77,8 +77,9 @@ class AutoAttributeList {
 
  private:
   struct StdHandles {
+    static constexpr size_t kHandleCount = 3;
     union {
-      HANDLE handle_array[3];
+      HANDLE handle_array[kHandleCount];
       struct {
         HANDLE stdin_h;
         HANDLE stdout_h;

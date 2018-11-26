@@ -94,10 +94,10 @@ bool AutoAttributeList::Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
 
   std::unique_ptr<AutoAttributeList> attr_list(
       new AutoAttributeList(std::move(data), stdin_h, stdout_h, stderr_h));
-  static constexpr size_t kHandleCount = 3;
   if (!UpdateProcThreadAttribute(attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
                                  attr_list->handles_.handle_array,
-                                 kHandleCount * sizeof(HANDLE), NULL, NULL)) {
+                                 StdHandles::kHandleCount * sizeof(HANDLE),
+                                 NULL, NULL)) {
     if (error_msg) {
       DWORD err = GetLastError();
       *error_msg = MakeErrorMessage(WSTR(__FILE__), __LINE__,
