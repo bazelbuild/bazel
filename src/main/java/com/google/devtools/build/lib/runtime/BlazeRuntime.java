@@ -153,6 +153,7 @@ public final class BlazeRuntime {
   private final OptionsParsingResult startupOptionsProvider;
 
   private final ProjectFile.Provider projectFileProvider;
+  private final QueryRuntimeHelper.Factory queryRuntimeHelperFactory;
   @Nullable private final InvocationPolicy moduleInvocationPolicy;
   private final String defaultsPackageContent;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
@@ -179,6 +180,7 @@ public final class BlazeRuntime {
       Iterable<BlazeModule> blazeModules,
       SubscriberExceptionHandler eventBusExceptionHandler,
       ProjectFile.Provider projectFileProvider,
+      QueryRuntimeHelper.Factory queryRuntimeHelperFactory,
       InvocationPolicy moduleInvocationPolicy,
       Iterable<BlazeCommand> commands,
       String productName,
@@ -190,6 +192,7 @@ public final class BlazeRuntime {
 
     this.packageFactory = pkgFactory;
     this.projectFileProvider = projectFileProvider;
+    this.queryRuntimeHelperFactory = queryRuntimeHelperFactory;
     this.moduleInvocationPolicy = moduleInvocationPolicy;
 
     this.ruleClassProvider = ruleClassProvider;
@@ -460,6 +463,10 @@ public final class BlazeRuntime {
   @Nullable
   public ProjectFile.Provider getProjectFileProvider() {
     return projectFileProvider;
+  }
+
+  public QueryRuntimeHelper.Factory getQueryRuntimeHelperFactory() {
+    return queryRuntimeHelperFactory;
   }
 
   /**
@@ -1423,6 +1430,20 @@ public final class BlazeRuntime {
         }
       }
 
+      QueryRuntimeHelper.Factory queryRuntimeHelperFactory = null;
+      for (BlazeModule module : blazeModules) {
+        QueryRuntimeHelper.Factory candidateFactory = module.getQueryRuntimeHelperFactory();
+        if (candidateFactory != null) {
+          Preconditions.checkState(
+              queryRuntimeHelperFactory == null,
+              "more than one module defines a query helper factory");
+          queryRuntimeHelperFactory = candidateFactory;
+        }
+      }
+      if (queryRuntimeHelperFactory == null) {
+        queryRuntimeHelperFactory = QueryRuntimeHelper.StdoutQueryRuntimeHelperFactory.INSTANCE;
+      }
+
       return new BlazeRuntime(
           fileSystem,
           serverBuilder.getQueryEnvironmentFactory(),
@@ -1439,6 +1460,7 @@ public final class BlazeRuntime {
           ImmutableList.copyOf(blazeModules),
           eventBusExceptionHandler,
           projectFileProvider,
+          queryRuntimeHelperFactory,
           serverBuilder.getInvocationPolicy(),
           serverBuilder.getCommands(),
           productName,

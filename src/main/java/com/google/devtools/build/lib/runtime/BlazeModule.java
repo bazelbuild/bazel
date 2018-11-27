@@ -295,6 +295,16 @@ public abstract class BlazeModule {
   public void blazeShutdownOnCrash() {}
 
   /**
+   * Returns a {@link QueryRuntimeHelper.Factory} that will be used by the query, cquery, and aquery
+   * commands.
+   *
+   * <p>It is an error if multiple modules return non-null values.
+   */
+  public QueryRuntimeHelper.Factory getQueryRuntimeHelperFactory() {
+    return null;
+  }
+
+  /**
    * Returns a helper that the {@link PackageFactory} will use during package loading. If the module
    * does not provide any helper, it should return null. Note that only one helper per Bazel/Blaze
    * runtime is allowed.
