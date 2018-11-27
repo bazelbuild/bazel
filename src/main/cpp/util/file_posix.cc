@@ -240,8 +240,11 @@ int RenameDirectory(const std::string &old_name, const std::string &new_name) {
   if (rename(old_name.c_str(), new_name.c_str()) == 0) {
     return kRenameDirectorySuccess;
   } else {
-    return errno == ENOTEMPTY ? kRenameDirectoryFailureNotEmpty
-                              : kRenameDirectoryFailureOtherError;
+    if (errno == ENOTEMPTY || errno == EEXIST) {
+      return kRenameDirectoryFailureNotEmpty;
+    } else {
+      return kRenameDirectoryFailureOtherError;
+    }
   }
 }
 
