@@ -477,6 +477,20 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleRemoveNativeHttpArchive;
 
   @Option(
+      name = "incompatible_remove_native_maven_jar",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the native maven_jar rule is disabled; only the Starlark version "
+              + "will be available")
+  public boolean incompatibleRemoveNativeMavenJar;
+
+  @Option(
       name = "incompatible_static_name_resolution",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -566,6 +580,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleRangeType(incompatibleRangeType)
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)
+        .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
         .incompatibleStaticNameResolution(incompatibleStaticNameResolution)
         .incompatibleStricArgumentOrdering(incompatibleStricArgumentOrdering)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)

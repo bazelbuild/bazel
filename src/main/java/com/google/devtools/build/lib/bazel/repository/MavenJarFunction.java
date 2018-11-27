@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -96,6 +98,23 @@ public class MavenJarFunction extends HttpArchiveFunction {
   public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
       BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws RepositoryFunctionException, InterruptedException {
+
+    // Deprecation in favor of the Starlark rule
+    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
+      return null;
+    }
+    if (skylarkSemantics.incompatibleRemoveNativeMavenJar()) {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              null,
+              "The native maven_jar rule is deprecated."
+                  + " add details about replacement here."
+                  + "\nUse --incompatible_remove_native_maven_jar=false to temporarily continue"
+                  + " using the native rule."),
+          Transience.PERSISTENT);
+    }
+
     MavenServerValue serverValue = getServer(rule, env);
     if (env.valuesMissing()) {
       return null;
