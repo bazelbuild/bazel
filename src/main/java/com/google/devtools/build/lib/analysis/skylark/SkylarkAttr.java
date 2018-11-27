@@ -152,9 +152,10 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     if (containsNonNoneKey(arguments, NON_EMPTY_ARG)
         && (Boolean) arguments.get(NON_EMPTY_ARG)) {
       if (env.getSemantics().incompatibleDisableDeprecatedAttrParams()) {
-        throw new EvalException(ast.getLocation(),
+        throw new EvalException(
+            ast.getLocation(),
             "'non_empty' is no longer supported. use allow_empty instead. You can use "
-                + "--incompatible_disable_deprecated_attr_params to temporarily disable this "
+                + "--incompatible_disable_deprecated_attr_params=false to temporarily disable this "
                 + "check.");
       }
 
@@ -183,7 +184,7 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         throw new EvalException(
             ast.getLocation(),
             "'single_file' is no longer supported. use allow_single_file instead. You can use "
-                + "--incompatible_disable_deprecated_attr_params to temporarily disable this "
+                + "--incompatible_disable_deprecated_attr_params=false to temporarily disable this "
                 + "check.");
       }
       if (containsNonNoneKey(arguments, ALLOW_SINGLE_FILE_ARG)) {
