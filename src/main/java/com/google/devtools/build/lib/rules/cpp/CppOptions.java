@@ -780,6 +780,15 @@ public class CppOptions extends FragmentOptions {
               + "`create_link_variables`. Use list instead.")
   public boolean disableDepsetInUserFlags;
 
+  @Option(
+      name = "experimental_do_not_use_cpu_transformer",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, cpu transformer is not used for CppConfiguration")
+  public boolean doNotUseCpuTransformer;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -818,6 +827,8 @@ public class CppOptions extends FragmentOptions {
     host.fdoProfiles = null;
     host.fdoProfileLabel = null;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
+
+    host.doNotUseCpuTransformer = doNotUseCpuTransformer;
 
     return host;
   }

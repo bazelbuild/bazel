@@ -196,7 +196,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     }
 
     return new CppConfiguration(
-        cpuTransformer.getTransformer().apply(commonOptions.cpu),
+        cppOptions.doNotUseCpuTransformer
+            ? commonOptions.cpu
+            : cpuTransformer.getTransformer().apply(commonOptions.cpu),
         Preconditions.checkNotNull(commonOptions.cpu),
         fdoPath,
         fdoProfileLabel,
