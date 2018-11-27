@@ -210,18 +210,25 @@ exit 1;
 }
 
 #
-# A uniform SHA-256 commands that works across platform
+# A uniform SHA-256 command that works across platforms.
 #
-case "${PLATFORM}" in
-  darwin|freebsd)
-    function sha256sum() {
-      shasum -a 256 "$@"
-    }
-    ;;
-  *)
-    # Under Linux, sha256sum usually exists as a binary as part of coreutils.
-    ;;
-esac
+# sha256sum is the fastest option, but may not be available on macOS (where it
+# is usually called 'gsha256sum'), so we optionally fallback to shasum.
+#
+if hash sha256sum 2>/dev/null; then
+  :
+elif hash gsha256sum 2>/dev/null; then
+  function sha256sum() {
+    gsha256sum "$@"
+  }
+elif hash shasum 2>/dev/null; then
+  function sha256sum() {
+    shasum -a 256 "$@"
+  }
+else
+  echo "testenv.sh: Could not find either sha256sum or gsha256sum or shasum in your PATH."
+  exit 1
+fi
 
 ################### shell/bazel/test-setup ###############################
 # Setup bazel for integration tests
