@@ -15,14 +15,11 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.cmdline.Label;
 
 /**
  * Loader for C++ configurations.
@@ -49,18 +46,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
   }
 
   @Override
-  public CppConfiguration create(ConfigurationEnvironment env, BuildOptions options)
-      throws InvalidConfigurationException, InterruptedException {
-    CppOptions cppOptions = options.get(CppOptions.class);
-    // To be deleted soon, keeping there only to split a change removing package loading from
-    // CppConfiguration into 2, one is user invisible, second one is user visible (redirect chaser
-    // doesn't respect visibility, so after removal it can happen that what used to load will
-    // not load anymore.
-    Label crosstoolTopLabel =
-        RedirectChaser.followRedirects(env, cppOptions.crosstoolTop, "crosstool_top");
-    if (crosstoolTopLabel == null) {
-      return null;
-    }
-    return CppConfiguration.create(cpuTransformer, crosstoolTopLabel, options);
+  public CppConfiguration create(BuildOptions options) throws InvalidConfigurationException {
+    return CppConfiguration.create(cpuTransformer, options);
   }
 }

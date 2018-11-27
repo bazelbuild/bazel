@@ -144,7 +144,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   // verify that the two are the same, we can remove one of desiredCpu and targetCpu.
   private final String desiredCpu;
 
-  private final Label redirectChasedCrosstoolTop;
   private final PathFragment fdoPath;
   private final Label fdoOptimizeLabel;
 
@@ -163,8 +162,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final boolean stripBinaries;
   private final CompilationMode compilationMode;
 
-  static CppConfiguration create(
-      CpuTransformer cpuTransformer, Label redirectChasedCrosstoolTop, BuildOptions options)
+  static CppConfiguration create(CpuTransformer cpuTransformer, BuildOptions options)
       throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
 
@@ -199,7 +197,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
     return new CppConfiguration(
         cpuTransformer.getTransformer().apply(commonOptions.cpu),
-        redirectChasedCrosstoolTop,
         Preconditions.checkNotNull(commonOptions.cpu),
         fdoPath,
         fdoProfileLabel,
@@ -218,7 +215,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   private CppConfiguration(
       String transformedCpuFromOptions,
-      Label redirectChasedCrosstoolTop,
       String desiredCpu,
       PathFragment fdoPath,
       Label fdoOptimizeLabel,
@@ -232,7 +228,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       boolean stripBinaries,
       CompilationMode compilationMode) {
     this.transformedCpuFromOptions = transformedCpuFromOptions;
-    this.redirectChasedCrosstoolTop = redirectChasedCrosstoolTop;
     this.desiredCpu = desiredCpu;
     this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoOptimizeLabel;
@@ -254,7 +249,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       defaultLabel = "//tools/cpp:crosstool",
       defaultInToolRepository = true)
   public Label getRuleProvidingCcToolchainProvider() {
-    return redirectChasedCrosstoolTop;
+    return cppOptions.crosstoolTop;
   }
 
   /**
@@ -569,10 +564,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   boolean enableCcToolchainConfigInfoFromSkylark() {
     return cppOptions.enableCcToolchainConfigInfoFromSkylark;
-  }
-
-  public Label getCrosstoolTop() {
-    return cppOptions.crosstoolTop;
   }
 
   /**

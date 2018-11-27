@@ -103,8 +103,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name='langtools', srcs=['jdk/lib/tools.jar'])",
         "filegroup(name='bootclasspath', srcs=['jdk/jre/lib/rt.jar'])",
         "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*']))",
-        // "dummy" is needed so that RedirectChaser stops here
-        "filegroup(name='java', srcs = ['jdk/jre/bin/java', 'dummy'])",
+        "filegroup(name='java', srcs = ['jdk/jre/bin/java'])",
         "filegroup(name='JacocoCoverage', srcs = [])",
         "filegroup(name='jacoco-blaze-agent', srcs = [])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",

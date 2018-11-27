@@ -114,7 +114,7 @@ public class MockPlatformSupport {
         "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
         "   toolchain = '"
             + crosstoolLabel.getRelativeWithRemapping(
-                "cc-compiler-piii-gcc-4.4.0", ImmutableMap.of())
+                "cc-compiler-piii-compiler", ImmutableMap.of())
             + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");

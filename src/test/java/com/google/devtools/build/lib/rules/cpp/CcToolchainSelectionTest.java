@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -57,6 +56,8 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
 
   @Test
   public void testResolvedCcToolchain() throws Exception {
+    String crosstool = analysisMock.ccSupport().readCrosstoolFile();
+    getAnalysisMock().ccSupport().setupCrosstoolWithRelease(mockToolsConfig, crosstool);
     useConfiguration(
         "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
         "--experimental_platforms=//mock_platform:mock-piii-platform",
@@ -76,24 +77,8 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
 
   @Test
   public void testToolchainSelectionWithPlatforms() throws Exception {
-    useConfiguration(
-        "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
-        "--experimental_platforms=//mock_platform:mock-piii-platform",
-        "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii");
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
-        .setList("srcs", "a.cc")
-        .write();
-    assertNoEvents();
-    CppCompileAction compileAction = getCppCompileAction("//lib");
-    boolean isPiii =
-        ImmutableList.copyOf(compileAction.getInputs())
-            .stream()
-            .anyMatch(artifact -> artifact.getExecPathString().endsWith("piii"));
-    assertThat(isPiii).isTrue();
-  }
-
-  @Test
-  public void testCToolchainSelectionFromCcToolchainAttrs() throws Exception {
+    String crosstool = analysisMock.ccSupport().readCrosstoolFile();
+    getAnalysisMock().ccSupport().setupCrosstoolWithRelease(mockToolsConfig, crosstool);
     useConfiguration(
         "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
         "--experimental_platforms=//mock_platform:mock-piii-platform",

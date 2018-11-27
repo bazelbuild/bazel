@@ -135,15 +135,17 @@ final class Crosstool {
               toolchain.getCompiler()));
 
       // Generate cc_toolchain target
+      String suffix = toolchain.getTargetCpu() + "-" + toolchain.getCompiler();
       compilationTools.append(
           Joiner.on("\n")
               .join(
+                  "toolchain(",
+                  "  name = 'cc-toolchain-" + suffix + "',",
+                  "  toolchain_type = ':toolchain_type',",
+                  "  toolchain = ':cc-compiler-" + suffix + "',",
+                  ")",
                   "cc_toolchain(",
-                  "  name = 'cc-compiler-"
-                      + toolchain.getTargetCpu()
-                      + "-"
-                      + toolchain.getCompiler()
-                      + "',",
+                  "  name = 'cc-compiler-" + suffix + "',",
                   "  toolchain_identifier = '" + toolchain.getToolchainIdentifier() + "',",
                   "  output_licenses = ['unencumbered'],",
                   addModuleMap ? "    module_map = 'crosstool.cppmap'," : "",
@@ -176,6 +178,8 @@ final class Crosstool {
                 "package(default_visibility=['//visibility:public'])",
                 "licenses(['restricted'])",
                 "",
+                "toolchain_type(name = 'toolchain_type')",
+                "cc_toolchain_alias(name = 'current_cc_toolchain')",
                 "alias(name = 'toolchain', actual = 'everything')",
                 "filegroup(name = 'everything-multilib',",
                 "          srcs = glob(['" + version + "/**/*'],",
@@ -194,6 +198,10 @@ final class Crosstool {
                 compilationTools.toString(),
                 runtimes,
                 "",
+                "filegroup(",
+                "    name = 'interface_library_builder',",
+                "    srcs = ['build_interface_so'],",
+                ")",
                 // We add an empty :malloc target in case we need it.
                 "cc_library(name = 'malloc')");
 

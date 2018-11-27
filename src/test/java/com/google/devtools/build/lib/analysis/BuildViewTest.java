@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
@@ -1054,18 +1053,6 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError())
         .contains("command succeeded, but there were loading phase errors");
-  }
-
-  @Test
-  public void testBadLabelInConfiguration() throws Exception {
-    useConfiguration("--crosstool_top=//third_party/crosstool/v2");
-    reporter.removeHandler(failFastHandler);
-    try {
-      update(defaultFlags().with(Flag.KEEP_GOING));
-      fail();
-    } catch (InvalidConfigurationException e) {
-      assertThat(e).hasMessageThat().contains("third_party/crosstool/v2");
-    }
   }
 
   @Test

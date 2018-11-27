@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -49,10 +48,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
   private CppConfiguration create(CppConfigurationLoader loader, String... args) throws Exception {
     useConfiguration(args);
-    ConfigurationEnvironment env =
-        new ConfigurationEnvironment.TargetProviderEnvironment(
-            skyframeExecutor.getPackageManager(), reporter);
-    return loader.create(env, buildOptions);
+    return loader.create(buildOptions);
   }
 
   private CppConfigurationLoader loader(String crosstoolFileContents) throws IOException {
