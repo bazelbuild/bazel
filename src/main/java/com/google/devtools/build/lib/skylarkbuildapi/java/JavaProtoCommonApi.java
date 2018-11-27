@@ -67,7 +67,7 @@ public interface JavaProtoCommonApi<FileT extends FileApi,
               positional = false,
               named = true,
               type = String.class,
-              defaultValue = "java"
+              defaultValue = "'java'"
           )
       }
   )
