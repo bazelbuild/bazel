@@ -41,7 +41,7 @@ _java_grpc_gensource = rule(
     attrs = {
         "srcs": attr.label_list(
             mandatory = True,
-            non_empty = True,
+            allow_empty = False,
             providers = ["proto"],
         ),
         "enable_deprecated": attr.bool(
@@ -51,8 +51,7 @@ _java_grpc_gensource = rule(
             default = Label("@com_google_protobuf//:protoc"),
             executable = True,
             cfg = "host",
-            allow_files = True,
-            single_file = True,
+            allow_single_file = True,
         ),
         "_java_plugin": attr.label(
             default = Label("@io_bazel//third_party/grpc:grpc-java-plugin"),
