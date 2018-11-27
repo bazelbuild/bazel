@@ -63,6 +63,7 @@ External repositories
 
 *   [Remove native git repository](#remove-native-git-repository)
 *   [Remove native http archive](#remove-native-http-archive)
+*   [Remove native maven jar](#remove-native-maven-jar)
 
 Java
 
@@ -393,6 +394,32 @@ parameter, not `url`).
 
 *   Flag: `--incompatible_remove_native_http_archive`
 *   Default: `true`
+
+### Remove native maven jar
+
+When set, the native `maven_jar` rule is disabled. The Starlark version
+
+```python
+load("@bazel_tools//tools/build_defs/repo:java.bzl", "java_import_external")
+```
+
+should be used instead. This rule is more reliable and offers additional functionality
+over the native `maven_jar` rule. In addition to downloading the jars, it allows
+to define this jar's dependencies. It also enables downloading src-jars.
+
+There is a convenience wrapper for the rule:
+```python
+load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
+```
+
+This rule allows you to specify the `artifact` attribute like in the native
+`maven_jar` rule.
+
+Documentation for the rule is
+[here](https://source.bazel.build/bazel/+/master:tools/build_defs/repo/java.bzl;l=15).
+
+*   Flag: `--incompatible_remove_native_maven_jar`
+*   Default: `false`
 
 ### New-style JavaInfo constructor
 
