@@ -78,7 +78,7 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
     name = "remote_timeout",
-    defaultValue = "60",
+    defaultValue = "10",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "The maximum number of seconds to wait for remote execution and cache calls."
