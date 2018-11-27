@@ -23,7 +23,7 @@ def _remap(remap_paths, path):
     """If path starts with a key in remap_paths, rewrite it."""
     for prefix, replacement in remap_paths.items():
         if path.startswith(prefix):
-            return path.replace(prefix, replacement)
+            return replacement + path[len(prefix):]
     return path
 
 def _quote(filename, protect = "="):
