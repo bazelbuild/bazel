@@ -414,9 +414,7 @@ function cleanup_workspace() {
   if [ -d "${WORKSPACE_DIR:-}" ]; then
     log_info "Cleaning up workspace" >> $TEST_log
     cd ${WORKSPACE_DIR}
-    bazel clean >> $TEST_log 2>&1 # Clean up the output base
-    # Shut down this server to allow any cleanup code to delete its output_root.
-    bazel shutdown >&/dev/null
+    bazel clean &> "$TEST_log"
 
     for i in *; do
       if ! is_tools_directory "$i"; then
