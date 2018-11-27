@@ -608,6 +608,41 @@ EOF
   expect_log $what_does_the_fox_say
 }
 
+function test_fetch() {
+  serve_jar
+
+  cat > WORKSPACE <<EOF
+maven_jar(
+    name = 'endangered',
+    artifact = "com.example.carnivore:carnivore:1.23",
+    repository = 'http://127.0.0.1:$nc_port/',
+    sha1 = '$sha1',
+)
+bind(name = 'mongoose', actual = '@endangered//jar')
+EOF
+
+  output_base=$(bazel info output_base)
+  external_dir=$output_base/external
+  needle=endangered
+  [[ -d $external_dir/$needle ]] \
+      && fail "$needle already exists in $external_dir" || true
+  bazel fetch //zoo:ball-pit >& $TEST_log || fail "Fetch failed"
+  [[ $(ls $external_dir | grep $needle) ]] || fail "$needle not added to $external_dir"
+
+  # Rerun fetch while nc isn't serving anything to make sure the fetched result
+  # is cached.
+  bazel fetch //zoo:ball-pit >& $TEST_log || fail "Incremental fetch failed"
+
+  # Make sure fetch isn't needed after a bazel restart.
+  bazel shutdown
+  bazel build //zoo:ball-pit >& $TEST_log || fail "Fetch shouldn't be required"
+
+  # But it is required after a clean.
+  bazel clean --expunge || fail "Clean failed"
+  bazel build --fetch=false //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
+  expect_log "bazel fetch //..."
+}
+
 function test_prefix_stripping_tar_gz() {
   mkdir -p x/y/z
   echo "abc" > x/y/z/w
