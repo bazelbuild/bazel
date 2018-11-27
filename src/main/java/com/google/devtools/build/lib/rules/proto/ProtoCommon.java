@@ -368,7 +368,7 @@ public class ProtoCommon {
   /**
    * Decides whether this proto_library should check for strict proto deps.
    *
-   * <p>Takes into account command-line flags, package-level attributes and rule attributes.
+   * <p>Only takes into account command-line flags.
    */
   @VisibleForTesting
   public static boolean areDepsStrict(RuleContext ruleContext) {
