@@ -364,6 +364,16 @@ function setup_objc_test_support() {
   IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 }
 
+# Write the default WORKSPACE file.
+function write_workspace_file() {
+  cat > WORKSPACE <<EOF
+new_local_repository(
+    name = 'bazel_skylib',
+    build_file_content = '',
+    path='$TEST_SRCDIR/io_bazel/external/bazel_skylib')
+EOF
+}
+
 workspaces=()
 # Set-up a new, clean workspace with only the tools installed.
 function create_new_workspace() {
@@ -380,12 +390,7 @@ function create_new_workspace() {
   [ -e third_party/java/jdk/langtools/javac-9+181-r4173-1.jar ] \
     || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9+181-r4173-1.jar
 
-  cat > WORKSPACE <<EOF
-new_local_repository(
-    name = 'bazel_skylib',
-    build_file_content = '',
-    path='$TEST_SRCDIR/io_bazel/external/bazel_skylib')
-EOF
+  write_workspace_file
 }
 
 
@@ -418,7 +423,7 @@ function cleanup_workspace() {
         try_with_timeout rm -fr "$i"
       fi
     done
-    touch WORKSPACE
+    write_workspace_file
   fi
   for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then
