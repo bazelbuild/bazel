@@ -82,10 +82,12 @@ public class WorkspaceASTFunction implements SkyFunction {
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRootRelativePath());
     try {
-      BuildFileAST ast = BuildFileAST.parseBuildFile(
-          ParserInputSource.create(ruleClassProvider.getDefaultWorkspacePrefix(),
-              PathFragment.create("/DEFAULT.WORKSPACE")),
-          env.getListener());
+      BuildFileAST ast =
+          BuildFileAST.parseBuildFile(
+              ParserInputSource.create(
+                  ruleClassProvider.getDefaultWorkspacePrefix(),
+                  PathFragment.create("/DEFAULT.WORKSPACE")),
+              env.getListener());
       if (ast.containsErrors()) {
         throw new WorkspaceASTFunctionException(
             new BuildFileContainsErrorsException(
@@ -119,7 +121,7 @@ public class WorkspaceASTFunction implements SkyFunction {
       ast =
           BuildFileAST.parseBuildFile(
               ParserInputSource.create(
-                  ruleClassProvider.getDefaultWorkspaceSuffix(),
+                  resolvedFile.isPresent() ? "" : ruleClassProvider.getDefaultWorkspaceSuffix(),
                   PathFragment.create("/DEFAULT.WORKSPACE.SUFFIX")),
               ast.getStatements(),
               /* repositoryMapping= */ ImmutableMap.of(),
