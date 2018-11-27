@@ -338,7 +338,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
 
     stdout_process = CreateFileW(
         /* lpFileName */ stdout_redirect.c_str(),
-        /* dwDesiredAccess */ FILE_APPEND_DATA,
+        /* dwDesiredAccess */ GENERIC_WRITE,
         /* dwShareMode */ 0,
         /* lpSecurityAttributes */ &sa,
         /* dwCreationDisposition */ OPEN_ALWAYS,
@@ -346,6 +346,13 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
         /* hTemplateFile */ NULL);
 
     if (!stdout_process.IsValid()) {
+      DWORD err_code = GetLastError();
+      result->error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", stdout_redirect,
+          err_code);
+      return PtrAsJlong(result);
+    }
+    if (!SetFilePointerEx(stdout_process, {0}, NULL, FILE_END)) {
       DWORD err_code = GetLastError();
       result->error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", stdout_redirect,
@@ -383,7 +390,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
     result->stderr_.close();
     stderr_process = CreateFileW(
         /* lpFileName */ stderr_redirect.c_str(),
-        /* dwDesiredAccess */ FILE_APPEND_DATA,
+        /* dwDesiredAccess */ GENERIC_WRITE,
         /* dwShareMode */ 0,
         /* lpSecurityAttributes */ &sa,
         /* dwCreationDisposition */ OPEN_ALWAYS,
@@ -391,6 +398,13 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
         /* hTemplateFile */ NULL);
 
     if (!stderr_process.IsValid()) {
+      DWORD err_code = GetLastError();
+      result->error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", stderr_redirect,
+          err_code);
+      return PtrAsJlong(result);
+    }
+    if (!SetFilePointerEx(stderr_process, {0}, NULL, FILE_END)) {
       DWORD err_code = GetLastError();
       result->error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", stderr_redirect,
