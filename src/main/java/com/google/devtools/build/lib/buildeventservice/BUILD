@@ -7,12 +7,24 @@ filegroup(
 )
 
 java_library(
+    name = "buildeventservice-options",
+    srcs = ["BuildEventServiceOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
+java_library(
     name = "buildeventservice",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = ["BuildEventServiceOptions.java"],
+    ),
     visibility = [
         "//visibility:public",
     ],
     deps = [
+        ":buildeventservice-options",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:runtime",
