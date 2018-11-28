@@ -680,18 +680,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -747,6 +735,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -2353,18 +2354,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -2420,6 +2409,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -4030,18 +4032,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -4097,6 +4087,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -5704,18 +5707,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -5771,6 +5762,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -7378,18 +7382,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -7445,6 +7437,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -9046,18 +9051,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -9113,6 +9106,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -10753,18 +10759,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -10820,6 +10814,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -12430,18 +12437,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -12497,6 +12492,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -14095,18 +14103,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -14162,6 +14158,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -15763,18 +15772,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -15830,6 +15827,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -17458,18 +17468,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -17525,6 +17523,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -19124,18 +19135,6 @@ toolchain {
     }
   }
   feature {
-    name: "random_seed"
-    flag_set {
-      action: "c++-compile"
-      action: "c++-module-codegen"
-      action: "c++-module-compile"
-      flag_group {
-        flag: "-frandom-seed=%{output_file}"
-        expand_if_all_available: "output_file"
-      }
-    }
-  }
-  feature {
     name: "pic"
     flag_set {
       action: "c-compile"
@@ -19191,6 +19190,19 @@ toolchain {
       flag_group {
         flag: "-F%{framework_paths}"
         iterate_over: "framework_paths"
+      }
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }

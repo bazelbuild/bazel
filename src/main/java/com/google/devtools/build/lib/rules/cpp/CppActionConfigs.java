@@ -119,6 +119,7 @@ public class CppActionConfigs {
                     .join(
                         "  name: 'random_seed'",
                         "  flag_set {",
+                        "    action: 'c-compile'",
                         "    action: 'c++-compile'",
                         "    action: 'c++-module-codegen'",
                         "    action: 'c++-module-compile'",
