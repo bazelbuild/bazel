@@ -93,7 +93,7 @@ public interface SkylarkNativeModuleApi {
               + "<code>None</code> if the target does not exist."
               + ""
               + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
-              + "and order-dependent.",
+              + "and order-dependent.</i>",
       parameters = {
         @Param(
             name = "name",
@@ -107,20 +107,18 @@ public interface SkylarkNativeModuleApi {
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "existing_rules",
-    doc =
-        "Returns a dictionary containing all the targets instantiated so far. The map key is the "
-            + "name of the target. The map value is equivalent to the <code>existing_rule</code> "
-            + "output for that target."
-            + ""
-            + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
-            + "and order-dependent.",
-    useAst = true,
-    useEnvironment = true
-  )
+      name = "existing_rules",
+      doc =
+          "Returns a dictionary containing all the targets instantiated so far. The map key is the "
+              + "name of the target. The map value is equivalent to the <code>existing_rule</code> "
+              + "output for that target."
+              + ""
+              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
+              + "and order-dependent.</i>",
+      useAst = true,
+      useEnvironment = true)
   public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
-      FuncallExpression ast, Environment env)
-      throws EvalException, InterruptedException;
+      FuncallExpression ast, Environment env) throws EvalException, InterruptedException;
 
   @SkylarkCallable(name = "package_group",
       doc = "This function defines a set of packages and assigns a label to the group. "
