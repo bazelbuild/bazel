@@ -72,7 +72,7 @@ import javax.annotation.Nullable;
 public class InMemoryNodeEntry implements NodeEntry {
 
   /** Actual data stored in this entry when it is done. */
-  protected SkyValue value = null;
+  protected volatile SkyValue value = null;
 
   /**
    * The last version of the graph at which this node's value was changed. In {@link #setValue} it
@@ -80,7 +80,7 @@ public class InMemoryNodeEntry implements NodeEntry {
    * the already-stored value. In that case, the version will remain the same. The version can be
    * thought of as the latest timestamp at which this value was changed.
    */
-  protected Version lastChangedVersion = MinimalVersion.INSTANCE;
+  protected volatile Version lastChangedVersion = MinimalVersion.INSTANCE;
 
   /**
    * Returns the last version this entry was evaluated at, even if it re-evaluated to the same
