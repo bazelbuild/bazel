@@ -82,6 +82,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
             EXPORTED_NAME
                 + " = "
                 + Printer.getWorkspacePrettyPrinter().repr(resultBuilder.build()));
+        writer.close();
       } catch (IOException e) {
         logger.warning("IO Error writing to file " + resolvedFile + ": " + e);
       }
