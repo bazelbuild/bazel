@@ -624,7 +624,7 @@ EOF
       || fail "target not built correctly"
 }
 
-DISABLE_test_resolved_file_not_remembered() {
+test_resolved_file_not_remembered() {
   # Verify that the --experimental_resolved_file_instead_of_workspace option
   # does not leak into a subsequent sync
   EXTREPODIR=`pwd`
