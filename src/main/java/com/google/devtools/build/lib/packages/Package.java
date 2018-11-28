@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -195,6 +196,7 @@ public class Package {
    * within the main workspace.
    */
   private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+  private ImmutableMap<String, RepositoryName> refreshRootsToRepository;
 
   /**
    * The names of the package() attributes that declare default values for rule
@@ -257,6 +259,10 @@ public class Package {
   /** Get the repository mapping for this package. */
   public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
     return repositoryMapping;
+  }
+
+  public ImmutableMap<String, RepositoryName> getRefreshRootsToRepository() {
+    return refreshRootsToRepository;
   }
 
   /**
@@ -417,6 +423,7 @@ public class Package {
     builder.externalPackageRepositoryMappings.forEach((k, v) ->
         repositoryMappingsBuilder.put(k, ImmutableMap.copyOf(v)));
     this.externalPackageRepositoryMappings = repositoryMappingsBuilder.build();
+    refreshRootsToRepository = ImmutableMap.copyOf(builder.refreshRootsToRepository);
   }
 
   /**
@@ -809,6 +816,7 @@ public class Package {
     // It contains an entry from "@<main workspace name>" to "@" for packages within
     // the main workspace.
     private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of();
+    private Map<String, RepositoryName> refreshRootsToRepository = Maps.newHashMap();
     private RootedPath filename = null;
     private Label buildFileLabel = null;
     private InputFile buildFile = null;
@@ -900,6 +908,11 @@ public class Package {
           externalPackageRepositoryMappings
               .computeIfAbsent(repoWithin, (RepositoryName k) -> new HashMap<>());
       mapping.put(localName, mappedName);
+      return this;
+    }
+
+    Builder addRefreshRootMapping(final String packagePrefix, RepositoryName repositoryName) {
+      refreshRootsToRepository.put(packagePrefix, repositoryName);
       return this;
     }
 

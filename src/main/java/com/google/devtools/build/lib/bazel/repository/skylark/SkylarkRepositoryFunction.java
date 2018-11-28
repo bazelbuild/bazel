@@ -21,9 +21,12 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -35,6 +38,7 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
@@ -181,7 +185,13 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
     }
 
-    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
+    boolean hasRefreshRoots = hasRefreshRoots(env, rule);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    return RepositoryDirectoryValue.builder()
+        .setHasRefreshRoots(hasRefreshRoots)
+        .setPath(outputDirectory);
   }
 
   @SuppressWarnings("unchecked")
@@ -190,8 +200,18 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  protected boolean isLocal(Rule rule) {
-    return (Boolean) rule.getAttributeContainer().getAttr("$local");
+  protected boolean isLocal(Environment env, Rule rule) throws InterruptedException {
+    Object isLocal = rule.getAttributeContainer().getAttr("$local");
+    return Boolean.TRUE.equals(isLocal) || hasRefreshRoots(env, rule);
+  }
+
+  private boolean hasRefreshRoots(Environment env, Rule rule) throws InterruptedException {
+    ImmutableMap<PathFragment, RepositoryName> roots = ExternalPackageUtil
+        .getRefreshRootsToRepositories(env);
+    if (roots == null) {
+      return false;
+    }
+    return roots.containsValue(RepositoryName.createFromValidStrippedName(rule.getName()));
   }
 
   @Override

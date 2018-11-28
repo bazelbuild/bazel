@@ -49,7 +49,7 @@ public class MavenJarFunction extends RepositoryFunction {
   private static final String DEFAULT_SERVER = "default";
 
   @Override
-  public boolean isLocal(Rule rule) {
+  public boolean isLocal(Environment env, Rule rule) {
     return false;
   }
 
