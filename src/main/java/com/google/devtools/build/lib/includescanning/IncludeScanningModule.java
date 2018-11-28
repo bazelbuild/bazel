@@ -59,7 +59,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.FutureTask;
 import java.util.logging.Logger;
 
 /**
@@ -168,8 +167,7 @@ public class IncludeScanningModule extends BlazeModule {
     private final CommandEnvironment env;
     private final Supplier<SpawnIncludeScanner> spawnScannerSupplier;
     private final Supplier<ExecutorService> includePool;
-    private final ConcurrentMap<Artifact, FutureTask<Collection<Inclusion>>> cache =
-        new ConcurrentHashMap<>();
+    private final ConcurrentMap<Artifact, Collection<Inclusion>> cache = new ConcurrentHashMap<>();
 
     SwigIncludeScanningContextImpl(
         CommandEnvironment env,
