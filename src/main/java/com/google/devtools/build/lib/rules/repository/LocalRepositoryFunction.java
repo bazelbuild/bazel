@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
 public class LocalRepositoryFunction extends RepositoryFunction {
 
   @Override
-  public boolean isLocal(Rule rule) {
+  public boolean isLocal(Environment env, Rule rule) {
     return true;
   }
 

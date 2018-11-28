@@ -17,20 +17,30 @@ package com.google.devtools.build.lib.repository;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.WorkspaceFileValue;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Utility class to centralize looking up rules from the external package. */
@@ -47,13 +57,7 @@ public class ExternalPackageUtil {
   private static List<Rule> getRules(
       Environment env, boolean returnFirst, Function<Package, List<Rule>> selector)
       throws ExternalPackageException, InterruptedException {
-    SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
-    if (packageLookupValue == null) {
-      return null;
-    }
-    RootedPath workspacePath =
-        packageLookupValue.getRootedPath(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+    RootedPath workspacePath = getWorkspacePath(env);
 
     List<Rule> rules = returnFirst ? ImmutableList.of() : Lists.newArrayList();
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
@@ -84,6 +88,16 @@ public class ExternalPackageUtil {
     return rules;
   }
 
+  @Nullable
+  private static RootedPath getWorkspacePath(final Environment env) throws InterruptedException {
+    SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+    PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
+    if (packageLookupValue == null) {
+      return null;
+    }
+    return packageLookupValue.getRootedPath(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+  }
+
   /** Uses a rule name to fetch the corresponding Rule from the external package. */
   @Nullable
   public static Rule getRuleByName(final String ruleName, Environment env)
@@ -112,5 +126,76 @@ public class ExternalPackageUtil {
       throw new ExternalRuleNotFoundException(ruleName);
     }
     return Iterables.getFirst(rules, null);
+  }
+
+  // !!! ONLY reads the header of the WORKSPACE file.
+  public static ImmutableMap<PathFragment, RepositoryName> getRefreshRootsToRepositories(
+      final Environment env) throws InterruptedException {
+    RootedPath workspacePath = getWorkspacePath(env);
+    SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
+    Map<String, RepositoryName> map = Maps.newHashMap();
+    // do {
+      WorkspaceFileValue value = (WorkspaceFileValue) env.getValue(workspaceKey);
+      if (value == null) {
+        return null;
+      }
+      Package externalPackage = value.getPackage();
+      if (externalPackage.containsErrors()) {
+        // todo (ichern, prototype) exception kind
+        throw new IllegalStateException("Could not load //external package");
+      }
+      map.putAll(externalPackage.getRefreshRootsToRepository());
+      // workspaceKey = value.next();
+    // } while (workspaceKey != null);
+    return ImmutableMap.copyOf(map.keySet().stream()
+        .collect(Collectors.toMap(PathFragment::create, map::get)));
+  }
+
+  @Nullable
+  public static RepositoryName getRepositoryForRefreshRoot(final Environment env,
+      final FileType fileType, final RootedPath rootedPath)
+      throws InterruptedException {
+    if (fileType == FileType.INTERNAL) {
+      if (!Boolean.TRUE.equals(isUnderBlacklisted(env, rootedPath))) {
+        return null;
+      }
+    }
+
+    // We can further optimize here to accumulate additional information
+    // if we should look into external files at all.
+    // In the case of node_modules, we shouldn't.
+    // Also, there may be enough to check only for exact match, since
+    // the files under a directory are calculated only after the directory,
+    // and the directory should be already checked for being a refresh root.
+    ImmutableMap<PathFragment, RepositoryName> patternsMap = getRefreshRootsToRepositories(env);
+    if (patternsMap == null) {
+      return null;
+    }
+    for (PathFragment pattern : patternsMap.keySet()) {
+      if (startsWithFragment(rootedPath, pattern)) {
+        return patternsMap.get(pattern);
+      }
+    }
+    return null;
+  }
+
+  private static Boolean isUnderBlacklisted(final Environment env, final RootedPath rootedPath)
+      throws InterruptedException {
+    BlacklistedPackagePrefixesValue blacklisted =
+        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+    if (blacklisted == null) {
+      return null;
+    }
+    for (PathFragment pattern : blacklisted.getPatterns()) {
+      if (startsWithFragment(rootedPath, pattern)) {
+        return Boolean.TRUE;
+      }
+    }
+    return Boolean.FALSE;
+  }
+
+  private static boolean startsWithFragment(RootedPath rootedPath, PathFragment fragment) {
+    return rootedPath.getRootRelativePath().startsWith(fragment) ||
+        fragment.isAbsolute() && rootedPath.asPath().asFragment().startsWith(fragment);
   }
 }

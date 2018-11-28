@@ -14,15 +14,22 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -30,13 +37,17 @@ import java.util.logging.Logger;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
+
   private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
 
   private static final Logger logger = Logger.getLogger(ExternalFilesHelper.class.getName());
+  public static final PathFragment EXTERNAL = PathFragment.create("external");
 
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ExternalFileAction externalFileAction;
   private final BlazeDirectories directories;
+  private final ImmutableSet<PathFragment> blacklistedPrefixes;
+  private final PathFragment blacklistPrefixesFile;
   private final int maxNumExternalFilesToLog;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
 
@@ -49,23 +60,31 @@ public class ExternalFilesHelper {
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
+      ImmutableSet<PathFragment> blacklistedPrefixes,
+      PathFragment blacklistPrefixesFile,
       int maxNumExternalFilesToLog) {
     this.pkgLocator = pkgLocator;
     this.externalFileAction = externalFileAction;
     this.directories = directories;
+    this.blacklistedPrefixes = blacklistedPrefixes;
+    this.blacklistPrefixesFile = blacklistPrefixesFile;
     this.maxNumExternalFilesToLog = maxNumExternalFilesToLog;
   }
 
   public static ExternalFilesHelper create(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories) {
+      BlazeDirectories directories,
+      ImmutableSet<PathFragment> blacklistedPrefixes,
+      PathFragment blacklistPrefixesFile) {
     return IN_TEST
         ? createForTesting(pkgLocator, externalFileAction, directories)
         : new ExternalFilesHelper(
             pkgLocator,
             externalFileAction,
             directories,
+            blacklistedPrefixes,
+            blacklistPrefixesFile,
             /*maxNumExternalFilesToLog=*/ 100);
   }
 
@@ -77,6 +96,8 @@ public class ExternalFilesHelper {
         pkgLocator,
         externalFileAction,
         directories,
+        BazelSkyframeExecutorConstants.HARDCODED_BLACKLISTED_PACKAGE_PREFIXES,
+        BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
         // These log lines are mostly spam during unit and integration tests.
         /*maxNumExternalFilesToLog=*/ 0);
   }
@@ -168,7 +189,8 @@ public class ExternalFilesHelper {
 
   ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
     return new ExternalFilesHelper(
-        pkgLocator, externalFileAction, directories, maxNumExternalFilesToLog);
+        pkgLocator, externalFileAction, directories, blacklistedPrefixes, blacklistPrefixesFile,
+        maxNumExternalFilesToLog);
   }
 
   FileType getAndNoteFileType(RootedPath rootedPath) {
@@ -208,6 +230,10 @@ public class ExternalFilesHelper {
       RootedPath rootedPath, boolean isDirectory, SkyFunction.Environment env)
       throws NonexistentImmutableExternalFileException, IOException, InterruptedException {
     FileType fileType = getAndNoteFileType(rootedPath);
+    if ((fileType == FileType.INTERNAL || fileType == FileType.EXTERNAL)
+        && checkForRefreshedRoot(fileType, rootedPath, env)) {
+      return;
+    }
     if (fileType == FileType.INTERNAL) {
       return;
     }
@@ -226,5 +252,35 @@ public class ExternalFilesHelper {
         externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         externalFileAction);
     RepositoryFunction.addExternalFilesDependencies(rootedPath, isDirectory, directories, env);
+  }
+
+  private boolean checkForRefreshedRoot(
+      FileType fileType,
+      RootedPath rootedPath, Environment env)
+      throws InterruptedException {
+    Path path = rootedPath.asPath();
+
+    PathFragment relativePath = rootedPath.getRootRelativePath();
+    PathPackageLocator packageLocator = pkgLocator.get();
+    if (path.equals(packageLocator.getWorkspaceFile()) ||
+        packageLocator.getPathEntries().contains(rootedPath.getRoot())
+            && (relativePath.isEmpty() || EXTERNAL.equals(relativePath))) {
+      return false;
+    }
+    if (relativePath.equals(blacklistPrefixesFile)) {
+      return false;
+    }
+    for (PathFragment prefix : blacklistedPrefixes) {
+      if (path.startsWith(prefix)) {
+        return false;
+      }
+    }
+    RepositoryName ownerRepository = ExternalPackageUtil
+        .getRepositoryForRefreshRoot(env, fileType, rootedPath);
+    if (ownerRepository != null) {
+      env.getValue(RepositoryDirectoryValue.key(ownerRepository));
+      return true;
+    }
+    return false;
   }
 }

@@ -170,7 +170,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
     String ruleKey = computeRuleKey(rule, ruleSpecificData);
     Map<String, String> markerData = new TreeMap<>();
-     if (isFetch.get() && handler.isLocal(rule)) {
+    boolean isLocal = handler.isLocal(env, rule);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    if (isFetch.get() && isLocal) {
       // Local repositories are fetched regardless of the marker file because the operation is
       // generally fast and they do not depend on non-local data, so it does not make much sense to
       // try to cache from across server instances.

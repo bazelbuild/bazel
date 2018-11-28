@@ -76,7 +76,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
   }
 
   @Override
-  public boolean isLocal(Rule rule) {
+  public boolean isLocal(Environment env, Rule rule) {
     return true;
   }
 

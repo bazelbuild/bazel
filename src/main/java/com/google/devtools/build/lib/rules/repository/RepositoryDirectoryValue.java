@@ -50,11 +50,14 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
 
   public abstract boolean isFetchingDelayed();
 
+  public abstract boolean hasRefreshRoots();
+
   /** Represents a successful repository lookup. */
   public static final class SuccessfulRepositoryDirectoryValue extends RepositoryDirectoryValue {
     private final Path path;
     private final boolean fetchingDelayed;
     @Nullable private final byte[] digest;
+    private final boolean hasRefreshRoots;
     @Nullable private final DirectoryListingValue sourceDir;
     private final ImmutableMap<SkyKey, SkyValue> fileValues;
 
@@ -63,12 +66,14 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
         boolean fetchingDelayed,
         DirectoryListingValue sourceDir,
         byte[] digest,
-        ImmutableMap<SkyKey, SkyValue> fileValues) {
+        ImmutableMap<SkyKey, SkyValue> fileValues,
+        boolean hasRefreshRoots) {
       this.path = path;
       this.fetchingDelayed = fetchingDelayed;
       this.sourceDir = sourceDir;
       this.digest = digest;
       this.fileValues = fileValues;
+      this.hasRefreshRoots = hasRefreshRoots;
     }
 
     @Override
@@ -84,6 +89,10 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     @Override
     public boolean isFetchingDelayed() {
       return fetchingDelayed;
+    }
+
+    public boolean hasRefreshRoots() {
+      return hasRefreshRoots;
     }
 
     @Override
@@ -131,6 +140,11 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     public boolean isFetchingDelayed() {
       throw new IllegalStateException();
     }
+
+    @Override
+    public boolean hasRefreshRoots() {
+      throw new IllegalStateException();
+    }
   }
 
   public static final NoRepositoryDirectoryValue NO_SUCH_REPOSITORY_VALUE =
@@ -173,6 +187,7 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     private byte[] digest = null;
     private DirectoryListingValue sourceDir = null;
     private Map<SkyKey, SkyValue> fileValues = ImmutableMap.of();
+    private boolean hasRefreshRoots;
 
     private Builder() {}
 
@@ -208,7 +223,12 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
         Preconditions.checkNotNull(digest, "Repository marker digest must be specified!");
       }
       return new SuccessfulRepositoryDirectoryValue(
-          path, fetchingDelayed, sourceDir, digest, ImmutableMap.copyOf(fileValues));
+          path, fetchingDelayed, sourceDir, digest, ImmutableMap.copyOf(fileValues), hasRefreshRoots);
+    }
+
+    public Builder setHasRefreshRoots(boolean hasRefreshRoots) {
+      this.hasRefreshRoots = hasRefreshRoots;
+      return this;
     }
   }
 }

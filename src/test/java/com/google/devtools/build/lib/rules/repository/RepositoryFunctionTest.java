@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Map;
@@ -66,7 +67,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    protected boolean isLocal(Rule rule) {
+    protected boolean isLocal(Environment env, Rule rule) {
       return false;
     }
 
