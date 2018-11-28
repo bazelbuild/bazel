@@ -45,7 +45,7 @@ public class GitRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public boolean isLocal(Rule rule) {
+  public boolean isLocal(Environment env, Rule rule) {
     return false;
   }
 

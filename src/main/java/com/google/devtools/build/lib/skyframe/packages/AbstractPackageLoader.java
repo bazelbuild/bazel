@@ -167,7 +167,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
           ExternalFilesHelper.create(
               pkgLocatorRef,
               ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-              directories);
+              directories, /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
+              /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT);
     }
 
     public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
