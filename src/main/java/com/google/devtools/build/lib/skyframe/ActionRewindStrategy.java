@@ -64,7 +64,6 @@ public class ActionRewindStrategy {
    * @throws ActionExecutionFunctionException if any lost inputs are not the outputs of previously
    *     executed actions
    */
-  // TODO(mschaller): support special/tree artifact types
   RewindPlan getRewindPlan(
       Action failedAction,
       Iterable<SkyKey> failedActionDeps,
