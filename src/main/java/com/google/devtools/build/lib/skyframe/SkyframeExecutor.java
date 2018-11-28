@@ -1389,7 +1389,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
-              .setNumThreads(options.getOptions(BuildRequestOptions.class).getJobs())
+              .setNumThreads(options.getOptions(BuildRequestOptions.class).jobs)
               .setEventHander(reporter)
               .build();
       return buildDriver.evaluate(
@@ -1430,7 +1430,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return evaluate(
           testKeys,
           /*keepGoing=*/ options.getOptions(KeepGoingOption.class).keepGoing,
-          /*numThreads=*/ options.getOptions(BuildRequestOptions.class).getJobs(),
+          /*numThreads=*/ options.getOptions(BuildRequestOptions.class).jobs,
           reporter);
     } finally {
       progressReceiver.executionProgressReceiver = null;

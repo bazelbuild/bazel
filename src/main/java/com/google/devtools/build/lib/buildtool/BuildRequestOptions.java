@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -64,10 +63,6 @@ public class BuildRequestOptions extends OptionsBase {
             + " may cause memory issues."
   )
   public int jobs;
-
-  public int getJobs() {
-    return jobs == 0 ? 1 : jobs; // Treat 0 jobs as a single task.
-  }
 
   @Option(
     name = "progress_report_interval",
@@ -298,7 +293,6 @@ public class BuildRequestOptions extends OptionsBase {
   )
   public boolean printWorkspaceInOutputPathsIfNeeded;
 
-
   @Option(
     name = "use_action_cache",
     defaultValue = "true",
@@ -335,11 +329,6 @@ public class BuildRequestOptions extends OptionsBase {
 
   /** Converter for jobs: [0, MAX_JOBS] or "auto". */
   public static class JobsConverter extends RangeConverter {
-    /**
-     * If not null, indicates the value to return when "auto" is selected. Useful for cases where
-     * the number of jobs is bound by another factor different than what we compute here.
-     */
-    private static Integer fixedAutoJobs;
 
     public JobsConverter() {
       super(0, MAX_JOBS);
@@ -347,42 +336,28 @@ public class BuildRequestOptions extends OptionsBase {
 
     @Override
     public Integer convert(String input) throws OptionsParsingException {
+      int jobs;
       if (input.equals("auto")) {
-        int jobs;
-        if (fixedAutoJobs == null) {
-          jobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
-          if (jobs > MAX_JOBS) {
-            logger.warning(
-                "Detected "
-                    + jobs
-                    + " processors, which exceed the maximum allowed number of jobs of "
-                    + MAX_JOBS
-                    + "; something seems wrong");
-            jobs = MAX_JOBS;
-          }
-        } else {
-          jobs = fixedAutoJobs;
+        jobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
+        if (jobs > MAX_JOBS) {
+          logger.warning(
+              "Detected "
+                  + jobs
+                  + " processors, which exceed the maximum allowed number of jobs of "
+                  + MAX_JOBS
+                  + "; something seems wrong");
+          jobs = MAX_JOBS;
         }
         logger.info("Flag \"jobs\" was set to \"auto\"; using " + jobs + " jobs");
-        return jobs;
       } else {
-        return super.convert(input);
+        jobs = super.convert(input);
       }
+      return jobs == 0 ? 1 : jobs; // Treat 0 jobs as a single task.
     }
 
     @Override
     public String getTypeDescription() {
       return "\"auto\" or " + super.getTypeDescription();
-    }
-
-    /**
-     * Sets the value to return by this converter when "auto" is selected.
-     *
-     * @param jobs the number of jobs to return, or null to reenable automated detection
-     */
-    public static void setFixedAutoJobs(Integer jobs) {
-      Preconditions.checkArgument(jobs == null || jobs <= MAX_JOBS);
-      fixedAutoJobs = jobs;
     }
   }
 
