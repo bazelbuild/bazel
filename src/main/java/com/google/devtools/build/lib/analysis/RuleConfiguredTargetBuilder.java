@@ -367,8 +367,8 @@ public final class RuleConfiguredTargetBuilder {
    * Adds a "declared provider" defined in Skylark to the rule. Use this method for declared
    * providers defined in Skyark.
    *
-   * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from
-   * Skylark directly, instead its outpuyt groups are added.
+   * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from Skylark
+   * directly, instead its output groups are added.
    *
    * <p>Use {@link #addNativeDeclaredProvider(InfoInterface)} in definitions of native rules.
    */
