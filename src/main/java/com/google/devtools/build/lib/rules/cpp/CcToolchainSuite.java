@@ -58,10 +58,8 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("proto")) {
       try {
         crosstoolFromProtoAttribute =
-            CrosstoolConfigurationLoader.toReleaseConfiguration(
-                "cc_toolchain_suite rule " + ruleContext.getLabel(),
-                () -> ruleContext.attributes().get("proto", Type.STRING),
-                /* digestOrNull= */ null);
+            CcSkyframeSupportFunction.toReleaseConfiguration(
+                ruleContext.attributes().get("proto", Type.STRING));
       } catch (InvalidConfigurationException e) {
         ruleContext.throwWithRuleError(e.getMessage());
       }

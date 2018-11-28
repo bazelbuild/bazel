@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,15 +39,6 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
   public void setup() throws Exception {
     MockPlatformSupport.addMockPiiiPlatform(
         mockToolsConfig, analysisMock.ccSupport().getMockCrosstoolLabel());
-  }
-
-  private CppCompileAction getCppCompileAction(String label) throws Exception {
-    ConfiguredTarget target = getConfiguredTarget(label);
-    List<CppCompileAction> compilationSteps =
-        actionsTestUtil()
-            .findTransitivePrerequisitesOf(
-                getFilesToBuild(target).iterator().next(), CppCompileAction.class);
-    return compilationSteps.get(0);
   }
 
   private static final String CPP_TOOLCHAIN_TYPE =

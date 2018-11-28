@@ -38,8 +38,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
   private final CpuTransformer cpuTransformer;
 
   /**
-   * Creates a new CrosstoolConfigurationLoader instance with the given configuration provider. The
-   * configuration provider is used to perform caller-specific configuration file lookup.
+   * Creates a new {@link CppConfigurationLoader} instance with the given {@link CpuTransformer}.
    */
   public CppConfigurationLoader(CpuTransformer cpuTransformer) {
     this.cpuTransformer = cpuTransformer;

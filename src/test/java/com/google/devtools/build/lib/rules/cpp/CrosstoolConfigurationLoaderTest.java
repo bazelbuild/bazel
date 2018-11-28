@@ -15,14 +15,12 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -611,26 +609,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .inOrder();
   }
 
-  private void assertStringStartsWith(String expected, String text) {
-    if (!text.startsWith(expected)) {
-      fail("expected <" + expected + ">, but got <" + text + ">");
-    }
-  }
-
-  @Test
-  public void testIncompleteFile() throws Exception {
-    try {
-      CrosstoolConfigurationLoader.getUncachedReleaseConfiguration(
-          "/CROSSTOOL", () -> "major_version: \"12\"");
-      fail();
-    } catch (InvalidConfigurationException e) {
-      assertStringStartsWith(
-          "Could not read the crosstool configuration file "
-              + "'/CROSSTOOL', because of an incomplete protocol buffer",
-          e.getMessage());
-    }
-  }
-
   /**
    * Returns a test crosstool config with the specified tool missing from the tool_path
    * set. Also allows injection of custom fields.
@@ -672,20 +650,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         loader(getConfigWithMissingToolDef(Tool.DWP, "supports_fission: false"));
     // The following line throws an IllegalArgumentException if an expected tool path is missing.
     create(loader, "--cpu=banana_cpu");
-  }
-
-  @Test
-  public void testInvalidFile() throws Exception {
-    try {
-      CrosstoolConfigurationLoader.getUncachedReleaseConfiguration(
-          "/CROSSTOOL", () -> "some xxx : yak \"");
-      fail();
-    } catch (InvalidConfigurationException e) {
-      assertStringStartsWith(
-          "Could not read the crosstool configuration file "
-              + "'/CROSSTOOL', because of a parser error",
-          e.getMessage());
-    }
   }
 
   /**
