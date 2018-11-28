@@ -113,7 +113,17 @@ nav: docs
                  </ul>
               </li>
 
-              <li><a href="/versions/{{ site.version }}/remote-caching.html">Remote Caching</a></li>
+              <li>
+                  <a class="sidebar-nav-heading" data-toggle="collapse"
+                      href="#remote-caching-menu" aria-expanded="false"
+                      aria-controls="remote-caching-menu">
+                    Remote Caching<span class="caret"></span>
+                  </a>
+                  <ul class="collapse sidebar-nav sidebar-submenu" id="remote-caching-menu">
+                     <li><a href="/versions/{{ site.version }}/remote-caching.html">Remote Caching Overview</a></li>
+                     <li><a href="/versions/{{ site.version }}/remote-caching-debug.html">Debugging Remote Cache Hit Rate for Local Execution</a></li>
+                  </ul>
+              </li>
              </ul>
 
            <h3>Rules</h3>
