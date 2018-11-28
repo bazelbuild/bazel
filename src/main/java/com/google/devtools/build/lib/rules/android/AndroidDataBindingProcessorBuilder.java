@@ -75,6 +75,9 @@ public class AndroidDataBindingProcessorBuilder {
 
       // The order of these matter, the input root and the output root have to be matched up
       // because the resource processor will iterate over them in pairs.
+      // TODO(ahumesky): This is currently sets the output resource root to the same root for
+      // all input roots, but separate output roots may still need to be maintained since this
+      // is doing a sort of merge before the real resource merger runs.
       builder.addFlag("--resource_root", resourceRoot.toString());
       builder.addFlag("--output_resource_root", outputResourceRoot.toString());
     }
