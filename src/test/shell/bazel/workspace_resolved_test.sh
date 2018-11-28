@@ -54,9 +54,7 @@ EOF
   bazel clean --expunge
   bazel build --experimental_repository_resolved_file=../repo.bzl @ext//... \
       || fail "Expected success"
-  # some of the file systems on our test machines are really slow to
-  # notice the creation of a file---even after the call to sync(1).
-  bazel shutdown; sync; sleep 10
+  bazel shutdown
 
   # Verify that bazel can read the generated repo.bzl file and that it contains
   # the expected information
@@ -122,9 +120,7 @@ EOF
 
 
   bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
-  # some of the file systems on our test machines are really slow to
-  # notice the creation of a file---even after the call to sync(1).
-  bazel shutdown; sync; sleep 10
+  bazel shutdown
 
   cd ..
   echo; cat repo.bzl; echo
@@ -225,7 +221,7 @@ EOF
   bazel build :out
   grep "CHANGED" `bazel info bazel-genfiles`/out.txt  \
        || fail "sync did not update the external repository"
-  bazel shutdown; sync; sleep 10
+  bazel shutdown
   cd ..
   echo
 
@@ -357,9 +353,7 @@ EOF
 
   bazel clean --expunge
   bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
-  # some of the file systems on our test machines are really slow to
-  # notice the creation of a file---even after the call to sync(1).
-  bazel shutdown; sync; sleep 10
+  bazel shutdown
 
   cd ..
   echo; cat repo.bzl; echo
@@ -415,9 +409,7 @@ EOF
   bazel build @a//... @b//...
   echo; echo sync run; echo
   bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
-  # some of the file systems on our test machines are really slow to
-  # notice the creation of a file---even after the call to sync(1).
-  bazel shutdown; sync; sleep 10
+  bazel shutdown
 
   cd ..
   echo; cat repo.bzl; echo
@@ -513,7 +505,7 @@ load("//:indirect.bzl", "call")
 call(trivial_rule, name="foo")
 EOF
   bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
-  bazel shutdown; sync; sleep 10
+  bazel shutdown
 
   cd ..
   echo; cat repo.bzl; echo
@@ -724,7 +716,7 @@ test_hash_included_and_reproducible() {
   cd fetchrepoA
   create_sample_repository
   bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
-  bazel shutdown; sync; sleep 10
+  bazel shutdown
 
   cd ..
   echo; cat repo.bzl; echo
@@ -754,7 +746,7 @@ EOF
   cd fetchrepoB
   create_sample_repository
   bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=../repo.bzl
-  bazel shutdown; sync; sleep 10
+  bazel shutdown
 
   cd ..
   echo; cat repo.bzl; echo
@@ -787,7 +779,6 @@ time_rule(name="timestamprepo")
 EOF
 
     bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_resolved_file=resolved.bzl
-    sync; sleep 10
     bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir --experimental_repository_hash_file=`pwd`/resolved.bzl \
           --experimental_verify_repository_rules='//:rule.bzl%time_rule' \
           > "${TEST_log}" 2>&1 && fail "expected failure" || :
@@ -928,8 +919,8 @@ EOF
 load("//:rule.bzl", "sleep_rule")
 
 sleep_rule(name="a", sleep=1)
-sleep_rule(name="c", sleep=5)
-sleep_rule(name="b", sleep=10)
+sleep_rule(name="c", sleep=3)
+sleep_rule(name="b", sleep=5)
 EOF
   bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
         --experimental_repository_resolved_file=repo.bzl
@@ -940,8 +931,8 @@ EOF
   cat > WORKSPACE <<'EOF'
 load("//:rule.bzl", "sleep_rule")
 
-sleep_rule(name="a", sleep=20)
-sleep_rule(name="c", sleep=10)
+sleep_rule(name="a", sleep=5)
+sleep_rule(name="c", sleep=3)
 sleep_rule(name="b", sleep=1)
 EOF
   bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
