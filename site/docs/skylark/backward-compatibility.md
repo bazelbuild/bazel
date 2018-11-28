@@ -816,6 +816,12 @@ my_rule = rule(
 
 ### Disable legacy C++ configuration API
 
+**You might want to migrate for this flag together with
+`--incompatible_disable_legacy_flags_cc_toolchain_api` in a single go.
+Migration instructions for
+`--incompatible_disable_legacy_cpp_toolchain_skylark_api` use an API that is
+already deprecated by `--incompatible_disable_legacy_flags_cc_toolchain_api`**
+
 This turns off legacy Starlark access to cc toolchain information via the
 `ctx.fragments.cpp` fragment. Instead of declaring dependency on the `ctx.fragments.cpp` using the
 `fragments` attribute declare a dependency on the `@bazel_tools//tools/cpp:current_cc_toolchain`
