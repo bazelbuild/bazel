@@ -59,7 +59,7 @@ public final class SyncCommand implements BlazeCommand {
   public static final String NAME = "sync";
 
   static final ImmutableSet<String> WHITELISTED_NATIVE_RULES =
-      ImmutableSet.<String>of("local_repository");
+      ImmutableSet.<String>of("local_repository", "new_local_repository");
 
   @Override
   public void editOptions(OptionsParser optionsParser) {}

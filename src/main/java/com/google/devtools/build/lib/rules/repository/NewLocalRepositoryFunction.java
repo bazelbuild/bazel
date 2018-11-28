@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -109,6 +112,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     fileHandler.finishFile(rule, outputDirectory, markerData);
+    env.getListener().post(resolve(rule, directories));
 
     return RepositoryDirectoryValue.builder().setPath(outputDirectory).setSourceDir(directoryValue);
   }
@@ -116,5 +120,63 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return NewLocalRepositoryRule.class;
+  }
+
+  private static ResolvedEvent resolve(Rule rule, BlazeDirectories directories) {
+    String name = rule.getName();
+    Object pathObj = rule.getAttributeContainer().getAttr("path");
+    ImmutableMap.Builder<String, Object> origAttr =
+        ImmutableMap.<String, Object>builder().put("name", name).put("path", pathObj);
+
+    StringBuilder repr =
+        new StringBuilder()
+            .append("new_local_repository(name = ")
+            .append(Printer.getPrinter().repr(name))
+            .append(", path = ")
+            .append(Printer.getPrinter().repr(pathObj));
+
+    Object buildFileObj = rule.getAttributeContainer().getAttr("build_file");
+    if ((buildFileObj instanceof String) && ((String) buildFileObj).length() > 0) {
+      // Build fiels might refer to an embedded file (as they to for "local_jdk"),
+      // so we have to describe the argument in a portable way.
+      origAttr.put("build_file", buildFileObj);
+      String buildFileArg;
+      PathFragment pathFragment = PathFragment.create((String) buildFileObj);
+      PathFragment embeddedDir = directories.getEmbeddedBinariesRoot().asFragment();
+      if (pathFragment.isAbsolute() && pathFragment.startsWith(embeddedDir)) {
+        buildFileArg =
+            "__embedded_dir__ + \"/\" + "
+                + Printer.getPrinter().repr(pathFragment.relativeTo(embeddedDir).toString());
+      } else {
+        buildFileArg = Printer.getPrinter().repr(buildFileObj).toString();
+      }
+      repr.append(", build_file = ").append(buildFileArg);
+    } else {
+      Object buildFileContentObj = rule.getAttributeContainer().getAttr("build_file_content");
+      if (buildFileContentObj != null) {
+        origAttr.put("build_file_content", buildFileContentObj);
+        repr.append(", build_file_content = ")
+            .append(Printer.getPrinter().repr(buildFileContentObj));
+      }
+    }
+
+    String nativeCommand = repr.append(")").toString();
+    ImmutableMap<String, Object> orig = origAttr.build();
+
+    return new ResolvedEvent() {
+      @Override
+      public String getName() {
+        return name;
+      }
+
+      @Override
+      public Object getResolvedInformation() {
+        return ImmutableMap.<String, Object>builder()
+            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "new_local_repository")
+            .put(ResolvedHashesFunction.ORIGINAL_ATTRIBUTES, orig)
+            .put(ResolvedHashesFunction.NATIVE, nativeCommand)
+            .build();
+      }
+    };
   }
 }

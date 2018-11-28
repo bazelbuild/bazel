@@ -966,17 +966,22 @@ test_non_starlarkrepo() {
   echo Hello World > local/data.txt
   echo 'exports_files(["data.txt"])' > local/BUILD
 
+  mkdir newlocal
+  echo Pure data > newlocal/data.txt
+
   mkdir main
   cd main
   cat > WORKSPACE <<'EOF'
 local_repository(name="thisislocal", path="../local")
+new_local_repository(name="newlocal", path="../newlocal",
+                     build_file_content='exports_files(["data.txt"])')
 EOF
   cat > BUILD <<'EOF'
 genrule(
   name = "it",
-  srcs = ["@thisislocal//:data.txt"],
+  srcs = ["@thisislocal//:data.txt", "@newlocal//:data.txt"],
   outs = ["it.txt"],
-  cmd = "cp $< $@",
+  cmd = "cat $(SRCS) > $@",
 )
 EOF
 
