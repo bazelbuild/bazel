@@ -26,15 +26,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link ExperimentalEventHandler} static methods. */
+/** Tests for {@link LocationPrinter} static methods. */
 @RunWith(JUnit4.class)
-public class ExperimentalEventHandlerTest {
+public class LocationPrinterTest {
   private final FileSystem fileSystem = new InMemoryFileSystem();
 
   @Test
   public void getRelativeLocationString_PathIsAlreadyRelative() {
     assertThat(
-            ExperimentalEventHandler.getRelativeLocationString(
+            LocationPrinter.getRelativeLocationString(
                 Location.fromPathAndStartColumn(
                     PathFragment.create("relative/path"), 0, 0, new LineAndColumn(4, 2)),
                 PathFragment.create("/this/is/the/workspace"),
@@ -46,7 +46,7 @@ public class ExperimentalEventHandlerTest {
   @Test
   public void getRelativeLocationString_PathIsAbsoluteAndWorkspaceIsNull() {
     assertThat(
-            ExperimentalEventHandler.getRelativeLocationString(
+        LocationPrinter.getRelativeLocationString(
                 Location.fromPathAndStartColumn(
                     PathFragment.create("/absolute/path"), 0, 0, new LineAndColumn(4, 2)),
                 null,
@@ -58,7 +58,7 @@ public class ExperimentalEventHandlerTest {
   @Test
   public void getRelativeLocationString_PathIsAbsoluteButNotUnderWorkspaceOrPackagePathRoots() {
     assertThat(
-            ExperimentalEventHandler.getRelativeLocationString(
+        LocationPrinter.getRelativeLocationString(
                 Location.fromPathAndStartColumn(
                     PathFragment.create("/absolute/path"), 0, 0, new LineAndColumn(4, 2)),
                 PathFragment.create("/this/is/the/workspace"),
@@ -70,7 +70,7 @@ public class ExperimentalEventHandlerTest {
   @Test
   public void getRelativeLocationString_PathIsAbsoluteAndUnderWorkspace() {
     assertThat(
-            ExperimentalEventHandler.getRelativeLocationString(
+        LocationPrinter.getRelativeLocationString(
                 Location.fromPathAndStartColumn(
                     PathFragment.create("/this/is/the/workspace/blah.txt"),
                     0,
@@ -85,7 +85,7 @@ public class ExperimentalEventHandlerTest {
   @Test
   public void getRelativeLocationString_PathIsAbsoluteAndUnderPackagePathRoot() {
     assertThat(
-        ExperimentalEventHandler.getRelativeLocationString(
+        LocationPrinter.getRelativeLocationString(
             Location.fromPathAndStartColumn(
                 PathFragment.create("/this/is/a/package/path/root3/blah.txt"),
                 0,

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -113,8 +114,9 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
   private boolean previousLineErasable = false;
   private int numLinesPreviousErasable = 0;
 
-  public FancyTerminalEventHandler(OutErr outErr, BlazeCommandEventHandler.Options options) {
-    super(outErr, options);
+  public FancyTerminalEventHandler(
+      OutErr outErr, BlazeCommandEventHandler.Options options, PathFragment workspacePathFragment) {
+    super(outErr, options, workspacePathFragment);
     this.terminal = new AnsiTerminal(outErr.getErrorStream());
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     useColor = options.useColor();
@@ -463,7 +465,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
       terminal.writeString(timestamp());
     }
     if (event.getLocation() != null) {
-      terminal.writeString(event.getLocation() + ": ");
+      terminal.writeString(locationPrinter.getLocationString(event.getLocation()) + ": ");
     }
   }
 

@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -607,19 +608,18 @@ public class BlazeCommandDispatcher {
   /** Returns the event handler to use for this Blaze command. */
   private EventHandler createEventHandler(
       OutErr outErr, BlazeCommandEventHandler.Options eventOptions) {
+    Path workspacePath = runtime.getWorkspace().getDirectories().getWorkspace();
+    PathFragment workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
     EventHandler eventHandler;
     if (eventOptions.experimentalUi) {
       // The experimental event handler is not to be rate limited, so don't wrap it in a
       // RateLimitingEventHandler.
       return new ExperimentalEventHandler(
-          outErr,
-          eventOptions,
-          runtime.getClock(),
-          runtime.getWorkspace().getDirectories().getWorkspace());
+          outErr, eventOptions, runtime.getClock(), workspacePathFragment);
     } else if ((eventOptions.useColor() || eventOptions.useCursorControl())) {
-      eventHandler = new FancyTerminalEventHandler(outErr, eventOptions);
+      eventHandler = new FancyTerminalEventHandler(outErr, eventOptions, workspacePathFragment);
     } else {
-      eventHandler = new BlazeCommandEventHandler(outErr, eventOptions);
+      eventHandler = new BlazeCommandEventHandler(outErr, eventOptions, workspacePathFragment);
     }
 
     return RateLimitingEventHandler.create(eventHandler, eventOptions.showProgressRateLimit);

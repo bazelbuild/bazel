@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -53,7 +51,6 @@ import com.google.devtools.build.lib.util.io.LoggingTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -97,6 +94,7 @@ public class ExperimentalEventHandler implements EventHandler {
   private final AnsiTerminal terminal;
   private final boolean debugAllEvents;
   private final ExperimentalStateTracker stateTracker;
+  private final LocationPrinter locationPrinter;
   private final boolean showProgress;
   private final boolean progressInTermTitle;
   private final boolean showTimestamp;
@@ -116,10 +114,6 @@ public class ExperimentalEventHandler implements EventHandler {
   private byte[] stderrBuffer;
   private final Set<String> messagesSeen;
   private long deduplicateCount;
-  private final boolean attemptToPrintRelativePaths;
-  @Nullable private final PathFragment workspacePathFragment;
-  private final AtomicReference<ImmutableList<Root>> packagePathRootsRef =
-      new AtomicReference<>(ImmutableList.of());
 
   private final long outputLimit;
   private long reservedOutputCapacity;
@@ -223,7 +217,7 @@ public class ExperimentalEventHandler implements EventHandler {
       OutErr outErr,
       BlazeCommandEventHandler.Options options,
       Clock clock,
-      @Nullable Path workspacePath) {
+      @Nullable PathFragment workspacePathFragment) {
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.outputLimit = options.experimentalUiLimitConsoleOutput;
     this.counter = new AtomicLong(outputLimit);
@@ -256,8 +250,8 @@ public class ExperimentalEventHandler implements EventHandler {
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
     this.deduplicate = options.experimentalUiDeduplicate;
     this.messagesSeen = new HashSet<>();
-    this.attemptToPrintRelativePaths = options.experimentalUiAttemptToPrintRelativePaths;
-    this.workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
+    this.locationPrinter =
+        new LocationPrinter(options.attemptToPrintRelativePaths, workspacePathFragment);
     // If we have cursor control, we try to fit in the terminal width to avoid having
     // to wrap the progress bar. We will wrap the progress bar to terminalWidth - 1
     // characters to avoid depending on knowing whether the underlying terminal does the
@@ -478,10 +472,7 @@ public class ExperimentalEventHandler implements EventHandler {
             incompleteLine = true;
             Location location = event.getLocation();
             if (location != null) {
-              String locationString = attemptToPrintRelativePaths
-                  ? getRelativeLocationString(location)
-                  : location.toString();
-              terminal.writeString(locationString + ": ");
+              terminal.writeString(locationPrinter.getLocationString(location) + ": ");
             }
             if (event.getMessage() != null) {
               terminal.writeString(event.getMessage());
@@ -523,37 +514,6 @@ public class ExperimentalEventHandler implements EventHandler {
     } catch (IOException e) {
       logger.warning("IO Error writing to output stream: " + e);
     }
-  }
-
-  @Subscribe
-  public void packageLocatorCreated(PathPackageLocator packageLocator) {
-    packagePathRootsRef.set(packageLocator.getPathEntries());
-  }
-
-  private String getRelativeLocationString(Location location) {
-    return getRelativeLocationString(location, workspacePathFragment, packagePathRootsRef.get());
-  }
-
-  @VisibleForTesting
-  static String getRelativeLocationString(
-      Location location,
-      @Nullable PathFragment workspacePathFragment,
-      ImmutableList<Root> packagePathRoots) {
-    PathFragment relativePathToUse = null;
-    PathFragment locationPathFragment = location.getPath();
-    if (locationPathFragment.isAbsolute()) {
-      if (workspacePathFragment != null && locationPathFragment.startsWith(workspacePathFragment)) {
-        relativePathToUse = locationPathFragment.relativeTo(workspacePathFragment);
-      } else {
-        for (Root packagePathRoot : packagePathRoots) {
-          if (packagePathRoot.contains(locationPathFragment)) {
-            relativePathToUse = packagePathRoot.relativize(locationPathFragment);
-            break;
-          }
-        }
-      }
-    }
-    return relativePathToUse == null ? location.print() : location.printWithPath(relativePathToUse);
   }
 
   private void setEventKindColor(EventKind kind) throws IOException {
@@ -748,6 +708,11 @@ public class ExperimentalEventHandler implements EventHandler {
         logger.warning("IO Error writing to output stream: " + e);
       }
     }
+  }
+
+  @Subscribe
+  public void packageLocatorCreated(PathPackageLocator packageLocator) {
+    locationPrinter.packageLocatorCreated(packageLocator);
   }
 
   @Subscribe
