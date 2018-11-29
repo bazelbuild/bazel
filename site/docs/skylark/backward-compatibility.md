@@ -440,7 +440,7 @@ Notably
 *   sha1 is no longer supported, only sha256 is
 *   the `server_urls` attribute is mandatory. If your `maven_jar` rule did not specify a url
     then you should use the default server ("http://central.maven.org/maven2"). If your rule
-    did specify a url then keep using that one. 
+    did specify a url then keep using that one.
 
 Documentation for the rule is
 [here](https://source.bazel.build/bazel/+/master:tools/build_defs/repo/java.bzl;l=15).
