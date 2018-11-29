@@ -417,10 +417,30 @@ Given a `WORKSPACE` file that looks like the following:
 
 ```python
 maven_jar(
+    name = "truth",
+    artifact = "com.google.truth:truth:0.30",
+    sha1 = "9d591b5a66eda81f0b88cf1c748ab8853d99b18b",
+)
+```
 
+It will need to look like this after updating:
+```python
+load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
+jvm_maven_import_external(
+    name = "truth",
+    artifact = "com.google.truth:truth:0.30",
+    artifact_sha256 = "59721f0805e223d84b90677887d9ff567dc534d7c502ca903c0c2b17f05c116a",
+    server_urls = ["http://central.maven.org/maven2"],
+    licenses = ["notice"],  # Apache 2.0
+)
+```
 
-This rule allows you to specify the `artifact` attribute like in the native
-`maven_jar` rule.
+Notably
+*   the `licenses` attribute is mandatory
+*   sha1 is no longer supported, only sha256 is
+*   the `server_urls` attribute is mandatory. If your `maven_jar` rule did not specify a url
+    then you should use the default server ("http://central.maven.org/maven2"). If your rule
+    did specify a url then keep using that one. 
 
 Documentation for the rule is
 [here](https://source.bazel.build/bazel/+/master:tools/build_defs/repo/java.bzl;l=15).
