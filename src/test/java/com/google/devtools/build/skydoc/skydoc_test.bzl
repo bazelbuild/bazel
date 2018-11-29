@@ -21,7 +21,7 @@
 """Convenience macro for skydoc tests."""
 
 load("@bazel_skylib//:skylark_library.bzl", "skylark_library")
-load("@skydoc//skylark:stardoc.bzl", "stardoc")
+load("@skydoc//stardoc:stardoc.bzl", "stardoc")
 
 def skydoc_test(name, input_file, golden_file, skydoc, deps = [], whitelisted_symbols = []):
     """Creates a test target and golden-file regeneration target for skydoc testing.

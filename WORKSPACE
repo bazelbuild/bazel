@@ -195,19 +195,19 @@ http_file(
 
 http_archive(
     name = "bazel_skylib",
-    sha256 = "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14",
-    strip_prefix = "bazel-skylib-7490380c6bbf9a5a060df78dc2222e7de6ffae5c",
+    sha256 = "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
+    strip_prefix = "bazel-skylib-f83cb8dd6f5658bc574ccd873e25197055265d1c",
     urls = [
-        "https://github.com/bazelbuild/bazel-skylib/archive/7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
     ],
 )
 
 http_archive(
     name = "skydoc",
-    sha256 = "cfbfcc107f5c9853dc5b2b81f1fe90fc326bd1c61f76c9aac2b4201dff75b91d",
-    strip_prefix = "skydoc-d34c44c3f4102eb94beaf2636c6cf532f0ec1ee8",
+    sha256 = "4db9fc4f5f69c220816c6d0b16e9956e7da2be8c85e83793661c0f4723e88d81",
+    strip_prefix = "skydoc-7a08959b9d00c9ba592c1a1db145dffcf6c0b6bf",
     urls = [
-        "https://github.com/bazelbuild/skydoc/archive/d34c44c3f4102eb94beaf2636c6cf532f0ec1ee8.tar.gz",
+        "https://github.com/bazelbuild/skydoc/archive/7a08959b9d00c9ba592c1a1db145dffcf6c0b6bf.tar.gz",
     ],
 )
 
