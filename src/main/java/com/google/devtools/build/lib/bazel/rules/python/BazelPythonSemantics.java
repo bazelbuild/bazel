@@ -128,7 +128,11 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public Artifact createExecutable(
-      RuleContext ruleContext, PyCommon common, CcInfo ccInfo, NestedSet<String> imports)
+      RuleContext ruleContext,
+      PyCommon common,
+      CcInfo ccInfo,
+      NestedSet<String> imports,
+      Runfiles.Builder runfilesBuilder)
       throws InterruptedException {
     String main = common.determineMainExecutableSource(/*withWorkspaceName=*/ true);
     Artifact executable = common.getExecutable();

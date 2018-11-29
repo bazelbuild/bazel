@@ -15,6 +15,12 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.cpp.ExtraLinkTimeLibrary.BuildLibraryOutput;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Collection;
@@ -96,5 +102,19 @@ public final class ExtraLinkTimeLibraries {
       libraries.get(c).addTransitive(b);
       return this;
     }
+  }
+
+  public BuildLibraryOutput buildLibraries(
+      RuleContext ruleContext, boolean staticMode, boolean forDynamicLibrary)
+      throws InterruptedException, RuleErrorException {
+    NestedSetBuilder<LibraryToLink> librariesToLink = NestedSetBuilder.linkOrder();
+    NestedSetBuilder<Artifact> runtimeLibraries = NestedSetBuilder.linkOrder();
+    for (ExtraLinkTimeLibrary extraLibrary : getExtraLibraries()) {
+      BuildLibraryOutput buildLibraryOutput =
+          extraLibrary.buildLibraries(ruleContext, staticMode, forDynamicLibrary);
+      librariesToLink.addTransitive(buildLibraryOutput.getLibrariesToLink());
+      runtimeLibraries.addTransitive(buildLibraryOutput.getRuntimeLibraries());
+    }
+    return new BuildLibraryOutput(librariesToLink.build(), runtimeLibraries.build());
   }
 }

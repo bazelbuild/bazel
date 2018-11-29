@@ -159,7 +159,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CcLinkingOutputs ccLibraryLinkingOutputs,
       CcCompilationContext ccCompilationContext,
       Link.LinkingMode linkingMode,
-      NestedSet<Artifact> filesToBuild,
+      NestedSet<Artifact> transitiveArtifacts,
       Iterable<Artifact> fakeLinkerInputs,
       boolean fake,
       ImmutableSet<CppSource> cAndCppSources,
@@ -170,7 +170,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext.getConfiguration().legacyExternalRunfiles());
     Function<TransitiveInfoCollection, Runfiles> runfilesMapping =
         CppHelper.runfilesFunction(ruleContext, linkingMode != Link.LinkingMode.DYNAMIC);
-    builder.addTransitiveArtifacts(filesToBuild);
+    builder.addTransitiveArtifacts(transitiveArtifacts);
     // Add the shared libraries to the runfiles. This adds any shared libraries that are in the
     // srcs of this target.
     builder.addArtifacts(linkingOutputs.getLibrariesForRunfiles(true));
@@ -394,6 +394,20 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       pdbFile = ruleContext.getRelatedArtifact(binary.getRootRelativePath(), ".pdb");
     }
 
+    NestedSetBuilder<LibraryToLink> extraLinkTimeLibraries = NestedSetBuilder.linkOrder();
+    NestedSetBuilder<Artifact> extraLinkTimeRuntimeLibraries = NestedSetBuilder.linkOrder();
+
+    if (linkParams.getExtraLinkTimeLibraries() != null) {
+      ExtraLinkTimeLibrary.BuildLibraryOutput extraLinkBuildLibraryOutput =
+          linkParams
+              .getExtraLinkTimeLibraries()
+              .buildLibraries(
+                  ruleContext, linkingMode != LinkingMode.DYNAMIC, isLinkShared(ruleContext));
+      extraLinkTimeLibraries.addTransitive(extraLinkBuildLibraryOutput.getLibrariesToLink());
+      extraLinkTimeRuntimeLibraries.addTransitive(
+          extraLinkBuildLibraryOutput.getRuntimeLibraries());
+    }
+
     Pair<CcLinkingOutputs, Pair<CcLinkingInfo, CcCompilationOutputs>>
         ccLinkingOutputsAndCcLinkingInfo =
             createTransitiveLinkingActions(
@@ -409,6 +423,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 fake,
                 binary,
                 linkParams,
+                extraLinkTimeLibraries.build(),
                 linkCompileOutputSeparately,
                 semantics,
                 linkingMode,
@@ -508,7 +523,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ccLinkingOutputs,
             ccCompilationContext,
             linkingMode,
-            filesToBuild,
+            NestedSetBuilder.<Artifact>stableOrder()
+                .addTransitive(filesToBuild)
+                .addTransitive(extraLinkTimeRuntimeLibraries.build())
+                .build(),
             fakeLinkerInputs,
             fake,
             compilationHelper.getCompilationUnitSources(),
@@ -578,6 +596,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           boolean fake,
           Artifact binary,
           CcLinkParams linkParams,
+          NestedSet<LibraryToLink> extraLinkTimeLibraries,
           boolean linkCompileOutputSeparately,
           CppSemantics cppSemantics,
           LinkingMode linkingMode,
@@ -606,6 +625,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext.getConfiguration());
 
     CcLinkParams.Builder ccLinkParamsBuilder = CcLinkParams.builder();
+    ccLinkParamsBuilder.addLibraries(extraLinkTimeLibraries);
     ccLinkParamsBuilder.addTransitiveArgs(linkParams);
 
     if (linkCompileOutputSeparately) {
