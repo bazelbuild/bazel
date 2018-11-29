@@ -63,6 +63,7 @@ External repositories
 
 *   [Remove native git repository](#remove-native-git-repository)
 *   [Remove native http archive](#remove-native-http-archive)
+*   [Remove native maven jar](#remove-native-maven-jar)
 
 Java
 
@@ -393,6 +394,61 @@ parameter, not `url`).
 
 *   Flag: `--incompatible_remove_native_http_archive`
 *   Default: `true`
+
+### Remove native maven jar
+
+When set, the native `maven_jar` rule is disabled. The Starlark version
+
+```python
+load("@bazel_tools//tools/build_defs/repo:java.bzl", "java_import_external")
+```
+
+or the convenience wrapper
+
+```python
+load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
+```
+
+should be used instead. These rules are more reliable and offer additional
+functionality over the native `maven_jar` rule. In addition to downloading
+the jars, they allow defining the jar's dependencies. They also enable
+downloading src-jars.
+
+Given a `WORKSPACE` file that looks like the following:
+
+```python
+maven_jar(
+    name = "truth",
+    artifact = "com.google.truth:truth:0.30",
+    sha1 = "9d591b5a66eda81f0b88cf1c748ab8853d99b18b",
+)
+```
+
+It will need to look like this after updating:
+```python
+load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
+jvm_maven_import_external(
+    name = "truth",
+    artifact = "com.google.truth:truth:0.30",
+    artifact_sha256 = "59721f0805e223d84b90677887d9ff567dc534d7c502ca903c0c2b17f05c116a",
+    server_urls = ["http://central.maven.org/maven2"],
+    licenses = ["notice"],  # Apache 2.0
+)
+```
+
+Notably
+*   the `licenses` attribute is mandatory
+*   sha1 is no longer supported, only sha256 is
+*   the `server_urls` attribute is mandatory. If your `maven_jar` rule
+    did not specify a url then you should use the default server
+    ("http://central.maven.org/maven2"). If your rule did specify a url then
+    keep using that one.
+
+Documentation for the rule is
+[here](https://source.bazel.build/bazel/+/master:tools/build_defs/repo/java.bzl;l=15).
+
+*   Flag: `--incompatible_remove_native_maven_jar`
+*   Default: `false`
 
 ### New-style JavaInfo constructor
 

@@ -153,6 +153,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_range_type=" + rand.nextBoolean(),
         "--incompatible_remove_native_git_repository=" + rand.nextBoolean(),
         "--incompatible_remove_native_http_archive=" + rand.nextBoolean(),
+        "--incompatible_remove_native_maven_jar=" + rand.nextBoolean(),
         "--incompatible_static_name_resolution=" + rand.nextBoolean(),
         "--incompatible_strict_argument_ordering=" + rand.nextBoolean(),
         "--incompatible_string_is_not_iterable=" + rand.nextBoolean(),
@@ -199,6 +200,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleRangeType(rand.nextBoolean())
         .incompatibleRemoveNativeGitRepository(rand.nextBoolean())
         .incompatibleRemoveNativeHttpArchive(rand.nextBoolean())
+        .incompatibleRemoveNativeMavenJar(rand.nextBoolean())
         .incompatibleStaticNameResolution(rand.nextBoolean())
         .incompatibleStricArgumentOrdering(rand.nextBoolean())
         .incompatibleStringIsNotIterable(rand.nextBoolean())
