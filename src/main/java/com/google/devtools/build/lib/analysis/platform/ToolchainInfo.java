@@ -33,7 +33,6 @@ import java.util.Map;
  * A provider that supplies information about a specific language toolchain, including what platform
  * constraints are required for execution and for the target platform.
  */
-@AutoCodec
 @Immutable
 public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
@@ -65,7 +64,6 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
         }
       };
 
-  @AutoCodec.Instantiator
   public ToolchainInfo(Map<String, Object> values, Location location) {
     super(PROVIDER, ImmutableMap.copyOf(values), location);
   }
