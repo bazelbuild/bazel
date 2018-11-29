@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -132,20 +131,16 @@ public class ExternalPackageUtil {
       final Environment env) throws InterruptedException {
     RootedPath workspacePath = getWorkspacePath(env);
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
-    Map<String, RepositoryName> map = Maps.newHashMap();
-    // do {
-      WorkspaceFileValue value = (WorkspaceFileValue) env.getValue(workspaceKey);
-      if (value == null) {
-        return null;
-      }
-      Package externalPackage = value.getPackage();
-      if (externalPackage.containsErrors()) {
-        // todo (ichern, prototype) exception kind
-        throw new IllegalStateException("Could not load //external package");
-      }
-      map.putAll(externalPackage.getRefreshRootsToRepository());
-      // workspaceKey = value.next();
-    // } while (workspaceKey != null);
+    WorkspaceFileValue value = (WorkspaceFileValue) env.getValue(workspaceKey);
+    if (value == null) {
+      return null;
+    }
+    Package externalPackage = value.getPackage();
+    if (externalPackage.containsErrors()) {
+      // todo (ichern, prototype) exception kind
+      throw new IllegalStateException("Could not load //external package");
+    }
+    Map<String, RepositoryName> map = externalPackage.getRefreshRootsToRepository();
     return ImmutableMap.copyOf(map.keySet().stream()
         .collect(Collectors.toMap(PathFragment::create, map::get)));
   }
@@ -155,27 +150,21 @@ public class ExternalPackageUtil {
       final FileType fileType, final RootedPath rootedPath)
       throws InterruptedException {
     if (fileType == FileType.INTERNAL) {
+      // Only black listed files and directories may be refreshed by external repositories
       if (!Boolean.TRUE.equals(isUnderBlacklisted(env, rootedPath))) {
         return null;
       }
     }
 
-    // We can further optimize here to accumulate additional information
-    // if we should look into external files at all.
-    // In the case of node_modules, we shouldn't.
-    // Also, there may be enough to check only for exact match, since
-    // the files under a directory are calculated only after the directory,
-    // and the directory should be already checked for being a refresh root.
+    // this can be a SkyValue itself
     ImmutableMap<PathFragment, RepositoryName> patternsMap = getRefreshRootsToRepositories(env);
     if (patternsMap == null) {
       return null;
     }
-    for (PathFragment pattern : patternsMap.keySet()) {
-      if (startsWithFragment(rootedPath, pattern)) {
-        return patternsMap.get(pattern);
-      }
-    }
-    return null;
+    // It is enough to check only for exact match, since
+    // the files under a directory are calculated only after the directory,
+    // and the directory should be already checked for being a refresh root.
+    return patternsMap.get(rootedPath.getRootRelativePath());
   }
 
   private static Boolean isUnderBlacklisted(final Environment env, final RootedPath rootedPath)
@@ -194,7 +183,7 @@ public class ExternalPackageUtil {
   }
 
   private static boolean startsWithFragment(RootedPath rootedPath, PathFragment fragment) {
-    return rootedPath.getRootRelativePath().startsWith(fragment) ||
-        fragment.isAbsolute() && rootedPath.asPath().asFragment().startsWith(fragment);
+    // if the path is under the workspace, should be relative; otherwise absolute
+    return rootedPath.getRootRelativePath().startsWith(fragment);
   }
 }
