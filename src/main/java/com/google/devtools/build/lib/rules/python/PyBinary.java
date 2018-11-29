@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcModule.NonCcDepInfo;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.ArrayList;
 import java.util.List;
@@ -128,8 +127,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(common.getFilesToBuild())
         .add(RunfilesProvider.class, runfilesProvider)
         .setRunfilesSupport(runfilesSupport, realExecutable)
-        .addNativeDeclaredProvider(ccInfo)
-        .addNativeDeclaredProvider(new NonCcDepInfo())
+        .addNativeDeclaredProvider(new PyCcLinkParamsProvider(ccInfo))
         .add(PythonImportsProvider.class, new PythonImportsProvider(imports));
   }
 

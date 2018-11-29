@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.cpp.CcModule.NonCcDepInfo;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -81,8 +80,8 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
     return builder
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(
-            semantics.buildCcInfoProvider(ruleContext.getPrerequisites("deps", Mode.TARGET)))
-        .addNativeDeclaredProvider(new NonCcDepInfo())
+            new PyCcLinkParamsProvider(
+                semantics.buildCcInfoProvider(ruleContext.getPrerequisites("deps", Mode.TARGET))))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfilesBuilder.build()))
         .add(PythonImportsProvider.class, new PythonImportsProvider(imports))
         .build();
