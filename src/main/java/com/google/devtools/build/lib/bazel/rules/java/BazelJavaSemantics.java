@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcModule.NonCcDepInfo;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
@@ -561,9 +560,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
     // TODO(plf): return empty CcLinkingInfo because deps= in Java targets should not contain C++
     // targets. We need to make sure that no one uses this functionality, though.
-    ruleBuilder
-        .addNativeDeclaredProvider(new NonCcDepInfo())
-        .addNativeDeclaredProvider(CcInfo.merge(ccInfos));
+    ruleBuilder.addNativeDeclaredProvider(new JavaCcLinkParamsProvider(CcInfo.merge(ccInfos)));
   }
 
   // TODO(dmarting): simplify that logic when we remove the legacy Bazel java_test behavior.
