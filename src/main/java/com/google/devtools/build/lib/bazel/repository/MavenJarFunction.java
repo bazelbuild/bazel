@@ -109,7 +109,8 @@ public class MavenJarFunction extends HttpArchiveFunction {
           new EvalException(
               null,
               "The native maven_jar rule is deprecated."
-                  + " See ."
+                  + " See https://docs.bazel.build/versions/master/skylark/"
+                  + "backward-compatibility.html#remove-native-maven-jar for migration information."
                   + "\nUse --incompatible_remove_native_maven_jar=false to temporarily continue"
                   + " using the native rule."),
           Transience.PERSISTENT);
