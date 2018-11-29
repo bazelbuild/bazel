@@ -462,6 +462,8 @@ public class StandaloneTestStrategy extends TestStrategy {
     args.add(Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()));
     args.add(Integer.toString(result.exitCode()));
 
+    String testBinaryName =
+        action.getExecutionSettings().getExecutable().getRootRelativePath().getCallablePathString();
     return new SimpleSpawn(
         action,
         ImmutableList.copyOf(args),
@@ -469,7 +471,8 @@ public class StandaloneTestStrategy extends TestStrategy {
             "PATH", "/usr/bin:/bin",
             "TEST_SHARD_INDEX", Integer.toString(action.getShardNum()),
             "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()),
-            "TEST_NAME", action.getTestName()),
+            "TEST_NAME", action.getTestName(),
+            "TEST_BINARY", testBinaryName),
         ImmutableMap.of(),
         null,
         ImmutableMap.of(),
