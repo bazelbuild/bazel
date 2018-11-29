@@ -109,7 +109,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
           new EvalException(
               null,
               "The native maven_jar rule is deprecated."
-                  + " add details about replacement here."
+                  + " See ."
                   + "\nUse --incompatible_remove_native_maven_jar=false to temporarily continue"
                   + " using the native rule."),
           Transience.PERSISTENT);
