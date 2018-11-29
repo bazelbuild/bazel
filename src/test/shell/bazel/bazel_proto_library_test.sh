@@ -371,14 +371,14 @@ EOF
 function test_proto_source_root() {
   write_workspace ""
   write_setup "proto_library" "proto_source_root = 'x/person'" ""
-  bazel build //x/person:person_proto > "$TEST_log" || fail "Expected success"
+  bazel build --noincompatible_package_name_is_a_function //x/person:person_proto > "$TEST_log" || fail "Expected success"
 }
 
 function test_proto_source_root_fails() {
   write_workspace ""
   # Don't specify the "proto_source_root" attribute and expect failure.
   write_setup "proto_library" "" ""
-  bazel build //x/person:person_proto >& "$TEST_log"  && fail "Expected failure"
+  bazel build --noincompatible_package_name_is_a_function //x/person:person_proto >& "$TEST_log"  && fail "Expected failure"
   expect_log "phonenumber/phonenumber.proto: File not found."
 }
 
@@ -386,7 +386,7 @@ function test_proto_source_root_macro() {
   write_workspace ""
   write_macro
   write_setup "proto_library_macro" "" "load('//macros:proto_library_macro.bzl', 'proto_library_macro')"
-  bazel build //x/person:person_proto > "$TEST_log" || fail "Expected success"
+  bazel build --noincompatible_package_name_is_a_function //x/person:person_proto > "$TEST_log" || fail "Expected success"
 }
 
 # Fails with "IllegalArgumentException: external/lcocal_jdk in
@@ -395,20 +395,20 @@ function DISABLED_test_proto_source_root_with_java_library() {
   write_workspace ""
   write_setup "proto_library" "proto_source_root = 'x/person'" ""
   write_java_library
-  bazel build //java/com/google/src:top \
+  bazel build --noincompatible_package_name_is_a_function //java/com/google/src:top \
       --strict_java_deps=off > "$TEST_log"  || fail "Expected success"
 }
 
 function test_proto_source_root_glob() {
   write_workspace ""
   write_regression_setup
-  bazel build //proto_library/src:all >& "$TEST_log" || fail "Expected success"
+  bazel build --noincompatible_package_name_is_a_function //proto_library/src:all >& "$TEST_log" || fail "Expected success"
 }
 
 function test_proto_source_root_glob() {
   write_workspace ""
   write_regression_setup
-  bazel build //proto_library/src:all --strict_proto_deps=off >& "$TEST_log" \
+  bazel build --noincompatible_package_name_is_a_function //proto_library/src:all --strict_proto_deps=off >& "$TEST_log" \
       || fail "Expected success"
 }
 
@@ -419,7 +419,7 @@ function test_proto_source_root_multiple_workspaces() {
   add_local_repos_to_workspace
   write_workspaces_setup
 
-  bazel build @main_repo//src:all_protos >& "$TEST_log" || fail "Expected success"
+  bazel build --noincompatible_package_name_is_a_function @main_repo//src:all_protos >& "$TEST_log" || fail "Expected success"
 }
 
 run_suite "Integration tests for proto_library"
