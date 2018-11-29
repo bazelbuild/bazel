@@ -51,7 +51,7 @@ import java.util.concurrent.ExecutionException;
 public class BuildRequest implements OptionsProvider {
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
-  private final Map<String, Object> skylarkOptions;
+  private final Map<String, Object> starlarkOptions;
 
   /** A human-readable description of all the non-default option settings. */
   private final String optionsDescription;
@@ -107,17 +107,16 @@ public class BuildRequest implements OptionsProvider {
             return Optional.fromNullable(result);
           }
         });
-    this.skylarkOptions = options.getSkylarkOptions();
+    this.starlarkOptions = options.getStarlarkOptions();
 
     for (Class<? extends OptionsBase> optionsClass : MANDATORY_OPTIONS) {
       Preconditions.checkNotNull(getOptions(optionsClass));
     }
   }
 
-
   @Override
-  public Map<String, Object> getSkylarkOptions() {
-    return skylarkOptions;
+  public Map<String, Object> getStarlarkOptions() {
+    return starlarkOptions;
   }
 
   /**

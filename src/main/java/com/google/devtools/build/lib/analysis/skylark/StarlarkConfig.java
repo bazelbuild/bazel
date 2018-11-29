@@ -22,14 +22,12 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.packages.BuildSetting;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkConfigApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 
-/**
- * Skylark namespace for creating build settings.
- * TODO(juliexxia): Consider adding more types of build settings, specifically other label types.
- */
-public class SkylarkConfig implements SkylarkConfigApi {
+/** Starlark namespace for creating build settings. */
+// TODO(juliexxia): Consider adding more types of build settings, specifically other label types.
+public class StarlarkConfig implements StarlarkConfigApi {
 
   @Override
   public BuildSetting intSetting(Boolean flag) {

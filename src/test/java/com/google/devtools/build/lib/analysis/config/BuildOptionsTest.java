@@ -187,7 +187,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void optionsDiff_sameSkylarkOptions() throws Exception {
+  public void optionsDiff_sameStarlarkOptions() throws Exception {
     String flagName = "//foo/flag";
     String flagValue = "value";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
@@ -197,7 +197,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void optionsDiff_differentSkylarkOptions() throws Exception {
+  public void optionsDiff_differentStarlarkOptions() throws Exception {
     String flagName = "//bar/flag";
     String flagValueOne = "valueOne";
     String flagValueTwo = "valueTwo";
@@ -207,15 +207,15 @@ public class BuildOptionsTest {
     OptionsDiff diff = BuildOptions.diff(one, two);
 
     assertThat(diff.areSame()).isFalse();
-    assertThat(diff.getSkylarkFirstForTesting().keySet())
-        .isEqualTo(diff.getSkylarkSecondForTesting().keySet());
-    assertThat(diff.getSkylarkFirstForTesting().keySet()).containsExactly(flagName);
-    assertThat(diff.getSkylarkFirstForTesting().values()).containsExactly(flagValueOne);
-    assertThat(diff.getSkylarkSecondForTesting().values()).containsExactly(flagValueTwo);
+    assertThat(diff.getStarlarkFirstForTesting().keySet())
+        .isEqualTo(diff.getStarlarkSecondForTesting().keySet());
+    assertThat(diff.getStarlarkFirstForTesting().keySet()).containsExactly(flagName);
+    assertThat(diff.getStarlarkFirstForTesting().values()).containsExactly(flagValueOne);
+    assertThat(diff.getStarlarkSecondForTesting().values()).containsExactly(flagValueTwo);
   }
 
   @Test
-  public void optionsDiff_extraSkylarkOptions() throws Exception {
+  public void optionsDiff_extraStarlarkOptions() throws Exception {
     String flagNameOne = "//extra/flag/one";
     String flagNameTwo = "//extra/flag/two";
     String flagValue = "foo";
@@ -225,13 +225,13 @@ public class BuildOptionsTest {
     OptionsDiff diff = BuildOptions.diff(one, two);
 
     assertThat(diff.areSame()).isFalse();
-    assertThat(diff.getExtraSkylarkOptionsFirstForTesting()).containsExactly(flagNameOne);
-    assertThat(diff.getExtraSkylarkOptionsSecondForTesting().entrySet())
+    assertThat(diff.getExtraStarlarkOptionsFirstForTesting()).containsExactly(flagNameOne);
+    assertThat(diff.getExtraStarlarkOptionsSecondForTesting().entrySet())
         .containsExactly(Maps.immutableEntry(flagNameTwo, flagValue));
   }
 
   @Test
-  public void applyDiff_sameSkylarkOptions() throws Exception {
+  public void applyDiff_sameStarlarkOptions() throws Exception {
     String flagName = "//foo/flag";
     String flagValue = "value";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
@@ -248,7 +248,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void applyDiff_differentSkylarkOptions() throws Exception {
+  public void applyDiff_differentStarlarkOptions() throws Exception {
     String flagName = "//bar/flag";
     String flagValueOne = "valueOne";
     String flagValueTwo = "valueTwo";
@@ -262,7 +262,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void applyDiff_extraSkylarkOptions() throws Exception {
+  public void applyDiff_extraStarlarkOptions() throws Exception {
     String flagNameOne = "//extra/flag/one";
     String flagNameTwo = "//extra/flag/two";
     String flagValue = "foo";

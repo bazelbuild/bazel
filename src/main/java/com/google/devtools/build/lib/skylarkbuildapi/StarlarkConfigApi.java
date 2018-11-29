@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 /**
  * The "config" module of the Build API.
  *
- * <p>This exposes methods to describe what kind of build setting (if any) a skylark rule is using
+ * <p>This exposes methods to describe what kind of build setting (if any) a starlark rule is using
  * the {@code build_setting} attr of the {@code rule(...)} function.
  */
 @SkylarkModule(
@@ -46,9 +46,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
             + "    build_setting = config.int(flag = True),\n"
             + "    ...\n"
             + "  )</pre>")
-// TODO(juliexxia): Create formal documentation for skylark build configuration efforts
+// TODO(juliexxia): Create formal documentation for starlark build configuration efforts
 // (b/112545834)
-public interface SkylarkConfigApi extends SkylarkValue {
+public interface StarlarkConfigApi extends SkylarkValue {
 
   static final String FLAG_ARG = "flag";
   static final String FLAG_ARG_DOC =

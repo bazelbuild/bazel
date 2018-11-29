@@ -358,8 +358,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     optionsParser.parse(allArgs);
     optionsParser.parse(args);
 
-    // TODO(juliexxia): when the skylark options parsing work goes in, add type verification here.
-    optionsParser.setSkylarkOptionsForTesting(skylarkOptions);
+    // TODO(juliexxia): when the starlark options parsing work goes in, add type verification here.
+    optionsParser.setStarlarkOptionsForTesting(skylarkOptions);
 
     InvocationPolicyEnforcer optionsPolicyEnforcer =
         getAnalysisMock().getInvocationPolicyEnforcer();

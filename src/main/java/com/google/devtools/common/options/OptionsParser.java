@@ -180,7 +180,7 @@ public class OptionsParser implements OptionsParsingResult {
   private final List<String> residue = new ArrayList<String>();
   private final List<String> postDoubleDashResidue = new ArrayList<>();
   private boolean allowResidue = true;
-  private Map<String, Object> skylarkOptions = new HashMap<>();
+  private Map<String, Object> starlarkOptions = new HashMap<>();
 
   OptionsParser(OptionsData optionsData) {
     impl = new OptionsParserImpl(optionsData);
@@ -197,13 +197,13 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   @Override
-  public Map<String, Object> getSkylarkOptions() {
-    return skylarkOptions;
+  public Map<String, Object> getStarlarkOptions() {
+    return starlarkOptions;
   }
 
   @VisibleForTesting
-  public void setSkylarkOptionsForTesting(Map<String, Object> skylarkOptions) {
-    this.skylarkOptions = skylarkOptions;
+  public void setStarlarkOptionsForTesting(Map<String, Object> starlarkOptions) {
+    this.starlarkOptions = starlarkOptions;
   }
 
   /**
