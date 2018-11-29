@@ -623,7 +623,9 @@ public final class CcCommon {
                 + "'. This will be an error in the future");
       }
       result.add(includesPath);
-      result.add(ruleContext.getConfiguration().getGenfilesFragment().getRelative(includesPath));
+      if (ruleContext.getConfiguration().hasSeparateGenfilesDirectory()) {
+        result.add(ruleContext.getConfiguration().getGenfilesFragment().getRelative(includesPath));
+      }
       result.add(ruleContext.getConfiguration().getBinFragment().getRelative(includesPath));
     }
     return result;

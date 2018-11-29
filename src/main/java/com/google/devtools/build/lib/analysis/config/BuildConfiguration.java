@@ -1445,6 +1445,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
         : OutputDirectory.GENFILES.getRoot(outputDirName, directories, mainRepositoryName);
   }
 
+  public boolean hasSeparateGenfilesDirectory() {
+    return !mergeGenfilesDirectory;
+  }
+
   /**
    * Returns the directory where coverage-related artifacts and metadata files should be stored.
    * This includes for example uninstrumented class files needed for Jacoco's coverage reporting
