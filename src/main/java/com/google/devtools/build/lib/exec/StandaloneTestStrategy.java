@@ -288,32 +288,6 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
   }
 
-  private StandaloneTestResult executeTestAttempt(
-      TestRunnerAction action,
-      Spawn spawn,
-      ActionExecutionContext actionExecutionContext,
-      Path execRoot,
-      Path coverageDir,
-      Path tmpDir,
-      Path workingDirectory)
-      throws IOException, ExecException, InterruptedException {
-    prepareFileSystem(action, tmpDir, coverageDir, workingDirectory);
-
-    Path out = actionExecutionContext.getInputPath(action.getTestLog());
-    Path err = action.resolve(execRoot).getTestStderr();
-    StandaloneTestResult standaloneTestResult = null;
-    try (FileOutErr fileOutErr = new FileOutErr(out, err)) {
-      standaloneTestResult =
-          executeTest(action, spawn, actionExecutionContext.withFileOutErr(fileOutErr));
-      if (!fileOutErr.hasRecordedOutput()) {
-        // Touch the output file so that test.log can get created.
-        FileSystemUtils.touchFile(fileOutErr.getOutputPath());
-      }
-    }
-    appendStderr(out, err);
-    return standaloneTestResult;
-  }
-
   private Map<String, String> setupEnvironment(
       TestRunnerAction action, Map<String, String> clientEnv, Path execRoot, Path runfilesDir,
       Path tmpDir) {
@@ -331,9 +305,17 @@ public class StandaloneTestStrategy extends TestStrategy {
         relativeTmpDir);
   }
 
-  protected StandaloneTestResult executeTest(
-      TestRunnerAction action, Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException, IOException {
+  private StandaloneTestResult executeTestAttempt(
+      TestRunnerAction action,
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext,
+      Path execRoot,
+      Path coverageDir,
+      Path tmpDir,
+      Path workingDirectory)
+      throws IOException, ExecException, InterruptedException {
+    prepareFileSystem(action, tmpDir, coverageDir, workingDirectory);
+
     Closeable streamed = null;
     Path testLogPath = actionExecutionContext.getInputPath(action.getTestLog());
     TestResultData.Builder builder = TestResultData.newBuilder();
@@ -345,7 +327,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     List<SpawnResult> spawnResults = new ArrayList<>();
     BuildEventStreamProtos.TestResult.ExecutionInfo.Builder executionInfo =
         BuildEventStreamProtos.TestResult.ExecutionInfo.newBuilder();
-    try {
+
+    Path out = actionExecutionContext.getInputPath(action.getTestLog());
+    Path err = action.resolve(execRoot).getTestStderr();
+    try (FileOutErr testOutErr = new FileOutErr(out, err)) {
       try {
         if (executionOptions.testOutput.equals(TestOutputFormat.STREAMED)) {
           streamed =
@@ -354,7 +339,8 @@ public class StandaloneTestStrategy extends TestStrategy {
                   testLogPath);
         }
         try {
-          spawnResults.addAll(spawnActionContext.exec(spawn, actionExecutionContext));
+          spawnResults.addAll(
+              spawnActionContext.exec(spawn, actionExecutionContext.withFileOutErr(testOutErr)));
           builder
               .setTestPassed(true)
               .setStatus(BlazeTestStatus.PASSED)
@@ -375,7 +361,14 @@ public class StandaloneTestStrategy extends TestStrategy {
               .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED)
               .addFailedLogs(testLogPath.getPathString());
           spawnResults.add(e.getSpawnResult());
+        } finally {
+          if (!testOutErr.hasRecordedOutput()) {
+            // Make sure that the test.log exists.
+            FileSystemUtils.touchFile(out);
+          }
         }
+        // Append any error output to the test.log. This is very rare.
+        appendStderr(out, err);
         // If the test did not create a test.xml, and --experimental_split_xml_generation is
         // enabled, then we run a separate action to create a test.xml from test.log.
         if (executionOptions.splitXmlGeneration
@@ -384,8 +377,12 @@ public class StandaloneTestStrategy extends TestStrategy {
           SpawnResult result = Iterables.getOnlyElement(spawnResults);
           Spawn xmlGeneratingSpawn = createXmlGeneratingSpawn(action, result);
           // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
-          // the test if this fails.
-          spawnResults.addAll(spawnActionContext.exec(xmlGeneratingSpawn, actionExecutionContext));
+          // the test if this fails. We redirect the output to a temporary file.
+          try (FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr()) {
+            spawnResults.addAll(
+                spawnActionContext.exec(
+                    xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr)));
+          }
         }
       } finally {
         long endTime = actionExecutionContext.getClock().currentTimeMillis();

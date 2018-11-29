@@ -57,6 +57,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -572,7 +573,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     // setup a mock ActionExecutionContext
 
     when(actionExecutionContext.getClock()).thenReturn(BlazeClock.instance());
-    when(actionExecutionContext.withFileOutErr(any()))
+    ArgumentCaptor<FileOutErr> outErrCaptor = ArgumentCaptor.forClass(FileOutErr.class);
+    when(actionExecutionContext.withFileOutErr(outErrCaptor.capture()))
         .thenAnswer(
             new Answer<ActionExecutionContext>() {
               @SuppressWarnings("unchecked")
@@ -657,6 +659,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         .contains(
             "================================================================================");
     assertThat(errPath.exists()).isFalse();
+    assertThat(outErrCaptor.getAllValues()).hasSize(2);
+    assertThat(outErrCaptor.getAllValues()).containsNoDuplicates();
   }
 
   @Test
