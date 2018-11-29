@@ -403,14 +403,21 @@ When set, the native `maven_jar` rule is disabled. The Starlark version
 load("@bazel_tools//tools/build_defs/repo:java.bzl", "java_import_external")
 ```
 
+or the convenience wrapper
+
+```python
+load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
+```
+
 should be used instead. This rule is more reliable and offers additional functionality
 over the native `maven_jar` rule. In addition to downloading the jars, it allows
 to define this jar's dependencies. It also enables downloading src-jars.
 
-There is a convenience wrapper for the rule:
+Given a `WORKSPACE` file that looks like the following:
+
 ```python
-load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
-```
+maven_jar(
+
 
 This rule allows you to specify the `artifact` attribute like in the native
 `maven_jar` rule.
