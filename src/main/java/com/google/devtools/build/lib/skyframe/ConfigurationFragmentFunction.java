@@ -44,18 +44,8 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
     BuildOptions buildOptions = configurationFragmentKey.getBuildOptions();
     ConfigurationFragmentFactory factory = getFactory(configurationFragmentKey.getFragmentType());
     try {
-      Fragment fragment = factory.create(buildOptions);
-
-      if (env.valuesMissing()) {
-        return null;
-      }
-      return new ConfigurationFragmentValue(fragment);
+      return new ConfigurationFragmentValue(factory.create(buildOptions));
     } catch (InvalidConfigurationException e) {
-      // TODO(bazel-team): Rework the control-flow here so that we're not actually throwing this
-      // exception with missing Skyframe dependencies.
-      if (env.valuesMissing()) {
-        return null;
-      }
       throw new ConfigurationFragmentFunctionException(e);
     }
   }
