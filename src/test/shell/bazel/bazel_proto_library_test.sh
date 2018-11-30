@@ -53,11 +53,21 @@ function write_workspace() {
 # depend on @com_google_protobuf for protoc and proto runtimes.
 # This statement defines the @com_google_protobuf repo.
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# skylib is used by protobuf
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "54ee22e5b9f0dd2b42eb8a6c1878dee592cfe8eb33223a7dbbc583a383f6ee1a",
+    strip_prefix = "bazel-skylib-0.6.0",
+    urls = ["https://github.com/bazelbuild/bazel-skylib/archive/0.6.0.zip"],
+    type = "zip",
+)
+
 http_archive(
     name = "com_google_protobuf",
-    sha256 = "cef7f1b5a7c5fba672bec2a319246e8feba471f04dcebfe362d55930ee7c1c30",
-    strip_prefix = "protobuf-3.5.0",
-    urls = ["https://github.com/google/protobuf/archive/v3.5.0.zip"],
+    strip_prefix = "protobuf-7b28271a61a3da0a37f6fda399b0c4c86464e5b3",
+    sha256 = "d625beb4a43304409429a0466bb4fb44c89f7e7d90aeced972b8a61dbe92c80b",
+    urls = ["https://github.com/google/protobuf/archive/7b28271a61a3da0a37f6fda399b0c4c86464e5b3.zip"],  # 2018-11-16
 )
 
 # java_lite_proto_library rules implicitly depend on @com_google_protobuf_javalite//:javalite_toolchain,
@@ -371,14 +381,14 @@ EOF
 function test_proto_source_root() {
   write_workspace ""
   write_setup "proto_library" "proto_source_root = 'x/person'" ""
-  bazel build --noincompatible_package_name_is_a_function //x/person:person_proto > "$TEST_log" || fail "Expected success"
+  bazel build //x/person:person_proto > "$TEST_log" || fail "Expected success"
 }
 
 function test_proto_source_root_fails() {
   write_workspace ""
   # Don't specify the "proto_source_root" attribute and expect failure.
   write_setup "proto_library" "" ""
-  bazel build --noincompatible_package_name_is_a_function //x/person:person_proto >& "$TEST_log"  && fail "Expected failure"
+  bazel build //x/person:person_proto >& "$TEST_log"  && fail "Expected failure"
   expect_log "phonenumber/phonenumber.proto: File not found."
 }
 
@@ -386,7 +396,7 @@ function test_proto_source_root_macro() {
   write_workspace ""
   write_macro
   write_setup "proto_library_macro" "" "load('//macros:proto_library_macro.bzl', 'proto_library_macro')"
-  bazel build --noincompatible_package_name_is_a_function //x/person:person_proto > "$TEST_log" || fail "Expected success"
+  bazel build //x/person:person_proto > "$TEST_log" || fail "Expected success"
 }
 
 # Fails with "IllegalArgumentException: external/lcocal_jdk in
@@ -395,20 +405,20 @@ function DISABLED_test_proto_source_root_with_java_library() {
   write_workspace ""
   write_setup "proto_library" "proto_source_root = 'x/person'" ""
   write_java_library
-  bazel build --noincompatible_package_name_is_a_function //java/com/google/src:top \
+  bazel build //java/com/google/src:top \
       --strict_java_deps=off > "$TEST_log"  || fail "Expected success"
 }
 
 function test_proto_source_root_glob() {
   write_workspace ""
   write_regression_setup
-  bazel build --noincompatible_package_name_is_a_function //proto_library/src:all >& "$TEST_log" || fail "Expected success"
+  bazel build //proto_library/src:all >& "$TEST_log" || fail "Expected success"
 }
 
 function test_proto_source_root_glob() {
   write_workspace ""
   write_regression_setup
-  bazel build --noincompatible_package_name_is_a_function //proto_library/src:all --strict_proto_deps=off >& "$TEST_log" \
+  bazel build //proto_library/src:all --strict_proto_deps=off >& "$TEST_log" \
       || fail "Expected success"
 }
 
@@ -419,7 +429,7 @@ function test_proto_source_root_multiple_workspaces() {
   add_local_repos_to_workspace
   write_workspaces_setup
 
-  bazel build --noincompatible_package_name_is_a_function @main_repo//src:all_protos >& "$TEST_log" || fail "Expected success"
+  bazel build @main_repo//src:all_protos >& "$TEST_log" || fail "Expected success"
 }
 
 run_suite "Integration tests for proto_library"
