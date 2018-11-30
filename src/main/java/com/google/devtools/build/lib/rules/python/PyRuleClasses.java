@@ -19,9 +19,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 
-/**
- * Rule definitions for Python rules.
- */
+/** Rule definitions for Python rules. */
 public class PyRuleClasses {
 
   public static final FileType PYTHON_SOURCE = FileType.of(".py", ".py3");
@@ -34,12 +32,21 @@ public class PyRuleClasses {
    * <p>Since this is a configuration transition, this propagates to the rules' transitive deps.
    */
   public static final RuleTransitionFactory DEFAULT_PYTHON_VERSION_TRANSITION =
-      (rule) ->
-          new PythonVersionTransition(
-              // In case of a parse error, this will return null, which means that the transition
-              // would use the hard-coded default (PythonVersion#getDefaultTargetValue). But the
-              // attribute is already validated to allow only PythonVersion#getTargetStrings anyway.
-              PythonVersion.parse(
-                  RawAttributeMapper.of(rule).get("default_python_version", Type.STRING),
-                  PythonVersion.getAllValues()));
+      (rule) -> {
+        String attrDefault = RawAttributeMapper.of(rule).get("default_python_version", Type.STRING);
+        // It should be a target value ("PY2" or "PY3"), and if not that should be caught by
+        // attribute validation. But just in case, we'll treat an invalid value as null (which means
+        // "use the hard-coded default version") rather than propagate an unchecked exception in
+        // this context.
+        PythonVersion version = null;
+        // Should be non-null because this transition shouldn't be used on rules without the attr.
+        if (attrDefault != null) {
+          try {
+            version = PythonVersion.parseTargetValue(attrDefault);
+          } catch (IllegalArgumentException ex) {
+            // Parsing error.
+          }
+        }
+        return new PythonVersionTransition(version);
+      };
 }

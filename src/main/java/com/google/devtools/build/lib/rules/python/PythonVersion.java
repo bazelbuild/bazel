@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.python;
 
-import static com.google.common.collect.Iterables.transform;
-
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
@@ -71,23 +69,25 @@ public enum PythonVersion {
    */
   PY3ONLY;
 
-  private static Iterable<String> convertToStrings(PythonVersion[] values) {
-    return transform(ImmutableList.copyOf(values), Functions.toStringFunction());
+  private static ImmutableList<String> convertToStrings(PythonVersion[] values) {
+    return Arrays.stream(values)
+        .map(Functions.toStringFunction())
+        .collect(ImmutableList.toImmutableList());
   }
 
   private static final PythonVersion[] allValues =
       new PythonVersion[] {PY2, PY3, PY2AND3, PY2ONLY, PY3ONLY};
 
-  private static final Iterable<String> allStrings = convertToStrings(allValues);
+  private static final ImmutableList<String> ALL_STRINGS = convertToStrings(allValues);
 
   private static final PythonVersion[] targetValues = new PythonVersion[] {PY2, PY3};
 
-  private static final Iterable<String> targetStrings = convertToStrings(targetValues);
+  private static final ImmutableList<String> TARGET_STRINGS = convertToStrings(targetValues);
 
   private static final PythonVersion[] nonConversionValues =
       new PythonVersion[] {PY2AND3, PY2ONLY, PY3ONLY};
 
-  private static final Iterable<String> nonConversionStrings =
+  private static final ImmutableList<String> NON_CONVERSION_STRINGS =
       convertToStrings(nonConversionValues);
 
   private static final PythonVersion DEFAULT_TARGET_VALUE = PY2;
@@ -100,8 +100,8 @@ public enum PythonVersion {
   }
 
   /** Returns an iterable of all values as strings. */
-  public static Iterable<String> getAllStrings() {
-    return allStrings;
+  public static ImmutableList<String> getAllStrings() {
+    return ALL_STRINGS;
   }
 
   /** Returns all values representing a specific version, as a new array. */
@@ -110,8 +110,8 @@ public enum PythonVersion {
   }
 
   /** Returns an iterable of all values representing a specific version, as strings. */
-  public static Iterable<String> getTargetStrings() {
-    return targetStrings;
+  public static ImmutableList<String> getTargetStrings() {
+    return TARGET_STRINGS;
   }
 
   /**
@@ -126,8 +126,8 @@ public enum PythonVersion {
    * Returns all values that do not imply running a transpiler to convert between versions, as
    * strings.
    */
-  public static Iterable<String> getNonConversionStrings() {
-    return nonConversionStrings;
+  public static ImmutableList<String> getNonConversionStrings() {
+    return NON_CONVERSION_STRINGS;
   }
 
   /** Returns the Python version to use if not otherwise specified by a flag or attribute. */
@@ -142,26 +142,26 @@ public enum PythonVersion {
     return DEFAULT_SRCS_VALUE;
   }
 
-  // TODO(brandjon): Refactor this into parseTargetValue and parseSourcesValue methods. Throw
-  // IllegalArgumentException on bad values instead of returning null, and modify callers to
-  // tolerate the exception.
   /**
-   * Converts the string to PythonVersion, if it is one of the allowed values. Returns null if the
-   * input is not valid.
+   * Converts the string to a target {@code PythonVersion} value (case-sensitive).
+   *
+   * @throws IllegalArgumentException if the string is not "PY2" or "PY3".
    */
-  public static PythonVersion parse(String str, PythonVersion... allowed) {
-    if (str == null) {
-      return null;
+  public static PythonVersion parseTargetValue(String str) {
+    if (!TARGET_STRINGS.contains(str)) {
+      throw new IllegalArgumentException(
+          String.format("'%s' is not a valid Python major version. Expected 'PY2' or 'PY3'.", str));
     }
-    try {
-      PythonVersion version = PythonVersion.valueOf(str);
-      if (Arrays.asList(allowed).contains(version)) {
-        return version;
-      }
-      return null;
-    } catch (IllegalArgumentException e) {
-      return null;
-    }
+    return PythonVersion.valueOf(str);
+  }
+
+  /**
+   * Converts the string to a sources {@code PythonVersion} value (case-sensitive).
+   *
+   * @throws IllegalArgumentException if the string is not an enum name.
+   */
+  public static PythonVersion parseSrcsValue(String str) {
+    return PythonVersion.valueOf(str);
   }
 }
 
