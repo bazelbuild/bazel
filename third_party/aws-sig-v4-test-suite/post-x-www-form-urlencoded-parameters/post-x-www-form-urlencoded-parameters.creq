@@ -1,0 +1,9 @@
+POST
+/
+
+content-type:application/x-www-form-urlencoded; charset=utf8
+host:example.amazonaws.com
+x-amz-date:20150830T123600Z
+
+content-type;host;x-amz-date
+9095672bbd1f56dfc5b65f3e153adc8731a4a654192329106275f4c7b24d0b6e
