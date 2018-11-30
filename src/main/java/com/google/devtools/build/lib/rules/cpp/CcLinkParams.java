@@ -376,15 +376,6 @@ public final class CcLinkParams implements CcLinkParamsApi {
       return this;
     }
 
-    /** Adds a collection of linkstamps. */
-    public Builder addLinkstamps(
-        NestedSet<Artifact> linkstamps, NestedSet<Artifact> declaredIncludeSrcs) {
-      for (Artifact linkstamp : linkstamps) {
-        linkstampsBuilder.add(new Linkstamp(linkstamp, declaredIncludeSrcs));
-      }
-      return this;
-    }
-
     public Builder addLinkstamps(NestedSet<Linkstamp> linkstamps) {
       for (Linkstamp linkstamp : linkstamps) {
         linkstampsBuilder.add(linkstamp);
