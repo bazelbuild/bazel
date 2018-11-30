@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote.blobstore.http;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.auth.Credentials;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.DefaultHttpRequest;
@@ -35,7 +34,7 @@ import java.io.IOException;
 /** ChannelHandler for uploads. */
 final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
 
-  public HttpUploadHandler(Credentials credentials) {
+  public HttpUploadHandler(HttpCredentialsAdapter credentials) {
     super(credentials);
   }
 
@@ -82,7 +81,6 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
       return;
     }
     HttpRequest request = buildRequest((UploadCommand) msg);
-    addCredentialHeaders(request, ((UploadCommand) msg).uri());
     HttpChunkedInput body = buildBody((UploadCommand) msg);
     ctx.writeAndFlush(request)
         .addListener(
@@ -102,7 +100,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
             });
   }
 
-  private HttpRequest buildRequest(UploadCommand msg) {
+  private HttpRequest buildRequest(UploadCommand msg) throws IOException {
     HttpRequest request =
         new DefaultHttpRequest(
             HttpVersion.HTTP_1_1,
@@ -112,6 +110,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
     request.headers().set(HttpHeaderNames.ACCEPT, "*/*");
     request.headers().set(HttpHeaderNames.CONTENT_LENGTH, msg.contentLength());
     request.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+    addCredentialHeaders(request, msg.uri());
     return request;
   }
 

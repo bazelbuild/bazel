@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore.http;
 
-import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
+import com.google.common.collect.Multimap;
 import com.google.common.io.BaseEncoding;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandler;
@@ -27,16 +27,14 @@ import java.io.IOException;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.nio.channels.ClosedChannelException;
-import java.util.List;
-import java.util.Map;
 
 /** Common functionality shared by concrete classes. */
 abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelInboundHandler<T>
     implements ChannelOutboundHandler {
 
-  private final Credentials credentials;
+  private final HttpCredentialsAdapter credentials;
 
-  public AbstractHttpHandler(Credentials credentials) {
+  public AbstractHttpHandler(HttpCredentialsAdapter credentials) {
     this.credentials = credentials;
   }
 
@@ -63,19 +61,10 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
       request.headers().set(HttpHeaderNames.AUTHORIZATION, "Basic " + value);
       return;
     }
-    if (credentials == null || !credentials.hasRequestMetadata()) {
+    if (credentials == null || !credentials.hasRequestHeaders()) {
       return;
     }
-    Map<String, List<String>> authHeaders = credentials.getRequestMetadata(uri);
-    if (authHeaders == null || authHeaders.isEmpty()) {
-      return;
-    }
-    for (Map.Entry<String, List<String>> entry : authHeaders.entrySet()) {
-      String name = entry.getKey();
-      for (String value : entry.getValue()) {
-        request.headers().add(name, value);
-      }
-    }
+    credentials.setRequestHeaders(request);
   }
 
   protected String constructPath(URI uri, String hash, boolean isCas) {
