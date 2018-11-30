@@ -1128,8 +1128,26 @@ java_library(
     name = "loading-phase-threads-option",
     srcs = ["runtime/LoadingPhaseThreadsOption.java"],
     deps = [
+        ":cpu-threads-converter",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "cpu-threads-converter",
+    srcs = [
+        "runtime/CpuThreadsConverter.java",
+        "runtime/ResourceConverter.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:apache_commons_lang",
+        "//third_party:guava",
     ],
 )
 
@@ -1234,6 +1252,7 @@ java_library(
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:test_status_java_proto",
+        "//third_party:apache_commons_lang",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
