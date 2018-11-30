@@ -172,7 +172,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   public void srcsVersionClashesWithDefaultVersionAttr_Implicitly() throws Exception {
     // Canary assertion: This'll fail when we flip the default to PY3. At that point change this
     // test to use srcs_version = 'PY2ONLY' instead.
-    assertThat(PythonVersion.defaultTargetPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(PythonVersion.getDefaultTargetValue()).isEqualTo(PythonVersion.PY2);
 
     // Fails because default_python_version is PY2 by default, so the config is set to PY2
     // regardless of srcs_version.

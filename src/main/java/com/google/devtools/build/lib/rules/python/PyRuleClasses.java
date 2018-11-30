@@ -27,16 +27,19 @@ public class PyRuleClasses {
   public static final FileType PYTHON_SOURCE = FileType.of(".py", ".py3");
 
   /**
-   * Input for {@link RuleClass.Builder#cfg(RuleTransitionFactory)}: if
-   * {@link PythonOptions#forcePython} is unset, sets the Python version according to the rule's
-   * default Python version. Assumes the rule has the expected attribute for this setting.
+   * Input for {@link RuleClass.Builder#cfg(RuleTransitionFactory)}: if {@link
+   * PythonOptions#forcePython} is unset, sets the Python version according to the rule's default
+   * Python version. Assumes the rule has the expected attribute for this setting.
    *
    * <p>Since this is a configuration transition, this propagates to the rules' transitive deps.
    */
   public static final RuleTransitionFactory DEFAULT_PYTHON_VERSION_TRANSITION =
       (rule) ->
           new PythonVersionTransition(
+              // In case of a parse error, this will return null, which means that the transition
+              // would use the hard-coded default (PythonVersion#getDefaultTargetValue). But the
+              // attribute is already validated to allow only PythonVersion#getTargetStrings anyway.
               PythonVersion.parse(
                   RawAttributeMapper.of(rule).get("default_python_version", Type.STRING),
-                  PythonVersion.ALL_VALUES));
+                  PythonVersion.getAllValues()));
 }

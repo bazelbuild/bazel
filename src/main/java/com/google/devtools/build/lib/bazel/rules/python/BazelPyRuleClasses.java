@@ -66,9 +66,11 @@ public final class BazelPyRuleClasses {
           <a href="${link py_binary}"><code>py_binary</code></a> rules,
           <a href="${link py_library}"><code>py_library</code></a> rules.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .override(builder.copy("deps")
-              .legacyMandatoryProviders(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME)
-              .allowedFileTypes())
+          .override(
+              builder
+                  .copy("deps")
+                  .legacyMandatoryProviders(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME)
+                  .allowedFileTypes())
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(imports) -->
           List of import directories to be added to the <code>PYTHONPATH</code>.
           <p>
@@ -105,19 +107,21 @@ public final class BazelPyRuleClasses {
             A synonym for PY3ONLY.<br/>
           <br/>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("srcs_version", STRING)
-              .value(PythonVersion.defaultSrcsVersion().toString())
-              .allowedValues(new AllowedValueSet(PythonVersion.getAllValues())))
+          .add(
+              attr("srcs_version", STRING)
+                  .value(PythonVersion.getDefaultSrcsValue().toString())
+                  .allowedValues(new AllowedValueSet(PythonVersion.getAllStrings())))
           // TODO(brandjon): Consider adding to py_interpreter a .mandatoryNativeProviders() of
           // BazelPyRuntimeProvider. (Add a test case to PythonConfigurationTest for violations
           // of this requirement.)
           .add(attr(":py_interpreter", LABEL).value(PY_INTERPRETER))
           // do not depend on lib2to3:2to3 rule, because it creates circular dependencies
           // 2to3 is itself written in Python and depends on many libraries.
-          .add(attr("$python2to3", LABEL)
-              .cfg(HostTransition.INSTANCE)
-              .exec()
-              .value(env.getToolsLabel("//tools/python:2to3")))
+          .add(
+              attr("$python2to3", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/python:2to3")))
           .setPreferredDependencyPredicate(PyRuleClasses.PYTHON_SOURCE)
           .build();
     }
@@ -163,8 +167,8 @@ public final class BazelPyRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("default_python_version", STRING)
-                  .value(PythonVersion.defaultTargetPythonVersion().toString())
-                  .allowedValues(new AllowedValueSet(PythonVersion.getTargetPythonValues()))
+                  .value(PythonVersion.getDefaultTargetValue().toString())
+                  .allowedValues(new AllowedValueSet(PythonVersion.getTargetStrings()))
                   .nonconfigurable(
                       "read by PythonUtils.getNewPythonVersion, which doesn't have access"
                           + " to configuration keys"))

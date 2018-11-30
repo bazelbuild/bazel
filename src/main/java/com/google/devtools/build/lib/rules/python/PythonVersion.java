@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.collect.Iterables.transform;
@@ -20,61 +21,133 @@ import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 
 /**
- * Python version for Python rules.
+ * An enum representing Python major versions.
+ *
+ * <p>This enum has two interpretations. The "target" interpretation is when this enum is used in a
+ * command line flag or in a rule attribute to denote a particular version of the Python language.
+ * Only {@code PY2} and {@code PY3} can be used as target values. The "sources" interpretation is
+ * when this enum is used to denote the degree of compatibility of source code with the target
+ * values.
  */
 public enum PythonVersion {
-  PY2,
-  PY3,
-  PY2AND3,
-  PY2ONLY,
-  PY3ONLY;
 
-  static final PythonVersion[] ALL_VALUES =
-      new PythonVersion[] { PY2, PY3, PY2AND3, PY2ONLY, PY3ONLY };
+  // TODO(#6445): Remove PY2ONLY and PY3ONLY.
 
   /**
-   * The Python version to use if not overridden by {@link PythonOptions#forcePython} or a rule's
-   * {@code default_python_version} or {@code srcs_version} attributes.
+   * Target value Python 2. Represents source code that is naturally compatible with Python 2.
+   *
+   * <p><i>Deprecated meaning:</i> Also indicates that source code is compatible with Python 3 under
+   * 2to3 transformation. 2to3 transformation is not implemented in Bazel and this meaning will be
+   * removed from Bazel (#1393).
    */
-  static final PythonVersion DEFAULT = PY2;
+  PY2,
 
-  static final PythonVersion[] NON_CONVERSION_VALUES =
-      new PythonVersion[] { PY2AND3, PY2ONLY, PY3ONLY };
+  /**
+   * Target value Python 3. Represents source code that is naturally compatible with Python 3.
+   *
+   * <p><i>Deprecated meaning:</i> Also indicates that source code is compatible with Python 2 under
+   * 3to2 transformation. 3to2 transformation was never implemented and this meaning should not be
+   * relied on.
+   */
+  PY3,
 
-  static final PythonVersion[] TARGET_PYTHON_VALUES =
-      new PythonVersion[] { PY2, PY3 };
+  /**
+   * Represents source code that is naturally compatible with both Python 2 and Python 3, i.e. code
+   * that lies in the intersection of both languages.
+   */
+  PY2AND3,
 
-  public static PythonVersion defaultSrcsVersion() {
-    return PY2AND3;
-  }
+  /**
+   * Alias for {@code PY2}. Deprecated in Bazel; prefer {@code PY2}.
+   *
+   * <p><i>Deprecated meaning:</i> Indicates code that cannot be processed by 2to3.
+   */
+  PY2ONLY,
 
-  public static PythonVersion defaultTargetPythonVersion() {
-    return DEFAULT;
-  }
+  /**
+   * Deprecated alias for {@code PY3}.
+   *
+   * <p><i>Deprecated meaning:</i> Indicates code that cannot be processed by 3to2.
+   */
+  PY3ONLY;
 
   private static Iterable<String> convertToStrings(PythonVersion[] values) {
     return transform(ImmutableList.copyOf(values), Functions.toStringFunction());
   }
 
-  public static PythonVersion[] getAllVersions() {
-    return ALL_VALUES;
+  private static final PythonVersion[] allValues =
+      new PythonVersion[] {PY2, PY3, PY2AND3, PY2ONLY, PY3ONLY};
+
+  private static final Iterable<String> allStrings = convertToStrings(allValues);
+
+  private static final PythonVersion[] targetValues = new PythonVersion[] {PY2, PY3};
+
+  private static final Iterable<String> targetStrings = convertToStrings(targetValues);
+
+  private static final PythonVersion[] nonConversionValues =
+      new PythonVersion[] {PY2AND3, PY2ONLY, PY3ONLY};
+
+  private static final Iterable<String> nonConversionStrings =
+      convertToStrings(nonConversionValues);
+
+  private static final PythonVersion DEFAULT_TARGET_VALUE = PY2;
+
+  private static final PythonVersion DEFAULT_SRCS_VALUE = PY2AND3;
+
+  /** Returns all values as a new array. */
+  public static PythonVersion[] getAllValues() {
+    return Arrays.copyOf(allValues, allValues.length);
   }
 
-  public static Iterable<String> getAllValues() {
-    return convertToStrings(ALL_VALUES);
+  /** Returns an iterable of all values as strings. */
+  public static Iterable<String> getAllStrings() {
+    return allStrings;
   }
 
-  public static Iterable<String> getNonConversionValues() {
-    return convertToStrings(NON_CONVERSION_VALUES);
+  /** Returns all values representing a specific version, as a new array. */
+  public static PythonVersion[] getTargetValues() {
+    return Arrays.copyOf(targetValues, targetValues.length);
   }
 
-  public static Iterable<String> getTargetPythonValues() {
-    return convertToStrings(TARGET_PYTHON_VALUES);
+  /** Returns an iterable of all values representing a specific version, as strings. */
+  public static Iterable<String> getTargetStrings() {
+    return targetStrings;
   }
 
   /**
-   * Converts the string to PythonVersion, if it is one of the allowed values.
-   * Returns null if the input is not valid.
+   * Returns all values that do not imply running a transpiler to convert between versions, as a new
+   * array.
+   */
+  public static PythonVersion[] getNonConversionValues() {
+    return Arrays.copyOf(nonConversionValues, nonConversionValues.length);
+  }
+
+  /**
+   * Returns all values that do not imply running a transpiler to convert between versions, as
+   * strings.
+   */
+  public static Iterable<String> getNonConversionStrings() {
+    return nonConversionStrings;
+  }
+
+  /** Returns the Python version to use if not otherwise specified by a flag or attribute. */
+  public static PythonVersion getDefaultTargetValue() {
+    return DEFAULT_TARGET_VALUE;
+  }
+
+  /**
+   * Returns the level of source compatibility assumed if not otherwise specified by an attribute.
+   */
+  public static PythonVersion getDefaultSrcsValue() {
+    return DEFAULT_SRCS_VALUE;
+  }
+
+  // TODO(brandjon): Refactor this into parseTargetValue and parseSourcesValue methods. Throw
+  // IllegalArgumentException on bad values instead of returning null, and modify callers to
+  // tolerate the exception.
+  /**
+   * Converts the string to PythonVersion, if it is one of the allowed values. Returns null if the
+   * input is not valid.
    */
   public static PythonVersion parse(String str, PythonVersion... allowed) {
     if (str == null) {

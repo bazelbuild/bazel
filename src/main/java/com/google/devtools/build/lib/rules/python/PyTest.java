@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * An implementation for {@code py_test} rules.
@@ -35,20 +34,13 @@ public abstract class PyTest implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     PythonSemantics semantics = createSemantics();
     PyCommon common = new PyCommon(ruleContext);
-    common.initCommon(getDefaultPythonVersion(ruleContext));
+    common.initCommon(common.getDefaultPythonVersion());
 
     RuleConfiguredTargetBuilder builder = PyBinary.init(ruleContext, semantics, common);
     if (builder == null) {
       return null;
     }
     return builder.build();
-  }
-
-  private PythonVersion getDefaultPythonVersion(RuleContext ruleContext) {
-    return ruleContext.getRule().isAttrDefined("default_python_version", Type.STRING)
-        ? PyCommon.getPythonVersionAttr(ruleContext, "default_python_version", PythonVersion.PY2,
-            PythonVersion.PY3, PythonVersion.PY2AND3)
-        : null;
   }
 }
 

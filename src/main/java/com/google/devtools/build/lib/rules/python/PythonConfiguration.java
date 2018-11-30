@@ -65,7 +65,7 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
 
   @Override
   public String getOutputDirectoryName() {
-    List<PythonVersion> allowedVersions = Arrays.asList(PythonVersion.TARGET_PYTHON_VALUES);
+    List<PythonVersion> allowedVersions = Arrays.asList(PythonVersion.getTargetValues());
     Verify.verify(
         allowedVersions.size() == 2, // If allowedVersions.size() == 1, we don't need this method.
         ">2 possible defaultPythonVersion values makes output directory clashes possible");

@@ -95,8 +95,8 @@ public final class PyCommon {
   }
 
   public void initCommon(PythonVersion defaultVersion) {
-    this.sourcesVersion = getPythonVersionAttr(
-        ruleContext, "srcs_version", PythonVersion.getAllVersions());
+    this.sourcesVersion =
+        getPythonVersionAttr(ruleContext, "srcs_version", PythonVersion.getAllValues());
 
     this.version = ruleContext.getFragment(PythonConfiguration.class)
         .getPythonVersion(defaultVersion);
@@ -217,7 +217,7 @@ public final class PyCommon {
     ruleContext.attributeError(attrName,
         "'" + stringAttr + "' is not a valid value. Expected one of: " + Joiner.on(", ")
             .join(allowed));
-    return PythonVersion.defaultTargetPythonVersion();
+    return PythonVersion.getDefaultTargetValue();
   }
 
   /**
