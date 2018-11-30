@@ -44,8 +44,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1453,7 +1451,7 @@ public class CcToolchainFeatures implements Serializable {
 
   /**
    * A cache of feature selection results, so we do not recalculate the feature selection for all
-   * actions.
+   * actions. This may not be initialized on deserialization.
    */
   private transient LoadingCache<ImmutableSet<String>, FeatureConfiguration> configurationCache =
       buildConfigurationCache();
@@ -1592,14 +1590,6 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
-  /**
-   * Assign an empty cache after default-deserializing all non-transient members.
-   */
-  private void readObject(ObjectInputStream in) throws ClassNotFoundException, IOException {
-    in.defaultReadObject();
-    this.configurationCache = buildConfigurationCache();
-  }
-
   /** @return an empty {@code FeatureConfiguration} cache. */
   private LoadingCache<ImmutableSet<String>, FeatureConfiguration> buildConfigurationCache() {
     return CacheBuilder.newBuilder()
@@ -1624,10 +1614,16 @@ public class CcToolchainFeatures implements Serializable {
    *
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
+   *
+   * <p>If multiple threads call this method we may do additional work in initializing the cache.
+   * This reinitialization is benign.
    */
   public FeatureConfiguration getFeatureConfiguration(ImmutableSet<String> requestedSelectables)
       throws CollidingProvidesException {
     try {
+      if (configurationCache == null) {
+        configurationCache = buildConfigurationCache();
+      }
       return configurationCache.get(requestedSelectables);
     } catch (ExecutionException e) {
       Throwables.throwIfInstanceOf(e.getCause(), CollidingProvidesException.class);
