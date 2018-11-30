@@ -4,8 +4,3 @@ site/* linguist-documentation
 
 # Files that should not use CRLF line endings, even on Windows.
 tools/genrule/genrule-setup.sh -text
-third_party/aws-sig-v4-test-suite/**/*.authz -text
-third_party/aws-sig-v4-test-suite/**/*.creq -text
-third_party/aws-sig-v4-test-suite/**/*.req -text
-third_party/aws-sig-v4-test-suite/**/*.sreq -text
-third_party/aws-sig-v4-test-suite/**/*.sts -text
