@@ -55,7 +55,7 @@ EOF
   expect_query_targets //tools/defaults:jdk //a:a
 
   bazel query 'deps(//tools/defaults:jdk, 1)' >& "$TEST_log" --incompatible_disable_tools_defaults_package=false || fail "Query failed"
-  expect_query_targets //tools/defaults:jdk @bazel_tools//tools/jdk:{jdk,host_jdk}
+  expect_query_targets //tools/defaults:jdk @bazel_tools//tools/jdk:{jdk,remote_jdk}
 
   rm tools/defaults/BUILD
   rm a/BUILD
@@ -77,7 +77,7 @@ filegroup(
 )
 EOF
   bazel query 'deps(//tools/defaults:jdk, 1)' >& "$TEST_log" --incompatible_disable_tools_defaults_package=false || fail "Query failed"
-  expect_query_targets //tools/defaults:jdk @bazel_tools//tools/jdk:{jdk,host_jdk}
+  expect_query_targets //tools/defaults:jdk @bazel_tools//tools/jdk:{jdk,remote_jdk}
 
 
   bazel query 'deps(//tools/defaults:jdk, 1)' >& "$TEST_log" --incompatible_disable_tools_defaults_package=true || fail "Query failed"
