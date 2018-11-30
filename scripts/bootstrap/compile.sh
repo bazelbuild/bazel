@@ -44,7 +44,7 @@ if [ "$ERROR_PRONE_INDEX" -lt "$GUAVA_INDEX" ]; then
   LIBRARY_JARS="${LIBRARY_JARS_ARRAY[*]}"
 fi
 
-DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} tools/java/runfiles third_party/java/dd_plist/java ${OUTPUT_DIR}/src)
+DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} tools/java/runfiles third_party/java/dd_plist/java third_party/aws-sdk-auth-lite ${OUTPUT_DIR}/src)
 EXCLUDE_FILES="src/main/java/com/google/devtools/build/lib/server/GrpcServerImpl.java src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/*"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.

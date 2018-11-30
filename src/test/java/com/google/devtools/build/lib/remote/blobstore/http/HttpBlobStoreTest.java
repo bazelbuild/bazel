@@ -60,6 +60,8 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.timeout.ReadTimeoutException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -239,7 +241,7 @@ public class HttpBlobStoreTest {
   }
 
   private HttpBlobStore createHttpBlobStore(ServerChannel serverChannel, int timeoutMillis,
-      int remoteMaxConnections, @Nullable final Credentials creds) throws Exception {
+      int remoteMaxConnections, @Nullable final HttpCredentialsAdapter creds) throws Exception {
     SocketAddress socketAddress = serverChannel.localAddress();
     if (socketAddress instanceof DomainSocketAddress) {
       DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
@@ -261,7 +263,7 @@ public class HttpBlobStoreTest {
     ServerChannel server = testServer.start(new ChannelInboundHandlerAdapter() {});
     testServer.stop(server);
 
-    Credentials credentials = newCredentials();
+    HttpCredentialsAdapter credentials = newCredentials();
     HttpBlobStore blobStore =
         createHttpBlobStore(server, 5, 0, credentials);
     getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
@@ -283,7 +285,7 @@ public class HttpBlobStoreTest {
                 }
               });
 
-      Credentials credentials = newCredentials();
+      HttpCredentialsAdapter credentials = newCredentials();
       HttpBlobStore blobStore =
           createHttpBlobStore(server, 5, 0, credentials);
       getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
@@ -307,15 +309,16 @@ public class HttpBlobStoreTest {
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
-      Credentials credentials = newCredentials();
+      HttpCredentialsAdapter credentials = newCredentials();
       HttpBlobStore blobStore =
           createHttpBlobStore(server, 30, 0, credentials);
       ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
       getFromFuture(blobStore.get("key", out));
       assertThat(out.toString(Charsets.US_ASCII.name())).isEqualTo("File Contents");
       verify(credentials, times(1)).refresh();
-      verify(credentials, times(2)).getRequestMetadata(any(URI.class));
-      verify(credentials, times(2)).hasRequestMetadata();
+      verify(credentials, times(1)).refreshCredentials();
+      verify(credentials, times(2)).setRequestHeaders(any(HttpRequest.class));
+      verify(credentials, times(2)).hasRequestHeaders();
       // The caller is responsible to the close the stream.
       verify(out, never()).close();
       verifyNoMoreInteractions(credentials);
@@ -338,15 +341,16 @@ public class HttpBlobStoreTest {
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
-      Credentials credentials = newCredentials();
+      HttpCredentialsAdapter credentials = newCredentials();
       HttpBlobStore blobStore =
           createHttpBlobStore(server, 30, 0, credentials);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
       ByteArrayInputStream in = new ByteArrayInputStream(data);
       blobStore.put("key", data.length, in);
       verify(credentials, times(1)).refresh();
-      verify(credentials, times(2)).getRequestMetadata(any(URI.class));
-      verify(credentials, times(2)).hasRequestMetadata();
+      verify(credentials, times(1)).refreshCredentials();
+      verify(credentials, times(2)).setRequestHeaders(any(HttpRequest.class));
+      verify(credentials, times(2)).hasRequestHeaders();
       verifyNoMoreInteractions(credentials);
     } finally {
       testServer.stop(server);
@@ -367,7 +371,7 @@ public class HttpBlobStoreTest {
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
-      Credentials credentials = newCredentials();
+      HttpCredentialsAdapter credentials = newCredentials();
       HttpBlobStore blobStore =
           createHttpBlobStore(server, 30, 0, credentials);
       getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
@@ -395,7 +399,7 @@ public class HttpBlobStoreTest {
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
-      Credentials credentials = newCredentials();
+      HttpCredentialsAdapter credentials = newCredentials();
       HttpBlobStore blobStore =
           createHttpBlobStore(server, 30, 0, credentials);
       blobStore.put("key", 1, new ByteArrayInputStream(new byte[]{0}));
@@ -409,7 +413,7 @@ public class HttpBlobStoreTest {
     }
   }
 
-  private Credentials newCredentials() throws Exception {
+  private HttpCredentialsAdapter newCredentials() throws Exception {
     Credentials credentials = mock(Credentials.class);
     when(credentials.hasRequestMetadata()).thenReturn(true);
     Map<String, List<String>> headers = new HashMap<>();
@@ -424,7 +428,17 @@ public class HttpBlobStoreTest {
         })
         .when(credentials)
         .refresh();
-    return credentials;
+
+    HttpCredentialsAdapter credentialsAdapter = Mockito.spy(HttpCredentialsAdapter.fromGoogleCredentials(credentials));
+
+    Mockito.doAnswer(
+        (mock) -> {
+          credentialsAdapter.refresh();
+          return null;
+        })
+        .when(credentialsAdapter)
+        .refreshCredentials();
+    return credentialsAdapter;
   }
 
   /**

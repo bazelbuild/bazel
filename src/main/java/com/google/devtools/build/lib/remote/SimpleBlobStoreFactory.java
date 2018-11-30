@@ -16,10 +16,15 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.google.auth.Credentials;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.AwsAuthUtils;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.http.HttpCredentialsAdapter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.netty.channel.unix.DomainSocketAddress;
@@ -36,7 +41,7 @@ public final class SimpleBlobStoreFactory {
 
   private SimpleBlobStoreFactory() {}
 
-  public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds) {
+  public static SimpleBlobStore createRest(RemoteOptions options, AuthAndTLSOptions authAndTLSOptions) {
     try {
       URI uri = URI.create(options.remoteHttpCache);
       int timeoutMillis = (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout);
@@ -45,15 +50,30 @@ public final class SimpleBlobStoreFactory {
         if (options.remoteCacheProxy.startsWith("unix:")) {
           return HttpBlobStore.create(
             new DomainSocketAddress(options.remoteCacheProxy.replaceFirst("^unix:", "")),
-              uri, timeoutMillis, options.remoteMaxConnections, creds);
+              uri, timeoutMillis, options.remoteMaxConnections, createHttpCredentialsAdapter(options, authAndTLSOptions));
         } else {
           throw new Exception("Remote cache proxy unsupported: " + options.remoteCacheProxy);
         }
       } else {
-        return HttpBlobStore.create(uri, timeoutMillis, options.remoteMaxConnections, creds);
+        return HttpBlobStore.create(uri, timeoutMillis, options.remoteMaxConnections, createHttpCredentialsAdapter(options, authAndTLSOptions));
       }
     } catch (Exception e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  private static HttpCredentialsAdapter createHttpCredentialsAdapter(final RemoteOptions options, final AuthAndTLSOptions authAndTLSOptions) throws IOException {
+    final Credentials googlAuth = GoogleAuthUtils.newCredentials(authAndTLSOptions);
+    final AWSCredentialsProvider awsAuth = AwsAuthUtils.newCredentials(authAndTLSOptions);
+
+    if (googlAuth != null && awsAuth != null) {
+      throw new IOException("Both Google and AWS credentials provided for remote caching. Only one should be used");
+    } else if (googlAuth != null) {
+      return HttpCredentialsAdapter.fromGoogleCredentials(googlAuth);
+    } else if (awsAuth != null) {
+      return HttpCredentialsAdapter.fromAwsCredentails(options.awsS3Region, options.remoteHttpCache, "s3", awsAuth);
+    } else {
+      return null;
     }
   }
 
@@ -67,10 +87,10 @@ public final class SimpleBlobStoreFactory {
   }
 
   public static SimpleBlobStore create(
-      RemoteOptions options, @Nullable Credentials creds, @Nullable Path workingDirectory)
+          RemoteOptions options, @Nullable AuthAndTLSOptions authAndTLSOptions, @Nullable Path workingDirectory)
       throws IOException {
     if (isRestUrlOptions(options)) {
-      return createRest(options, creds);
+      return createRest(options, authAndTLSOptions);
     }
     if (workingDirectory != null && isDiskCache(options)) {
       return createDiskCache(workingDirectory, options.diskCache);
