@@ -505,6 +505,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testUserCompileFlags() throws Exception {
+    useConfiguration("--noincompatible_disable_depset_in_cc_user_flags");
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_COMPILE,
@@ -651,6 +652,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testUserLinkFlagsLinkVariables() throws Exception {
+    useConfiguration("--noincompatible_disable_depset_in_cc_user_flags");
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_LINK_EXECUTABLE,
