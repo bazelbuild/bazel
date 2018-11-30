@@ -15,11 +15,13 @@ java_library(
         "//third_party:netty_tcnative",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auth",
         "//third_party:guava",
         "//third_party:netty",
+        "//third_party/aws-sdk-auth-lite",
     ],
 )

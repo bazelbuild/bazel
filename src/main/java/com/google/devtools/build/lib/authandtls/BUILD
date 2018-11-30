@@ -15,6 +15,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:netty",
+        "//third_party/aws-sdk-auth-lite",
         "//third_party/grpc:grpc-jar",
     ],
 )

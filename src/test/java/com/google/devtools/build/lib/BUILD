@@ -1306,10 +1306,14 @@ java_test(
 java_test(
     name = "remote-tests",
     srcs = glob(["remote/**/*.java"]),
+    resources = [
+        "//third_party/aws-sig-v4-test-suite:testdata",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":analysis_testutil",
         ":foundations_testutil",
+        ":packages_testutil",
         ":guava_junit_truth",
         ":test_runner",
         ":testutil",
@@ -1336,6 +1340,7 @@ java_test(
         "//third_party:auth",
         "//third_party:mockito",
         "//third_party:netty",
+        "//third_party/aws-sdk-auth-lite",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "@googleapis//:google_bytestream_bytestream_java_grpc",

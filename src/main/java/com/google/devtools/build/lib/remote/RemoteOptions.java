@@ -31,7 +31,7 @@ public final class RemoteOptions extends OptionsBase {
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "A base URL of a HTTP caching service. Both http:// and https:// are supported. BLOBs are "
+        "A base URL of a HTTP caching service. Both http:// https:// are supported. BLOBs are "
             + "stored with PUT and retrieved with GET. See remote/README.md for more information."
   )
   public String remoteHttpCache;
@@ -47,6 +47,18 @@ public final class RemoteOptions extends OptionsBase {
   )
   public String remoteCacheProxy;
 
+    @Option(
+      name = "remote_s3_region",
+      defaultValue = "null",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The specific region for an S3 bucket, used as a HTTP REST cache"
+              + ". See remote/README.md for more information."
+  )
+  public String awsS3Region;
+
   @Option(
       name = "remote_max_connections",
       defaultValue = "100",
@@ -55,7 +67,8 @@ public final class RemoteOptions extends OptionsBase {
       help =
           "The max. number of concurrent network connections to the remote cache/executor. By "
               + "default Bazel limits the number of TCP connections to 100. Setting this flag to "
-              + "0 will make Bazel choose the number of connections automatically.")
+              + "0 will make Bazel choose the number of connections automatically."
+  )
   public int remoteMaxConnections;
 
   @Option(
@@ -108,7 +121,8 @@ public final class RemoteOptions extends OptionsBase {
       defaultValue = "local",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The strategy to use when remote execution has to fallback to local execution.")
+      help = "The strategy to use when remote execution has to fallback to local execution."
+  )
   public String remoteLocalFallbackStrategy;
 
   @Option(
