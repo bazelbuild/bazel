@@ -79,7 +79,7 @@ public class ActionTester {
     }
     // Sanity check that the count is correct.
     assertThat(
-            Actions.canBeShared(
+            Actions.areTheSame(
                 actionKeyContext,
                 actions[0],
                 factory.generate(makeEnumSetInitializedTo(attributeClass, count))))
@@ -87,14 +87,14 @@ public class ActionTester {
 
     for (int i = 0; i < actions.length; i++) {
       assertThat(
-              Actions.canBeShared(
+              Actions.areTheSame(
                   actionKeyContext,
                   actions[i],
                   factory.generate(makeEnumSetInitializedTo(attributeClass, i))))
           .isTrue();
       for (int j = i + 1; j < actions.length; j++) {
         assertWithMessage(i + " and " + j)
-            .that(Actions.canBeShared(actionKeyContext, actions[i], actions[j]))
+            .that(Actions.areTheSame(actionKeyContext, actions[i], actions[j]))
             .isFalse();
       }
     }

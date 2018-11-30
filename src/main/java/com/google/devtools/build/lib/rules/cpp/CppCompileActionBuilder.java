@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -67,7 +68,7 @@ public class CppCompileActionBuilder {
   private UUID actionClassId = GUID;
   private CppConfiguration cppConfiguration;
   private final ArrayList<Artifact> additionalIncludeScanningRoots;
-  private Boolean shouldScanIncludes;
+  private Optional<Boolean> shouldScanIncludes = Optional.absent();
   private Map<String, String> executionInfo = new LinkedHashMap<>();
   private CppSemantics cppSemantics;
   private CcToolchainProvider ccToolchain;
@@ -267,7 +268,7 @@ public class CppCompileActionBuilder {
   public CppCompileAction buildAndVerify(Consumer<String> errorCollector) {
     // This must be set either to false or true by CppSemantics, otherwise someone forgot to call
     // finalizeCompileActionBuilder on this builder.
-    Preconditions.checkNotNull(shouldScanIncludes);
+    Preconditions.checkState(shouldScanIncludes.isPresent());
     Preconditions.checkNotNull(featureConfiguration);
     boolean useHeaderModules = useHeaderModules();
 
@@ -302,7 +303,7 @@ public class CppCompileActionBuilder {
               sourceFile,
               cppConfiguration,
               shareable,
-              shouldScanIncludes,
+              shouldScanIncludes.get(),
               shouldPruneModules(),
               usePic,
               useHeaderModules,
@@ -329,7 +330,7 @@ public class CppCompileActionBuilder {
               sourceFile,
               cppConfiguration,
               shareable,
-              shouldScanIncludes,
+              shouldScanIncludes.get(),
               shouldPruneModules(),
               usePic,
               useHeaderModules,
@@ -398,7 +399,7 @@ public class CppCompileActionBuilder {
   }
 
   private boolean shouldPruneModules() {
-    return shouldScanIncludes && useHeaderModules();
+    return shouldScanIncludes.get() && useHeaderModules();
   }
 
   /**
@@ -558,11 +559,11 @@ public class CppCompileActionBuilder {
   }
 
   public CppCompileActionBuilder setShouldScanIncludes(boolean shouldScanIncludes) {
-    this.shouldScanIncludes = shouldScanIncludes;
+    this.shouldScanIncludes = Optional.of(shouldScanIncludes);
     return this;
   }
 
-  public boolean getShouldScanIncludes() {
+  public Optional<Boolean> getShouldScanIncludes() {
     return shouldScanIncludes;
   }
 

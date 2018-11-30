@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -43,7 +44,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -281,7 +281,14 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public void registerAction(ActionAnalysisMetadata... actions) {
     Preconditions.checkState(enabled);
-    Collections.addAll(this.actions, actions);
+    for (ActionAnalysisMetadata action : actions) {
+      if (action instanceof ActionExecutionMetadata) {
+        ActionExecutionMetadata actualAction = (ActionExecutionMetadata) action;
+        Preconditions.checkArgument(!actualAction.discoversInputs() || !actualAction.isShareable());
+      }
+
+      this.actions.add(action);
+    }
   }
 
   @Override

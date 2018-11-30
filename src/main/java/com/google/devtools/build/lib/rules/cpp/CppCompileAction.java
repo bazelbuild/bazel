@@ -274,12 +274,14 @@ public class CppCompileAction extends AbstractAction
     this.actionName = actionName;
     this.featureConfiguration = featureConfiguration;
     this.needsDotdInputPruning =
-        cppSemantics.needsDotdInputPruning() && !sourceFile.isFileType(CppFileTypes.CPP_MODULE);
+        !shareable
+            && cppSemantics.needsDotdInputPruning()
+            && !sourceFile.isFileType(CppFileTypes.CPP_MODULE);
     this.needsIncludeValidation = cppSemantics.needsIncludeValidation();
     this.includeProcessing = cppSemantics.getIncludeProcessing();
     this.actionClassId = actionClassId;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
-    this.additionalInputs = null;
+    this.additionalInputs = discoversInputs() ? null : ImmutableList.of();
     this.usedModules = null;
     this.topLevelModules = null;
     this.overwrittenVariables = null;
@@ -345,7 +347,9 @@ public class CppCompileAction extends AbstractAction
 
   /** Clears the discovered {@link #additionalInputs}. */
   public void clearAdditionalInputs() {
-    additionalInputs = null;
+    if (discoversInputs()) {
+      additionalInputs = null;
+    }
   }
 
   @Override
@@ -1112,7 +1116,7 @@ public class CppCompileAction extends AbstractAction
     setModuleFileFlags();
     CppCompileActionContext.Reply reply;
 
-    if (!shouldScanDotdFiles()) {
+    if (discoversInputs() && !shouldScanDotdFiles()) {
       updateActionInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs));
     }
 

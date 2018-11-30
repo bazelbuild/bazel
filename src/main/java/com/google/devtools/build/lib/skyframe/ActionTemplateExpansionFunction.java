@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -110,6 +111,10 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
 
   private GeneratingActions checkActionAndArtifactConflicts(Iterable<? extends Action> actions)
       throws ActionConflictException, ArtifactPrefixConflictException {
+    for (Action action : actions) {
+      Preconditions.checkArgument(!action.isShareable() || !action.discoversInputs());
+    }
+
     GeneratingActions generatingActions =
         Actions.findAndThrowActionConflict(actionKeyContext, ImmutableList.copyOf(actions));
     Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> artifactPrefixConflictMap =
