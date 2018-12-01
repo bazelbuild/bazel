@@ -14,7 +14,6 @@
 
 package com.google.devtools.common.options;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -176,14 +175,28 @@ public class OptionsParser implements OptionsParsingResult {
     return new OptionsParser((OptionsData) optionsData);
   }
 
+  /**
+   * Create a new {@link OptionsParser}, using {@link OpaqueOptionsData} previously returned from
+   * {@link #getOptionsData} and a prefix that signifies the parser should skip parsing args that
+   * begin with that prefix.
+   */
+  public static OptionsParser newOptionsParser(
+      OpaqueOptionsData optionsData, String skippedPrefix) {
+    return new OptionsParser((OptionsData) optionsData, skippedPrefix);
+  }
+
   private final OptionsParserImpl impl;
-  private final List<String> residue = new ArrayList<String>();
+  private List<String> residue = new ArrayList<>();
   private final List<String> postDoubleDashResidue = new ArrayList<>();
   private boolean allowResidue = true;
   private Map<String, Object> starlarkOptions = new HashMap<>();
 
   OptionsParser(OptionsData optionsData) {
     impl = new OptionsParserImpl(optionsData);
+  }
+
+  OptionsParser(OptionsData optionsData, String skippedPrefix) {
+    impl = new OptionsParserImpl(optionsData, skippedPrefix);
   }
 
   /**
@@ -201,8 +214,7 @@ public class OptionsParser implements OptionsParsingResult {
     return starlarkOptions;
   }
 
-  @VisibleForTesting
-  public void setStarlarkOptionsForTesting(Map<String, Object> starlarkOptions) {
+  public void setStarlarkOptions(Map<String, Object> starlarkOptions) {
     this.starlarkOptions = starlarkOptions;
   }
 
@@ -706,6 +718,14 @@ public class OptionsParser implements OptionsParsingResult {
             .collect(Collectors.toList());
   }
 
+  public List<String> getPostDoubleDashResidue() {
+    return postDoubleDashResidue;
+  }
+
+  public void setResidue(List<String> residue) {
+    this.residue = residue;
+  }
+
   /** Returns a list of warnings about problems encountered by previous parse calls. */
   public List<String> getWarnings() {
     return impl.getWarnings();
@@ -905,3 +925,4 @@ public class OptionsParser implements OptionsParsingResult {
             + "}");
   }
 }
+

@@ -2277,7 +2277,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         tsgm);
   }
 
-  protected void syncPackageLoading(
+  public void syncPackageLoading(
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
       SkylarkSemanticsOptions skylarkSemanticsOptions,
@@ -2565,3 +2565,4 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return buildDriver.evaluate(roots, evaluationContext);
   }
 }
+

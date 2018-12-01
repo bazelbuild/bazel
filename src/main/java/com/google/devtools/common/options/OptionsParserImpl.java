@@ -86,10 +86,23 @@ class OptionsParserImpl {
 
   private ArgsPreProcessor argsPreProcessor = args -> args;
 
+  private final String skippedPrefix;
+
   /** Create a new parser object. Do not accept a null OptionsData object. */
   OptionsParserImpl(OptionsData optionsData) {
     Preconditions.checkNotNull(optionsData);
     this.optionsData = optionsData;
+    this.skippedPrefix = null;
+  }
+
+  /**
+   * Creates a new parser object. Do not accept a null OptionsData object. Takes a prefix that
+   * signifies the parser should skip parsing args that begin with that prefix.
+   */
+  OptionsParserImpl(OptionsData optionsData, String skippedPrefix) {
+    Preconditions.checkNotNull(optionsData);
+    this.optionsData = optionsData;
+    this.skippedPrefix = skippedPrefix;
   }
 
   OptionsData getOptionsData() {
@@ -310,6 +323,11 @@ class OptionsParserImpl {
       if (!arg.startsWith("-")) {
         unparsedArgs.add(arg);
         continue; // not an option arg
+      }
+
+      if (skippedPrefix != null && arg.startsWith(skippedPrefix)) {
+        unparsedArgs.add(arg);
+        continue;
       }
 
       if (arg.equals("--")) { // "--" means all remaining args aren't options

@@ -584,6 +584,22 @@ public final class CommandEnvironment {
             options);
   }
 
+  public void syncPackageLoading(
+      PackageCacheOptions packageCacheOptions,
+      SkylarkSemanticsOptions skylarkSemanticsOptions,
+      String defaultsPackageContents)
+      throws AbruptExitException {
+    getSkyframeExecutor()
+        .syncPackageLoading(
+            packageCacheOptions,
+            packageLocator,
+            skylarkSemanticsOptions,
+            defaultsPackageContents,
+            getCommandId(),
+            clientEnv,
+            timestampGranularityMonitor);
+  }
+
   public void recordLastExecutionTime() {
     workspace.recordLastExecutionTime(getCommandStartTime());
   }

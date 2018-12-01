@@ -342,7 +342,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ResourceSet.createWithRamCpu(Double.MAX_VALUE, Double.MAX_VALUE);
   }
 
-  private BuildConfigurationCollection createConfigurations(
+  protected final BuildConfigurationCollection createConfigurations(
       ImmutableMap<String, Object> skylarkOptions, String... args) throws Exception {
     optionsParser =
         OptionsParser.newOptionsParser(
@@ -359,7 +359,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     optionsParser.parse(args);
 
     // TODO(juliexxia): when the starlark options parsing work goes in, add type verification here.
-    optionsParser.setStarlarkOptionsForTesting(skylarkOptions);
+    optionsParser.setStarlarkOptions(skylarkOptions);
 
     InvocationPolicyEnforcer optionsPolicyEnforcer =
         getAnalysisMock().getInvocationPolicyEnforcer();
@@ -2216,3 +2216,4 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
   }
 }
+
