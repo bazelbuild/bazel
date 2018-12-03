@@ -39,6 +39,8 @@ java_test(
     name = "PythonConfigurationTest",
     srcs = ["PythonConfigurationTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
