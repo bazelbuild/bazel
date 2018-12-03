@@ -235,7 +235,7 @@ java_plugin(
 
 java_import(
     name = "auto_common",
-    jars = ["auto/auto-common-0.3.jar"],
+    jars = ["auto/auto-common-0.10.jar"],
 )
 
 java_library(
@@ -260,7 +260,7 @@ java_plugin(
 
 java_import(
     name = "auto_service_lib",
-    jars = ["auto/auto-service-1.0-rc2.jar"],
+    jars = ["auto/auto-service-1.0-rc4.jar"],
 )
 
 java_plugin(
@@ -292,13 +292,13 @@ java_library(
 
 java_import(
     name = "auto_value_value",
-    jars = ["auto/auto-value-1.5.4.jar"],
+    jars = ["auto/auto-value-1.6.3rc1.jar", "auto/auto-value-annotations-1.6.3rc1.jar"],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "auto_value-jars",
-    srcs = ["auto/auto-value-1.5.4.jar"],
+    srcs = ["auto/auto-value-1.6.3rc1.jar", "auto/auto-value-annotations-1.6.3rc1.jar"],
 )
 
 java_import(
