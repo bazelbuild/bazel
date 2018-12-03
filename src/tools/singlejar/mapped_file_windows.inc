@@ -50,8 +50,7 @@ bool MappedFile::Open(const std::string& path) {
   size_t fileSize = temp.QuadPart;
 
   if (fileSize == 0) {
-    // This is where Windows implementation differs from POSIX's.
-    // CreateFileMapping cannot map empty file:
+    // Handle empty files specially, because CreateFileMapping cannot map them:
     //
     // From
     // https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-createfilemappinga
@@ -59,14 +58,10 @@ bool MappedFile::Open(const std::string& path) {
     // An attempt to map a file with a length of 0 (zero) fails with an error
     // code of ERROR_FILE_INVALID. Applications should test for files with a
     // length of 0 (zero) and reject those files.
-    //
-    // Since the test at //src/tools/singlerjar/input_jar_bad_jar_test expects
-    // empty file to fail anyway, returning error here shouldn't be a problem.
-    diag_warn("%s:%d: Windows MappedFile cannot handle empty file (%s)",
-              __FILE__, __LINE__, path.c_str());
-    _close(fd_);
-    fd_ = -1;
-    return false;
+    mapped_start_ = nullptr;
+    mapped_end_ = nullptr;
+    hMapFile_ = INVALID_HANDLE_VALUE;
+    return true;
   }
 
   hMapFile_ = ::CreateFileMapping(
@@ -107,10 +102,14 @@ bool MappedFile::Open(const std::string& path) {
 
 void MappedFile::Close() {
   if (is_open()) {
-    ::UnmapViewOfFile(mapped_start_);
-    ::CloseHandle(hMapFile_);
+    if (mapped_start_) {
+      ::UnmapViewOfFile(mapped_start_);
+    }
+    if (hMapFile_ != INVALID_HANDLE_VALUE) {
+      ::CloseHandle(hMapFile_);
+      hMapFile_ = INVALID_HANDLE_VALUE;
+    }
     _close(fd_);
-    hMapFile_ = INVALID_HANDLE_VALUE;
     fd_ = -1;
     mapped_start_ = mapped_end_ = nullptr;
   }
