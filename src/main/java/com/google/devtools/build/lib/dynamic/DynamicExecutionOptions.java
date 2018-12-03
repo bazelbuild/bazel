@@ -29,8 +29,12 @@ public class DynamicExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       help =
-          "Run actions locally instead of remotely for incremental builds as long as enough "
-              + "resources are available to execute all runnable actions in parallel.",
+          "Enable dynamic execution by running actions locally and remotely in parallel. Bazel "
+              + "spawns each action locally and remotely and picks the one that completes first. "
+              + "If an action supports workers, the local action will be run in the persistent "
+              + "worker mode. To enable dynamic execution for an individual action mnemonic, use "
+              + "the `--internal_spawn_scheduler` and `--strategy=<mnemonic>=dynamic` flags "
+              + "instead.",
       expansion = {"--internal_spawn_scheduler", "--spawn_strategy=dynamic"})
   public Void experimentalSpawnScheduler;
 

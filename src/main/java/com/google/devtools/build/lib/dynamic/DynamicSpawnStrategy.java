@@ -50,28 +50,20 @@ import javax.annotation.Nullable;
 /**
  * A spawn strategy that speeds up incremental builds while not slowing down full builds.
  *
- * <p>It tries to run spawn actions on the local machine, which is faster than running them
- * remotely, unless there are not enough resources available to run all of them in parallel, in
- * which case the increased parallelism of remote execution is likely to provide higher overall
- * throughput.
- *
- * <p>The strategy will delegate execution to either a remote spawn strategy for remote execution or
- * the sandboxed strategy for local execution. The general idea is to run spawns on the local 
- * machine, as long as it can keep up with the required parallelism. If it fails to do so, we assume
- * that the build would benefit from the increased parallelism available when using remote 
- * execution, so we switch to using remote execution for all following spawns.
+ * <p>This strategy tries to run spawn actions on the local and remote machine at the same time, and
+ * picks the spawn action that completes first. This gives the benefits of remote execution on full
+ * builds, and local execution on incremental builds.
  *
  * <p>One might ask, why we don't run spawns on the workstation all the time and just "spill over"
- * actions to remote execution when there are no local resources available. This would work, except 
+ * actions to remote execution when there are no local resources available. This would work, except
  * that the cost of transferring action inputs and outputs from the local machine to and from remote
  * executors over the network is way too high - there is no point in executing an action locally and
- * save 0.5s of time, when it then takes us 5 seconds to upload the results to remote executors for 
+ * save 0.5s of time, when it then takes us 5 seconds to upload the results to remote executors for
  * another action that's scheduled to run there.
  */
 @ExecutionStrategy(
-  name = {"dynamic", "dynamic_worker"},
-  contextType = SpawnActionContext.class
-)
+    name = {"dynamic", "dynamic_worker"},
+    contextType = SpawnActionContext.class)
 public class DynamicSpawnStrategy implements SpawnActionContext {
   private static final Logger logger = Logger.getLogger(DynamicSpawnStrategy.class.getName());
 
