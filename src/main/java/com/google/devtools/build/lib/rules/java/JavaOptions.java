@@ -580,7 +580,7 @@ public class JavaOptions extends FragmentOptions {
       if (useJDK10AsHostJavaBase) {
         return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk10");
       } else {
-        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk");
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:host_jdk");
       }
     }
     return hostJavaBase;

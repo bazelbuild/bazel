@@ -182,7 +182,7 @@ alias(
 
 alias(
     name = "host_jdk",
-    actual = "@embedded_jdk//:jdk",
+    actual = ":remote_jdk",
 )
 
 bootclasspath(
