@@ -42,7 +42,8 @@ import javax.annotation.Nullable;
 class ByteStreamBuildEventArtifactUploader implements BuildEventArtifactUploader {
 
   private final ListeningExecutorService uploadExecutor =
-      MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
+      MoreExecutors.listeningDecorator(
+          Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()));
   private final Context ctx;
   private final ByteStreamUploader uploader;
   private final String remoteServerInstanceName;
