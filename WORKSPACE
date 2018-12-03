@@ -115,9 +115,9 @@ distdir_tar(
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
 http_file(
     name = "openjdk_linux",
-    sha256 = "b655838360e35ef1f8f92e1b1096306c6314ea78e05d80436bcab11a75d919ef",
+    sha256 = "f27cb933de4f9e7fe9a703486cf44c84bc8e9f138be0c270c9e5716a32367e87",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-minimal.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz",
     ],
     downloaded_file_path="zulu-linux.tar.gz",
 )
@@ -136,18 +136,18 @@ http_archive(
 
 http_file(
     name = "openjdk_macos",
-    sha256 = "96329f318155bd6481ad05cb8b1771d3c3545d59929cf7a6f8b8024029670a7e",
+    sha256 = "404e7058ff91f956612f47705efbee8e175a38b505fb1b52d8c1ea98718683de",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64-minimal.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64-allmodules.tar.gz",
     ],
     downloaded_file_path="zulu-macos.tar.gz",
 )
 
 http_file(
     name = "openjdk_win",
-    sha256 = "653120a5e5def2694e8044d2fd929b56a17e607b76d9e4eb3555f58659e547be",
+    sha256 = "e738829017f107e7a7cd5069db979398ec3c3f03ef56122f89ba38e7374f63ed",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64-minimal.zip",
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64-allmodules.zip",
     ],
     downloaded_file_path="zulu-win.zip",
 )
