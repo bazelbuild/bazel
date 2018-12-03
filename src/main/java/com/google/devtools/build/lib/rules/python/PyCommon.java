@@ -211,8 +211,8 @@ public final class PyCommon {
           "srcs_version",
           String.format(
               "'%s' is not a valid value. Expected one of: %s",
-              attrValue, Joiner.on(", ").join(PythonVersion.getAllStrings())));
-      return PythonVersion.getDefaultSrcsValue();
+              attrValue, Joiner.on(", ").join(PythonVersion.ALL_STRINGS)));
+      return PythonVersion.DEFAULT_SRCS_VALUE;
     }
   }
 
@@ -227,8 +227,8 @@ public final class PyCommon {
           "default_python_version",
           String.format(
               "'%s' is not a valid value. Expected one of: %s",
-              attrValue, Joiner.on(", ").join(PythonVersion.getTargetStrings())));
-      return PythonVersion.getDefaultTargetValue();
+              attrValue, Joiner.on(", ").join(PythonVersion.TARGET_STRINGS)));
+      return PythonVersion.DEFAULT_TARGET_VALUE;
     }
   }
 

@@ -109,8 +109,8 @@ public final class BazelPyRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("srcs_version", STRING)
-                  .value(PythonVersion.getDefaultSrcsValue().toString())
-                  .allowedValues(new AllowedValueSet(PythonVersion.getAllStrings())))
+                  .value(PythonVersion.DEFAULT_SRCS_VALUE.toString())
+                  .allowedValues(new AllowedValueSet(PythonVersion.ALL_STRINGS)))
           // TODO(brandjon): Consider adding to py_interpreter a .mandatoryNativeProviders() of
           // BazelPyRuntimeProvider. (Add a test case to PythonConfigurationTest for violations
           // of this requirement.)
@@ -167,8 +167,8 @@ public final class BazelPyRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("default_python_version", STRING)
-                  .value(PythonVersion.getDefaultTargetValue().toString())
-                  .allowedValues(new AllowedValueSet(PythonVersion.getTargetStrings()))
+                  .value(PythonVersion.DEFAULT_TARGET_VALUE.toString())
+                  .allowedValues(new AllowedValueSet(PythonVersion.TARGET_STRINGS))
                   .nonconfigurable(
                       "read by PythonUtils.getNewPythonVersion, which doesn't have access"
                           + " to configuration keys"))

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
-import java.util.Arrays;
+import java.util.List;
 
 /**
  * An enum representing Python major versions.
@@ -69,78 +69,38 @@ public enum PythonVersion {
    */
   PY3ONLY;
 
-  private static ImmutableList<String> convertToStrings(PythonVersion[] values) {
-    return Arrays.stream(values)
+  private static ImmutableList<String> convertToStrings(List<PythonVersion> values) {
+    return values.stream()
         .map(Functions.toStringFunction())
         .collect(ImmutableList.toImmutableList());
   }
 
-  private static final PythonVersion[] allValues =
-      new PythonVersion[] {PY2, PY3, PY2AND3, PY2ONLY, PY3ONLY};
+  /** All enum values. */
+  public static final ImmutableList<PythonVersion> ALL_VALUES =
+      ImmutableList.of(PY2, PY3, PY2AND3, PY2ONLY, PY3ONLY);
 
-  private static final ImmutableList<String> ALL_STRINGS = convertToStrings(allValues);
+  /** String names of all enum values. */
+  public static final ImmutableList<String> ALL_STRINGS = convertToStrings(ALL_VALUES);
 
-  private static final PythonVersion[] targetValues = new PythonVersion[] {PY2, PY3};
+  /** Enum values representing a distinct Python version. */
+  public static final ImmutableList<PythonVersion> TARGET_VALUES = ImmutableList.of(PY2, PY3);
 
-  private static final ImmutableList<String> TARGET_STRINGS = convertToStrings(targetValues);
+  /** String names of enum values representing a distinct Python version. */
+  public static final ImmutableList<String> TARGET_STRINGS = convertToStrings(TARGET_VALUES);
 
-  private static final PythonVersion[] nonConversionValues =
-      new PythonVersion[] {PY2AND3, PY2ONLY, PY3ONLY};
-
-  private static final ImmutableList<String> NON_CONVERSION_STRINGS =
-      convertToStrings(nonConversionValues);
-
-  private static final PythonVersion DEFAULT_TARGET_VALUE = PY2;
-
-  private static final PythonVersion DEFAULT_SRCS_VALUE = PY2AND3;
-
-  /** Returns all values as a new array. */
-  public static PythonVersion[] getAllValues() {
-    return Arrays.copyOf(allValues, allValues.length);
-  }
-
-  /** Returns an iterable of all values as strings. */
-  public static ImmutableList<String> getAllStrings() {
-    return ALL_STRINGS;
-  }
-
-  /** Returns all values representing a specific version, as a new array. */
-  public static PythonVersion[] getTargetValues() {
-    return Arrays.copyOf(targetValues, targetValues.length);
-  }
-
-  /** Returns an iterable of all values representing a specific version, as strings. */
-  public static ImmutableList<String> getTargetStrings() {
-    return TARGET_STRINGS;
-  }
+  /** Enum values that do not imply running a transpiler to convert between versions. */
+  public static final ImmutableList<PythonVersion> NON_CONVERSION_VALUES =
+      ImmutableList.of(PY2AND3, PY2ONLY, PY3ONLY);
 
   /**
-   * Returns all values that do not imply running a transpiler to convert between versions, as a new
-   * array.
+   * String names of enum values that do not imply running a transpiler to convert between versions.
    */
-  public static PythonVersion[] getNonConversionValues() {
-    return Arrays.copyOf(nonConversionValues, nonConversionValues.length);
-  }
+  public static final ImmutableList<String> NON_CONVERSION_STRINGS =
+      convertToStrings(NON_CONVERSION_VALUES);
 
-  /**
-   * Returns all values that do not imply running a transpiler to convert between versions, as
-   * strings.
-   */
-  public static ImmutableList<String> getNonConversionStrings() {
-    return NON_CONVERSION_STRINGS;
-  }
+  public static final PythonVersion DEFAULT_TARGET_VALUE = PY2;
 
-  /** Returns the Python version to use if not otherwise specified by a flag or attribute. */
-  public static PythonVersion getDefaultTargetValue() {
-    return DEFAULT_TARGET_VALUE;
-  }
-
-  /**
-   * Returns the level of source compatibility assumed if not otherwise specified by an attribute.
-   */
-  public static PythonVersion getDefaultSrcsValue() {
-    return DEFAULT_SRCS_VALUE;
-  }
+  public static final PythonVersion DEFAULT_SRCS_VALUE = PY2AND3;
 
   /**
    * Converts the string to a target {@code PythonVersion} value (case-sensitive).
