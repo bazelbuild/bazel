@@ -66,6 +66,12 @@ function test_new_entries() {
     { echo "build-data.properties is not readable" >&2; exit 1; }
 }
 
+# Regression test https://github.com/bazelbuild/bazel/issues/6820
+function test_empty_resource_file() {
+  local -r out_jar="${TEST_TMPDIR}/out.jar"
+  "$singlejar" --output "$out_jar" --resources /dev/null
+}
+
 run_suite "Misc shell tests"
 #!/bin/bash
 
