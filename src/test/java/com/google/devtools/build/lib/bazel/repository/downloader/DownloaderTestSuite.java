@@ -30,5 +30,7 @@ import org.junit.runners.Suite.SuiteClasses;
   ProgressInputStreamTest.class,
   ProxyHelperTest.class,
   RetryingInputStreamTest.class,
+  NetrcCredentialsProviderTest.class,
+  AuthorizationHeaderProviderTest.class
 })
 public class DownloaderTestSuite {}

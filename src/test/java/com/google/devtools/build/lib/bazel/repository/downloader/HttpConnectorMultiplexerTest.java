@@ -62,12 +62,14 @@ import org.mockito.stubbing.Answer;
 @SuppressWarnings("unchecked")
 public class HttpConnectorMultiplexerTest {
 
-  private static final URL URL1 = makeUrl("http://first.example");
+  private static final URL URL1 = makeUrl("http://github.example");
   private static final URL URL2 = makeUrl("http://second.example");
   private static final URL URL3 = makeUrl("http://third.example");
+  private static final URL URL4 = makeUrl("https://github.com/notRealRepo");
   private static final byte[] data1 = "first".getBytes(UTF_8);
   private static final byte[] data2 = "second".getBytes(UTF_8);
   private static final byte[] data3 = "third".getBytes(UTF_8);
+  private static final byte[] data4 = "fourth".getBytes(UTF_8);
 
   @Rule
   public final ExpectedException thrown = ExpectedException.none();
@@ -78,22 +80,28 @@ public class HttpConnectorMultiplexerTest {
   private final HttpStream stream1 = fakeStream(URL1, data1);
   private final HttpStream stream2 = fakeStream(URL2, data2);
   private final HttpStream stream3 = fakeStream(URL3, data3);
+  private final HttpStream stream4 = fakeStream(URL4, data4);
   private final ManualClock clock = new ManualClock();
   private final Sleeper sleeper = mock(Sleeper.class);
   private final HttpConnector connector = mock(HttpConnector.class);
   private final URLConnection connection1 = mock(URLConnection.class);
   private final URLConnection connection2 = mock(URLConnection.class);
   private final URLConnection connection3 = mock(URLConnection.class);
+  private final URLConnection connection4 = mock(URLConnection.class);
   private final EventHandler eventHandler = mock(EventHandler.class);
   private final HttpStream.Factory streamFactory = mock(HttpStream.Factory.class);
   private final HttpConnectorMultiplexer multiplexer =
       new HttpConnectorMultiplexer(eventHandler, connector, streamFactory, clock, sleeper);
+  private final HttpConnectorMultiplexer authMultiplexer =
+          new HttpConnectorMultiplexer(eventHandler, connector, streamFactory, clock, sleeper, ImmutableMap.of(
+                  "github.com", "token 123"));
 
   @Before
   public void before() throws Exception {
     when(connector.connect(eq(URL1), any(ImmutableMap.class))).thenReturn(connection1);
     when(connector.connect(eq(URL2), any(ImmutableMap.class))).thenReturn(connection2);
     when(connector.connect(eq(URL3), any(ImmutableMap.class))).thenReturn(connection3);
+    when(connector.connect(eq(URL4), any(ImmutableMap.class))).thenReturn(connection4);
     when(streamFactory
             .create(same(connection1), any(URL.class), anyString(), any(Reconnector.class)))
         .thenReturn(stream1);
@@ -103,6 +111,9 @@ public class HttpConnectorMultiplexerTest {
     when(streamFactory
             .create(same(connection3), any(URL.class), anyString(), any(Reconnector.class)))
         .thenReturn(stream3);
+    when(streamFactory
+                 .create(same(connection4), any(URL.class), anyString(), any(Reconnector.class)))
+            .thenReturn(stream4);
   }
 
   @Test
@@ -147,6 +158,17 @@ public class HttpConnectorMultiplexerTest {
     verify(connector).connect(eq(URL1), any(ImmutableMap.class));
     verify(streamFactory)
         .create(any(URLConnection.class), any(URL.class), eq("abc"), any(Reconnector.class));
+    verifyNoMoreInteractions(sleeper, connector, streamFactory);
+  }
+
+  @Test
+  public void githubSingleUrl_justCallsConnector() throws Exception {
+    assertThat(toByteArray(authMultiplexer.connect(asList(URL4), "abc"))).isEqualTo(data4);
+    verify(connector).connect(eq(URL4), eq(ImmutableMap.of("Accept-Encoding","gzip",
+                                                        "User-Agent","Bazel/development version",
+                                                                "Authorization","token 123")));
+    verify(streamFactory)
+            .create(any(URLConnection.class), any(URL.class), eq("abc"), any(Reconnector.class));
     verifyNoMoreInteractions(sleeper, connector, streamFactory);
   }
 

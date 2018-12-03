@@ -39,7 +39,7 @@ class Handler(BaseHTTPRequestHandler):
   not_found = False
   filename = None
   redirect = None
-  valid_header = b'Basic ' + base64.b64encode('foo:bar'.encode('ascii'))
+  default_valid_auth_token = b'Basic ' + base64.b64encode('foo:bar'.encode('ascii'))
 
   def do_HEAD(self):  # pylint: disable=invalid-name
     self.send_response(200)
@@ -70,7 +70,8 @@ class Handler(BaseHTTPRequestHandler):
       return
 
     auth_header = self.headers.get('Authorization', '').encode('ascii')
-    if auth_header == self.valid_header:
+    valid_auth_token = self.auth_token if hasattr(self, 'auth_token') else self.default_valid_auth_token
+    if auth_header == valid_auth_token:
       self.do_HEAD()
       self.serve_file()
     else:
@@ -92,6 +93,10 @@ def main(argv=None):
 
   if len(argv) > 1 and argv[0] == 'always':
     Handler.filename = argv[1]
+  elif len(argv) > 1 and argv[0] == 'auth':
+    Handler.auth = True
+    Handler.auth_token = argv[1]
+    Handler.filename = argv[2]
   elif len(argv) > 1 and argv[0] == 'redirect':
     Handler.redirect = argv[1]
   elif argv and argv[0] == '404':

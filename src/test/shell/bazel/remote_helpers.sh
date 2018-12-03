@@ -29,7 +29,10 @@ case "${PLATFORM}" in
     ;;
 esac
 
-# Serves $1 as a file on localhost:$nc_port.  Sets the following variables:
+# Serves $1 as a file on localhost:$nc_port.
+# Optional $2 $3 - auth <expected auth token>
+# - file will be served only if Authorization header with $3 value is sent
+# Sets the following variables:
 #   * nc_port - the port nc is listening on.
 #   * nc_log - the path to nc's log.
 #   * nc_pid - the PID of nc.
@@ -42,7 +45,13 @@ function serve_file() {
   cd "${TEST_TMPDIR}"
   port_file=server-port.$$
   rm -f $port_file
-  python $python_server always $file_name > $port_file &
+
+  if [[ "$#" -eq 1 ]]; then
+    python $python_server always $file_name > $port_file &
+  else
+    python $python_server $2 "$3" $file_name > $port_file &
+  fi
+
   nc_pid=$!
   while ! grep started $port_file; do sleep 1; done
   nc_port=$(head -n 1 $port_file)

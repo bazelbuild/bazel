@@ -63,6 +63,18 @@ public class HttpDownloader {
     this.distdir = ImmutableList.copyOf(distdir);
   }
 
+
+
+  public Path download(List<URL> urls,
+                       String sha256,
+                       Optional<String> type,
+                       Path output,
+                       ExtendedEventHandler eventHandler,
+                       Map<String, String> clientEnv,
+                       String repo) throws IOException, InterruptedException {
+    return download(urls, sha256, type, output, eventHandler, clientEnv, repo, null);
+  }
+  
   /**
    * Downloads file to disk and returns path.
    *
@@ -78,6 +90,7 @@ public class HttpDownloader {
    * @param clientEnv environment variables in shell issuing this command
    * @param repo the name of the external repository for which the file was fetched; used only for
    *     reporting
+   * @param authorization TBD
    * @throws IllegalArgumentException on parameter badness, which should be checked beforehand
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion
@@ -89,7 +102,8 @@ public class HttpDownloader {
       Path output,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      String repo)
+      String repo,
+      Map<String, String> authorization)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
@@ -186,7 +200,7 @@ public class HttpDownloader {
         new ProgressInputStream.Factory(locale, clock, eventHandler);
     HttpStream.Factory httpStreamFactory = new HttpStream.Factory(progressInputStreamFactory);
     HttpConnectorMultiplexer multiplexer =
-        new HttpConnectorMultiplexer(eventHandler, connector, httpStreamFactory, clock, sleeper);
+        new HttpConnectorMultiplexer(eventHandler, connector, httpStreamFactory, clock, sleeper, authorization);
 
     // Connect to the best mirror and download the file, while reporting progress to the CLI.
     semaphore.acquire();

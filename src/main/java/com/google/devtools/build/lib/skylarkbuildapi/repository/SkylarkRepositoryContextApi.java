@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 
+import java.util.Map;
+
 /** Skylark API for the repository_rule's context. */
 @SkylarkModule(
     name = "repository_ctx",
@@ -459,6 +461,24 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                     + " <code>build_file</code>, this field can be used to strip it from extracted"
                     + " files."),
         @Param(
+            name = "is_netrc_auth_enabled",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            doc = "a flag for enable using netrc files"),
+        @Param(
+            name = "netrc_file_path",
+            type = String.class,
+            defaultValue = "'/'",
+            named = true,
+            doc = "path for the netrc file"),
+        @Param(
+            name = "netrc_domain_auth_types",
+            type = SkylarkDict.class,
+            defaultValue = "{}",
+            named = true,
+            doc = "the authorization type which is the host in netrc file for now support \"github\""),
+		@Param(
             name = "allow_fail",
             type = Boolean.class,
             defaultValue = "False",
@@ -473,6 +493,9 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       String sha256,
       String type,
       String stripPrefix,
+	  Boolean isNetrcAuthEnabled,
+      String netrcFilePath,
+      Map<String, String> netrcDomainAuthTypes,
       Boolean allowFail,
       Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;

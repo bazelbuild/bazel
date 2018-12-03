@@ -196,6 +196,86 @@ EOF
   expect_log $what_does_the_fox_say
 }
 
+function test_http_archive_zip_with_netrc() {
+  # create .netrc file
+  local auth_token=auth_token
+  local netrc_path=$TEST_TMPDIR/.netrc
+  cat > $netrc_path <<EOF
+machine 127.0.0.1 password $auth_token
+EOF
+
+  local repo_with_auth=$TEST_TMPDIR/repo_with_auth
+  rm -rf $repo_with_auth
+
+  mkdir -p $repo_with_auth/cat
+  cd $repo_with_auth
+  touch WORKSPACE
+  touch cat/male
+  cat > cat/BUILD <<EOF
+filegroup(
+    name = "cat",
+    srcs = ["male"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  local what_does_the_cat_say="Myau-myau"
+
+  cat > cat/male <<EOF
+#!/bin/sh
+echo $what_does_the_cat_say
+EOF
+
+  chmod +x cat/male
+
+  local repo_with_auth_zip=$TEST_TMPDIR/auth.zip
+  zip -0 -ry $repo_with_auth_zip WORKSPACE cat
+
+  local repo_with_auth_sha256=$(sha256sum $repo_with_auth_zip | cut -f 1 -d ' ')
+
+  local expected_github_auth_token="token $auth_token"
+  serve_file $repo_with_auth_zip auth "$expected_github_auth_token"
+
+  local repo_with_auth_name=$(basename $repo_with_auth_zip)
+  cd ${WORKSPACE_DIR}
+
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = 'endangered',
+    url = 'http://127.0.0.1:$nc_port/$repo_with_auth_name',
+    sha256 = '$repo_with_auth_sha256',
+    type = 'zip',
+    is_netrc_auth_enabled = True,
+    netrc_file_path = '$netrc_path',
+    netrc_domain_auth_types = {
+      "127.0.0.1": "github"
+    },
+)
+EOF
+
+  cat > zoo/BUILD <<EOF
+sh_binary(
+    name = "breeding-program",
+    srcs = ["female.sh"],
+    data = ["@endangered//cat"],
+)
+EOF
+
+    cat > zoo/female.sh <<EOF
+#!/bin/sh
+../endangered/cat/male
+EOF
+  chmod +x zoo/female.sh
+
+  bazel run //zoo:breeding-program >& $TEST_log \
+    || echo "Expected build/run to succeed"
+
+  kill_nc
+
+  expect_log $what_does_the_cat_say
+}
+
 function test_http_archive_tgz() {
   http_archive_helper tar_gz_up
   bazel shutdown

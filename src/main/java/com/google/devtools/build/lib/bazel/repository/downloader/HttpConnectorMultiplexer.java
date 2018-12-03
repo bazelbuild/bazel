@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
-import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
@@ -27,6 +25,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Sleeper;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -37,10 +38,11 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
+
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 
 /**
  * Class for establishing HTTP connections.
@@ -73,9 +75,10 @@ final class HttpConnectorMultiplexer {
   private final HttpStream.Factory httpStreamFactory;
   private final Clock clock;
   private final Sleeper sleeper;
+  private final Map<String, String> authorizationHeaders;
 
   /**
-   * Creates a new instance.
+   * Creates a new instance with authorizationHeaders.
    *
    * <p>Instances are thread safe and can be reused.
    */
@@ -84,12 +87,28 @@ final class HttpConnectorMultiplexer {
       HttpConnector connector,
       HttpStream.Factory httpStreamFactory,
       Clock clock,
-      Sleeper sleeper) {
+      Sleeper sleeper,
+      Map<String, String> authorizationHeaders) {
     this.eventHandler = eventHandler;
     this.connector = connector;
     this.httpStreamFactory = httpStreamFactory;
     this.clock = clock;
     this.sleeper = sleeper;
+    this.authorizationHeaders = authorizationHeaders;
+  }
+
+  /**
+   * Creates a new instance without authorizationHeaders.
+   *
+   * <p>Instances are thread safe and can be reused.
+   */
+  HttpConnectorMultiplexer(
+          EventHandler eventHandler,
+          HttpConnector connector,
+          HttpStream.Factory httpStreamFactory,
+          Clock clock,
+          Sleeper sleeper) {
+    this(eventHandler, connector, httpStreamFactory, clock, sleeper, null);
   }
 
   /**
@@ -297,7 +316,7 @@ final class HttpConnectorMultiplexer {
   }
 
   private HttpStream establishConnection(final URL url, String sha256) throws IOException {
-    final URLConnection connection = connector.connect(url, REQUEST_HEADERS);
+    final URLConnection connection = connector.connect(url, headersWithAuth(url));
     return httpStreamFactory.create(
         connection, url, sha256,
         new Reconnector() {
@@ -310,11 +329,20 @@ final class HttpConnectorMultiplexer {
             return connector.connect(
                 connection.getURL(),
                 new ImmutableMap.Builder<String, String>()
-                    .putAll(REQUEST_HEADERS)
+                    .putAll(headersWithAuth(connection.getURL()))
                     .putAll(extraHeaders)
                     .build());
           }
         });
+  }
+  private ImmutableMap<String, String> headersWithAuth(URL url) {
+    if (authorizationHeaders != null) {
+      if(authorizationHeaders.keySet().stream().anyMatch(host -> url.getHost().equals(host))){
+        return new ImmutableMap.Builder<String, String>().putAll(REQUEST_HEADERS)
+                                                         .put("Authorization", authorizationHeaders.get(url.getHost())).build();
+      }
+    }
+    return REQUEST_HEADERS;
   }
 
   private static String describeErrors(Collection<Throwable> errors) {
