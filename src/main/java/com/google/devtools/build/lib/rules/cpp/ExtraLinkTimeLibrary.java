@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -30,8 +31,32 @@ import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
  * between rules and accessed in a multi-threaded context.
  */
 public interface ExtraLinkTimeLibrary {
-  /** Build the LibraryToLink inputs to pass to the C++ linker. */
-  NestedSet<LibraryToLink> buildLibraries(
+
+  /** Output of {@link #buildLibraries}. Pair of libraries to link and runtime libraries. */
+  class BuildLibraryOutput {
+    public NestedSet<LibraryToLink> librariesToLink;
+    public NestedSet<Artifact> runtimeLibraries;
+
+    public BuildLibraryOutput(
+        NestedSet<LibraryToLink> librariesToLink, NestedSet<Artifact> runtimeLibraries) {
+      this.librariesToLink = librariesToLink;
+      this.runtimeLibraries = runtimeLibraries;
+    }
+
+    public NestedSet<LibraryToLink> getLibrariesToLink() {
+      return librariesToLink;
+    }
+
+    public NestedSet<Artifact> getRuntimeLibraries() {
+      return runtimeLibraries;
+    }
+  }
+
+  /**
+   * Build and return the LibraryToLink inputs to pass to the C++ linker and the associated runtime
+   * libraries.
+   */
+  BuildLibraryOutput buildLibraries(
       RuleContext context, boolean staticMode, boolean forDynamicLibrary)
       throws InterruptedException, RuleErrorException;
 
