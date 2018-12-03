@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -74,7 +75,20 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     // Expand target patterns.
     ImmutableList<Label> platformLabels;
     try {
-      platformLabels = TargetPatternUtil.expandTargetPatterns(env, targetPatterns);
+      platformLabels =
+          TargetPatternUtil.expandTargetPatterns(
+              env,
+              targetPatterns,
+              FilteringPolicies.ruleFilter(
+                  ruleClass -> {
+                    if (ruleClass.supportsPlatforms()) {
+                      // Rules that require platforms can't be used as platforms, this leads to
+                      // cycles.
+                      return false;
+                    }
+                    return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
+                  },
+                  true));
       if (env.valuesMissing()) {
         return null;
       }

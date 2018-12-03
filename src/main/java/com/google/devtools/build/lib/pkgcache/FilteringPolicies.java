@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.pkgcache;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
+import java.util.function.Predicate;
 
 /**
  * Utility class for predefined filtering policies.
@@ -38,6 +40,10 @@ public final class FilteringPolicies {
 
   public static FilteringPolicy ruleType(String ruleName, boolean keepExplicit) {
     return RuleTypeFilter.create(ruleName, keepExplicit);
+  }
+
+  public static FilteringPolicy ruleFilter(Predicate<RuleClass> filter, boolean keepExplicit) {
+    return RuleFilter.create(filter, keepExplicit);
   }
 
   private FilteringPolicies() {
@@ -117,6 +123,35 @@ public final class FilteringPolicies {
     @AutoCodec.Instantiator
     static RuleTypeFilter create(String ruleName, boolean keepExplicit) {
       return new AutoValue_FilteringPolicies_RuleTypeFilter(ruleName, keepExplicit);
+    }
+  }
+
+  /** FilteringPolicy that allows creating filters on rules from lambda expressions. */
+  @AutoValue
+  @AutoCodec
+  abstract static class RuleFilter extends FilteringPolicy {
+    abstract Predicate<RuleClass> filter();
+
+    abstract boolean keepExplicit();
+
+    @Override
+    public boolean shouldRetain(Target target, boolean explicit) {
+      if (explicit && keepExplicit()) {
+        return true;
+      }
+
+      if (!(target instanceof Rule)) {
+        return false;
+      }
+
+      Rule rule = (Rule) target;
+
+      return filter().test(rule.getRuleClassObject());
+    }
+
+    @AutoCodec.Instantiator
+    static RuleFilter create(Predicate<RuleClass> filter, boolean keepExplicit) {
+      return new AutoValue_FilteringPolicies_RuleFilter(filter, keepExplicit);
     }
   }
 
