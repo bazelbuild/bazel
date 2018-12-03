@@ -341,6 +341,14 @@ def _use_clang_cl(repository_ctx):
     """Returns True if USE_CLANG_CL is set to 1."""
     return repository_ctx.os.environ.get("USE_CLANG_CL", default = "0") == "1"
 
+def _get_clang_version(repository_ctx, clang_cl):
+    result = repository_ctx.execute([clang_cl, "-v"])
+    if result.return_code != 0:
+        auto_configure_fail("Failed to get clang version by running \"%s -v\"" % clang_cl)
+
+    # Stderr should look like "clang version X.X.X ..."
+    return result.stderr.strip().split(" ")[2]
+
 def configure_windows_toolchain(repository_ctx):
     """Configure C++ toolchain on Windows."""
     paths = resolve_labels(repository_ctx, [
@@ -427,7 +435,11 @@ def configure_windows_toolchain(repository_ctx):
                                 "Please install Clang via http://releases.llvm.org/download.html\n")
         cl_path = find_llvm_tool(repository_ctx, llvm_path, "clang-cl.exe")
         link_path = find_llvm_tool(repository_ctx, llvm_path, "lld-link.exe")
+        if not link_path:
+            link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe")
         lib_path = find_llvm_tool(repository_ctx, llvm_path, "llvm-lib.exe")
+        if not lib_path:
+            lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe")
     else:
         cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe")
         link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe")
@@ -440,8 +452,12 @@ def configure_windows_toolchain(repository_ctx):
         if path:
             escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % path)
     if llvm_path:
-        clang_include_path = (llvm_path + "\\lib\\clang").replace("\\", "\\\\")
+        clang_version = _get_clang_version(repository_ctx, cl_path)
+        clang_dir = llvm_path + "\\lib\\clang\\" + clang_version
+        clang_include_path = (clang_dir + "\\include").replace("\\", "\\\\")
         escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % clang_include_path)
+        clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
+        escaped_lib_paths = escaped_lib_paths + ";" + clang_lib_path
 
     support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, link_path)
 
