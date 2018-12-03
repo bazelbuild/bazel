@@ -49,6 +49,7 @@ def _pkg_tar_impl(ctx):
     ]
 
     # Add runfiles if requested
+    file_inputs = []
     if ctx.attr.include_runfiles:
         runfiles_depsets = []
         for f in ctx.attr.srcs:
@@ -230,7 +231,7 @@ _real_pkg_tar = rule(
             default = Label("//tools/build_defs/pkg:build_tar"),
             cfg = "host",
             executable = True,
-            allow_single_file = True,
+            allow_files = True,
         ),
     },
     outputs = {
@@ -287,7 +288,7 @@ pkg_deb = rule(
             default = Label("//tools/build_defs/pkg:make_deb"),
             cfg = "host",
             executable = True,
-            allow_single_file = True,
+            allow_files = True,
         ),
     },
     outputs = {
