@@ -285,7 +285,7 @@ public class CcCommonTest extends BuildViewTestCase {
     scratch.file(
         "ananas/BUILD",
         "cc_library(name='ananas',",
-        "           srcs=['1.c', '2.cc', '3.cpp', '4.S', '5.h', '6.hpp', '7.inc', '8.inl'])");
+        "           srcs=['1.c', '2.cc', '3.cpp', '4.S', '5.h', '6.hpp'])");
 
     ConfiguredTarget ananas = getConfiguredTarget("//ananas:ananas");
     Iterable<String> temps =
