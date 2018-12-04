@@ -435,6 +435,16 @@ function tear_down() {
   cleanup_workspace
 }
 
+# This is called by unittest.bash upon eventual exit of the test suite.
+function cleanup() {
+  if [ -d "${WORKSPACE_DIR:-}" ]; then
+    # Try to shutdown Bazel at the end to prevent a "Cannot delete path" error
+    # on Windows when the outer Bazel tries to delete $TEST_TMPDIR.
+    cd "${WORKSPACE_DIR}"
+    bazel shutdown || true
+  fi
+}
+
 #
 # Simples assert to make the tests more readable
 #
