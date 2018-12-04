@@ -322,6 +322,9 @@ class Desugar {
     public boolean legacyJacocoFix;
   }
 
+  private static final String RUNTIME_LIB_PACKAGE =
+      "com/google/devtools/build/android/desugar/runtime/";
+
   private final DesugarOptions options;
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
@@ -453,7 +456,7 @@ class Desugar {
       desugarAndWriteGeneratedClasses(
           outputFileProvider, loader, bootclasspathReader, coreLibrarySupport);
 
-      copyThrowableExtensionClass(outputFileProvider);
+      copyRuntimeClasses(outputFileProvider, coreLibrarySupport);
 
       byte[] depsInfo = depsCollector.toByteArray();
       if (depsInfo != null) {
@@ -492,7 +495,26 @@ class Desugar {
     }
   }
 
-  private void copyThrowableExtensionClass(OutputFileProvider outputFileProvider) {
+  private void copyRuntimeClasses(OutputFileProvider outputFileProvider,
+      @Nullable CoreLibrarySupport coreLibrarySupport) {
+    // 1. Copy any runtime classes needed due to core library member moves.
+    if (coreLibrarySupport != null) {
+      coreLibrarySupport.seenMoveTargets().stream()
+          .filter(className -> className.startsWith(RUNTIME_LIB_PACKAGE))
+          .distinct()
+          .forEach(className -> {
+            // We want core libraries to remain self-contained, so fail if we get here.
+            checkState(!options.coreLibrary, "Core library shouldn't depend on %s", className);
+            try (InputStream stream =
+                Desugar.class.getClassLoader().getResourceAsStream(className + ".class")) {
+              outputFileProvider.write(className + ".class", ByteStreams.toByteArray(stream));
+            } catch (IOException e) {
+              throw new IOError(e);
+            }
+          });
+    }
+
+    // 2. See if we need to copy try-with-resources runtime library
     if (allowTryWithResources || options.desugarTryWithResourcesOmitRuntimeClasses) {
       // try-with-resources statements are okay in the output jar.
       return;
@@ -534,8 +556,11 @@ class Desugar {
       try (InputStream content = inputFiles.getInputStream(inputFilename)) {
         // We can write classes uncompressed since they need to be converted to .dex format
         // for Android anyways. Resources are written as they were in the input jar to avoid
-        // any danger of accidentally uncompressed resources ending up in an .apk.
-        if (inputFilename.endsWith(".class")) {
+        // any danger of accidentally uncompressed resources ending up in an .apk.  We also simply
+        // copy classes from Desugar's runtime library, which we build so they need no desugaring.
+        // The runtime library typically uses constructs we'd otherwise desugar, so it's easier
+        // to just skip it should it appear as a regular input (for idempotency).
+        if (inputFilename.endsWith(".class") && !inputFilename.startsWith(RUNTIME_LIB_PACKAGE)) {
           ClassReader reader = rewriter.reader(content);
           UnprefixingClassWriter writer = rewriter.writer(ClassWriter.COMPUTE_MAXS);
           ClassVisitor visitor =
