@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -157,9 +158,13 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     String testClass =
         getAndCheckTestClass(ruleContext, ImmutableList.copyOf(attributesBuilder.getSourceFiles()));
     getAndCheckTestSupport(ruleContext);
-    javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
-    if (ruleContext.hasErrors()) {
-      return null;
+
+    if (Whitelist.hasWhitelist(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")
+        && !Whitelist.isAvailable(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")) {
+      javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
     }
 
     JavaCompilationHelper helper =
