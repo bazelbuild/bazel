@@ -42,11 +42,6 @@ function set_up() {
   export JAVA_HOME="${bazel_javabase}"
 }
 
-function cleanup() {
-  # Prevent the default "cleanup" function from running, which fails on Windows.
-  return 0
-}
-
 function test_bazel_uses_bundled_jdk() {
   bazel --batch info &> "$TEST_log" || fail "bazel info failed"
   install_base="$(bazel --batch info install_base)"
