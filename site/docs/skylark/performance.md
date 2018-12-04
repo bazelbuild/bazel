@@ -197,14 +197,163 @@ ctx.actions.run(
 
 ## Performance profiling
 
-To profile your code and analyze the performance, use the `--profile` flag:
+To profile your code and analyze the performance you have two options:
+
+- use the `--profile` flag and the `analyze-profile` command, or
+- use the new `--experimental_generate_json_trace_profile` flag and load the
+  resulting JSON profile in `chrome://tracing` (recommended).
+
+### --profile and analyze-profile
+
+This profiling method consists of two steps, first you have to execute your
+build/test with the `--profile` flag, e.g.
 
 ```
 $ bazel build --nobuild --profile=/tmp/prof //path/to:target
-$ bazel analyze-profile /tmp/prof --html --html_details
 ```
 
-Then, open the generated HTML file (`/tmp/prof.html` in the example).
+The file generated (in this case `/tmp/prof`) is a binary file, which can be
+postprocessed and analyzed by the `analyze-profile` command:
+
+```
+$ bazel analyze-profile /tmp/prof
+```
+
+By default, it will print summary analysis information for the specified profile
+datafile. This includes cummaltive statistics for different task types for each
+build phase and an analysis of the critical path.
+
+The first section of the default output describes an overview of the time spent
+on the different build phases:
+
+```
+=== PHASE SUMMARY INFORMATION ===
+
+Total launch phase time          978 ms    2.67%
+Total init phase time            178 ms    0.49%
+Total loading phase time         381 ms    1.04%
+Total analysis phase time       2.618 s    7.15%
+Total preparation phase time    46.0 ms    0.13%
+Total execution phase time     32.366 s   88.46%
+Total finish phase time         19.3 ms    0.05%
+Total run time                 36.586 s  100.00%
+```
+
+The following sections show the execution time of different tasks happening
+during that particular phase, e.g.:
+
+```
+=== EXECUTION PHASE INFORMATION ===
+
+Total preparation time                   46.0 ms
+Total execution phase time              32.366 s
+Total time finalizing build              19.3 ms
+
+Actual execution time                   32.366 s
+
+Total time (across all threads) spent on:
+              Type    Total    Count     Average
+            ACTION    0.01%      131     0.44 ms
+    ACTION_EXECUTE   31.72%      131     2.635 s
+              INFO    0.00%       10     1.32 ms
+          VFS_STAT    0.02%    32187     0.01 ms
+           VFS_DIR    0.01%     4401     0.02 ms
+      VFS_READLINK    0.00%        6     0.01 ms
+           VFS_MD5    0.50%     4652     1.16 ms
+        VFS_DELETE    0.02%     9336     0.03 ms
+          VFS_OPEN    0.01%     4706     0.01 ms
+          VFS_READ    0.06%   182413     0.00 ms
+         VFS_WRITE    0.01%    17691     0.00 ms
+              WAIT   16.12%      544      322 ms
+     SKYFRAME_EVAL    2.97%        1    32.343 s
+       SKYFUNCTION   48.59%    57301     9.23 ms
+```
+
+The last section shows the critical path:
+
+```
+Critical path (31.410 s):
+    Id        Time Percentage   Description
+132283     1.219 s    3.88%   action 'Executing genrule //src bazel-bin'
+132282    13.591 s   43.27%   action 'Executing genrule //src package-zip'
+132281     1.263 s    4.02%   action 'Executing genrule //src install_base_key-file'
+132280      381 ms    1.21%   action 'Building deploy jar src/main/java/com/google/devtools/build/lib/bazel/BazelServer_deploy.jar'
+132279     1.10 ms    0.00%   runfiles for //src/main/java/com/google/devtools/build/lib bazel/BazelServer
+132278      398 ms    1.27%   action 'Building Java resource jar'
+132277     8.292 s   26.40%   action 'Building src/main/java/com/google/devtools/build/lib/libbazel-rules-class.jar (133 source files) and running annotation processors (AutoCodecProcessor, OptionProcessor, AutoAnnotationProcessor, AutoValueProcessor)'
+...
+```
+
+You can use the following options to display more detailed information:
+
+- `--dump=text`: Print all recorded tasks in the order they occured.
+- `--dump=raw`: Use this for automated analysis with scripts.
+- `--html`: Writes a file called `<profile-file>.html` in the directory of the
+  profile file. Open it in you browser to see a Gantt type chart that displays
+  time on the horizontal axis and threads of execution along the vertical axis.
+- `--html_details`: Renders a more detailed execution chart. Beware that this
+  increases file size and browser load considerably.
+
+### JSON profile
+
+When you add the flag `--experimental_generate_json_trace_profile` to your Bazel
+invocations, Bazel will write a JSON profile in [Chrome Trace
+Format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+
+We suggest to use the flag together with the flags:
+- `--experimental_json_trace_compression`: The profile will be compressed with
+  gzip.
+- `--experimental_profile_cpu_usage`: Bazel will measure and include local CPU
+  usage in the JSON profile.
+
+Example usage:
+```
+$ bazel build --experimental_generate_json_trace_profile --experimental_profile_cpu_usage //third_party/zlib/...
+INFO: Writing tracer profile to '/home/johndoe/.cache/bazel/_bazel_twerth/f01bc937da326f5bb0feb15c854c110c/command.profile'
+INFO: Invocation ID: 34995931-ef6f-4838-9ab1-9a0bc39a8712
+INFO: Analysed 3 targets (7 packages loaded, 316 targets configured).
+INFO: Found 3 targets...
+INFO: Elapsed time: 1.223s, Critical Path: 0.27s
+INFO: 17 processes: 17 linux-sandbox.
+INFO: Build completed successfully, 20 total actions
+```
+
+The resulting profile file
+(`/home/johndoe/.cache/bazel/_bazel_twerth/f01bc937da326f5bb0feb15c854c110c/command.profile`
+in this case; can be configured by the `--profile=<path>` flag) can then be
+loaded and viewed in Chrome. For this, open `chrome://tracing` in a new tab,
+click `Load` and pick the profile file.
+
+Example profile:
+<img src="profile.png" alt="Example Profile" />
+
+The top row ('cpu counters') shows the local CPU usage, which is high in this
+build during the analysis phase and then gets lower during execution.
+The second row ('Critical Path') refers to the critical path of the build, i.e.
+even wiht infinite parallelism the build would not be faster than the actions in
+this path.
+The third row ('grpc-command-1') is displays everything that's happening on
+Bazel's main thread, giving a high level overview of what Bazel is doing.
+The remaining rows show what the worker threads are doing.
+
+You can interact with the profile, e.g. zoom in, inspect particular tasks,
+filter for task descriptions and select multiple tasks to get an overview. Press
+`?` to get an overview of what you can do.
+
+When analyzing these kind of profiles look for
+- Slow analysis phase (RunAnalysisPhase), especially on incremental builds. This
+  can be a sign of a poor rule implementation, e.g. one that flattens nested
+  sets.
+- Individual slow actions, especially those on the critical path. It might be
+  possible to split large actions into multiple smaller actions or reduce the
+  dependencies to speed them up.
+- Bottlenecks, i.e. a small number of threads is busy while all others are
+  idleing waiting for the result. Optimizing this will most likely require
+  touching the rule implementations to introduce more parallelism.
+
+Note that we filter out fast tasks and certain task types completely to keep the
+profile files small enough to render fast in the Chrome Trace Viewer.
+
 
 ## Memory Profiling
 
