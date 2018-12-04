@@ -36,47 +36,38 @@ public interface JavaProtoCommonApi<FileT extends FileApi,
       // This function is experimental for now.
       documented = false,
       parameters = {
-          @Param(
-              name = "ctx",
-              positional = true,
-              named = false,
-              type = SkylarkRuleContextApi.class,
-              doc = "The rule context."
-          ),
-          @Param(
-              name = "target",
-              positional = true,
-              named = false,
-              type = TransitiveInfoCollectionApi.class,
-              doc = "The target."
-          ),
-          @Param(
-              name = "src_jar",
-              positional = false,
-              named = true,
-              type = FileApi.class
-          ),
-          @Param(
-              name = "proto_toolchain_attr",
-              positional = false,
-              named = true,
-              type = String.class
-          ),
-          @Param(
-              name = "flavour",
-              positional = false,
-              named = true,
-              type = String.class,
-              defaultValue = "java"
-          )
-      }
-  )
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+        @Param(
+            name = "target",
+            positional = true,
+            named = false,
+            type = TransitiveInfoCollectionApi.class,
+            doc = "The target."),
+        @Param(name = "src_jar", positional = false, named = true, type = FileApi.class),
+        @Param(
+            name = "proto_toolchain_attr",
+            positional = false,
+            named = true,
+            type = String.class),
+        @Param(
+            name = "flavour",
+            positional = false,
+            named = true,
+            type = String.class,
+            defaultValue = "'java'")
+      })
   public void createProtoCompileAction(
       SkylarkRuleContextT skylarkRuleContext,
       TransitiveInfoCollectionT target,
       FileT sourceJar,
       String protoToolchainAttr,
-      String flavour) throws EvalException;
+      String flavour)
+      throws EvalException;
 
   @SkylarkCallable(
       name = "has_proto_sources",
