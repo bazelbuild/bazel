@@ -40,7 +40,6 @@ def _pkg_tar_impl(ctx):
     remap_paths = ctx.attr.remap_paths
 
     # Start building the arguments.
-    build_tar = ctx.executable.build_tar
     args = [
         "--output=" + ctx.outputs.out.path,
         "--directory=" + ctx.attr.package_dir,
@@ -49,14 +48,19 @@ def _pkg_tar_impl(ctx):
         "--owner_name=" + ctx.attr.ownername,
     ]
 
-    file_inputs = ctx.files.srcs[:]
-
     # Add runfiles if requested
+    file_inputs = []
     if ctx.attr.include_runfiles:
+        runfiles_depsets = []
         for f in ctx.attr.srcs:
-            if hasattr(f, "default_runfiles"):
-                run_files = f.default_runfiles.files.to_list()
-                file_inputs += run_files
+            default_runfiles = f[DefaultInfo].default_runfiles
+            if default_runfiles != None:
+                runfiles_depsets.append(default_runfiles.files)
+
+        # deduplicates files in srcs attribute and their runfiles
+        file_inputs = depset(ctx.files.srcs, transitive = runfiles_depsets).to_list()
+    else:
+        file_inputs = ctx.files.srcs[:]
 
     args += [
         "--file=%s=%s" % (_quote(f.path), _remap(remap_paths, dest_path(f, data_path)))
@@ -65,8 +69,8 @@ def _pkg_tar_impl(ctx):
     for target, f_dest_path in ctx.attr.files.items():
         target_files = target.files.to_list()
         if len(target_files) != 1:
-            fail("Inputs to pkg_tar.files_map must describe exactly one file.")
-        file_inputs += [target_files[0]]
+            fail("Each input must describe exactly one file.", attr = "files")
+        file_inputs += target_files
         args += ["--file=%s=%s" % (_quote(target_files[0].path), f_dest_path)]
     if ctx.attr.modes:
         args += [
@@ -100,10 +104,10 @@ def _pkg_tar_impl(ctx):
     arg_file = ctx.actions.declare_file(ctx.label.name + ".args")
     ctx.actions.write(arg_file, "\n".join(args))
 
-    ctx.actions.run_shell(
-        command = "%s --flagfile=%s" % (build_tar.path, arg_file.path),
+    ctx.actions.run(
         inputs = file_inputs + ctx.files.deps + [arg_file],
-        tools = [build_tar],
+        executable = ctx.executable.build_tar,
+        arguments = ["--flagfile", arg_file.path],
         outputs = [ctx.outputs.out],
         mnemonic = "PackageTar",
         use_default_shell_env = True,
@@ -219,7 +223,7 @@ _real_pkg_tar = rule(
         "extension": attr.string(default = "tar"),
         "symlinks": attr.string_dict(),
         "empty_files": attr.string_list(),
-        "include_runfiles": attr.bool(default = False, mandatory = False),
+        "include_runfiles": attr.bool(),
         "empty_dirs": attr.string_list(),
         "remap_paths": attr.string_dict(),
         # Implicit dependencies.
@@ -233,7 +237,6 @@ _real_pkg_tar = rule(
     outputs = {
         "out": "%{name}.%{extension}",
     },
-    executable = False,
 )
 
 def pkg_tar(**kwargs):
@@ -293,5 +296,4 @@ pkg_deb = rule(
         "deb": "%{package}_%{version}_%{architecture}.deb",
         "changes": "%{package}_%{version}_%{architecture}.changes",
     },
-    executable = False,
 )
