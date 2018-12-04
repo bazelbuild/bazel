@@ -112,16 +112,15 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public Label protoToolchainForCc;
 
     @Option(
-      name = "strict_proto_deps",
-      defaultValue = "strict",
-      converter = BuildConfiguration.StrictDepsConverter.class,
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, checks that a proto_library target explicitly declares all directly "
-              + "used targets as dependencies."
-    )
+        name = "strict_proto_deps",
+        defaultValue = "error",
+        converter = BuildConfiguration.StrictDepsConverter.class,
+        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+        effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "Unless OFF, checks that a proto_library target explicitly declares all directly "
+                + "used targets as dependencies.")
     public StrictDepsMode strictProtoDeps;
 
     @Option(

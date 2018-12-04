@@ -368,19 +368,13 @@ public class ProtoCommon {
   /**
    * Decides whether this proto_library should check for strict proto deps.
    *
-   * <p>Only takes into account command-line flags.
+   * <p>Only takes into account the command-line flag --strict_proto_deps.
    */
   @VisibleForTesting
   public static boolean areDepsStrict(RuleContext ruleContext) {
     BuildConfiguration.StrictDepsMode flagValue =
         ruleContext.getFragment(ProtoConfiguration.class).strictProtoDeps();
-    if (flagValue == BuildConfiguration.StrictDepsMode.OFF) {
-      return false;
-    }
-    if (flagValue == BuildConfiguration.StrictDepsMode.ERROR
-        || flagValue == BuildConfiguration.StrictDepsMode.WARN) {
-      return true;
-    }
-    return (flagValue == BuildConfiguration.StrictDepsMode.STRICT);
+    return flagValue != BuildConfiguration.StrictDepsMode.OFF
+        && flagValue != BuildConfiguration.StrictDepsMode.DEFAULT;
   }
 }
