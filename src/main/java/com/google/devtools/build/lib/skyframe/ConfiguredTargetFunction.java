@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -327,6 +328,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               view,
               env,
               target,
+              configuredTargetKey,
               configuration,
               depValueMap,
               configConditions,
@@ -758,6 +760,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       SkyframeBuildView view,
       Environment env,
       Target target,
+      ActionLookupKey actionLookupKey,
       BuildConfiguration configuration,
       OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depValueMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
@@ -782,6 +785,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       configuredTarget =
           view.createConfiguredTarget(
               target,
+              actionLookupKey,
               configuration,
               analysisEnvironment,
               depValueMap,

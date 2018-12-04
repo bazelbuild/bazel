@@ -18,6 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -27,8 +28,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkParamsApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Collection;
@@ -44,7 +43,6 @@ import javax.annotation.Nullable;
  * <p>Items in the collections are stored in nested sets. Link options and libraries are stored in
  * link order (preorder) and linkstamps are sorted.
  */
-@AutoCodec
 public final class CcLinkParams implements CcLinkParamsApi {
   /**
    * A list of link options contributed by a single configured target.
@@ -53,13 +51,11 @@ public final class CcLinkParams implements CcLinkParamsApi {
    * checked for equality by object identity because otherwise if two configured targets contribute
    * the same link options, they will be de-duplicated, which is not the desirable behavior.
    */
-  @AutoCodec
   @Immutable
   public static final class LinkOptions {
     private final ImmutableList<String> linkOptions;
 
-    @VisibleForSerialization
-    LinkOptions(Iterable<String> linkOptions) {
+    private LinkOptions(Iterable<String> linkOptions) {
       this.linkOptions = ImmutableList.copyOf(linkOptions);
     }
 
@@ -84,9 +80,7 @@ public final class CcLinkParams implements CcLinkParamsApi {
   private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
   private final NestedSet<Artifact> nonCodeInputs;
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  CcLinkParams(
+  private CcLinkParams(
       NestedSet<LinkOptions> linkOpts,
       NestedSet<Linkstamp> linkstamps,
       NestedSet<LibraryToLink> libraries,
@@ -457,14 +451,17 @@ public final class CcLinkParams implements CcLinkParamsApi {
    * <p>This object is required because linkstamp files may include other headers which will have to
    * be provided during compilation.
    */
-  @AutoCodec
   public static final class Linkstamp {
     private final Artifact artifact;
+    private final ActionLookupKey actionLookupKey;
     private final NestedSet<Artifact> declaredIncludeSrcs;
 
-    @VisibleForSerialization
-    Linkstamp(Artifact artifact, NestedSet<Artifact> declaredIncludeSrcs) {
+    Linkstamp(
+        Artifact artifact,
+        ActionLookupKey actionLookupKey,
+        NestedSet<Artifact> declaredIncludeSrcs) {
       this.artifact = Preconditions.checkNotNull(artifact);
+      this.actionLookupKey = Preconditions.checkNotNull(actionLookupKey);
       this.declaredIncludeSrcs = Preconditions.checkNotNull(declaredIncludeSrcs);
     }
 
@@ -473,6 +470,11 @@ public final class CcLinkParams implements CcLinkParamsApi {
      */
     public Artifact getArtifact() {
       return artifact;
+    }
+
+    /** Returns the key for the target that provides this linkstamp. */
+    public ActionLookupKey actionLookupKey() {
+      return actionLookupKey;
     }
 
     /**
@@ -484,9 +486,15 @@ public final class CcLinkParams implements CcLinkParamsApi {
 
     @Override
     public int hashCode() {
-      return Objects.hash(artifact, declaredIncludeSrcs);
+      return Objects.hash(artifact, actionLookupKey);
     }
 
+    /**
+     * Equality of the action lookup key implies equality of its declared inlude sources.
+     *
+     * <p>Avoids equals on {@link #declaredIncludeSrcs} because {@link NestedSet} does not implement
+     * value equality, but we want deduplication of linkstamps with value semantics.
+     */
     @Override
     public boolean equals(Object obj) {
       if (this == obj) {
@@ -496,8 +504,7 @@ public final class CcLinkParams implements CcLinkParamsApi {
         return false;
       }
       Linkstamp other = (Linkstamp) obj;
-      return artifact.equals(other.artifact)
-          && declaredIncludeSrcs.equals(other.declaredIncludeSrcs);
+      return artifact.equals(other.artifact) && actionLookupKey.equals(other.actionLookupKey);
     }
   }
 
