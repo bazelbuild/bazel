@@ -103,10 +103,6 @@ class TestWrapperTest(test_base.TestBase):
         '    name = "xml2_test",',
         '    srcs = ["xml2_test.py"],',
         ')',
-        'py_test(',
-        '    name = "slp_test",',
-        '    srcs = ["slp_test.py"],',
-        ')',
     ])
     self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
     self.ScratchFile('foo/failing.bat', ['@exit /B 1'], executable=True)
@@ -243,13 +239,6 @@ class TestWrapperTest(test_base.TestBase):
             'import os',
             'with open(os.environ.get("XML_OUTPUT_FILE"), "wt") as f:',
             '  f.write("leave this")'
-        ],
-        executable=True)
-
-    self.ScratchFile(
-        'foo/slp_test.py', [
-            'import time',
-            'time.sleep(2)',
         ],
         executable=True)
 
@@ -554,22 +543,6 @@ class TestWrapperTest(test_base.TestBase):
       xml_contents = [line.strip() for line in f.readlines()]
     self.assertListEqual(xml_contents, ['leave this'])
 
-  def _AssertTimeout(self, flag):
-    exit_code, bazel_testlogs, stderr = self.RunBazel(
-        ['info', 'bazel-testlogs'])
-    self.AssertExitCode(exit_code, 0, stderr)
-
-    bazel_testlogs = bazel_testlogs[0]
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:slp_test',
-        '-t-',
-        '--test_timeout=1',
-        flag,
-    ])
-    self.AssertExitCode(exit_code, 3, stderr)
-
-
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
     flag = '--noincompatible_windows_native_test_wrapper'
@@ -605,7 +578,6 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertUndeclaredOutputsAnnotations(flag)
     self._AssertXmlGeneration(flag)
     self._AssertXmlGeneratedByTestIsRetained(flag)
-    self._AssertTimeout(flag)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
@@ -640,7 +612,6 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertUndeclaredOutputsAnnotations(flag)
     self._AssertXmlGeneration(flag)
     self._AssertXmlGeneratedByTestIsRetained(flag)
-    self._AssertTimeout(flag)
 
 
 if __name__ == '__main__':
