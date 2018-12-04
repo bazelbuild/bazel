@@ -3350,7 +3350,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     createActionConfigRule(
         "eight",
-        /* actionName= */ "'actionname_++-'",
+        /* actionName= */ "'actionname32_++-'",
         /* enabled= */ "True",
         /* tools= */ "[tool(path = 'a/b/c')]",
         /* flagSets= */ "[flag_set(actions = ['a', 'b'])]",
@@ -3361,7 +3361,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     ActionConfig a = CcModule.actionConfigFromSkylark(actionConfigStruct);
     assertThat(a).isNotNull();
-    assertThat(a.getActionName()).isEqualTo("actionname_++-");
+    assertThat(a.getActionName()).isEqualTo("actionname32_++-");
     assertThat(a.getImplies()).containsExactly("a", "b").inOrder();
 
     createActionConfigRule(
@@ -3383,7 +3383,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
           .hasMessageThat()
           .contains(
               "An action_config's name must consist solely "
-                  + "of lowercase ASCII letters, '_', '+', and '-', got 'Upper'");
+                  + "of lowercase ASCII letters, digits, '_', '+', and '-', got 'Upper'");
     }
 
     createActionConfigRule(
@@ -3405,7 +3405,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
           .hasMessageThat()
           .contains(
               "An action_config's name must consist solely "
-                  + "of lowercase ASCII letters, '_', '+', and '-', got 'white\tspace'");
+                  + "of lowercase ASCII letters, digits, '_', '+', and '-', got 'white\tspace'");
     }
   }
 
@@ -3701,7 +3701,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     createFeatureRule(
         "eight",
-        /* name= */ "'featurename+-_'",
+        /* name= */ "'featurename32+-_'",
         /* enabled= */ "True",
         /* flagSets= */ "[flag_set(actions = ['a'], flag_groups = [flag_group(flags = ['a'])])]",
         /* envSets= */ "[env_set(actions = ['a1'], "
@@ -3736,7 +3736,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       assertThat(ee)
           .hasMessageThat()
           .contains(
-              "A feature's name must consist solely of lowercase ASCII letters, "
+              "A feature's name must consist solely of lowercase ASCII letters, digits, "
                   + "'_', '+', and '-', got 'UpperCase'");
     }
 
@@ -3761,7 +3761,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
           .hasMessageThat()
           .contains(
               "A feature's name must consist solely of "
-                  + "lowercase ASCII letters, '_', '+', and '-', got 'white space");
+                  + "lowercase ASCII letters, digits, '_', '+', and '-', got 'white space");
     }
   }
 
