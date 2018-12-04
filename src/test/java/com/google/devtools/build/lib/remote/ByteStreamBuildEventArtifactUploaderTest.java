@@ -145,7 +145,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader =
         new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance");
+            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     for (Path file : filesToUpload.keySet()) {
@@ -171,7 +171,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ByteStreamUploader uploader = mock(ByteStreamUploader.class);
     ByteStreamBuildEventArtifactUploader artifactUploader =
         new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance");
+            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
     artifactUploader.shutdown();
@@ -234,7 +234,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader =
         new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance");
+            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
 
     try {
       artifactUploader.upload(filesToUpload).get();

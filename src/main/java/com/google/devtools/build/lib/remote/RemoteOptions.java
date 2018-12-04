@@ -252,6 +252,14 @@ public final class RemoteOptions extends OptionsBase {
               + "symlinks and represent them as files. See #6631 for details.")
   public boolean incompatibleRemoteSymlinks;
 
+  @Option(
+      name = "build_event_upload_max_threads",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The number of threads used to do build event uploads. Capped at 1000.")
+  public int buildEventUploadMaxThreads;
+
   @Deprecated
   @Option(
       name = "remote_allow_symlink_upload",
