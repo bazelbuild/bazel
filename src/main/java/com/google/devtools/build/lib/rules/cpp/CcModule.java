@@ -1563,8 +1563,14 @@ public class CcModule
     ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
     ImmutableList<SkylarkInfo> flagSets =
         getSkylarkProviderListFromSkylarkField(featureStruct, "flag_sets");
-    for (SkylarkInfo flagSet : flagSets) {
-      flagSetBuilder.add(flagSetFromSkylark(flagSet));
+    for (SkylarkInfo flagSetObject : flagSets) {
+      FlagSet flagSet = flagSetFromSkylark(flagSetObject);
+      if (flagSet.getActions().isEmpty()) {
+        throw new EvalException(
+            flagSetObject.getCreationLoc(),
+            "A flag_set that belongs to a feature must have nonempty 'actions' parameter.");
+      }
+      flagSetBuilder.add(flagSet);
     }
 
     ImmutableList.Builder<EnvSet> envSetBuilder = ImmutableList.builder();
@@ -1790,10 +1796,6 @@ public class CcModule
       throws InvalidConfigurationException, EvalException {
     checkRightProviderType(flagSetStruct, "flag_set");
     ImmutableSet<String> actions = getStringSetFromSkylarkProviderField(flagSetStruct, "actions");
-    if (actions.isEmpty()) {
-      throw new EvalException(
-          flagSetStruct.getCreationLoc(), "'actions' field of flag_set must be a nonempty list.");
-    }
     ImmutableList.Builder<FlagGroup> flagGroupsBuilder = ImmutableList.builder();
     ImmutableList<SkylarkInfo> flagGroups =
         getSkylarkProviderListFromSkylarkField(flagSetStruct, "flag_groups");

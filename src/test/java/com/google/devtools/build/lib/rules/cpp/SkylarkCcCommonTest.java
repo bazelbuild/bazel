@@ -3053,17 +3053,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testFlagSet() throws Exception {
     loadCcToolchainConfigLib();
-    createFlagSetRule("one", /* actions= */ "[]", /* flagGroups= */ "[]", /* withFeatures= */ "[]");
-
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//one:a"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("actions parameter of flag_set must be a nonempty list");
 
     createFlagSetRule(
         "two", /* actions= */ "['a']", /* flagGroups= */ "[]", /* withFeatures= */ "None");
 
-    e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//two:a"));
     assertThat(e)
         .hasMessageThat()
         .contains("with_features parameter of flag_set should be a list, found NoneType");
@@ -3164,17 +3158,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     createCustomFlagSetRule(
         "one", /* actions= */ "[]", /* flagGroups= */ "[]", /* withFeatures= */ "[]");
 
-    try {
-      ConfiguredTarget t = getConfiguredTarget("//one:a");
-      SkylarkInfo flagSetStruct = (SkylarkInfo) t.getValue("flagset");
-      assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct);
-      fail("Should have failed because 'actions' field is empty.");
-    } catch (EvalException ee) {
-      assertThat(ee)
-          .hasMessageThat()
-          .contains("'actions' field of flag_set must be a nonempty list");
-    }
+    ConfiguredTarget target = getConfiguredTarget("//one:a");
+    SkylarkInfo flagSet = (SkylarkInfo) target.getValue("flagset");
+    assertThat(flagSet).isNotNull();
+    FlagSet flagSetObject = CcModule.flagSetFromSkylark(flagSet);
+    assertThat(flagSetObject).isNotNull();
 
     createCustomFlagSetRule(
         "two", /* actions= */ "['a']", /* flagGroups= */ "struct()", /* withFeatures= */ "[]");
@@ -3956,6 +3944,28 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       assertThat(ee)
           .hasMessageThat()
           .contains("Illegal argument: 'provides' is not of expected type list or NoneType");
+    }
+
+    createCustomFeatureRule(
+        "eight",
+        /* name= */ "'featurename'",
+        /* enabled= */ "True",
+        /* flagSets= */ "[flag_set()]",
+        /* envSets= */ "[]",
+        /* requires= */ "[]",
+        /* implies= */ "[]",
+        /* provides= */ "[]");
+
+    try {
+      ConfiguredTarget t = getConfiguredTarget("//eight:a");
+      SkylarkInfo featureStruct = (SkylarkInfo) t.getValue("f");
+      assertThat(featureStruct).isNotNull();
+      CcModule.featureFromSkylark(featureStruct);
+      fail("Should have failed because of empty 'actions' parameter in flag_set.");
+    } catch (EvalException ee) {
+      assertThat(ee)
+          .hasMessageThat()
+          .contains("A flag_set that belongs to a feature must have nonempty 'actions' parameter.");
     }
   }
 
