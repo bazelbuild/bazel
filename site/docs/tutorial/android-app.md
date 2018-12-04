@@ -383,7 +383,7 @@ you:
 
 *   Set up your environment by installing Bazel and Android Studio, and
     downloading the sample project.
-*   Set up a Bazel [workspace](workspace.md) that contains the source code
+*   Set up a Bazel [workspace](../be/workspace.md) that contains the source code
     for the app and a `WORKSPACE` file that identifies the top level of the
     workspace directory.
 *   Updated the `WORKSPACE` file to contain references to the required
@@ -397,8 +397,8 @@ you:
 You now know the basics of building an Android project with Bazel. Here are some
 other pages to check out:
 
-* More information on [mobile-install](mobile-install.md)
-* Testing your app with [Android instrumentation tests](android-instrumentation-test.md)
-* Integrating C and C++ code into your Android app with the [NDK](android-ndk.md)
+* More information on [mobile-install](../mobile-install)
+* Testing your app with [Android instrumentation tests](../android-instrumentation-test.md)
+* Integrating C and C++ code into your Android app with the [NDK](../android-ndk.md)
 
 Happy building!
