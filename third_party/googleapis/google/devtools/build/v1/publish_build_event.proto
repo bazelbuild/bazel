@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2018 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 syntax = "proto3";
 
@@ -45,8 +46,8 @@ option java_package = "com.google.devtools.build.v1";
 // more than one build tool stream for an invocation attempt of a build.
 service PublishBuildEvent {
   // Publish a build event stating the new state of a build (typically from the
-  // build queue). If the event is a BuildEnqueued event, also register the new
-  // build request ID and its build type to BES.
+  // build queue). The BuildEnqueued event must be publishd before all other
+  // events for the same build ID.
   //
   // The backend will persist the event and deliver it to registered frontend
   // jobs immediately without batching.
@@ -55,14 +56,22 @@ service PublishBuildEvent {
   // function. The error code is the canoncial error code defined in
   // //util/task/codes.proto.
   rpc PublishLifecycleEvent(PublishLifecycleEventRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = { post: "/v1/lifecycleEvents:publish" body: "*" };
+    option (google.api.http) = {
+      post: "/v1/projects/{project_id=*}/lifecycleEvents:publish"
+      body: "*"
+      additional_bindings { post: "/v1/lifecycleEvents:publish" body: "*" }
+    };
   }
 
   // Publish build tool events belonging to the same stream to a backend job
   // using bidirectional streaming.
   rpc PublishBuildToolEventStream(stream PublishBuildToolEventStreamRequest)
       returns (stream PublishBuildToolEventStreamResponse) {
-    option (google.api.http) = { post: "/v1/events:publish" body: "*" };
+    option (google.api.http) = {
+      post: "/v1/projects/{project_id=*}/events:publish"
+      body: "*"
+      additional_bindings { post: "/v1/events:publish" body: "*" }
+    };
   }
 }
 
@@ -105,7 +114,9 @@ message PublishLifecycleEventRequest {
   // BuildEnqueued/InvocationAttemptStarted.
   repeated string notification_keywords = 4;
 
-  // This field identifies which project (if any) the build is associated with.
+  // The project this build is associated with.
+  // This should match the project used for the initial call to
+  // PublishLifecycleEvent (containing a BuildEnqueued message).
   string project_id = 6;
 }
 
@@ -134,21 +145,8 @@ message OrderedBuildEvent {
   BuildEvent event = 3;
 }
 
+// Streaming request message for PublishBuildToolEventStream.
 message PublishBuildToolEventStreamRequest {
-  // The fist 3 fields are identical to OrderedBuildEvent so we can have wire-
-  // compatibility when migrating BES publishers.
-
-  // Which build event stream this event belongs to.
-  google.devtools.build.v1.StreamId stream_id = 1 [deprecated = true];
-
-  // The position of this event in the stream. The sequence numbers for a build
-  // event stream should be a sequence of consecutive natural numbers starting
-  // from one. (1, 2, 3, ...)
-  int64 sequence_number = 2 [deprecated = true];
-
-  // The actual event.
-  google.devtools.build.v1.BuildEvent event = 3 [deprecated = true];
-
   // The build event with position info.
   // New publishing clients should use this field rather than the 3 above.
   OrderedBuildEvent ordered_build_event = 4;
@@ -158,4 +156,9 @@ message PublishBuildToolEventStreamRequest {
   // or ordered_build_event.sequence_number is 1 in this message. If this field
   // is empty, BES will not publish notification messages for this stream.
   repeated string notification_keywords = 5;
+
+  // The project this build is associated with.
+  // This should match the project used for the initial call to
+  // PublishLifecycleEvent (containing a BuildEnqueued message).
+  string project_id = 6;
 }
