@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 
@@ -29,6 +30,7 @@ public class ConstraintSettingRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        .advertiseProvider(ConstraintSettingInfo.class)
         /* <!-- #BLAZE_RULE(constraint_setting).ATTRIBUTE(default_constraint_value) -->
         The label of the default value for this setting, to be used if no value is given. If this
         attribute is present, the <code>constraint_value</code> it points to must be defined in the

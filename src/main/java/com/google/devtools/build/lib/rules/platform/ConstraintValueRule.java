@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -32,6 +32,7 @@ public class ConstraintValueRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        .advertiseProvider(ConstraintValueInfo.class)
         /* <!-- #BLAZE_RULE(constraint_value).ATTRIBUTE(constraint_setting) -->
         The <code>constraint_setting</code> for which this <code>constraint_value</code> is a
         possible choice.
@@ -41,8 +42,7 @@ public class ConstraintValueRule implements RuleDefinition {
                 .mandatory()
                 .allowedRuleClasses(ConstraintSettingRule.RULE_NAME)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(
-                    ImmutableList.of(ConstraintSettingInfo.PROVIDER.id())))
+                .mandatoryProviders(ConstraintSettingInfo.PROVIDER.id()))
         .build();
   }
 

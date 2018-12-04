@@ -122,6 +122,28 @@ public final class AdvertisedProviderSet {
     return new Builder();
   }
 
+  /**
+   * Returns {@code true} if this provider set can have any provider, or if it advertises the
+   * specific native provider requested.
+   */
+  public boolean advertises(Class<?> nativeProviderClass) {
+    if (canHaveAnyProvider()) {
+      return true;
+    }
+    return nativeProviders.contains(nativeProviderClass);
+  }
+
+  /**
+   * Returns {@code true} if this provider set can have any provider, or if it advertises the
+   * specific skylark provider requested.
+   */
+  public boolean advertises(SkylarkProviderIdentifier skylarkProvider) {
+    if (canHaveAnyProvider()) {
+      return true;
+    }
+    return skylarkProviders.contains(skylarkProvider);
+  }
+
   /** Builder for {@link AdvertisedProviderSet} */
   public static class Builder {
     private boolean canHaveAnyProvider;
