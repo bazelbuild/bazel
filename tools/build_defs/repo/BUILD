@@ -1,4 +1,4 @@
-load("@bazel_skylib//:skylark_library.bzl", "skylark_library")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 licenses(["notice"])  # Apache 2.0
 
@@ -8,7 +8,7 @@ filegroup(
     visibility = ["//tools/build_defs:__pkg__"],
 )
 
-skylark_library(
+bzl_library(
     name = "lib",
     srcs = glob(["*.bzl"]),
 )
