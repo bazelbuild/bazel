@@ -397,7 +397,7 @@ you:
 You now know the basics of building an Android project with Bazel. Here are some
 other pages to check out:
 
-* More information on [mobile-install](../mobile-install)
+* More information on [mobile-install](../mobile-install.md)
 * Testing your app with [Android instrumentation tests](../android-instrumentation-test.md)
 * Integrating C and C++ code into your Android app with the [NDK](../android-ndk.md)
 
