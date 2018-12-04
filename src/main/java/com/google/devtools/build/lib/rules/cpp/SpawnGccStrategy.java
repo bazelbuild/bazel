@@ -28,13 +28,10 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import java.util.List;
 
-/**
- * A context for C++ compilation that calls into a {@link SpawnActionContext}.
- */
+/** A context for C++ compilation that calls into a {@link SpawnActionContext}. */
 @ExecutionStrategy(
-  contextType = CppCompileActionContext.class,
-  name = {"spawn"}
-)
+    contextType = CppCompileActionContext.class,
+    name = {"spawn"})
 public class SpawnGccStrategy implements CppCompileActionContext {
   @Override
   public CppCompileActionResult execWithReply(
@@ -61,8 +58,17 @@ public class SpawnGccStrategy implements CppCompileActionContext {
             action.getOutputs().asList(),
             action.estimateResourceConsumptionLocal());
 
+    if (action.getDotdFile() != null) {
+      // .d file scanning happens locally even if the compiler was run remotely. We thus need
+      // to ensure that the .d file is staged on the local fileystem.
+      actionExecutionContext =
+          actionExecutionContext.withRequiredLocalOutputs(
+              ImmutableList.of(action.getDotdFile().artifact()));
+    }
+
     List<SpawnResult> spawnResults =
-        actionExecutionContext.getContext(SpawnActionContext.class)
+        actionExecutionContext
+            .getContext(SpawnActionContext.class)
             .exec(spawn, actionExecutionContext);
     return CppCompileActionResult.builder().setSpawnResults(spawnResults).build();
   }

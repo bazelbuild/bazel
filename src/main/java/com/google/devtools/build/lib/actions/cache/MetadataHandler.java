@@ -31,7 +31,7 @@ import java.io.IOException;
  * <p>Note that implementations of this interface call chmod on output files if {@link
  * #discardOutputMetadata} has been called.
  */
-public interface MetadataHandler extends MetadataProvider {
+public interface MetadataHandler extends MetadataProvider, MetadataInjector {
   @Override
   FileArtifactValue getMetadata(ActionInput actionInput) throws IOException;
 
@@ -55,9 +55,6 @@ public interface MetadataHandler extends MetadataProvider {
    * <p>Must only be called after a call to {@link #discardOutputMetadata}.
    */
   void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest);
-
-  /** Injects a file that is only stored remotely. */
-  void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex);
 
   /**
    * Marks an artifact as intentionally omitted. Acknowledges that this Artifact could have existed,

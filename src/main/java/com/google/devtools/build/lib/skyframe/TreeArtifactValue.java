@@ -53,11 +53,13 @@ public class TreeArtifactValue implements SkyValue {
 
   private final byte[] digest;
   private final Map<TreeFileArtifact, FileArtifactValue> childData;
+  private final boolean isRemote;
 
   @AutoCodec.VisibleForSerialization
-  TreeArtifactValue(byte[] digest, Map<TreeFileArtifact, FileArtifactValue> childData) {
+  TreeArtifactValue(byte[] digest, Map<TreeFileArtifact, FileArtifactValue> childData, boolean isRemote) {
     this.digest = digest;
     this.childData = ImmutableMap.copyOf(childData);
+    this.isRemote = isRemote;
   }
 
   /**
@@ -67,13 +69,16 @@ public class TreeArtifactValue implements SkyValue {
   static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
     Map<String, FileArtifactValue> digestBuilder =
         Maps.newHashMapWithExpectedSize(childFileValues.size());
+    boolean isRemote = true;
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> e : childFileValues.entrySet()) {
+      isRemote = isRemote && e.getValue().isRemote();
       digestBuilder.put(e.getKey().getParentRelativePath().getPathString(), e.getValue());
     }
 
     return new TreeArtifactValue(
         DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe(),
-        ImmutableMap.copyOf(childFileValues));
+        ImmutableMap.copyOf(childFileValues),
+        isRemote);
   }
 
   FileArtifactValue getSelfData() {
@@ -99,6 +104,13 @@ public class TreeArtifactValue implements SkyValue {
 
   Map<TreeFileArtifact, FileArtifactValue> getChildValues() {
     return childData;
+  }
+
+  /**
+   * Returns {@code true} if at least one {@link TreeFileArtifact} is only stored remotely.
+   */
+  public boolean isRemote() {
+    return isRemote;
   }
 
   @Override
@@ -137,7 +149,7 @@ public class TreeArtifactValue implements SkyValue {
    * Java's concurrent collections disallow null members.
    */
   static final TreeArtifactValue MISSING_TREE_ARTIFACT =
-      new TreeArtifactValue(null, ImmutableMap.<TreeFileArtifact, FileArtifactValue>of()) {
+      new TreeArtifactValue(null, ImmutableMap.<TreeFileArtifact, FileArtifactValue>of(), false) {
         @Override
         FileArtifactValue getSelfData() {
           throw new UnsupportedOperationException();

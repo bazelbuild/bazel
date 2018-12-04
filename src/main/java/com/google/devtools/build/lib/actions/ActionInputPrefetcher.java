@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import java.io.IOException;
+
 /** Prefetches files to local disk. */
 public interface ActionInputPrefetcher {
   public static final ActionInputPrefetcher NONE =
       new ActionInputPrefetcher() {
         @Override
-        public void prefetchFiles(Iterable<? extends ActionInput> input) {
+        public void prefetchFiles(Iterable<? extends ActionInput> inputs,
+            MetadataProvider metadataProvider) {
           // Do nothing.
         }
       };
@@ -28,5 +31,5 @@ public interface ActionInputPrefetcher {
    *
    * <p>For any path not under this prefetcher's control, the call should be a no-op.
    */
-  void prefetchFiles(Iterable<? extends ActionInput> input);
+  void prefetchFiles(Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) throws IOException, InterruptedException;
 }

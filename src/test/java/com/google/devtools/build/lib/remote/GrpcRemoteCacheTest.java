@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -207,10 +208,10 @@ public class GrpcRemoteCacheTest {
             remoteOptions.remoteTimeout, retrier);
     return new GrpcRemoteCache(channel.retain(),
         creds,
+        uploader,
         remoteOptions,
-        retrier,
         DIGEST_UTIL,
-        uploader);
+        retrier);
   }
 
   static class StringVirtualActionInput implements VirtualActionInput {

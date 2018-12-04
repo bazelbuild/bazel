@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -113,8 +114,6 @@ public class RemoteSpawnCacheTest {
 
         @Override
         public void prefetchInputs() {
-          // CachedLocalSpawnRunner should never prefetch itself, though the nested SpawnRunner may.
-          throw new UnsupportedOperationException();
         }
 
         @Override

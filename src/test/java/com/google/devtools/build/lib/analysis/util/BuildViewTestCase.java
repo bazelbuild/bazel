@@ -2210,6 +2210,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           actionLogBufferPathGenerator.generate(ArtifactPathResolver.IDENTITY),
           clientEnv,
           ImmutableMap.of(),
+          ImmutableList.of(),
           artifactExpander,
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult*/ null);

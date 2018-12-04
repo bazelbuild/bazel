@@ -34,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -73,6 +74,8 @@ public class ActionExecutionContext implements Closeable {
 
   private final ArtifactPathResolver pathResolver;
 
+  private final ImmutableList<Artifact> requiredLocalOutputs;
+
   private ActionExecutionContext(
       Executor executor,
       MetadataProvider actionInputFileCache,
@@ -82,6 +85,7 @@ public class ActionExecutionContext implements Closeable {
       FileOutErr fileOutErr,
       Map<String, String> clientEnv,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
+      ImmutableList<Artifact> requiredLocalOutputs,
       @Nullable ArtifactExpander artifactExpander,
       @Nullable SkyFunction.Environment env,
       @Nullable FileSystem actionFileSystem,
@@ -101,6 +105,7 @@ public class ActionExecutionContext implements Closeable {
     this.pathResolver = ArtifactPathResolver.createPathResolver(actionFileSystem,
         // executor is only ever null in testing.
         executor == null ? null : executor.getExecRoot());
+    this.requiredLocalOutputs = Preconditions.checkNotNull(requiredLocalOutputs);
   }
 
   public ActionExecutionContext(
@@ -112,6 +117,7 @@ public class ActionExecutionContext implements Closeable {
       FileOutErr fileOutErr,
       Map<String, String> clientEnv,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
+      ImmutableList<Artifact> requiredLocalOutputs,
       ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult) {
@@ -124,6 +130,7 @@ public class ActionExecutionContext implements Closeable {
         fileOutErr,
         clientEnv,
         topLevelFilesets,
+        requiredLocalOutputs,
         artifactExpander,
         /*env=*/ null,
         actionFileSystem,
@@ -149,6 +156,7 @@ public class ActionExecutionContext implements Closeable {
         fileOutErr,
         clientEnv,
         ImmutableMap.of(),
+        /*requiredLocalOutputs=*/ ImmutableList.of(),
         /*artifactExpander=*/ null,
         env,
         actionFileSystem,
@@ -306,6 +314,18 @@ public class ActionExecutionContext implements Closeable {
     return actionKeyContext;
   }
 
+  /**
+   * Returns the collection of files that this command must write and make available via
+   * the local {@link com.google.devtools.build.lib.vfs.FileSystem}. The returned output
+   * artifacts are a subset of the action's output artifacts.
+   *
+   * <p>This is for use with remote execution, where as an optimization we don't want to
+   * download all output files.
+   */
+  public Collection<Artifact> getRequiredLocalOutputs() {
+    return requiredLocalOutputs;
+  }
+
   @Override
   public void close() throws IOException {
     fileOutErr.close();
@@ -325,6 +345,28 @@ public class ActionExecutionContext implements Closeable {
         fileOutErr,
         clientEnv,
         topLevelFilesets,
+        requiredLocalOutputs,
+        artifactExpander,
+        env,
+        actionFileSystem,
+        skyframeDepsResult);
+  }
+
+  /**
+   * Allows us to create a new context that provides a list of output artifacts that need to
+   * be staged on the local filesystem.
+   */
+  public ActionExecutionContext withRequiredLocalOutputs(Collection<? extends Artifact> requiredLocalOutputs) {
+    return new ActionExecutionContext(
+        executor,
+        actionInputFileCache,
+        actionInputPrefetcher,
+        actionKeyContext,
+        metadataHandler,
+        fileOutErr,
+        clientEnv,
+        topLevelFilesets,
+        ImmutableList.copyOf(requiredLocalOutputs),
         artifactExpander,
         env,
         actionFileSystem,

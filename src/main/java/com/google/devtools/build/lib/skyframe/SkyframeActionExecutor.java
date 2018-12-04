@@ -581,6 +581,7 @@ public final class SkyframeActionExecutor {
         fileOutErr,
         clientEnv,
         topLevelFilesets,
+        ImmutableList.of(),
         new ArtifactExpanderImpl(expandedInputs, expandedFilesets),
         actionFileSystem,
         skyframeDepsResult);

@@ -125,6 +125,10 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     return rootType == RootType.Source;
   }
 
+  public boolean isOutputRoot() {
+    return rootType == RootType.Output;
+  }
+
   boolean isMiddlemanRoot() {
     return rootType == RootType.Middleman;
   }

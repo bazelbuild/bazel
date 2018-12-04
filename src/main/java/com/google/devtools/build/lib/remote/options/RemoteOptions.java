@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.options;
 
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -272,6 +273,36 @@ public final class RemoteOptions extends OptionsBase {
               + "If this option is not enabled, "
               + "cachable actions that output symlinks will fail.")
   public boolean allowSymlinkUpload;
+
+  /**
+   * Describes what kind of remote build outputs to download locally.
+   */
+  public enum FetchRemoteOutputsStrategy {
+    /** Download all remote outputs locally. */
+    ALL,
+    /** Generally don't download remote outputs locally. */
+    MINIMAL,
+  }
+
+  public static class FetchRemoteOutputsStrategyConverter extends EnumConverter<FetchRemoteOutputsStrategy> {
+    public FetchRemoteOutputsStrategyConverter() {
+      super(FetchRemoteOutputsStrategy.class, "fetch remote outputs");
+    }
+  }
+
+  @Option(
+      name = "experimental_remote_fetch_outputs",
+      defaultValue = "all",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = FetchRemoteOutputsStrategyConverter.class,
+      help = "If set to 'minimal' doesn't download any remote build outputs to the local machine, "
+          + "except the ones required by local actions. This option can significantly reduce build "
+          + "times if network bandwidth is a bottleneck."
+  )
+  public FetchRemoteOutputsStrategy experimentalRemoteFetchOutputs;
+
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

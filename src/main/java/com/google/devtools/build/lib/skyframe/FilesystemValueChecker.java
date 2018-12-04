@@ -398,6 +398,9 @@ public class FilesystemValueChecker {
     try {
       Set<PathFragment> currentDirectoryValue =
           TreeArtifactValue.explodeDirectory(artifact.getPath());
+      if (currentDirectoryValue.isEmpty() && value.isRemote()) {
+        return false;
+      }
       Set<PathFragment> valuePaths = value.getChildPaths();
       return !currentDirectoryValue.equals(valuePaths);
     } catch (IOException e) {
@@ -417,6 +420,14 @@ public class FilesystemValueChecker {
         try {
           ArtifactFileMetadata fileMetadata =
               ActionMetadataHandler.fileMetadataFromArtifact(file, null, tsgm);
+          boolean lastSeenRemotely = Preconditions.checkNotNull(actionValue.getArtifactValue(file),
+              "no file metadata available").isRemote();
+          if (!fileMetadata.exists() && lastSeenRemotely) {
+            // The output file does not exist in the output tree, but the last time we created it
+            // it was stored on a remotely so there is no need to invalidate it.
+            continue;
+          }
+
           if (!fileMetadata.equals(lastKnownData)) {
             updateIntraBuildModifiedCounter(
                 fileMetadata.exists() ? file.getPath().getLastModifiedTime(Symlinks.FOLLOW) : -1,

@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -139,7 +140,8 @@ public class GrpcRemoteExecutionClientTest {
   private static ListeningScheduledExecutorService retryService;
 
   private static final OutputFile DUMMY_OUTPUT =
-      OutputFile.newBuilder().setPath("dummy.txt").build();
+      OutputFile.newBuilder().setPath("dummy.txt")
+          .setDigest(Digest.newBuilder().setHash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855").setSizeBytes(0).build()).build();
 
   private final SpawnExecutionContext simplePolicy =
       new SpawnExecutionContext() {
@@ -150,7 +152,6 @@ public class GrpcRemoteExecutionClientTest {
 
         @Override
         public void prefetchInputs() {
-          throw new UnsupportedOperationException();
         }
 
         @Override
@@ -273,7 +274,7 @@ public class GrpcRemoteExecutionClientTest {
         new ByteStreamUploader(remoteOptions.remoteInstanceName, channel.retain(), creds,
             remoteOptions.remoteTimeout, retrier);
     GrpcRemoteCache remoteCache =
-        new GrpcRemoteCache(channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+        new GrpcRemoteCache(channel.retain(), creds, uploader, remoteOptions, DIGEST_UTIL, retrier);
     client =
         new RemoteSpawnRunner(
             execRoot,

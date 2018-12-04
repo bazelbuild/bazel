@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -685,17 +686,17 @@ public class AbstractRemoteActionCacheTests {
       super(options, digestUtil, retrier);
     }
 
-    public Digest addContents(String txt) throws UnsupportedEncodingException {
+    public Digest addContents(String txt) {
       return addContents(txt.getBytes(UTF_8));
     }
 
-    public Digest addContents(byte[] bytes) throws UnsupportedEncodingException {
+    public Digest addContents(byte[] bytes) {
       Digest digest = digestUtil.compute(bytes);
       downloadResults.put(digest, Futures.immediateFuture(bytes));
       return digest;
     }
 
-    public Digest addException(String txt, Exception e) throws UnsupportedEncodingException {
+    public Digest addException(String txt, Exception e) {
       Digest digest = digestUtil.compute(txt.getBytes(UTF_8));
       downloadResults.put(digest, Futures.immediateFailedFuture(e));
       return digest;

@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -367,6 +369,18 @@ public final class Actions {
 
     public ImmutableList<ActionAnalysisMetadata> getActions() {
       return actions;
+    }
+  }
+
+  public static void prefetchInputs(Iterable<? extends ActionInput> inputs,
+      ActionExecutionContext actionExecutionContext, Action action) throws ActionExecutionException,
+      InterruptedException {
+    try {
+      actionExecutionContext
+          .getActionInputPrefetcher()
+          .prefetchFiles(inputs, actionExecutionContext.getMetadataProvider());
+    } catch (IOException e) {
+      throw new ActionExecutionException("Failed to (pre)fetch remote input files.", e, action, false);
     }
   }
 }
