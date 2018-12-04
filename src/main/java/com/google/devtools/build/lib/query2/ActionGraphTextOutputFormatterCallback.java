@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.query2;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -45,20 +47,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /** Output callback for aquery, prints human readable output. */
 public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
+  private final ImmutableMap<String, String> actionFilters;
 
   ActionGraphTextOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       AqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTargetValue> accessor) {
+      TargetAccessor<ConfiguredTargetValue> accessor,
+      ImmutableMap<String, String> actionFilters) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
+    this.actionFilters = actionFilters;
   }
 
   @Override
@@ -92,6 +98,21 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
 
   private void writeAction(ActionAnalysisMetadata action, PrintStream printStream)
       throws IOException, CommandLineExpansionException {
+    Iterable<Artifact> inputs = action.getInputs();
+
+    // TODO(leba): define const for "inputs" and allow multiple inputs pattern
+    if (actionFilters.containsKey("inputs")) {
+      Pattern inputsPattern = Pattern.compile(actionFilters.get("inputs"));
+      Boolean containsFile =
+          Streams.stream(inputs)
+              .map(a -> inputsPattern.matcher(a.getExecPathString()).matches())
+              .reduce(false, Boolean::logicalOr);
+
+      if (!containsFile) {
+        return;
+      }
+    }
+
     ActionOwner actionOwner = action.getOwner();
     StringBuilder stringBuilder = new StringBuilder();
     stringBuilder
@@ -157,7 +178,7 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
     stringBuilder
         .append("  Inputs: [")
         .append(
-            Streams.stream(action.getInputs())
+            Streams.stream(inputs)
                 .map(input -> input.getExecPathString())
                 .sorted()
                 .collect(Collectors.joining(", ")))

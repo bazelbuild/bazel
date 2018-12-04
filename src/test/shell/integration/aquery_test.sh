@@ -293,4 +293,38 @@ EOF
   assert_contains "Outputs: \[.*a-aspect" output
 }
 
+function test_aquery_inputsfilter_onlymatchfoo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = [":bar", "dummy_foo.txt"],
+    outs = ["foo_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "bar",
+    srcs = ["dummy_bar.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  which bazel
+  bazel aquery --output=text "inputs('$pkg/dummy_foo.txt', deps(//$pkg:foo))" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  expect_log_n "^action '" 1 "Expected exactly one action."
+  assert_contains "action.*foo" output
+  assert_not_contains "action.*bar" output
+  assert_contains "Inputs: \[.*dummy_foo.txt.*\]" output
+  assert_not_contains "Inputs: \[.*dummy_bar.txt.*\]" output
+
+  bazel aquery --output=textproto --noinclude_commandline \
+    "inputs('$pkg/dummy_foo.txt', deps(//$pkg:foo))" > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
 run_suite "${PRODUCT_NAME} action graph query tests"

@@ -85,6 +85,11 @@ public final class AqueryCommand implements BlazeCommand {
     for (QueryFunction queryFunction : ActionGraphQueryEnvironment.FUNCTIONS) {
       functions.put(queryFunction.getName(), queryFunction);
     }
+
+    for (QueryFunction queryFunction : ActionGraphQueryEnvironment.AQUERY_FUNCTIONS) {
+      functions.put(queryFunction.getName(), queryFunction);
+    }
+
     for (QueryFunction queryFunction : env.getRuntime().getQueryFunctions()) {
       functions.put(queryFunction.getName(), queryFunction);
     }
