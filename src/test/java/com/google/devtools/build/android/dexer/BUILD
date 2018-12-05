@@ -55,9 +55,9 @@ java_test(
         ":tests",
     ],
     jvm_flags = [
-        "-Dtestmaindexlist=$(location :test_main_dex_list.txt)",
-        "-Dtestinputjar=$(location :tests)",
-        "-Dtestinputjar2=$(location :testdata)",
+        "-Dtestmaindexlist=io_bazel/$(location :test_main_dex_list.txt)",
+        "-Dtestinputjar=io_bazel/$(location :tests)",
+        "-Dtestinputjar2=io_bazel/$(location :testdata)",
     ],
     runtime_deps = [
         ":tests",
