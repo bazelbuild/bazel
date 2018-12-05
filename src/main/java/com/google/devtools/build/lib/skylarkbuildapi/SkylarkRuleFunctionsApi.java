@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -329,7 +330,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "added to this rule, with a type corresponding to the value passed in here."),
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public BaseFunction rule(
       BaseFunction implementation,
       Boolean test,
@@ -348,7 +350,8 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object analysisTest,
       Object buildSetting,
       FuncallExpression ast,
-      Environment funcallEnv)
+      Environment funcallEnv,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(

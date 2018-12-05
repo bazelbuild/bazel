@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -157,18 +158,18 @@ public class GoldenCase {
   }
 
   @SkylarkCallable(
-    name = "two_arg_method_with_params_and_info_and_kwargs",
-    documented = false,
-    parameters = {
-      @Param(name = "one", type = String.class, named = true),
-      @Param(name = "two", type = Integer.class, named = true),
-    },
-    extraKeywords = @Param(name = "kwargs"),
-    useAst = true,
-    useLocation = true,
-    useEnvironment = true,
-    useSkylarkSemantics = true
-  )
+      name = "two_arg_method_with_params_and_info_and_kwargs",
+      documented = false,
+      parameters = {
+        @Param(name = "one", type = String.class, named = true),
+        @Param(name = "two", type = Integer.class, named = true),
+      },
+      extraKeywords = @Param(name = "kwargs"),
+      useAst = true,
+      useLocation = true,
+      useEnvironment = true,
+      useSkylarkSemantics = true,
+      useContext = true)
   public String twoArgMethodWithParamsAndInfoAndKwargs(
       String one,
       Integer two,
@@ -176,7 +177,8 @@ public class GoldenCase {
       Location location,
       FuncallExpression ast,
       Environment environment,
-      SkylarkSemantics skylarkSemantics) {
+      SkylarkSemantics skylarkSemantics,
+      StarlarkContext context) {
     return "blep";
   }
 

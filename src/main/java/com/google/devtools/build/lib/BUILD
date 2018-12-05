@@ -374,6 +374,18 @@ java_library(
 )
 
 java_library(
+    name = "starlark_context",
+    srcs = [
+        "analysis/skylark/BazelStarlarkContext.java",
+    ],
+    deps = [
+        ":skylarkinterface",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "skylark_semantics",
     srcs = [
         "syntax/SkylarkSemantics.java",
@@ -493,6 +505,7 @@ java_library(
         ":events",
         ":skylark_semantics",
         ":skylarkinterface",
+        ":starlark_context",
         ":syntax",
         ":transitive-info-provider",
         ":util",

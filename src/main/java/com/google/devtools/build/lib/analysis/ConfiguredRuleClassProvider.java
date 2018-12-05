@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -811,16 +812,17 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap) {
+    BazelStarlarkContext context =
+        new BazelStarlarkContext(toolsRepository, configurationFragmentMap);
     Environment env =
         Environment.builder(mutability)
             .setGlobals(globals)
             .setSemantics(skylarkSemantics)
             .setEventHandler(eventHandler)
             .setFileContentHashCode(astFileContentHashCode)
+            .setStarlarkContext(context)
             .setImportedExtensions(importMap)
             .build();
-    SkylarkUtils.setToolsRepository(env, toolsRepository);
-    SkylarkUtils.setFragmentMap(env, configurationFragmentMap);
     SkylarkUtils.setPhase(env, Phase.LOADING);
     return env;
   }

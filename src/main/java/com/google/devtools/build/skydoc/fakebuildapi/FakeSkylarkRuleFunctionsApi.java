@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileTypeApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -119,7 +120,8 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Object analysisTest,
       Object buildSetting,
       FuncallExpression ast,
-      Environment funcallEnv)
+      Environment funcallEnv,
+      StarlarkContext context)
       throws EvalException {
     List<AttributeInfo> attrInfos;
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();

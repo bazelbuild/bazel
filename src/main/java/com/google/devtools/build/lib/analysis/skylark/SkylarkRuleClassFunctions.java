@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -275,17 +276,19 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       Object analysisTest,
       Object buildSetting,
       FuncallExpression ast,
-      Environment funcallEnv)
+      Environment funcallEnv,
+      StarlarkContext context)
       throws EvalException, ConversionException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(funcallEnv, "rule", ast.getLocation());
 
+    BazelStarlarkContext bazelContext = (BazelStarlarkContext) context;
     // analysis_test=true implies test=true.
     test |= Boolean.TRUE.equals(analysisTest);
 
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
     RuleClass parent =
         test
-            ? getTestBaseRule(SkylarkUtils.getToolsRepository(funcallEnv))
+            ? getTestBaseRule(bazelContext.getToolsRepository())
             : (executable ? binaryBaseRule : baseRule);
 
     // We'll set the name later, pass the empty string for now.

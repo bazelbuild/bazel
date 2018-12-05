@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.syntax.Parser.ParsingLevel;
@@ -746,6 +747,8 @@ public final class Environment implements Freezable, Debuggable {
   /** The semantics options that affect how Skylark code is evaluated. */
   private final SkylarkSemantics semantics;
 
+  private final StarlarkContext starlarkContext;
+
   /**
    * An EventHandler for errors and warnings. This is not used in the BUILD language, however it
    * might be used in Skylark code called from the BUILD language, so shouldn't be null.
@@ -874,6 +877,7 @@ public final class Environment implements Freezable, Debuggable {
       GlobalFrame globalFrame,
       LexicalFrame dynamicFrame,
       SkylarkSemantics semantics,
+      StarlarkContext starlarkContext,
       EventHandler eventHandler,
       Map<String, Extension> importedExtensions,
       @Nullable String fileContentHashCode,
@@ -884,6 +888,7 @@ public final class Environment implements Freezable, Debuggable {
     Preconditions.checkArgument(!globalFrame.mutability().isFrozen());
     Preconditions.checkArgument(!dynamicFrame.mutability().isFrozen());
     this.semantics = semantics;
+    this.starlarkContext = starlarkContext;
     this.eventHandler = eventHandler;
     this.importedExtensions = importedExtensions;
     this.callerLabel = callerLabel;
@@ -901,6 +906,7 @@ public final class Environment implements Freezable, Debuggable {
     private final Mutability mutability;
     @Nullable private GlobalFrame parent;
     @Nullable private SkylarkSemantics semantics;
+    @Nullable private StarlarkContext starlarkContext;
     @Nullable private EventHandler eventHandler;
     @Nullable private Map<String, Extension> importedExtensions;
     @Nullable private String fileContentHashCode;
@@ -908,6 +914,8 @@ public final class Environment implements Freezable, Debuggable {
 
     Builder(Mutability mutability) {
       this.mutability = mutability;
+      // TODO(cparsons): Require specifying a starlarkContext (or declaring use of an empty stub).
+      this.starlarkContext = new StarlarkContext() {};
     }
 
     /**
@@ -928,6 +936,16 @@ public final class Environment implements Freezable, Debuggable {
 
     public Builder useDefaultSemantics() {
       this.semantics = SkylarkSemantics.DEFAULT_SEMANTICS;
+      return this;
+    }
+
+    public Builder setStarlarkContext(StarlarkContext starlarkContext) {
+      this.starlarkContext = starlarkContext;
+      return this;
+    }
+
+    public Builder useEmptyStarlarkContext() {
+      this.starlarkContext = new StarlarkContext() {};
       return this;
     }
 
@@ -988,6 +1006,7 @@ public final class Environment implements Freezable, Debuggable {
           globalFrame,
           dynamicFrame,
           semantics,
+          starlarkContext,
           eventHandler,
           importedExtensions,
           fileContentHashCode,
@@ -1167,6 +1186,10 @@ public final class Environment implements Freezable, Debuggable {
 
   public SkylarkSemantics getSemantics() {
     return semantics;
+  }
+
+  public StarlarkContext getStarlarkContext() {
+    return starlarkContext;
   }
 
   public void handleEvent(Event event) {

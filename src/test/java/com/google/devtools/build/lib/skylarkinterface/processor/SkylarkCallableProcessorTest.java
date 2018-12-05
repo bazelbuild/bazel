@@ -19,6 +19,7 @@ import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 
 import com.google.common.io.Resources;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
@@ -140,6 +141,18 @@ public final class SkylarkCallableProcessorTest {
             "Expected parameter index 2 to be the "
                 + Environment.class.getCanonicalName()
                 + " type, matching useEnvironment, but was java.lang.String");
+  }
+
+  @Test
+  public void testContextMissing() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ContextMissing.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Expected parameter index 2 to be the "
+                + StarlarkContext.class.getCanonicalName()
+                + " type, matching useContext, but was java.lang.String");
   }
 
   @Test

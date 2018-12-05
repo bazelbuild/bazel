@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -28,36 +28,35 @@ import com.google.devtools.build.lib.syntax.EvalException;
 public interface SkylarkBuildApiGlobals {
 
   @SkylarkCallable(
-    name = "configuration_field",
-    // TODO(cparsons): Provide a link to documentation for available SkylarkConfigurationFields.
-    doc = "References a late-bound default value for an attribute of type "
-      + "<a href=\"attr.html#label\">label</a>. A value is 'late-bound' if it requires "
-      + "the configuration to be built before determining the value. Any attribute using this "
-      + "as a value must <a href=\"../rules.html#private-attributes\">be private</a>. "
-      + "<p>Example usage: "
-      + "<p>Defining a rule attribute: <br><pre class=language-python>"
-      + "'_foo': attr.label(default=configuration_field(fragment='java', name='toolchain'))</pre>"
-      + "<p>Accessing in rule implementation: <br><pre class=language-python>"
-      + "  def _rule_impl(ctx):\n"
-      + "    foo_info = ctx.attr._foo\n"
-      + "    ...</pre>",
-    parameters = {
+      name = "configuration_field",
+      // TODO(cparsons): Provide a link to documentation for available SkylarkConfigurationFields.
+      doc =
+          "References a late-bound default value for an attribute of type "
+              + "<a href=\"attr.html#label\">label</a>. A value is 'late-bound' if it requires "
+              + "the configuration to be built before determining the value. Any attribute using "
+              + "this as a value must <a href=\"../rules.html#private-attributes\">be private</a>. "
+              + "<p>Example usage: "
+              + "<p>Defining a rule attribute: <br><pre class=language-python>"
+              + "'_foo': attr.label(default=configuration_field(fragment='java', "
+              + "name='toolchain'))</pre>"
+              + "<p>Accessing in rule implementation: <br><pre class=language-python>"
+              + "  def _rule_impl(ctx):\n"
+              + "    foo_info = ctx.attr._foo\n"
+              + "    ...</pre>",
+      parameters = {
         @Param(
             name = "fragment",
             type = String.class,
             named = true,
-            doc = "The name of a configuration fragment which contains the late-bound value."
-        ),
+            doc = "The name of a configuration fragment which contains the late-bound value."),
         @Param(
             name = "name",
             type = String.class,
             named = true,
             doc = "The name of the value to obtain from the configuration fragment."),
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
+      },
+      useLocation = true,
+      useContext = true)
   public LateBoundDefaultApi configurationField(
-      String fragment, String name, Location loc, Environment env)
-      throws EvalException;
+      String fragment, String name, Location loc, StarlarkContext context) throws EvalException;
 }
