@@ -15,12 +15,31 @@
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
 
+
+def _if_debug(cond, st, what="Action"):
+    "Print if 'cont'."
+    if cond:
+        print("{} returned {}\n{}\n----\n{}".format(what, st.return_code, st.stdout, st.stderr))
+
+def _hash(ctx, value):
+    """Hash a value... TODO needs a proper implementation.
+    """
+    bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+    key = ctx.execute([
+        bash_exe,
+        "-c",
+        "(echo '{value}' | shasum)".format(value=value),
+    ]).stdout
+    key = key.split(sep=' ')[0]
+    return key
+
 def _clone_or_update(ctx):
     if ((not ctx.attr.tag and not ctx.attr.commit and not ctx.attr.branch) or
         (ctx.attr.tag and ctx.attr.commit) or
         (ctx.attr.tag and ctx.attr.branch) or
         (ctx.attr.commit and ctx.attr.branch)):
         fail("Exactly one of commit, tag, or branch must be provided")
+    remote_name = "remote_" + _hash(ctx, ctx.attr.remote)
     shallow = ""
     if ctx.attr.commit:
         ref = ctx.attr.commit
@@ -49,28 +68,54 @@ def _clone_or_update(ctx):
                   ctx.attr.strip_prefix if ctx.attr.strip_prefix else "None",
               ))
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+    git_cache = '/tmp/bazel_cache/git_cache'
+
+    # Set-up git_cache git repository.
+    st = ctx.execute([bash_exe, "-c", """set -ex
+  mkdir -p '{git_cache}'
+  git -C '{git_cache}' init --bare || :
+  """.format(git_cache=git_cache)], environment = ctx.os.environ)
+    _if_debug(cond=ctx.attr.verbose, st=st, what='Init')
+    if st.return_code:
+        fail("Error ... {}:\n{}\n---\n{}".format(ctx.name, st.stdout, st.stderr))
+
+    # 'remote add x' must be done only if x does not exist
+    st = ctx.execute([bash_exe, "-c", """set -ex
+  git -C '{git_cache}' remote add '{remote_name}' '{remote}' || \
+                      git -C '{git_cache}' remote set-url '{remote_name}' '{remote}'
+  git -C '{git_cache}' fetch {shallow} '{remote_name}' {ref} || \
+                      git -C '{git_cache}' fetch '{remote_name}' {ref} || \
+                      git -C '{git_cache}' {shallow} fetch '{remote_name}'
+  """.format(
+       git_cache=git_cache,
+       remote_name=remote_name,
+       remote=ctx.attr.remote,
+       ref=ref,
+       shallow=shallow)], environment = ctx.os.environ)
+    _if_debug(cond=ctx.attr.verbose, st=st, what='Fetching')
+
+    if st.return_code:
+        fail("Error fetching {}:\n{}\n----\n{}".format(ctx.name, st.stdout, st.stderr))
+
     st = ctx.execute([bash_exe, "-c", """
 set -ex
-( cd {working_dir} &&
-    if ! ( cd '{dir_link}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
-      rm -rf '{directory}' '{dir_link}'
-      git clone {shallow} '{remote}' '{directory}' || git clone '{remote}' '{directory}'
-    fi
-    git -C '{directory}' reset --hard {ref} || \
-    ((git -C '{directory}' fetch {shallow} origin {ref}:{ref} || \
-      git -C '{directory}' fetch origin {ref}:{ref}) && git -C '{directory}' reset --hard {ref})
-      git -C '{directory}' clean -xdf )
+    rm -rf '{directory}' '{dir_link}'
+    git -C '{git_cache}' worktree prune
+    git -C '{git_cache}' worktree add '{directory}' {ref} || :
+    #git -C '{directory}' reset --hard {ref}
+    #git -C '{directory}' clean -ffdx
   """.format(
         working_dir = ctx.path(".").dirname,
         dir_link = ctx.path("."),
         directory = directory,
-        remote = ctx.attr.remote,
         ref = ref,
         shallow = shallow,
+        git_cache = git_cache,
     )], environment = ctx.os.environ)
 
+    _if_debug(cond=ctx.attr.verbose, st=st, what='Checkout')
     if st.return_code:
-        fail("error cloning %s:\n%s" % (ctx.name, st.stderr))
+        fail("Error checking out worktree %s:\n%s" % (ctx.name, st.stderr))
 
     if ctx.attr.strip_prefix:
         dest_link = "{}/{}".format(directory, ctx.attr.strip_prefix)

@@ -625,7 +625,7 @@ EOF
 
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
-  expect_log "error cloning"
+  expect_log "Error fetching"
 }
 
 run_suite "skylark git_repository tests"
