@@ -265,7 +265,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
           execRoot.getRelative(file.getPath()).delete();
         }
         for (OutputDirectory directory : result.getOutputDirectoriesList()) {
-          FileSystemUtils.deleteTree(execRoot.getRelative(directory.getPath()));
+          FileSystemUtils.deleteTreesBelow(execRoot.getRelative(directory.getPath()));
         }
         if (outErr != null) {
           outErr.getOutputPath().delete();
