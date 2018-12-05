@@ -206,7 +206,7 @@ To profile your code and analyze the performance you have two options:
 ### --profile and analyze-profile
 
 This profiling method consists of two steps, first you have to execute your
-build/test with the `--profile` flag, e.g.
+build/test with the `--profile` flag, for example
 
 ```
 $ bazel build --nobuild --profile=/tmp/prof //path/to:target
@@ -219,11 +219,11 @@ postprocessed and analyzed by the `analyze-profile` command:
 $ bazel analyze-profile /tmp/prof
 ```
 
-By default, it will print summary analysis information for the specified profile
+By default, it prints summary analysis information for the specified profile
 datafile. This includes cummaltive statistics for different task types for each
 build phase and an analysis of the critical path.
 
-The first section of the default output describes an overview of the time spent
+The first section of the default output is an overview of the time spent
 on the different build phases:
 
 ```
@@ -240,7 +240,7 @@ Total run time                 36.586 s  100.00%
 ```
 
 The following sections show the execution time of different tasks happening
-during that particular phase, e.g.:
+during that particular phase, for example:
 
 ```
 === EXECUTION PHASE INFORMATION ===
@@ -300,7 +300,7 @@ When you add the flag `--experimental_generate_json_trace_profile` to your Bazel
 invocations, Bazel will write a JSON profile in [Chrome Trace
 Format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
 
-We suggest to use the flag together with the flags:
+We suggest to use the flag together with the following flags:
 - `--experimental_json_trace_compression`: The profile will be compressed with
   gzip.
 - `--experimental_profile_cpu_usage`: Bazel will measure and include local CPU
@@ -329,10 +329,10 @@ Example profile:
 
 The top row ('cpu counters') shows the local CPU usage, which is high in this
 build during the analysis phase and then gets lower during execution.
-The second row ('Critical Path') refers to the critical path of the build, i.e.
-even wiht infinite parallelism the build would not be faster than the actions in
-this path.
-The third row ('grpc-command-1') is displays everything that's happening on
+The second row ('Critical Path') refers to the critical path of the build, that
+is even with infinite parallelism the build would not be faster than the actions
+in this path.
+The third row ('grpc-command-1') displays everything that's happening on
 Bazel's main thread, giving a high level overview of what Bazel is doing.
 The remaining rows show what the worker threads are doing.
 
@@ -340,14 +340,14 @@ You can interact with the profile, e.g. zoom in, inspect particular tasks,
 filter for task descriptions and select multiple tasks to get an overview. Press
 `?` to get an overview of what you can do.
 
-When analyzing these kind of profiles look for
+When analyzing these kind of profiles look for the following:
 - Slow analysis phase (RunAnalysisPhase), especially on incremental builds. This
-  can be a sign of a poor rule implementation, e.g. one that flattens nested
-  sets.
+  can be a sign of a poor rule implementation, for example one that flattens
+  nested sets.
 - Individual slow actions, especially those on the critical path. It might be
   possible to split large actions into multiple smaller actions or reduce the
   dependencies to speed them up.
-- Bottlenecks, i.e. a small number of threads is busy while all others are
+- Bottlenecks, that is a small number of threads is busy while all others are
   idleing waiting for the result. Optimizing this will most likely require
   touching the rule implementations to introduce more parallelism.
 
