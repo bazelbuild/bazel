@@ -80,7 +80,7 @@ function test_jdeps() {
 
   # Make the list sorted and unique and compare it with expected results.
   cat jdeps | \
-    sed -e 's|\s*||g' -e 's|/.*||' | \
+    sed -e 's|[[:space:]]*||g' -e 's|/.*||' | \
     grep -v "notfound" | \
     sort -u > jdeps-sorted
   expected=$(rlocation io_bazel/src/test/shell/bazel/jdeps_modules.golden)
