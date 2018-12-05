@@ -54,7 +54,7 @@ public class DexFileMergerTest {
   private static final Path INPUT_JAR = Paths.get(runfiles.rlocation(System.getProperty("testinputjar")));
   private static final Path INPUT_JAR2 = Paths.get(runfiles.rlocation(System.getProperty("testinputjar2")));
   private static final Path MAIN_DEX_LIST_FILE =
-      WORKING_DIR.resolve(System.getProperty("testmaindexlist"));
+      Paths.get(runfiles.rlocation(System.getProperty("testmaindexlist")));
   static final String DEX_PREFIX = "classes";
 
   /** Exercises DexFileMerger to write a single .dex file. */
