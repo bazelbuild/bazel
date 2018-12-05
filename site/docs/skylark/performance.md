@@ -336,7 +336,7 @@ The third row ('grpc-command-1') displays everything that's happening on
 Bazel's main thread, giving a high level overview of what Bazel is doing.
 The remaining rows show what the worker threads are doing.
 
-You can interact with the profile, e.g. zoom in, inspect particular tasks,
+You can interact with the profile, for example zoom in, inspect particular tasks,
 filter for task descriptions and select multiple tasks to get an overview. Press
 `?` to get an overview of what you can do.
 
