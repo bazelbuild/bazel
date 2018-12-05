@@ -34,20 +34,32 @@ public final class TimeConversions {
 
   @SuppressWarnings("unused")  // TODO(b/79121791): Support more APIs
   private static j$.time.LocalDate fromLocalDate(java.time.LocalDate date) {
+    if (date == null) {
+      return null;
+    }
     return j$.time.LocalDate.of(date.getYear(), date.getMonthValue(), date.getDayOfMonth());
   }
 
   @SuppressWarnings("unused")  // TODO(b/79121791): Support more APIs
   private static j$.time.MonthDay fromMonthDay(java.time.MonthDay monthDay) {
+    if (monthDay == null) {
+      return null;
+    }
     return j$.time.MonthDay.of(monthDay.getMonthValue(), monthDay.getDayOfMonth());
   }
 
   @SuppressWarnings("unused")  // TODO(b/79121791): Support more APIs
   private static java.time.MonthDay toMonthDay(j$.time.MonthDay monthDay) {
+    if (monthDay == null) {
+      return null;
+    }
     return java.time.MonthDay.of(monthDay.getMonthValue(), monthDay.getDayOfMonth());
   }
 
   private static j$.time.ZonedDateTime fromZonedDateTime(java.time.ZonedDateTime dateTime) {
+    if (dateTime == null) {
+      return null;
+    }
     return j$.time.ZonedDateTime.of(
         dateTime.getYear(),
         dateTime.getMonthValue(),
@@ -60,6 +72,9 @@ public final class TimeConversions {
   }
 
   private static java.time.ZonedDateTime toZonedDateTime(j$.time.ZonedDateTime dateTime) {
+    if (dateTime == null) {
+      return null;
+    }
     return java.time.ZonedDateTime.of(
         dateTime.getYear(),
         dateTime.getMonthValue(),
