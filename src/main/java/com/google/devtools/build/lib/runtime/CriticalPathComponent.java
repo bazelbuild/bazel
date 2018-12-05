@@ -55,14 +55,12 @@ public class CriticalPathComponent {
   // These two fields are values of BlazeClock.nanoTime() at the relevant points in time.
   private long startNanos;
   private long finishNanos = 0;
-  protected volatile boolean isRunning = true;
+  private volatile boolean isRunning = true;
 
   /** We keep here the critical path time for the most expensive child. */
   private long childAggregatedElapsedTime = 0;
 
-  /** May be nulled out after finished running to allow the action to be GC'ed. */
-  @Nullable protected Action action;
-
+  private final Action action;
   private final Artifact primaryOutput;
 
   /** Spawn metrics for this action. */
@@ -70,11 +68,8 @@ public class CriticalPathComponent {
   /** An unique identifier of the component for one build execution */
   private final int id;
 
-  /**
-   * Child with the maximum critical path.
-   */
-  @Nullable
-  private CriticalPathComponent child;
+  /** Child with the maximum critical path. */
+  @Nullable private CriticalPathComponent child;
 
   public CriticalPathComponent(int id, Action action, long startNanos) {
     this.id = id;
@@ -107,11 +102,8 @@ public class CriticalPathComponent {
     return possiblePrimaryOutput == primaryOutput;
   }
 
-  /**
-   * The action for which we are storing the stat. May be null if the action has finished running.
-   */
-  @Nullable
-  public final Action maybeGetAction() {
+  /** The action for which we are storing the stat. */
+  public final Action getAction() {
     return action;
   }
 
@@ -120,12 +112,12 @@ public class CriticalPathComponent {
   }
 
   public String prettyPrintAction() {
-    return getActionNotNull().prettyPrint();
+    return action.prettyPrint();
   }
 
   @Nullable
   public Label getOwner() {
-    ActionOwner owner = getActionNotNull().getOwner();
+    ActionOwner owner = action.getOwner();
     if (owner != null && owner.getLabel() != null) {
       return owner.getLabel();
     }
@@ -133,11 +125,7 @@ public class CriticalPathComponent {
   }
 
   public String getMnemonic() {
-    return getActionNotNull().getMnemonic();
-  }
-
-  private Action getActionNotNull() {
-    return Preconditions.checkNotNull(action, this);
+    return action.getMnemonic();
   }
 
   /** An unique identifier of the component for one build execution */
@@ -151,7 +139,7 @@ public class CriticalPathComponent {
    * are run in parallel we should keep the maximum), we keep the maximum. This is better than just
    * keeping the latest one.
    */
-  public void addSpawnMetrics(SpawnMetrics spawnMetrics) {
+  void addSpawnMetrics(SpawnMetrics spawnMetrics) {
     if (spawnMetrics.totalTime().compareTo(this.spawnMetrics.totalTime()) > 0) {
       this.spawnMetrics = spawnMetrics;
     }
@@ -193,7 +181,7 @@ public class CriticalPathComponent {
   }
 
   /** To be used only in debugging: skips state invariance checks to avoid crash-looping. */
-  protected Duration getElapsedTimeNoCheck() {
+  private Duration getElapsedTimeNoCheck() {
     return Duration.ofNanos(getElapsedTimeNanosNoCheck());
   }
 
@@ -206,11 +194,11 @@ public class CriticalPathComponent {
    *
    * <p>Critical path is defined as : action_execution_time + max(child_critical_path).
    */
-  public Duration getAggregatedElapsedTime() {
+  Duration getAggregatedElapsedTime() {
     return Duration.ofNanos(getAggregatedElapsedTimeNanos());
   }
 
-  long getAggregatedElapsedTimeNanos() {
+  private long getAggregatedElapsedTimeNanos() {
     Preconditions.checkState(!isRunning, "Still running %s", this);
     return getElapsedTimeNanos() + childAggregatedElapsedTime;
   }
@@ -226,13 +214,11 @@ public class CriticalPathComponent {
   }
 
   /** Returns a string representation of the action. Only for use in crash messages and the like. */
-  protected String getActionString() {
-    return (action == null ? "(null action)" : action.prettyPrint());
+  private String getActionString() {
+    return action.prettyPrint();
   }
 
-  /**
-   * Returns a user readable representation of the critical path stats with all the details.
-   */
+  /** Returns a user readable representation of the critical path stats with all the details. */
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
