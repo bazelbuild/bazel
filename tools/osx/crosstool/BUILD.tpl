@@ -61,6 +61,8 @@ cc_toolchain_suite(
             arch if arch != "armeabi-v7a" else "stub_armeabi-v7a"
         ),
         all_files = ":osx_tools_" + arch,
+        ar_files = ":empty",
+        as_files = ":empty",
         compiler_files = ":osx_tools_" + arch,
         cpu = arch,
         dwp_files = ":empty",

@@ -39,6 +39,8 @@ cc_toolchain(
     name = "local",
     toolchain_identifier = "local",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",

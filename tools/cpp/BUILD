@@ -113,6 +113,8 @@ cc_toolchain_suite(
 cc_toolchain(
     name = "cc-compiler-local",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
@@ -138,6 +140,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-ppc",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "ppc",
     dwp_files = ":empty",
@@ -165,6 +169,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
@@ -192,6 +198,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-k8",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
@@ -221,6 +229,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-darwin",
     all_files = ":osx_wrapper",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":osx_wrapper",
     cpu = "darwin",
     dwp_files = ":empty",
@@ -250,6 +260,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-freebsd",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
@@ -279,6 +291,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-x64_windows",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
@@ -308,6 +322,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-x64_windows_msvc",
     all_files = ":every-file-x64_windows",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":compile-x64_windows",
     cpu = "x64_windows",
     dwp_files = ":empty",
