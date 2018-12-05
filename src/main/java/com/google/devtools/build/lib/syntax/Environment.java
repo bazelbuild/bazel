@@ -541,26 +541,17 @@ public final class Environment implements Freezable, Debuggable {
     /** The global Frame of the caller. */
     final GlobalFrame globalFrame;
 
-    /**
-     * The set of known global variables of the caller.
-     *
-     * <p>TODO(laurentlb): Remove this when we use static name resolution.
-     */
-    @Nullable final LinkedHashSet<String> knownGlobalVariables;
-
     Continuation(
         @Nullable Continuation continuation,
         BaseFunction function,
         @Nullable FuncallExpression caller,
         Frame lexicalFrame,
-        GlobalFrame globalFrame,
-        @Nullable LinkedHashSet<String> knownGlobalVariables) {
+        GlobalFrame globalFrame) {
       this.continuation = continuation;
       this.function = function;
       this.caller = caller;
       this.lexicalFrame = lexicalFrame;
       this.globalFrame = globalFrame;
-      this.knownGlobalVariables = knownGlobalVariables;
     }
   }
 
@@ -767,15 +758,6 @@ public final class Environment implements Freezable, Debuggable {
   private final Map<String, Extension> importedExtensions;
 
   /**
-   * When in a lexical (Skylark) Frame, this set contains the variable names that are global, as
-   * determined not by global declarations (not currently supported), but by previous lookups that
-   * ended being global or dynamic. This is necessary because if in a function definition something
-   * reads a global variable after which a local variable with the same name is assigned an
-   * Exception needs to be thrown.
-   */
-  @Nullable private LinkedHashSet<String> knownGlobalVariables;
-
-  /**
    * When in a lexical (Skylark) frame, this lists the names of the functions in the call stack. We
    * currently use it to artificially disable recursion.
    */
@@ -801,12 +783,9 @@ public final class Environment implements Freezable, Debuggable {
       Frame lexical,
       @Nullable FuncallExpression caller,
       GlobalFrame globals) {
-    continuation =
-        new Continuation(
-            continuation, function, caller, lexicalFrame, globalFrame, knownGlobalVariables);
+    continuation = new Continuation(continuation, function, caller, lexicalFrame, globalFrame);
     lexicalFrame = lexical;
     globalFrame = globals;
-    knownGlobalVariables = new LinkedHashSet<>();
   }
 
   /** Exits a scope by restoring state from the current continuation */
@@ -814,7 +793,6 @@ public final class Environment implements Freezable, Debuggable {
     Preconditions.checkNotNull(continuation);
     lexicalFrame = continuation.lexicalFrame;
     globalFrame = continuation.globalFrame;
-    knownGlobalVariables = continuation.knownGlobalVariables;
     continuation = continuation.continuation;
   }
 
@@ -1087,14 +1065,6 @@ public final class Environment implements Freezable, Debuggable {
    */
   public Environment update(String varname, Object value) throws EvalException {
     Preconditions.checkNotNull(value, "trying to assign null to '%s'", varname);
-    if (isKnownGlobalVariable(varname)) {
-      throw new EvalException(
-          null,
-          String.format(
-              "Variable '%s' is referenced before assignment. "
-                  + "The variable is defined in the global scope.",
-              varname));
-    }
     try {
       lexicalFrame.put(this, varname, value);
     } catch (MutabilityException e) {
@@ -1158,14 +1128,7 @@ public final class Environment implements Freezable, Debuggable {
   /** Returns the value of a variable defined in the Universe scope (builtins). */
   public Object universeLookup(String varname) {
     // TODO(laurentlb): look only at globalFrame.universe.
-    Object result = globalFrame.get(varname);
-
-    if (result == null) {
-      // TODO(laurentlb): Remove once PACKAGE_NAME and REPOSITOYRY_NAME are removed (they are the
-      // only two user-visible values that use the dynamicFrame).
-      return dynamicLookup(varname);
-    }
-    return result;
+    return globalFrame.get(varname);
   }
 
   /** Returns the value of a variable defined with setupDynamic. */
@@ -1186,17 +1149,10 @@ public final class Environment implements Freezable, Debuggable {
       return lexicalValue;
     }
     Object globalValue = globalFrame.get(varname);
-    Object dynamicValue = dynamicFrame.get(varname);
-    if (globalValue == null && dynamicValue == null) {
+    if (globalValue == null) {
       return null;
     }
-    if (knownGlobalVariables != null) {
-      knownGlobalVariables.add(varname);
-    }
-    if (globalValue != null) {
-      return globalValue;
-    }
-    return dynamicValue;
+    return globalValue;
   }
 
   /**
@@ -1207,16 +1163,6 @@ public final class Environment implements Freezable, Debuggable {
    */
   public Map<String, FlagGuardedValue> getRestrictedBindings() {
     return globalFrame.restrictedBindings;
-  }
-
-  /**
-   * Returns true if varname is a known global variable (i.e., it has been read in the context of
-   * the current function).
-   */
-  boolean isKnownGlobalVariable(String varname) {
-    return !semantics.incompatibleStaticNameResolution()
-        && knownGlobalVariables != null
-        && knownGlobalVariables.contains(varname);
   }
 
   public SkylarkSemantics getSemantics() {

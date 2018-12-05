@@ -1807,7 +1807,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testShadowisNotInitialized() throws Exception {
-    new SkylarkTest("--incompatible_static_name_resolution=true")
+    new SkylarkTest()
         .testIfErrorContains(
             /* error message */ "local variable 'gl' is referenced before assignment",
             "gl = 5",
@@ -1818,34 +1818,13 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testLegacyGlobalVariableNotShadowed() throws Exception {
-    new SkylarkTest("--incompatible_static_name_resolution=false")
-        .setUp(
-            "gl = 5",
-            "def foo():",
-            "    if False: gl = 2",
-            // The legacy behavior is that the global variable is returned.
-            // With --incompatible_static_name_resolution set to true, this becomes an error.
-            "    return gl",
-            "res = foo()")
-        .testLookup("res", 5);
-  }
-
-  @Test
   public void testShadowBuiltin() throws Exception {
-    new SkylarkTest("--incompatible_static_name_resolution=true")
+    new SkylarkTest()
         .testIfErrorContains(
             "global variable 'len' is referenced before assignment",
             "x = len('abc')",
             "len = 2",
             "y = x + len");
-  }
-
-  @Test
-  public void testLegacyShadowBuiltin() throws Exception {
-    new SkylarkTest("--incompatible_static_name_resolution=false")
-        .setUp("x = len('abc')", "len = 2", "y = x + len")
-        .testLookup("y", 5);
   }
 
   @Test

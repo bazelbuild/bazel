@@ -422,20 +422,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleNoTransitiveLoads;
 
   @Option(
-      name = "incompatible_package_name_is_a_function",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, the values PACKAGE_NAME and REPOSITORY_NAME are not available. "
-              + "Use the package_name() or repository_name() functions instead.")
-  public boolean incompatiblePackageNameIsAFunction;
-
-  @Option(
       name = "incompatible_range_type",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -489,21 +475,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
           "If set to true, the native maven_jar rule is disabled; only the Starlark version "
               + "will be available")
   public boolean incompatibleRemoveNativeMavenJar;
-
-  @Option(
-      name = "incompatible_static_name_resolution",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, the interpreter follows the semantics related to name resolution, "
-              + "scoping, and shadowing, as defined in "
-              + "https://github.com/bazelbuild/proposals/blob/master/docs/2018-06-18-name-resolution.md")
-  public boolean incompatibleStaticNameResolution;
 
   @Option(
       name = "incompatible_strict_argument_ordering",
@@ -576,12 +547,10 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
         .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
         .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
-        .incompatiblePackageNameIsAFunction(incompatiblePackageNameIsAFunction)
         .incompatibleRangeType(incompatibleRangeType)
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
-        .incompatibleStaticNameResolution(incompatibleStaticNameResolution)
         .incompatibleStricArgumentOrdering(incompatibleStricArgumentOrdering)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)

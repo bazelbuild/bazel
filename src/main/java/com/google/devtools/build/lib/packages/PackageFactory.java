@@ -1529,10 +1529,7 @@ public final class PackageFactory {
     return StructProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
   }
 
-  private void buildPkgEnv(
-      Environment pkgEnv,
-      PackageContext context,
-      PackageIdentifier packageId) {
+  private void buildPkgEnv(Environment pkgEnv, PackageContext context) {
     // TODO(bazel-team): remove the naked functions that are redundant with the nativeModule,
     // or if not possible, at least make them straight copies from the native module variant.
     // or better, use a common Environment.Frame for these common bindings
@@ -1569,10 +1566,6 @@ public final class PackageFactory {
     }
 
     pkgEnv.setupDynamic(PKG_CONTEXT, context);
-    if (!pkgEnv.getSemantics().incompatiblePackageNameIsAFunction()) {
-      pkgEnv.setupDynamic(Runtime.PKG_NAME, packageId.getPackageFragment().getPathString());
-      pkgEnv.setupDynamic(Runtime.REPOSITORY_NAME, packageId.getRepository().toString());
-    }
   }
 
   /**
@@ -1647,7 +1640,7 @@ public final class PackageFactory {
       PackageContext context =
           new PackageContext(
               pkgBuilder, globber, eventHandler, ruleFactory.getAttributeContainerFactory());
-      buildPkgEnv(pkgEnv, context, packageId);
+      buildPkgEnv(pkgEnv, context);
 
       if (!validatePackageIdentifier(packageId, buildFileAST.getLocation(), eventHandler)) {
         pkgBuilder.setContainsErrors();
