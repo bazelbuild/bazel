@@ -63,7 +63,7 @@ public class DexFileMergerTest {
       INPUT_JAR2 = Paths.get(runfiles.rlocation(System.getProperty("testinputjar2")));
       MAIN_DEX_LIST_FILE = Paths.get(runfiles.rlocation(System.getProperty("testmaindexlist")));
     } catch (Exception e) {
-      throw new throw new ExceptionInInitializerError(e);
+      throw new ExceptionInInitializerError(e);
     }
   }
 
