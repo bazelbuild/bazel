@@ -838,6 +838,8 @@ public class CppOptions extends FragmentOptions {
 
     host.doNotUseCpuTransformer = doNotUseCpuTransformer;
 
+    host.enableCcToolchainConfigInfoFromSkylark = enableCcToolchainConfigInfoFromSkylark;
+
     return host;
   }
 
