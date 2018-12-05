@@ -70,6 +70,8 @@ readonly DESUGAR_JAVA8_LIBS_CONFIG=(--rewrite_core_library_prefix java/time/ \
     --rewrite_core_library_prefix java/util/PrimitiveIterator \
     --rewrite_core_library_prefix java/util/Spliterator \
     --rewrite_core_library_prefix java/util/StringJoiner \
+    --rewrite_core_library_prefix java/util/concurrent/ConcurrentHashMap \
+    --rewrite_core_library_prefix java/util/concurrent/ThreadLocalRandom \
     --rewrite_core_library_prefix java/util/concurrent/atomic/DesugarAtomic \
     --retarget_core_library_member "java/lang/Double#max->java/lang/Double8" \
     --retarget_core_library_member "java/lang/Double#min->java/lang/Double8" \

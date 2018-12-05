@@ -173,9 +173,10 @@ genrule(
         --rewrite_core_library_prefix java/util/Spliterator \
         --rewrite_core_library_prefix java/util/StringJoiner \
         --rewrite_core_library_prefix java/util/Tripwire \
+        --rewrite_core_library_prefix java/util/concurrent/ConcurrentHashMap \
+        --rewrite_core_library_prefix java/util/concurrent/DesugarUnsafe \
+        --rewrite_core_library_prefix java/util/concurrent/ThreadLocalRandom \
         --rewrite_core_library_prefix java/util/concurrent/atomic/DesugarAtomic \
-        --retarget_core_library_member "java/util/Arrays#stream->java/util/DesugarArrays" \
-        --retarget_core_library_member "java/util/Arrays#spliterator->java/util/DesugarArrays" \
         --retarget_core_library_member "java/util/LinkedHashSet#spliterator->java/util/DesugarLinkedHashSet" \
         --emulate_core_library_interface java/util/Collection \
         --emulate_core_library_interface java/util/Map \
