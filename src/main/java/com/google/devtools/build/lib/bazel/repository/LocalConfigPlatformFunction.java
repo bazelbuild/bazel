@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -57,8 +58,6 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
     CPU hostCpu = CPU.getCurrent();
     OS hostOs = OS.getCurrent();
 
-    List<String> constraints = generateConstraints(hostCpu, hostOs);
-
     try {
       outputDirectory.createDirectoryAndParents();
       RepositoryFunction.writeFile(
@@ -66,7 +65,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
       RepositoryFunction.writeFile(
           outputDirectory, "BUILD.bazel", buildFileContent(rule.getName()));
       RepositoryFunction.writeFile(
-          outputDirectory, "constraints.bzl", constraintFileContent(constraints));
+          outputDirectory, "constraints.bzl", constraintFileContent(hostCpu, hostOs));
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException("Could not create content for " + rule.getName() + ": " + e.getMessage()),
@@ -77,12 +76,8 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 
-  private static List<String> generateConstraints(CPU hostCpu, OS hostOs) {
-    return ImmutableList.of(cpuToConstraint(hostCpu), osToConstraint(hostOs));
-  }
-
   @Nullable
-  private static String cpuToConstraint(CPU cpu) {
+  static String cpuToConstraint(CPU cpu) {
     switch (cpu) {
       case X86_32:
         return "@bazel_tools//platforms:x86_32";
@@ -101,7 +96,8 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
     return null;
   }
 
-  private static String osToConstraint(OS os) {
+  @Nullable
+  static String osToConstraint(OS os) {
     switch (os) {
       case DARWIN:
         return "@bazel_tools//platforms:osx";
@@ -136,20 +132,23 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
         repositoryName);
   }
 
-  private static String constraintFileContent(List<String> constraints) {
-    StringBuilder formattedConstraints = new StringBuilder();
-    for (String constraint : constraints) {
-      if (constraint != null) {
-        formattedConstraints.append("  '").append(constraint).append("',\n");
+  private static String constraintFileContent(CPU hostCpu, OS hostOs) {
+    List<String> contents = new ArrayList<>();
+    contents.add("# DO NOT EDIT: automatically generated constraints list for local_config_platforms");
+    contents.add("# Auto-detected host platform constraints.");
+    contents.add("HOST_CONSTRAINTS = [");
+
+    String cpuConstraint = cpuToConstraint(hostCpu);
+      if (cpuConstraint != null) {
+        contents.add("  '" + cpuConstraint + "',");
       }
+    String osConstraint = osToConstraint(hostOs);
+    if (osConstraint != null) {
+      contents.add("  '" + osConstraint + "',");
     }
-    return format(
-        ImmutableList.of(
-            "# DO NOT EDIT: automatically generated constraints list for local_config_platforms",
-            "# Auto-detected host platform constraints.",
-            "HOST_CONSTRAINTS = [",
-            "%s]"),
-        formattedConstraints.toString());
+    contents.add("]");
+
+    return format(contents);
   }
 
   private static String format(List<String> lines, Object... params) {
