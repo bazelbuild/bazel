@@ -1564,7 +1564,7 @@ public class CcModule
     ImmutableList<SkylarkInfo> flagSets =
         getSkylarkProviderListFromSkylarkField(featureStruct, "flag_sets");
     for (SkylarkInfo flagSetObject : flagSets) {
-      FlagSet flagSet = flagSetFromSkylark(flagSetObject);
+      FlagSet flagSet = flagSetFromSkylark(flagSetObject, /* actionName= */ null);
       if (flagSet.getActions().isEmpty()) {
         throw new EvalException(
             flagSetObject.getCreationLoc(),
@@ -1792,10 +1792,19 @@ public class CcModule
 
   /** Creates a {@link FlagSet} from a {@link SkylarkInfo}. */
   @VisibleForTesting
-  static FlagSet flagSetFromSkylark(SkylarkInfo flagSetStruct)
+  static FlagSet flagSetFromSkylark(SkylarkInfo flagSetStruct, String actionName)
       throws InvalidConfigurationException, EvalException {
     checkRightProviderType(flagSetStruct, "flag_set");
     ImmutableSet<String> actions = getStringSetFromSkylarkProviderField(flagSetStruct, "actions");
+    // if we are creating a flag set for an action_config, we need to propagate the name of the
+    // action to its flag_set.action_names
+    if (actionName != null) {
+      if (!actions.isEmpty()) {
+        throw new EvalException(
+            Location.BUILTIN, String.format(ActionConfig.FLAG_SET_WITH_ACTION_ERROR, actionName));
+      }
+      actions = ImmutableSet.of(actionName);
+    }
     ImmutableList.Builder<FlagGroup> flagGroupsBuilder = ImmutableList.builder();
     ImmutableList<SkylarkInfo> flagGroups =
         getSkylarkProviderListFromSkylarkField(flagSetStruct, "flag_groups");
@@ -1874,7 +1883,7 @@ public class CcModule
     ImmutableList<SkylarkInfo> flagSets =
         getSkylarkProviderListFromSkylarkField(actionConfigStruct, "flag_sets");
     for (SkylarkInfo flagSet : flagSets) {
-      flagSetBuilder.add(flagSetFromSkylark(flagSet));
+      flagSetBuilder.add(flagSetFromSkylark(flagSet, actionName));
     }
 
     ImmutableList<String> implies =

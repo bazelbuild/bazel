@@ -3080,7 +3080,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       ConfiguredTarget t = getConfiguredTarget("//four:a");
       SkylarkInfo flagSetStruct = (SkylarkInfo) t.getValue("flagset");
       assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct);
+      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null);
       fail("Should have failed because of wrong object type.");
     } catch (EvalException ee) {
       assertThat(ee)
@@ -3098,7 +3098,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       ConfiguredTarget t = getConfiguredTarget("//five:a");
       SkylarkInfo flagSetStruct = (SkylarkInfo) t.getValue("flagset");
       assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct);
+      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null);
       fail("Should have failed because of wrong object type.");
     } catch (EvalException ee) {
       assertThat(ee)
@@ -3116,7 +3116,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       ConfiguredTarget t = getConfiguredTarget("//six:a");
       SkylarkInfo flagSetStruct = (SkylarkInfo) t.getValue("flagset");
       assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct);
+      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null);
       fail("Should have failed because of wrong object type.");
     } catch (EvalException ee) {
       assertThat(ee)
@@ -3132,8 +3132,38 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget t = getConfiguredTarget("//seven:a");
     SkylarkInfo flagSetStruct = (SkylarkInfo) t.getValue("flagset");
     assertThat(flagSetStruct).isNotNull();
-    FlagSet f = CcModule.flagSetFromSkylark(flagSetStruct);
+    FlagSet f = CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ null);
     assertThat(f).isNotNull();
+
+    createFlagSetRule(
+        "eight",
+        /* actions= */ "['a']",
+        /* flagGroups= */ "[flag_group(flags = ['a'])]",
+        /* withFeatures= */ "[struct(val = 'a')]");
+
+    try {
+      t = getConfiguredTarget("//eight:a");
+      flagSetStruct = (SkylarkInfo) t.getValue("flagset");
+      assertThat(flagSetStruct).isNotNull();
+      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ "action");
+      fail("Should have failed because of nonempty actions field when created from action_config.");
+    } catch (EvalException ee) {
+      assertThat(ee)
+          .hasMessageThat()
+          .contains("Thus, you must not specify action lists in an action_config's flag set.");
+    }
+
+    createFlagSetRule(
+        "nine",
+        /* actions= */ "[]",
+        /* flagGroups= */ "[flag_group(flags = ['a'])]",
+        /* withFeatures= */ "[with_feature_set(features = ['a'])]");
+    t = getConfiguredTarget("//nine:a");
+    flagSetStruct = (SkylarkInfo) t.getValue("flagset");
+    assertThat(flagSetStruct).isNotNull();
+    f = CcModule.flagSetFromSkylark(flagSetStruct, /* actionName= */ "action");
+    assertThat(f).isNotNull();
+    assertThat(f.getActions()).containsExactly("action");
   }
 
   private void createFlagSetRule(String pkg, String actions, String flagGroups, String withFeatures)
@@ -3161,7 +3191,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//one:a");
     SkylarkInfo flagSet = (SkylarkInfo) target.getValue("flagset");
     assertThat(flagSet).isNotNull();
-    FlagSet flagSetObject = CcModule.flagSetFromSkylark(flagSet);
+    FlagSet flagSetObject = CcModule.flagSetFromSkylark(flagSet, /* actionName */ null);
     assertThat(flagSetObject).isNotNull();
 
     createCustomFlagSetRule(
@@ -3171,7 +3201,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       ConfiguredTarget t = getConfiguredTarget("//two:a");
       SkylarkInfo flagSetStruct = (SkylarkInfo) t.getValue("flagset");
       assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct);
+      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null);
       fail("Should have failed because of wrong object type.");
     } catch (EvalException ee) {
       assertThat(ee)
@@ -3186,7 +3216,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       ConfiguredTarget t = getConfiguredTarget("//three:a");
       SkylarkInfo flagSetStruct = (SkylarkInfo) t.getValue("flagset");
       assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct);
+      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null);
       fail("Should have failed because of wrong object type.");
     } catch (EvalException ee) {
       assertThat(ee)
@@ -3201,7 +3231,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
       ConfiguredTarget t = getConfiguredTarget("//four:a");
       SkylarkInfo flagSetStruct = (SkylarkInfo) t.getValue("flagset");
       assertThat(flagSetStruct).isNotNull();
-      CcModule.flagSetFromSkylark(flagSetStruct);
+      CcModule.flagSetFromSkylark(flagSetStruct, /* actionName */ null);
       fail("Should have failed because of wrong object type.");
     } catch (EvalException ee) {
       assertThat(ee)
@@ -3300,7 +3330,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* actionName= */ "'actionname'",
         /* enabled= */ "True",
         /* tools= */ "[tool(path = 'a/b/c')]",
-        /* flagSets= */ "[flag_set(actions = ['a', 'b'])]",
+        /* flagSets= */ "[]",
         /* implies= */ "flag_set(actions = ['a', 'b'])");
 
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//five:a"));
@@ -3313,7 +3343,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* actionName= */ "'actionname'",
         /* enabled= */ "True",
         /* tools= */ "[tool(path = 'a/b/c')]",
-        /* flagSets= */ "[flag_set(actions = ['a', 'b'])]",
+        /* flagSets= */ "[]",
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
     try {
@@ -3333,7 +3363,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* actionName= */ "'actionname'",
         /* enabled= */ "True",
         /* tools= */ "[tool(path = 'a/b/c')]",
-        /* flagSets= */ "[flag_set(actions = ['a', 'b'])]",
+        /* flagSets= */ "[]",
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
     try {
@@ -3353,7 +3383,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* actionName= */ "'actionname32_++-'",
         /* enabled= */ "True",
         /* tools= */ "[tool(path = 'a/b/c')]",
-        /* flagSets= */ "[flag_set(actions = ['a', 'b'])]",
+        /* flagSets= */ "[flag_set(flag_groups=[flag_group(flags=['a'])])]",
         /* implies= */ "['a', 'b']");
 
     ConfiguredTarget t = getConfiguredTarget("//eight:a");
@@ -3363,13 +3393,15 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(a).isNotNull();
     assertThat(a.getActionName()).isEqualTo("actionname32_++-");
     assertThat(a.getImplies()).containsExactly("a", "b").inOrder();
+    assertThat(Iterables.getOnlyElement(a.getFlagSets()).getActions())
+        .containsExactly("actionname32_++-");
 
     createActionConfigRule(
         "nine",
         /* actionName= */ "'Upper'",
         /* enabled= */ "True",
         /* tools= */ "[tool(path = 'a/b/c')]",
-        /* flagSets= */ "[flag_set(actions = ['a', 'b'])]",
+        /* flagSets= */ "[]",
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
     try {
@@ -3391,7 +3423,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         /* actionName= */ "'white\tspace'",
         /* enabled= */ "True",
         /* tools= */ "[tool(path = 'a/b/c')]",
-        /* flagSets= */ "[flag_set(actions = ['a', 'b'])]",
+        /* flagSets= */ "[]",
         /* implies= */ "[flag_set(actions = ['a', 'b'])]");
 
     try {
@@ -3415,7 +3447,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         pkg + "/foo.bzl",
         "load('//tools/cpp:cc_toolchain_config_lib.bzl', 'with_feature_set',",
-        "             'tool', 'flag_set', 'action_config', )",
+        "             'tool', 'flag_set', 'action_config', 'flag_group')",
         "def _impl(ctx):",
         "   return struct(config = action_config(",
         "       action_name = " + actionName + ",",
