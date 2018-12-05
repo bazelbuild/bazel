@@ -53,6 +53,7 @@ def _clone_or_update(ctx):
 set -ex
 ( cd {working_dir} &&
     if ! ( cd '{dir_link}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
+      cd {working_dir}
       rm -rf '{directory}' '{dir_link}'
       git clone {shallow} '{remote}' '{directory}' || git clone '{remote}' '{directory}'
     fi
