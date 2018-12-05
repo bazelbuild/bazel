@@ -40,7 +40,7 @@ public class DexBuilderTest {
     DexBuilder.Options options = new DexBuilder.Options();
     // Use Jar file that has this test in it as the input Jar
     Runfiles runfiles = Runfiles.create();
-    options.inputJar = runfiles.rlocation(System.getProperty("testinputjar"));
+    options.inputJar = Paths.get(runfiles.rlocation(System.getProperty("testinputjar")));
     options.outputZip =
         FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR"), "dex_builder_test.zip");
     options.maxThreads = 1;

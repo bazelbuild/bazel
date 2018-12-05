@@ -51,8 +51,8 @@ import org.junit.runners.JUnit4;
 public class DexFileMergerTest {
 
   private static final Runfiles runfiles = Runfiles.create();
-  private static final Path INPUT_JAR = runfiles.rlocation(System.getProperty("testinputjar"));
-  private static final Path INPUT_JAR2 = runfiles.rlocation(System.getProperty("testinputjar2"));
+  private static final Path INPUT_JAR = Paths.get(runfiles.rlocation(System.getProperty("testinputjar")));
+  private static final Path INPUT_JAR2 = Paths.get(runfiles.rlocation(System.getProperty("testinputjar2")));
   private static final Path MAIN_DEX_LIST_FILE =
       WORKING_DIR.resolve(System.getProperty("testmaindexlist"));
   static final String DEX_PREFIX = "classes";
