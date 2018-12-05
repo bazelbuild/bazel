@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import java.io.IOException;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -339,10 +341,11 @@ public abstract class BlazeModule {
    */
   public interface ModuleEnvironment {
     /**
-     * Gets a file from the depot based on its label and returns the {@link Path} where it can be
-     * found.
+     * Gets a file from the depot based on its label and returns the {@link Path} where it can
+     * be found.
      */
-    Path getFileFromWorkspace(Label label);
+    Path getFileFromWorkspace(Label label)
+        throws NoSuchThingException, InterruptedException, IOException;
 
     /**
      * Exits Blaze as early as possible by sending an interrupt to the command's main thread.
