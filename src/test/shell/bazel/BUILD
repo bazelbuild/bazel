@@ -737,3 +737,18 @@ sh_test(
     ],
     tags = ["no_windows"],
 )
+
+sh_test(
+    name = "jdeps_test",
+    size = "medium",
+    srcs = ["jdeps_test.sh"],
+    data = [
+        ":jdeps_class_blacklist.txt",
+        ":jdeps_modules.golden",
+        ":test-deps",
+        "//src:embedded_jdk",
+        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
