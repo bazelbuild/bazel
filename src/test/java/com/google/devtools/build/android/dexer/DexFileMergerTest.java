@@ -50,12 +50,22 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class DexFileMergerTest {
 
-  private static final Runfiles runfiles = Runfiles.create();
-  private static final Path INPUT_JAR = Paths.get(runfiles.rlocation(System.getProperty("testinputjar")));
-  private static final Path INPUT_JAR2 = Paths.get(runfiles.rlocation(System.getProperty("testinputjar2")));
-  private static final Path MAIN_DEX_LIST_FILE =
-      Paths.get(runfiles.rlocation(System.getProperty("testmaindexlist")));
+  private static final Path INPUT_JAR;
+  private static final Path INPUT_JAR2;
+  private static final Path MAIN_DEX_LIST_FILE;
   static final String DEX_PREFIX = "classes";
+
+  static {
+    try {
+      Runfiles runfiles = Runfiles.create();
+
+      INPUT_JAR = Paths.get(runfiles.rlocation(System.getProperty("testinputjar")));
+      INPUT_JAR2 = Paths.get(runfiles.rlocation(System.getProperty("testinputjar2")));
+      MAIN_DEX_LIST_FILE = Paths.get(runfiles.rlocation(System.getProperty("testmaindexlist")));
+    } catch (Exception e) {
+      throw new throw new ExceptionInInitializerError(e);
+    }
+  }
 
   /** Exercises DexFileMerger to write a single .dex file. */
   @Test
