@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.trimming.ConfigurationComparer;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
@@ -354,6 +355,18 @@ public final class BuildOptions implements Cloneable, Serializable {
 
   /** Builder class for BuildOptions. */
   public static class Builder {
+    /**
+     * Merges the given BuildOptions into this builder, overriding any previous instances of
+     * Starlark options or FragmentOptions subclasses found in the new BuildOptions.
+     */
+    public Builder merge(BuildOptions options) {
+      for (FragmentOptions fragment : options.getNativeOptions()) {
+        this.addFragmentOptions(fragment);
+      }
+      this.addStarlarkOptions(options.getStarlarkOptions());
+      return this;
+    }
+
     /**
      * Adds a new FragmentOptions instance to the builder. Overrides previous instances of the exact
      * same subclass of FragmentOptions.
@@ -738,6 +751,141 @@ public final class BuildOptions implements Cloneable, Serializable {
           && differingStarlarkOptions.isEmpty()
           && extraFirstStarlarkOptions.isEmpty()
           && extraSecondStarlarkOptions.isEmpty();
+    }
+
+    /**
+     * Compares the fragment sets in the options described by two diffs with the same base.
+     *
+     * @see ConfigurationComparer
+     */
+    public static ConfigurationComparer.Result compareFragments(
+        OptionsDiffForReconstruction left, OptionsDiffForReconstruction right) {
+      Preconditions.checkArgument(
+          Arrays.equals(left.baseFingerprint, right.baseFingerprint),
+          "Can't compare diffs with different bases: %s and %s",
+          left,
+          right);
+      // This code effectively looks up each piece of data (native fragment or Starlark option) in
+      // this table (numbers reference comments in the code below):
+      // ▼left  right▶  (none)           extraSecond      extraFirst      differing
+      // (none)          equal            right only (#4)  left only (#4)  different (#1)
+      // extraSecond     left only (#4)   compare (#3)     (impossible)    (impossible)
+      // extraFirst      right only (#4)  (impossible)     equal           right only (#4)
+      // differing       different (#1)   (impossible)     left only (#4)  compare (#2)
+
+      // Any difference in shared data is grounds to return DIFFERENT, which happens if:
+      // 1a. any starlark option was changed by one diff, but is neither changed nor removed by
+      // the other
+      if (left.hasChangeToStarlarkOptionUnchangedIn(right)
+          || right.hasChangeToStarlarkOptionUnchangedIn(left)) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+      // 1b. any native fragment was changed by one diff, but is neither changed nor removed by
+      // the other
+      if (left.hasChangeToNativeFragmentUnchangedIn(right)
+          || right.hasChangeToNativeFragmentUnchangedIn(left)) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+      // 2a. any starlark option was changed by both diffs, but to different values
+      if (!commonKeysHaveEqualValues(
+          left.differingStarlarkOptions, right.differingStarlarkOptions)) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+      // 2b. any native fragment was changed by both diffs, but to different values
+      if (!commonKeysHaveEqualValues(left.differingOptions, right.differingOptions)) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+      // 3a. any starlark option was added by both diffs, but with different values
+      if (!commonKeysHaveEqualValues(
+          left.extraSecondStarlarkOptions, right.extraSecondStarlarkOptions)) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+      // 3b. any native fragment was added by both diffs, but with different values
+      if (!commonKeysHaveEqualValues(
+          left.getExtraSecondFragmentsByClass(), right.getExtraSecondFragmentsByClass())) {
+        return ConfigurationComparer.Result.DIFFERENT;
+      }
+
+      // At this point DIFFERENT is definitely not the result, so depending on which side(s) have
+      // extra data, we can decide which of the remaining choices to return. (#4)
+      boolean leftHasExtraData = left.hasExtraNativeFragmentsOrStarlarkOptionsNotIn(right);
+      boolean rightHasExtraData = right.hasExtraNativeFragmentsOrStarlarkOptionsNotIn(left);
+
+      if (leftHasExtraData && rightHasExtraData) {
+        // If both have data that the other does not, all-shared-fragments-are-equal is all
+        // that can be said.
+        return ConfigurationComparer.Result.ALL_SHARED_FRAGMENTS_EQUAL;
+      } else if (leftHasExtraData) {
+        // If only the left instance has extra data, left is a superset of right.
+        return ConfigurationComparer.Result.SUPERSET;
+      } else if (rightHasExtraData) {
+        // If only the right instance has extra data, left is a subset of right.
+        return ConfigurationComparer.Result.SUBSET;
+      } else {
+        // If there is no extra data, the two options described by these diffs are equal.
+        return ConfigurationComparer.Result.EQUAL;
+      }
+    }
+
+    private boolean hasChangeToStarlarkOptionUnchangedIn(OptionsDiffForReconstruction that) {
+      Set<String> starlarkOptionsChangedOrRemovedInThat =
+          Sets.union(
+              that.differingStarlarkOptions.keySet(),
+              ImmutableSet.copyOf(that.extraFirstStarlarkOptions));
+      return !starlarkOptionsChangedOrRemovedInThat.containsAll(
+          this.differingStarlarkOptions.keySet());
+    }
+
+    private boolean hasChangeToNativeFragmentUnchangedIn(OptionsDiffForReconstruction that) {
+      Set<Class<? extends FragmentOptions>> nativeFragmentsChangedOrRemovedInThat =
+          Sets.union(that.differingOptions.keySet(), that.extraFirstFragmentClasses);
+      return !nativeFragmentsChangedOrRemovedInThat.containsAll(this.differingOptions.keySet());
+    }
+
+    private Map<Class<? extends FragmentOptions>, FragmentOptions>
+        getExtraSecondFragmentsByClass() {
+      ImmutableMap.Builder<Class<? extends FragmentOptions>, FragmentOptions> builder =
+          new ImmutableMap.Builder<>();
+      for (FragmentOptions options : extraSecondFragments) {
+        builder.put(options.getClass(), options);
+      }
+      return builder.build();
+    }
+
+    private static <K> boolean commonKeysHaveEqualValues(Map<K, ?> left, Map<K, ?> right) {
+      Set<K> commonKeys = Sets.intersection(left.keySet(), right.keySet());
+      for (K commonKey : commonKeys) {
+        if (!Objects.equals(left.get(commonKey), right.get(commonKey))) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    private boolean hasExtraNativeFragmentsOrStarlarkOptionsNotIn(
+        OptionsDiffForReconstruction that) {
+      // extra fragments/options can be...
+      // starlark options added by this diff, but not that one
+      if (!that.extraSecondStarlarkOptions
+          .keySet()
+          .containsAll(this.extraSecondStarlarkOptions.keySet())) {
+        return true;
+      }
+      // native fragments added by this diff, but not that one
+      if (!that.getExtraSecondFragmentsByClass()
+          .keySet()
+          .containsAll(this.getExtraSecondFragmentsByClass().keySet())) {
+        return true;
+      }
+      // starlark options removed by that diff, but not this one
+      if (!this.extraFirstStarlarkOptions.containsAll(that.extraFirstStarlarkOptions)) {
+        return true;
+      }
+      // native fragments removed by that diff, but not this one
+      if (!this.extraFirstFragmentClasses.containsAll(that.extraFirstFragmentClasses)) {
+        return true;
+      }
+      return false;
     }
 
     @Override
