@@ -30,6 +30,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -49,9 +50,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class DexFileMergerTest {
 
-  private static final Path WORKING_DIR = Paths.get(System.getProperty("user.dir"));
-  private static final Path INPUT_JAR = WORKING_DIR.resolve(System.getProperty("testinputjar"));
-  private static final Path INPUT_JAR2 = WORKING_DIR.resolve(System.getProperty("testinputjar2"));
+  private static final Runfiles runfiles = Runfiles.create();
+  private static final Path INPUT_JAR = runfiles.rlocation(System.getProperty("testinputjar"));
+  private static final Path INPUT_JAR2 = runfiles.rlocation(System.getProperty("testinputjar2"));
   private static final Path MAIN_DEX_LIST_FILE =
       WORKING_DIR.resolve(System.getProperty("testmaindexlist"));
   static final String DEX_PREFIX = "classes";

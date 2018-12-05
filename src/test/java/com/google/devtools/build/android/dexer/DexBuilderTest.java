@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.android.dex.Dex;
 import com.android.dx.dex.code.PositionList;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,13 +35,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class DexBuilderTest {
 
-  private static final Path WORKING_DIR = Paths.get(System.getProperty("user.dir"));
-
   @Test
   public void testBuildDexArchive() throws Exception {
     DexBuilder.Options options = new DexBuilder.Options();
     // Use Jar file that has this test in it as the input Jar
-    options.inputJar = WORKING_DIR.resolve(System.getProperty("testinputjar"));
+    Runfiles runfiles = Runfiles.create();
+    options.inputJar = runfiles.rlocation(System.getProperty("testinputjar"));
     options.outputZip =
         FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR"), "dex_builder_test.zip");
     options.maxThreads = 1;
