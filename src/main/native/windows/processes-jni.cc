@@ -93,15 +93,8 @@ class JavaByteArray {
   jbyte* ptr_;
 };
 
-struct NativeProcess {
-  HANDLE stdin_;
-  NativeOutputStream stdout_;
-  NativeOutputStream stderr_;
-  HANDLE process_;
-  HANDLE job_;
-  DWORD pid_;
-  std::wstring error_;
-
+class NativeProcess {
+public:
   NativeProcess()
       : stdin_(INVALID_HANDLE_VALUE),
         stdout_(),
@@ -109,6 +102,31 @@ struct NativeProcess {
         process_(INVALID_HANDLE_VALUE),
         job_(INVALID_HANDLE_VALUE),
         error_(L"") {}
+
+  ~NativeProcess() {
+    if (stdin_ != INVALID_HANDLE_VALUE) {
+      CloseHandle(stdin_);
+    }
+
+    stdout_.close();
+    stderr_.close();
+
+    if (process_ != INVALID_HANDLE_VALUE) {
+      CloseHandle(process_);
+    }
+
+    if (job_ != INVALID_HANDLE_VALUE) {
+      CloseHandle(job_);
+    }
+  }
+
+  HANDLE stdin_;
+  NativeOutputStream stdout_;
+  NativeOutputStream stderr_;
+  HANDLE process_;
+  HANDLE job_;
+  DWORD pid_;
+  std::wstring error_;
 };
 
 static bool NestedJobsSupported() {
@@ -599,24 +617,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeTerminate(
 extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeDeleteProcess(
     JNIEnv* env, jclass clazz, jlong process_long) {
-  NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-
-  if (process->stdin_ != INVALID_HANDLE_VALUE) {
-    CloseHandle(process->stdin_);
-  }
-
-  process->stdout_.close();
-  process->stderr_.close();
-
-  if (process->process_ != INVALID_HANDLE_VALUE) {
-    CloseHandle(process->process_);
-  }
-
-  if (process->job_ != INVALID_HANDLE_VALUE) {
-    CloseHandle(process->job_);
-  }
-
-  delete process;
+  delete reinterpret_cast<NativeProcess*>(process_long);
 }
 
 extern "C" JNIEXPORT void JNICALL
