@@ -76,6 +76,7 @@ public class Aapt2ResourceShrinkingAction {
           resourcesZip.shrinkUsingProto(
               packages,
               options.shrunkJar,
+              options.rTxt,
               options.proguardMapping,
               options.log,
               scopedTmp.subDirectoryOf("shrunk-resources"))) {
