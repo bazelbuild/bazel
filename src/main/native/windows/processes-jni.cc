@@ -65,24 +65,6 @@ struct NativeOutputStream {
   }
 };
 
-struct NativeProcess {
-  HANDLE stdin_;
-  NativeOutputStream stdout_;
-  NativeOutputStream stderr_;
-  HANDLE process_;
-  HANDLE job_;
-  DWORD pid_;
-  std::wstring error_;
-
-  NativeProcess()
-      : stdin_(INVALID_HANDLE_VALUE),
-        stdout_(),
-        stderr_(),
-        process_(INVALID_HANDLE_VALUE),
-        job_(INVALID_HANDLE_VALUE),
-        error_(L"") {}
-};
-
 class JavaByteArray {
  public:
   JavaByteArray(JNIEnv* env, jbyteArray java_array)
@@ -109,6 +91,24 @@ class JavaByteArray {
   jbyteArray array_;
   jsize size_;
   jbyte* ptr_;
+};
+
+struct NativeProcess {
+  HANDLE stdin_;
+  NativeOutputStream stdout_;
+  NativeOutputStream stderr_;
+  HANDLE process_;
+  HANDLE job_;
+  DWORD pid_;
+  std::wstring error_;
+
+  NativeProcess()
+      : stdin_(INVALID_HANDLE_VALUE),
+        stdout_(),
+        stderr_(),
+        process_(INVALID_HANDLE_VALUE),
+        job_(INVALID_HANDLE_VALUE),
+        error_(L"") {}
 };
 
 static bool NestedJobsSupported() {
