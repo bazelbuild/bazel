@@ -69,14 +69,12 @@ class JavaByteArray {
   jbyte* ptr_;
 };
 
-struct NativeOutputStream {
-  HANDLE handle_;
-  std::wstring error_;
-  std::atomic<bool> closed_;
+class NativeOutputStream {
+ public:
   NativeOutputStream()
       : handle_(INVALID_HANDLE_VALUE), error_(L""), closed_(false) {}
 
-  void close() {
+  void Close() {
     closed_.store(true);
     if (handle_ == INVALID_HANDLE_VALUE) {
       return;
@@ -90,6 +88,10 @@ struct NativeOutputStream {
     CancelIoEx(handle_, NULL);
     CloseHandle(handle_);
     handle_ = INVALID_HANDLE_VALUE;
+  }
+
+  void SetHandle(HANDLE handle) {
+    handle_ = handle;
   }
 
   jint ReadStream(JNIEnv* env, jbyteArray java_bytes, jint offset, jint length) {
@@ -110,7 +112,7 @@ struct NativeOutputStream {
     if (!::ReadFile(handle_, bytes.ptr() + offset, length, &bytes_read,
                     NULL)) {
       // Check if either the other end closed the pipe or we did it with
-      // NativeOutputStream.close() . In the latter case, we'll get a "system
+      // NativeOutputStream.Close() . In the latter case, we'll get a "system
       // call interrupted" error.
       if (GetLastError() == ERROR_BROKEN_PIPE || closed_.load()) {
         // End of file.
@@ -136,6 +138,11 @@ struct NativeOutputStream {
     error_ = L"";
     return result;
   }
+
+ private:
+  HANDLE handle_;
+  std::wstring error_;
+  std::atomic<bool> closed_;
 };
 
 class NativeProcess {
@@ -153,8 +160,8 @@ public:
       CloseHandle(stdin_);
     }
 
-    stdout_.close();
-    stderr_.close();
+    stdout_.Close();
+    stderr_.Close();
 
     if (process_ != INVALID_HANDLE_VALUE) {
       CloseHandle(process_);
@@ -371,7 +378,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
   }
 
   if (!stdout_is_stream) {
-    result->stdout_.close();
+    result->stdout_.Close();
 
     stdout_process = CreateFileW(
         /* lpFileName */ stdout_redirect.c_str(),
@@ -404,7 +411,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return PtrAsJlong(result);
     }
-    result->stdout_.handle_ = pipe_read_h;
+    result->stdout_.SetHandle(pipe_read_h);
     stdout_process = pipe_write_h;
   }
 
@@ -419,12 +426,12 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
       return PtrAsJlong(result);
     }
     if (!stderr_is_stream) {
-      result->stderr_.close();
+      result->stderr_.Close();
     }
 
     stderr_process = stdout_process_dup_h;
   } else if (!stderr_redirect.empty()) {
-    result->stderr_.close();
+    result->stderr_.Close();
     stderr_process = CreateFileW(
         /* lpFileName */ stderr_redirect.c_str(),
         /* dwDesiredAccess */ GENERIC_WRITE,
@@ -456,7 +463,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return PtrAsJlong(result);
     }
-    result->stderr_.handle_ = pipe_read_h;
+    result->stderr_.SetHandle(pipe_read_h);
     stderr_process = pipe_write_h;
   }
 
@@ -659,7 +666,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCloseStrea
     JNIEnv* env, jclass clazz, jlong stream_long) {
   NativeOutputStream* stream =
       reinterpret_cast<NativeOutputStream*>(stream_long);
-  stream->close();
+  stream->Close();
 }
 
 extern "C" JNIEXPORT jstring JNICALL
