@@ -50,7 +50,7 @@ function test_bootstrap()  {
     JAVABASE=$(echo zulu*)
 
     _log_progress "bootstrap"
-    env EXTRA_BAZEL_ARGS="--curses=no --strategy=Javac=standalone" ./compile.sh \
+    env EXTRA_BAZEL_ARGS="--curses=no --strategy=Javac=standalone --host_javabase=@local_jdk//:jdk" ./compile.sh \
         || fail "Expected to be able to bootstrap bazel"
     _log_progress "run"
     ./output/bazel \

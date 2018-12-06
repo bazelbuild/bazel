@@ -624,6 +624,7 @@ sh_test(
         "//:bazel-distfile",
         "//src:embedded_jdk",
     ],
+    tags = ["block-network"],
 )
 
 sh_test(
