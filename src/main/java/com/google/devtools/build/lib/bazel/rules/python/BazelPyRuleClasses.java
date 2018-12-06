@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -219,7 +219,7 @@ public final class BazelPyRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$base_py_binary")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(PyBaseRule.class, BazelCppRuleClasses.CcLinkingRule.class)
+          .ancestors(PyBaseRule.class, CcToolchainRequiringRule.class)
           .build();
     }
   }

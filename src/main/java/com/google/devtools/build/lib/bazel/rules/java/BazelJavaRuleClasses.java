@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -463,11 +463,12 @@ public class BazelJavaRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$base_java_binary")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(JavaRule.class,
+          .ancestors(
+              JavaRule.class,
               // java_binary and java_test require the crosstool C++ runtime
               // libraries (libstdc++.so, libgcc_s.so).
               // TODO(bazel-team): Add tests for Java+dynamic runtime.
-              BazelCppRuleClasses.CcLinkingRule.class)
+              CcToolchainRequiringRule.class)
           .build();
     }
   }
