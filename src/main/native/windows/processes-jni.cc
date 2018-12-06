@@ -128,12 +128,12 @@ public:
     }
   }
 
+  // Wait for this process to exit (or timeout).
   jint WaitFor(jlong timeout_msec) {
-    HANDLE handles[1] = {process_};
     DWORD win32_timeout = timeout_msec < 0 ? INFINITE : timeout_msec;
     jint result;
-    switch (WaitForMultipleObjects(1, handles, FALSE, win32_timeout)) {
-      case 0:
+    switch (WaitForSingleObject(process_, win32_timeout)) {
+      case WAIT_OBJECT_0:
         result = 0;
         break;
 
@@ -141,15 +141,12 @@ public:
         result = 1;
         break;
 
-      case WAIT_FAILED:
-        result = 2;
-        break;
-
+      // Any other case is an error and should be reported back to Bazel.
       default:
-        DWORD err_code = GetLastError();
+        result = 2;
         error_ = bazel::windows::MakeErrorMessage(
-            WSTR(__FILE__), __LINE__, L"nativeWaitFor", ToString(pid_),
-            err_code);
+            WSTR(__FILE__), __LINE__, L"NativeProcess:WaitFor", ToString(pid_),
+            GetLastError());
         break;
     }
 
