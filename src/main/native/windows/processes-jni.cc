@@ -63,6 +63,14 @@ struct NativeOutputStream {
     CloseHandle(handle_);
     handle_ = INVALID_HANDLE_VALUE;
   }
+
+  // Return the last error as a human-readable string and clear it.
+  jstring getLastErrorAsString(JNIEnv* env) {
+    jstring result = env->NewString(reinterpret_cast<const jchar*>(
+        error_.c_str()), error_.size());
+    error_ = L"";
+    return result;
+  }
 };
 
 class JavaByteArray {
@@ -648,9 +656,5 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeStreamGetL
     JNIEnv* env, jclass clazz, jlong stream_long) {
   NativeOutputStream* stream =
       reinterpret_cast<NativeOutputStream*>(stream_long);
-  jstring result =
-      env->NewString(reinterpret_cast<const jchar*>(stream->error_.c_str()),
-                     stream->error_.size());
-  stream->error_ = L"";
-  return result;
+  return stream->getLastErrorAsString(env);
 }
