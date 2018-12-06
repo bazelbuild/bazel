@@ -128,6 +128,12 @@ public:
     }
   }
 
+  jint GetPid() {
+    // MSDN says that GetProcessId cannot fail.
+    error_ = L"";
+    return GetProcessId(process_);
+  }
+
   // Terminates this process (and subprocesses, if job objects are available).
   jboolean Terminate() {
     static const UINT exit_code = 130;  // 128 + SIGINT, like on Linux
@@ -622,8 +628,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetProcessPid(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  process->error_ = L"";
-  return GetProcessId(process->process_);  // MSDN says that this cannot fail
+  return process->GetPid();
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
