@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
@@ -61,7 +63,8 @@ public interface RuleClassProvider {
       SkylarkSemantics skylarkSemantics,
       EventHandler eventHandler,
       @Nullable String astFileContentHashCode,
-      @Nullable Map<String, Extension> importMap);
+      @Nullable Map<String, Extension> importMap,
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping);
 
   /**
    * Returns a map from aspect names to aspect factory objects.

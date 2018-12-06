@@ -382,6 +382,7 @@ java_library(
         ":skylarkinterface",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
     ],
 )
 
