@@ -42,6 +42,30 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testTuplePairs() throws Exception {
+    eval(
+        // Depsets with tuple-pairs
+        "s_one = depset([('1', '2'), ('3', '4')])",
+        "s_two = depset(direct = [('1', '2'), ('3', '4'), ('5', '6')])",
+        "s_three = depset(transitive = [s_one, s_two])",
+        "s_four = depset(direct = [('1', '3')], transitive = [s_one, s_two])",
+        // Depsets with tuple-pairs and non-pair tuples are considered just tuple depsets.
+        "s_five = depset(direct = [(1, 3, 5)], transitive = [s_one, s_two])",
+        "s_six = depset(transitive = [s_one, s_five])",
+        "s_seven = depset(direct = [('1', '3')], transitive = [s_one, s_five])",
+        "s_eight = depset(direct = [(1, 3)], transitive = [s_one, s_two])");
+    assertThat(get("s_one").getContentType()).isEqualTo(SkylarkType.STRING_PAIR);
+    assertThat(get("s_two").getContentType()).isEqualTo(SkylarkType.STRING_PAIR);
+    assertThat(get("s_three").getContentType()).isEqualTo(SkylarkType.STRING_PAIR);
+    assertThat(get("s_four").getContentType()).isEqualTo(SkylarkType.STRING_PAIR);
+
+    assertThat(get("s_five").getContentType()).isEqualTo(SkylarkType.TUPLE);
+    assertThat(get("s_six").getContentType()).isEqualTo(SkylarkType.TUPLE);
+    assertThat(get("s_seven").getContentType()).isEqualTo(SkylarkType.TUPLE);
+    assertThat(get("s_eight").getContentType()).isEqualTo(SkylarkType.TUPLE);
+  }
+
+  @Test
   public void testGetSet() throws Exception {
     eval("s = depset(['a', 'b'])");
     assertThat(get("s").getSet(String.class)).containsExactly("a", "b").inOrder();

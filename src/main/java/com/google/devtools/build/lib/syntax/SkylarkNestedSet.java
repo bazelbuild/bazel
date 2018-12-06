@@ -132,7 +132,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       SkylarkType lastInsertedType = null;
       // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
       for (Object object : (SkylarkList) item) {
-        SkylarkType elemType = SkylarkType.of(object.getClass());
+        SkylarkType elemType = SkylarkType.of(object);
         contentType = getTypeAfterInsert(contentType, elemType, lastInsertedType, loc);
         lastInsertedType = elemType;
         checkImmutable(object, loc);
@@ -391,7 +391,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
      * elements and transitive sets.
      */
     public Builder addDirect(Object direct) throws EvalException {
-      SkylarkType elemType = SkylarkType.of(direct.getClass());
+      SkylarkType elemType = SkylarkType.of(direct);
       contentType = getTypeAfterInsert(contentType, elemType, lastInsertedType, location);
       lastInsertedType = elemType;
       builder.add(direct);
