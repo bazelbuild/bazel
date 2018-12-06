@@ -158,6 +158,21 @@ public:
     return result;
   }
 
+  // Returns the exit code of the process if it has already exited. If the
+  // process is still running, returns STILL_ACTIVE (= 259).
+  jint GetExitCode() {
+    DWORD exit_code;
+
+    if (!GetExitCodeProcess(process_, &exit_code)) {
+      error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"NativeProcess::GetExitCode",
+          ToString(pid_), GetLastError());
+      return -1;
+    }
+
+    return exit_code;
+  }
+
   jint GetPid() {
     // MSDN says that GetProcessId cannot fail.
     error_ = L"";
@@ -602,16 +617,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetExitCode(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  DWORD exit_code;
-  if (!GetExitCodeProcess(process->process_, &exit_code)) {
-    DWORD err_code = GetLastError();
-    process->error_ = bazel::windows::MakeErrorMessage(
-        WSTR(__FILE__), __LINE__, L"nativeGetExitCode", ToString(process->pid_),
-        err_code);
-    return -1;
-  }
-
-  return exit_code;
+  return process->GetExitCode();
 }
 
 // return values:
