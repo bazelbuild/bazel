@@ -74,7 +74,6 @@ public class WorkspaceFactory {
           "workspace",
           "__embedded_dir__", // serializable so optional
           "__workspace_dir__", // serializable so optional
-          "DEFAULT_SERVER_JAVABASE", // serializable so optional
           "DEFAULT_SYSTEM_JAVABASE", // serializable so optional
           PackageFactory.PKG_CONTEXT);
 
@@ -583,7 +582,6 @@ public class WorkspaceFactory {
       if (javaHome.getName().equalsIgnoreCase("jre")) {
         javaHome = javaHome.getParentFile();
       }
-      workspaceEnv.update("DEFAULT_SERVER_JAVABASE", javaHome.toString());
       workspaceEnv.update("DEFAULT_SYSTEM_JAVABASE", getDefaultSystemJavabase());
 
       for (EnvironmentExtension extension : environmentExtensions) {

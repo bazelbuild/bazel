@@ -7,12 +7,6 @@ new_local_repository(
     build_file = __embedded_dir__ + "/jdk.BUILD",
 )
 
-new_local_repository(
-    name = "embedded_jdk",
-    path = DEFAULT_SERVER_JAVABASE,
-    build_file = __embedded_dir__ + "/jdk.BUILD",
-)
-
 bind(
     name = "bootclasspath",
     actual = "@local_jdk//:bootclasspath",
