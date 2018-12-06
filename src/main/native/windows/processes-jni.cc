@@ -120,6 +120,14 @@ public:
     }
   }
 
+  // Return the last error as a human-readable string and clear it.
+  jstring getLastErrorAsString(JNIEnv *env) {
+    jstring result = env->NewString(reinterpret_cast<const jchar*>(
+        error_.c_str()), error_.size());
+    error_ = L"";
+    return result;
+  }
+
   HANDLE stdin_;
   NativeOutputStream stdout_;
   NativeOutputStream stderr_;
@@ -632,11 +640,7 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeProcessGetLastError(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  jstring result =
-      env->NewString(reinterpret_cast<const jchar*>(process->error_.c_str()),
-                     process->error_.size());
-  process->error_ = L"";
-  return result;
+  return process->getLastErrorAsString(env);
 }
 
 extern "C" JNIEXPORT jstring JNICALL
