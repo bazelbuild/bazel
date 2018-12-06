@@ -223,6 +223,14 @@ public:
     return GetProcessId(process_);
   }
 
+  NativeOutputStream* GetStdoutStream() {
+    return &stdout_;
+  }
+
+  NativeOutputStream* GetStderrStream() {
+    return &stderr_;
+  }
+
   // Terminates this process (and subprocesses, if job objects are available).
   jboolean Terminate() {
     static const UINT exit_code = 130;  // 128 + SIGINT, like on Linux
@@ -604,14 +612,14 @@ extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetStdout(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  return PtrAsJlong(&process->stdout_);
+  return PtrAsJlong(process->GetStdoutStream());
 }
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetStderr(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  return PtrAsJlong(&process->stderr_);
+  return PtrAsJlong(process->GetStderrStream());
 }
 
 extern "C" JNIEXPORT jint JNICALL
