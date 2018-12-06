@@ -432,4 +432,81 @@ function test_proto_source_root_multiple_workspaces() {
   bazel build @main_repo//src:all_protos >& "$TEST_log" || fail "Expected success"
 }
 
+function test_import_prefix_stripping() {
+  mkdir -p e
+  touch e/WORKSPACE
+  write_workspace ""
+
+  cat >> WORKSPACE <<EOF
+local_repository(
+  name = "repo",
+  path = "e"
+)
+EOF
+
+  mkdir -p e/f/bad
+  cat > e/f/BUILD <<EOF
+proto_library(
+  name = "f",
+  strip_import_prefix = "bad",
+  import_prefix = "good",
+  srcs = ["bad/f.proto"],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > e/f/bad/f.proto <<EOF
+syntax = "proto2";
+package f;
+
+message F {
+  optional int32 f = 1;
+}
+EOF
+
+  mkdir -p g/bad
+  cat > g/BUILD << EOF
+proto_library(
+  name = 'g',
+  strip_import_prefix = "/g/bad",
+  import_prefix = "good",
+  srcs = ['bad/g.proto'],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > g/bad/g.proto <<EOF
+syntax = "proto2";
+package g;
+
+message G {
+  optional int32 g = 1;
+}
+EOF
+
+  mkdir -p h
+  cat > h/BUILD <<EOF
+proto_library(
+  name = "h",
+  srcs = ["h.proto"],
+  deps = ["//g", "@repo//f"],
+)
+EOF
+
+  cat > h/h.proto <<EOF
+syntax = "proto2";
+package h;
+
+import "good/f.proto";
+import "good/g.proto";
+
+message H {
+  optional f.F f = 1;
+  optional g.G g = 2;
+}
+EOF
+
+  bazel build //h || fail "build failed"
+}
+
 run_suite "Integration tests for proto_library"

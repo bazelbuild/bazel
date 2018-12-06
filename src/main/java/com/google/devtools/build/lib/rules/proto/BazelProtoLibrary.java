@@ -32,6 +32,10 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws ActionConflictException {
     ProtoInfo protoInfo = ProtoCommon.createProtoInfo(ruleContext);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+
     ProtoCompileActionBuilder.writeDescriptorSet(ruleContext, protoInfo, Services.ALLOW);
 
     Runfiles dataRunfiles =

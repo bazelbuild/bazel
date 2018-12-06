@@ -83,6 +83,29 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         source.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exports", LABEL_LIST).allowedRuleClasses("proto_library").allowedFileTypes())
+        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(strip_import_prefix) -->
+        The prefix to strip from the paths of the .proto files in this rule.
+
+        <p>When set, .proto source files in the <code>srcs</code> attribute of this rule are
+        accessible at their path with this prefix cut off.
+
+        <p>If it's a relative path (not starting with a slash), it's taken as a package-relative
+        one. If it's an absolute one, it's understood as a repository-relative path.
+
+        <p>The prefix in the <code>import_prefix</code> attribute is added after this prefix is
+        stripped.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("strip_import_prefix", STRING))
+        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(import_prefix) -->
+        The prefix to add to the paths of the .proto files in this rule.
+
+        <p>When set, the .proto source files in the <code>srcs</code> attribute of this rule are
+        accessible at is the value of this attribute prepended to their repository-relative path.
+
+        <p>The prefix in the <code>strip_import_prefix</code> attribute is removed before this
+        prefix is added.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("import_prefix", STRING))
         .advertiseProvider(ProtoInfo.class)
         .build();
   }
