@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -529,10 +530,12 @@ public final class Label
         type = String.class,
         doc = "The label that will be resolved relative to this one."
       )
-    }
+    },
+    useContext = true
   )
-  public Label getRelative(String relName) throws LabelSyntaxException {
-    return getRelativeWithRemapping(relName, /* repositoryMapping= */ ImmutableMap.of());
+  public Label getRelative(String relName, BazelStarlarkContext context)
+      throws LabelSyntaxException {
+    return getRelativeWithRemapping(relName, context.getRepoMapping());
   }
 
   /**
