@@ -223,6 +223,29 @@ public:
     return GetProcessId(process_);
   }
 
+  jint WriteStdin(JNIEnv* env, jbyteArray java_bytes, jint offset, jint length) {
+    JavaByteArray bytes(env, java_bytes);
+    if (offset < 0 || length <= 0 || offset > bytes.size() - length) {
+      error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"NativeProcess:WriteStdin",
+          ToString(pid_), L"Array index out of bounds");
+      return -1;
+    }
+
+    DWORD bytes_written;
+
+    if (!::WriteFile(stdin_, bytes.ptr() + offset, length,
+                     &bytes_written, NULL)) {
+      error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"NativeProcess:WriteStdin",
+          ToString(pid_), GetLastError());
+      bytes_written = -1;
+    }
+
+    error_ = L"";
+    return bytes_written;
+  }
+
   NativeOutputStream* GetStdoutStream() {
     return &stdout_;
   }
@@ -584,28 +607,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeWriteStdin
     JNIEnv* env, jclass clazz, jlong process_long, jbyteArray java_bytes,
     jint offset, jint length) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-
-  JavaByteArray bytes(env, java_bytes);
-  if (offset < 0 || length <= 0 || offset > bytes.size() - length) {
-    process->error_ = bazel::windows::MakeErrorMessage(
-        WSTR(__FILE__), __LINE__, L"nativeWriteStdin", ToString(process->pid_),
-        L"Array index out of bounds");
-    return -1;
-  }
-
-  DWORD bytes_written;
-
-  if (!::WriteFile(process->stdin_, bytes.ptr() + offset, length,
-                   &bytes_written, NULL)) {
-    DWORD err_code = GetLastError();
-    process->error_ = bazel::windows::MakeErrorMessage(
-        WSTR(__FILE__), __LINE__, L"nativeWriteStdin", ToString(process->pid_),
-        err_code);
-    bytes_written = -1;
-  }
-
-  process->error_ = L"";
-  return bytes_written;
+  return process->WriteStdin(env, java_bytes, offset, length);
 }
 
 extern "C" JNIEXPORT jlong JNICALL
