@@ -128,6 +128,39 @@ public:
     }
   }
 
+  jint WaitFor(jlong timeout_msec) {
+    HANDLE handles[1] = {process_};
+    DWORD win32_timeout = timeout_msec < 0 ? INFINITE : timeout_msec;
+    jint result;
+    switch (WaitForMultipleObjects(1, handles, FALSE, win32_timeout)) {
+      case 0:
+        result = 0;
+        break;
+
+      case WAIT_TIMEOUT:
+        result = 1;
+        break;
+
+      case WAIT_FAILED:
+        result = 2;
+        break;
+
+      default:
+        DWORD err_code = GetLastError();
+        error_ = bazel::windows::MakeErrorMessage(
+            WSTR(__FILE__), __LINE__, L"nativeWaitFor", ToString(pid_),
+            err_code);
+        break;
+    }
+
+    if (stdin_ != INVALID_HANDLE_VALUE) {
+      CloseHandle(stdin_);
+      stdin_ = INVALID_HANDLE_VALUE;
+    }
+
+    return result;
+  }
+
   jint GetPid() {
     // MSDN says that GetProcessId cannot fail.
     error_ = L"";
@@ -592,36 +625,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeWaitFor(
     JNIEnv* env, jclass clazz, jlong process_long, jlong java_timeout) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  HANDLE handles[1] = {process->process_};
-  DWORD win32_timeout = java_timeout < 0 ? INFINITE : java_timeout;
-  jint result;
-  switch (WaitForMultipleObjects(1, handles, FALSE, win32_timeout)) {
-    case 0:
-      result = 0;
-      break;
-
-    case WAIT_TIMEOUT:
-      result = 1;
-      break;
-
-    case WAIT_FAILED:
-      result = 2;
-      break;
-
-    default:
-      DWORD err_code = GetLastError();
-      process->error_ = bazel::windows::MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"nativeWaitFor", ToString(process->pid_),
-          err_code);
-      break;
-  }
-
-  if (process->stdin_ != INVALID_HANDLE_VALUE) {
-    CloseHandle(process->stdin_);
-    process->stdin_ = INVALID_HANDLE_VALUE;
-  }
-
-  return result;
+  return process->WaitFor(java_timeout);
 }
 
 extern "C" JNIEXPORT jint JNICALL
