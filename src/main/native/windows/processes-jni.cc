@@ -239,7 +239,7 @@ public:
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"NativeProcess:WriteStdin",
           ToString(pid_), GetLastError());
-      bytes_written = -1;
+      return -1;
     }
 
     error_ = L"";
