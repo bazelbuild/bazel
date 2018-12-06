@@ -962,15 +962,20 @@ test_non_starlarkrepo() {
 
   mkdir main
   cd main
+  mkdir target_to_be_bound
+  echo More data > target_to_be_bound/data.txt
+  echo 'exports_files(["data.txt"])' > target_to_be_bound/BUILD
   cat > WORKSPACE <<'EOF'
 local_repository(name="thisislocal", path="../local")
 new_local_repository(name="newlocal", path="../newlocal",
                      build_file_content='exports_files(["data.txt"])')
+bind(name="bound", actual="//target_to_be_bound:data.txt")
 EOF
   cat > BUILD <<'EOF'
 genrule(
   name = "it",
-  srcs = ["@thisislocal//:data.txt", "@newlocal//:data.txt"],
+  srcs = ["@thisislocal//:data.txt", "@newlocal//:data.txt",
+          "//external:bound"],
   outs = ["it.txt"],
   cmd = "cat $(SRCS) > $@",
 )

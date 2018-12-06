@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.commands;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -22,10 +23,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -36,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileValue;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -146,7 +150,13 @@ public final class SyncCommand implements BlazeCommand {
       // take all skylark workspace rules and get their values
       ImmutableSet.Builder<SkyKey> repositoriesToFetch = new ImmutableSet.Builder<>();
       for (Rule rule : fileValue.getPackage().getTargets(Rule.class)) {
-        if (shouldSync(rule)) {
+        if (rule.getRuleClass().equals("bind")) {
+          // The bind rule is special in that the name is not that of an external repository.
+          // Moreover, it is not affected by the invalidation mechanism as there is nothing to
+          // fetch anyway. So the only task remaining is to record the use of "bind" for whoever
+          // collects resolved information.
+          env.getReporter().post(resolveBind(rule));
+        } else if (shouldSync(rule)) {
           // TODO(aehlig): avoid the detour of serializing and then parsing the repository name
           try {
             repositoriesToFetch.add(
@@ -197,5 +207,34 @@ public final class SyncCommand implements BlazeCommand {
       return true;
     }
     return WHITELISTED_NATIVE_RULES.contains(rule.getRuleClassObject().getName());
+  }
+
+  private ResolvedEvent resolveBind(Rule rule) {
+    String name = rule.getName();
+    Object actual = rule.getAttributeContainer().getAttr("actual");
+    String nativeCommand =
+        "bind(name = "
+            + Printer.getPrinter().repr(name)
+            + ", actual = "
+            + Printer.getWorkspacePrettyPrinter().repr(actual)
+            + ")";
+
+    return new ResolvedEvent() {
+      @Override
+      public String getName() {
+        return name;
+      }
+
+      @Override
+      public Object getResolvedInformation() {
+        return ImmutableMap.<String, Object>builder()
+            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "bind")
+            .put(
+                ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
+                ImmutableMap.<String, Object>of("name", name, "actual", actual))
+            .put(ResolvedHashesFunction.NATIVE, nativeCommand)
+            .build();
+      }
+    };
   }
 }
