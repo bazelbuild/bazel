@@ -87,6 +87,7 @@ local_repository(
 
 http_archive(
     name = "desugar_jdk_libs",
+    # Commit e0b0291b2c51fbe5a7cfa14473a1ae850f94f021 of 2018-12-4
     # Computed using "shasum -a 256 <zip>"
     sha256 = "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
     strip_prefix = "desugar_jdk_libs-e0b0291b2c51fbe5a7cfa14473a1ae850f94f021",
@@ -99,16 +100,16 @@ distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel
     archives = [
-        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip",
+        "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
-        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip": "43b8fcc56a180e178d498f375fbeb95e8b65b9bf6c2da91ae3ae0332521a1a12",
+        "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
     },
     urls = {
-        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip": ["https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip"],
+        "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": ["https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip"],
         "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": ["https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz"],
     },
 )
