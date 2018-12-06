@@ -97,18 +97,19 @@ load("//:distdir.bzl", "distdir_tar")
 
 distdir_tar(
     name = "additional_distfiles",
+    # Keep in sync with the archives fetched as part of building bazel
     archives = [
         "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip",
-        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz",
+        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
         "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip": "43b8fcc56a180e178d498f375fbeb95e8b65b9bf6c2da91ae3ae0332521a1a12",
-        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz": "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14",
+        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
     },
     urls = {
         "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip": ["https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip"],
-        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz": ["https://github.com/bazelbuild/bazel-skylib/archive/7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz"],
+        "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": ["https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz"],
     },
 )
 
@@ -195,6 +196,7 @@ http_file(
 
 http_archive(
     name = "bazel_skylib",
+    # Commit f83cb8dd6f5658bc574ccd873e25197055265d1c of 2018-11-26
     sha256 = "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
     strip_prefix = "bazel-skylib-f83cb8dd6f5658bc574ccd873e25197055265d1c",
     urls = [
