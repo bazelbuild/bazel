@@ -71,7 +71,6 @@ struct NativeProcess {
   NativeOutputStream stderr_;
   HANDLE process_;
   HANDLE job_;
-  HANDLE ioport_;
   DWORD pid_;
   std::wstring error_;
 
@@ -81,7 +80,6 @@ struct NativeProcess {
         stderr_(),
         process_(INVALID_HANDLE_VALUE),
         job_(INVALID_HANDLE_VALUE),
-        ioport_(INVALID_HANDLE_VALUE),
         error_(L"") {}
 };
 
@@ -338,27 +336,6 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
     return PtrAsJlong(result);
   }
 
-  HANDLE ioport = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 1);
-  if (ioport == nullptr) {
-    DWORD err_code = GetLastError();
-    result->error_ = bazel::windows::MakeErrorMessage(
-        WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-    return PtrAsJlong(result);
-  }
-
-  result->ioport_ = ioport;
-
-  JOBOBJECT_ASSOCIATE_COMPLETION_PORT port;
-  port.CompletionKey = job;
-  port.CompletionPort = ioport;
-  if (!SetInformationJobObject(job, JobObjectAssociateCompletionPortInformation,
-                               &port, sizeof(port))) {
-    DWORD err_code = GetLastError();
-    result->error_ = bazel::windows::MakeErrorMessage(
-        WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-    return PtrAsJlong(result);
-  }
-
   std::unique_ptr<bazel::windows::AutoAttributeList> attr_list;
   if (!bazel::windows::AutoAttributeList::Create(stdin_process, stdout_process,
                                                  stderr_process, &attr_list,
@@ -421,8 +398,6 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
       // that will take care of cleanup once the command finishes.
       CloseHandle(result->job_);
       result->job_ = INVALID_HANDLE_VALUE;
-      CloseHandle(result->ioport_);
-      result->ioport_ = INVALID_HANDLE_VALUE;
     } else {
       DWORD err_code = GetLastError();
       result->error_ = bazel::windows::MakeErrorMessage(
@@ -553,9 +528,10 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeWaitFor(
     JNIEnv* env, jclass clazz, jlong process_long, jlong java_timeout) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
+  HANDLE handles[1] = {process->process_};
   DWORD win32_timeout = java_timeout < 0 ? INFINITE : java_timeout;
   jint result;
-  switch (WaitForSingleObject(process->process_, win32_timeout)) {
+  switch (WaitForMultipleObjects(1, handles, FALSE, win32_timeout)) {
     case 0:
       result = 0;
       break;
@@ -579,32 +555,6 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeWaitFor(
   if (process->stdin_ != INVALID_HANDLE_VALUE) {
     CloseHandle(process->stdin_);
     process->stdin_ = INVALID_HANDLE_VALUE;
-  }
-
-  if (process->job_ != INVALID_HANDLE_VALUE) {
-    // Terminate all processes that are part of the job object and still
-    // running.
-    static const UINT exit_code = 130;  // 128 + SIGINT, like on Linux
-    TerminateJobObject(process->job_, exit_code);
-
-    // Wait for the job object to complete, signalling that all subprocesses
-    // have exited.
-    DWORD CompletionCode;
-    ULONG_PTR CompletionKey;
-    LPOVERLAPPED Overlapped;
-
-    while (GetQueuedCompletionStatus(process->ioport_, &CompletionCode,
-                                     &CompletionKey, &Overlapped, INFINITE) &&
-           !((HANDLE)CompletionKey == process->job_ &&
-             CompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)) {
-      // Still waiting...
-    }
-
-    CloseHandle(process->job_);
-    process->job_ = INVALID_HANDLE_VALUE;
-
-    CloseHandle(process->ioport_);
-    process->ioport_ = INVALID_HANDLE_VALUE;
   }
 
   return result;
@@ -653,7 +603,6 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeDeleteProc
 
   if (process->stdin_ != INVALID_HANDLE_VALUE) {
     CloseHandle(process->stdin_);
-    process->stdin_ = INVALID_HANDLE_VALUE;
   }
 
   process->stdout_.close();
@@ -661,17 +610,10 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeDeleteProc
 
   if (process->process_ != INVALID_HANDLE_VALUE) {
     CloseHandle(process->process_);
-    process->process_ = INVALID_HANDLE_VALUE;
   }
 
   if (process->job_ != INVALID_HANDLE_VALUE) {
     CloseHandle(process->job_);
-    process->job_ = INVALID_HANDLE_VALUE;
-  }
-
-  if (process->ioport_ != INVALID_HANDLE_VALUE) {
-    CloseHandle(process->ioport_);
-    process->ioport_ = INVALID_HANDLE_VALUE;
   }
 
   delete process;
