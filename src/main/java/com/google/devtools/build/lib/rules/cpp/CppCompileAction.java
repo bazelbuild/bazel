@@ -542,9 +542,8 @@ public class CppCompileAction extends AbstractAction
     return getOutputFile();
   }
 
-  /**
-   * Returns the path of the c/cc source for gcc.
-   */
+  /** Returns the path of the c/cc source for gcc. */
+  @Override
   public final Artifact getSourceFile() {
     return compileCommandLine.getSourceFile();
   }
@@ -1040,6 +1039,19 @@ public class CppCompileAction extends AbstractAction
   @Override
   public NestedSet<Artifact> getDeclaredIncludeSrcs() {
     return ccCompilationContext.getDeclaredIncludeSrcs();
+  }
+
+  @Override
+  public Collection<NestedSet<Artifact>> getAllNestedSetInputs() {
+    return ImmutableList.of(
+        getMandatoryInputs(),
+        additionalPrunableHeaders,
+        ccCompilationContext.getTransitiveModules(usePic));
+  }
+
+  @Override
+  public final Iterable<Artifact> getInputsForInvalidation() {
+    return inputsForInvalidation;
   }
 
   /**

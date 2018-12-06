@@ -75,6 +75,13 @@ public interface IncludeScannable {
    */
   NestedSet<Artifact> getDeclaredIncludeSrcs();
 
+  /** Returns all inputs that are represented using {@link NestedSet}s */
+  Collection<NestedSet<Artifact>> getAllNestedSetInputs();
+
+  Iterable<Artifact> getInputsForInvalidation();
+
+  Artifact getSourceFile();
+
   /**
    * Returns an artifact that is the executable for grepping #include lines from a file.
    */
