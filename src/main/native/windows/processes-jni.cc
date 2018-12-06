@@ -128,6 +128,30 @@ public:
     }
   }
 
+  // Terminates this process (and subprocesses, if job objects are available).
+  jboolean Terminate() {
+    static const UINT exit_code = 130;  // 128 + SIGINT, like on Linux
+
+    if (job_ != INVALID_HANDLE_VALUE) {
+      if (!TerminateJobObject(job_, exit_code)) {
+        error_ = bazel::windows::MakeErrorMessage(
+            WSTR(__FILE__), __LINE__, L"NativeProcess::Terminate",
+            ToString(pid_), GetLastError());
+        return JNI_FALSE;
+      }
+    } else if (process_ != INVALID_HANDLE_VALUE) {
+      if (!TerminateProcess(process_, exit_code)) {
+        error_ = bazel::windows::MakeErrorMessage(
+            WSTR(__FILE__), __LINE__, L"NativeProcess::Terminate",
+            ToString(pid_), GetLastError());
+        return JNI_FALSE;
+      }
+    }
+
+    error_ = L"";
+    return JNI_TRUE;
+  }
+
   // Return the last error as a human-readable string and clear it.
   jstring getLastErrorAsString(JNIEnv *env) {
     jstring result = env->NewString(reinterpret_cast<const jchar*>(
@@ -605,29 +629,8 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetProcess
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeTerminate(
     JNIEnv* env, jclass clazz, jlong process_long) {
-  static const UINT exit_code = 130;  // 128 + SIGINT, like on Linux
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-
-  if (process->job_ != INVALID_HANDLE_VALUE) {
-    if (!TerminateJobObject(process->job_, exit_code)) {
-      DWORD err_code = GetLastError();
-      process->error_ = bazel::windows::MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"nativeTerminate", ToString(process->pid_),
-          err_code);
-      return JNI_FALSE;
-    }
-  } else if (process->process_ != INVALID_HANDLE_VALUE) {
-    if (!TerminateProcess(process->process_, exit_code)) {
-      DWORD err_code = GetLastError();
-      process->error_ = bazel::windows::MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"nativeTerminate", ToString(process->pid_),
-          err_code);
-      return JNI_FALSE;
-    }
-  }
-
-  process->error_ = L"";
-  return JNI_TRUE;
+  return process->Terminate();
 }
 
 extern "C" JNIEXPORT void JNICALL
