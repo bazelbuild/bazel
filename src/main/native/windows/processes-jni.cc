@@ -41,38 +41,6 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetpid(
   return GetCurrentProcessId();
 }
 
-struct NativeOutputStream {
-  HANDLE handle_;
-  std::wstring error_;
-  std::atomic<bool> closed_;
-  NativeOutputStream()
-      : handle_(INVALID_HANDLE_VALUE), error_(L""), closed_(false) {}
-
-  void close() {
-    closed_.store(true);
-    if (handle_ == INVALID_HANDLE_VALUE) {
-      return;
-    }
-
-    // CancelIoEx only cancels I/O operations in the current process.
-    // https://msdn.microsoft.com/en-us/library/windows/desktop/aa363792(v=vs.85).aspx
-    //
-    // Therefore if this process bequested `handle_` to a child process, we
-    // cannot cancel I/O in the child process.
-    CancelIoEx(handle_, NULL);
-    CloseHandle(handle_);
-    handle_ = INVALID_HANDLE_VALUE;
-  }
-
-  // Return the last error as a human-readable string and clear it.
-  jstring getLastErrorAsString(JNIEnv* env) {
-    jstring result = env->NewString(reinterpret_cast<const jchar*>(
-        error_.c_str()), error_.size());
-    error_ = L"";
-    return result;
-  }
-};
-
 class JavaByteArray {
  public:
   JavaByteArray(JNIEnv* env, jbyteArray java_array)
@@ -99,6 +67,75 @@ class JavaByteArray {
   jbyteArray array_;
   jsize size_;
   jbyte* ptr_;
+};
+
+struct NativeOutputStream {
+  HANDLE handle_;
+  std::wstring error_;
+  std::atomic<bool> closed_;
+  NativeOutputStream()
+      : handle_(INVALID_HANDLE_VALUE), error_(L""), closed_(false) {}
+
+  void close() {
+    closed_.store(true);
+    if (handle_ == INVALID_HANDLE_VALUE) {
+      return;
+    }
+
+    // CancelIoEx only cancels I/O operations in the current process.
+    // https://msdn.microsoft.com/en-us/library/windows/desktop/aa363792(v=vs.85).aspx
+    //
+    // Therefore if this process bequested `handle_` to a child process, we
+    // cannot cancel I/O in the child process.
+    CancelIoEx(handle_, NULL);
+    CloseHandle(handle_);
+    handle_ = INVALID_HANDLE_VALUE;
+  }
+
+  jint ReadStream(JNIEnv* env, jbyteArray java_bytes, jint offset, jint length) {
+    JavaByteArray bytes(env, java_bytes);
+    if (offset < 0 || length <= 0 || offset > bytes.size() - length) {
+      error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"nativeReadStream", L"",
+          L"Array index out of bounds");
+      return -1;
+    }
+
+    if (handle_ == INVALID_HANDLE_VALUE || closed_.load()) {
+      error_ = L"";
+      return 0;
+    }
+
+    DWORD bytes_read;
+    if (!::ReadFile(handle_, bytes.ptr() + offset, length, &bytes_read,
+                    NULL)) {
+      // Check if either the other end closed the pipe or we did it with
+      // NativeOutputStream.close() . In the latter case, we'll get a "system
+      // call interrupted" error.
+      if (GetLastError() == ERROR_BROKEN_PIPE || closed_.load()) {
+        // End of file.
+        error_ = L"";
+        bytes_read = 0;
+      } else {
+        DWORD err_code = GetLastError();
+        error_ = bazel::windows::MakeErrorMessage(
+            WSTR(__FILE__), __LINE__, L"nativeReadStream", L"", err_code);
+        bytes_read = -1;
+      }
+    } else {
+      error_ = L"";
+    }
+
+    return bytes_read;
+  }
+
+  // Return the last error as a human-readable string and clear it.
+  jstring getLastErrorAsString(JNIEnv* env) {
+    jstring result = env->NewString(reinterpret_cast<const jchar*>(
+        error_.c_str()), error_.size());
+    error_ = L"";
+    return result;
+  }
 };
 
 class NativeProcess {
@@ -576,41 +613,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeReadStream
     jint offset, jint length) {
   NativeOutputStream* stream =
       reinterpret_cast<NativeOutputStream*>(stream_long);
-
-  JavaByteArray bytes(env, java_bytes);
-  if (offset < 0 || length <= 0 || offset > bytes.size() - length) {
-    stream->error_ = bazel::windows::MakeErrorMessage(
-        WSTR(__FILE__), __LINE__, L"nativeReadStream", L"",
-        L"Array index out of bounds");
-    return -1;
-  }
-
-  if (stream->handle_ == INVALID_HANDLE_VALUE || stream->closed_.load()) {
-    stream->error_ = L"";
-    return 0;
-  }
-
-  DWORD bytes_read;
-  if (!::ReadFile(stream->handle_, bytes.ptr() + offset, length, &bytes_read,
-                  NULL)) {
-    // Check if either the other end closed the pipe or we did it with
-    // NativeOutputStream.close() . In the latter case, we'll get a "system
-    // call interrupted" error.
-    if (GetLastError() == ERROR_BROKEN_PIPE || stream->closed_.load()) {
-      // End of file.
-      stream->error_ = L"";
-      bytes_read = 0;
-    } else {
-      DWORD err_code = GetLastError();
-      stream->error_ = bazel::windows::MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"nativeReadStream", L"", err_code);
-      bytes_read = -1;
-    }
-  } else {
-    stream->error_ = L"";
-  }
-
-  return bytes_read;
+  return stream->ReadStream(env, java_bytes, offset, length);
 }
 
 extern "C" JNIEXPORT jint JNICALL
