@@ -283,8 +283,8 @@ sh_test(
 
 genquery(
     name = "embedded_tools_deps",
-    expression = "kind(\"cc_(binary|library)\", deps(//src:embedded_tools_srcs))",
-    scope = ["//src:embedded_tools_srcs"],
+    expression = "kind(\"cc_(binary|library)\", deps(//src:embedded_tools_jdk_allmodules_srcs))",
+    scope = ["//src:embedded_tools_jdk_allmodules_srcs"],
 )
 
 sh_test(
@@ -617,12 +617,12 @@ sh_test(
     srcs = ["bazel_bootstrap_distfile_test.sh"],
     args = [
         "$(location //:bazel-distfile)",
-        "$(location //src:embedded_jdk)",
+        "$(location //src:embedded_jdk_allmodules)",
     ],
     data = [
         ":test-deps",
         "//:bazel-distfile",
-        "//src:embedded_jdk",
+        "//src:embedded_jdk_allmodules",
     ],
 )
 
@@ -744,9 +744,9 @@ sh_test(
     srcs = ["jdeps_test.sh"],
     data = [
         ":jdeps_class_blacklist.txt",
-        ":jdeps_modules.golden",
         ":test-deps",
-        "//src:embedded_jdk",
+        "//src:embedded_jdk_allmodules",
+        "//src:jdeps_modules.golden",
         "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
         "@bazel_tools//tools/bash/runfiles",
     ],
