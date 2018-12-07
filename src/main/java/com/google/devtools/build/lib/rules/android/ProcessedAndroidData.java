@@ -118,6 +118,7 @@ public class ProcessedAndroidData {
 
     AndroidResourcesProcessorBuilder builder =
         builderForTopLevelTarget(dataContext, manifest, proguardPrefix, manifestValues)
+            .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
             .setApkOut(apkOut)
             .setMergedResourcesOut(mergedResourcesOut);
 
