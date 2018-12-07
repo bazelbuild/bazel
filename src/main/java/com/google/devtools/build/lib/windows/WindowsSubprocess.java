@@ -14,18 +14,19 @@
 
 package com.google.devtools.build.lib.windows;
 
+import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.windows.jni.WindowsProcesses;
-import java.io.IOException;
 import java.io.InputStream;
+import java.io.IOException;
 import java.io.OutputStream;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A Windows subprocess backed by a native object.
@@ -125,9 +126,9 @@ public class WindowsSubprocess implements Subprocess {
   private final OutputStream stdinStream;
   private final ProcessInputStream stdoutStream;
   private final ProcessInputStream stderrStream;
-  private final CountDownLatch waitLatch;
+  private final Future<Boolean> processFuture;
   private final long timeoutMillis;
-  private final AtomicBoolean timedout = new AtomicBoolean(false);
+  private boolean timedout = false;
 
   WindowsSubprocess(long nativeProcess, String commandLine, boolean stdoutRedirected,
       boolean stderrRedirected, long timeoutMillis) {
@@ -140,35 +141,32 @@ public class WindowsSubprocess implements Subprocess {
     stderrStream =
         stderrRedirected ? null : new ProcessInputStream(WindowsProcesses.getStderr(nativeProcess));
     stdinStream = new ProcessOutputStream();
-    waitLatch = new CountDownLatch(1);
     // Every Windows process we start consumes a thread here. This is suboptimal, but seems to be
     // the sanest way to reconcile WaitForMultipleObjects() and Java-style interruption.
-    @SuppressWarnings("unused")
-    Future<?> possiblyIgnoredError = WAITER_POOL.submit(this::waiterThreadFunc);
+    processFuture = WAITER_POOL.submit(this::waiterThreadFunc);
   }
 
-  private void waiterThreadFunc() {
+  // Waits for the process to finish. Returns 'false' if the process exited
+  // normally, 'true' in case of a timeout and throws an IllegalStateException
+  // when stuff goes really wrong.
+  private boolean waiterThreadFunc() {
     switch (WindowsProcesses.waitFor(nativeProcess, timeoutMillis)) {
       case 0:
         // Excellent, process finished in time.
-        break;
+        return false;
 
       case 1:
-        // Timeout. Terminate the process if we can.
-        timedout.set(true);
-        WindowsProcesses.terminate(nativeProcess);
-        break;
+        // Timeout. We don't need to call `terminate` here, because waitFor
+        // automatically terminates the process in case of a timeout.
+        return true;
 
-      case 2:
+      default:
         // Error. There isn't a lot we can do -- the process is still alive but
-        // WaitForMultipleObjects() failed for some odd reason. We'll pretend it terminated and
-        // log a message to jvm.out .
-        System.err.println(
-            "Waiting for process " + WindowsProcesses.getProcessPid(nativeProcess) + " failed");
-        break;
+        // WaitForSingleObject() failed for some odd reason. This should
+        // basically never happen, but if it does... let's get a stack trace.
+        String errorMessage = WindowsProcesses.processGetLastError(nativeProcess);
+        throw new IllegalStateException("Waiting for process " + WindowsProcesses.getProcessPid(nativeProcess) + " failed: " + errorMessage);
     }
-
-    waitLatch.countDown();
   }
 
   @Override
@@ -200,17 +198,24 @@ public class WindowsSubprocess implements Subprocess {
 
   @Override
   public boolean finished() {
-    return waitLatch.getCount() == 0;
+    return !processFuture.isCancelled() && !processFuture.isDone();
   }
 
   @Override
   public boolean timedout() {
-    return timedout.get();
+    return timedout;
   }
 
   @Override
   public void waitFor() throws InterruptedException {
-    waitLatch.await();
+    try {
+      timedout = processFuture.get();
+    } catch (ExecutionException e) {
+      Throwables.throwIfUnchecked(e.getCause());
+      // This should never happen, because waiterThreadFunc does not throw any
+      // checked exceptions.
+      throw new IllegalStateException("Unexpected exception", e);
+    }
   }
 
   @Override
