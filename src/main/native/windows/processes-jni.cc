@@ -381,8 +381,9 @@ public:
 
     HANDLE ioport = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 1);
     if (ioport == nullptr) {
+      DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, GetLastError());
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return;
     }
     ioport_ = ioport;
@@ -391,8 +392,9 @@ public:
     port.CompletionPort = ioport;
     if (!SetInformationJobObject(job, JobObjectAssociateCompletionPortInformation,
                                 &port, sizeof(port))) {
+      DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, GetLastError());
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
       return;
     }
 
@@ -494,9 +496,10 @@ public:
 
       // Any other case is an error and should be reported back to Bazel.
       default:
+        DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"NativeProcess:WaitFor", ToString(pid_),
-            GetLastError());
+            err_code);
         return 2;
     }
 
@@ -524,10 +527,10 @@ public:
               CompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)) {
         // Still waiting...
       }
-      
+
       CloseHandle(job_);
       job_ = INVALID_HANDLE_VALUE;
-      
+
       CloseHandle(ioport_);
       ioport_ = INVALID_HANDLE_VALUE;
     }
@@ -535,7 +538,7 @@ public:
     // Fetch and store the exit code in case Bazel asks us for it later,
     // because we cannot do this anymore after we closed the handle.
     GetExitCode();
-    
+
     if (process_ != INVALID_HANDLE_VALUE) {
       CloseHandle(process_);
       process_ = INVALID_HANDLE_VALUE;
@@ -549,9 +552,10 @@ public:
   jint GetExitCode() {
     if (exit_code_ == STILL_ACTIVE) {
       if (!GetExitCodeProcess(process_, &exit_code_)) {
+        DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"NativeProcess::GetExitCode",
-            ToString(pid_), GetLastError());
+            ToString(pid_), err_code);
         return -1;
       }
     }
@@ -576,9 +580,10 @@ public:
 
     if (!::WriteFile(stdin_, bytes.ptr() + offset, length,
                      &bytes_written, NULL)) {
+      DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"NativeProcess:WriteStdin",
-          ToString(pid_), GetLastError());
+          ToString(pid_), err_code);
       return -1;
     }
 
@@ -600,16 +605,18 @@ public:
 
     if (job_ != INVALID_HANDLE_VALUE) {
       if (!TerminateJobObject(job_, exit_code)) {
+        DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"NativeProcess::Terminate",
-            ToString(pid_), GetLastError());
+            ToString(pid_), err_code);
         return JNI_FALSE;
       }
     } else if (process_ != INVALID_HANDLE_VALUE) {
       if (!TerminateProcess(process_, exit_code)) {
+        DWORD err_code = GetLastError();
         std::wstring our_error = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"NativeProcess::Terminate",
-            ToString(pid_), GetLastError());
+            ToString(pid_), err_code);
 
         // If the process exited, despite TerminateProcess having failed, we're
         // still happy and just ignore the error. It might have been a race
@@ -621,11 +628,12 @@ public:
           return JNI_FALSE;
         }
       }
-      
+
       if (WaitForSingleObject(process_, INFINITE) != WAIT_OBJECT_0) {
+        DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"NativeProcess::Terminate",
-            ToString(pid_), GetLastError());
+            ToString(pid_), err_code);
         return JNI_FALSE;
       }
     }
@@ -649,7 +657,7 @@ public:
     if (!GetVersionEx(reinterpret_cast<OSVERSIONINFO*>(&version_info))) {
       return false;
     }
-    
+
     return version_info.dwMajorVersion > 6 ||
           (version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 2);
   }
