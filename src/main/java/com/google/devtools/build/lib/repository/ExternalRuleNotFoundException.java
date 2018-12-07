@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.repository;
 
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 
 /** Exception thrown when a rule cannot be found. */
@@ -22,7 +22,7 @@ public final class ExternalRuleNotFoundException extends ExternalPackageExceptio
   public ExternalRuleNotFoundException(String ruleName) {
     super(
         new BuildFileContainsErrorsException(
-            Label.EXTERNAL_PACKAGE_IDENTIFIER,
+            LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
             "The rule named '" + ruleName + "' could not be resolved"),
         Transience.PERSISTENT);
   }

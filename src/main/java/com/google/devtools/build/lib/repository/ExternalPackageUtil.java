@@ -19,7 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
@@ -47,12 +47,12 @@ public class ExternalPackageUtil {
   private static List<Rule> getRules(
       Environment env, boolean returnFirst, Function<Package, List<Rule>> selector)
       throws ExternalPackageException, InterruptedException {
-    SkyKey packageLookupKey = PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+    SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
     if (packageLookupValue == null) {
       return null;
     }
-    RootedPath workspacePath = packageLookupValue.getRootedPath(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+    RootedPath workspacePath = packageLookupValue.getRootedPath(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
 
     List<Rule> rules = returnFirst ? ImmutableList.of() : Lists.newArrayList();
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
@@ -66,7 +66,7 @@ public class ExternalPackageUtil {
         Event.replayEventsOn(env.getListener(), externalPackage.getEvents());
         throw new ExternalPackageException(
             new BuildFileContainsErrorsException(
-                Label.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
+                LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
             Transience.PERSISTENT);
       }
       List<Rule> results = selector.apply(externalPackage);

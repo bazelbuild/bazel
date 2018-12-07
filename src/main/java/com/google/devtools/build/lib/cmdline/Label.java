@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -59,7 +60,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public final class Label
     implements Comparable<Label>, Serializable, SkylarkValue, SkyKey, CommandLineItem {
-  public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
+
   public static final PathFragment WORKSPACE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
 
@@ -76,12 +77,8 @@ public final class Label
           // Visibility is labels aren't actually targets
           PathFragment.create("visibility"),
           // There is only one //external package
-          Label.EXTERNAL_PACKAGE_NAME);
+          LabelConstants.EXTERNAL_PACKAGE_NAME);
 
-  public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
-      PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
-
-  public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
   public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
       SkyFunctionName.createHermetic("TRANSITIVE_TRAVERSAL");
 
@@ -533,9 +530,10 @@ public final class Label
     },
     useContext = true
   )
-  public Label getRelative(String relName, BazelStarlarkContext context)
+  public Label getRelative(String relName, StarlarkContext context)
       throws LabelSyntaxException {
-    return getRelativeWithRemapping(relName, context.getRepoMapping());
+    BazelStarlarkContext bazelStarlarkContext = (BazelStarlarkContext) context;
+    return getRelativeWithRemapping(relName, bazelStarlarkContext.getRepoMapping());
   }
 
   /**

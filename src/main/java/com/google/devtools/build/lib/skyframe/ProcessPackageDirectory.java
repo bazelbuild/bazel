@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -188,7 +188,7 @@ public class ProcessPackageDirectory {
       }
       String basename = dirent.getName();
       PathFragment subdirectory = rootRelativePath.getRelative(basename);
-      if (subdirectory.equals(Label.EXTERNAL_PACKAGE_NAME)) {
+      if (subdirectory.equals(LabelConstants.EXTERNAL_PACKAGE_NAME)) {
         // Not a real package.
         continue;
       }

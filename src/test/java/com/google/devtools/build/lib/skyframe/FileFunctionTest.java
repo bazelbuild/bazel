@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -352,7 +352,7 @@ public class FileFunctionTest {
   @Test
   public void testAbsoluteSymlinkToExternal() throws Exception {
     String externalPath =
-        outputBase.getRelative(Label.EXTERNAL_PACKAGE_NAME).getRelative("a/b").getPathString();
+        outputBase.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME).getRelative("a/b").getPathString();
     symlink("a", externalPath);
     file("b");
     file(externalPath);

@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOrderEvent;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -98,7 +98,7 @@ public final class SyncCommand implements BlazeCommand {
                   env.getCommandId().toString())));
 
       // Obtain the key for the top-level WORKSPACE file
-      SkyKey packageLookupKey = PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+      SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
       LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
@@ -117,7 +117,7 @@ public final class SyncCommand implements BlazeCommand {
       }
       RootedPath workspacePath =
           ((PackageLookupValue) packageLookupValue.get(packageLookupKey))
-              .getRootedPath(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+              .getRootedPath(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
       SkyKey workspace = WorkspaceFileValue.key(workspacePath);
 
       // read and evaluate the WORKSPACE file to its end

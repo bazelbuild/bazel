@@ -18,7 +18,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -146,7 +146,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
       externalPackageLookupValue =
           (PackageLookupValue)
               env.getValueOrThrow(
-                  PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER),
+                  PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
                   BuildFileNotFoundException.class,
                   InconsistentFilesystemException.class);
       if (externalPackageLookupValue == null) {
@@ -165,7 +165,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
     }
 
     RootedPath workspacePath =
-        externalPackageLookupValue.getRootedPath(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+        externalPackageLookupValue.getRootedPath(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
 
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
     do {
