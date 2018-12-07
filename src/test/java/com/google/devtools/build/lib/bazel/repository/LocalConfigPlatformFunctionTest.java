@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
 import java.util.Collection;
-import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -35,9 +34,7 @@ import org.junit.runners.JUnit4;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-/**
- * Tests for {@link LocalConfigPlatformFunction}.
- */
+/** Tests for {@link LocalConfigPlatformFunction}. */
 @RunWith(Enclosed.class)
 public class LocalConfigPlatformFunctionTest {
 
@@ -59,9 +56,7 @@ public class LocalConfigPlatformFunctionTest {
     private final CPU testCpu;
     private final String expectedCpuConstraint;
 
-    public CpuConstraintTest(
-        CPU testCpu,
-            String expectedCpuConstraint) {
+    public CpuConstraintTest(CPU testCpu, String expectedCpuConstraint) {
       this.testCpu = testCpu;
       this.expectedCpuConstraint = expectedCpuConstraint;
     }
@@ -95,9 +90,7 @@ public class LocalConfigPlatformFunctionTest {
     private final OS testOs;
     private final String expectedOsConstraint;
 
-    public OsConstraintTest(
-        OS testOs,
-        String expectedOsConstraint) {
+    public OsConstraintTest(OS testOs, String expectedOsConstraint) {
       this.testOs = testOs;
       this.expectedOsConstraint = expectedOsConstraint;
     }
@@ -118,13 +111,17 @@ public class LocalConfigPlatformFunctionTest {
   // Tests on overall functionality.
   @RunWith(JUnit4.class)
   public static class FunctionTest extends BuildViewTestCase {
-    private static final ConstraintSettingInfo CPU_CONSTRAINT = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("@bazel_tools//platforms:cpu"));
-    private static final ConstraintSettingInfo OS_CONSTRAINT = ConstraintSettingInfo.create(
-        Label.parseAbsoluteUnchecked("@bazel_tools//platforms:os"));
+    private static final ConstraintSettingInfo CPU_CONSTRAINT =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@bazel_tools//platforms:cpu"));
+    private static final ConstraintSettingInfo OS_CONSTRAINT =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@bazel_tools//platforms:os"));
 
-    private static final ConstraintValueInfo X86_64_CONSTRAINT = ConstraintValueInfo.create(CPU_CONSTRAINT, Label.parseAbsoluteUnchecked("@bazel_tools//platforms:x86_64"));
-    private static final ConstraintValueInfo LINUX_CONSTRAINT = ConstraintValueInfo.create(OS_CONSTRAINT, Label.parseAbsoluteUnchecked("@bazel_tools//platforms:linux"));
+    private static final ConstraintValueInfo X86_64_CONSTRAINT =
+        ConstraintValueInfo.create(
+            CPU_CONSTRAINT, Label.parseAbsoluteUnchecked("@bazel_tools//platforms:x86_64"));
+    private static final ConstraintValueInfo LINUX_CONSTRAINT =
+        ConstraintValueInfo.create(
+            OS_CONSTRAINT, Label.parseAbsoluteUnchecked("@bazel_tools//platforms:linux"));
 
     @Test
     public void generateConfigRepository() throws Exception {
@@ -143,13 +140,12 @@ public class LocalConfigPlatformFunctionTest {
       assertThat(hostPlatformProvider).isNotNull();
 
       // Verify the OS and CPU constraints.
-        assertThat(hostPlatformProvider.constraints().has(CPU_CONSTRAINT)).isTrue();
-        assertThat(hostPlatformProvider.constraints().get(CPU_CONSTRAINT))
-            .isEqualTo(X86_64_CONSTRAINT);
+      assertThat(hostPlatformProvider.constraints().has(CPU_CONSTRAINT)).isTrue();
+      assertThat(hostPlatformProvider.constraints().get(CPU_CONSTRAINT))
+          .isEqualTo(X86_64_CONSTRAINT);
 
-        assertThat(hostPlatformProvider.constraints().has(OS_CONSTRAINT)).isTrue();
-        assertThat(hostPlatformProvider.constraints().get(OS_CONSTRAINT))
-            .isEqualTo(LINUX_CONSTRAINT);
+      assertThat(hostPlatformProvider.constraints().has(OS_CONSTRAINT)).isTrue();
+      assertThat(hostPlatformProvider.constraints().get(OS_CONSTRAINT)).isEqualTo(LINUX_CONSTRAINT);
     }
 
     // TODO(katre): check the host_platform_remote_properties_override flag

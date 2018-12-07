@@ -47,8 +47,7 @@ public enum OS {
   }
 
   private static final OS HOST_SYSTEM = determineCurrentOs();
-  @Nullable
-  private static OS osForTesting = null;
+  @Nullable private static OS osForTesting = null;
 
   /**
    * The current operating system.

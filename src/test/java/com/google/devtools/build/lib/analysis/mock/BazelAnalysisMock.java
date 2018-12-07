@@ -344,7 +344,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
   }
 
   @Override
-  public void addExtraRepositoryFunctions(ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers) {
+  public void addExtraRepositoryFunctions(
+      ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers) {
     repositoryHandlers.put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction());
   }
 }

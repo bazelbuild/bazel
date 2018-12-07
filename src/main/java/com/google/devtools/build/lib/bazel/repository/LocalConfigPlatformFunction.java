@@ -134,14 +134,15 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
 
   private static String constraintFileContent(CPU hostCpu, OS hostOs) {
     List<String> contents = new ArrayList<>();
-    contents.add("# DO NOT EDIT: automatically generated constraints list for local_config_platforms");
+    contents.add(
+        "# DO NOT EDIT: automatically generated constraints list for local_config_platforms");
     contents.add("# Auto-detected host platform constraints.");
     contents.add("HOST_CONSTRAINTS = [");
 
     String cpuConstraint = cpuToConstraint(hostCpu);
-      if (cpuConstraint != null) {
-        contents.add("  '" + cpuConstraint + "',");
-      }
+    if (cpuConstraint != null) {
+      contents.add("  '" + cpuConstraint + "',");
+    }
     String osConstraint = osToConstraint(hostOs);
     if (osConstraint != null) {
       contents.add("  '" + osConstraint + "',");

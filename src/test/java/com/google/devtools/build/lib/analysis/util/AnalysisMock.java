@@ -120,17 +120,22 @@ public abstract class AnalysisMock extends LoadingMock {
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     // Some tests require the local_repository rule so we need the appropriate SkyFunctions.
-    ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers = new ImmutableMap.Builder<String, RepositoryFunction>()
-        .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
-        .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
-        .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
+    ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
+        new ImmutableMap.Builder<String, RepositoryFunction>()
+            .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
+            .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
+            .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
 
     addExtraRepositoryFunctions(repositoryHandlers);
 
     return ImmutableMap.of(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(
-            repositoryHandlers.build(), null, new AtomicBoolean(true), ImmutableMap::of, directories),
+            repositoryHandlers.build(),
+            null,
+            new AtomicBoolean(true),
+            ImmutableMap::of,
+            directories),
         SkyFunctions.REPOSITORY,
         new RepositoryLoaderFunction(),
         CcSkyframeSupportValue.SKYFUNCTION,
@@ -138,7 +143,8 @@ public abstract class AnalysisMock extends LoadingMock {
   }
 
   // Allow subclasses to add extra repository functions.
-  public abstract void addExtraRepositoryFunctions(ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers);
+  public abstract void addExtraRepositoryFunctions(
+      ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers);
 
   public static class Delegate extends AnalysisMock {
 
