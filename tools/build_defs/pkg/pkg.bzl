@@ -92,6 +92,8 @@ def _pkg_tar_impl(ctx):
         if dotPos > 0:
             dotPos += 1
             args += ["--compression=%s" % ctx.attr.extension[dotPos:]]
+        elif ctx.attr.extension == "tgz":
+            args += ["--compression=gz"]
     args += ["--tar=" + f.path for f in ctx.files.deps]
     args += [
         "--link=%s:%s" % (_quote(k, protect = ":"), ctx.attr.symlinks[k])
