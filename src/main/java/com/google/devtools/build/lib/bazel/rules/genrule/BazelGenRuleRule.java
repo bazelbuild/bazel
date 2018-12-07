@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
@@ -49,7 +48,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
             attr("$genrule_setup", LABEL)
                 .cfg(HostTransition.INSTANCE)
                 .value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
-        .requiresConfigurationFragments(CppConfiguration.class, JavaConfiguration.class)
+        .requiresConfigurationFragments(JavaConfiguration.class)
 
         // TODO(bazel-team): stamping doesn't seem to work. Fix it or remove attribute.
         .add(attr("stamp", BOOLEAN).value(false))
