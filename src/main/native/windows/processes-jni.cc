@@ -548,6 +548,22 @@ public:
       }
     } else if (process_ != INVALID_HANDLE_VALUE) {
       if (!TerminateProcess(process_, exit_code)) {
+        std::wstring our_error = bazel::windows::MakeErrorMessage(
+            WSTR(__FILE__), __LINE__, L"NativeProcess::Terminate",
+            ToString(pid_), GetLastError());
+
+        // If the process exited, despite TerminateProcess having failed, we're
+        // still happy and just ignore the error. It might have been a race
+        // where the process exited by itself just before we tried to kill it.
+        if (GetExitCode() == STILL_ACTIVE) {
+          // Restore the error message from TerminateProcess - it will be much
+          // more helpful for debugging in case something goes wrong here.
+          error_ = our_error;
+          return JNI_FALSE;
+        }
+      }
+      
+      if (WaitForSingleObject(process_, INFINITE) != WAIT_OBJECT_0) {
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"NativeProcess::Terminate",
             ToString(pid_), GetLastError());
