@@ -500,9 +500,7 @@ public:
   }
 
   jint GetPid() {
-    // MSDN says that GetProcessId cannot fail.
-    error_ = L"";
-    return GetProcessId(process_);
+    return pid_;
   }
 
   jint WriteStdin(JNIEnv* env, jbyteArray java_bytes, jint offset, jint length) {
