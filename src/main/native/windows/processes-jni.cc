@@ -183,7 +183,7 @@ public:
     }
   }
 
-  void Create(JNIEnv* env, jstring java_argv0, jstring java_argv_rest,
+  jboolean Create(JNIEnv* env, jstring java_argv0, jstring java_argv_rest,
       jbyteArray java_env, jstring java_cwd, jstring java_stdout_redirect,
       jstring java_stderr_redirect, jboolean redirectErrorStream) {
     std::wstring argv0;
@@ -193,7 +193,7 @@ public:
     if (!error_msg.empty()) {
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, error_msg);
-      return;
+      return false;
     }
 
     std::wstring commandline =
@@ -208,7 +208,7 @@ public:
     if (!error_msg.empty()) {
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, error_msg);
-      return;
+      return false;
     }
 
     const bool stdout_is_stream = stdout_redirect.empty();
@@ -248,7 +248,7 @@ public:
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath,
             std::wstring(L"the environment must be at least 4 bytes long, was ") +
                 ToString(env_map.size()) + L" bytes");
-        return;
+        return false;
       } else if (env_map.ptr()[env_map.size() - 1] != 0 ||
                 env_map.ptr()[env_map.size() - 2] != 0 ||
                 env_map.ptr()[env_map.size() - 3] != 0 ||
@@ -256,7 +256,7 @@ public:
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath,
             L"environment array must end with 4 null bytes");
-        return;
+        return false;
       }
     }
 
@@ -266,7 +266,7 @@ public:
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-        return;
+        return false;
       }
       stdin_process = pipe_read_h;
       stdin_ = pipe_write_h;
@@ -289,14 +289,14 @@ public:
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", stdout_redirect,
             err_code);
-        return;
+        return false;
       }
       if (!SetFilePointerEx(stdout_process, {0}, NULL, FILE_END)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", stdout_redirect,
             err_code);
-        return;
+        return false;
       }
     } else {
       HANDLE pipe_read_h, pipe_write_h;
@@ -304,7 +304,7 @@ public:
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-        return;
+        return false;
       }
       stdout_.SetHandle(pipe_read_h);
       stdout_process = pipe_write_h;
@@ -318,7 +318,7 @@ public:
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-        return;
+        return false;
       }
       if (!stderr_is_stream) {
         stderr_.Close();
@@ -341,14 +341,14 @@ public:
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", stderr_redirect,
             err_code);
-        return;
+        return false;
       }
       if (!SetFilePointerEx(stderr_process, {0}, NULL, FILE_END)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", stderr_redirect,
             err_code);
-        return;
+        return false;
       }
     } else {
       HANDLE pipe_read_h, pipe_write_h;
@@ -356,7 +356,7 @@ public:
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-        return;
+        return false;
       }
       stderr_.SetHandle(pipe_read_h);
       stderr_process = pipe_write_h;
@@ -369,7 +369,7 @@ public:
       DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-      return;
+      return false;
     }
 
     job_ = job;
@@ -381,7 +381,7 @@ public:
       DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-      return;
+      return false;
     }
 
     HANDLE ioport = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 1);
@@ -389,7 +389,7 @@ public:
       DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-      return;
+      return false;
     }
     ioport_ = ioport;
     JOBOBJECT_ASSOCIATE_COMPLETION_PORT port;
@@ -400,7 +400,7 @@ public:
       DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-      return;
+      return false;
     }
 
     std::unique_ptr<bazel::windows::AutoAttributeList> attr_list;
@@ -409,7 +409,7 @@ public:
                                                   &error_msg)) {
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", L"", error_msg);
-      return;
+      return false;
     }
 
     // kMaxCmdline value: see lpCommandLine parameter of CreateProcessW.
@@ -426,7 +426,7 @@ public:
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"CreateProcessWithExplicitHandles",
           cmd_sample, error_msg.str().c_str());
-      return;
+      return false;
     }
 
     STARTUPINFOEXW info;
@@ -448,7 +448,7 @@ public:
       DWORD err = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"CreateProcessW", cmd_sample, err);
-      return;
+      return false;
     }
 
     pid_ = process_info.dwProcessId;
@@ -471,7 +471,7 @@ public:
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-        return;
+        return false;
       }
     }
 
@@ -480,10 +480,11 @@ public:
       DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(
           WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
-      return;
+      return false;
     }
 
     error_ = L"";
+    return true;
   }
 
   // Wait for this process to exit (or timeout).
@@ -696,6 +697,11 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProc
     jbyteArray java_env, jstring java_cwd, jstring java_stdout_redirect,
     jstring java_stderr_redirect, jboolean redirectErrorStream) {
   NativeProcess* result = new NativeProcess();
+  // TODO(philwo) The `Create` method returns false in case of an error. But
+  // there seems to be no good way to signal an error at this point to Bazel.
+  // The way the code currently works is that the Java code explicitly calls
+  // nativeProcessGetLastError(), so it's OK, but it would be nice if we
+  // could just throw an exception here.
   result->Create(env, java_argv0, java_argv_rest, java_env, java_cwd,
                  java_stdout_redirect, java_stderr_redirect, redirectErrorStream);
   return PtrAsJlong(result);
