@@ -153,6 +153,7 @@ public:
         stderr_(),
         process_(INVALID_HANDLE_VALUE),
         job_(INVALID_HANDLE_VALUE),
+        exit_code_(STILL_ACTIVE),
         error_(L"") {}
 
   ~NativeProcess() {
@@ -487,16 +488,16 @@ public:
   // Returns the exit code of the process if it has already exited. If the
   // process is still running, returns STILL_ACTIVE (= 259).
   jint GetExitCode() {
-    DWORD exit_code;
-
-    if (!GetExitCodeProcess(process_, &exit_code)) {
-      error_ = bazel::windows::MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"NativeProcess::GetExitCode",
-          ToString(pid_), GetLastError());
-      return -1;
+    if (exit_code_ == STILL_ACTIVE) {
+      if (!GetExitCodeProcess(process_, &exit_code_)) {
+        error_ = bazel::windows::MakeErrorMessage(
+            WSTR(__FILE__), __LINE__, L"NativeProcess::GetExitCode",
+            ToString(pid_), GetLastError());
+        return -1;
+      }
     }
 
-    return exit_code;
+    return exit_code_;
   }
 
   jint GetPid() {
@@ -584,6 +585,7 @@ public:
   HANDLE process_;
   HANDLE job_;
   DWORD pid_;
+  DWORD exit_code_;
   std::wstring error_;
 };
 
