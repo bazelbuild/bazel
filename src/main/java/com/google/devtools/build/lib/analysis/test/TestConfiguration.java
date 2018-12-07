@@ -166,7 +166,7 @@ public class TestConfiguration extends Fragment {
       allowMultiple = true,
       defaultValue = "1",
       converter = RunsPerTestConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specifies number of times to run each test. If any of those attempts "
