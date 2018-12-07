@@ -153,6 +153,7 @@ public:
         stderr_(),
         process_(INVALID_HANDLE_VALUE),
         job_(INVALID_HANDLE_VALUE),
+        ioport_(INVALID_HANDLE_VALUE),
         exit_code_(STILL_ACTIVE),
         error_(L"") {}
 
@@ -170,6 +171,10 @@ public:
 
     if (job_ != INVALID_HANDLE_VALUE) {
       CloseHandle(job_);
+    }
+
+    if (ioport_ != INVALID_HANDLE_VALUE) {
+      CloseHandle(ioport_);
     }
   }
 
@@ -374,6 +379,23 @@ public:
       return;
     }
 
+    HANDLE ioport = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 1);
+    if (ioport == nullptr) {
+      error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, GetLastError());
+      return;
+    }
+    ioport_ = ioport;
+    JOBOBJECT_ASSOCIATE_COMPLETION_PORT port;
+    port.CompletionKey = job;
+    port.CompletionPort = ioport;
+    if (!SetInformationJobObject(job, JobObjectAssociateCompletionPortInformation,
+                                &port, sizeof(port))) {
+      error_ = bazel::windows::MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, GetLastError());
+      return;
+    }
+
     std::unique_ptr<bazel::windows::AutoAttributeList> attr_list;
     if (!bazel::windows::AutoAttributeList::Create(stdin_process, stdout_process,
                                                   stderr_process, &attr_list,
@@ -436,6 +458,8 @@ public:
         // that will take care of cleanup once the command finishes.
         CloseHandle(job_);
         job_ = INVALID_HANDLE_VALUE;
+        CloseHandle(ioport_);
+        ioport_ = INVALID_HANDLE_VALUE;
       } else {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
@@ -470,16 +494,51 @@ public:
 
       // Any other case is an error and should be reported back to Bazel.
       default:
-        result = 2;
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"NativeProcess:WaitFor", ToString(pid_),
             GetLastError());
-        break;
+        return 2;
     }
 
     if (stdin_ != INVALID_HANDLE_VALUE) {
       CloseHandle(stdin_);
       stdin_ = INVALID_HANDLE_VALUE;
+    }
+
+    // Ensure that the process is really terminated (if WaitForSingleObject
+    // above timed out, we have to explicitly kill it) and that it doesn't
+    // leave behind any subprocesses.
+    if (!Terminate()) {
+      return 2;
+    }
+
+    if (job_ != INVALID_HANDLE_VALUE) {
+      // Wait for the job object to complete, signalling that all subprocesses
+      // have exited.
+      DWORD CompletionCode;
+      ULONG_PTR CompletionKey;
+      LPOVERLAPPED Overlapped;
+      while (GetQueuedCompletionStatus(ioport_, &CompletionCode,
+                                      &CompletionKey, &Overlapped, INFINITE) &&
+            !((HANDLE)CompletionKey == job_ &&
+              CompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)) {
+        // Still waiting...
+      }
+      
+      CloseHandle(job_);
+      job_ = INVALID_HANDLE_VALUE;
+      
+      CloseHandle(ioport_);
+      ioport_ = INVALID_HANDLE_VALUE;
+    }
+
+    // Fetch and store the exit code in case Bazel asks us for it later,
+    // because we cannot do this anymore after we closed the handle.
+    GetExitCode();
+    
+    if (process_ != INVALID_HANDLE_VALUE) {
+      CloseHandle(process_);
+      process_ = INVALID_HANDLE_VALUE;
     }
 
     return result;
@@ -600,6 +659,7 @@ public:
   NativeOutputStream stderr_;
   HANDLE process_;
   HANDLE job_;
+  HANDLE ioport_;
   DWORD pid_;
   DWORD exit_code_;
   std::wstring error_;
