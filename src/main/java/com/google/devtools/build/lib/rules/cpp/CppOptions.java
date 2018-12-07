@@ -797,6 +797,17 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, cpu transformer is not used for CppConfiguration")
   public boolean doNotUseCpuTransformer;
 
+  // TODO(laszlocsomor): revert the commit that added this flag, after we found the root cause of
+  // https://github.com/bazelbuild/bazel/issues/6847
+  @Option(
+      name = "experimental_header_validation_debug",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, CppCompileAction prints extra info about failed header validation.")
+  public boolean headerValidationDebug;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();

@@ -92,8 +92,6 @@ public class CppCompileAction extends AbstractAction
 
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
-  private static final boolean VALIDATION_DEBUG_WARN = false;
-
   protected final Artifact outputFile;
   private final Artifact sourceFile;
   private final CppConfiguration cppConfiguration;
@@ -814,27 +812,31 @@ public class CppCompileAction extends AbstractAction
         errors.add(input.getExecPath().toString());
       }
     }
-    if (VALIDATION_DEBUG_WARN) {
-      synchronized (System.err) {
+    if (cppConfiguration.getHeaderValidationDebug()) {
+      StringBuilder sb = new StringBuilder();
+      if (errors.hasProblems()) {
         if (errors.hasProblems()) {
-          if (errors.hasProblems()) {
-            System.err.println("ERROR: Include(s) were not in declared srcs:");
-          } else {
-            System.err.println("INFO: Include(s) were OK for '" + getSourceFile()
-                + "', declared srcs:");
-          }
-          for (Artifact a : ccCompilationContext.getDeclaredIncludeSrcs()) {
-            System.err.println("  '" + a.toDetailString() + "'");
-          }
-          System.err.println(" or under declared dirs:");
-          for (PathFragment f : Sets.newTreeSet(ccCompilationContext.getDeclaredIncludeDirs())) {
-            System.err.println("  '" + f + "'");
-          }
-          System.err.println(" with prefixes:");
-          for (PathFragment dirpath : ccCompilationContext.getQuoteIncludeDirs()) {
-            System.err.println("  '" + dirpath + "'");
-          }
+          sb.append("ERROR: Include(s) were NOT OK for '");
+        } else {
+          sb.append("INFO: Include(s) were OK for '");
         }
+        sb.append(getSourceFile()).append("', declared srcs:\n");
+        for (Artifact a : ccCompilationContext.getDeclaredIncludeSrcs()) {
+          sb.append("  '").append(a.toDetailString()).append("'\n");
+        }
+        sb.append(" declared dirs:\n");
+        for (PathFragment f : Sets.newTreeSet(ccCompilationContext.getDeclaredIncludeDirs())) {
+          sb.append("  '").append(f).append("'\n");
+        }
+        sb.append(" with prefixes:\n");
+        for (PathFragment dirpath : ccCompilationContext.getQuoteIncludeDirs()) {
+          sb.append("  '").append(dirpath).append("'\n");
+        }
+      }
+
+      String sbString = sb.toString();
+      synchronized (System.err) {
+        System.err.println(sbString);
       }
     }
     errors.assertProblemFree(this, getSourceFile());

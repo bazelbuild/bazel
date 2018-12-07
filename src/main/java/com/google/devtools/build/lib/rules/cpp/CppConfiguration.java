@@ -553,6 +553,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableDepsetInUserFlags;
   }
 
+  public boolean getHeaderValidationDebug() {
+    return cppOptions.headerValidationDebug;
+  }
+
   public static PathFragment computeDefaultSysroot(String builtInSysroot) {
     if (builtInSysroot.isEmpty()) {
       return null;
