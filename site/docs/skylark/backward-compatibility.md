@@ -941,6 +941,24 @@ List of all legacy fields and their corresponding `cc_toolchain` alternative:
 | `target_gnu_system_name` |  `target_gnu_system_name` |
 | `unfiltered_compiler_options(unused_arg)` |  `unfiltered_compiler_options(unused_arg)` |
 
+If you use legacy Starlark API on `ctx.host_fragment.cpp`, let us know on
+[the tracking bug for C++ migration to platforms](https://github.com/bazelbuild/bazel/issues/6516)
+about your use case. The current plan is that host fragments will be removed.
+To migrate, add an implicit rule attribute in the host configuration:
+
+```python
+"_host_cc_toolchain": attr.label(
+    cfg = "host",
+    default = Label("//tools/cpp:current_cc_toolchain"),
+),
+```
+
+Then in your rules access the provider using:
+
+```python
+host_cc_toolchain = ctx.attr._host_cc_toolchain[cc_common.CcToolchainInfo]
+```
+
 *   Flag: `--incompatible_disable_legacy_cpp_toolchain_skylark_api`
 *   Default: `false`
 *   Introduced in: `0.18.0`
@@ -966,7 +984,7 @@ Use the new API from [cc_common](https://docs.bazel.build/versions/master/skylar
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 
 def _impl(ctx):
-    cc_toolchain = find_cc_toolchain(ctx)
+    cc_toolchain = find_cpp_toolchain(ctx)
     compiler_options = (
         cc_toolchain.compiler_options() +
         cc_toolchain.unfiltered_compiler_options([]) +
@@ -990,7 +1008,7 @@ load(
 )
 
 def _impl(ctx):
-    cc_toolchain = find_cc_toolchain(ctx)
+    cc_toolchain = find_cpp_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
         cc_toolchain = cc_toolchain,
         requested_features = ctx.features,
