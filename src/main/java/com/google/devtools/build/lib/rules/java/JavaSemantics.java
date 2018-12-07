@@ -300,7 +300,8 @@ public interface JavaSemantics {
       List<String> jvmFlags,
       Artifact executable,
       String javaStartClass,
-      String javaExecutable);
+      String javaExecutable)
+      throws InterruptedException;
 
   /**
    * Same as {@link #createStubAction(RuleContext, JavaCommon, List, Artifact, String, String)}.
@@ -318,7 +319,8 @@ public interface JavaSemantics {
       String javaStartClass,
       String coverageStartClass,
       NestedSetBuilder<Artifact> filesBuilder,
-      String javaExecutable);
+      String javaExecutable)
+      throws InterruptedException;
 
   /**
    * Returns true if {@code createStubAction} considers {@code javaExecutable} as a substitution.
