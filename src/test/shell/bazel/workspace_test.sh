@@ -665,4 +665,23 @@ EOF
       && fail "Failure expected" || true
 }
 
+function test_external_subpacakge() {
+  # Verify that we do not crash on accessing an external repository
+  # through the //external virtual package.
+  # Regression test for the crash reported in #6725
+  mkdir local
+  touch local/BUILD
+  mkdir main
+  cd main
+  echo 'local_repository(name="local", path="../local")' > WORKSPACE
+  bazel build //external:local --build_event_json_file=bep.json \
+        > "${TEST_log}" 2>&1 \
+      || fail "Accessing a repo through the //extern package should not fail"
+  expect_not_log 'IllegalArgumentException'
+  grep '"id".*"targetCompleted".*"label".*"//external:local"' bep.json > completion.json \
+      || fail "expected completion of //external:local being reported"
+  grep '"success".*true' completion.json \
+      || fail "Success of //external:local expected"
+}
+
 run_suite "workspace tests"
