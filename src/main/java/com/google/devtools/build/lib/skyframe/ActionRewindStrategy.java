@@ -20,14 +20,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.LostInputsExecException.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.skyframe.ActionExecutionFunction.ActionExecutionFunctionException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -54,6 +53,7 @@ public class ActionRewindStrategy {
    *   <li>the Skyframe nodes to restart to recreate the lost inputs specified by {@code
    *       lostInputsException}
    *   <li>the actions whose execution state (in {@link SkyframeActionExecutor}) must be reset
+   *       (aside from failedAction, which the caller already knows must be reset)
    * </ol>
    *
    * <p>Note that all Skyframe nodes between the currently executing (failed) action's node and the
@@ -61,8 +61,8 @@ public class ActionRewindStrategy {
    * This ensures that reevaluating the current node will also reevaluate the nodes that will
    * recreate the lost inputs.
    *
-   * @throws ActionExecutionFunctionException if any lost inputs are not the outputs of previously
-   *     executed actions
+   * @throws ActionExecutionException if any lost inputs are not the outputs of previously executed
+   *     actions
    */
   RewindPlan getRewindPlan(
       Action failedAction,
@@ -70,16 +70,16 @@ public class ActionRewindStrategy {
       LostInputsActionExecutionException lostInputsException,
       ActionInputDepOwners runfilesDepOwners,
       Environment env)
-      throws ActionExecutionFunctionException, InterruptedException {
+      throws ActionExecutionException, InterruptedException {
     ImmutableList<ActionInput> lostInputs = lostInputsException.getLostInputs();
 
     // This collection tracks which Skyframe nodes must be restarted.
     HashSet<SkyKey> depsToRestart = new HashSet<>();
 
     // SkyframeActionExecutor must re-execute the actions being restarted, so we must tell it to
-    // evict its cached results for those actions. This collection tracks those actions.
-    ImmutableList.Builder<Action> actionsToRestart = ImmutableList.builder();
-    actionsToRestart.add(failedAction);
+    // evict its cached results for those actions. This collection tracks those actions (aside from
+    // failedAction, which the caller of getRewindPlan already knows must be restarted).
+    ImmutableList.Builder<Action> additionalActionsToRestart = ImmutableList.builder();
 
     HashMultimap<Artifact, ActionInput> lostInputsByDepOwners =
         getLostInputsByDepOwners(
@@ -102,8 +102,10 @@ public class ActionRewindStrategy {
                 "lostArtifact unexpectedly source.\nlostArtifact: %s\nlostInputs for artifact: %s\n"
                     + "failedAction: %s",
                 lostArtifact, entry.getValue(), failedAction));
-        throw new ActionExecutionFunctionException(
-            new AlreadyReportedActionExecutionException(lostInputsException));
+        // Launder the LostInputs exception as a plain ActionExecutionException so that it may be
+        // processed by SkyframeActionExecutor without short-circuiting.
+        throw new ActionExecutionException(
+            lostInputsException, failedAction, /*catastrophe=*/ false);
       }
 
       // Note that this artifact must be restarted.
@@ -117,25 +119,25 @@ public class ActionRewindStrategy {
       }
       ImmutableList<Action> actionsToCheckForPropagation =
           noteDepsAndActionsToRestartAndGetActionsToCheckForPropagation(
-              actionMap, depsToRestart, actionsToRestart);
+              actionMap, depsToRestart, additionalActionsToRestart);
       recurseAcrossPropagatingActions(
-          actionsToCheckForPropagation, env, depsToRestart, actionsToRestart);
+          actionsToCheckForPropagation, env, depsToRestart, additionalActionsToRestart);
     }
 
     return new RewindPlan(
-        Restart.selfAnd(ImmutableList.copyOf(depsToRestart)), actionsToRestart.build());
+        Restart.selfAnd(ImmutableList.copyOf(depsToRestart)), additionalActionsToRestart.build());
   }
 
   private ImmutableList<Action> noteDepsAndActionsToRestartAndGetActionsToCheckForPropagation(
       Map<ActionLookupData, Action> actionMap,
       Set<SkyKey> depsToRestart,
-      ImmutableList.Builder<Action> actionsToRestart) {
+      ImmutableList.Builder<Action> additionalActionsToRestart) {
     ImmutableList.Builder<Action> actionsToCheckForPropagation =
         ImmutableList.builderWithExpectedSize(actionMap.size());
     for (Map.Entry<ActionLookupData, Action> actionEntry : actionMap.entrySet()) {
       if (depsToRestart.add(actionEntry.getKey())) {
         Action action = actionEntry.getValue();
-        actionsToRestart.add(action);
+        additionalActionsToRestart.add(action);
         actionsToCheckForPropagation.add(action);
       }
     }
@@ -214,7 +216,7 @@ public class ActionRewindStrategy {
       ImmutableList<Action> actionsToCheckForPropagation,
       Environment env,
       HashSet<SkyKey> depsToRestart,
-      ImmutableList.Builder<Action> actionsToRestart)
+      ImmutableList.Builder<Action> additionalActionsToRestart)
       throws InterruptedException {
     ArrayDeque<Action> possiblyPropagatingActions = new ArrayDeque<>(actionsToCheckForPropagation);
     while (!possiblyPropagatingActions.isEmpty()) {
@@ -248,7 +250,7 @@ public class ActionRewindStrategy {
         }
         ImmutableList<Action> nextActionsToCheckForPropagation =
             noteDepsAndActionsToRestartAndGetActionsToCheckForPropagation(
-                actionMap, depsToRestart, actionsToRestart);
+                actionMap, depsToRestart, additionalActionsToRestart);
         possiblyPropagatingActions.addAll(nextActionsToCheckForPropagation);
       }
     }
@@ -299,19 +301,19 @@ public class ActionRewindStrategy {
 
   static class RewindPlan {
     private final Restart nodesToRestart;
-    private final ImmutableList<Action> actionsToRestart;
+    private final ImmutableList<Action> additionalActionsToRestart;
 
-    RewindPlan(Restart nodesToRestart, ImmutableList<Action> actionsToRestart) {
+    RewindPlan(Restart nodesToRestart, ImmutableList<Action> additionalActionsToRestart) {
       this.nodesToRestart = nodesToRestart;
-      this.actionsToRestart = actionsToRestart;
+      this.additionalActionsToRestart = additionalActionsToRestart;
     }
 
     Restart getNodesToRestart() {
       return nodesToRestart;
     }
 
-    ImmutableList<Action> getActionsToRestart() {
-      return actionsToRestart;
+    ImmutableList<Action> getAdditionalActionsToRestart() {
+      return additionalActionsToRestart;
     }
   }
 }

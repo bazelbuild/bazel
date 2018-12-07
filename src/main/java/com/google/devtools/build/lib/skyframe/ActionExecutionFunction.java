@@ -23,6 +23,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
+import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -134,10 +136,21 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
 
     // For restarts of this ActionExecutionFunction we use a ContinuationState variable, below, to
-    // avoid redoing work. However, if two actions are shared and the first one executes, when the
+    // avoid redoing work.
+    //
+    // However, if two actions are shared and the first one executes, when the
     // second one goes to execute, we should detect that and short-circuit, even without taking
     // ContinuationState into account.
-    boolean sharedActionAlreadyRan = skyframeActionExecutor.probeActionExecution(action);
+    //
+    // Additionally, if an action restarted (in the Skyframe sense) after it executed because it
+    // discovered new inputs during execution, we should detect that and short-circuit.
+    boolean actionAlreadyRan = skyframeActionExecutor.probeActionExecution(action);
+
+    // If this action was previously completed this build, then this evaluation must be happening
+    // because of rewinding. Prevent any ProgressLike events from being published a second time for
+    // this action; downstream consumers of action events reasonably don't expect them.
+    env = getProgressEventSuppressingEnvironmentIfPreviouslyCompleted(action, env);
+
     ContinuationState state;
     if (action.discoversInputs()) {
       state = getState(action);
@@ -168,7 +181,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         env.getValuesOrThrow(
             inputDepKeys, MissingInputFileException.class, ActionExecutionException.class);
     try {
-      if (!sharedActionAlreadyRan && !state.hasArtifactData()) {
+      if (!actionAlreadyRan && !state.hasArtifactData()) {
         // Do we actually need to find our metadata?
         checkedInputs = checkInputs(env, action, inputDeps);
       }
@@ -211,12 +224,19 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       }
     }
 
+    long actionStartTime = BlazeClock.nanoTime();
     ActionExecutionValue result;
     try {
       result =
           checkCacheAndExecuteIfNeeded(
-              action, state, env, clientEnv, actionLookupData, sharedActionAlreadyRan,
-              skyframeDepsResult);
+              action,
+              state,
+              env,
+              clientEnv,
+              actionLookupData,
+              actionAlreadyRan,
+              skyframeDepsResult,
+              actionStartTime);
     } catch (LostInputsActionExecutionException e) {
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
       stateMap.remove(action);
@@ -242,17 +262,40 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           state.discoveredInputs != null
               ? Iterables.concat(inputDepKeys, state.discoveredInputs)
               : inputDepKeys;
-      RewindPlan rewindPlan =
-          actionRewindStrategy.getRewindPlan(action, failedActionDeps, e, runfilesDepOwners, env);
-      for (Action actionToRestart : rewindPlan.getActionsToRestart()) {
-        skyframeActionExecutor.resetActionExecution(actionToRestart);
+      RewindPlan rewindPlan;
+      try {
+        rewindPlan =
+            actionRewindStrategy.getRewindPlan(action, failedActionDeps, e, runfilesDepOwners, env);
+      } catch (ActionExecutionException rewindingFailedException) {
+        stateMap.remove(action);
+        if (e.isActionStartedEventAlreadyEmitted()) {
+          // SkyframeActionExecutor's ActionRunner didn't emit an ActionCompletionEvent because it
+          // hoped rewinding would fix things. Now we know that rewinding won't work.
+          env.getListener()
+              .post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
+        }
+        // This call to processAndGetExceptionToThrow will emit an ActionExecutedEvent and report
+        // the error. The previous call to processAndGetExceptionToThrow didn't.
+        throw new ActionExecutionFunctionException(
+            new AlreadyReportedActionExecutionException(
+                skyframeActionExecutor.processAndGetExceptionToThrow(
+                    env.getListener(),
+                    e.getPrimaryOutputPath(),
+                    action,
+                    rewindingFailedException,
+                    e.getFileOutErr(),
+                    ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
+      }
+      skyframeActionExecutor.resetActionExecution(action, /*previouslyCompleted=*/ false);
+      for (Action actionToRestart : rewindPlan.getAdditionalActionsToRestart()) {
+        skyframeActionExecutor.resetActionExecution(actionToRestart, /*previouslyCompleted=*/ true);
       }
       return rewindPlan.getNodesToRestart();
     } catch (ActionExecutionException e) {
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
       stateMap.remove(action);
       // In this case we do not report the error to the action reporter because we have already
-      // done it in SkyframeExecutor.reportErrorIfNotAbortingMode() method. That method
+      // done it in SkyframeActionExecutor.reportErrorIfNotAbortingMode() method. That method
       // prints the error in the top-level reporter and also dumps the recorded StdErr for the
       // action. Label can be null in the case of, e.g., the SystemActionOwner (for build-info.txt).
       throw new ActionExecutionFunctionException(new AlreadyReportedActionExecutionException(e));
@@ -269,6 +312,14 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
     return result;
+  }
+
+  private Environment getProgressEventSuppressingEnvironmentIfPreviouslyCompleted(
+      Action action, Environment env) {
+    if (skyframeActionExecutor.probeCompletedAndReset(action)) {
+      return new ProgressEventSuppressingEnvironment(env);
+    }
+    return env;
   }
 
   static Action getActionForLookupData(Environment env, ActionLookupData actionLookupData)
@@ -288,8 +339,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
    * the action cache's view of this action contains additional inputs, it will request metadata for
    * them, so we consider those inputs as dependencies of this action as well. Returns null if some
    * dependencies were missing and this ActionExecutionFunction needs to restart.
-   *
-   * @throws ActionExecutionFunctionException
    */
   @Nullable
   private AllInputs collectInputs(Action action, Environment env) throws InterruptedException {
@@ -344,7 +393,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     final List<SkyKey> keysRequested = new ArrayList<>();
     private final Environment env;
 
-    public PackageRootResolverWithEnvironment(Environment env) {
+    private PackageRootResolverWithEnvironment(Environment env) {
       this.env = env;
     }
 
@@ -412,12 +461,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Environment env,
       Map<String, String> clientEnv,
       ActionLookupData actionLookupData,
-      boolean sharedActionAlreadyRan,
-      Object skyframeDepsResult)
+      boolean actionAlreadyRan,
+      Object skyframeDepsResult,
+      long actionStartTime)
       throws ActionExecutionException, InterruptedException {
     // If this is a shared action and the other action is the one that executed, we must use that
     // other action's value, provided here, since it is populated with metadata for the outputs.
-    if (sharedActionAlreadyRan) {
+    if (actionAlreadyRan) {
       return skyframeActionExecutor.executeAction(
           env.getListener(),
           action,
@@ -437,7 +487,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
             tsgm.get(),
             pathResolver,
             state.actionFileSystem == null ? new OutputStore() : new MinimalOutputStore());
-    long actionStartTime = BlazeClock.nanoTime();
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
       state.token =
@@ -476,8 +525,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       if (state.discoveredInputs == null) {
         try {
           try {
-            state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler,
-                ImmutableMap.of());
+            state.updateFileSystemContext(
+                skyframeActionExecutor, env, metadataHandler, ImmutableMap.of());
           } catch (IOException e) {
             throw new ActionExecutionException(
                 "Failed to update filesystem context: ", e, action, /*catastrophe=*/ false);

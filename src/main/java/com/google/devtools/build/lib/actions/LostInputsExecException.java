@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -54,6 +56,21 @@ public class LostInputsExecException extends ExecException {
   /** An {@link ActionExecutionException} wrapping a {@link LostInputsExecException}. */
   public static class LostInputsActionExecutionException extends ActionExecutionException {
 
+    /**
+     * If an ActionStartedEvent was emitted, then an ActionCompletionEvent should be emitted if
+     * rewinding fails.
+     */
+    private boolean actionStartedEventAlreadyEmitted;
+
+    /** Used to report the action execution failure if rewinding also fails. */
+    private Path primaryOutputPath;
+
+    /**
+     * Used to report the action execution failure if rewinding also fails. Note that this will be
+     * closed, so it may only be used for reporting.
+     */
+    private FileOutErr fileOutErr;
+
     private LostInputsActionExecutionException(
         String message, LostInputsExecException cause, Action action) {
       super(message, cause, action, /*catastrophe=*/ false);
@@ -65,6 +82,30 @@ public class LostInputsExecException extends ExecException {
 
     public InputOwners getInputOwners() {
       return ((LostInputsExecException) getCause()).getInputOwners();
+    }
+
+    public Path getPrimaryOutputPath() {
+      return primaryOutputPath;
+    }
+
+    public void setPrimaryOutputPath(Path primaryOutputPath) {
+      this.primaryOutputPath = primaryOutputPath;
+    }
+
+    public FileOutErr getFileOutErr() {
+      return fileOutErr;
+    }
+
+    public void setFileOutErr(FileOutErr fileOutErr) {
+      this.fileOutErr = fileOutErr;
+    }
+
+    public boolean isActionStartedEventAlreadyEmitted() {
+      return actionStartedEventAlreadyEmitted;
+    }
+
+    public void setActionStartedEventAlreadyEmitted() {
+      this.actionStartedEventAlreadyEmitted = true;
     }
   }
 

@@ -239,15 +239,16 @@ public class CriticalPathComputer {
    *
    * @return The component to be used for updating the time stats.
    */
+  @SuppressWarnings("ReferenceEquality")
   private CriticalPathComponent tryAddComponent(CriticalPathComponent newComponent) {
     Action newAction = newComponent.getAction();
     Artifact primaryOutput = newAction.getPrimaryOutput();
     CriticalPathComponent storedComponent =
         outputArtifactToComponent.putIfAbsent(primaryOutput, newComponent);
-
     if (storedComponent != null) {
       Action oldAction = storedComponent.getAction();
-      if (!Actions.canBeShared(actionKeyContext, newAction, oldAction)) {
+      // TODO(b/120663721) Replace this fragile reference equality check with something principled.
+      if (oldAction != newAction && !Actions.canBeShared(actionKeyContext, newAction, oldAction)) {
         throw new IllegalStateException(
             "Duplicate output artifact found for unsharable actions."
                 + "This can happen if a previous event registered the action.\n"
@@ -272,8 +273,8 @@ public class CriticalPathComputer {
       CriticalPathComponent old = outputArtifactToComponent.putIfAbsent(output, storedComponent);
       // If two actions run concurrently maybe we find a component by primary output but we are
       // the first updating the rest of the outputs.
-      Preconditions.checkState(old == null || old == storedComponent,
-          "Inconsistent state for %s", newAction);
+      Preconditions.checkState(
+          old == null || old == storedComponent, "Inconsistent state for %s", newAction);
     }
     return storedComponent;
   }

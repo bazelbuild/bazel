@@ -257,7 +257,7 @@ class ExperimentalStateTracker {
   void actionStarted(ActionStartedEvent event) {
     Action action = event.getAction();
     String name = action.getPrimaryOutput().getPath().getPathString();
-    Long nanoStartTime = event.getNanoTimeStart();
+    long nanoStartTime = event.getNanoTimeStart();
 
     String status = notStartedActionStatus.remove(name);
     boolean nowExecuting = status != null;
