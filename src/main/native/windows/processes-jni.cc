@@ -28,6 +28,11 @@
 #include "src/main/native/windows/jni-util.h"
 #include "src/main/native/windows/util.h"
 
+// These are the possible return values from the NativeProcess::WaitFor() method.
+static const int kWaitSuccess = 0;
+static const int kWaitTimeout = 1;
+static const int kWaitError = 2;
+
 template <typename T>
 static std::wstring ToString(const T& e) {
   std::wstringstream s;
@@ -487,11 +492,11 @@ public:
     jint result;
     switch (WaitForSingleObject(process_, win32_timeout)) {
       case WAIT_OBJECT_0:
-        result = 0;
+        result = kWaitSuccess;
         break;
 
       case WAIT_TIMEOUT:
-        result = 1;
+        result = kWaitTimeout;
         break;
 
       // Any other case is an error and should be reported back to Bazel.
@@ -500,7 +505,7 @@ public:
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"NativeProcess:WaitFor", ToString(pid_),
             err_code);
-        return 2;
+        return kWaitError;
     }
 
     if (stdin_ != INVALID_HANDLE_VALUE) {
@@ -621,6 +626,9 @@ public:
         // If the process exited, despite TerminateProcess having failed, we're
         // still happy and just ignore the error. It might have been a race
         // where the process exited by itself just before we tried to kill it.
+        // However, if the process is *still* running at this point (evidenced
+        // by its exit code still being STILL_ACTIVE) then something went
+        // really unexpectedly wrong and we should report that error.
         if (GetExitCode() == STILL_ACTIVE) {
           // Restore the error message from TerminateProcess - it will be much
           // more helpful for debugging in case something goes wrong here.
