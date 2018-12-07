@@ -44,6 +44,7 @@ public final class CcToolchainRule implements RuleDefinition {
   public static final String LIBC_TOP_ATTR = ":libc_top";
   public static final String FDO_OPTIMIZE_ATTR = ":fdo_optimize";
   public static final String FDO_PROFILE_ATTR = ":fdo_profile";
+  public static final String XFDO_PROFILE_ATTR = ":xfdo_profile";
   public static final String TOOLCHAIN_CONFIG_ATTR = "toolchain_config";
 
   /**
@@ -92,6 +93,12 @@ public final class CcToolchainRule implements RuleDefinition {
           CppConfiguration.class,
           null,
           (rule, attributes, cppConfig) -> cppConfig.getFdoProfileLabel());
+
+  private static final LabelLateBoundDefault<?> XFDO_PROFILE_VALUE =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          CppConfiguration.class,
+          null,
+          (rule, attributes, cppConfig) -> cppConfig.getXFdoProfileLabel());
 
   private static final LabelLateBoundDefault<?> FDO_PREFETCH_HINTS =
       LabelLateBoundDefault.fromTargetConfiguration(
@@ -189,6 +196,11 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("libc_top", LABEL).allowedFileTypes())
         .add(attr(LIBC_TOP_ATTR, LABEL).value(LIBC_TOP_VALUE))
         .add(attr(FDO_OPTIMIZE_ATTR, LABEL).value(FDO_OPTIMIZE_VALUE))
+        .add(
+            attr(XFDO_PROFILE_ATTR, LABEL)
+                .allowedRuleClasses("fdo_profile")
+                .mandatoryProviders(ImmutableList.of(FdoProfileProvider.PROVIDER.id()))
+                .value(XFDO_PROFILE_VALUE))
         .add(
             attr(FDO_PROFILE_ATTR, LABEL)
                 .allowedRuleClasses("fdo_profile")

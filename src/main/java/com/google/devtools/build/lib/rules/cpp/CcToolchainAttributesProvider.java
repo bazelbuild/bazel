@@ -91,6 +91,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final CcToolchainConfigInfo ccToolchainConfigInfo;
   private final String toolchainIdentifier;
   private final FdoProfileProvider fdoProfileProvider;
+  private final FdoProfileProvider xfdoProfileProvider;
   private final Label ccToolchainLabel;
 
   public CcToolchainAttributesProvider(
@@ -142,6 +143,9 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.fdoProfileProvider =
         ruleContext.getPrerequisite(
             CcToolchainRule.FDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
+    this.xfdoProfileProvider =
+        ruleContext.getPrerequisite(
+            CcToolchainRule.XFDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
     this.fdoOptimizeProvider =
         ruleContext.getPrerequisite(
             CcToolchainRule.FDO_OPTIMIZE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
@@ -322,6 +326,10 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   public FdoProfileProvider getFdoProfileProvider() {
     return fdoProfileProvider;
+  }
+
+  public FdoProfileProvider getXFdoProfileProvider() {
+    return xfdoProfileProvider;
   }
 
   public Artifact getZipper() {

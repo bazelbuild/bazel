@@ -528,6 +528,30 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testXFdoOptimizeNotProvider() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'b')",
+        "fdo_profile(name='out.xfdo', profile='profile.xfdo')");
+    useConfiguration("-c", "opt", "--xbinary_fdo=//a:profile.xfdo");
+    assertThat(getConfiguredTarget("//a:b")).isNull();
+    assertContainsEvent("--fdo_profile/--xbinary_fdo input needs to be an fdo_profile rule");
+  }
+
+  @Test
+  public void testXFdoOptimizeRejectAFdoInput() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'b')",
+        "fdo_profile(name='out.afdo', profile='profile.afdo')");
+    useConfiguration("-c", "opt", "--xbinary_fdo=//a:out.afdo");
+    assertThat(getConfiguredTarget("//a:b")).isNull();
+    assertContainsEvent("--xbinary_fdo cannot accept profile input other than *.xfdo");
+  }
+
+  @Test
   public void testZipperInclusionDependsOnFdoOptimization() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
