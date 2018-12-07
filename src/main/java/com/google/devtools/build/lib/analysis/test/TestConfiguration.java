@@ -218,7 +218,7 @@ public class TestConfiguration extends Fragment {
     public Label coverageReportGenerator;
 
     @Option(
-        name = "incompatible_windows_native_test_wrapper",
+        name = "experimental_windows_native_test_wrapper",
         // Design:
         // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
         documentationCategory = OptionDocumentationCategory.TESTING,
@@ -227,10 +227,6 @@ public class TestConfiguration extends Fragment {
         effectTags = {
           OptionEffectTag.LOADING_AND_ANALYSIS,
           OptionEffectTag.TEST_RUNNER,
-        },
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
         },
         defaultValue = "false",
         help =
