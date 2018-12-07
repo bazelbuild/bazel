@@ -35,6 +35,11 @@ public class WindowsSubprocess implements Subprocess {
   // For debugging purposes.
   private String commandLine;
 
+  private static enum WaitResult {
+    SUCCESS,
+    TIMEOUT
+  }
+
   /**
    * Output stream for writing to the stdin of a Windows process.
    */
@@ -126,7 +131,7 @@ public class WindowsSubprocess implements Subprocess {
   private final OutputStream stdinStream;
   private final ProcessInputStream stdoutStream;
   private final ProcessInputStream stderrStream;
-  private final Future<Boolean> processFuture;
+  private final Future<WaitResult> processFuture;
   private final long timeoutMillis;
   private boolean timedout = false;
 
@@ -146,19 +151,17 @@ public class WindowsSubprocess implements Subprocess {
     processFuture = WAITER_POOL.submit(this::waiterThreadFunc);
   }
 
-  // Waits for the process to finish. Returns 'false' if the process exited
-  // normally, 'true' in case of a timeout and throws an IllegalStateException
-  // when stuff goes really wrong.
-  private boolean waiterThreadFunc() {
+  // Waits for the process to finish.
+  private WaitResult waiterThreadFunc() {
     switch (WindowsProcesses.waitFor(nativeProcess, timeoutMillis)) {
       case 0:
         // Excellent, process finished in time.
-        return false;
+        return WaitResult.SUCCESS;
 
       case 1:
         // Timeout. We don't need to call `terminate` here, because waitFor
         // automatically terminates the process in case of a timeout.
-        return true;
+        return WaitResult.TIMEOUT;
 
       default:
         // Error. There isn't a lot we can do -- the process is still alive but
@@ -209,7 +212,7 @@ public class WindowsSubprocess implements Subprocess {
   @Override
   public void waitFor() throws InterruptedException {
     try {
-      timedout = processFuture.get();
+      timedout = processFuture.get() == WaitResult.TIMEOUT;
     } catch (ExecutionException e) {
       Throwables.throwIfUnchecked(e.getCause());
       // This should never happen, because waiterThreadFunc does not throw any
