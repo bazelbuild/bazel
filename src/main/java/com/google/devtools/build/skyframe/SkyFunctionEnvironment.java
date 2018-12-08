@@ -207,21 +207,18 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       boolean assertDone,
       SkyKey keyForDebugging)
       throws InterruptedException, UndonePreviouslyRequestedDep {
-    Set<SkyKey> depKeysAsSet = null;
+    QueryableGraph.PrefetchDepsRequest request = null;
     if (PREFETCH_OLD_DEPS) {
-      if (!oldDeps.isEmpty()) {
-        // Create a set here so that filtering the old deps below is fast. Once we create this set,
-        // we may as well use it for the call to evaluatorContext#getBatchValues since we've
-        // precomputed the size.
-        depKeysAsSet = depKeys.toSet();
-        evaluatorContext.getGraph().prefetchDeps(requestor, oldDeps, depKeysAsSet);
-      }
+      request = new QueryableGraph.PrefetchDepsRequest(requestor, oldDeps, depKeys);
+      evaluatorContext.getGraph().prefetchDeps(request);
     }
     Map<SkyKey, ? extends NodeEntry> batchMap =
         evaluatorContext.getBatchValues(
             requestor,
             Reason.PREFETCH,
-            depKeysAsSet == null ? depKeys.getAllElementsAsIterable() : depKeysAsSet);
+            (request != null && request.excludedKeys != null)
+                ? request.excludedKeys
+                : depKeys.getAllElementsAsIterable());
     if (batchMap.size() != depKeys.numElements()) {
       NodeEntry inFlightEntry = null;
       try {
