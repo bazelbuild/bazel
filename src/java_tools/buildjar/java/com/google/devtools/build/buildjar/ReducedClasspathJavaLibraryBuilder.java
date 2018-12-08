@@ -67,6 +67,7 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
             .toBuilder()
             .transitiveClasspathLength(build.getClassPath().size())
             .reducedClasspathLength(compressedClasspath.size())
+            .minClasspathLength(build.getDependencyModule().getUsedClasspath().size())
             .transitiveClasspathFallback(fallback);
     build.getProcessors().stream()
         .map(p -> p.substring(p.lastIndexOf('.') + 1))

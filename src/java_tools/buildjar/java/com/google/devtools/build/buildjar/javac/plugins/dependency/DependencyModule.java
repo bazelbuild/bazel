@@ -210,8 +210,8 @@ public final class DependencyModule {
     return outputDepsProtoFile;
   }
 
-  @VisibleForTesting
-  Set<Path> getUsedClasspath() {
+  /** Returns the classpath that was actually used during the compilation. */
+  public Set<Path> getUsedClasspath() {
     return usedClasspath;
   }
 

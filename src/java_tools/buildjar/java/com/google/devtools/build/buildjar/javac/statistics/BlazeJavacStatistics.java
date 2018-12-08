@@ -65,6 +65,7 @@ public abstract class BlazeJavacStatistics {
     return new AutoValue_BlazeJavacStatistics.Builder()
         .transitiveClasspathLength(0)
         .reducedClasspathLength(0)
+        .minClasspathLength(0)
         .transitiveClasspathFallback(false);
   }
 
@@ -80,6 +81,8 @@ public abstract class BlazeJavacStatistics {
   public abstract int transitiveClasspathLength();
 
   public abstract int reducedClasspathLength();
+
+  public abstract int minClasspathLength();
 
   public abstract boolean transitiveClasspathFallback();
 
@@ -114,6 +117,8 @@ public abstract class BlazeJavacStatistics {
     public abstract Builder transitiveClasspathLength(int length);
 
     public abstract Builder reducedClasspathLength(int length);
+
+    public abstract Builder minClasspathLength(int length);
 
     public abstract Builder transitiveClasspathFallback(boolean fallback);
 
