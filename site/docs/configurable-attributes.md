@@ -698,7 +698,7 @@ Instantiate the rule and macro:
 ```python
 # myproject/BUILD
 
-load("//myproject:defx.bzl", "my_custom_bazel_rule")
+load("//myproject:defs.bzl", "my_custom_bazel_rule")
 load("//myproject:defs.bzl", "my_custom_bazel_macro")
 
 my_custom_bazel_rule(
