@@ -324,13 +324,13 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   /**
-   * Returns {@code true} if this node is eligible to be change pruned when its value has not
+   * Returns {@code true} if this node is eligible to be change-pruned when its value has not
    * changed from the last build.
    *
-   * <p>Implementations need not check whether the value has changed - this will only be called if
-   * the value has not changed.
+   * <p>Implementations need not check whether the value has changed - nodes will only be
+   * change-pruned if the value has not changed.
    */
-  protected boolean isEligibleForChangePruning() {
+  public boolean isEligibleForChangePruning() {
     return true;
   }
 

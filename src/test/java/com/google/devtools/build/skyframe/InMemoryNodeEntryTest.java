@@ -613,7 +613,7 @@ public class InMemoryNodeEntryTest {
     NodeEntry entry =
         new InMemoryNodeEntry() {
           @Override
-          protected boolean isEligibleForChangePruning() {
+          public boolean isEligibleForChangePruning() {
             return false;
           }
         };
