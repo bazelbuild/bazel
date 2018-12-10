@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -35,11 +34,8 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaImplicitAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.io.Serializable;
 
 /**
  * Rule definition for the genrule rule, intended to be inherited by specific GenRule
@@ -74,27 +70,6 @@ public class GenRuleBaseRule implements RuleDefinition {
             : null;
       }
     };
-  }
-
-  /**
-   * Late-bound dependency on the host JDK <i>iff</i> the genrule has make variables that need the
-   * host JDK.
-   */
-  public static LabelLateBoundDefault<?> maybeHostJdk(RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromHostConfiguration(
-        JavaConfiguration.class,
-        env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
-        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
-            // null guards are needed for LateBoundAttributeTest
-            (rule, attributes, configuration) -> {
-              if (attributes != null) {
-                String cmd = attributes.get("cmd", Type.STRING);
-                if (cmd != null && GenRuleBase.requiresJdk(cmd)) {
-                  return configuration.getRuntimeLabel();
-                }
-              }
-              return null;
-            });
   }
 
   @Override

@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 
 /**
  * Rule definition for genrule for Bazel.
@@ -48,7 +46,6 @@ public final class BazelGenRuleRule implements RuleDefinition {
             attr("$genrule_setup", LABEL)
                 .cfg(HostTransition.INSTANCE)
                 .value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
-        .requiresConfigurationFragments(JavaConfiguration.class)
 
         // TODO(bazel-team): stamping doesn't seem to work. Fix it or remove attribute.
         .add(attr("stamp", BOOLEAN).value(false))
@@ -59,11 +56,6 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(GenRuleBaseRule.ccToolchainTypeAttribute(env)))
-        .add(
-            attr(":host_jdk", LABEL)
-                .cfg(HostTransition.INSTANCE)
-                .value(GenRuleBaseRule.maybeHostJdk(env))
-                .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
         .build();
   }
 

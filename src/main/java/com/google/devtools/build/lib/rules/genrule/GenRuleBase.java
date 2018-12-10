@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -62,23 +61,15 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   private static final ImmutableList<String> CROSSTOOL_MAKE_VARIABLES = ImmutableList.of("CC",
       "CC_FLAGS", "AR", "NM", "OBJCOPY", "STRIP", "GCOVTOOL");
 
-  private static final ImmutableList<String> JDK_MAKE_VARIABLES = ImmutableList.of("JAVABASE",
-      "JAVA");
-
   private static Pattern matchesMakeVariables(Iterable<String> variables) {
     return Pattern.compile("\\$\\((" + Joiner.on("|").join(variables) + ")\\)");
   }
 
   private static final Pattern CROSSTOOL_MAKE_VARIABLE_PATTERN =
       matchesMakeVariables(CROSSTOOL_MAKE_VARIABLES);
-  private static final Pattern JDK_MAKE_VARIABLE = matchesMakeVariables(JDK_MAKE_VARIABLES);
 
   protected static boolean requiresCrosstool(String command) {
     return CROSSTOOL_MAKE_VARIABLE_PATTERN.matcher(command).find();
-  }
-
-  protected static boolean requiresJdk(String command) {
-    return JDK_MAKE_VARIABLE.matcher(command).find();
   }
 
   /**
@@ -217,11 +208,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       inputs.addTransitive(
           CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
               .getCrosstoolMiddleman());
-    }
-    if (requiresJdk(baseCommand)) {
-      // If javac is used, silently throw in the jdk filegroup as a dependency.
-      // Note we expand Java-related variables with the *host* configuration.
-      inputs.addTransitive(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman());
     }
 
     if (isStampingEnabled(ruleContext)) {
