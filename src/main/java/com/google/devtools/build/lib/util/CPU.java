@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import javax.annotation.Nullable;
 
 /**
  * Detects the CPU of the running JVM and returns a describing enum value.
@@ -37,15 +39,26 @@ public enum CPU {
     this.archs = archs;
   }
 
+  public String getCanonicalName() {
+    return canonicalName;
+  }
+
+  private static final CPU HOST_CPU = determineCurrentCpu();
+  @Nullable private static CPU cpuForTesting = null;
+
   /**
    * The current CPU.
    */
   public static CPU getCurrent() {
+    if (cpuForTesting != null) {
+      return cpuForTesting;
+    }
     return HOST_CPU;
   }
 
-  public String getCanonicalName() {
-    return canonicalName;
+  @VisibleForTesting
+  public static void setForTesting(@Nullable CPU cpu) {
+    cpuForTesting = cpu;
   }
 
   private static CPU determineCurrentCpu() {
@@ -59,6 +72,4 @@ public enum CPU {
 
     return CPU.UNKNOWN;
   }
-
-  private static final CPU HOST_CPU = determineCurrentCpu();
 }

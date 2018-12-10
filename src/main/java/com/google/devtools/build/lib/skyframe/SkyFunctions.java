@@ -146,6 +146,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("RESOLVED_FILE");
   public static final SkyFunctionName RESOLVED_HASH_VALUES =
       SkyFunctionName.createHermetic("RESOLVED_HASH_VALUES");
+  public static final SkyFunctionName LOCAL_CONFIG_PLATFORM =
+      SkyFunctionName.createHermetic("LOCAL_CONFIG_PLATFORM");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

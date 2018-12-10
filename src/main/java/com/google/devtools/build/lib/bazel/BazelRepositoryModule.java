@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.bazel.repository.GitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpFileFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpJarFunction;
+import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
+import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.repository.MavenDownloader;
 import com.google.devtools.build.lib.bazel.repository.MavenJarFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenServerFunction;
@@ -140,6 +142,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
         .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
         .put(MavenServerRule.NAME, new MavenServerRepositoryFunction())
+        .put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction())
         .build();
   }
 

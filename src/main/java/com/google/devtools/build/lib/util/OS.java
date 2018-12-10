@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.EnumSet;
+import javax.annotation.Nullable;
 
 /**
  * Detects the running operating system and returns a describing enum value.
@@ -35,28 +37,39 @@ public enum OS {
     this.detectionName = detectionName;
   }
 
+  public String getCanonicalName() {
+    return canonicalName;
+  }
+
+  @Override
+  public String toString() {
+    return getCanonicalName();
+  }
+
+  private static final OS HOST_SYSTEM = determineCurrentOs();
+  @Nullable private static OS osForTesting = null;
+
   /**
    * The current operating system.
    */
   public static OS getCurrent() {
+    if (osForTesting != null) {
+      return osForTesting;
+    }
     return HOST_SYSTEM;
+  }
+
+  @VisibleForTesting
+  public static void setForTesting(OS os) {
+    osForTesting = os;
   }
 
   public static boolean isPosixCompatible() {
     return POSIX_COMPATIBLE.contains(getCurrent());
   }
 
-  public String getCanonicalName() {
-    return canonicalName;
-  }
-
   public static String getVersion() {
     return System.getProperty("os.version");
-  }
-
-  @Override
-  public String toString() {
-    return getCanonicalName();
   }
 
   // We inject a the OS name through blaze.os, so we can have
@@ -80,6 +93,4 @@ public enum OS {
 
     return OS.UNKNOWN;
   }
-
-  private static final OS HOST_SYSTEM = determineCurrentOs();
 }

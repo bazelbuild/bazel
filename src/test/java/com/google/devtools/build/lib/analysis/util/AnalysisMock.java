@@ -120,23 +120,38 @@ public abstract class AnalysisMock extends LoadingMock {
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     // Some tests require the local_repository rule so we need the appropriate SkyFunctions.
-    RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers = ImmutableMap.of(
-        LocalRepositoryRule.NAME, localRepositoryFunction,
-        AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction(),
-        AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
+    ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
+        new ImmutableMap.Builder<String, RepositoryFunction>()
+            .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
+            .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
+            .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
+
+    addExtraRepositoryFunctions(repositoryHandlers);
 
     return ImmutableMap.of(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(
-            repositoryHandlers, null, new AtomicBoolean(true), ImmutableMap::of, directories),
+            repositoryHandlers.build(),
+            null,
+            new AtomicBoolean(true),
+            ImmutableMap::of,
+            directories),
         SkyFunctions.REPOSITORY,
         new RepositoryLoaderFunction(),
         CcSkyframeSupportValue.SKYFUNCTION,
         new CcSkyframeSupportFunction(directories));
   }
 
+  // Allow subclasses to add extra repository functions.
+  public abstract void addExtraRepositoryFunctions(
+      ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers);
+
+  /**
+   * Stub class for tests to extend in order to update a small amount of {@link AnalysisMock}
+   * functionality.
+   */
   public static class Delegate extends AnalysisMock {
+
     private final AnalysisMock delegate;
 
     public Delegate(AnalysisMock delegate) {
@@ -192,6 +207,12 @@ public abstract class AnalysisMock extends LoadingMock {
     public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
         BlazeDirectories directories) {
       return delegate.getSkyFunctions(directories);
+    }
+
+    @Override
+    public void addExtraRepositoryFunctions(
+        ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers) {
+      delegate.addExtraRepositoryFunctions(repositoryHandlers);
     }
   }
 }

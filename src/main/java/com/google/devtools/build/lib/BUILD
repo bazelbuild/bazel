@@ -139,6 +139,10 @@ java_library(
 java_library(
     name = "os_util",
     srcs = ["util/OS.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(
