@@ -20,7 +20,7 @@ decouple their rule logic from platform-based selection of tools. It is
 recommended to read the
 [rules](skylark/rules.html)
 and
-[platforms](platforms.html).
+[platforms](platforms.html)
 pages before continuing. This page covers why toolchains are needed, how to
 define and use them, and how Bazel selects an appropriate toolchain based on
 platform constraints.
