@@ -698,7 +698,7 @@ Instantiate the rule and macro:
 ```python
 # myproject/BUILD
 
-load("//myproject:defx.bzl", "my_custom_bazel_rule")
+load("//myproject:defs.bzl", "my_custom_bazel_rule")
 load("//myproject:defs.bzl", "my_custom_bazel_macro")
 
 my_custom_bazel_rule(
@@ -795,7 +795,7 @@ def my_boolean_macro(boolval):
   print("TRUE" if boolval else "FALSE")
 
 $ cat myproject/BUILD
-load("//myproject:defx.bzl", "my_boolean_macro")
+load("//myproject:defs.bzl", "my_boolean_macro")
 my_boolean_macro(
     boolval = select({
         "//tools/target_cpu:x86": True,
