@@ -358,6 +358,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact oneVersionEnforcementArtifact)
       throws InterruptedException, RuleErrorException {
 
+    List<ProguardSpecProvider> proguardDeps = new ArrayList<>();
+    Iterables.addAll(
+        proguardDeps,
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.PROVIDER));
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()
+        && ruleContext.attributes().has("$jacoco-runtime", BuildType.LABEL)) {
+      proguardDeps.add(
+          ruleContext.getPrerequisite(
+              "$jacoco_runtime", Mode.TARGET, ProguardSpecProvider.PROVIDER));
+    }
     ImmutableList<Artifact> proguardSpecs =
         getProguardSpecs(
             dataContext,
@@ -370,7 +380,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                     .list()
                 : ImmutableList.<Artifact>of(),
             ruleContext.getPrerequisiteArtifacts(":extra_proguard_specs", Mode.TARGET).list(),
-            ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.PROVIDER));
+            proguardDeps);
 
     // TODO(bazel-team): Verify that proguard spec files don't contain -printmapping directions
     // which this -printmapping command line flag will override.
