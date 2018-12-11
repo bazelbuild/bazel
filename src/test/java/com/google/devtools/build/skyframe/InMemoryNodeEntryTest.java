@@ -613,7 +613,7 @@ public class InMemoryNodeEntryTest {
     NodeEntry entry =
         new InMemoryNodeEntry() {
           @Override
-          public boolean isEligibleForChangePruning() {
+          public boolean isEligibleForChangePruningOnUnchangedValue() {
             return false;
           }
         };
@@ -756,7 +756,7 @@ public class InMemoryNodeEntryTest {
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
     addTemporaryDirectDep(entry, originalChild);
     entry.signalDep();
-    entry.setValue(originalValue, version);
+    entry.setValue(originalValue, version, null);
     entry.addReverseDepAndCheckIfDone(key("parent1"));
     InMemoryNodeEntry clone1 = entry.cloneNodeEntry();
     entry.addReverseDepAndCheckIfDone(key("parent2"));
@@ -770,7 +770,7 @@ public class InMemoryNodeEntryTest {
     addTemporaryDirectDep(clone2, newChild);
     clone2.signalDep();
     clone2.markRebuilding();
-    clone2.setValue(updatedValue, version.next());
+    clone2.setValue(updatedValue, version.next(), null);
 
     assertThat(entry.getVersion()).isEqualTo(version);
     assertThat(clone1.getVersion()).isEqualTo(version);
@@ -813,7 +813,7 @@ public class InMemoryNodeEntryTest {
         entry.signalDep();
       }
     }
-    entry.setValue(new IntegerValue(42), IntVersion.of(42L));
+    entry.setValue(new IntegerValue(42), IntVersion.of(42L), null);
     int i = 0;
     GroupedList<SkyKey> entryGroupedDirectDeps = entry.getGroupedDirectDeps();
     assertThat(Iterables.size(entryGroupedDirectDeps)).isEqualTo(groupedDirectDeps.size());
@@ -827,7 +827,8 @@ public class InMemoryNodeEntryTest {
       throws InterruptedException {
     return entry.setValue(
         ValueWithMetadata.normal(value, errorInfo, NO_EVENTS, NO_POSTS),
-        IntVersion.of(graphVersion));
+        IntVersion.of(graphVersion),
+        null);
   }
 
   private static void addTemporaryDirectDep(NodeEntry entry, SkyKey key) {

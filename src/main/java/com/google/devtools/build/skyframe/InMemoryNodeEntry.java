@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.devtools.build.skyframe.KeyToConsolidate.OpToStoreBare;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -295,13 +296,21 @@ public class InMemoryNodeEntry implements NodeEntry {
   // although this method itself is synchronized, there are unsynchronized consumers of the version
   // and the value.
   @Override
-  public synchronized Set<SkyKey> setValue(SkyValue value, Version version)
+  public synchronized Set<SkyKey> setValue(
+      SkyValue value, Version version, DepFingerprintList depFingerprintList)
       throws InterruptedException {
     Preconditions.checkState(isReady(), "%s %s", this, value);
+    if (depFingerprintList != null) {
+      logError(
+          new IllegalStateException(
+              String.format(
+                  "Expect no depFingerprintList here: %s %s %s %s",
+                  this, depFingerprintList, value, version)));
+    }
     assertVersionCompatibleWhenSettingValue(version, value);
     this.lastEvaluatedVersion = version;
 
-    if (!isEligibleForChangePruning()) {
+    if (!isEligibleForChangePruningOnUnchangedValue()) {
       this.lastChangedVersion = version;
       this.value = value;
     } else if (isDirty() && getDirtyBuildingState().unchangedFromLastBuild(value)) {
@@ -324,13 +333,13 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   /**
-   * Returns {@code true} if this node is eligible to be change-pruned when its value has not
+   * Returns {@code true} if this node is eligible to be change pruned when its value has not
    * changed from the last build.
    *
-   * <p>Implementations need not check whether the value has changed - nodes will only be
-   * change-pruned if the value has not changed.
+   * <p>Implementations need not check whether the value has changed - this will only be called if
+   * the value has not changed.
    */
-  public boolean isEligibleForChangePruning() {
+  public boolean isEligibleForChangePruningOnUnchangedValue() {
     return true;
   }
 
@@ -624,8 +633,36 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
+  public boolean canPruneDepsByFingerprint() {
+    return false;
+  }
+
+  @Nullable
+  @Override
+  public Iterable<SkyKey> getLastDirectDepsGroupWhenPruningDepsByFingerprint()
+      throws InterruptedException {
+    throw new UnsupportedOperationException(this.toString());
+  }
+
+  @Override
+  public boolean unmarkNeedsRebuildingIfGroupUnchangedUsingFingerprint(
+      BigInteger groupFingerprint) {
+    throw new UnsupportedOperationException(this.toString());
+  }
+
+  /**
+   * If this entry {@link #canPruneDepsByFingerprint} and has that data, returns a list of dep group
+   * fingerprints. Otherwise returns null.
+   */
+  @Nullable
+  public DepFingerprintList getDepFingerprintList() {
+    Preconditions.checkState(isDone(), this);
+    return null;
+  }
+
+  @Override
   public synchronized void markRebuilding() {
-    getDirtyBuildingState().markRebuilding(isEligibleForChangePruning());
+    getDirtyBuildingState().markRebuilding(isEligibleForChangePruningOnUnchangedValue());
   }
 
   @SuppressWarnings("unchecked")
@@ -715,8 +752,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     return signaledDeps > NOT_EVALUATING_SENTINEL;
   }
 
-  @Override
-  public synchronized String toString() {
+  protected synchronized MoreObjects.ToStringHelper toStringHelper() {
     return MoreObjects.toStringHelper(this)
         .add("identity", System.identityHashCode(this))
         .add("value", value)
@@ -725,8 +761,12 @@ public class InMemoryNodeEntry implements NodeEntry {
         .add("directDeps", isDone() ? GroupedList.create(directDeps) : directDeps)
         .add("signaledDeps", signaledDeps)
         .add("reverseDeps", ReverseDepsUtility.toString(this))
-        .add("dirtyBuildingState", dirtyBuildingState)
-        .toString();
+        .add("dirtyBuildingState", dirtyBuildingState);
+  }
+
+  @Override
+  public final synchronized String toString() {
+    return toStringHelper().toString();
   }
 
   protected synchronized InMemoryNodeEntry cloneNodeEntry(InMemoryNodeEntry newEntry) {

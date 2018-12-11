@@ -683,7 +683,10 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
         prevEntry.markRebuilding();
       }
-      prevEntry.setValue(value, version);
+      prevEntry.setValue(
+          value,
+          version,
+          prevEntry.canPruneDepsByFingerprint() ? new DepFingerprintList.Builder(0).build() : null);
       // Now that this key's injected value is set, it is no longer dirty.
       progressReceiver.injected(key);
     }

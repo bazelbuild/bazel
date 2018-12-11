@@ -19,6 +19,7 @@ java_library(
     visibility = ["//visibility:public"],
     deps = [
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

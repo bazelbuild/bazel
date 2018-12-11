@@ -149,6 +149,15 @@ public abstract class DirtyBuildingState {
     }
   }
 
+  public final void unmarkNeedsRebuilding() {
+    Preconditions.checkState(dirtyState == DirtyState.NEEDS_REBUILDING, this);
+    if (getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex) {
+      dirtyState = DirtyState.VERIFIED_CLEAN;
+    } else {
+      dirtyState = DirtyState.CHECK_DEPENDENCIES;
+    }
+  }
+
   /**
    * Returns true if {@code newValue}.equals the value from the last time this node was built.
    * Should only be used by {@link NodeEntry#setValue}.
@@ -217,6 +226,10 @@ public abstract class DirtyBuildingState {
   protected void markRebuilding(boolean isEligibleForChangePruning) {
     Preconditions.checkState(dirtyState == DirtyState.NEEDS_REBUILDING, this);
     dirtyState = DirtyState.REBUILDING;
+  }
+
+  public int getLastDirtyDirectDepIndex() {
+    return dirtyDirectDepIndex - 1;
   }
 
   protected MoreObjects.ToStringHelper getStringHelper() {

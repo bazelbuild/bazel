@@ -38,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDep;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
+import java.math.BigInteger;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Iterator;
@@ -316,7 +317,21 @@ public abstract class AbstractParallelEvaluator {
               skyKey, reverseDeps, state.getVersion(), EnqueueParentBehavior.ENQUEUE);
           return DirtyOutcome.ALREADY_PROCESSED;
         case NEEDS_REBUILDING:
-          maybeMarkRebuilding(state);
+          if (state.canPruneDepsByFingerprint()) {
+            Iterable<SkyKey> lastDirectDepsKeys =
+                state.getLastDirectDepsGroupWhenPruningDepsByFingerprint();
+            if (lastDirectDepsKeys != null) {
+              BigInteger groupFingerprint =
+                  composeDepFingerprints(
+                      lastDirectDepsKeys,
+                      evaluatorContext.getBatchValues(
+                          skyKey, Reason.DEP_REQUESTED, lastDirectDepsKeys));
+              if (state.unmarkNeedsRebuildingIfGroupUnchangedUsingFingerprint(groupFingerprint)) {
+                return maybeHandleDirtyNode(state);
+              }
+            }
+          }
+          state.markRebuilding();
           return DirtyOutcome.NEEDS_EVALUATION;
         case NEEDS_FORCED_REBUILDING:
           state.forceRebuild();
@@ -853,6 +868,31 @@ public abstract class AbstractParallelEvaluator {
       evaluatorContext.getVisitor().enqueueEvaluation(depKey, Integer.MAX_VALUE);
     }
     return true;
+  }
+
+  static BigInteger composeDepFingerprints(
+      Iterable<SkyKey> directDepGroup, Map<SkyKey, ? extends NodeEntry> depEntries)
+      throws InterruptedException {
+    BigInteger groupFingerprint = BigInteger.ZERO;
+    for (SkyKey dep : directDepGroup) {
+      NodeEntry depEntry = depEntries.get(dep);
+      if (!isDoneForBuild(depEntry)) {
+        // Something weird happened: maybe something fell out of graph or was restarted?
+        return null;
+      }
+      SkyValue depValue = depEntry.getValue();
+      if (depValue == null) {
+        return null;
+      }
+      BigInteger depFingerprint = depValue.getValueFingerprint();
+      if (depFingerprint == null) {
+        // TODO(janakr): Use transitive data here.
+        return null;
+      }
+      groupFingerprint =
+          BigIntegerFingerprintUtils.composeOrdered(groupFingerprint, depFingerprint);
+    }
+    return groupFingerprint;
   }
 
   /**

@@ -26,9 +26,11 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.skyframe.BigIntegerFingerprintUtils;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -100,6 +102,17 @@ public abstract class FileArtifactValue implements SkyValue {
    * and should be called.
    */
   public abstract long getModifiedTime();
+
+  @Nullable
+  @Override
+  public BigInteger getValueFingerprint() {
+    byte[] digest = getDigest();
+    if (digest != null) {
+      return BigIntegerFingerprintUtils.fingerprintOf(digest);
+    }
+    // TODO(janakr): return fingerprint in other cases: symlink, directory.
+    return null;
+  }
 
   /**
    * Index used to resolve remote files.
