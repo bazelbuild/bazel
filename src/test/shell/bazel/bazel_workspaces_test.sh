@@ -277,8 +277,8 @@ function test_symlink() {
   ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'symlink_event' 1
-  ensure_contains_exactly 'from: ".*symlink.txt"' 1
-  ensure_contains_exactly 'to: ".*symlink_out.txt"' 1
+  ensure_contains_exactly 'target: ".*symlink.txt"' 1
+  ensure_contains_exactly 'path: ".*symlink_out.txt"' 1
 }
 
 function test_template() {
