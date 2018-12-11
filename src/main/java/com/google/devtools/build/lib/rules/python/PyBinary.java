@@ -85,10 +85,6 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
         .merge(commonRunfiles);
     semantics.collectDefaultRunfilesForBinary(ruleContext, defaultRunfilesBuilder);
-
-    Artifact realExecutable =
-        semantics.createExecutable(ruleContext, common, ccInfo, imports, defaultRunfilesBuilder);
-
     Runfiles defaultRunfiles = defaultRunfilesBuilder.build();
 
     RunfilesSupport runfilesSupport =
@@ -124,6 +120,8 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     common.addCommonTransitiveInfoProviders(builder, semantics, common.getFilesToBuild(), imports);
 
     semantics.postInitBinary(ruleContext, runfilesSupport, common);
+
+    Artifact realExecutable = semantics.createExecutable(ruleContext, common, ccInfo, imports);
 
     return builder
         .setFilesToBuild(common.getFilesToBuild())
