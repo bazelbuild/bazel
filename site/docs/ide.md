@@ -40,11 +40,17 @@ See [installation steps on GitHub](https://github.com/bazelbuild/eclipse#install
 
 ### Visual Studio Code
 
-*Status*: not officially supported by the Bazel team.
+*Status*: Officially supported by the Bazel team.
 
-Provides syntax highlighting and formatting for Bazel `BUILD` and `WORKSPACE` files.
+Features:
 
-See [Bazel in Visual Studio marketplace](https://marketplace.visualstudio.com/items?itemName=DevonDCarew.bazel-code)
+* Bazel Build Targets tree
+* Starlark debugger for .bzl files during a build (set breakpoints, step through code, inspect variables, etc.)
+
+See [vscode-bazel in Visual Studio marketplace](https://marketplace.visualstudio.com/items?itemName=BazelBuild.vscode-bazel)
+
+There is also an unofficial plugin that provides syntax highlighting and
+formatting for Bazel `BUILD` and `WORKSPACE` files: [bazel-code](https://marketplace.visualstudio.com/items?itemName=DevonDCarew.bazel-code)
 
 
 ### Atom
