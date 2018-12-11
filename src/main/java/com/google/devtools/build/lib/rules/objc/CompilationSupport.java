@@ -600,8 +600,6 @@ public class CompilationSupport {
 
   static final ImmutableList<String> DEFAULT_COMPILER_FLAGS = ImmutableList.of("-DOS_IOS");
 
-  static final ImmutableList<String> DEFAULT_LINKER_FLAGS = ImmutableList.of("-ObjC");
-
   /**
    * Set of {@link com.google.devtools.build.lib.util.FileType} of source artifacts that are
    * compatible with header thinning.
