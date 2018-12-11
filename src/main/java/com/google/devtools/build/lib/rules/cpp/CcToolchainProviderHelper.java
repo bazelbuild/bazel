@@ -693,7 +693,8 @@ public class CcToolchainProviderHelper {
               configInfo,
               cppConfiguration.disableLegacyCrosstoolFields(),
               cppConfiguration.disableCompilationModeFlags(),
-              cppConfiguration.disableLinkingModeFlags());
+              cppConfiguration.disableLinkingModeFlags(),
+              cppConfiguration.disableGenruleCcToolchainDependency());
         } catch (EvalException e) {
           throw ruleContext.throwWithRuleError(e.getMessage());
         }
@@ -723,7 +724,8 @@ public class CcToolchainProviderHelper {
           ccToolchainConfigInfo,
           cppConfiguration.disableLegacyCrosstoolFields(),
           cppConfiguration.disableCompilationModeFlags(),
-          cppConfiguration.disableLinkingModeFlags());
+          cppConfiguration.disableLinkingModeFlags(),
+          cppConfiguration.disableGenruleCcToolchainDependency());
     } catch (EvalException e) {
       throw ruleContext.throwWithRuleError(e.getMessage());
     }

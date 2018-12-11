@@ -103,7 +103,6 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     TemplateVariableInfo templateVariableInfo =
         CcToolchain.createMakeVariableProvider(
             ccToolchainProvider,
-            ccToolchainProvider.getSysrootPathFragment(),
             ruleContext.getRule().getLocation());
 
     RuleConfiguredTargetBuilder builder =

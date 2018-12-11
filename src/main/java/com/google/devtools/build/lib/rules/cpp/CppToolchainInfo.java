@@ -114,7 +114,8 @@ public final class CppToolchainInfo {
       CcToolchainConfigInfo ccToolchainConfigInfo,
       boolean disableLegacyCrosstoolFields,
       boolean disableCompilationModeFlags,
-      boolean disableLinkingModeFlags)
+      boolean disableLinkingModeFlags,
+      boolean disableGenruleCcToolchainDependency)
       throws EvalException {
     ImmutableMap<String, PathFragment> toolPaths =
         computeToolPaths(ccToolchainConfigInfo, getToolsDirectory(toolchainLabel));
@@ -225,7 +226,8 @@ public final class CppToolchainInfo {
           "_solib_" + ccToolchainConfigInfo.getTargetCpu(),
           ccToolchainConfigInfo.getAbiVersion(),
           ccToolchainConfigInfo.getTargetSystemName(),
-          computeAdditionalMakeVariables(ccToolchainConfigInfo),
+          computeAdditionalMakeVariables(
+              ccToolchainConfigInfo, disableGenruleCcToolchainDependency),
           disableLegacyCrosstoolFields
               ? ImmutableList.of()
               : ccToolchainConfigInfo.getCompilerFlags(),
@@ -743,15 +745,21 @@ public final class CppToolchainInfo {
   }
 
   private static ImmutableMap<String, String> computeAdditionalMakeVariables(
-      CcToolchainConfigInfo ccToolchainConfigInfo) {
+      CcToolchainConfigInfo ccToolchainConfigInfo, boolean disableGenruleCcToolchainDependency) {
     Map<String, String> makeVariablesBuilder = new HashMap<>();
     // The following are to be used to allow some build rules to avoid the limits on stack frame
-    // sizes and variable-length arrays. Ensure that these are always set.
+    // sizes and variable-length arrays.
+    // These variables are initialized here, but may be overridden by the getMakeVariables() checks.
     makeVariablesBuilder.put("STACK_FRAME_UNLIMITED", "");
     makeVariablesBuilder.put(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, "");
     for (Pair<String, String> variable : ccToolchainConfigInfo.getMakeVariables()) {
       makeVariablesBuilder.put(variable.getFirst(), variable.getSecond());
     }
+
+    if (disableGenruleCcToolchainDependency) {
+      makeVariablesBuilder.remove(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME);
+    }
+
     return ImmutableMap.copyOf(makeVariablesBuilder);
   }
 

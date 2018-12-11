@@ -787,6 +787,21 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, cpu transformer is not used for CppConfiguration")
   public boolean doNotUseCpuTransformer;
 
+  @Option(
+      name = "incompatible_disable_genrule_cc_toolchain_dependency",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, genrule will no longer automatically depend on the cc toolchain. Specifically, "
+              + "this means that the CC_FLAGS Make variable will not be available without using "
+              + "the new cc_flags_supplier rule.")
+  public boolean disableGenruleCcToolchainDependency;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -828,8 +843,8 @@ public class CppOptions extends FragmentOptions {
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
     host.doNotUseCpuTransformer = doNotUseCpuTransformer;
-
     host.enableCcToolchainConfigInfoFromSkylark = enableCcToolchainConfigInfoFromSkylark;
+    host.disableGenruleCcToolchainDependency = disableGenruleCcToolchainDependency;
 
     return host;
   }

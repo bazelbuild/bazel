@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -148,10 +149,19 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     String baseCommand = ruleContext.attributes().get("cmd", Type.STRING);
     // Expand template variables and functions.
-    String command = ruleContext
-        .getExpander(new CommandResolverContext(ruleContext, resolvedSrcs, filesToBuild))
-        .withExecLocations(commandHelper.getLabelMap())
-        .expand("cmd", baseCommand);
+    ImmutableList.Builder<MakeVariableSupplier> makeVariableSuppliers =
+        new ImmutableList.Builder<>();
+    if (GenRuleBaseRule.enableCcToolchain(ruleContext.getConfiguration())) {
+      makeVariableSuppliers.add(new CcFlagsSupplier(ruleContext));
+    }
+    CommandResolverContext commandResolverContext =
+        new CommandResolverContext(
+            ruleContext, resolvedSrcs, filesToBuild, makeVariableSuppliers.build());
+    String command =
+        ruleContext
+            .getExpander(commandResolverContext)
+            .withExecLocations(commandHelper.getLabelMap())
+            .expand("cmd", baseCommand);
 
     // Heuristically expand things that look like labels.
     if (ruleContext.attributes().get("heuristic_label_expansion", Type.BOOLEAN)) {
@@ -203,7 +213,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             ImmutableMap.copyOf(executionInfo));
 
     // TODO(bazel-team): Make the make variable expander pass back a list of these.
-    if (requiresCrosstool(baseCommand)) {
+    if (GenRuleBaseRule.enableCcToolchain(ruleContext.getConfiguration())
+        && requiresCrosstool(baseCommand)) {
       // If cc is used, silently throw in the crosstool filegroup as a dependency.
       inputs.addTransitive(
           CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
@@ -276,12 +287,13 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     public CommandResolverContext(
         RuleContext ruleContext,
         NestedSet<Artifact> resolvedSrcs,
-        NestedSet<Artifact> filesToBuild) {
+        NestedSet<Artifact> filesToBuild,
+        Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
       super(
           ruleContext,
           ruleContext.getRule().getPackage(),
           ruleContext.getConfiguration(),
-          ImmutableList.of(new CcFlagsSupplier(ruleContext)));
+          makeVariableSuppliers);
       this.ruleContext = ruleContext;
       this.resolvedSrcs = resolvedSrcs;
       this.filesToBuild = filesToBuild;
