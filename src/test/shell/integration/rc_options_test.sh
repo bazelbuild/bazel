@@ -101,4 +101,28 @@ function test_options_override() {
   expect_not_log '^xxxxxxxxxxx'
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/6138
+# Assert that Bazel reports RC files that it does not read, but doesn't report
+# RC files that it does read. In particular, Bazel should report and ignore
+# "tools/bazel.rc" but should not report and not ignore "./.bazelrc".
+function test_rc_files_no_longer_read() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg/tools || fail "mkdir $pkg/tools"
+  touch $pkg/WORKSPACE
+  echo "build --explain explain.txt" > "$pkg/.bazelrc"
+  echo "build --build_event_binary_file build_event_binary" > "$pkg/tools/bazel.rc"
+  echo "sh_binary(name = 'x', srcs = ['x.sh'])" > $pkg/BUILD
+  echo -e "#!/bin/sh\necho 'hello'" > $pkg/x.sh
+  chmod +x $pkg/x.sh
+  (
+    cd "$pkg"
+    bazel --max_idle_secs=1 build //:x >&$TEST_log || fail "expected success"
+  )
+  [[ -f "$pkg/explain.txt" ]] || fail "expected .bazelrc to be read"
+  [[ -f "$pkg/build_event_binary" ]] && fail "expected tools/bazel.rc not to be read" || true
+  expect_log "The following rc files are no longer being read"
+  expect_log "$pkg[/\\\\]tools[/\\\\]bazel\\.rc$"
+  expect_not_log "$pkg[/\\\\]\\.bazelrc$"
+}
+
 run_suite "Integration tests for rc options handling"

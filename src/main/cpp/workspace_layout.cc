@@ -64,7 +64,8 @@ std::string WorkspaceLayout::GetWorkspaceRcPath(
   // TODO(b/36168162): Rename and remove the tools/ prefix. See
   // https://github.com/bazelbuild/bazel/issues/4502#issuecomment-372697374
   // for the final set of bazelrcs we want to have.
-  return blaze_util::JoinPath(workspace, "tools/bazel.rc");
+  return blaze_util::MakeCanonical(
+      blaze_util::JoinPath(workspace, "tools/bazel.rc").c_str());
 }
 
 bool WorkspaceLayout::WorkspaceRelativizeRcFilePath(const string &workspace,

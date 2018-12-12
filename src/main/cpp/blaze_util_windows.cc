@@ -406,6 +406,12 @@ string GetOutputRoot() {
 }
 
 string GetHomeDir() {
+  if (IsRunningInsideOfTest()) {
+    // Bazel is running inside of a test. Respect $HOME that the test setup has
+    // set instead of using the actual home directory of the current user.
+    return GetEnv("HOME");
+  }
+
   PWSTR wpath;
   // Look up the user's home directory. The default value of "FOLDERID_Profile"
   // is the same as %USERPROFILE%, but it does not require the envvar to be set.

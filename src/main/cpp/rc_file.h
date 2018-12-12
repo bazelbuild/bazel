@@ -42,6 +42,7 @@ class RcFile {
       std::string workspace, ParseError* error, std::string* error_text);
 
   // Returns all relevant rc sources for this file (including itself).
+  // Paths in the result were canonicalized using blaze_util::MakeCanonical.
   const std::deque<std::string>& sources() const { return rcfile_paths_; }
 
   // Command -> all options for that command (in order of appearance).

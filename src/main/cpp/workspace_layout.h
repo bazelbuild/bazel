@@ -48,7 +48,7 @@ class WorkspaceLayout {
   // Returns if workspace is a valid build workspace.
   virtual bool InWorkspace(const std::string& workspace) const;
 
-  // Returns the path of the workspace rc file.
+  // Returns the canonical path of the workspace rc file.
   virtual std::string GetWorkspaceRcPath(
       const std::string& workspace,
       const std::vector<std::string>& startup_args) const;
