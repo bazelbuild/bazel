@@ -95,12 +95,9 @@ function assert_cache_stats() {
 
   local java_log
   java_log="$(bazel info server_log 2>/dev/null)" || fail "bazel info failed"
-  local last="$(grep "CacheFileDigestsModule" "${java_log}")"
-  [ -n "${last}" ] || fail "Could not find cache stats in log"
-  if ! echo "${last}" | grep -q "${metric}=${exp_value}"; then
-    echo "Last cache stats: ${last}" >>"${TEST_log}"
-    fail "${metric} was not ${exp_value}"
-  fi
+  grep "CacheFileDigestsModule" "${java_log}" >"${TEST_log}"
+  [ -s "${TEST_log}" ] || fail "Could not find cache stats in log"
+  expect_log "${metric}=${exp_value}"
 }
 
 #### TESTS #############################################################
