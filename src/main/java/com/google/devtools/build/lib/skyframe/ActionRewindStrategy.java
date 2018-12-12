@@ -66,7 +66,7 @@ public class ActionRewindStrategy {
    */
   RewindPlan getRewindPlan(
       Action failedAction,
-      Iterable<SkyKey> failedActionDeps,
+      Iterable<? extends SkyKey> failedActionDeps,
       LostInputsActionExecutionException lostInputsException,
       ActionInputDepOwners runfilesDepOwners,
       Environment env)

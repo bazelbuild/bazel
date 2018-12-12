@@ -71,6 +71,9 @@ public class LostInputsExecException extends ExecException {
      */
     private FileOutErr fileOutErr;
 
+    /** Used to inform rewinding that lost inputs were found during input discovery. */
+    private boolean fromInputDiscovery;
+
     private LostInputsActionExecutionException(
         String message, LostInputsExecException cause, Action action) {
       super(message, cause, action, /*catastrophe=*/ false);
@@ -106,6 +109,14 @@ public class LostInputsExecException extends ExecException {
 
     public void setActionStartedEventAlreadyEmitted() {
       this.actionStartedEventAlreadyEmitted = true;
+    }
+
+    public boolean isFromInputDiscovery() {
+      return fromInputDiscovery;
+    }
+
+    public void setFromInputDiscovery() {
+      this.fromInputDiscovery = true;
     }
   }
 
