@@ -144,7 +144,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .propagateAlongAttribute("exports")
         .propagateAlongAttribute("runtime_deps")
         .requireSkylarkProviders(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
-        .requireProviders(ProtoInfo.class)
+        .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
         .requiresConfigurationFragments(
             AppleConfiguration.class,
             CppConfiguration.class,
@@ -353,7 +353,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   private ConfiguredAspect proto(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException, ActionConflictException {
-    ProtoInfo protoInfo = base.getProvider(ProtoInfo.class);
+    ProtoInfo protoInfo = base.get(ProtoInfo.PROVIDER);
     ImmutableList<Artifact> protoSources = protoInfo.getDirectProtoSources();
 
     ProtoLangToolchainProvider protoToolchain =
@@ -618,7 +618,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     String genfilesPath = getProtoOutputRoot(ruleContext).getPathString();
 
-    ProtoInfo protoInfo = base.getProvider(ProtoInfo.class);
+    ProtoInfo protoInfo = base.get(ProtoInfo.PROVIDER);
 
     ImmutableList.Builder<ProtoCompileActionBuilder.ToolchainInvocation> invocations =
         ImmutableList.builder();
@@ -754,7 +754,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static boolean isProtoRule(ConfiguredTarget base) {
-    return base.getProvider(ProtoInfo.class) != null;
+    return base.get(ProtoInfo.PROVIDER) != null;
   }
 
   private static Iterable<Artifact> getOutputObjcFiles(

@@ -972,6 +972,7 @@ java_library(
     ),
     deps = [
         ":build-base",
+        ":events",
         ":packages-internal",
         ":skylarkinterface",
         ":util",

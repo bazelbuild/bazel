@@ -1517,6 +1517,7 @@ java_test(
         ":actions_testutil",
         ":guava_junit_truth",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -1546,6 +1547,20 @@ java_test(
 java_test(
     name = "BazelProtoLibraryTest",
     srcs = ["rules/proto/BazelProtoLibraryTest.java"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        ":guava_junit_truth",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:proto-rules",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+    ],
+)
+
+java_test(
+    name = "BazelProtoInfoStarlarkTest",
+    srcs = ["rules/proto/BazelProtoInfoStarlarkTest.java"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",

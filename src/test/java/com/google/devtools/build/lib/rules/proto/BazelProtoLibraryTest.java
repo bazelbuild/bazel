@@ -135,7 +135,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='no_srcs')");
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:alias").getProvider(ProtoInfo.class);
+      ProtoInfo provider = getConfiguredTarget("//x:alias").get(ProtoInfo.PROVIDER);
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/alias-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -146,7 +146,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:foo").getProvider(ProtoInfo.class);
+      ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/foo-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -154,7 +154,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:bar").getProvider(ProtoInfo.class);
+      ProtoInfo provider = getConfiguredTarget("//x:bar").get(ProtoInfo.PROVIDER);
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/bar-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -162,7 +162,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:alias_to_no_srcs").getProvider(ProtoInfo.class);
+      ProtoInfo provider = getConfiguredTarget("//x:alias_to_no_srcs").get(ProtoInfo.PROVIDER);
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/alias_to_no_srcs-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -171,7 +171,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
 
     {
-      ProtoInfo provider = getConfiguredTarget("//x:no_srcs").getProvider(ProtoInfo.class);
+      ProtoInfo provider = getConfiguredTarget("//x:no_srcs").get(ProtoInfo.PROVIDER);
       assertThat(provider.getDirectDescriptorSet().getRootRelativePathString())
           .isEqualTo("x/no_srcs-descriptor-set.proto.bin");
       assertThat(prettyArtifactNames(provider.getTransitiveDescriptorSets()))
@@ -249,7 +249,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         ")"
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:nodeps");
-    ProtoInfo sourcesProvider = protoTarget.getProvider(ProtoInfo.class);
+    ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots()).containsExactly("x/foo");
 
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:nodeps"))
@@ -296,7 +296,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         ")"
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
-    ProtoInfo sourcesProvider = protoTarget.getProvider(ProtoInfo.class);
+    ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots()).containsExactly("x/foo");
 
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo:withdeps"))
@@ -328,7 +328,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         ")"
     );
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:withdeps");
-    ProtoInfo sourcesProvider = protoTarget.getProvider(ProtoInfo.class);
+    ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
     assertThat(sourcesProvider.getTransitiveProtoSourceRoots())
         .containsExactly("x/foo", "x/bar", ".");
   }
@@ -369,8 +369,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     // exported proto source roots should be the source root of the rule and the direct source roots
     // of its exports and nothing else (not the exports of its exports or the deps of its exports
     // or the exports of its deps)
-    assertThat(c.getProvider(ProtoInfo.class).getExportedProtoSourceRoots())
-        .containsExactly("a", "c");
+    assertThat(c.get(ProtoInfo.PROVIDER).getExportedProtoSourceRoots()).containsExactly("a", "c");
   }
 
   @Test
@@ -384,7 +383,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget protoTarget = getConfiguredTarget("//x/foo:banana");
-    ProtoInfo sourcesProvider = protoTarget.getProvider(ProtoInfo.class);
+    ProtoInfo sourcesProvider = protoTarget.get(ProtoInfo.PROVIDER);
 
     assertThat(sourcesProvider.getDirectProtoSourceRoot()).isEqualTo("x/foo");
   }

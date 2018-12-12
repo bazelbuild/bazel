@@ -854,7 +854,7 @@ public class CppHelper {
   public static void checkProtoLibrariesInDeps(RuleContext ruleContext,
       Iterable<TransitiveInfoCollection> deps) {
     for (TransitiveInfoCollection dep : deps) {
-      if (dep.getProvider(ProtoInfo.class) != null && dep.get(CcInfo.PROVIDER) == null) {
+      if (dep.get(ProtoInfo.PROVIDER) != null && dep.get(CcInfo.PROVIDER) == null) {
         ruleContext.attributeError("deps",
             String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
       }

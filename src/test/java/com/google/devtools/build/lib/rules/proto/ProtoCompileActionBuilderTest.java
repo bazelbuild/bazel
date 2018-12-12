@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Deps;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
@@ -59,7 +60,7 @@ public class ProtoCompileActionBuilderTest {
       NestedSet<String> transitiveProtoSourceRoots,
       NestedSet<String> strictImportableProtoSourceRoots,
       NestedSet<Artifact> strictImportableProtos) {
-    return ProtoInfo.create(
+    return new ProtoInfo(
         directProtos,
         "",
         transitiveProtos,
@@ -70,7 +71,8 @@ public class ProtoCompileActionBuilderTest {
         /* exportedProtos */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* exportedProtoSourceRoots */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         artifact("//:direct-descriptor-set", "direct-descriptor-set"),
-        /* getTransitiveDescriptorSets */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+        /* getTransitiveDescriptorSets */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        Location.BUILTIN);
   }
 
   @Test

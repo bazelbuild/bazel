@@ -70,7 +70,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
 
       // Gather up all the dependency protos depended by this target.
       Iterable<ProtoInfo> protoInfos =
-          ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.class);
+          ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER);
 
       for (ProtoInfo protoInfo : protoInfos) {
         aspectObjcProtoProvider.addProtoGroup(protoInfo.getTransitiveProtoSources());

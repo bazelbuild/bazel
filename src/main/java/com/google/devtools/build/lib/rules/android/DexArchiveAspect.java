@@ -137,9 +137,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .requireSkylarkProviders(forKey(ToolchainInfo.PROVIDER.getKey()))
             // For android_sdk rules, where we just want to get at aidl runtime deps.
             .requireSkylarkProviders(forKey(AndroidSdkProvider.PROVIDER.getKey()))
+            .requireSkylarkProviders(forKey(ProtoInfo.PROVIDER.getKey()))
             .requireProviderSets(
                 ImmutableList.of(
-                    ImmutableSet.<Class<?>>of(ProtoInfo.class),
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
                     ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class)))

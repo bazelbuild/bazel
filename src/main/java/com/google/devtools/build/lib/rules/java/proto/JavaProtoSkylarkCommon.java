@@ -43,7 +43,7 @@ public class JavaProtoSkylarkCommon
       String protoToolchainAttr,
       String flavour)
       throws EvalException {
-    ProtoInfo protoInfo = target.getProvider(ProtoInfo.class);
+    ProtoInfo protoInfo = target.get(ProtoInfo.PROVIDER);
     ProtoCompileActionBuilder.registerActions(
         skylarkRuleContext.getRuleContext(),
         ImmutableList.of(
@@ -61,7 +61,7 @@ public class JavaProtoSkylarkCommon
 
   @Override
   public boolean hasProtoSources(ConfiguredTarget target) {
-    return !target.getProvider(ProtoInfo.class).getDirectProtoSources().isEmpty();
+    return !target.get(ProtoInfo.PROVIDER).getDirectProtoSources().isEmpty();
   }
 
   @Override

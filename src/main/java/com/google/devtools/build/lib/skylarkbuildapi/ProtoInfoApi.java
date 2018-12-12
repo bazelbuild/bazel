@@ -21,7 +21,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
 /** Info object propagating information about protocol buffer sources. */
 @SkylarkModule(name = "ProtoInfo", doc = "")
-public interface ProtoInfoApi<FileT extends FileApi> {
+public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
+  /** Provider class for {@link ProtoInfoApi} objects. */
+  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  interface Provider extends ProviderApi {
+    // Currently empty. ProtoInfo cannot be created from Starlark at the moment.
+  }
 
   @SkylarkCallable(
       name = "transitive_imports",

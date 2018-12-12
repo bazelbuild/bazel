@@ -100,7 +100,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
   public ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException, ActionConflictException {
-    ProtoInfo protoInfo = checkNotNull(ctadBase.getConfiguredTarget().getProvider(ProtoInfo.class));
+    ProtoInfo protoInfo = checkNotNull(ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER));
 
     try {
       ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, parameters, ruleContext);
@@ -118,7 +118,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
         new AspectDefinition.Builder(this)
             .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
-            .requireProviders(ProtoInfo.class)
+            .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
             .addRequiredToolchains(ccToolchainType)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)

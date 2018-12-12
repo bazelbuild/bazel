@@ -100,7 +100,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       return aspect.build();
     }
 
-    ProtoInfo protoInfo = ctadBase.getConfiguredTarget().getProvider(ProtoInfo.class);
+    ProtoInfo protoInfo = ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER);
 
     JavaProtoAspectCommon aspectCommon =
         JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
@@ -116,7 +116,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
             .propagateAlongAttribute("deps")
             .propagateAlongAttribute("exports")
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
-            .requireProviders(ProtoInfo.class)
+            .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
             .advertiseProvider(
                 ImmutableList.of(

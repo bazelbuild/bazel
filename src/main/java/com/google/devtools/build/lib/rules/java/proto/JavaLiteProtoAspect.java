@@ -91,7 +91,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder aspect = new ConfiguredAspect.Builder(this, parameters, ruleContext);
 
-    ProtoInfo protoInfo = ctadBase.getConfiguredTarget().getProvider(ProtoInfo.class);
+    ProtoInfo protoInfo = ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER);
 
     JavaProtoAspectCommon aspectCommon =
         JavaProtoAspectCommon.getLiteInstance(ruleContext, javaSemantics);
@@ -108,7 +108,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             .propagateAlongAttribute("deps")
             .propagateAlongAttribute("exports")
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
-            .requireProviders(ProtoInfo.class)
+            .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
             .advertiseProvider(
                 ImmutableList.of(

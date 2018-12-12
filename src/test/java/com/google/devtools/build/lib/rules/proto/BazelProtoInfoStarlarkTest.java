@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Before;
@@ -30,6 +32,48 @@ public class BazelProtoInfoStarlarkTest extends BuildViewTestCase /*SkylarkTestC
   public void setUp() throws Exception {
     useConfiguration("--proto_compiler=//proto:compiler"); // TODO check do we need that.
     scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
+  }
+
+  @Test
+  public void testLegacyProvider() throws Exception {
+    scratch.file(
+        "foo/test.bzl",
+        "def _impl(ctx):",
+        "  provider = ctx.attr.dep.proto",
+        "  return struct(direct_sources=provider.direct_sources)",
+        "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':test.bzl', 'test')",
+        "test(name='test', dep=':proto')",
+        "proto_library(name='proto', srcs=['p.proto'])");
+
+    ConfiguredTarget test = getConfiguredTarget("//foo:test");
+    @SuppressWarnings("unchecked")
+    Iterable<Artifact> directSources = (Iterable<Artifact>) test.get("direct_sources");
+    assertThat(ActionsTestUtil.baseArtifactNames(directSources)).containsExactly("p.proto");
+  }
+
+  @Test
+  public void testProvider() throws Exception {
+    scratch.file(
+        "foo/test.bzl",
+        "def _impl(ctx):",
+        "  provider = ctx.attr.dep[ProtoInfo]",
+        "  return struct(direct_sources=provider.direct_sources)",
+        "test = rule(implementation = _impl, attrs = {'dep': attr.label()})");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':test.bzl', 'test')",
+        "test(name='test', dep=':proto')",
+        "proto_library(name='proto', srcs=['p.proto'])");
+
+    ConfiguredTarget test = getConfiguredTarget("//foo:test");
+    @SuppressWarnings("unchecked")
+    Iterable<Artifact> directSources = (Iterable<Artifact>) test.get("direct_sources");
+    assertThat(ActionsTestUtil.baseArtifactNames(directSources)).containsExactly("p.proto");
   }
 
   @Test
