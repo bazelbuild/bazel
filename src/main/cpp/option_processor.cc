@@ -322,6 +322,12 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     // MakeAbsoluteAndResolveWindowsEnvvars will standardize the form of the
     // provided path. This also means we accept relative paths, which is
     // convenient for testing.
+    if (system_rc.empty() ||
+        blaze_util::MakeCanonical(system_rc.c_str()).empty() ||
+        !blaze_util::CanReadFile(system_rc)) {
+      BAZEL_LOG(ERROR) << "Error: Unable to read --systemrc file '"
+                       << system_rc << "'.";
+    }
     internal::PushRcFileMaybe(&rc_files, system_rc);
   }
 

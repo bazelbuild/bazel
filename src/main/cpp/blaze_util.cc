@@ -181,7 +181,7 @@ void SetDebugLog(bool enabled) {
   }
 }
 
-bool IsRunningInsideOfTest() {
+bool IsRunningWithinTest() {
   return !GetEnv("TEST_TMPDIR").empty();
 }
 
