@@ -315,7 +315,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
 
   std::vector<std::string> rc_files;
 
-  const std::string system_rc = 
+  const std::string system_rc =
       blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(system_bazelrc_path_);
   // Read the system rc (unless --nosystem_rc).
   if (SearchNullaryOption(cmd_line->startup_args, "system_rc", true)) {

@@ -121,8 +121,8 @@ function test_rc_files_no_longer_read() {
   [[ -f "$pkg/explain.txt" ]] || fail "expected .bazelrc to be read"
   [[ -f "$pkg/build_event_binary" ]] && fail "expected tools/bazel.rc not to be read" || true
   expect_log "The following rc files are no longer being read"
-  expect_log "$pkg[/\\]tools[/\\]bazel\\.rc$"
-  expect_not_log "$pkg[/\\]\\.bazelrc$"
+  expect_log "$pkg[/\\]tools[/\\]bazel\\.rc"
+  expect_not_log "$pkg[/\\]\\.bazelrc"
 }
 
 run_suite "Integration tests for rc options handling"
