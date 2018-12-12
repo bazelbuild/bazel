@@ -195,7 +195,7 @@ public class WorkspaceFactoryTest {
         "    repo_mapping = 1",
         ")");
     assertThat(helper.getParserError())
-        .contains("Invalid value for 'repo_mapping': '1'. Value must be a map.");
+        .contains("Invalid value for 'repo_mapping': '1'. Value must be a dict.");
 
     helper.parse(
         "local_repository(",
@@ -204,7 +204,7 @@ public class WorkspaceFactoryTest {
         "    repo_mapping = 'hello'",
         ")");
     assertThat(helper.getParserError())
-        .contains("Invalid value for 'repo_mapping': 'hello'. Value must be a map.");
+        .contains("Invalid value for 'repo_mapping': 'hello'. Value must be a dict.");
   }
 
   @Test
