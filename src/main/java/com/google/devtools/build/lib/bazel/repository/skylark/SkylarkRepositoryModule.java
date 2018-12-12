@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
@@ -44,8 +45,10 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * The Skylark module containing the definition of {@code repository_rule} function to define a
@@ -144,13 +147,35 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
         PackageContext context = PackageFactory.getContext(env, ast.getLocation());
+        Package.Builder packageBuilder = context.getBuilder();
+
         @SuppressWarnings("unchecked")
         Map<String, Object> attributeValues = (Map<String, Object>) args[0];
+        String externalRepoName = (String) attributeValues.get("name");
+
+        // main repo
+        WorkspaceFactoryHelper.addMainRepoEntry(packageBuilder, externalRepoName, env.getSemantics());
+        // regs remappings
+        WorkspaceFactoryHelper.addRepoMappings(packageBuilder, attributeValues, externalRepoName, ast.getLocation(), env.getSemantics());
+
         return WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            context.getBuilder(), ruleClass, null, attributeValues, ast);
+            context.getBuilder(), ruleClass, null, getFinalKwargs(attributeValues,env.getSemantics()), ast);
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
+    }
+
+    private static Map<String, Object> getFinalKwargs(
+        Map<String, Object> kwargs,
+        SkylarkSemantics semantics) {
+      if (semantics.experimentalEnableRepoMapping()) {
+        // 'repo_mapping' is not an explicit attribute of any rule and so it would
+        // result in a rule error if propagated to the rule factory.
+        return kwargs.entrySet().stream()
+            .filter(x -> !x.getKey().equals("repo_mapping"))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      }
+      return kwargs;
     }
   }
 }

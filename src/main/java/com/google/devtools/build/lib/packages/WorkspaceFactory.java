@@ -495,6 +495,7 @@ public class WorkspaceFactory {
                   RepositoryName.MAIN);
             }
           }
+          // WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName, env.getSemantics());
           if (env.getSemantics().experimentalEnableRepoMapping()) {
             if (kwargs.containsKey("repo_mapping")) {
               if (!(kwargs.get("repo_mapping") instanceof Map)) {
@@ -514,6 +515,7 @@ public class WorkspaceFactory {
               }
             }
           }
+          // WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName, ast.getLocation(), env.getSemantics());
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           Rule rule =

@@ -530,6 +530,50 @@ EOF
       || fail "expected external/b/x.txt in $(cat bazel-genfiles/external/a/result.txt)"
 }
 
+function test_repo_mapping_starlark_rules() {
+  EXTREPODIR=`pwd`
+
+  mkdir -p a
+  touch a/WORKSPACE
+  cat > a/BUILD<<EOF
+genrule(name = "a",
+        srcs = ["@x//:x.txt"],
+        outs = ["result.txt"],
+        cmd = "echo hello > \$(location result.txt)"
+)
+EOF
+  # turn a into a zip file to be consumed by http_archive rule
+  zip a.zip a/*
+  rm -rf a
+
+  mkdir -p b
+  touch b/WORKSPACE
+  cat >b/BUILD <<EOF
+exports_files(srcs = ["x.txt"])
+EOF
+  echo "Hello from @b//:x.txt" > b/x.txt
+
+  # Main repo assigns @x to @b within @a
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="a",
+  strip_prefix="a",
+  urls=["file://${EXTREPODIR}/a.zip"],
+  repo_mapping = {"@x" : "@b"}
+)
+local_repository(name = "b", path="../b")
+EOF
+  touch main/BUILD
+
+  cd main
+  bazel query --experimental_enable_repo_mapping --output=build @a//:a | grep "@b//:x.txt" \
+      || fail "Expected srcs to contain '@b//:x.txt'"
+}
+
 function test_workspace_addition_change_aspect() {
   mkdir -p repo_one
   mkdir -p repo_two

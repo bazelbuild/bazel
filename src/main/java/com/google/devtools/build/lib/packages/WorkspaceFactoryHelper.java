@@ -15,15 +15,20 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import java.util.Map;
 
 /** A helper for the {@link WorkspaceFactory} to create repository rules */
@@ -65,6 +70,39 @@ public class WorkspaceFactoryHelper {
           new AttributeContainer(bindRuleClass));
     }
     return rule;
+  }
+
+  public static void addMainRepoEntry(Package.Builder builder, String externalRepoName, SkylarkSemantics semantics) {
+    if (semantics.experimentalRemapMainRepo()) {
+      if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
+        builder.addRepositoryMappingEntry(
+            RepositoryName.createFromValidStrippedName(externalRepoName),
+            RepositoryName.createFromValidStrippedName(builder.getPackageWorkspaceName()),
+            RepositoryName.MAIN);
+      }
+    }
+  }
+
+  public static void addRepoMappings(Package.Builder builder, Map<String, Object> kwargs, String externalRepoName, Location location, SkylarkSemantics semantics) throws EvalException, LabelSyntaxException {
+    if (semantics.experimentalEnableRepoMapping()) {
+      if (kwargs.containsKey("repo_mapping")) {
+        if (!(kwargs.get("repo_mapping") instanceof Map)) {
+          throw new EvalException(
+              location,
+              "Invalid value for 'repo_mapping': '"
+                  + kwargs.get("repo_mapping")
+                  + "'. Value must be a map.");
+        }
+        @SuppressWarnings("unchecked")
+        Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
+        for (Map.Entry<String, String> e : map.entrySet()) {
+          builder.addRepositoryMappingEntry(
+              RepositoryName.createFromValidStrippedName(externalRepoName),
+              RepositoryName.create(e.getKey()),
+              RepositoryName.create(e.getValue()));
+        }
+      }
+    }
   }
 
   static void addBindRule(
