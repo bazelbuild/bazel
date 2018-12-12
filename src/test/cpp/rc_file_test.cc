@@ -125,7 +125,7 @@ class RcFileTest : public ::testing::Test {
         blaze_util::JoinPath(tools_dir, "bazel.rc");
     if (blaze_util::MakeDirectories(tools_dir, 0755) &&
         blaze_util::WriteFile(contents, workspace_rc_path, 0755)) {
-      *rcfile_path = workspace_rc_path;
+      *rcfile_path = blaze_util::MakeCanonical(workspace_rc_path.c_str());
       return true;
     }
     return false;
@@ -136,7 +136,7 @@ class RcFileTest : public ::testing::Test {
     const std::string binary_rc_path =
         blaze_util::JoinPath(binary_dir_, "bazel.bazelrc");
     if (blaze_util::WriteFile(contents, binary_rc_path, 0755)) {
-      *rcfile_path = binary_rc_path;
+      *rcfile_path = blaze_util::MakeCanonical(binary_rc_path.c_str());
       return true;
     }
     return false;
