@@ -181,23 +181,21 @@ public class AndroidCommon {
   public static NestedSet<Artifact> collectTransitiveNeverlinkLibraries(
       RuleContext ruleContext,
       Iterable<? extends TransitiveInfoCollection> deps,
-      ImmutableList<Artifact> runtimeJars) {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
-
+      NestedSet<Artifact> runtimeJars) {
+    NestedSetBuilder<Artifact> neverlinkedRuntimeJars = NestedSetBuilder.naiveLinkOrder();
     for (AndroidNeverLinkLibrariesProvider provider :
         AnalysisUtils.getProviders(deps, AndroidNeverLinkLibrariesProvider.class)) {
-      builder.addTransitive(provider.getTransitiveNeverLinkLibraries());
+      neverlinkedRuntimeJars.addTransitive(provider.getTransitiveNeverLinkLibraries());
     }
 
     if (JavaCommon.isNeverLink(ruleContext)) {
-      builder.addAll(runtimeJars);
+      neverlinkedRuntimeJars.addTransitive(runtimeJars);
       for (JavaCompilationArgsProvider provider :
           JavaInfo.getProvidersFromListOfTargets(JavaCompilationArgsProvider.class, deps)) {
-        builder.addTransitive(provider.getRuntimeJars());
+        neverlinkedRuntimeJars.addTransitive(provider.getRuntimeJars());
       }
     }
-
-    return builder.build();
+    return neverlinkedRuntimeJars.build();
   }
 
   /**
@@ -662,7 +660,9 @@ public class AndroidCommon {
         collectTransitiveNeverlinkLibraries(
             ruleContext,
             javaCommon.getDependencies(),
-            javaCommon.getJavaCompilationArtifacts().getRuntimeJars());
+            NestedSetBuilder.<Artifact>naiveLinkOrder()
+                .addAll(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
+                .build());
     if (collectJavaCompilationArgs) {
       boolean hasSources = attributes.hasSources();
       this.javaCompilationArgs = collectJavaCompilationArgs(asNeverLink, hasSources);

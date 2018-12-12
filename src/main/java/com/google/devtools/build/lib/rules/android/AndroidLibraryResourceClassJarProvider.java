@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -42,6 +43,12 @@ public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
   public static AndroidLibraryResourceClassJarProvider create(
       NestedSet<Artifact> resourceClassJars) {
     return new AndroidLibraryResourceClassJarProvider(resourceClassJars);
+  }
+
+  public static AndroidLibraryResourceClassJarProvider getProvider(
+      TransitiveInfoCollection target) {
+    return (AndroidLibraryResourceClassJarProvider)
+        target.get(AndroidLibraryResourceClassJarProvider.PROVIDER.getKey());
   }
 
   @Nonnull
