@@ -321,7 +321,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   if (SearchNullaryOption(cmd_line->startup_args, "system_rc", true)) {
     // MakeAbsoluteAndResolveWindowsEnvvars will standardize the form of the
     // provided path. This also means we accept relative paths, which is
-    // is convenient for testing.
+    // convenient for testing.
     internal::PushRcFileMaybe(&rc_files, system_rc);
   }
 

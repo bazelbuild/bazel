@@ -406,7 +406,7 @@ string GetOutputRoot() {
 }
 
 string GetHomeDir() {
-  if (IsRunningInsideOfTest()) {
+  if (IsRunningWithinTest()) {
     // Bazel is running inside of a test. Respect $HOME that the test setup has
     // set instead of using the actual home directory of the current user.
     return GetEnv("HOME");

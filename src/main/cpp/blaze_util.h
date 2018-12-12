@@ -105,8 +105,8 @@ std::string ToString(const T &value) {
 void SetDebugLog(bool enabled);
 
 // Returns true if this Bazel instance is running inside of a Bazel test.
-// This method observes the TEST_SRCDIR envvar.
-bool IsRunningInsideOfTest();
+// This method observes the TEST_TMPDIR envvar.
+bool IsRunningWithinTest();
 
 // What WithEnvVar should do with an environment variable
 enum EnvVarAction { UNSET, SET };
