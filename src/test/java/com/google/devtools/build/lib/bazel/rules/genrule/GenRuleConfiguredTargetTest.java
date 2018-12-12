@@ -92,13 +92,13 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testToolchainDoesNotOverrideCcFlags() throws Exception {
+  public void testToolchainDoesOverrideCcFlags() throws Exception {
     scratch.file("a/BUILD",
         "genrule(name='gr', srcs=[], outs=['out'], cmd='CC_FLAGS=$(CC_FLAGS)', toolchains=[':v'])",
         "make_variable_tester(name='v', variables={'CC_FLAGS': 'REPLACED'})");
 
     String cmd = getCommand("//a:gr");
-    assertThat(cmd).doesNotContain("CC_FLAGS=REPLACED");
+    assertThat(cmd).endsWith("CC_FLAGS=REPLACED");
   }
 
   @Test
