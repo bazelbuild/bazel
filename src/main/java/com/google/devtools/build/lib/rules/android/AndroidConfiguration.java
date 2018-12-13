@@ -795,7 +795,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public boolean checkForMigrationTag;
 
     @Option(
-        name = "experiemental_filter_r_jars_from_android_test",
+        name = "experimental_filter_r_jars_from_android_test",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {
