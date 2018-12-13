@@ -194,7 +194,6 @@ public abstract class RepositoryFunction {
    * the data is up to date and no refetch is needed and false if the data is obsolete and a refetch
    * is needed.
    */
-  @Nullable
   public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
       throws InterruptedException, RepositoryFunctionException {
     return verifyEnvironMarkerData(markerData, env, getEnviron(rule))
