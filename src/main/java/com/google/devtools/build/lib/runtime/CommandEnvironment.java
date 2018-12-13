@@ -26,9 +26,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -98,10 +96,12 @@ public final class CommandEnvironment {
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Override
-    public Path getFileFromWorkspace(Label label)
-        throws NoSuchThingException, InterruptedException, IOException {
-      Target target = getPackageManager().getTarget(reporter, label);
-      return target.getPackage().getPackageDirectory().getRelative(target.getName());
+    public Path getFileFromWorkspace(Label label) {
+      Path buildFile = getPackageManager().getBuildFileForPackage(label.getPackageIdentifier());
+      if (buildFile == null) {
+        return null;
+      }
+      return buildFile.getParentDirectory().getRelative(label.getName());
     }
 
     @Override
