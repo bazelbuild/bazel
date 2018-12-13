@@ -19,6 +19,7 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/strings.h"
@@ -60,8 +61,14 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
         "Unexpected error reading .blazerc file '%s'", filename.c_str());
     return ParseError::UNREADABLE_FILE;
   }
-  const std::string canonical_filename =
-      blaze_util::MakeCanonical(filename.c_str());
+  std::string canonical_filename;
+  std::string error;
+  if (!blaze_util::MakeCanonical(filename, &canonical_filename, &error) ||
+      canonical_filename.empty()) {
+    // We just read from the file, the canonical path should exist!
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "The RcFile '" << filename << "' disappeared: " << error;
+  }
 
   canonical_rcfile_paths_.push_back(canonical_filename);
   // Keep a pointer to the canonical_filename string in canonical_rcfile_paths_

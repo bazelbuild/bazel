@@ -206,13 +206,15 @@ std::vector<std::string> DedupeBlazercPaths(
   std::set<std::string> canonical_paths;
   std::vector<std::string> result;
   for (const std::string& path : paths) {
-    const std::string canonical_path = blaze_util::MakeCanonical(path.c_str());
-    if (canonical_path.empty()) {
-      // MakeCanonical returns an empty string when it fails. We ignore this
-      // failure since blazerc paths may point to invalid locations.
-    } else if (canonical_paths.find(canonical_path) == canonical_paths.end()) {
+    std::string canonical_path;
+    if (blaze_util::MakeCanonical(path, &canonical_path) &&
+        !canonical_path.empty() &&
+        canonical_paths.find(canonical_path) == canonical_paths.end()) {
       result.push_back(path);
       canonical_paths.insert(canonical_path);
+    } else {
+      // We ignore MakeCanonical's failure since blazerc paths may point to
+      // invalid locations.
     }
   }
   return result;
@@ -300,8 +302,9 @@ std::vector<std::string> GetLostFiles(
     const std::set<std::string>& read_files_canon) {
   std::vector<std::string> result;
   for (const auto& old : old_files) {
-    std::string old_canon = blaze_util::MakeCanonical(old.c_str());
-    if (!old_canon.empty() &&
+    std::string old_canon;
+    if (blaze_util::MakeCanonical(old.c_str(), &old_canon) &&
+        !old_canon.empty() &&
         read_files_canon.find(old_canon) == read_files_canon.end()) {
       result.push_back(old);
     }

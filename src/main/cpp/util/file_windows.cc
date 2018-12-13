@@ -694,19 +694,19 @@ bool PathExists(const string& path) {
   return JunctionResolver().Resolve(wpath.c_str(), nullptr);
 }
 
-string MakeCanonical(const char* path) {
-  if (IsDevNull(path)) {
-    return "NUL";
+bool MakeCanonical(const std::string& path, std::string* result,
+                   std::string* error) {
+  if (path.empty()) {
+    result->clear();
+    return true;
+  }
+  if (IsDevNull(path.c_str())) {
+    *result = "NUL";
+    return true;
   }
   wstring wpath;
-  if (path == nullptr || path[0] == 0) {
-    return "";
-  }
-  string error;
-  if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "MakeCanonical(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
+  if (!AsAbsoluteWindowsPath(path, &wpath, error)) {
+    return false;
   }
 
   // Resolve all segments of the path. Do this from leaf to root, so we always
@@ -719,7 +719,11 @@ string MakeCanonical(const char* path) {
     if (!JunctionResolver().Resolve(wpath.c_str(), &realpath)) {
       // The path doesn't exist or there are too many levels of indirection,
       // so just give up.
-      return "";
+      if (error) {
+        *error = "Cannot canonicalize '" + path +
+                 "': too many indirections or path does not exist.";
+      }
+      return false;
     }
     // The last segment is surely not a junction anymore. Split it off the path
     // and keep resolving its ancestors until we reach the root directory.
@@ -770,9 +774,10 @@ string MakeCanonical(const char* path) {
   unique_ptr<WCHAR[]> long_realpath;
   wstring werror(GetLongPath(realpath.c_str(), &long_realpath));
   if (!werror.empty()) {
-    // TODO(laszlocsomor): refactor MakeCanonical to return an error message,
-    // return `werror` here.
-    return "";
+    if (error) {
+      *error = WstringToCstring(werror.c_str()).get();
+    }
+    return false;
   }
 
   // Convert the path to lower-case.
@@ -785,7 +790,8 @@ string MakeCanonical(const char* path) {
     *p_to++ = towlower(*p_from++);
   }
   *p_to = 0;
-  return string(WstringToCstring(lcase_realpath.get()).get());
+  *result = WstringToCstring(lcase_realpath.get()).get();
+  return true;
 }
 
 static bool CanReadFileW(const wstring& path) {

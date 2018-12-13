@@ -150,7 +150,8 @@ bool PathExists(const std::string& path);
 // Returns the empty string upon error.
 //
 // This is a wrapper around realpath(3).
-std::string MakeCanonical(const char *path);
+bool MakeCanonical(const std::string& path, std::string* result,
+                   std::string* error = nullptr);
 
 // Returns true if `path` exists, is a file or symlink to one, and is readable.
 // Follows symlinks.

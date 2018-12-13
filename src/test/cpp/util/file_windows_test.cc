@@ -290,8 +290,10 @@ TEST_F(FileWindowsTest, TestMakeCanonical) {
   // Assert the canonical path of foo.txt via the real path and via sym2.
   // The latter contains at least two junction components, shortened paths, and
   // mixed casing.
-  string dircanon(MakeCanonical(foo.c_str()));
-  string symcanon(MakeCanonical(symfoo.c_str()));
+  string dircanon;
+  EXPECT_TRUE(MakeCanonical(foo, &dircanon));
+  string symcanon;
+  EXPECT_TRUE(MakeCanonical(symfoo, &symcanon));
   string expected("directory\\subdirectory\\foo.txt");
   ASSERT_NE(symcanon, "");
   ASSERT_EQ(symcanon.find(expected), symcanon.size() - expected.size());

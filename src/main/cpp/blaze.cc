@@ -1331,11 +1331,12 @@ static void ParseOptions(int argc, const char *argv[]) {
 
 // Compute the globals globals->cwd and globals->workspace.
 static void ComputeWorkspace(const WorkspaceLayout *workspace_layout) {
-  globals->cwd = blaze_util::MakeCanonical(blaze_util::GetCwd().c_str());
+  std::string error;
+  if (!blaze_util::MakeCanonical(blaze_util::GetCwd(), &globals->cwd, &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << error;
+  }
   if (globals->cwd.empty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "blaze_util::MakeCanonical('" << blaze_util::GetCwd()
-        << "') failed: " << GetLastErrorString();
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "cwd is empty";
   }
   globals->workspace = workspace_layout->GetWorkspace(globals->cwd);
 }
@@ -1393,11 +1394,13 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
   }
   ExcludePathFromBackup(output_base);
 
-  globals->options->output_base = blaze_util::MakeCanonical(output_base);
+  std::string error;
+  if (!blaze_util::MakeCanonical(output_base, &globals->options->output_base,
+                                 &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << error;
+  }
   if (globals->options->output_base.empty()) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "blaze_util::MakeCanonical('" << output_base
-        << "') failed: " << GetLastErrorString();
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "cwd is empty";
   }
 
   globals->lockfile =
@@ -1476,8 +1479,8 @@ static string CheckAndGetBinaryPath(const string &argv0) {
     return argv0;
   } else {
     string abs_path = blaze_util::JoinPath(globals->cwd, argv0);
-    string resolved_path = blaze_util::MakeCanonical(abs_path.c_str());
-    if (!resolved_path.empty()) {
+    string resolved_path;
+    if (blaze_util::MakeCanonical(abs_path, &resolved_path)) {
       return resolved_path;
     } else {
       // This happens during our integration tests, but thats okay, as we won't

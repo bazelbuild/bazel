@@ -97,22 +97,16 @@ class RcFileTest : public ::testing::Test {
     const std::string system_rc_path =
         blaze_util::ConvertPath(blaze_util::JoinPath(cwd_, "bazel.bazelrc"));
 
-    if (blaze_util::WriteFile(contents, system_rc_path, 0755)) {
-      *rcfile_path = blaze_util::MakeCanonical(system_rc_path.c_str());
-      return true;
-    }
-    return false;
+    return blaze_util::WriteFile(contents, system_rc_path, 0755) &&
+           blaze_util::MakeCanonical(system_rc_path, rcfile_path);
   }
 
   bool SetUpWorkspaceRcFile(const std::string& contents,
                             std::string* rcfile_path) const {
     const std::string workspace_user_rc_path =
         blaze_util::JoinPath(workspace_, ".bazelrc");
-    if (blaze_util::WriteFile(contents, workspace_user_rc_path, 0755)) {
-      *rcfile_path =  blaze_util::MakeCanonical(workspace_user_rc_path.c_str());
-      return true;
-    }
-    return false;
+    return blaze_util::WriteFile(contents, workspace_user_rc_path, 0755) &&
+           blaze_util::MakeCanonical(workspace_user_rc_path, rcfile_path);
   }
 
   // TODO(b/36168162): Make it possible to configure the home directory so we
