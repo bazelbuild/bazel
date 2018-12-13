@@ -504,7 +504,10 @@ sh_test(
         ":test-deps",
     ],
     shard_count = 18,
-    tags = ["no_windows"],
+    tags = [
+        "block-network",
+        "no_windows",
+    ],
 )
 
 sh_test(
