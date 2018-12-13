@@ -1,0 +1,2 @@
+# Files that should not use CRLF line endings, even on Windows.
+* text eol=lf
