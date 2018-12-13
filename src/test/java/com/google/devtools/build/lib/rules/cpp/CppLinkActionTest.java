@@ -267,7 +267,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCompilesDynamicModeSourcesWithoutFeatureIntoDynamicLibrary() throws Exception {
+  public void testCompilesDynamicModeTestSourcesWithoutFeatureIntoDynamicLibrary()
+      throws Exception {
     if (OS.getCurrent() == OS.WINDOWS) {
       // Skip the test on Windows.
       // TODO(bazel-team): maybe we should move that test that doesn't work with MSVC toolchain to
@@ -276,7 +277,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     }
     scratch.file(
         "x/BUILD",
-        "cc_test(name = 'a', srcs = ['a.cc'], features = ['-static_link_srcs'])",
+        "cc_test(name = 'a', srcs = ['a.cc'], features = ['-static_link_test_srcs'])",
         "cc_binary(name = 'b', srcs = ['a.cc'])");
     scratch.file("x/a.cc", "int main() {}");
     useConfiguration("--force_pic");
@@ -299,6 +300,31 @@ public class CppLinkActionTest extends BuildViewTestCase {
     runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
         .containsExactly("bin x/b");
+  }
+
+  @Test
+  public void testCompilesDynamicModeBinarySourcesWithoutFeatureIntoDynamicLibrary()
+      throws Exception {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // Skip the test on Windows.
+      // TODO(bazel-team): maybe we should move that test that doesn't work with MSVC toolchain to
+      // its own suite with a TestSpec?
+      return;
+    }
+    scratch.file(
+        "x/BUILD", "cc_binary(name = 'a', srcs = ['a.cc'], features = ['-static_link_test_srcs'])");
+    scratch.file("x/a.cc", "int main() {}");
+    useConfiguration("--force_pic", "--dynamic_mode=default");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
+    String cpu = CrosstoolConfigurationHelper.defaultCpu();
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/a");
+    assertThat(artifactsToStrings(linkAction.getInputs()))
+        .doesNotContain("bin _solib_" + cpu + "/libx_Sliba.ifso");
+    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/a/a.pic.o");
+    RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
+    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
+        .containsExactly("bin x/a");
   }
 
   @Test

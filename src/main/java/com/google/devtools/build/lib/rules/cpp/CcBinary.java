@@ -96,12 +96,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   public static final String INTERMEDIATE_DWP_DIR = "_dwps";
 
   /**
-   * A string constant for the static_link_srcs feature.
+   * A string constant for the static_link_test_srcs feature.
    *
-   * <p>Disabling this feature forces srcs of executables to be linked dynamically in
+   * <p>Disabling this feature forces srcs of test executables to be linked dynamically in
    * DYNAMIC_MODE=AUTO.
    */
-  public static final String STATIC_LINK_SRCS = "static_link_srcs";
+  public static final String STATIC_LINK_TEST_SRCS = "static_link_test_srcs";
 
   /** Provider for native deps launchers. DO NOT USE. */
   @Deprecated
@@ -319,13 +319,14 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // Allows the dynamic library generated for code of default dynamic mode targets to be linked
     // separately. The main use case for default dynamic mode is the cc_test rule. The same behavior
     // can also be enabled specifically for tests with an experimental flag.
-    // TODO(meikeb): Retire the experimental flag by end of 2018.
+    // TODO(meikeb): Retire the experimental flag by Janurary 2019.
     boolean linkCompileOutputSeparately =
         (ruleContext.isTestTarget()
                 && cppConfiguration.getLinkCompileOutputSeparately()
                 && linkingMode == LinkingMode.DYNAMIC)
-            || (cppConfiguration.getDynamicModeFlag() == DynamicMode.DEFAULT
-                && ruleContext.getDisabledFeatures().contains(STATIC_LINK_SRCS));
+            || (ruleContext.isTestTarget()
+                && cppConfiguration.getDynamicModeFlag() == DynamicMode.DEFAULT
+                && ruleContext.getDisabledFeatures().contains(STATIC_LINK_TEST_SRCS));
     // When linking the object files directly into the resulting binary, we do not need
     // library-level link outputs; thus, we do not let CcCompilationHelper produce link outputs
     // (either shared object files or archives) for a non-library link type [*], and add
