@@ -1565,6 +1565,7 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":guava_junit_truth",
+        ":packages_testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib/actions",

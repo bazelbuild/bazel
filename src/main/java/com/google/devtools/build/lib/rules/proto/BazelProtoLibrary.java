@@ -43,11 +43,17 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             .addArtifact(protoInfo.getDirectDescriptorSet())
             .build();
 
-    return new RuleConfiguredTargetBuilder(ruleContext)
-        .setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, protoInfo.getDirectDescriptorSet()))
-        .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
-        .addNativeDeclaredProvider(protoInfo)
-        .addSkylarkTransitiveInfo(ProtoInfo.LEGACY_SKYLARK_NAME, protoInfo)
-        .build();
+    RuleConfiguredTargetBuilder builder =
+        new RuleConfiguredTargetBuilder(ruleContext)
+            .setFilesToBuild(
+                NestedSetBuilder.create(STABLE_ORDER, protoInfo.getDirectDescriptorSet()))
+            .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
+            .addNativeDeclaredProvider(protoInfo);
+
+    if (ruleContext.getFragment(ProtoConfiguration.class).enableLegacyProvider()) {
+      builder.addSkylarkTransitiveInfo(ProtoInfo.LEGACY_SKYLARK_NAME, protoInfo);
+    }
+
+    return builder.build();
   }
 }
