@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -291,8 +292,8 @@ public class PackageFunction implements SkyFunction {
     if (skylarkSemantics == null) {
       return null;
     }
-    RootedPath workspacePath = RootedPath.toRootedPath(
-        packageLookupPath, Label.WORKSPACE_FILE_NAME);
+    RootedPath workspacePath =
+        RootedPath.toRootedPath(packageLookupPath, LabelConstants.WORKSPACE_FILE_NAME);
     SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
     PackageValue workspace = null;
     try {
@@ -308,7 +309,7 @@ public class PackageFunction implements SkyFunction {
     } catch (IOException | EvalException | SkylarkImportFailedException e) {
       throw new PackageFunctionException(
           new NoSuchPackageException(
-              Label.EXTERNAL_PACKAGE_IDENTIFIER,
+              LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
               "Error encountered while dealing with the WORKSPACE file: " + e.getMessage()),
           Transience.PERSISTENT);
     }
@@ -370,7 +371,7 @@ public class PackageFunction implements SkyFunction {
       }
     }
 
-    if (packageId.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
+    if (packageId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       return getExternalPackage(env, packageLookupValue.getRoot());
     }
     WorkspaceNameValue workspaceNameValue =

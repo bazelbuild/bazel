@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -246,7 +247,7 @@ public class Package {
    */
   public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
       RepositoryName repository) {
-    if (!packageIdentifier.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
+    if (!packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       throw new UnsupportedOperationException("Can only access the external package repository"
           + "mappings from the //external package");
     }
@@ -266,7 +267,7 @@ public class Package {
    */
   public ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
       getExternalPackageRepositoryMappings() {
-    if (!packageIdentifier.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
+    if (!packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       throw new UnsupportedOperationException(
           "Can only access the external package repository"
               + "mappings from the //external package");
@@ -740,8 +741,9 @@ public class Package {
 
   public static Builder newExternalPackageBuilder(
       Builder.Helper helper, RootedPath workspacePath, String runfilesPrefix) {
-    Builder b = new Builder(helper.createFreshPackage(
-        Label.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix));
+    Builder b =
+        new Builder(
+            helper.createFreshPackage(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix));
     b.setFilename(workspacePath);
     return b;
   }
@@ -876,7 +878,7 @@ public class Package {
 
     /** Determine if we are in the WORKSPACE file or not */
     boolean isWorkspace() {
-      return pkg.getPackageIdentifier().equals(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+      return pkg.getPackageIdentifier().equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     }
 
     String getPackageWorkspaceName() {

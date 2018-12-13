@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -1334,7 +1335,9 @@ public final class PackageFactory {
         newExternalPackageBuilder(
                 RootedPath.toRootedPath(
                     buildFile.getRoot(),
-                    buildFile.getRootRelativePath().getRelative(Label.WORKSPACE_FILE_NAME)),
+                    buildFile
+                        .getRootRelativePath()
+                        .getRelative(LabelConstants.WORKSPACE_FILE_NAME)),
                 "TESTING")
             .build();
     return createPackageForTesting(

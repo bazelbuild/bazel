@@ -58,9 +58,6 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public final class Label
     implements Comparable<Label>, Serializable, SkylarkValue, SkyKey, CommandLineItem {
-  public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
-  public static final PathFragment WORKSPACE_FILE_NAME = PathFragment.create("WORKSPACE");
-  public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
 
   /**
    * Package names that aren't made relative to the current repository because they mean special
@@ -75,12 +72,8 @@ public final class Label
           // Visibility is labels aren't actually targets
           PathFragment.create("visibility"),
           // There is only one //external package
-          Label.EXTERNAL_PACKAGE_NAME);
+          LabelConstants.EXTERNAL_PACKAGE_NAME);
 
-  public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
-      PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
-
-  public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
   public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
       SkyFunctionName.createHermetic("TRANSITIVE_TRAVERSAL");
 

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
@@ -36,7 +36,7 @@ class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
   // deal with at once. A value of 100 was chosen experimentally.
   private static final int PROCESS_RESULTS_BATCH_SIZE = 100;
   private static final SkyKey EXTERNAL_PACKAGE_KEY =
-      PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+      PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
   private final SkyQueryEnvironment env;
   private final QueryExpressionContext<Target> context;
 

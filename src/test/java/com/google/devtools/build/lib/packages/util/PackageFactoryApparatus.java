@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -114,7 +115,9 @@ public class PackageFactoryApparatus {
               .newExternalPackageBuilder(
                   RootedPath.toRootedPath(
                       buildFile.getRoot(),
-                      buildFile.getRootRelativePath().getRelative(Label.WORKSPACE_FILE_NAME)),
+                      buildFile
+                          .getRootRelativePath()
+                          .getRelative(LabelConstants.WORKSPACE_FILE_NAME)),
                   "TESTING")
               .build();
       Package pkg =

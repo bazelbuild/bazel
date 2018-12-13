@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
@@ -72,8 +73,11 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     PackageValue packageValue = null;
     boolean workspaceError = false;
     try {
-      packageValue = (PackageValue) env.getValueOrThrow(
-          PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER), NoSuchPackageException.class);
+      packageValue =
+          (PackageValue)
+              env.getValueOrThrow(
+                  PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
+                  NoSuchPackageException.class);
     } catch (NoSuchPackageException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       workspaceError = true;
