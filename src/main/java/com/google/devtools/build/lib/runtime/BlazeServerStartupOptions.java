@@ -497,4 +497,21 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "can be shared among them without changes. Possible values are: user-interactive, "
               + "user-initiated, default, utility, and background.")
   public String macosQosClass;
+
+  @Option(
+      name = "incompatible_preprocess_asm_files",
+      defaultValue = "false", // Only for documentation; value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.ACTION_COMMAND_LINES,
+        OptionEffectTag.EXECUTION,
+      },
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Run the C preprocessor on .asm files before assembling them. "
+              + "See https://github.com/bazelbuild/bazel/issues/4856")
+  public boolean preprocessAsmFiles;
 }

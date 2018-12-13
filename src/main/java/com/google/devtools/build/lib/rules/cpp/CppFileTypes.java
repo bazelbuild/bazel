@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -72,22 +73,28 @@ public final class CppFileTypes {
         }
       };
 
-  public static final FileType ASSEMBLER_WITH_C_PREPROCESSOR = FileType.of(".S");
+  /**
+   * The client reads options --[no]incompatible_preprocess_asm_files, and sets the system property below accordingly.
+   */
+  private static final boolean SHOULD_PREPROCESS_ASM_FILES = System.getProperty("bazel.preprocess_asm_files") != null;
+  public static final FileType ASSEMBLER_WITH_C_PREPROCESSOR =
+          SHOULD_PREPROCESS_ASM_FILES ? FileType.of(".S", ".asm") : FileType.of(".S");
   public static final FileType PIC_ASSEMBLER = FileType.of(".pic.s");
   public static final FileType ASSEMBLER =
-      new FileType() {
-        final String ext = ".s";
+          new FileType() {
+            final List<String> extensions = SHOULD_PREPROCESS_ASM_FILES ?
+                    ImmutableList.of(".s") : ImmutableList.of(".s", ".asm");
 
-        @Override
-        public boolean apply(String path) {
-          return (path.endsWith(ext) && !PIC_ASSEMBLER.matches(path)) || path.endsWith(".asm");
-        }
+            @Override
+            public boolean apply(String path) { return endsWithExtension(path) && !PIC_ASSEMBLER.matches(path); }
 
-        @Override
-        public List<String> getExtensions() {
-          return ImmutableList.of(ext, ".asm");
-        }
-      };
+            private boolean endsWithExtension(String path) {
+              return extensions.stream().anyMatch(x -> path.endsWith(x));
+            }
+
+            @Override
+            public List<String> getExtensions() { return extensions; }
+          };
 
   public static final FileType PIC_ARCHIVE = FileType.of(".pic.a");
   public static final FileType ARCHIVE =

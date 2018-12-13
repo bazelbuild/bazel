@@ -489,6 +489,12 @@ static vector<string> GetArgumentArray(
   }
   result.insert(result.end(), user_options.begin(), user_options.end());
 
+  // Convert --[no]incompatible_preprocess_asm_files option to Java property.
+  // The property is read by the server.
+  if (globals->options->incompatible_preprocess_asm_files) {
+    result.push_back("-Dbazel.preprocess_asm_files");
+  }
+
   globals->options->AddJVMArgumentSuffix(real_install_dir,
                                          globals->ServerJarPath(), &result);
 

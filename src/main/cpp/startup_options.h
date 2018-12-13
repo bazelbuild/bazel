@@ -314,6 +314,8 @@ class StartupOptions {
   // Whether to raise the soft coredump limit to the hard one or not.
   bool unlimit_coredumps;
 
+  bool incompatible_preprocess_asm_files;
+
 #if defined(__APPLE__)
   // The QoS class to apply to the Bazel server process.
   qos_class_t macos_qos_class;

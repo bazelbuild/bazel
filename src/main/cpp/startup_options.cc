@@ -100,7 +100,8 @@ StartupOptions::StartupOptions(const string &product_name,
 #if defined(__APPLE__)
       macos_qos_class(QOS_CLASS_DEFAULT),
 #endif
-      unlimit_coredumps(false) {
+      unlimit_coredumps(false),
+      incompatible_preprocess_asm_files(false) {
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
@@ -145,6 +146,8 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("unlimit_coredumps");
   RegisterNullaryStartupFlag("watchfs");
   RegisterNullaryStartupFlag("write_command_log");
+  RegisterNullaryStartupFlag("incompatible_preprocess_asm_files");
+  RegisterNullaryStartupFlag("noincompatible_preprocess_asm_files");
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");
@@ -423,6 +426,10 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--nounlimit_coredumps")) {
     unlimit_coredumps = false;
     option_sources["unlimit_coredumps"] = rcfile;
+  } else if (GetNullaryOption(arg, "--incompatible_preprocess_asm_files")) {
+    incompatible_preprocess_asm_files = true;
+  } else if (GetNullaryOption(arg, "--noincompatible_preprocess_asm_files")) {
+    incompatible_preprocess_asm_files = false;
   } else {
     bool extra_argument_processed;
     blaze_exit_code::ExitCode process_extra_arg_exit_code = ProcessArgExtra(
