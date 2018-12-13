@@ -18,7 +18,11 @@ import hashlib
 from io import BytesIO
 import os
 import os.path
-import StringIO
+from io import BytesIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import sys
 import tarfile
 import textwrap
@@ -95,21 +99,28 @@ def MakeGflags():
       gflags.MarkFlagAsRequired(fieldname)
 
 
+def ConvertToFileLike(content, content_len, converter):
+    if content_len < 0:
+      content_len = len(content)
+    content = converter(content)
+    return content_len, content
+
+
 def AddArFileEntry(fileobj, filename,
                    content='', content_len=-1, timestamp=0,
                    owner_id=0, group_id=0, mode=0o644):
   """Add a AR file entry to fileobj."""
   # If we got the content as a string, turn it into a file like thing.
   if isinstance(content, str):
-    if content_len < 0:
-      content_len = len(content)
-    content = StringIO.StringIO(content)
+      content_len, content = ConvertToFileLike(content, content_len, StringIO)
+  if isinstance(content, bytes):
+      content_len, content = ConvertToFileLike(content, content_len, BytesIO)
   inputs = [
       (filename + '/').ljust(16),  # filename (SysV)
       str(timestamp).ljust(12),  # timestamp
       str(owner_id).ljust(6),  # owner id
       str(group_id).ljust(6),  # group id
-      oct(mode).ljust(8),  # mode
+      str(oct(mode)).replace("0o", "0").ljust(8),  # mode
       str(content_len).ljust(10),  # size
       '\x60\x0a',  # end of file entry
   ]
