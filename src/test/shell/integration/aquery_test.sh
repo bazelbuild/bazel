@@ -56,6 +56,20 @@ fi
 
 add_to_bazelrc "build --package_path=%workspace%"
 
+function assert_only_action_foo() {
+  expect_log_n "^action '" 1 "Expected exactly one action."
+  assert_contains "action.*foo" $1
+  assert_not_contains "action.*wrong_input" $1
+  assert_not_contains "action.*wrong_output" $1
+  assert_not_contains "action.*wrong_mnemonic" $1
+
+  assert_contains "Inputs: \[.*foo_matching_in.java.*\]" $1
+  assert_contains "Outputs: \[.*foo_matching_out.*\]" $1
+  assert_contains "Mnemonic: Genrule" $1
+
+  return 0
+}
+
 function test_basic_aquery() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
@@ -293,38 +307,251 @@ EOF
   assert_contains "Outputs: \[.*a-aspect" output
 }
 
-function test_aquery_inputsfilter_onlymatchfoo() {
+function test_aquery_all_filters_only_match_foo() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
 genrule(
     name = "foo",
-    srcs = [":bar", "dummy_foo.txt"],
-    outs = ["foo_out.txt"],
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
     cmd = "echo unused > $(OUTS)",
 )
 
 genrule(
-    name = "bar",
-    srcs = ["dummy_bar.txt"],
-    outs = ["bar_out.txt"],
+    name = "wrong_input",
+    srcs = ["wrong_input.java"],
+    outs = ["wi_matching_out"],
     cmd = "echo unused > $(OUTS)",
 )
+
+genrule(
+    name = "wrong_output",
+    srcs = ["wo_matching_in.java"],
+    outs = ["wrong_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+java_library(
+    name = "wrong_mnemonic",
+    srcs = ["wm_matching_in.java"],
+)
 EOF
-  which bazel
-  bazel aquery --output=text "inputs('$pkg/dummy_foo.txt', deps(//$pkg:foo))" > output 2> "$TEST_log" \
+
+  QUERY="inputs(
+    '.*matching_in.java', outputs('.*matching_out', mnemonic('Genrule', //$pkg:all)))"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
-  expect_log_n "^action '" 1 "Expected exactly one action."
-  assert_contains "action.*foo" output
-  assert_not_contains "action.*bar" output
-  assert_contains "Inputs: \[.*dummy_foo.txt.*\]" output
-  assert_not_contains "Inputs: \[.*dummy_bar.txt.*\]" output
+  assert_only_action_foo output
 
-  bazel aquery --output=textproto --noinclude_commandline \
-    "inputs('$pkg/dummy_foo.txt', deps(//$pkg:foo))" > output \
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
     2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_inputs_filter_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "wrong_input",
+    srcs = ["wrong_input.java"],
+    outs = ["wi_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  QUERY="inputs('.*matching_in.java', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_outputs_filter_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "wrong_output",
+    srcs = ["wo_matching_in.java"],
+    outs = ["wrong_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  QUERY="outputs('.*matching_out', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_mnemonic_filter_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+java_library(
+    name = "wrong_mnemonic",
+    srcs = ["wm_matching_in.java"],
+)
+EOF
+
+  QUERY="mnemonic('.*rule', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_inputs_filter_exact_filename_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "wrong_input",
+    srcs = ["wrong_input.java"],
+    outs = ["wi_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  QUERY="inputs('$pkg/foo_matching_in.java', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_outputs_filter_exact_filename_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "wrong_output",
+    srcs = ["wo_matching_in.java"],
+    outs = ["wrong_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  QUERY="outputs('.*/$pkg/foo_matching_out', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_mnemonic_filter_exact_mnemonic_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+java_library(
+    name = "wrong_mnemonic",
+    srcs = ["wm_matching_in.java"],
+)
+EOF
+
+  QUERY="mnemonic('Genrule', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_filters_non_aquery_enclosing_function_query_error() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  QUERY="deps(inputs('.*matching_in.java', outputs('.*matching_out', mnemonic('Genrule', //$pkg:all))))"
+  EXPECTED_LOG="ERROR: aquery filter functions (inputs, outputs, mnemonic) produce actions, and therefore can't be the input of other function types: deps
+${QUERY}"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    && fail "Expected failure"
+  expect_log "${EXPECTED_LOG}"
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

@@ -18,25 +18,25 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType
 
 /**
  * A label(pattern, argument) filter expression, which computes the set of resulting actions of
- * argument whose inputs matches the regexp 'pattern'. The pattern follows java.util.regex format.
+ * argument whose outputs matches the regexp 'pattern'. The pattern follows java.util.regex format.
  *
- * <pre>expr ::= INPUTS '(' WORD ',' expr ')'</pre>
+ * <pre>expr ::= OUTPUTS '(' WORD ',' expr ')'</pre>
  *
  * Example patterns:
  *
  * <pre>
- * '//third_party/a.java'      Match all actions whose inputs includes //third_party/a.java
- * '//third_party/.*\.js'      Match all actions whose inputs includes js files under //third_party/
- * '.*'                        Match all actions
- * '*'                         Error: invalid regex
+ * '//third_party/a.java'     Match all actions whose outputs includes //third_party/a.java
+ * '//third_party/.*\.js'     Match all actions whose outputs includes js files under //third_party/
+ * '.*'                       Match all actions
+ * '*'                        Error: invalid regex
  * </pre>
  */
-public class InputsFunction extends ActionFilterFunction {
-  public static final String INPUTS = "inputs";
+public class OutputsFunction extends ActionFilterFunction {
+  public static final String OUTPUTS = "outputs";
 
   @Override
   public String getName() {
-    return INPUTS;
+    return OUTPUTS;
   }
 
   @Override

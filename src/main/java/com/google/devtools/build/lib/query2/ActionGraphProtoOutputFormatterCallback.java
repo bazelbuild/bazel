@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.regex.Pattern;
 
 /** Default output callback for aquery, prints proto output. */
 public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCallback {
@@ -51,7 +52,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
 
   private final OutputType outputType;
   private final ActionGraphDump actionGraphDump;
-  private final ImmutableMap<String, String> actionFilters;
+  private final ImmutableMap<String, Pattern> actionFilters;
 
   ActionGraphProtoOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -60,7 +61,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTargetValue> accessor,
       OutputType outputType,
-      ImmutableMap<String, String> actionFilters) {
+      ImmutableMap<String, Pattern> actionFilters) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.actionFilters = actionFilters;

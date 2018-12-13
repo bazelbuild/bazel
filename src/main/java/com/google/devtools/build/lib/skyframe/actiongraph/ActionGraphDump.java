@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.query2.AqueryUtils;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import java.util.List;
@@ -62,9 +62,10 @@ public class ActionGraphDump {
   private final KnownAspectDescriptors knownAspectDescriptors;
   private final KnownRuleConfiguredTargets knownRuleConfiguredTargets;
   private final boolean includeActionCmdLine;
-  private final ImmutableMap<String, String> actionFilters;
+  private final ImmutableMap<String, Pattern> actionFilters;
 
-  public ActionGraphDump(boolean includeActionCmdLine, ImmutableMap<String, String> actionFilters) {
+  public ActionGraphDump(
+      boolean includeActionCmdLine, ImmutableMap<String, Pattern> actionFilters) {
     this(/* actionGraphTargets= */ ImmutableList.of("..."), includeActionCmdLine, actionFilters);
   }
 
@@ -75,7 +76,7 @@ public class ActionGraphDump {
   public ActionGraphDump(
       List<String> actionGraphTargets,
       boolean includeActionCmdLine,
-      ImmutableMap<String, String> actionFilters) {
+      ImmutableMap<String, Pattern> actionFilters) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
     this.actionFilters = actionFilters;
@@ -104,19 +105,8 @@ public class ActionGraphDump {
   private void dumpSingleAction(ConfiguredTarget configuredTarget, ActionAnalysisMetadata action)
       throws CommandLineExpansionException {
 
-    Iterable<Artifact> inputs = action.getInputs();
-
-    // TODO(leba): define const for "inputs" and allow multiple inputs pattern
-    if (this.actionFilters.containsKey("inputs")) {
-      Pattern inputsPattern = Pattern.compile(actionFilters.get("inputs"));
-      Boolean containsFile =
-          Streams.stream(inputs)
-              .map(a -> inputsPattern.matcher(a.getExecPathString()).matches())
-              .reduce(false, Boolean::logicalOr);
-
-      if (!containsFile) {
-        return;
-      }
+    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
+      return;
     }
 
     Preconditions.checkState(configuredTarget instanceof RuleConfiguredTarget);
@@ -175,6 +165,7 @@ public class ActionGraphDump {
     }
 
     // store inputs
+    Iterable<Artifact> inputs = action.getInputs();
     if (!(inputs instanceof NestedSet)) {
       inputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs);
     }

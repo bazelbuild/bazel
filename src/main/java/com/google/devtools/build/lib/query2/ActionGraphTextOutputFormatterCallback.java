@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -54,7 +53,7 @@ import java.util.stream.Collectors;
 public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
-  private final ImmutableMap<String, String> actionFilters;
+  private final ImmutableMap<String, Pattern> actionFilters;
 
   ActionGraphTextOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -62,7 +61,7 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTargetValue> accessor,
-      ImmutableMap<String, String> actionFilters) {
+      ImmutableMap<String, Pattern> actionFilters) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.actionFilters = actionFilters;
   }
@@ -98,19 +97,9 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
 
   private void writeAction(ActionAnalysisMetadata action, PrintStream printStream)
       throws IOException, CommandLineExpansionException {
-    Iterable<Artifact> inputs = action.getInputs();
 
-    // TODO(leba): define const for "inputs" and allow multiple inputs pattern
-    if (actionFilters.containsKey("inputs")) {
-      Pattern inputsPattern = Pattern.compile(actionFilters.get("inputs"));
-      Boolean containsFile =
-          Streams.stream(inputs)
-              .map(a -> inputsPattern.matcher(a.getExecPathString()).matches())
-              .reduce(false, Boolean::logicalOr);
-
-      if (!containsFile) {
-        return;
-      }
+    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
+      return;
     }
 
     ActionOwner actionOwner = action.getOwner();
@@ -178,7 +167,7 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
     stringBuilder
         .append("  Inputs: [")
         .append(
-            Streams.stream(inputs)
+            Streams.stream(action.getInputs())
                 .map(input -> input.getExecPathString())
                 .sorted()
                 .collect(Collectors.joining(", ")))

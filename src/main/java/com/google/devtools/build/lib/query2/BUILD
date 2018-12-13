@@ -13,10 +13,12 @@ java_library(
         exclude = [
             "AbstractBlazeQueryEnvironment.java",
             "FakeLoadTarget.java",
+            "AqueryUtils.java",
         ],
     ),
     deps = [
         ":abstract-blaze-query-env",
+        ":aquery-utils",
         ":aspect-resolver",
         ":fake-load-target",
         ":query-engine",
@@ -141,5 +143,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/graph",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "aquery-utils",
+    srcs = [
+        "AqueryUtils.java",
+    ],
+    deps = [
+        ":query-engine",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:guava",
     ],
 )

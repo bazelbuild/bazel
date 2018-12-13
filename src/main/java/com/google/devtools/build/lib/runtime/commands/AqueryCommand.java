@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildtool.AqueryBuildTool;
+import com.google.devtools.build.lib.buildtool.AqueryBuildTool.AqueryActionFilterException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.ActionGraphQueryEnvironment;
@@ -119,8 +120,18 @@ public final class AqueryCommand implements BlazeCommand {
             env.getReporter().getOutErr(),
             env.getCommandId(),
             env.getCommandStartTime());
-    ExitCode exitCode =
-        new AqueryBuildTool(env, expr).processRequest(request, null).getExitCondition();
+
+    AqueryBuildTool aqueryBuildTool;
+
+    try {
+      aqueryBuildTool = new AqueryBuildTool(env, expr);
+    } catch (AqueryActionFilterException e) {
+      env.getReporter().handle(Event.error(e.getMessage() + "\n" + expr));
+      return BlazeCommandResult.exitCode(ExitCode.PARSING_FAILURE);
+    }
+
+    ExitCode exitCode = aqueryBuildTool.processRequest(request, null).getExitCondition();
+
     return BlazeCommandResult.exitCode(exitCode);
   }
 }

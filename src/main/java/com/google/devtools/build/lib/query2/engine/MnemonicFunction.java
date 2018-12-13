@@ -18,25 +18,26 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType
 
 /**
  * A label(pattern, argument) filter expression, which computes the set of resulting actions of
- * argument whose inputs matches the regexp 'pattern'. The pattern follows java.util.regex format.
+ * argument whose mnemonics matches the regexp 'pattern'. The pattern follows java.util.regex
+ * format.
  *
- * <pre>expr ::= INPUTS '(' WORD ',' expr ')'</pre>
+ * <pre>expr ::= MNEMONIC '(' WORD ',' expr ')'</pre>
  *
- * Example patterns:
+ * Example patterns: TODO(leba) example patterns
  *
  * <pre>
- * '//third_party/a.java'      Match all actions whose inputs includes //third_party/a.java
- * '//third_party/.*\.js'      Match all actions whose inputs includes js files under //third_party/
- * '.*'                        Match all actions
- * '*'                         Error: invalid regex
+ * 'CppCompile'   Match all actions whose mnemonic is CppComile
+ * 'Cpp.*'        Match all actions whose mnemonics match 'Cpp.*'
+ * '.*'           Match all actions
+ * '*'            Error: invalid regex
  * </pre>
  */
-public class InputsFunction extends ActionFilterFunction {
-  public static final String INPUTS = "inputs";
+public class MnemonicFunction extends ActionFilterFunction {
+  public static final String MNEMONIC = "mnemonic";
 
   @Override
   public String getName() {
-    return INPUTS;
+    return MNEMONIC;
   }
 
   @Override

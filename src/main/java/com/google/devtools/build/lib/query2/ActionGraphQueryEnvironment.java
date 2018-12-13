@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.query2.ActionGraphProtoOutputFormatterCallb
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.InputsFunction;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
+import com.google.devtools.build.lib.query2.engine.MnemonicFunction;
+import com.google.devtools.build.lib.query2.engine.OutputsFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -51,6 +53,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -64,7 +67,7 @@ public class ActionGraphQueryEnvironment
   public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
   AqueryOptions aqueryOptions;
 
-  private ImmutableMap<String, String> actionFilters;
+  private ImmutableMap<String, Pattern> actionFilters;
   private final KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
       configuredTargetKeyExtractor;
   private final ConfiguredTargetValueAccessor accessor;
@@ -136,7 +139,7 @@ public class ActionGraphQueryEnvironment
   }
 
   private static ImmutableList<QueryFunction> populateAqueryFunctions() {
-    return ImmutableList.of(new InputsFunction());
+    return ImmutableList.of(new InputsFunction(), new OutputsFunction(), new MnemonicFunction());
   }
 
   @Override
@@ -333,11 +336,7 @@ public class ActionGraphQueryEnvironment
         SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 
-  public ImmutableMap<String, String> getActionFilters() {
-    return actionFilters;
-  }
-
-  public void setActionFilters(ImmutableMap<String, String> actionFilters) {
+  public void setActionFilters(ImmutableMap<String, Pattern> actionFilters) {
     this.actionFilters = actionFilters;
   }
 }
