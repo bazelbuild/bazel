@@ -31,7 +31,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
@@ -715,7 +714,6 @@ public final class SkyframeBuildView {
   @Nullable
   ConfiguredTarget createConfiguredTarget(
       Target target,
-      ActionLookupKey actionLookupKey,
       BuildConfiguration configuration,
       CachingAnalysisEnvironment analysisEnvironment,
       OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
@@ -729,7 +727,6 @@ public final class SkyframeBuildView {
     Preconditions.checkNotNull(prerequisiteMap);
     return factory.createConfiguredTarget(
         analysisEnvironment,
-        actionLookupKey,
         artifactFactory,
         target,
         configuration,

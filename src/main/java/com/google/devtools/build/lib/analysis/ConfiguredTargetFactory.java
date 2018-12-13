@@ -19,7 +19,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -194,7 +193,6 @@ public final class ConfiguredTargetFactory {
   @Nullable
   public final ConfiguredTarget createConfiguredTarget(
       AnalysisEnvironment analysisEnvironment,
-      ActionLookupKey actionLookupKey,
       ArtifactFactory artifactFactory,
       Target target,
       BuildConfiguration config,
@@ -209,7 +207,6 @@ public final class ConfiguredTargetFactory {
         return createRule(
             analysisEnvironment,
             (Rule) target,
-            actionLookupKey,
             config,
             hostConfig,
             prerequisiteMap,
@@ -262,7 +259,6 @@ public final class ConfiguredTargetFactory {
   private ConfiguredTarget createRule(
       AnalysisEnvironment env,
       Rule rule,
-      ActionLookupKey actionLookupKey,
       BuildConfiguration configuration,
       BuildConfiguration hostConfiguration,
       OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
@@ -280,7 +276,6 @@ public final class ConfiguredTargetFactory {
                 hostConfiguration,
                 ruleClassProvider.getPrerequisiteValidator(),
                 rule.getRuleClassObject().getConfigurationFragmentPolicy())
-            .setActionLookupKey(actionLookupKey)
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
             .setPrerequisites(prerequisiteMap)
             .setConfigConditions(configConditions)
@@ -404,7 +399,6 @@ public final class ConfiguredTargetFactory {
    */
   public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
-      ActionLookupKey actionLookupKey,
       ConfiguredTargetAndData associatedTarget,
       ImmutableList<Aspect> aspectPath,
       ConfiguredAspectFactory aspectFactory,
@@ -415,6 +409,7 @@ public final class ConfiguredTargetFactory {
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration)
       throws AspectFunctionException, InterruptedException {
+
     RuleContext.Builder builder =
         new RuleContext.Builder(
             env,
@@ -429,7 +424,6 @@ public final class ConfiguredTargetFactory {
 
     RuleContext ruleContext =
         builder
-            .setActionLookupKey(actionLookupKey)
             .setVisibility(
                 convertVisibility(
                     prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget(), null))

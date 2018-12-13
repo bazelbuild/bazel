@@ -34,7 +34,6 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -163,7 +162,6 @@ public final class RuleContext extends TargetContext
   private static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
 
   private final Rule rule;
-  private final ActionLookupKey actionLookupKey;
   /**
    * A list of all aspects applied to the target. If this <code>RuleContext</code>
    * is for a rule implementation, <code>aspects</code> is an empty list.
@@ -210,7 +208,6 @@ public final class RuleContext extends TargetContext
         builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.target.getAssociatedRule();
-    this.actionLookupKey = builder.actionLookupKey;
     this.aspects = builder.aspects;
     this.aspectDescriptors =
         builder
@@ -286,18 +283,6 @@ public final class RuleContext extends TargetContext
   @Override
   public ArtifactRoot getMiddlemanDirectory() {
     return getConfiguration().getMiddlemanDirectory(rule.getRepository());
-  }
-
-  /**
-   * Key for the configured target.
-   *
-   * <p><b>WARNING:</b> this should never be used.
-   *
-   * <p>Non-null outside of tests.
-   */
-  @Deprecated
-  public ActionLookupKey getActionLookupKey() {
-    return actionLookupKey;
   }
 
   public Rule getRule() {
@@ -1472,7 +1457,6 @@ public final class RuleContext extends TargetContext
     private final BuildConfiguration hostConfiguration;
     private final PrerequisiteValidator prerequisiteValidator;
     private final RuleErrorConsumer reporter;
-    private ActionLookupKey actionLookupKey;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
     private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
     private NestedSet<PackageGroupContents> visibility;
@@ -1534,11 +1518,6 @@ public final class RuleContext extends TargetContext
           .getAssociatedRule()
           .getRuleClassObject()
           .checkAttributesNonEmpty(reporter, attributes);
-    }
-
-    public Builder setActionLookupKey(ActionLookupKey actionLookupKey) {
-      this.actionLookupKey = actionLookupKey;
-      return this;
     }
 
     public Builder setVisibility(NestedSet<PackageGroupContents> visibility) {

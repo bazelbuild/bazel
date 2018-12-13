@@ -20,7 +20,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -504,20 +503,14 @@ public class CppHelper {
    * CcCompilationContext}s.
    */
   public static void checkLinkstampsUnique(RuleErrorConsumer listener, CcLinkParams linkParams) {
-    LinkedHashMap<Artifact, ArrayList<Label>> dupeMap = new LinkedHashMap<>();
-    for (Linkstamp linkstamp : linkParams.getLinkstamps()) {
-      ArrayList<Label> value =
-          dupeMap.computeIfAbsent(linkstamp.getArtifact(), (Artifact k) -> new ArrayList<>());
-      value.add(linkstamp.actionLookupKey().getLabel());
-    }
-    for (Map.Entry<Artifact, ArrayList<Label>> entry : dupeMap.entrySet()) {
-      if (entry.getValue().size() > 1) {
-        listener.ruleWarning(
-            "rule inherits the '"
-                + entry.getKey().toDetailString()
-                + "' linkstamp file from more than one target: "
-                + Joiner.on(",").join(entry.getValue()));
+    Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();
+    for (Linkstamp pair : linkParams.getLinkstamps()) {
+      Artifact artifact = pair.getArtifact();
+      if (result.containsKey(artifact)) {
+        listener.ruleWarning("rule inherits the '" + artifact.toDetailString()
+            + "' linkstamp file from more than one cc_library rule");
       }
+      result.put(artifact, pair.getDeclaredIncludeSrcs());
     }
   }
 

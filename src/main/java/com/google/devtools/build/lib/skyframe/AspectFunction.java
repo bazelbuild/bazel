@@ -617,7 +617,6 @@ public final class AspectFunction implements SkyFunction {
             view.getConfiguredTargetFactory()
                 .createAspect(
                     analysisEnvironment,
-                    key,
                     associatedTarget,
                     aspectPath,
                     aspectFactory,

@@ -363,11 +363,7 @@ public final class CcLinkingHelper {
       CcCompilationContext ccCompilationContext) {
     NestedSetBuilder<Linkstamp> linkstampBuilder = NestedSetBuilder.stableOrder();
     for (Artifact linkstamp : linkstamps.build()) {
-      linkstampBuilder.add(
-          new Linkstamp(
-              linkstamp,
-              ruleContext.getActionLookupKey(),
-              ccCompilationContext.getDeclaredIncludeSrcs()));
+      linkstampBuilder.add(new Linkstamp(linkstamp, ccCompilationContext.getDeclaredIncludeSrcs()));
     }
     CcLinkingInfo ccLinkingInfo = CcLinkingInfo.EMPTY;
     if (!neverlink) {
