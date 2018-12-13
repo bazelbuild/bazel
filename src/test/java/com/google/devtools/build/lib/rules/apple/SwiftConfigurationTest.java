@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.apple;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import java.util.List;
 import org.junit.Test;
@@ -57,5 +58,37 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
     List<String> copts = (List<String>) skylarkTarget.get("copts");
 
     assertThat(copts).containsAllOf("foo", "bar");
+  }
+
+  @Test
+  public void testHostSwiftcopt() throws Exception {
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/apple_rules.bzl",
+        "def swift_binary_impl(ctx):",
+        "   copts = ctx.fragments.swift.copts()",
+        "   return struct(",
+        "      copts=copts,",
+        "   )",
+        "swift_binary = rule(",
+        "   implementation = swift_binary_impl,",
+        "   fragments = ['swift']",
+        ")");
+
+    scratch.file(
+        "examples/swift_skylark/BUILD",
+        "load('//examples/rule:apple_rules.bzl', 'swift_binary')",
+        "swift_binary(",
+        "   name='my_target',",
+        ")");
+
+    useConfiguration("--swiftcopt=foo", "--host_swiftcopt=bar", "--host_swiftcopt=baz");
+    ConfiguredTarget target = getConfiguredTarget("//examples/swift_skylark:my_target", getHostConfiguration());
+
+    @SuppressWarnings("unchecked")
+    List<String> copts = (List<String>) target.get("copts");
+
+    assertThat(copts).doesNotContain("foo");
+    assertThat(copts).containsAllOf("bar", "baz");
   }
 }
