@@ -17,7 +17,7 @@ filegroup(
     srcs = select({
         "//src/conditions:windows": [
             ":zip-bazel-exe",
-            ":zip-bazel-exe_with_jdk",
+            ":zip-bazel-exe_nojdk",
         ],
         "//src/conditions:freebsd": [],
         "//src/conditions:darwin": [
@@ -56,7 +56,7 @@ genrule(
 
 [genrule(
     name = "zip-bazel-exe" + suffix,
-    srcs = ["//src:bazel%s.exe" % suffix],
+    srcs = ["//src:bazel-bin%s.exe" % suffix],
     outs = ["bazel%s.zip" % suffix],
     cmd = "\n".join([
         "tmpdir=$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXX)",
@@ -67,7 +67,7 @@ genrule(
     ]),
 ) for suffix in [
     "",
-    "_with_jdk",
+    "_nojdk",
 ]]
 
 genrule(
