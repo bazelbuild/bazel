@@ -83,7 +83,7 @@ function test_jdeps() {
     sed -e 's|[[:space:]]*||g' -e 's|/.*||' | \
     grep -v "notfound" | \
     sort -u > jdeps-sorted
-  expected=$(rlocation io_bazel/src/test/shell/bazel/jdeps_modules.golden)
+  expected=$(rlocation io_bazel/src/jdeps_modules.golden)
   diff -u jdeps-sorted "$expected" || fail "List of modules has changed."
 }
 
