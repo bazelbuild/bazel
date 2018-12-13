@@ -794,6 +794,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
             "If enabled, strict usage of the Starlark migration tag is enabled for android rules.")
     public boolean checkForMigrationTag;
 
+    @Option(
+        name = "experiemental_filter_r_jars_from_android_test",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.CHANGES_INPUTS,
+        },
+        help = "If enabled, R Jars will be filtered from the test apk built by android_test.")
+    public boolean filterRJarsFromAndroidTest;
+
     // TODO(eaftan): enable this by default and delete it
     @Option(
         name = "experimental_one_version_enforcement_use_transitive_jars_for_binary_under_test",
@@ -942,6 +952,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   private final boolean dataBindingV2;
   private final boolean persistentBusyboxTools;
+  private final boolean filterRJarsFromAndroidTest;
 
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -985,6 +996,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
     this.dataBindingV2 = options.dataBindingV2;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
+    this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1199,5 +1211,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public String getOutputDirectoryName() {
     return configurationDistinguisher.suffix;
+  }
+
+  public boolean filterRJarsFromAndroidTest() {
+    return filterRJarsFromAndroidTest;
   }
 }
