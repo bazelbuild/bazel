@@ -307,13 +307,13 @@ TEST_F(OptionProcessorTest, SplitCommandLineWithDashDash) {
 TEST_F(OptionProcessorTest, TestDedupePathsOmitsInvalidPath) {
   std::vector<std::string> input = {"foo"};
   std::vector<std::string> expected = {};
-  ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
+  ASSERT_EQ(expected, internal::GetExistingDedupedBazelrcPaths(input));
 }
 
 TEST_F(OptionProcessorTest, TestDedupePathsOmitsEmptyPath) {
   std::vector<std::string> input = {""};
   std::vector<std::string> expected = {};
-  ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
+  ASSERT_EQ(expected, internal::GetExistingDedupedBazelrcPaths(input));
 }
 
 TEST_F(OptionProcessorTest, TestDedupePathsWithDifferentFiles) {
@@ -324,7 +324,7 @@ TEST_F(OptionProcessorTest, TestDedupePathsWithDifferentFiles) {
   ASSERT_TRUE(blaze_util::WriteFile("bar", bar_path));
 
   std::vector<std::string> input = {foo_path, bar_path};
-  ASSERT_EQ(input, internal::DedupeBlazercPaths(input));
+  ASSERT_EQ(input, internal::GetExistingDedupedBazelrcPaths(input));
 }
 
 TEST_F(OptionProcessorTest, TestDedupePathsWithSameFile) {
@@ -334,7 +334,7 @@ TEST_F(OptionProcessorTest, TestDedupePathsWithSameFile) {
 
   std::vector<std::string> input = {foo_path, foo_path};
   std::vector<std::string> expected = {foo_path};
-  ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
+  ASSERT_EQ(expected, internal::GetExistingDedupedBazelrcPaths(input));
 }
 
 TEST_F(OptionProcessorTest, TestDedupePathsWithRelativePath) {
@@ -347,7 +347,7 @@ TEST_F(OptionProcessorTest, TestDedupePathsWithRelativePath) {
 
   std::vector<std::string> input = {foo_path, relative_foo_path};
   std::vector<std::string> expected = {foo_path};
-  ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
+  ASSERT_EQ(expected, internal::GetExistingDedupedBazelrcPaths(input));
 }
 
 #if !defined(_WIN32) && !defined(__CYGWIN__)
@@ -363,7 +363,7 @@ TEST_F(OptionProcessorTest, TestDedupePathsWithSymbolicLink) {
   ASSERT_TRUE(Symlink(foo_path, sym_foo_path));
   std::vector<std::string> input = {foo_path, sym_foo_path};
   std::vector<std::string> expected = {foo_path};
-  ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
+  ASSERT_EQ(expected, internal::GetExistingDedupedBazelrcPaths(input));
 }
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 

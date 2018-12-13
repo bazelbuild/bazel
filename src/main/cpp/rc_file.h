@@ -42,7 +42,9 @@ class RcFile {
       std::string workspace, ParseError* error, std::string* error_text);
 
   // Returns all relevant rc sources for this file (including itself).
-  const std::deque<std::string>& sources() const { return rcfile_paths_; }
+  const std::deque<std::string>& canonical_source_paths() const {
+    return canonical_rcfile_paths_;
+  }
 
   // Command -> all options for that command (in order of appearance).
   using OptionMap = std::unordered_map<std::string, std::vector<RcOption>>;
@@ -68,9 +70,12 @@ class RcFile {
   const std::string workspace_;
 
   // Full closure of rcfile paths imported from this file (including itself).
+  // These are all canonical paths, created with blaze_util::MakeCanonical.
+  // This also means all of these paths should exist.
+  //
   // The RcOption structs point to the strings in here so they need to be stored
   // in a container that offers stable pointers, like a deque (and not vector).
-  std::deque<std::string> rcfile_paths_;
+  std::deque<std::string> canonical_rcfile_paths_;
   // All options parsed from the file.
   OptionMap options_;
 };

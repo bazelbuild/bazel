@@ -28,7 +28,7 @@ namespace internal {
 // Returns the deduped set of bazelrc paths (with respect to its canonical form)
 // preserving the original order. The paths that cannot be resolved are
 // omitted.
-std::vector<std::string> DedupeBlazercPaths(
+std::vector<std::string> GetExistingDedupedBazelrcPaths(
     const std::vector<std::string>& paths);
 
 // Given the set of already-ready files, warns if any of the newly loaded_rcs
