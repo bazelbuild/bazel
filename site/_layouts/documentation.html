@@ -24,15 +24,14 @@ nav: docs
           </a>
 
           <nav class="sidebar collapse" id="sidebar-nav">
-
             <!-- /versions/master/foo/bar -> ["master", "foo", "bar"] -->
             <!-- /versions/0.12.3/baz.md -> ["0.12.3", "baz.md"] -->
             {% assign versioned_url_parts = page.url | split: '/' | shift | shift %}
             {% assign current_version = versioned_url_parts.first %}
-            <select class="custom-select custom-select-lg" onchange="location.href=this.value">
+            <select onchange="location.href=this.value">
                 <option value="" selected disabled hidden>Version: {{ current_version }}</option>
                 {% for doc_version in site.doc_versions %}
-                <!-- resconstruct relative url for the current page for each doc version -->
+                <!-- reconstruct absolute url for the current page for each doc version -->
                 <option value="/{{ versioned_url_parts | shift | unshift: doc_version | unshift: 'versions' | join: '/' }}">
                     {{ doc_version }}
                 </option>
