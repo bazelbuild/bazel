@@ -38,9 +38,11 @@ public class ShowIncludesFilter {
 
   private FilterShowIncludesOutputStream filterShowIncludesOutputStream;
   private final String sourceFileName;
+  private final String workspaceName;
 
-  public ShowIncludesFilter(String sourceFileName) {
+  public ShowIncludesFilter(String sourceFileName, String workspaceName) {
     this.sourceFileName = sourceFileName;
+    this.workspaceName = workspaceName;
   }
 
   /**
@@ -54,10 +56,12 @@ public class ShowIncludesFilter {
     private static final int NEWLINE = '\n';
     private static final String SHOW_INCLUDES_PREFIX = "Note: including file:";
     private final String sourceFileName;
+    private final String execRootSuffix;
 
-    public FilterShowIncludesOutputStream(OutputStream out, String sourceFileName) {
+    public FilterShowIncludesOutputStream(OutputStream out, String sourceFileName, String workspaceName) {
       super(out);
       this.sourceFileName = sourceFileName;
+      this.execRootSuffix = "execroot\\" + workspaceName + "\\";
     }
 
     @Override
@@ -66,7 +70,12 @@ public class ShowIncludesFilter {
       if (b == NEWLINE) {
         String line = buffer.toString(StandardCharsets.UTF_8.name());
         if (line.startsWith(SHOW_INCLUDES_PREFIX)) {
-          dependencies.add(line.substring(SHOW_INCLUDES_PREFIX.length()).trim());
+          line = line.substring(SHOW_INCLUDES_PREFIX.length()).trim();
+          int index = line.indexOf(execRootSuffix);
+          if (index != -1) {
+            line = line.substring(index + execRootSuffix.length());
+          }
+          dependencies.add(line);
         } else if (!line.trim().equals(sourceFileName)) {
           buffer.writeTo(out);
         }
@@ -94,7 +103,7 @@ public class ShowIncludesFilter {
 
   public FilterOutputStream getFilteredOutputStream(OutputStream outputStream) {
     filterShowIncludesOutputStream =
-        new FilterShowIncludesOutputStream(outputStream, sourceFileName);
+        new FilterShowIncludesOutputStream(outputStream, sourceFileName, workspaceName);
     return filterShowIncludesOutputStream;
   }
 
