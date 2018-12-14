@@ -155,11 +155,12 @@ public class ProtoCommon {
    */
   // TODO(lberki): This should really be a PathFragment. Unfortunately, it's on the Starlark API of
   // ProtoInfo so it's not an easy change :(
+  @Nullable
   private static Library getProtoSourceRoot(
       RuleContext ruleContext, ImmutableList<Artifact> directSources) {
-    String protoSourceRoot = ruleContext.attributes().get("proto_source_root", STRING);
-    if (!protoSourceRoot.isEmpty()) {
-      checkProtoSourceRootIsTheSameAsPackage(protoSourceRoot, ruleContext);
+    String protoSourceRoot = computeEffectiveProtoSourceRoot(ruleContext);
+    if (ruleContext.hasErrors()) {
+      return null;
     }
 
     // This is the same as getPackageIdentifier().getPathUnderExecRoot() due to the check above for
@@ -319,8 +320,17 @@ public class ProtoCommon {
     return getProtoSourceRootsOfAttribute(ruleContext, currentProtoSourceRoot, "exports");
   }
 
-  private static void checkProtoSourceRootIsTheSameAsPackage(
-      String protoSourceRoot, RuleContext ruleContext) {
+  private static String computeEffectiveProtoSourceRoot(RuleContext ruleContext) {
+    if (!ruleContext.attributes().isAttributeValueExplicitlySpecified("proto_source_root")) {
+      return "";
+    }
+
+    if (!ruleContext.getFragment(ProtoConfiguration.class).enableProtoSourceroot()) {
+      ruleContext.attributeError("proto_source_root", "this attribute is not supported anymore");
+      return "";
+    }
+
+    String protoSourceRoot = ruleContext.attributes().get("proto_source_root", STRING);
     if (!ruleContext.getLabel().getPackageName().equals(protoSourceRoot)) {
       ruleContext.attributeError(
           "proto_source_root",
@@ -329,6 +339,8 @@ public class ProtoCommon {
               + " not '" + protoSourceRoot + "'."
       );
     }
+
+    return protoSourceRoot;
   }
 
   /**

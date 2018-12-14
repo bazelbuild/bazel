@@ -166,10 +166,25 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
                 + " 'dep.proto.' and it must be accessed by 'dep[ProtoInfo].")
     public boolean disableLegacyProvider;
 
+    @Option(
+        name = "incompatible_disable_proto_source_root",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help =
+            "If true, proto_library will no longer allow the proto_source_root= attribute. It has "
+                + "been superseded by the strip_import_prefix= and import_prefix= attributes")
+    public boolean disableProtoSourceRoot;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
       host.disableLegacyProvider = disableLegacyProvider;
+      host.disableProtoSourceRoot = disableProtoSourceRoot;
       host.protoCompiler = protoCompiler;
       host.protocOpts = protocOpts;
       host.experimentalProtoExtraActions = experimentalProtoExtraActions;
@@ -222,6 +237,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public boolean enableLegacyProvider() {
     return !options.disableLegacyProvider;
+  }
+
+  public boolean enableProtoSourceroot() {
+    return !options.disableProtoSourceRoot;
   }
 
   public ImmutableList<String> protocOpts() {
