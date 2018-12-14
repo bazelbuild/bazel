@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -62,6 +63,18 @@ public final class Actions {
       return false;
     }
 
+    return areTheSame(actionKeyContext, a, b);
+  }
+
+  /**
+   * Checks whether two actions are the same.
+   *
+   * <p>This is the same thing as {@code canBeShared()} except that it doesn't check for the
+   * shareable bit. It exists to facilitate testing of action key computation.
+   */
+  @VisibleForTesting
+  public static boolean areTheSame(
+      ActionKeyContext actionKeyContext, ActionAnalysisMetadata a, ActionAnalysisMetadata b) {
     if (!a.getMnemonic().equals(b.getMnemonic())) {
       return false;
     }
