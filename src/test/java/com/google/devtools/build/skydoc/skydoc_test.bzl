@@ -20,7 +20,7 @@
 #    the golden file if changes are made to skydoc.
 """Convenience macro for skydoc tests."""
 
-load("@bazel_skylib//:skylark_library.bzl", "bzl_library")
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@skydoc//stardoc:stardoc.bzl", "stardoc")
 
 def skydoc_test(name, input_file, golden_file, skydoc, deps = [], whitelisted_symbols = []):
