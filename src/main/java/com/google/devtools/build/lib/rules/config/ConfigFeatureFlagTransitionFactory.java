@@ -59,9 +59,7 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
       if (!options.contains(ConfigFeatureFlagOptions.class)) {
         return options;
       }
-      BuildOptions result = options.clone();
-      result.get(ConfigFeatureFlagOptions.class).replaceFlagValues(flagValues);
-      return result;
+      return FeatureFlagValue.replaceFlagValues(options, flagValues);
     }
 
     @Override

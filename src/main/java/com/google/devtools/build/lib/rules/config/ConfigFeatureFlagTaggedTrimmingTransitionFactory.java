@@ -51,14 +51,10 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory implements RuleTra
       if (!(options.contains(ConfigFeatureFlagOptions.class)
           && options.get(ConfigFeatureFlagOptions.class)
               .enforceTransitiveConfigsForConfigFeatureFlag
-          && options.get(BuildConfiguration.Options.class)
-              .useDistinctHostConfiguration
-          && options.get(ConfigFeatureFlagOptions.class).requiresTrimming(flags))) {
+          && options.get(BuildConfiguration.Options.class).useDistinctHostConfiguration)) {
         return options;
       }
-      BuildOptions result = options.clone();
-      result.get(ConfigFeatureFlagOptions.class).trimFlagValues(flags);
-      return result;
+      return FeatureFlagValue.trimFlagValues(options, flags);
     }
 
     @Override

@@ -353,6 +353,11 @@ public final class BuildOptions implements Cloneable, Serializable {
     return new Builder();
   }
 
+  /** Creates a builder operating on a clone of this BuildOptions. */
+  public Builder toBuilder() {
+    return builder().merge(clone());
+  }
+
   /** Builder class for BuildOptions. */
   public static class Builder {
     /**
@@ -376,8 +381,23 @@ public final class BuildOptions implements Cloneable, Serializable {
       return this;
     }
 
-    Builder addStarlarkOptions(Map<String, Object> options) {
+    /**
+     * Adds multiple Starlark options to the builder. Overrides previous instances of the same key.
+     */
+    public Builder addStarlarkOptions(Map<String, Object> options) {
       starlarkOptions.putAll(options);
+      return this;
+    }
+
+    /** Adds a Starlark option to the builder. Overrides previous instances of the same key. */
+    public Builder addStarlarkOption(String key, Object value) {
+      starlarkOptions.put(key, value);
+      return this;
+    }
+
+    /** Removes the value for the Starlark option with the given key. */
+    public Builder removeStarlarkOption(String key) {
+      starlarkOptions.remove(key);
       return this;
     }
 
