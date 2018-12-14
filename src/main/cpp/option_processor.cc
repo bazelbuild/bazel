@@ -190,16 +190,18 @@ std::set<std::string> GetOldRcPaths(
   if (!user_bazelrc_path.empty()) {
     candidate_bazelrc_paths.push_back(user_bazelrc_path);
   }
-  const std::vector<std::string> deduped_blazerc_paths =
-      internal::GetExistingDedupedBazelrcPaths(candidate_bazelrc_paths);
-  return std::set<std::string>(deduped_blazerc_paths.begin(),
-                               deduped_blazerc_paths.end());
+  // DedupeBlazercPaths returns paths whose canonical path could be computed,
+  // therefore these paths must exist.
+  const std::vector<std::string> deduped_existing_blazerc_paths =
+      internal::DedupeBlazercPaths(candidate_bazelrc_paths);
+  return std::set<std::string>(deduped_existing_blazerc_paths.begin(),
+                               deduped_existing_blazerc_paths.end());
 }
 
 // Deduplicates the given paths based on their canonical form.
 // Computes the canonical form using blaze_util::MakeCanonical.
 // Returns the unique paths in their original form (not the canonical one).
-std::vector<std::string> GetExistingDedupedBazelrcPaths(
+std::vector<std::string> DedupeBlazercPaths(
     const std::vector<std::string>& paths) {
   std::set<std::string> canonical_paths;
   std::vector<std::string> result;
@@ -380,7 +382,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   // this isn't sufficient to prevent duplicate options, so we also warn if we
   // discover duplicate loads later. This also has the effect of removing paths
   // that don't point to real files.
-  rc_files = internal::GetExistingDedupedBazelrcPaths(rc_files);
+  rc_files = internal::DedupeBlazercPaths(rc_files);
 
   std::set<std::string> read_files_canonical_paths;
   // Parse these potential files, in priority order;
