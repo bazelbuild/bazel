@@ -3,6 +3,8 @@
 #
 # $ curl -s https://mirror.bazel.build/bazel_versioned_docs/jekyll-tree-0.20.0.tar | sha256sum | cut -d" " -f1
 # bb79a63810bf1b0aa1f89bd3bbbeb4a547a30ab9af70c9be656cc6866f4b015b
+#
+# This list must be kept in sync with `doc_versions` variable in //site:_config.yml
 
 DOC_VERSIONS = [
     {

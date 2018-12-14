@@ -32,14 +32,14 @@ function cleanup() {
   mv $SCRIPT_DIR/../../site/_config.yml{.bak,}
 }
 
-# Modify the "version" Jekyll variable so all links in anchor tags are generated
-# with the injected version.
-sed -i.bak "s/master/$DOC_VERSION/" $SCRIPT_DIR/../../site/_config.yml
-trap cleanup EXIT
-
 read -p "You're going to generate the docs for $DOC_VERSION. Continue? <y/n> " prompt
 if [[ $prompt =~ [yY](es)* ]]
 then
+  # Modify the "version" Jekyll variable so all links in anchor tags are generated
+  # with the injected version.
+  sed -i.bak "s/master/$DOC_VERSION/" $SCRIPT_DIR/../../site/_config.yml
+  trap cleanup EXIT
+
   bazel build //site:jekyll-tree --action_env=DOC_VERSION=$DOC_VERSION
 
   # -n: no-clobber; prevent overwriting existing archives to be non-destructive.
@@ -52,6 +52,4 @@ then
   log_info "Done."
   log_info "Now, please add \"$DOC_VERSION\" to the doc_versions list in <workspace>/site/_config.yml."
   log_info "Please also add \"$DOC_VERSION\" to <workspace>/scripts/docs/doc_versions.bzl."
-else
-  exit 0
 fi
