@@ -240,6 +240,23 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       return null;
     }
 
+    /**
+     * Select the aapt version for resource processing actions, based on the combination of
+     * --android_aapt flag, aapt_version target attribute, and --incompatible_use_aapt2_by_default
+     * flag.
+     *
+     * <p>Order of precedence:
+     * <li>1. --android_aapt flag
+     * <li>2. 'aapt_version' attribute on target
+     * <li>3. --incompatible_use_aapt2_by_default flag
+     *
+     * @param dataContext the Android data context for detecting aapt2 and fetching Android configs
+     * @param errorConsumer the rule context for reporting errors during version selection
+     * @param attributeString if not null, the aapt version specified by the 'aapt_version' target
+     *     attribute
+     * @return the selected version: aapt or aapt2
+     * @throws RuleErrorException error if aapt2 is requested but it's not available in the SDK
+     */
     @Nullable
     public static AndroidAaptVersion chooseTargetAaptVersion(
         AndroidDataContext dataContext,
@@ -257,8 +274,21 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         throw errorConsumer.throwWithRuleError(
             "aapt2 processing requested but not available on the android_sdk");
       }
-      // If version is auto, assume aapt.
-      return version == AndroidAaptVersion.AUTO ? AAPT : version;
+
+      if (version != AndroidAaptVersion.AUTO) {
+        return version;
+      }
+
+      // At this point, the version is still auto. If the user passes
+      // --incompatible_use_aapt2_by_default explicitly or implicitly via
+      // --all_incompatible_changes, use aapt2 by default.
+      //
+      // We use the --incompatible_use_aapt2_by_default flag to signal a breaking change in Bazel.
+      // This is required by the Bazel Incompatible Changes policy.
+      //
+      // TODO(jingwen): We can remove the incompatible change flag only when the depot migration is
+      // complete and the default value of --android_aapt is switched from `auto` to `aapt2`.
+      return dataContext.getAndroidConfig().incompatibleChangeUseAapt2ByDefault() ? AAPT2 : AAPT;
     }
   }
 
@@ -867,6 +897,21 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         help = "Tracking flag for when busybox workers are enabled.")
     public boolean persistentBusyboxTools;
 
+    @Option(
+        name = "incompatible_use_aapt2_by_default",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        defaultValue = "false",
+        help =
+            "Switch the Android rules to use aapt2 by default for resource processing. "
+                + "To resolve issues when migrating your app to build with aapt2, see "
+                + "https://developer.android.com/studio/command-line/aapt2#aapt2_changes")
+    public boolean incompatibleUseAapt2ByDefault;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -954,6 +999,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean persistentBusyboxTools;
   private final boolean filterRJarsFromAndroidTest;
 
+  // Incompatible changes
+  private final boolean incompatibleUseAapt2ByDefault;
+
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
     this.useIncrementalNativeLibs = options.incrementalNativeLibs;
@@ -997,6 +1045,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.dataBindingV2 = options.dataBindingV2;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
+    this.incompatibleUseAapt2ByDefault = options.incompatibleUseAapt2ByDefault;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1206,6 +1255,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public boolean persistentBusyboxTools() {
     return persistentBusyboxTools;
+  }
+
+  public boolean incompatibleChangeUseAapt2ByDefault() {
+    return incompatibleUseAapt2ByDefault;
   }
 
   @Override
