@@ -133,7 +133,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
               true,
               sandbox.getArguments(),
               sandbox.getEnvironment(),
-              execRoot.getPathString(),
+              sandbox.getSandboxExecRoot().getPathString(),
               null);
     } else {
       failureMessage =
