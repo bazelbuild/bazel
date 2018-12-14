@@ -20,7 +20,9 @@ import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_SUCCEEDED;
 import static com.google.devtools.build.v1.BuildStatus.Result.UNKNOWN_STATUS;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -579,6 +581,16 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           }
         }
       } catch (InterruptedException | LocalFileUploadException e) {
+        int limit = 30;
+        logInfo(
+            String.format(
+                "Publish interrupt. Showing up to %d items from queues: ack_queue_size: %d, "
+                    + "ack_queue: %s, event_queue_size: %d, event_queue: %s",
+                limit,
+                ackQueue.size(),
+                Iterables.limit(ackQueue, limit),
+                eventQueue.size(),
+                Iterables.limit(eventQueue, limit)));
         besClient.abortStream(Status.CANCELLED);
         throw e;
       } finally {
@@ -830,14 +842,24 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       public Type type() {
         return Type.ACK_RECEIVED;
       }
+
+      @Override
+      public String toString() {
+        return MoreObjects.toStringHelper(this).add("seq_num", getSequenceNumber()).toString();
+      }
     }
 
-    private interface SendBuildEventCommand extends EventLoopCommand {
+    private abstract static class SendBuildEventCommand implements EventLoopCommand {
 
-      long getSequenceNumber();
+      abstract long getSequenceNumber();
+
+      @Override
+      public String toString() {
+        return MoreObjects.toStringHelper(this).add("seq_num", getSequenceNumber()).toString();
+      }
     }
 
-    private final class SendRegularBuildEventCommand implements SendBuildEventCommand {
+    private final class SendRegularBuildEventCommand extends SendBuildEventCommand {
 
       private final BuildEvent event;
       private final ArtifactGroupNamer namer;
@@ -894,10 +916,15 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       public Type type() {
         return Type.SEND_BUILD_EVENT;
       }
+
+      @Override
+      public String toString() {
+        return super.toString() + " - [" + event + "]";
+      }
     }
 
     @Immutable
-    private final class SendLastBuildEventCommand implements SendBuildEventCommand {
+    private final class SendLastBuildEventCommand extends SendBuildEventCommand {
 
       private final long sequenceNumber;
       private final Timestamp creationTime;
