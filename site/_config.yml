@@ -12,6 +12,16 @@ gems: [jekyll-paginate]
 
 version: "master"
 
+# This must be kept in sync with //site/script/docs:versions.bzl
+doc_versions:
+  - master
+  - 0.20.0
+  - 0.19.2
+  - 0.19.1
+  - 0.18.1
+  - 0.17.2
+  - 0.17.1
+
 main_site_url: https://www.bazel.build
 docs_site_url: "/"
 blog_site_url: https://blog.bazel.build

@@ -22,16 +22,31 @@ nav: docs
               aria-controls="sidebar-nav">
             <i class="glyphicon glyphicon-menu-hamburger"></i> Navigation
           </a>
+
           <nav class="sidebar collapse" id="sidebar-nav">
-           <h3>Home</h3>
+            <!-- /versions/master/foo/bar -> ["master", "foo", "bar"] -->
+            <!-- /versions/0.12.3/baz.md -> ["0.12.3", "baz.md"] -->
+            {% assign versioned_url_parts = page.url | split: '/' | shift | shift %}
+            {% assign current_version = versioned_url_parts.first %}
+            <select onchange="location.href=this.value">
+                <option value="" selected disabled hidden>Version: {{ current_version }}</option>
+                {% for doc_version in site.doc_versions %}
+                <!-- reconstruct absolute url for the current page for each doc version -->
+                <option value="/{{ versioned_url_parts | shift | unshift: doc_version | unshift: 'versions' | join: '/' }}">
+                    {{ doc_version }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <h3>Home</h3>
             <ul class="sidebar-nav">
-              <li><a href="/versions/{{ site.version }}/bazel-overview.html">Bazel Overview</a></li>
-              <li><a href="/versions/{{ site.version }}/bazel-vision.html">Bazel Vision</a></li>
-              <li><a href="/versions/{{ site.version }}/getting-started.html">Getting Started</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/backward-compatibility.html">Backward Compatibility</a></li>
+              <li><a href="/versions/{{ current_version }}/bazel-overview.html">Bazel Overview</a></li>
+              <li><a href="/versions/{{ current_version }}/bazel-vision.html">Bazel Vision</a></li>
+              <li><a href="/versions/{{ current_version }}/getting-started.html">Getting Started</a></li>
+              <li><a href="/versions/{{ current_version }}/skylark/backward-compatibility.html">Backward Compatibility</a></li>
             </ul>
 
-           <h3>Using Bazel</h3>
+            <h3>Using Bazel</h3>
             <ul class="sidebar-nav">
 
               <li>
@@ -41,14 +56,14 @@ nav: docs
                   Installing Bazel<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="installing-menu">
-                   <li><a href="/versions/{{ site.version }}/install.html">Installation Overview</a></li>
-                   <li><a href="/versions/{{ site.version }}/install-ubuntu.html">Installing on Ubuntu</a></li>
-                   <li><a href="/versions/{{ site.version }}/install-redhat.html">Installing on Fedora/CentOS</a></li>
-                   <li><a href="/versions/{{ site.version }}/install-os-x.html">Installing on macOS</a></li>
-                   <li><a href="/versions/{{ site.version }}/install-windows.html">Installing on Windows</a></li>
-                   <li><a href="/versions/{{ site.version }}/install-compile-source.html">Compiling from Source</a></li>
-                   <li><a href="/versions/{{ site.version }}/completion.html">Command-Line Completion</a></li>
-                   <li><a href="/versions/{{ site.version }}/ide.html">Integrating with IDEs</a></li>
+                   <li><a href="/versions/{{ current_version }}/install.html">Installation Overview</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-ubuntu.html">Installing on Ubuntu</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-redhat.html">Installing on Fedora/CentOS</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-os-x.html">Installing on macOS</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-windows.html">Installing on Windows</a></li>
+                   <li><a href="/versions/{{ current_version }}/install-compile-source.html">Compiling from Source</a></li>
+                   <li><a href="/versions/{{ current_version }}/completion.html">Command-Line Completion</a></li>
+                   <li><a href="/versions/{{ current_version }}/ide.html">Integrating with IDEs</a></li>
                  </ul>
                 </li>
 
@@ -59,18 +74,18 @@ nav: docs
                   Tutorials<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="tutorials-menu">
-                   <li><a href="/versions/{{ site.version }}/tutorial/java.html">Building a Java Project</a></li>
-                   <li><a href="/versions/{{ site.version }}/tutorial/cpp.html">Building a C++ Project</a></li>
-                   <li><a href="/versions/{{ site.version }}/tutorial/android-app.html">Building an Android App</a></li>
-                   <li><a href="/versions/{{ site.version }}/tutorial/ios-app.html">Building an iOS App</a></li>
-                   <li><a href="/versions/{{ site.version }}/skylark/tutorial-sharing-variables.html">Sharing Variables</a></li>
-                   <li><a href="/versions/{{ site.version }}/skylark/tutorial-creating-a-macro.html">Creating a Macro</a></li>
+                   <li><a href="/versions/{{ current_version }}/tutorial/java.html">Building a Java Project</a></li>
+                   <li><a href="/versions/{{ current_version }}/tutorial/cpp.html">Building a C++ Project</a></li>
+                   <li><a href="/versions/{{ current_version }}/tutorial/android-app.html">Building an Android App</a></li>
+                   <li><a href="/versions/{{ current_version }}/tutorial/ios-app.html">Building an iOS App</a></li>
+                   <li><a href="/versions/{{ current_version }}/skylark/tutorial-sharing-variables.html">Sharing Variables</a></li>
+                   <li><a href="/versions/{{ current_version }}/skylark/tutorial-creating-a-macro.html">Creating a Macro</a></li>
                  </ul>
               </li>
 
-              <li><a href="/versions/{{ site.version }}/build-ref.html">Bazel Concepts</a></li>
-              <li><a href="/versions/{{ site.version }}/guide.html">User's Guide</a></li>
-              <li><a href="/versions/{{ site.version }}/external.html">External Dependencies</a></li>
+              <li><a href="/versions/{{ current_version }}/build-ref.html">Bazel Concepts</a></li>
+              <li><a href="/versions/{{ current_version }}/guide.html">User's Guide</a></li>
+              <li><a href="/versions/{{ current_version }}/external.html">External Dependencies</a></li>
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
@@ -79,15 +94,15 @@ nav: docs
                   Queries<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="query-menu">
-                  <li><a href="/versions/{{ site.version }}/query-how-to.html">Bazel query</a></li>
-                  <li><a href="/versions/{{ site.version }}/cquery.html">Bazel cquery</a></li>
-                  <li><a href="/versions/{{ site.version }}/user-manual.html#aquery">Bazel aquery</a></li>
-                  <li><a href="/versions/{{ site.version }}/query.html">Query Language</a></li>
+                  <li><a href="/versions/{{ current_version }}/query-how-to.html">Bazel query</a></li>
+                  <li><a href="/versions/{{ current_version }}/cquery.html">Bazel cquery</a></li>
+                  <li><a href="/versions/{{ current_version }}/user-manual.html#aquery">Bazel aquery</a></li>
+                  <li><a href="/versions/{{ current_version }}/query.html">Query Language</a></li>
                 </ul>
               </li>
 
-              <li><a href="/versions/{{ site.version }}/configurable-attributes.html">Configurable Attributes</a></li>
-              <li><a href="/versions/{{ site.version }}/best-practices.html">Best Practices</a></li>
+              <li><a href="/versions/{{ current_version }}/configurable-attributes.html">Configurable Attributes</a></li>
+              <li><a href="/versions/{{ current_version }}/best-practices.html">Best Practices</a></li>
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#remote-execution-menu" aria-expanded="false"
@@ -95,8 +110,8 @@ nav: docs
                   Remote Execution<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="remote-execution-menu">
-                   <li><a href="/versions/{{ site.version }}/remote-execution.html">Remote Execution Overview</a></li>
-                   <li><a href="/versions/{{ site.version }}/remote-execution-rules.html">Guidelines for Remote Execution</a></li>
+                   <li><a href="/versions/{{ current_version }}/remote-execution.html">Remote Execution Overview</a></li>
+                   <li><a href="/versions/{{ current_version }}/remote-execution-rules.html">Guidelines for Remote Execution</a></li>
                    <li>
                       <a class="sidebar-nav-heading" data-toggle="collapse"
                           href="#troubleshoot-remote-execution-menu" aria-expanded="false"
@@ -104,12 +119,12 @@ nav: docs
                         Troubleshooting Remote Execution<span class="caret"></span>
                       </a>
                       <ul class="collapse sidebar-nav sidebar-submenu" id="troubleshoot-remote-execution-menu">
-                         <li><a href="/versions/{{ site.version }}/remote-execution-sandbox.html">Troubleshooting Remote Execution with Bazel Sandbox</a></li>
-                         <li><a href="/versions/{{ site.version }}/workspace-log.html">Finding non-hermetic behavior in WORKSPACE rules</a></li>
-                         <li><a href="/versions/{{ site.version }}/remote-execution-caching-debug.html">Debugging Remote Cache Hit Rate</a></li>
+                         <li><a href="/versions/{{ current_version }}/remote-execution-sandbox.html">Troubleshooting Remote Execution with Bazel Sandbox</a></li>
+                         <li><a href="/versions/{{ current_version }}/workspace-log.html">Finding non-hermetic behavior in WORKSPACE rules</a></li>
+                         <li><a href="/versions/{{ current_version }}/remote-execution-caching-debug.html">Debugging Remote Cache Hit Rate</a></li>
                       </ul>
                   </li>
-                   <li><a href="/versions/{{ site.version }}/remote-execution-ci.html">Configuring Bazel CI for Remote Execution Rule Testing</a></li>
+                   <li><a href="/versions/{{ current_version }}/remote-execution-ci.html">Configuring Bazel CI for Remote Execution Rule Testing</a></li>
                  </ul>
               </li>
 
@@ -120,15 +135,15 @@ nav: docs
                     Remote Caching<span class="caret"></span>
                   </a>
                   <ul class="collapse sidebar-nav sidebar-submenu" id="remote-caching-menu">
-                     <li><a href="/versions/{{ site.version }}/remote-caching.html">Remote Caching Overview</a></li>
-                     <li><a href="/versions/{{ site.version }}/remote-caching-debug.html">Debugging Remote Cache Hit Rate for Local Execution</a></li>
+                     <li><a href="/versions/{{ current_version }}/remote-caching.html">Remote Caching Overview</a></li>
+                     <li><a href="/versions/{{ current_version }}/remote-caching-debug.html">Debugging Remote Cache Hit Rate for Local Execution</a></li>
                   </ul>
               </li>
              </ul>
 
            <h3>Rules</h3>
            <ul class="sidebar-nav">
-             <li><a href="/versions/{{ site.version }}/be/overview.html">Build Encyclopedia</a></li>
+             <li><a href="/versions/{{ current_version }}/be/overview.html">Build Encyclopedia</a></li>
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
@@ -137,10 +152,10 @@ nav: docs
                   Android<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="android-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-android.html">Android Resources</a></li>
-                  <li><a href="/versions/{{ site.version }}/mobile-install.html">Using mobile-install</a></li>
-                  <li><a href="/versions/{{ site.version }}/android-instrumentation-test.html">Android Instrumentation Tests</a></li>
-                  <li><a href="/versions/{{ site.version }}/android-ndk.html">Android NDK</a></li>
+                  <li><a href="/versions/{{ current_version }}/bazel-and-android.html">Android Resources</a></li>
+                  <li><a href="/versions/{{ current_version }}/mobile-install.html">Using mobile-install</a></li>
+                  <li><a href="/versions/{{ current_version }}/android-instrumentation-test.html">Android Instrumentation Tests</a></li>
+                  <li><a href="/versions/{{ current_version }}/android-ndk.html">Android NDK</a></li>
                   <li><a href="https://plugins.jetbrains.com/plugin/9185-bazel">Android Studio Plugin</a></li>
                 </ul>
               </li>
@@ -152,9 +167,9 @@ nav: docs
                   Apple<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="apple-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-apple.html">Apple Resources</a></li>
-                  <li><a href="/versions/{{ site.version }}/migrate-xcode.html">Migrating from Xcode</a></li>
-                  <li><a href="/versions/{{ site.version }}/migrate-cocoapods.html">Converting CocoaPods</a></li>
+                  <li><a href="/versions/{{ current_version }}/bazel-and-apple.html">Apple Resources</a></li>
+                  <li><a href="/versions/{{ current_version }}/migrate-xcode.html">Migrating from Xcode</a></li>
+                  <li><a href="/versions/{{ current_version }}/migrate-cocoapods.html">Converting CocoaPods</a></li>
                 </ul>
               </li>
 
@@ -165,10 +180,10 @@ nav: docs
                   C++<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="cpp-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-cpp.html">C++ Resources</a></li>
-                  <li><a href="/versions/{{ site.version }}/cpp-use-cases.html">C++ Use Cases</a></li>
-                  <li><a href="/versions/{{ site.version }}/crosstool-reference.html">Understanding CROSSTOOL</a></li>
-                  <li><a href="/versions/{{ site.version }}/tutorial/crosstool.html">Tutorial: CROSSTOOL</a></li>
+                  <li><a href="/versions/{{ current_version }}/bazel-and-cpp.html">C++ Resources</a></li>
+                  <li><a href="/versions/{{ current_version }}/cpp-use-cases.html">C++ Use Cases</a></li>
+                  <li><a href="/versions/{{ current_version }}/crosstool-reference.html">Understanding CROSSTOOL</a></li>
+                  <li><a href="/versions/{{ current_version }}/tutorial/crosstool.html">Tutorial: CROSSTOOL</a></li>
                 </ul>
               </li>
 
@@ -179,9 +194,9 @@ nav: docs
                   Java<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="java-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-java.html">Java Resources</a></li>
-                  <li><a href="/versions/{{ site.version }}/migrate-maven.html">Migrating from Maven</a></li>
-                  <li><a href="/versions/{{ site.version }}/generate-workspace.html">Converting Maven Dependencies</a></li>
+                  <li><a href="/versions/{{ current_version }}/bazel-and-java.html">Java Resources</a></li>
+                  <li><a href="/versions/{{ current_version }}/migrate-maven.html">Migrating from Maven</a></li>
+                  <li><a href="/versions/{{ current_version }}/generate-workspace.html">Converting Maven Dependencies</a></li>
                 </ul>
               </li>
 
@@ -192,8 +207,8 @@ nav: docs
                   JavaScript<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="javascript-menu">
-                  <li><a href="/versions/{{ site.version }}/bazel-and-javascript.html">JavaScript Resources</a></li>
-                  <li><a href="/versions/{{ site.version }}/build-javascript.html">Building JavaScript</a></li>
+                  <li><a href="/versions/{{ current_version }}/bazel-and-javascript.html">JavaScript Resources</a></li>
+                  <li><a href="/versions/{{ current_version }}/build-javascript.html">Building JavaScript</a></li>
                 </ul>
               </li>
 
@@ -201,19 +216,19 @@ nav: docs
 
            <h3>Reference</h3>
            <ul class="sidebar-nav">
-             <li><a href="/versions/{{ site.version }}/user-manual.html">Commands and Options</a></li>
-             <li><a href="/versions/{{ site.version }}/skylark/build-style.html">BUILD Style Guide</a></li>
-             <li><a href="/versions/{{ site.version }}/command-line-reference.html">Command Line Reference</a></li>
-             <li><a href="/versions/{{ site.version }}/test-encyclopedia.html">Writing Tests</a></li>
-             <li><a href="/versions/{{ site.version }}/build-event-protocol.html">Build Event Protocol</a></li>
-             <li><a href="/versions/{{ site.version }}/output_directories.html">Output Directory Layout</a></li>
-             <li><a href="/versions/{{ site.version }}/platforms.html">Platforms</a></li>
-             <li><a href="/versions/{{ site.version }}/toolchains.html">Toolchains</a></li>
+             <li><a href="/versions/{{ current_version }}/user-manual.html">Commands and Options</a></li>
+             <li><a href="/versions/{{ current_version }}/skylark/build-style.html">BUILD Style Guide</a></li>
+             <li><a href="/versions/{{ current_version }}/command-line-reference.html">Command Line Reference</a></li>
+             <li><a href="/versions/{{ current_version }}/test-encyclopedia.html">Writing Tests</a></li>
+             <li><a href="/versions/{{ current_version }}/build-event-protocol.html">Build Event Protocol</a></li>
+             <li><a href="/versions/{{ current_version }}/output_directories.html">Output Directory Layout</a></li>
+             <li><a href="/versions/{{ current_version }}/platforms.html">Platforms</a></li>
+             <li><a href="/versions/{{ current_version }}/toolchains.html">Toolchains</a></li>
            </ul>
 
             <h3>Extending Bazel</h3>
            <ul class="sidebar-nav">
-              <li><a href="/versions/{{ site.version }}/skylark/concepts.html">Extension Overview</a></li>
+              <li><a href="/versions/{{ current_version }}/skylark/concepts.html">Extension Overview</a></li>
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
@@ -222,12 +237,12 @@ nav: docs
                   Concepts<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="starlark-concepts">
-                  <li><a href="/versions/{{ site.version }}/skylark/macros.html">Macros</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/rules.html">Rules</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/depsets.html">Depsets</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/aspects.html">Aspects</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/repository_rules.html">Repository Rules</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/faq.html">FAQ</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/macros.html">Macros</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/rules.html">Rules</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/depsets.html">Depsets</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/aspects.html">Aspects</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/repository_rules.html">Repository Rules</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/faq.html">FAQ</a></li>
                 </ul>
               </li>
 
@@ -238,18 +253,18 @@ nav: docs
                   Best Practices<span class="caret"></span>
                 </a>
                 <ul class="collapse sidebar-nav sidebar-submenu" id="starlark-practices">
-                  <li><a href="/versions/{{ site.version }}/skylark/bzl-style.html">.bzl Style Guide</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/testing.html">Testing</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/bzl-style.html">.bzl Style Guide</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/testing.html">Testing</a></li>
                   <li><a href="https://skydoc.bazel.build" target="_blank">Documenting Rules</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/skylint.html">Linter</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/performance.html">Optimizing Performance</a></li>
-                  <li><a href="/versions/{{ site.version }}/skylark/deploying.html">Deploying Rules</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/skylint.html">Linter</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/performance.html">Optimizing Performance</a></li>
+                  <li><a href="/versions/{{ current_version }}/skylark/deploying.html">Deploying Rules</a></li>
                 </ul>
               </li>
 
               <li><a href="https://github.com/bazelbuild/examples/tree/master/rules">Examples</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/lib/skylark-overview.html">API Reference</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/language.html">Starlark Language</a></li>
+              <li><a href="/versions/{{ current_version }}/skylark/lib/skylark-overview.html">API Reference</a></li>
+              <li><a href="/versions/{{ current_version }}/skylark/language.html">Starlark Language</a></li>
             </ul>
           </nav>
         </div>

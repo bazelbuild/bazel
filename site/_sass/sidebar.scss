@@ -50,6 +50,13 @@ $sidebar-hover-border-color: #66bb6a;
       padding-left: 10px;
     }
   }
+
+  select {
+    padding: 3px 4px;
+    border: 2px solid $sidebar-border-color;
+    border-radius: 3px;
+    overflow: hidden;
+  }
 }
 
 @media (min-width: 992px) {
