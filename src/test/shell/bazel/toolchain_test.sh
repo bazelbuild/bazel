@@ -1070,6 +1070,11 @@ EOF
   expect_log 'Using toolchain: value "foo"'
 }
 
+function test_local_config_platform() {
+  bazel query @local_config_platform//... &> $TEST_log || fail "Build failed"
+  expect_log '@local_config_platform//:host'
+}
+
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
 
 run_suite "toolchain tests"
