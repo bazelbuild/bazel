@@ -79,8 +79,8 @@ If your build or tests fail, it's likely due to the following:
 
 *   **Build or test targets are using rules that are incompatible with remote
     execution.** See
-    [Adapting Bazel Rules for Remote Execution](https://docs.bazel.build/versions/master/remote-execution-rules.html)
-    for details about compatibility with remote execution.
+    [Adapting Bazel Rules for Remote Execution](remote-execution-rules.html) for
+    details about compatibility with remote execution.
 
 ## Using a custom container in the `rbe_ubuntu1604` CI config
 
@@ -201,11 +201,10 @@ Container Registry as follows:
 
 ### Specifying the build platform definition
 
-You must include a
-[Bazel platform](https://docs.bazel.build/versions/master/platforms.html)
-configuration in your custom toolchain configuration, which allows Bazel to
-select a toolchain appropriate to the desired hardware/software platform. See
-this [example platform configuration](https://github.com/tensorflow/tensorflow/blob/master/third_party/toolchains/BUILD)
+You must include a [Bazel platform](platforms.html) configuration in your 
+custom toolchain configuration, which allows Bazel to select a toolchain 
+appropriate to the desired hardware/software platform. See this 
+[example platform configuration](https://github.com/tensorflow/tensorflow/blob/master/third_party/toolchains/BUILD)
 for the TensorFlow `ubuntu16-04` container.
 
 Create a similar configuration (that is, using the same constraints) but replace

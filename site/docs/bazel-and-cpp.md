@@ -22,7 +22,7 @@ The following resources will help you work with Bazel on C++ projects:
 
 *  [Tutorial: Building a C++ project](tutorial/cpp.html)
 *  [C++ common use cases](cpp-use-cases.html)
-*  [C/C++ rules](https://docs.bazel.build/versions/master/be/c-cpp.html)
+*  [C/C++ rules](be/c-cpp.html)
 *  [Understanding CROSSTOOL](crosstool-reference.html)
 *  [Configuring CROSSTOOL](tutorial/crosstool.html)
 
@@ -35,7 +35,7 @@ best practices specific to C++ projects.
 
 Follow the guidelines below when creating your BUILD files:
 
-*  Each BUILD file should contain one [`cc_library`](https://docs.bazel.build/versions/master/be/c-cpp.html#cc_library)
+*  Each BUILD file should contain one [`cc_library`](be/c-cpp.html#cc_library)
    rule target per compilation unit in the directory.
 
 *  We recommend that you granularize your C++ libraries as much as possible to
@@ -81,6 +81,6 @@ Follow these guidelines for include paths:
 
 *  For legacy or `third_party` code that requires includes pointing outside the
    project repository, such as external repository includes requiring a prefix,
-   use the [`include_prefix`](https://docs.bazel.build/versions/master/be/c-cpp.html#cc_library.include_prefix)
-   and [`strip_include_prefix`](https://docs.bazel.build/versions/master/be/c-cpp.html#cc_library.strip_include_prefix)
+   use the [`include_prefix`](be/c-cpp.html#cc_library.include_prefix) and
+   [`strip_include_prefix`](be/c-cpp.html#cc_library.strip_include_prefix)
    arguments on the `cc_library` rule target.

@@ -6,12 +6,12 @@ title: Android Instrumentation Tests
 # Android Instrumentation Tests
 
 _If you're new to Bazel, please start with the [Building Android with
-Bazel](https://docs.bazel.build/versions/master/tutorial/android-app.html)
+Bazel](tutorial/android-app.html)
 tutorial._
 
 ![Running Android instrumentation tests in parallel](/assets/android_test.gif)
 
-[`android_instrumentation_test`](https://docs.bazel.build/versions/master/be/android.html#android_instrumentation_test)
+[`android_instrumentation_test`](be/android.html#android_instrumentation_test)
 allows developers to test their apps on Android emulators and devices.
 It utilizes real Android framework APIs and the Android Test Library.
 
@@ -248,7 +248,7 @@ gmaven_rules()
 # Maven dependencies
 
 Use the
-[maven_jar](https://docs.bazel.build/versions/master/be/workspace.html#maven_jar)
+[maven_jar](be/workspace.html#maven_jar)
 repository rule for Maven dependencies not hosted on Google Maven. For example,
 to use JUnit 4.12 and Hamcrest 2, add the following lines to your `WORKSPACE`:
 
@@ -675,6 +675,6 @@ API_LEVELS = [
 - Improved external dependency management
 - Remote test caching and execution
 
-We are planning to rewrite the Android rules in [Starlark](https://docs.bazel.build/versions/master/skylark/concepts.html).
+We are planning to rewrite the Android rules in [Starlark](skylark/concepts.html).
 The `android_instrumentation_test` rule will be part of the rewrite, however,
 its usage will remain unchanged from the end-user perspective.

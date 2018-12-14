@@ -63,11 +63,11 @@ converting an Xcode project to a Bazel project.
 
 Before you begin, do the following:
 
-1.  [Install Bazel](https://docs.bazel.build/versions/master/install.html) if
+1.  [Install Bazel](install.html) if
     you have not already done so.
 
 2.  If you're not familiar with Bazel and its concepts, complete the
-    [iOS app tutorial](https://docs.bazel.build/versions/master/tutorial/ios-app.html).
+    [iOS app tutorial](tutorial/ios-app.html).
     You should understand the Bazel workspace, including the `WORKSPACE` and
     `BUILD` files, as well as the concepts of targets, build rules, and Bazel
     packages.
@@ -80,7 +80,7 @@ Unlike Xcode, Bazel requires you to explicitly declare all dependencies for
 every target in the `BUILD` file.
 
 For more information on external dependencies, see
-[Working with external dependencies](https://docs.bazel.build/versions/master/external.html).
+[Working with external dependencies](external.html).
 
 ## Build or test an Xcode project with Bazel
 
@@ -137,7 +137,7 @@ initial build of the project as follows:
 *  [Step 3c: Add the library target(s)](#step-3c-add-the-library-target-s)
 
 **Tip:** To learn more about packages and other Bazel concepts, see
-[Bazel Terminology](https://docs.bazel.build/versions/master/build-ref.html).
+[Bazel Terminology](build-ref.html).
 
 #### Step 3a: Add the application target
 
@@ -193,7 +193,7 @@ simulator, also specify the `ios_application` target name as the value of the
 
 #### Step 3c: Add the library target(s)
 
-Add an [`objc_library`](https://docs.bazel.build/versions/master/be/objective-c.html#objc_library)
+Add an [`objc_library`](be/objective-c.html#objc_library)
 target for each Objective C library and a [`swift_library`](https://github.com/bazelbuild/rules_apple/blob/master/doc/rules-swift.md)
 target for each Swift library on which the application and/or tests depend.
 
@@ -209,7 +209,7 @@ Add the library targets as follows:
 
 *   List the headers in the `hdrs` attribute.
 
-**Note:** You can use the [`glob`](https://docs.bazel.build/versions/master/be/functions.html#glob)
+**Note:** You can use the [`glob`](be/functions.html#glob)
 function to include all sources and/or headers of a certain type. Use it
 carefully as it might include files you do not want Bazel to build.
 

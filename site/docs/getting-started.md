@@ -69,4 +69,4 @@ To further explore Bazel, refer to the following resources:
 
 *   [Bazel User Manual](user-manual.html)
 
-*   [Build Encyclopedia](https://docs.bazel.build/versions/master/be/overview.html)
+*   [Build Encyclopedia](be/overview.html)

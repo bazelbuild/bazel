@@ -78,7 +78,7 @@ any language.
     principles.
 1.  The rules need to be **remote-execution ready**. In practice, this means
     **configurable using the
-    [toolchains](https://docs.bazel.build/versions/master/toolchains.html)
+    [toolchains](master/toolchains.html)
     mechanism**.
 1.  The rules (and Bazel) need to interface with a **widely-used IDE** for the
     language, if there is one.

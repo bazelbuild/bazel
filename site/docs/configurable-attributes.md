@@ -319,9 +319,8 @@ Without platforms, this might look something like
 bazel build //my_app:my_rocks --define color=white --define texture=smooth --define type=metamorphic
 ```
 
-Platforms are still under development. See the [documentation](
-https://docs.bazel.build/versions/master/platforms.html) and
-[roadmap](https://bazel.build/roadmaps/platforms.html) for details.
+Platforms are still under development. See the [documentation](platforms.html)
+and [roadmap](https://bazel.build/roadmaps/platforms.html) for details.
 
 ## Short Keys
 
