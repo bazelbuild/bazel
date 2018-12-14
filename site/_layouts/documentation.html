@@ -2,9 +2,14 @@
 nav: docs
 ---
 
+<!-- /versions/master/foo/bar -> ["master", "foo", "bar"] -->
+<!-- /versions/0.12.3/baz.md -> ["0.12.3", "baz.md"] -->
+{% assign versioned_url_parts = page.url | split: '/' | shift | shift %}
+{% assign current_version = versioned_url_parts.first %}
+
 <!DOCTYPE html>
 <html lang="en" itemscope itemtype="https://schema.org/WebPage">
-  {% include head.html %}
+  {% include head.html current_version=current_version %}
   <body>
     {% include header.html %}
 
@@ -24,10 +29,6 @@ nav: docs
           </a>
 
           <nav class="sidebar collapse" id="sidebar-nav">
-            <!-- /versions/master/foo/bar -> ["master", "foo", "bar"] -->
-            <!-- /versions/0.12.3/baz.md -> ["0.12.3", "baz.md"] -->
-            {% assign versioned_url_parts = page.url | split: '/' | shift | shift %}
-            {% assign current_version = versioned_url_parts.first %}
             <select onchange="location.href=this.value">
                 <option value="" selected disabled hidden>Version: {{ current_version }}</option>
                 {% for doc_version in site.doc_versions %}
