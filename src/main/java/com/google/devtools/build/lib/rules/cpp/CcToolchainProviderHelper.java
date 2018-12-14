@@ -58,10 +58,13 @@ import javax.annotation.Nullable;
 public class CcToolchainProviderHelper {
 
   /**
-   * This file (found under the sysroot) may be unconditionally included in every C/C++ compilation.
+   * These files (found under the sysroot) may be unconditionally included in every C/C++
+   * compilation.
    */
-  static final PathFragment BUILTIN_INCLUDE_FILE_SUFFIX =
-      PathFragment.create("include/stdc-predef.h");
+  static final ImmutableList<PathFragment> BUILTIN_INCLUDE_FILE_SUFFIXES =
+      ImmutableList.of(
+          PathFragment.create("include/stdc-predef.h"),
+          PathFragment.create("android/_predefined_api_level.h"));
 
   private static final String SYSROOT_START = "%sysroot%/";
   private static final String WORKSPACE_START = "%workspace%/";
@@ -808,8 +811,11 @@ public class CcToolchainProviderHelper {
   private static ImmutableList<Artifact> getBuiltinIncludes(NestedSet<Artifact> libc) {
     ImmutableList.Builder<Artifact> result = ImmutableList.builder();
     for (Artifact artifact : libc) {
-      if (artifact.getExecPath().endsWith(BUILTIN_INCLUDE_FILE_SUFFIX)) {
-        result.add(artifact);
+      for (PathFragment suffix : BUILTIN_INCLUDE_FILE_SUFFIXES) {
+        if (artifact.getExecPath().endsWith(suffix)) {
+          result.add(artifact);
+          break;
+        }
       }
     }
 
