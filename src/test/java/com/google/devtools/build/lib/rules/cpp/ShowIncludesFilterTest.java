@@ -38,7 +38,7 @@ public class ShowIncludesFilterTest {
 
   @Before
   public void setUpOutputStreams() throws IOException {
-    showIncludesFilter = new ShowIncludesFilter("foo.cpp");
+    showIncludesFilter = new ShowIncludesFilter("foo.cpp", "__main__");
     output = new ByteArrayOutputStream();
     filterOutputStream = showIncludesFilter.getFilteredOutputStream(output);
     fs = new InMemoryFileSystem();
@@ -83,6 +83,20 @@ public class ShowIncludesFilterTest {
   public void testMatchAllOfNotePrefix() throws IOException {
     // "Note: including file:" is the prefix
     filterOutputStream.write(getBytes("Note: including file: bar.h"));
+    filterOutputStream.flush();
+    // flush to output should not work, waiting for newline
+    assertThat(output.toString()).isEmpty();
+    filterOutputStream.write(getBytes("\n"));
+    // It's a match, output should be filtered, dependency on bar.h should be found.
+    assertThat(output.toString()).isEmpty();
+    assertThat(showIncludesFilter.getDependencies()).contains("bar.h");
+  }
+
+  @Test
+  public void testMatchAllOfNotePrefixWithAbsolutePath() throws IOException {
+    // "Note: including file:" is the prefix
+    filterOutputStream.write(
+        getBytes("Note: including file: C:\\tmp\\xxxx\\execroot\\__main__\\bar.h"));
     filterOutputStream.flush();
     // flush to output should not work, waiting for newline
     assertThat(output.toString()).isEmpty();

@@ -1122,8 +1122,11 @@ public class CppCompileAction extends AbstractAction
     ShowIncludesFilter showIncludesFilterForStdout;
     ShowIncludesFilter showIncludesFilterForStderr;
     if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
-      showIncludesFilterForStdout = new ShowIncludesFilter(getSourceFile().getFilename());
-      showIncludesFilterForStderr = new ShowIncludesFilter(getSourceFile().getFilename());
+      String workspaceName = actionExecutionContext.getExecRoot().getBaseName();
+      showIncludesFilterForStdout =
+          new ShowIncludesFilter(getSourceFile().getFilename(), workspaceName);
+      showIncludesFilterForStderr =
+          new ShowIncludesFilter(getSourceFile().getFilename(), workspaceName);
       FileOutErr originalOutErr = actionExecutionContext.getFileOutErr();
       FileOutErr tempOutErr = originalOutErr.childOutErr();
       spawnContext = actionExecutionContext.withFileOutErr(tempOutErr);
