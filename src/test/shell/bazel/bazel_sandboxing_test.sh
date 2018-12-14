@@ -168,11 +168,14 @@ EOF
   cat << 'EOF' >> examples/genrule/datafile
 this is a datafile
 EOF
-  cat << 'EOF' >> examples/genrule/tool.sh
+  # The workspace name is initialized in testenv.sh; use that var rather than
+  # hardcoding it here. The extra sed pass is so we can selectively expand that
+  # one var while keeping the rest of the heredoc literal.
+  cat | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" >> examples/genrule/tool.sh << 'EOF'
 #!/bin/sh
 
 set -e
-cp $(dirname $0)/tool.runfiles/__main__/examples/genrule/datafile $1
+cp $(dirname $0)/tool.runfiles/{{WORKSPACE_NAME}}/examples/genrule/datafile $1
 echo "Tools work!"
 EOF
   chmod +x examples/genrule/tool.sh

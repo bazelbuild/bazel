@@ -364,13 +364,26 @@ function setup_objc_test_support() {
   IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 }
 
-# Write the default WORKSPACE file.
-function write_workspace_file() {
-  cat > WORKSPACE <<EOF
+function setup_skylib_support() {
+  # Get skylib path portably by using rlocation to locate a top-level file in
+  # the repo. Use BUILD because it's in the //:test_deps target (unlike
+  # WORKSPACE).
+  local -r skylib_workspace="$(rlocation bazel_skylib/BUILD)"
+  [[ -n "$skylib_workspace" && -e "$skylib_workspace" ]] || fail "could not find Skylib"
+  local -r skylib_root="$(dirname "$skylib_workspace")"
+  cat >> WORKSPACE << EOF
 new_local_repository(
     name = 'bazel_skylib',
     build_file_content = '',
-    path='$TEST_SRCDIR/io_bazel/external/bazel_skylib')
+    path='$skylib_root',
+)
+EOF
+}
+
+# Write the default WORKSPACE file, wiping out any custom WORKSPACE setup.
+function write_workspace_file() {
+  cat > WORKSPACE << EOF
+workspace(name = '$WORKSPACE_NAME')
 EOF
 }
 
@@ -431,7 +444,7 @@ function cleanup_workspace() {
   workspaces=()
 }
 
-function tear_down() {
+function testenv_tear_down() {
   cleanup_workspace
 }
 
@@ -517,7 +530,6 @@ function add_to_bazelrc() {
 
 function create_and_cd_client() {
   setup_clean_workspace
-  echo "workspace(name = '$WORKSPACE_NAME')" >WORKSPACE
   touch .bazelrc
 }
 

@@ -168,7 +168,10 @@ sh_test(
     name = "bazel_query_test",
     size = "large",
     srcs = ["bazel_query_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     tags = ["no_windows"],
 )
 

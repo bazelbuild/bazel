@@ -28,7 +28,6 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
 
 function tear_down() {
   shutdown_server
-  cleanup_workspace
 }
 
 function setup_zoo() {

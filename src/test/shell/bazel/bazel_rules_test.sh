@@ -85,7 +85,10 @@ function test_extra_action() {
   # Make a program to run on each action that just prints the path to the extra
   # action file. This file is a proto, but I don't want to bother implementing
   # a program that parses the proto here.
-  cat > mypkg/echoer.sh <<'EOF'
+  # The workspace name is initialized in testenv.sh; use that var rather than
+  # hardcoding it here. The extra sed pass is so we can selectively expand that
+  # one var while keeping the rest of the heredoc literal.
+  cat | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" > mypkg/echoer.sh << 'EOF'
 #!/bin/bash
 set -euo pipefail
 # --- begin runfiles.bash initialization ---
@@ -109,7 +112,7 @@ else
 fi
 # --- end runfiles.bash initialization ---
 
-if [[ ! -e "$(rlocation __main__/mypkg/runfile)" ]]; then
+if [[ ! -e "$(rlocation {{WORKSPACE_NAME}}/mypkg/runfile)" ]]; then
   echo "ERROR: Runfile not found" >&2
   exit 1
 fi

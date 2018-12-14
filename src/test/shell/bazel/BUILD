@@ -403,7 +403,10 @@ sh_test(
     name = "skylark_repository_test",
     size = "large",
     srcs = ["skylark_repository_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     shard_count = 6,
     tags = ["no_windows"],
 )
