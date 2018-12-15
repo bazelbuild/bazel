@@ -644,7 +644,7 @@ of output files that may be requested together. For example, if a target
 `//pkg:mytarget` is of a rule type that has a `debug_files` output group, these
 files can be built by running
 `bazel build //pkg:mytarget --output_groups=debug_files`. See the [command line
-reference](https://docs.bazel.build/versions/master/command-line-reference.html#flag--output_groups)
+reference](../command-line-reference.html#flag--output_groups)
 for details on the `--output_groups` argument. Since non-predeclared outputs
 don't have labels, they can only be requested by appearing in the default
 outputs or an output group.

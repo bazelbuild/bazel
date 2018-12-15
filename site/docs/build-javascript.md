@@ -36,8 +36,8 @@ This document assumes you are already familiar with Bazel and uses the
 to illustrate the recommended configuration. You can use the sample project as a
 starting point and add your own code to it to start building with Bazel.
 
-If you're new to Bazel, take a look at the ["Getting Started"](https://docs.bazel.build/versions/master/getting-started.html)
-material before proceeding.
+If you're new to Bazel, take a look at the ["Getting
+Started"](getting-started.html) material before proceeding.
 
 ## Setting up your environment
 
@@ -46,7 +46,7 @@ following:
 
 ### Step 1: Installing Bazel
 
-If you have not already done so, [Install Bazel](https://docs.bazel.build/versions/master/install.html).
+If you have not already done so, [Install Bazel](install.html).
 
 ### Step 2: Installing iBazel
 

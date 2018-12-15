@@ -94,7 +94,7 @@ building your tests `//foo/tests/...`, or when importing an IDE project.
 
 **Note**: Today it is possible to flatten depsets implicitly by iterating over
 the depset the way you would a list, tuple, or dictionary, or by taking the
-depset's size via `len()`. This functionality is [deprecated](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#depset-is-no-longer-iterable).
+depset's size via `len()`. This functionality is [deprecated](../skylark/backward-compatibility.html#depset-is-no-longer-iterable).
 and will be removed.
 
 ### Avoid calling `len(depset)`

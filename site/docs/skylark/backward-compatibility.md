@@ -709,9 +709,9 @@ config_setting(
 ### Disable depsets in C++ toolchain API in user flags
 
 If true, Bazel will no longer accept depsets in `user_compile_flags` for
-[create\_compile\_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_compile_variables),
+[create\_compile\_variables](../skylark/lib/cc_common.html#create_compile_variables),
 and in `user_link_flags` for
-[create\_link\_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_link_variables).
+[create\_link\_variables](../skylark/lib/cc_common.html#create_link_variables).
 Use plain lists instead.
 
 *   Flag: `--incompatible_disable_depset_in_cc_user_flags`
@@ -977,7 +977,7 @@ We have deprecated the `cc_toolchain` Starlark API returning legacy CROSSTOOL fi
 * mostly\_static\_link\_options
 * unfiltered\_compiler\_options
 
-Use the new API from [cc_common](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html)
+Use the new API from [cc_common](../skylark/lib/cc_common.html)
 
 ```python
 # Before:

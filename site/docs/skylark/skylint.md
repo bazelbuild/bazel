@@ -5,7 +5,7 @@ title: Skylint
 
 # Skylint
 
-[Style guide](https://docs.bazel.build/versions/master/skylark/bzl-style.html)
+[Style guide](../skylark/bzl-style.html)
 
 This document explains how to use Skylint, the Starlark linter.
 
@@ -364,8 +364,7 @@ This way, the name is still re-exported but doesn't generate a warning.
 
 ### Deprecated API
 
-See [documentation](https://docs.bazel.build/versions/master/skylark/lib/ctx.html)
-for more information.
+See [documentation](../skylark/lib/ctx.html) for more information.
 
 ### Miscellaneous lints
 

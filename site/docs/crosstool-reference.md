@@ -74,7 +74,7 @@ The toolchain selection logic operates as follows:
 
 1.  User specifies a `cc_toolchain_suite` target in the `BUILD` file and points
     Bazel to the target using the
-    [`--crosstool_top` option](https://docs.bazel.build/versions/master/user-manual.html#flag--crosstool_top).
+    [`--crosstool_top` option](user-manual.html#flag--crosstool_top).
     The `CROSSTOOL` file must reside in the same directory as the
     `BUILD` file containing the `cc_toolchain_suite` target.
 

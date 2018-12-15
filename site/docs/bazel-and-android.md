@@ -25,20 +25,18 @@ Bazel has Android rules for building and testing Android apps, integrating with
 the SDK/NDK, and creating emulator images. There are also Bazel plugins for
 Android Studio and IntelliJ.
 
-*  [Android rules](https://docs.bazel.build/versions/master/be/android.html).
-   The Build Encyclopedia describes the rules you can use to build and test
-   Android apps with Bazel.
+*  [Android rules](be/android.html). The Build Encyclopedia describes the rules
+   you can use to build and test Android apps with Bazel.
 *  [Integration with Android Studio](ide.html). Bazel is compatible with
    Android Studio using the [Android Studio with Bazel](https://ij.bazel.build/)
    plugin.
 *  [`mobile-install` for Android](mobile-install.html). Bazel's `mobile-install`
    feature provides automated build-and-deploy functionality for building and
    testing Android apps directly on Android devices and emulators.
-*  [Android instrumentation testing](https://docs.bazel.build/versions/master/android-instrumentation-test.html)
-   on emulators and devices.
-*  [Android NDK integration](https://docs.bazel.build/versions/master/android-ndk.html).
-   Bazel supports compiling to native code through direct NDK integration and
-   the C++ rules.
+*  [Android instrumentation testing](android-instrumentation-test.html) on
+   emulators and devices.
+*  [Android NDK integration](android-ndk.html). Bazel supports compiling to
+   native code through direct NDK integration and the C++ rules.
 
 ## Further reading
 
