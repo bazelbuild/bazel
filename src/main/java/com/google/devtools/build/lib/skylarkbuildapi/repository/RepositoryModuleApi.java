@@ -78,6 +78,15 @@ public interface RepositoryModuleApi {
                     + "an environment variable in that list change, the repository will be "
                     + "refetched.",
             named = true,
+            positional = false),
+        @Param(
+            name = "doc",
+            type = String.class,
+            defaultValue = "''",
+            doc =
+                "A description of the repository rule that can be extracted by documentation "
+                    + "generating tools."
+            named = true,
             positional = false)
       },
       useAst = true,
@@ -88,6 +97,7 @@ public interface RepositoryModuleApi {
       Boolean local,
       SkylarkList<String> environ,
       FuncallExpression ast,
-      Environment env)
+      Environment env,
+      String doc)
       throws EvalException;
 }
