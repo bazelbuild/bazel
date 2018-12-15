@@ -18,11 +18,6 @@ import hashlib
 from io import BytesIO
 import os
 import os.path
-from io import BytesIO
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 import sys
 import tarfile
 import textwrap
@@ -111,9 +106,7 @@ def AddArFileEntry(fileobj, filename,
                    owner_id=0, group_id=0, mode=0o644):
   """Add a AR file entry to fileobj."""
   # If we got the content as a string, turn it into a file like thing.
-  if isinstance(content, str):
-      content_len, content = ConvertToFileLike(content, content_len, StringIO)
-  if isinstance(content, bytes):
+  if isinstance(content, (str, bytes)):
       content_len, content = ConvertToFileLike(content, content_len, BytesIO)
   inputs = [
       (filename + '/').ljust(16),  # filename (SysV)
