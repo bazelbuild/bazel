@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android.databinding;
 
-import static com.google.devtools.build.lib.rules.android.databinding.DataBinding.createProcessorFlag;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -33,17 +31,20 @@ import java.util.function.Consumer;
 
 final class DataBindingV1Context implements DataBindingContext {
 
+  private final ActionConstructionContext actionConstructionContext;
+  private final boolean useUpdatedArgs;
   /**
    * Annotation processing creates the following metadata files that describe how data binding is
    * applied. The full file paths include prefixes as implemented in {@link #getMetadataOutputs}.
    */
-  private static final ImmutableList<String> METADATA_OUTPUT_SUFFIXES_V1 =
-      ImmutableList.of("setter_store.bin", "layoutinfo.bin", "br.bin");
+  private final ImmutableList<String> metadataOutputSuffixes;
 
-  private final ActionConstructionContext actionConstructionContext;
-
-  DataBindingV1Context(ActionConstructionContext actionConstructionContext) {
+  DataBindingV1Context(
+      ActionConstructionContext actionConstructionContext, boolean useUpdatedArgs) {
     this.actionConstructionContext = actionConstructionContext;
+    this.useUpdatedArgs = useUpdatedArgs;
+    final String setterStoreName = useUpdatedArgs ? "setter_store.json" : "setter_store.bin";
+    metadataOutputSuffixes = ImmutableList.of(setterStoreName, "layoutinfo.bin", "br.bin");
   }
 
   @Override
@@ -55,43 +56,21 @@ final class DataBindingV1Context implements DataBindingContext {
   public void supplyJavaCoptsUsing(
       RuleContext ruleContext, boolean isBinary, Consumer<Iterable<String>> consumer) {
 
-    ImmutableList.Builder<String> flags = ImmutableList.builder();
+    DataBindingProcessorArgsBuilder args = new DataBindingProcessorArgsBuilder(useUpdatedArgs);
     String metadataOutputDir = DataBinding.getDataBindingExecPath(ruleContext).getPathString();
 
-    // Directory where the annotation processor looks for deps metadata output. The annotation
-    // processor automatically appends {@link DEP_METADATA_INPUT_DIR} to this path. Individual
-    // files can be anywhere under this directory, recursively.
-    flags.add(createProcessorFlag("bindingBuildFolder", metadataOutputDir));
-
-    // Directory where the annotation processor should write this rule's metadata output. The
-    // annotation processor automatically appends {@link METADATA_OUTPUT_DIR} to this path.
-    flags.add(createProcessorFlag("generationalFileOutDir", metadataOutputDir));
-
-    // Path to the Android SDK installation (if available).
-    flags.add(createProcessorFlag("sdkDir", "/not/used"));
-
-    // Whether the current rule is a library or binary.
-    flags.add(createProcessorFlag("artifactType", isBinary ? "APPLICATION" : "LIBRARY"));
-
-    // The path where data binding's resource processor wrote its output (the data binding XML
-    // expressions). The annotation processor reads this file to translate that XML into Java.
-    flags.add(createProcessorFlag("xmlOutDir", metadataOutputDir));
-
-    // Unused.
-    flags.add(createProcessorFlag("exportClassListTo", "/tmp/exported_classes"));
-
-    // The Java package for the current rule.
-    flags.add(createProcessorFlag("modulePackage", AndroidCommon.getJavaPackage(ruleContext)));
-
+    args.metadataOutputDir(metadataOutputDir);
+    args.sdkDir("/not/used");
+    args.binary(isBinary);
+    args.layoutInfoDir(metadataOutputDir);
+    // Unused
+    args.exportClassListTo("/tmp/exported_classes");
+    args.modulePackage(AndroidCommon.getJavaPackage(ruleContext));
     // The minimum Android SDK compatible with this rule.
     // TODO(bazel-team): This probably should be based on the actual min-sdk from the manifest,
     // or an appropriate rule attribute.
-    flags.add(createProcessorFlag("minApi", "14"));
-
-    // If enabled, produces cleaner output for Android Studio.
-    flags.add(createProcessorFlag("printEncodedErrors", "0"));
-
-    consumer.accept(flags.build());
+    args.minApi("14");
+    consumer.accept(args.build());
   }
 
   @Override
@@ -105,7 +84,7 @@ final class DataBindingV1Context implements DataBindingContext {
             DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.HOST));
 
     ImmutableList<Artifact> annotationProcessorOutputs =
-        DataBinding.getMetadataOutputs(ruleContext, METADATA_OUTPUT_SUFFIXES_V1);
+        DataBinding.getMetadataOutputs(ruleContext, useUpdatedArgs, metadataOutputSuffixes);
 
     consumer.accept(javaPluginInfoProvider, annotationProcessorOutputs);
   }
@@ -134,8 +113,9 @@ final class DataBindingV1Context implements DataBindingContext {
   @Override
   public void addProvider(RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
 
-    List<Artifact> dataBindingMetadataOutputs = Lists.newArrayList(
-        DataBinding.getMetadataOutputs(ruleContext, METADATA_OUTPUT_SUFFIXES_V1));
+    List<Artifact> dataBindingMetadataOutputs =
+        Lists.newArrayList(
+            DataBinding.getMetadataOutputs(ruleContext, useUpdatedArgs, metadataOutputSuffixes));
 
     // Expose the data binding provider if there are outputs.
     dataBindingMetadataOutputs.addAll(DataBinding.getTransitiveMetadata(ruleContext, "exports"));

@@ -204,8 +204,7 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
             "-Aandroid.databinding.xmlOutDir=" + dataBindingFilesDir,
             "-Aandroid.databinding.exportClassListTo=/tmp/exported_classes",
             "-Aandroid.databinding.modulePackage=android.binary",
-            "-Aandroid.databinding.minApi=14",
-            "-Aandroid.databinding.printEncodedErrors=0");
+            "-Aandroid.databinding.minApi=14");
     assertThat(paramFileArgsForAction(binCompileAction)).containsAllIn(expectedJavacopts);
 
     // Regression test for b/63134122

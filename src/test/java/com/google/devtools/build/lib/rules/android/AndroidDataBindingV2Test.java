@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import java.util.List;
 import java.util.Set;
@@ -221,11 +222,47 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "-Aandroid.databinding.exportClassListTo=/tmp/exported_classes",
             "-Aandroid.databinding.modulePackage=android.binary",
             "-Aandroid.databinding.minApi=14",
-            "-Aandroid.databinding.printEncodedErrors=0",
             "-Aandroid.databinding.enableV2=1");
     assertThat(paramFileArgsForAction(binCompileAction)).containsAllIn(expectedJavacopts);
 
     // Regression test for b/63134122
+    JavaCompileInfo javaCompileInfo =
+        binCompileAction
+            .getExtraActionInfo(actionKeyContext)
+            .getExtension(JavaCompileInfo.javaCompileInfo);
+    assertThat(javaCompileInfo.getJavacOptList()).containsAllIn(expectedJavacopts);
+  }
+
+  @Test
+  public void dataBindingAnnotationProcessorFlags_v3_4() throws Exception {
+    useConfiguration(
+        "--experimental_android_databinding_v2", "--android_databinding_use_v3_4_args");
+    writeDataBindingFiles();
+
+    ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
+    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
+    SpawnAction binCompileAction =
+        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
+    String dataBindingFilesDir =
+        targetConfig
+            .getBinDirectory(RepositoryName.MAIN)
+            .getExecPath()
+            .getRelative("java/android/binary/databinding/app")
+            .getPathString();
+    String inputDir = dataBindingFilesDir + "/" + DataBinding.DEP_METADATA_INPUT_DIR;
+    String outputDir = dataBindingFilesDir + "/" + DataBinding.METADATA_OUTPUT_DIR;
+    ImmutableList<String> expectedJavacopts =
+        ImmutableList.of(
+            "-Aandroid.databinding.dependencyArtifactsDir=" + inputDir,
+            "-Aandroid.databinding.aarOutDir=" + outputDir,
+            "-Aandroid.databinding.sdkDir=/not/used",
+            "-Aandroid.databinding.artifactType=APPLICATION",
+            "-Aandroid.databinding.exportClassListOutFile=/tmp/exported_classes",
+            "-Aandroid.databinding.modulePackage=android.binary",
+            "-Aandroid.databinding.minApi=14",
+            "-Aandroid.databinding.enableV2=1");
+    assertThat(paramFileArgsForAction(binCompileAction)).containsAllIn(expectedJavacopts);
+
     JavaCompileInfo javaCompileInfo =
         binCompileAction
             .getExtraActionInfo(actionKeyContext)

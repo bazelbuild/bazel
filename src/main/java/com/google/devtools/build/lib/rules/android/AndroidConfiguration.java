@@ -746,6 +746,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public boolean dataBindingV2;
 
     @Option(
+        name = "android_databinding_use_v3_4_args",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "Use android databinding v2 with 3.4.0 argument")
+    public boolean dataBindingUpdatedArgs;
+
+    @Option(
         name = "experimental_android_library_exports_manifest_default",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -996,6 +1009,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   private final boolean dataBindingV2;
+  private final boolean dataBindingUpdatedArgs;
   private final boolean persistentBusyboxTools;
   private final boolean filterRJarsFromAndroidTest;
 
@@ -1043,6 +1057,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
     this.dataBindingV2 = options.dataBindingV2;
+    this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.incompatibleUseAapt2ByDefault = options.incompatibleUseAapt2ByDefault;
@@ -1250,6 +1265,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   @Override
   public boolean useDataBindingV2() {
     return dataBindingV2;
+  }
+
+  @Override
+  public boolean useDataBindingUpdatedArgs() {
+    return dataBindingUpdatedArgs;
   }
 
   @Override
