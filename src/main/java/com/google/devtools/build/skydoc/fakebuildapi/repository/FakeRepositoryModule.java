@@ -27,7 +27,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
 
   @Override
   public BaseFunction repositoryRule(BaseFunction implementation, Object attrs, Boolean local,
-      SkylarkList<String> environ, FuncallExpression ast, Environment env) {
+      SkylarkList<String> environ, FuncallExpression ast, Environment env, String doc) {
     return implementation;
   }
 }

@@ -61,7 +61,8 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       Boolean local,
       SkylarkList<String> environ,
       FuncallExpression ast,
-      com.google.devtools.build.lib.syntax.Environment funcallEnv)
+      com.google.devtools.build.lib.syntax.Environment funcallEnv,
+      String doc)
       throws EvalException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(funcallEnv, "repository_rule", ast.getLocation());
     // We'll set the name later, pass the empty string for now.
