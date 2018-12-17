@@ -104,6 +104,10 @@ std::string ToString(const T &value) {
 // Revisit once client logging is fixed (b/32939567).
 void SetDebugLog(bool enabled);
 
+// Returns true if this Bazel instance is running inside of a Bazel test.
+// This method observes the TEST_TMPDIR envvar.
+bool IsRunningWithinTest();
+
 // What WithEnvVar should do with an environment variable
 enum EnvVarAction { UNSET, SET };
 

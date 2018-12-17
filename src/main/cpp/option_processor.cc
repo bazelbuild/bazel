@@ -185,18 +185,22 @@ std::set<std::string> GetOldRcPaths(
         internal::FindRcAlongsideBinary(cwd, path_to_binary);
     candidate_bazelrc_paths = {workspace_rc, binary_rc, system_bazelrc_path};
   }
-  const std::vector<std::string> deduped_blazerc_paths =
-      internal::DedupeBlazercPaths(candidate_bazelrc_paths);
-  std::set<std::string> old_rc_paths(deduped_blazerc_paths.begin(),
-                                     deduped_blazerc_paths.end());
   string user_bazelrc_path = internal::FindLegacyUserBazelrc(
       SearchUnaryOption(startup_args, "--bazelrc"), workspace);
   if (!user_bazelrc_path.empty()) {
-    old_rc_paths.insert(user_bazelrc_path);
+    candidate_bazelrc_paths.push_back(user_bazelrc_path);
   }
-  return old_rc_paths;
+  // DedupeBlazercPaths returns paths whose canonical path could be computed,
+  // therefore these paths must exist.
+  const std::vector<std::string> deduped_existing_blazerc_paths =
+      internal::DedupeBlazercPaths(candidate_bazelrc_paths);
+  return std::set<std::string>(deduped_existing_blazerc_paths.begin(),
+                               deduped_existing_blazerc_paths.end());
 }
 
+// Deduplicates the given paths based on their canonical form.
+// Computes the canonical form using blaze_util::MakeCanonical.
+// Returns the unique paths in their original form (not the canonical one).
 std::vector<std::string> DedupeBlazercPaths(
     const std::vector<std::string>& paths) {
   std::set<std::string> canonical_paths;
@@ -291,6 +295,20 @@ void WarnAboutDuplicateRcFiles(const std::set<std::string>& read_files,
   }
 }
 
+std::vector<std::string> GetLostFiles(
+    const std::set<std::string>& old_files,
+    const std::set<std::string>& read_files_canon) {
+  std::vector<std::string> result;
+  for (const auto& old : old_files) {
+    std::string old_canon = blaze_util::MakeCanonical(old.c_str());
+    if (!old_canon.empty() &&
+        read_files_canon.find(old_canon) == read_files_canon.end()) {
+      result.push_back(old);
+    }
+  }
+  return result;
+}
+
 }  // namespace internal
 
 // TODO(#4502) Consider simplifying result_rc_files to a vector of RcFiles, no
@@ -366,7 +384,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   // that don't point to real files.
   rc_files = internal::DedupeBlazercPaths(rc_files);
 
-  std::set<std::string> read_files;
+  std::set<std::string> read_files_canonical_paths;
   // Parse these potential files, in priority order;
   for (const std::string& top_level_bazelrc_path : rc_files) {
     std::unique_ptr<RcFile> parsed_rc;
@@ -377,9 +395,10 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     }
 
     // Check that none of the rc files loaded this time are duplicate.
-    const std::deque<std::string>& sources = parsed_rc->sources();
-    internal::WarnAboutDuplicateRcFiles(read_files, sources);
-    read_files.insert(sources.begin(), sources.end());
+    const std::deque<std::string>& sources =
+        parsed_rc->canonical_source_paths();
+    internal::WarnAboutDuplicateRcFiles(read_files_canonical_paths, sources);
+    read_files_canonical_paths.insert(sources.begin(), sources.end());
 
     result_rc_files->push_back(std::move(parsed_rc));
   }
@@ -394,16 +413,8 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
       workspace_layout, workspace, cwd, cmd_line->path_to_binary,
       cmd_line->startup_args, internal::FindSystemWideRc(system_bazelrc_path_));
 
-  //   std::vector<std::string> old_files = internal::GetOldRcPathsInOrder(
-  //       workspace_layout, workspace, cwd, cmd_line->path_to_binary,
-  //       cmd_line->startup_args);
-  //
-  //   std::sort(old_files.begin(), old_files.end());
-  std::vector<std::string> lost_files(old_files.size());
-  std::vector<std::string>::iterator end_iter = std::set_difference(
-      old_files.begin(), old_files.end(), read_files.begin(), read_files.end(),
-      lost_files.begin());
-  lost_files.resize(end_iter - lost_files.begin());
+  std::vector<std::string> lost_files =
+      internal::GetLostFiles(old_files, read_files_canonical_paths);
   if (!lost_files.empty()) {
     std::string joined_lost_rcs;
     blaze_util::JoinStrings(lost_files, '\n', &joined_lost_rcs);
@@ -625,7 +636,7 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   int cur_index = 1;
   std::map<std::string, int> rcfile_indexes;
   for (const auto& blazerc : blazercs) {
-    for (const std::string& source_path : blazerc->sources()) {
+    for (const std::string& source_path : blazerc->canonical_source_paths()) {
       // Deduplicate the rc_source list because the same file might be included
       // from multiple places.
       if (rcfile_indexes.find(source_path) != rcfile_indexes.end()) continue;
