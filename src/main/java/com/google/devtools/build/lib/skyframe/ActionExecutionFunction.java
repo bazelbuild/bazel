@@ -272,7 +272,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         // Lost inputs found during input discovery are necessarily artifacts, and already Skyframe
         // deps of this action.
         lostDiscoveredInputs =
-            e.getLostInputs().stream()
+            e.getLostInputs().values().stream()
                 .map(i -> (Artifact) i)
                 .collect(ImmutableList.toImmutableList());
         failedActionDeps = lostDiscoveredInputs;
@@ -285,9 +285,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       RewindPlan rewindPlan;
       try {
         rewindPlan =
-            actionRewindStrategy.getRewindPlan(action, failedActionDeps, e, runfilesDepOwners, env);
+            actionRewindStrategy.getRewindPlan(
+                action, actionLookupData, failedActionDeps, e, runfilesDepOwners, env);
       } catch (ActionExecutionException rewindingFailedException) {
-        stateMap.remove(action);
         if (e.isActionStartedEventAlreadyEmitted()) {
           // SkyframeActionExecutor's ActionRunner didn't emit an ActionCompletionEvent because it
           // hoped rewinding would fix things. Now we know that rewinding won't work.
@@ -980,6 +980,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   public void complete() {
     // Discard all remaining state (there should be none after a successful execution).
     stateMap = Maps.newConcurrentMap();
+    actionRewindStrategy.reset();
   }
 
   private ContinuationState getState(Action action) {

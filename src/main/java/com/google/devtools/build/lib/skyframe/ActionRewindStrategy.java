@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -46,6 +49,11 @@ import javax.annotation.Nullable;
 public class ActionRewindStrategy {
   private static final Logger logger = Logger.getLogger(ActionRewindStrategy.class.getName());
 
+  // Note that this reference is mutated only outside of Skyframe evaluations, and accessed only
+  // inside of them. Its visibility piggybacks on Skyframe evaluation synchronizations, like
+  // ActionExecutionFunction's stateMap does.
+  private Set<LostInputRecord> lostInputRecords = Sets.newConcurrentHashSet();
+
   /**
    * Returns a {@link RewindPlan} specifying:
    *
@@ -61,17 +69,20 @@ public class ActionRewindStrategy {
    * This ensures that reevaluating the current node will also reevaluate the nodes that will
    * recreate the lost inputs.
    *
-   * @throws ActionExecutionException if any lost inputs are not the outputs of previously executed
-   *     actions
+   * @throws ActionExecutionException if any lost inputs have been seen by this action as lost
+   *     before, or if any lost inputs are not the outputs of previously executed actions
    */
   RewindPlan getRewindPlan(
       Action failedAction,
+      ActionLookupData actionLookupData,
       Iterable<? extends SkyKey> failedActionDeps,
       LostInputsActionExecutionException lostInputsException,
       ActionInputDepOwners runfilesDepOwners,
       Environment env)
       throws ActionExecutionException, InterruptedException {
-    ImmutableList<ActionInput> lostInputs = lostInputsException.getLostInputs();
+    checkIfActionLostInputTwice(actionLookupData, failedAction, lostInputsException);
+
+    ImmutableList<ActionInput> lostInputs = lostInputsException.getLostInputs().values().asList();
 
     // This collection tracks which Skyframe nodes must be restarted.
     HashSet<SkyKey> depsToRestart = new HashSet<>();
@@ -92,21 +103,8 @@ public class ActionRewindStrategy {
     for (Map.Entry<Artifact, Collection<ActionInput>> entry :
         lostInputsByDepOwners.asMap().entrySet()) {
       Artifact lostArtifact = entry.getKey();
-
-      if (lostArtifact.isSourceArtifact()) {
-        // Rewinding source artifacts is not possible. They should not be losable, but we tolerate
-        // their loss--by failing the build instead of crashing--in case some kind of infrastructure
-        // failure results in their apparent loss.
-        logger.info(
-            String.format(
-                "lostArtifact unexpectedly source.\nlostArtifact: %s\nlostInputs for artifact: %s\n"
-                    + "failedAction: %s",
-                lostArtifact, entry.getValue(), failedAction));
-        // Launder the LostInputs exception as a plain ActionExecutionException so that it may be
-        // processed by SkyframeActionExecutor without short-circuiting.
-        throw new ActionExecutionException(
-            lostInputsException, failedAction, /*catastrophe=*/ false);
-      }
+      checkIfLostArtifactIsSource(
+          lostArtifact, failedAction, lostInputsException, entry.getValue());
 
       // Note that this artifact must be restarted.
       depsToRestart.add(lostArtifact);
@@ -126,6 +124,63 @@ public class ActionRewindStrategy {
 
     return new RewindPlan(
         Restart.selfAnd(ImmutableList.copyOf(depsToRestart)), additionalActionsToRestart.build());
+  }
+
+  /** Clear the history of failed actions' lost inputs. */
+  void reset() {
+    lostInputRecords = Sets.newConcurrentHashSet();
+  }
+
+  private void checkIfActionLostInputTwice(
+      ActionLookupData actionLookupData,
+      Action failedAction,
+      LostInputsActionExecutionException lostInputsException)
+      throws ActionExecutionException {
+    ImmutableMap<String, ActionInput> lostInputsByDigest = lostInputsException.getLostInputs();
+    for (String digest : lostInputsByDigest.keySet()) {
+      if (!lostInputRecords.add(LostInputRecord.create(actionLookupData, digest))) {
+        // The same action losing the same input twice is unexpected. The action should have waited
+        // until the depended-on action which generates the lost input is (re)run before trying
+        // again. We tolerate such a loss--by failing the build instead of crashing--in case some
+        // kind of infrastructure failure results in an input being lost twice.
+        //
+        // Note that we could enforce a stronger check: if action A, which depends on an input I
+        // previously detected as lost (by any action, not just A), discovers that I is still lost,
+        // and action A started after the re-evaluation of I's generating action, then something has
+        // gone wrong. Administering that check would be more complex (e.g., the start/completion
+        // times of actions would need tracking), so we punt on it for now.
+        logger.severe(
+            String.format(
+                "lost input twice for the same action.\nlostInput: %s\nlostInput digest: %s\n"
+                    + "failedAction: %s",
+                lostInputsByDigest.get(digest), digest, failedAction));
+        // Launder the LostInputs exception as a plain ActionExecutionException so that it may be
+        // processed by SkyframeActionExecutor without short-circuiting.
+        throw new ActionExecutionException(
+            lostInputsException, failedAction, /*catastrophe=*/ false);
+      }
+    }
+  }
+
+  private void checkIfLostArtifactIsSource(
+      Artifact lostArtifact,
+      Action failedAction,
+      LostInputsActionExecutionException lostInputsException,
+      Collection<ActionInput> associatedLostInputs)
+      throws ActionExecutionException {
+    if (lostArtifact.isSourceArtifact()) {
+      // Rewinding source artifacts is not possible. They should not be losable, but we tolerate
+      // their loss--by failing the build instead of crashing--in case some kind of infrastructure
+      // failure results in their apparent loss.
+      logger.info(
+          String.format(
+              "lostArtifact unexpectedly source.\nlostArtifact: %s\nlostInputs for artifact: %s\n"
+                  + "failedAction: %s",
+              lostArtifact, associatedLostInputs, failedAction));
+      // Launder the LostInputs exception as a plain ActionExecutionException so that it may be
+      // processed by SkyframeActionExecutor without short-circuiting.
+      throw new ActionExecutionException(lostInputsException, failedAction, /*catastrophe=*/ false);
+    }
   }
 
   private ImmutableList<Action> noteDepsAndActionsToRestartAndGetActionsToCheckForPropagation(
@@ -314,6 +369,23 @@ public class ActionRewindStrategy {
 
     ImmutableList<Action> getAdditionalActionsToRestart() {
       return additionalActionsToRestart;
+    }
+  }
+
+  /**
+   * A record indicating that a Skyframe action execution failed because it lost an input with the
+   * specified digest.
+   */
+  @AutoValue
+  abstract static class LostInputRecord {
+
+    abstract ActionLookupData failedActionLookupData();
+
+    abstract String lostInputDigest();
+
+    static LostInputRecord create(ActionLookupData failedActionLookupData, String lostInputDigest) {
+      return new AutoValue_ActionRewindStrategy_LostInputRecord(
+          failedActionLookupData, lostInputDigest);
     }
   }
 }
