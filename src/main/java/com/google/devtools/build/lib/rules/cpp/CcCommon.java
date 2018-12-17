@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -69,6 +68,7 @@ import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -155,6 +155,7 @@ public final class CcCommon {
           CppRuleClasses.PREPROCESSOR_DEFINES);
 
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
+  private static final String SYSROOT_FLAG = "--sysroot=";
 
   private final RuleContext ruleContext;
 
@@ -941,27 +942,66 @@ public final class CcCommon {
   public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain) {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) toolchain.get(ToolchainInfo.PROVIDER);
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, toolchainProvider);
-    if (!featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
-      return null;
+
+    // Determine the original value of CC_FLAGS.
+    String originalCcFlags = computeCcFlagsFromLegacyMakeVariable(toolchain);
+
+    // Ensure that Sysroot is set properly.
+    String sysrootCcFlags = computeCcFlagForSysroot(toolchainProvider);
+
+    // Fetch additional flags from the FeatureConfiguration.
+    List<String> featureConfigCcFlags =
+        computeCcFlagsFromFeatureConfig(ruleContext, toolchainProvider);
+
+    // Combine the different flag sources.
+    ImmutableList.Builder<String> ccFlags = new ImmutableList.Builder<>();
+    ccFlags.add(originalCcFlags);
+
+    // Only add the sysroot flag if nothing else adds sysroot, _but_ it must appear before
+    // the feature config flags.
+    if (!containsSysroot(originalCcFlags, featureConfigCcFlags)) {
+      ccFlags.add(sysrootCcFlags);
     }
 
-    CcToolchainVariables buildVariables = toolchainProvider.getBuildVariables();
-    String toolchainCcFlags =
-        Joiner.on(" ")
-            .join(
-                featureConfiguration.getCommandLine(
-                    CppActionNames.CC_FLAGS_MAKE_VARIABLE, buildVariables));
-    String oldCcFlags = "";
-    TemplateVariableInfo templateVariableInfo =
-        toolchain.get(TemplateVariableInfo.PROVIDER);
+    ccFlags.addAll(featureConfigCcFlags);
+    return Joiner.on(" ").join(ccFlags.build());
+  }
+
+  private static String computeCcFlagsFromLegacyMakeVariable(TransitiveInfoCollection toolchain) {
+    TemplateVariableInfo templateVariableInfo = toolchain.get(TemplateVariableInfo.PROVIDER);
     if (templateVariableInfo != null) {
-      oldCcFlags = templateVariableInfo.getVariables().getOrDefault(
-          CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, "");
+      return templateVariableInfo
+          .getVariables()
+          .getOrDefault(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, "");
     }
-    return FluentIterable.of(oldCcFlags)
-        .append(toolchainCcFlags)
-        .join(Joiner.on(" "));
+
+    return "";
+  }
+
+  private static boolean containsSysroot(String ccFlags, List<String> moreCcFlags) {
+    return Stream.concat(Stream.of(ccFlags), moreCcFlags.stream())
+        .anyMatch(str -> str.contains(SYSROOT_FLAG));
+  }
+
+  private static String computeCcFlagForSysroot(CcToolchainProvider toolchainProvider) {
+    PathFragment sysroot = toolchainProvider.getSysrootPathFragment();
+    String sysrootFlag = "";
+    if (sysroot != null) {
+      sysrootFlag = SYSROOT_FLAG + sysroot;
+    }
+
+    return sysrootFlag;
+  }
+
+  private static List<String> computeCcFlagsFromFeatureConfig(
+      RuleContext ruleContext, CcToolchainProvider toolchainProvider) {
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, toolchainProvider);
+    if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
+      CcToolchainVariables buildVariables = toolchainProvider.getBuildVariables();
+      return featureConfiguration.getCommandLine(
+          CppActionNames.CC_FLAGS_MAKE_VARIABLE, buildVariables);
+    }
+    return ImmutableList.of();
   }
 }
