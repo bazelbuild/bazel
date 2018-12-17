@@ -23,17 +23,29 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = [
+        ":test-deps-wo-bazel",
+        "//src:bazel",
+        "//src/test/shell:bin/bazel",
+    ],
+    visibility = [
+        "//src/test/shell:__subpackages__",
+        "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:__pkg__",
+    ],
+)
+
+filegroup(
+    name = "test-deps-wo-bazel",
+    testonly = 1,
+    srcs = [
         "remote_helpers.sh",
         "testing_server.py",
         ":langtools-copy",
         "//examples:srcs",
-        "//src:bazel",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
         "//src/test/shell:bashunit",
-        "//src/test/shell:bin/bazel",
         "//src/test/shell:integration_test_setup.sh",
         "//src/test/shell:testenv.sh",
         "//src/tools/singlejar",
@@ -43,10 +55,6 @@ filegroup(
         "//tools:srcs",
         "@bazel_skylib//:test_deps",
         "@bazel_tools//tools/jdk:current_java_runtime",
-    ],
-    visibility = [
-        "//src/test/shell:__subpackages__",
-        "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:__pkg__",
     ],
 )
 
