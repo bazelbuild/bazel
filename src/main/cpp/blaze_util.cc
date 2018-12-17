@@ -182,12 +182,7 @@ void SetDebugLog(bool enabled) {
 }
 
 bool IsRunningWithinTest() {
-  // Cache the value of the envvar.
-  // There's no reason to expect it to change (what would change its value?),
-  // nor should it change (otherwise this function would return inconsistent
-  // results over time).
-  static const bool result = !GetEnv("TEST_TMPDIR").empty();
-  return result;
+  return !GetEnv("TEST_TMPDIR").empty();
 }
 
 void WithEnvVars::SetEnvVars(const map<string, EnvVarValue>& vars) {
