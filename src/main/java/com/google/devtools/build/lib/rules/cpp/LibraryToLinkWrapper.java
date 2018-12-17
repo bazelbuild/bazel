@@ -144,11 +144,7 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
 
     @Override
     public SkylarkList<String> getSkylarkUserLinkFlags() {
-      return SkylarkList.createImmutable(
-          Streams.stream(userLinkFlags)
-              .map(LinkOptions::get)
-              .flatMap(Collection::stream)
-              .collect(ImmutableList.toImmutableList()));
+      return SkylarkList.createImmutable(getFlattenedUserLinkFlags());
     }
 
     @Override
@@ -158,6 +154,13 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
 
     public NestedSet<LinkOptions> getUserLinkFlags() {
       return userLinkFlags;
+    }
+
+    protected ImmutableList<String> getFlattenedUserLinkFlags() {
+      return Streams.stream(userLinkFlags)
+          .map(LinkOptions::get)
+          .flatMap(Collection::stream)
+          .collect(ImmutableList.toImmutableList());
     }
 
     public NestedSet<Linkstamp> getLinkstamps() {
@@ -505,11 +508,27 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
       CcLinkParams staticModeParamsForDynamicLibrary,
       CcLinkParams dynamicModeParamsForExecutable,
       CcLinkParams dynamicModeParamsForDynamicLibrary) {
+    NestedSet<Artifact> seNonCodeInputs = staticModeParamsForExecutable.getNonCodeInputs();
+    NestedSet<Artifact> sdNonCodeInputs = staticModeParamsForDynamicLibrary.getNonCodeInputs();
+    NestedSet<Artifact> deNonCodeInputs = dynamicModeParamsForExecutable.getNonCodeInputs();
+    NestedSet<Artifact> ddNonCodeInputs = dynamicModeParamsForDynamicLibrary.getNonCodeInputs();
+    Preconditions.checkState(
+        !(seNonCodeInputs == null
+                || sdNonCodeInputs == null
+                || deNonCodeInputs == null
+                || ddNonCodeInputs == null)
+            || (seNonCodeInputs == null
+                && sdNonCodeInputs == null
+                && deNonCodeInputs == null
+                && ddNonCodeInputs == null));
+    if (sdNonCodeInputs == null) {
+      return NestedSetBuilder.<Artifact>linkOrder().build();
+    }
     checkAllSizesMatch(
-        staticModeParamsForExecutable.getNonCodeInputs().toList().size(),
-        staticModeParamsForDynamicLibrary.getNonCodeInputs().toList().size(),
-        dynamicModeParamsForExecutable.getNonCodeInputs().toList().size(),
-        dynamicModeParamsForDynamicLibrary.getNonCodeInputs().toList().size());
+        sdNonCodeInputs.toList().size(),
+        deNonCodeInputs.toList().size(),
+        deNonCodeInputs.toList().size(),
+        ddNonCodeInputs.toList().size());
     return staticModeParamsForExecutable.getNonCodeInputs();
   }
 
@@ -623,7 +642,6 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
       }
     } else if (dynamicModeParamsForExecutableEntry.getArtifactCategory()
         == ArtifactCategory.INTERFACE_LIBRARY) {
-      Preconditions.checkState(runtimeLibraryIterator.hasNext());
       Preconditions.checkState(
           !(dynamicModeParamsForExecutableEntry instanceof SolibLibraryToLink));
       libraryToLinkWrapperBuilder.setInterfaceLibrary(artifact);
@@ -942,7 +960,7 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
     return ccLinkParamsBuilder.build();
   }
 
-  private LibraryToLink getStaticLibraryToLink() {
+  public LibraryToLink getStaticLibraryToLink() {
     Preconditions.checkNotNull(staticLibrary);
     if (staticLibraryToLink != null) {
       return staticLibraryToLink;
@@ -961,7 +979,7 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
     return staticLibraryToLink;
   }
 
-  private LibraryToLink getPicStaticLibraryToLink() {
+  public LibraryToLink getPicStaticLibraryToLink() {
     Preconditions.checkNotNull(picStaticLibrary);
     if (picStaticLibraryToLink != null) {
       return picStaticLibraryToLink;
@@ -980,7 +998,7 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
     return picStaticLibraryToLink;
   }
 
-  private LibraryToLink getDynamicLibraryToLink() {
+  public LibraryToLink getDynamicLibraryToLink() {
     Preconditions.checkNotNull(dynamicLibrary);
     if (dynamicLibraryToLink != null) {
       return dynamicLibraryToLink;
@@ -1003,7 +1021,7 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
     return dynamicLibraryToLink;
   }
 
-  private LibraryToLink getInterfaceLibraryToLink() {
+  public LibraryToLink getInterfaceLibraryToLink() {
     Preconditions.checkNotNull(interfaceLibrary);
     if (interfaceLibraryToLink != null) {
       return interfaceLibraryToLink;

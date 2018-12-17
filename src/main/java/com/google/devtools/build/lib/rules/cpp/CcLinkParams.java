@@ -19,9 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -434,19 +432,6 @@ public final class CcLinkParams implements CcLinkParamsApi {
         nonCodeInputsBuilder = NestedSetBuilder.linkOrder();
       }
       nonCodeInputsBuilder.addAll(nonCodeInputs);
-      return this;
-    }
-
-    /** Processes typical dependencies of a C/C++ library. */
-    public Builder addCcLibrary(RuleContext context) {
-      addTransitiveTargets(
-          context.getPrerequisites("deps", Mode.TARGET),
-          x -> {
-            if (x.get(CcInfo.PROVIDER) == null) {
-              return null;
-            }
-            return x.get(CcInfo.PROVIDER).getCcLinkingInfo();
-          });
       return this;
     }
   }
