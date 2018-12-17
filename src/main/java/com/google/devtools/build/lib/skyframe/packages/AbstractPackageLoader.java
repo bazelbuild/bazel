@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
-import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -137,7 +136,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected final BlazeDirectories directories;
     protected final PathPackageLocator pkgLocator;
     final AtomicReference<PathPackageLocator> pkgLocatorRef;
-    protected final ExternalFilesHelper externalFilesHelper;
+    private ExternalFileAction externalFileAction;
+    protected ExternalFilesHelper externalFilesHelper;
     protected ConfiguredRuleClassProvider ruleClassProvider = getDefaultRuleClassProvider();
     protected SkylarkSemantics skylarkSemantics;
     protected Reporter reporter = new Reporter(new EventBus());
@@ -147,7 +147,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     int legacyGlobbingThreads = 1;
     int skyframeThreads = 1;
 
-    protected Builder(Root workspaceDir, Path installBase, Path outputBase) {
+    protected Builder(
+        Root workspaceDir,
+        Path installBase,
+        Path outputBase,
+        ImmutableList<BuildFileName> buildFilesByPriority,
+        ExternalFileAction externalFileAction) {
       this.workspaceDir = workspaceDir.asPath();
       Path devNull = workspaceDir.getRelative("/dev/null");
       directories =
@@ -159,15 +164,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
       this.pkgLocator =
           new PathPackageLocator(
-              directories.getOutputBase(),
-              ImmutableList.of(workspaceDir),
-              BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
+              directories.getOutputBase(), ImmutableList.of(workspaceDir), buildFilesByPriority);
       this.pkgLocatorRef = new AtomicReference<>(pkgLocator);
-      this.externalFilesHelper =
-          ExternalFilesHelper.create(
-              pkgLocatorRef,
-              ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-              directories);
+      this.externalFileAction = externalFileAction;
     }
 
     public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
@@ -216,6 +215,11 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
+    public Builder setExternalFileAction(ExternalFileAction externalFileAction) {
+      this.externalFileAction = externalFileAction;
+      return this;
+    }
+
     /** Throws {@link IllegalArgumentException} if builder args are incomplete/inconsistent. */
     protected void validate() {
       if (skylarkSemantics == null) {
@@ -226,6 +230,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
     public final PackageLoader build() {
       validate();
+      externalFilesHelper =
+          ExternalFilesHelper.create(pkgLocatorRef, externalFileAction, directories);
       return buildImpl();
     }
 

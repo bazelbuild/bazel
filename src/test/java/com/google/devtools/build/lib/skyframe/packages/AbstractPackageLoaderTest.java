@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -56,6 +58,14 @@ public abstract class AbstractPackageLoaderTest {
   }
 
   protected abstract AbstractPackageLoader.Builder newPackageLoaderBuilder(Root workspaceDir);
+
+  private AbstractPackageLoader.Builder newPackageLoaderBuilder() {
+    return newPackageLoaderBuilder(root).useDefaultSkylarkSemantics().setReporter(reporter);
+  }
+
+  protected PackageLoader newPackageLoader() {
+    return newPackageLoaderBuilder().build();
+  }
 
   @Test
   public void simpleNoPackage() throws Exception {
@@ -144,21 +154,46 @@ public abstract class AbstractPackageLoaderTest {
     assertNoEvents(handler.getEvents());
   }
 
+  @Test
+  public void externalFile_AssumeNonExistentAndImmutable() throws Exception {
+    Path externalPath = file(absolutePath("/external/BUILD"), "sh_library(name = 'foo')");
+    symlink("foo", externalPath);
+
+    PackageLoader pkgLoader =
+        newPackageLoaderBuilder()
+            .setExternalFileAction(
+                ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS)
+            .build();
+
+    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("foo"));
+    NoSuchPackageException expected =
+        assertThrows(NoSuchPackageException.class, () -> pkgLoader.loadPackage(pkgId));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("no such package 'foo': BUILD file not found on package path");
+  }
+
   protected Path path(String rootRelativePath) {
     return workspaceDir.getRelative(PathFragment.create(rootRelativePath));
   }
 
+  protected Path absolutePath(String absolutePath) {
+    return fs.getPath(absolutePath);
+  }
+
   protected Path file(String fileName, String... contents) throws Exception {
-    Path path = path(fileName);
+    return file(path(fileName), contents);
+  }
+
+  protected Path file(Path path, String... contents) throws Exception {
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, Joiner.on("\n").join(contents));
     return path;
   }
 
-  protected PackageLoader newPackageLoader() {
-    return newPackageLoaderBuilder(root)
-        .useDefaultSkylarkSemantics()
-        .setReporter(reporter)
-        .build();
+  protected Path symlink(String linkPathString, Path linkTargetPath) throws Exception {
+    Path path = path(linkPathString);
+    FileSystemUtils.ensureSymbolicLink(path, linkTargetPath);
+    return path;
   }
 }
