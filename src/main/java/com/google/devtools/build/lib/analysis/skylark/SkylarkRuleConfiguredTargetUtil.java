@@ -106,6 +106,14 @@ public final class SkylarkRuleConfiguredTargetUtil {
       // so we do *not* setLoadingPhase().
 
       RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
+      if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
+        ruleContext.ruleError(
+            "Found reference to a workspace rule in a context where a build"
+                + " rule was expected; probably a reference to a target in that external"
+                + " repository, properly specified as @reponame//path/to/package:target,"
+                + " should have been specified by the requesting rule.");
+        return null;
+      }
       if (ruleClass.hasFunctionTransitionWhitelist()
           && !Whitelist.isAvailable(ruleContext, FunctionSplitTransitionWhitelist.WHITELIST_NAME)) {
           ruleContext.ruleError("Non-whitelisted use of function-base split transition");

@@ -728,4 +728,40 @@ function test_external_subpacakge() {
       || fail "Success of //external:local expected"
 }
 
+function test_external_rule() {
+  # The repository rule for an external repository is visible as target
+  # under //external. Ensure we do not interpret it with a rule context
+  # instead of a repository rule context.
+  EXTREPODIR=`pwd`
+  mkdir true
+  echo 'int main(int argc, char **argv) { return 0;}' > true/main.c
+  echo 'cc_library(name="true", srcs=["main.c"])' > true/BUILD
+  tar cvf true.tar true
+  rm -rf true
+  mkdir extref
+  echo 'cc_binary(name="it", deps=["//external:true"])' > extref/BUILD
+  touch extref/WORKSPACE
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+  name="true",
+  urls=["${EXTREPODIR}/true.tar"],
+  strip_prefix="true",
+)
+
+local_repository(
+  name="extref",
+  path="../extref",
+)
+EOF
+  touch BUILD
+  bazel build @extref//:it >"${TEST_log}" 2>&1 && fail "expected failure" || :
+  expect_not_log 'download_and_extract'
+  expect_log 'http_archive.*workspace rule'
+  expect_log '//external:true.*build rule.*expected'
+}
+
 run_suite "workspace tests"
