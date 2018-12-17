@@ -1407,14 +1407,6 @@ public class CppLinkActionBuilder {
     if (linkParams.getNonCodeInputs() != null) {
       addNonCodeInputs(linkParams.getNonCodeInputs());
     }
-    ExtraLinkTimeLibraries extraLinkTimeLibraries = linkParams.getExtraLinkTimeLibraries();
-    if (extraLinkTimeLibraries != null) {
-      for (ExtraLinkTimeLibrary extraLibrary : extraLinkTimeLibraries.getExtraLibraries()) {
-        addLibraries(
-            extraLibrary.buildLibraries(
-                ruleContext, linkingMode != LinkingMode.DYNAMIC, linkType.isDynamicLibrary()));
-      }
-    }
     CppHelper.checkLinkstampsUnique(errorListener, linkParams);
     addLinkstamps(linkParams.getLinkstamps());
     return this;

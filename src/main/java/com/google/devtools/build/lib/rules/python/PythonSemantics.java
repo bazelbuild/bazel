@@ -69,7 +69,11 @@ public interface PythonSemantics {
    * <p>This should create a generating action for {@code common.getExecutable()}.
    */
   Artifact createExecutable(
-      RuleContext ruleContext, PyCommon common, CcInfo ccInfo, NestedSet<String> imports)
+      RuleContext ruleContext,
+      PyCommon common,
+      CcInfo ccInfo,
+      NestedSet<String> imports,
+      Runfiles.Builder runfilesBuilder)
       throws InterruptedException, RuleErrorException;
 
   /**
