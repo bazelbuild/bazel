@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
 
 /** Implementation of the {@code cc_libc_top_alias} rule. */
-public class CcLibcTopAlias extends CommonAliasRule {
+public class CcLibcTopAlias extends CommonAliasRule<CppConfiguration> {
 
   public CcLibcTopAlias() {
     super(

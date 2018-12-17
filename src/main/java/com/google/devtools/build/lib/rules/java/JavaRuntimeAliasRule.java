@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
 
 /** Implementation of the {@code java_runtime_alias} rule. */
-public class JavaRuntimeAliasRule extends CommonAliasRule {
+public class JavaRuntimeAliasRule extends CommonAliasRule<JavaConfiguration> {
   public JavaRuntimeAliasRule() {
     super("java_runtime_alias", JavaSemantics::jvmAttribute, JavaConfiguration.class);
   }
