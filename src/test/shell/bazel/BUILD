@@ -483,6 +483,20 @@ sh_test(
 )
 
 sh_test(
+    name = "python_version_test",
+    size = "medium",
+    srcs = ["python_version_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        # Disabled on windows and mac; see TODOs in the test suite.
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "workspace_test",
     size = "large",
     srcs = ["workspace_test.sh"],

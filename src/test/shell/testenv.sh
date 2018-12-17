@@ -534,5 +534,75 @@ function create_and_cd_client() {
 }
 
 ################### Extra ############################
+
 # Functions that need to be called before each test.
+
 create_and_cd_client
+
+# Optional per-test environment changes.
+
+# Create a fake Python default runtime that just outputs a marker string
+# indicating which version was used, without executing any Python code.
+function use_fake_python_runtimes() {
+  # The stub script template automatically appends ".exe" to the Python binary
+  # name if it doesn't already end in ".exe", ".com", or ".bat".
+  if is_windows; then
+    PYTHON2_FILENAME="python2.bat"
+    PYTHON3_FILENAME="python3.bat"
+  else
+    PYTHON2_FILENAME="python2.sh"
+    PYTHON3_FILENAME="python3.sh"
+  fi
+
+  add_to_bazelrc "build --python_top=//tools/python:default_runtime"
+
+  mkdir -p tools/python
+
+  cat > tools/python/BUILD << EOF
+package(default_visibility=["//visibility:public"])
+
+sh_binary(
+    name = '2to3',
+    srcs = ['2to3.sh']
+)
+
+config_setting(
+    name = "py3_mode",
+    values = {"force_python": "PY3"},
+)
+
+# TODO(brandjon): Replace dependency on "force_python" with a 2-valued feature
+# flag instead
+py_runtime(
+    name = "default_runtime",
+    files = select({
+        "py3_mode": [":${PYTHON3_FILENAME}"],
+        "//conditions:default": [":${PYTHON2_FILENAME}"],
+    }),
+    interpreter = select({
+        "py3_mode": ":${PYTHON3_FILENAME}",
+        "//conditions:default": ":${PYTHON2_FILENAME}",
+    }),
+)
+EOF
+
+  # Windows .bat has uppercase ECHO and no shebang.
+  if is_windows; then
+    cat > tools/python/$PYTHON2_FILENAME << EOF
+@ECHO I am Python 2
+EOF
+    cat > tools/python/$PYTHON3_FILENAME << EOF
+@ECHO I am Python 3
+EOF
+  else
+    cat > tools/python/$PYTHON2_FILENAME << EOF
+#!/bin/sh
+echo 'I am Python 2'
+EOF
+    cat > tools/python/$PYTHON3_FILENAME << EOF
+#!/bin/sh
+echo 'I am Python 3'
+EOF
+    chmod +x tools/python/$PYTHON2_FILENAME tools/python/$PYTHON3_FILENAME
+  fi
+}

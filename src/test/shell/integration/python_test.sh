@@ -57,6 +57,23 @@ else
   declare -r EXE_EXT=""
 fi
 
+#### TESTS #############################################################
+
+# Tests in this file cannot invoke a real Python 3 runtime. This is because this
+# file is shared by both Bazel's public test suite and Google's internal tests,
+# and the internal tests do not have a Python 3 environment.
+#
+#   - If you only need a real Python 2 environment and do not use Python 3 at
+#     all, you can place your test in this file.
+#
+#   - If you need to check Bazel's behavior concerning the *selection* of a
+#     Python 2 or 3 runtime, but do not actually need the runtime itself, then
+#     you may put your test in this file and call `use_fake_python_runtimes`
+#     before your test logic.
+#
+#   - Otherwise, put your test in //src/test/shell/bazel. That suite can invoke
+#     actual Python 2 and 3 interpreters.
+
 function test_python_binary_empty_files_in_runfiles_are_regular_files() {
   mkdir -p test/mypackage
   cat > test/BUILD <<'EOF'
@@ -101,9 +118,9 @@ EOF
 }
 
 function test_building_transitive_py_binary_runfiles_trees() {
-    touch main.py script.sh
-    chmod u+x script.sh
-    cat > BUILD <<'EOF'
+  touch main.py script.sh
+  chmod u+x script.sh
+  cat > BUILD <<'EOF'
 py_binary(
     name = 'py-tool',
     srcs = ['main.py'],
@@ -116,11 +133,54 @@ sh_binary(
     data = [':py-tool'],
 )
 EOF
-    bazel build --experimental_build_transitive_python_runfiles :sh-tool
-    [ -d "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree not built"
-    bazel clean
-    bazel build --noexperimental_build_transitive_python_runfiles :sh-tool
-    [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
+  bazel build --experimental_build_transitive_python_runfiles :sh-tool
+  [ -d "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree not built"
+  bazel clean
+  bazel build --noexperimental_build_transitive_python_runfiles :sh-tool
+  [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
+}
+
+# Test that Python 2 or Python 3 is actually invoked, with and without flag
+# overrides.
+function test_python_version() {
+  use_fake_python_runtimes
+
+  mkdir -p test
+  touch test/main2.py test/main3.py
+  cat > test/BUILD << EOF
+py_binary(name = "main2",
+    default_python_version = "PY2",
+    srcs = ['main2.py'],
+)
+py_binary(name = "main3",
+    default_python_version = "PY3",
+    srcs = ["main3.py"],
+)
+EOF
+
+  # No flag, use the default from the rule.
+  bazel run //test:main2 \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am Python 2"
+  bazel run //test:main3 \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am Python 3"
+
+  # Force to Python 2.
+  bazel run //test:main2 --force_python=PY2 \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am Python 2"
+  bazel run //test:main3 --force_python=PY2 \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am Python 2"
+
+  # Force to Python 3.
+  bazel run //test:main2 --force_python=PY3 \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am Python 3"
+  bazel run //test:main3 --force_python=PY3 \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am Python 3"
 }
 
 run_suite "Tests for the Python rules"
