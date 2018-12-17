@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
@@ -61,6 +60,7 @@ public class ActionExecutionContext implements Closeable {
   private final ActionKeyContext actionKeyContext;
   private final MetadataHandler metadataHandler;
   private final FileOutErr fileOutErr;
+  private final ExtendedEventHandler eventHandler;
   private final ImmutableMap<String, String> clientEnv;
   private final ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets;
   @Nullable private final ArtifactExpander artifactExpander;
@@ -80,10 +80,11 @@ public class ActionExecutionContext implements Closeable {
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
+      ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable ArtifactExpander artifactExpander,
-      @Nullable SkyFunction.Environment env,
+      @Nullable Environment env,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult) {
     this.actionInputFileCache = actionInputFileCache;
@@ -91,6 +92,7 @@ public class ActionExecutionContext implements Closeable {
     this.actionKeyContext = actionKeyContext;
     this.metadataHandler = metadataHandler;
     this.fileOutErr = fileOutErr;
+    this.eventHandler = eventHandler;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
     this.topLevelFilesets = topLevelFilesets;
     this.executor = executor;
@@ -110,6 +112,7 @@ public class ActionExecutionContext implements Closeable {
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
+      ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       ArtifactExpander artifactExpander,
@@ -122,6 +125,7 @@ public class ActionExecutionContext implements Closeable {
         actionKeyContext,
         metadataHandler,
         fileOutErr,
+        eventHandler,
         clientEnv,
         topLevelFilesets,
         artifactExpander,
@@ -137,6 +141,7 @@ public class ActionExecutionContext implements Closeable {
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
+      ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       Environment env,
       @Nullable FileSystem actionFileSystem) {
@@ -147,6 +152,7 @@ public class ActionExecutionContext implements Closeable {
         actionKeyContext,
         metadataHandler,
         fileOutErr,
+        eventHandler,
         clientEnv,
         ImmutableMap.of(),
         /*artifactExpander=*/ null,
@@ -219,12 +225,13 @@ public class ActionExecutionContext implements Closeable {
     return executor.getClock();
   }
 
+  @Deprecated // Use #getEventHandler()#post(Postable) instead.
   public EventBus getEventBus() {
     return executor.getEventBus();
   }
 
   public ExtendedEventHandler getEventHandler() {
-    return executor.getEventHandler();
+    return eventHandler;
   }
 
   public ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> getTopLevelFilesets() {
@@ -323,6 +330,7 @@ public class ActionExecutionContext implements Closeable {
         actionKeyContext,
         metadataHandler,
         fileOutErr,
+        eventHandler,
         clientEnv,
         topLevelFilesets,
         artifactExpander,

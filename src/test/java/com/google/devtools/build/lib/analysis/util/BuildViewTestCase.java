@@ -2209,6 +2209,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           actionKeyContext,
           /*metadataHandler=*/ null,
           actionLogBufferPathGenerator.generate(ArtifactPathResolver.IDENTITY),
+          reporter,
           clientEnv,
           ImmutableMap.of(),
           artifactExpander,

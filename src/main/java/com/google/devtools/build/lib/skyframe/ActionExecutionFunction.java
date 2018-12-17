@@ -586,7 +586,14 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           }
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
-                  action, metadataHandler, metadataHandler, env, state.actionFileSystem);
+                  action,
+                  metadataHandler,
+                  metadataHandler,
+                  skyframeActionExecutor.probeCompletedAndReset(action)
+                      ? SkyframeActionExecutor.ProgressEventBehavior.SUPPRESS
+                      : SkyframeActionExecutor.ProgressEventBehavior.EMIT,
+                  env,
+                  state.actionFileSystem);
           Preconditions.checkState(
               env.valuesMissing() == (state.discoveredInputs == null),
               "discoverInputs() must return null iff requesting more dependencies.");
@@ -649,6 +656,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         skyframeActionExecutor.getContext(
             metadataHandler,
             metadataHandler,
+            skyframeActionExecutor.probeCompletedAndReset(action)
+                ? SkyframeActionExecutor.ProgressEventBehavior.SUPPRESS
+                : SkyframeActionExecutor.ProgressEventBehavior.EMIT,
             Collections.unmodifiableMap(state.expandedArtifacts),
             expandedFilesets,
             topLevelFilesets,

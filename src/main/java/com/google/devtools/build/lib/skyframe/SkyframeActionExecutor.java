@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -123,6 +122,11 @@ import javax.annotation.Nullable;
  * all output artifacts were created, error reporting, etc.
  */
 public final class SkyframeActionExecutor {
+  enum ProgressEventBehavior {
+    EMIT,
+    SUPPRESS
+  }
+
   private static final Logger logger = Logger.getLogger(SkyframeActionExecutor.class.getName());
 
   // Used to prevent check-then-act races in #createOutputDirectories. See the comment there for
@@ -133,6 +137,7 @@ public final class SkyframeActionExecutor {
   private Reporter reporter;
   private Map<String, String> clientEnv = ImmutableMap.of();
   private Executor executorEngine;
+  private ExtendedEventHandler progressSuppressingEventHandler;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
   private ActionCacheChecker actionCacheChecker;
   private final Profiler profiler = Profiler.instance();
@@ -381,6 +386,8 @@ public final class SkyframeActionExecutor {
       OutputService outputService) {
     this.reporter = Preconditions.checkNotNull(reporter);
     this.executorEngine = Preconditions.checkNotNull(executor);
+    this.progressSuppressingEventHandler =
+        new ProgressSuppressingEventHandler(this.executorEngine.getEventHandler());
 
     // Start with a new map each build so there's no issue with internal resizing.
     this.buildActionMap = Maps.newConcurrentMap();
@@ -443,6 +450,7 @@ public final class SkyframeActionExecutor {
     this.reporter = null;
     this.options = null;
     this.executorEngine = null;
+    this.progressSuppressingEventHandler = null;
     this.outputService = null;
     this.buildActionMap = null;
     this.completedAndResetActions = null;
@@ -565,6 +573,7 @@ public final class SkyframeActionExecutor {
   public ActionExecutionContext getContext(
       MetadataProvider perActionFileCache,
       MetadataHandler metadataHandler,
+      ProgressEventBehavior progressEventBehavior,
       Map<Artifact, Collection<Artifact>> expandedInputs,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
@@ -579,6 +588,9 @@ public final class SkyframeActionExecutor {
         actionKeyContext,
         metadataHandler,
         fileOutErr,
+        progressEventBehavior.equals(ProgressEventBehavior.EMIT)
+            ? executorEngine.getEventHandler()
+            : progressSuppressingEventHandler,
         clientEnv,
         topLevelFilesets,
         new ArtifactExpanderImpl(expandedInputs, expandedFilesets),
@@ -621,21 +633,20 @@ public final class SkyframeActionExecutor {
 
       if (action instanceof NotifyOnActionCacheHit) {
         NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
+        ExtendedEventHandler contextEventHandler =
+            probeCompletedAndReset(action)
+                ? progressSuppressingEventHandler
+                : executorEngine.getEventHandler();
         ActionCachedContext context =
             new ActionCachedContext() {
               @Override
-              public EventHandler getEventHandler() {
-                return executorEngine.getEventHandler();
+              public ExtendedEventHandler getEventHandler() {
+                return contextEventHandler;
               }
 
               @Override
               public EventBus getEventBus() {
                 return executorEngine.getEventBus();
-              }
-
-              @Override
-              public FileSystem getFileSystem() {
-                return executorEngine.getFileSystem();
               }
 
               @Override
@@ -699,6 +710,7 @@ public final class SkyframeActionExecutor {
       Action action,
       MetadataProvider perActionFileCache,
       MetadataHandler metadataHandler,
+      ProgressEventBehavior progressEventBehavior,
       Environment env,
       @Nullable FileSystem actionFileSystem)
       throws ActionExecutionException, InterruptedException {
@@ -709,8 +721,12 @@ public final class SkyframeActionExecutor {
             actionInputPrefetcher,
             actionKeyContext,
             metadataHandler,
-            actionLogBufferPathGenerator.generate(ArtifactPathResolver.createPathResolver(
-                actionFileSystem, executorEngine.getExecRoot())),
+            actionLogBufferPathGenerator.generate(
+                ArtifactPathResolver.createPathResolver(
+                    actionFileSystem, executorEngine.getExecRoot())),
+            progressEventBehavior.equals(ProgressEventBehavior.EMIT)
+                ? executorEngine.getEventHandler()
+                : progressSuppressingEventHandler,
             clientEnv,
             env,
             actionFileSystem);

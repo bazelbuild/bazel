@@ -93,6 +93,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           new ActionKeyContext(),
           /* metadataHandler= */ null,
           fileOutErr,
+          /*eventHandler=*/ null,
           /* clientEnv= */ ImmutableMap.of(),
           /* topLevelFilesets= */ ImmutableMap.of(),
           /* artifactExpander= */ null,

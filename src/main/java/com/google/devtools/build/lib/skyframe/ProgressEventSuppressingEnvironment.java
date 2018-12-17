@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -218,29 +217,4 @@ class ProgressEventSuppressingEnvironment implements SkyFunction.Environment {
     return delegate.inErrorBubblingForTesting();
   }
 
-  /**
-   * Suppresses {@link #post} when the provided {@link Postable} is a {@link
-   * ExtendedEventHandler.ProgressLike}, but otherwise delegates calls to its wrapped {@link
-   * ExtendedEventHandler}.
-   */
-  private static class ProgressSuppressingEventHandler implements ExtendedEventHandler {
-    private final ExtendedEventHandler delegate;
-
-    private ProgressSuppressingEventHandler(ExtendedEventHandler listener) {
-      this.delegate = listener;
-    }
-
-    @Override
-    public void post(Postable obj) {
-      if (obj instanceof ExtendedEventHandler.ProgressLike) {
-        return;
-      }
-      delegate.post(obj);
-    }
-
-    @Override
-    public void handle(Event event) {
-      delegate.handle(event);
-    }
-  }
 }
