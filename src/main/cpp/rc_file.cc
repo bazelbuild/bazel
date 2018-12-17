@@ -63,10 +63,10 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
   const std::string canonical_filename =
       blaze_util::MakeCanonical(filename.c_str());
 
-  canonical_rcfile_paths_.push_back(canonical_filename);
-  // Keep a pointer to the canonical_filename string in canonical_rcfile_paths_
-  // for the RcOptions.
-  string* filename_ptr = &canonical_rcfile_paths_.back();
+  rcfile_paths_.push_back(canonical_filename);
+  // Keep a pointer to the canonical_filename string in rcfile_paths_ for the
+  // RcOptions.
+  string* filename_ptr = &rcfile_paths_.back();
 
   // A '\' at the end of a line continues the line.
   blaze_util::Replace("\\\r\n", "", &contents);

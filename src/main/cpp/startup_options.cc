@@ -98,7 +98,8 @@ StartupOptions::StartupOptions(const string &product_name,
       idle_server_tasks(true),
       original_startup_options_(std::vector<RcStartupFlag>()),
       unlimit_coredumps(false) {
-  if (blaze::IsRunningWithinTest()) {
+  bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
+  if (testing) {
     output_root = blaze_util::MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
     BAZEL_LOG(USER) << "$TEST_TMPDIR defined: output root default is '"
