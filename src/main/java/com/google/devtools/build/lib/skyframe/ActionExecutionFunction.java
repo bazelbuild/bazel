@@ -246,71 +246,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
               skyframeDepsResult,
               actionStartTime);
     } catch (LostInputsActionExecutionException e) {
-      // Remove action from state map in case it's there (won't be unless it discovers inputs).
-      stateMap.remove(action);
-
-      // Reconstruct the relationship between lost inputs and this action's direct deps if any of
-      // the lost inputs came from runfiles:
-      ActionInputDepOwners runfilesDepOwners;
-      Set<ActionInput> lostRunfiles = e.getInputOwners().getRunfilesInputsAndOwners();
-      if (!lostRunfiles.isEmpty()) {
-        try {
-          runfilesDepOwners = getInputDepOwners(env, action, inputDeps, lostRunfiles);
-        } catch (ActionExecutionException unexpected) {
-          // getInputDepOwners should not be able to throw, because it does the same work as
-          // checkInputs, so if getInputDepOwners throws then checkInputs should have thrown, and if
-          // checkInputs threw then we shouldn't have reached this point in action execution.
-          throw new IllegalStateException(unexpected);
-        }
-      } else {
-        runfilesDepOwners = ActionInputDepOwners.EMPTY_INSTANCE;
-      }
-
-      ImmutableList<Artifact> lostDiscoveredInputs = ImmutableList.of();
-      Iterable<? extends SkyKey> failedActionDeps;
-      if (e.isFromInputDiscovery()) {
-        // Lost inputs found during input discovery are necessarily artifacts, and already Skyframe
-        // deps of this action.
-        lostDiscoveredInputs =
-            e.getLostInputs().values().stream()
-                .map(i -> (Artifact) i)
-                .collect(ImmutableList.toImmutableList());
-        failedActionDeps = lostDiscoveredInputs;
-      } else if (state.discoveredInputs != null) {
-        failedActionDeps = Iterables.concat(inputDepKeys, state.discoveredInputs);
-      } else {
-        failedActionDeps = inputDepKeys;
-      }
-
-      RewindPlan rewindPlan;
-      try {
-        rewindPlan =
-            actionRewindStrategy.getRewindPlan(
-                action, actionLookupData, failedActionDeps, e, runfilesDepOwners, env);
-      } catch (ActionExecutionException rewindingFailedException) {
-        if (e.isActionStartedEventAlreadyEmitted()) {
-          // SkyframeActionExecutor's ActionRunner didn't emit an ActionCompletionEvent because it
-          // hoped rewinding would fix things. Now we know that rewinding won't work.
-          env.getListener()
-              .post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
-        }
-        // This call to processAndGetExceptionToThrow will emit an ActionExecutedEvent and report
-        // the error. The previous call to processAndGetExceptionToThrow didn't.
-        throw new ActionExecutionFunctionException(
-            new AlreadyReportedActionExecutionException(
-                skyframeActionExecutor.processAndGetExceptionToThrow(
-                    env.getListener(),
-                    e.getPrimaryOutputPath(),
-                    action,
-                    rewindingFailedException,
-                    e.getFileOutErr(),
-                    ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
-      }
-      skyframeActionExecutor.resetFailedActionExecution(action, lostDiscoveredInputs);
-      for (Action actionToRestart : rewindPlan.getAdditionalActionsToRestart()) {
-        skyframeActionExecutor.resetPreviouslyCompletedActionExecution(actionToRestart);
-      }
-      return rewindPlan.getNodesToRestart();
+      return handleLostInputs(e, actionLookupData, action, actionStartTime, env, inputDeps, state);
     } catch (ActionExecutionException e) {
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
       stateMap.remove(action);
@@ -373,6 +309,90 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       }
     }
     return false;
+  }
+
+  /**
+   * Clean up state associated with the current action execution attempt and return a {@link
+   * Restart} value which rewinds the actions that generate the lost inputs.
+   */
+  private SkyFunction.Restart handleLostInputs(
+      LostInputsActionExecutionException e,
+      ActionLookupData actionLookupData,
+      Action action,
+      long actionStartTime,
+      Environment env,
+      Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps,
+      ContinuationState state)
+      throws InterruptedException, ActionExecutionFunctionException {
+    // Remove action from state map in case it's there (won't be unless it discovers inputs).
+    stateMap.remove(action);
+
+    // Reconstruct the relationship between lost inputs and this action's direct deps if any of
+    // the lost inputs came from runfiles:
+    ActionInputDepOwners runfilesDepOwners;
+    Set<ActionInput> lostRunfiles = e.getInputOwners().getRunfilesInputsAndOwners();
+    if (!lostRunfiles.isEmpty()) {
+      try {
+        runfilesDepOwners = getInputDepOwners(env, action, inputDeps, lostRunfiles);
+      } catch (ActionExecutionException unexpected) {
+        // getInputDepOwners should not be able to throw, because it does the same work as
+        // checkInputs, so if getInputDepOwners throws then checkInputs should have thrown, and if
+        // checkInputs threw then we shouldn't have reached this point in action execution.
+        throw new IllegalStateException(unexpected);
+      }
+    } else {
+      runfilesDepOwners = ActionInputDepOwners.EMPTY_INSTANCE;
+    }
+
+    // Collect the set of direct deps of this action which may be responsible for the lost inputs,
+    // some of which may be discovered.
+    ImmutableList<Artifact> lostDiscoveredInputs = ImmutableList.of();
+    Iterable<? extends SkyKey> failedActionDeps;
+    if (e.isFromInputDiscovery()) {
+      // Lost inputs found during input discovery are necessarily artifacts. These may not be direct
+      // deps yet, but the next time this Skyframe node is evaluated they will be. See
+      // SkyframeActionExecutor's lostDiscoveredInputsMap.
+      lostDiscoveredInputs =
+          e.getLostInputs().values().stream()
+              .map(i -> (Artifact) i)
+              .collect(ImmutableList.toImmutableList());
+      failedActionDeps = lostDiscoveredInputs;
+    } else if (state.discoveredInputs != null) {
+      failedActionDeps = Iterables.concat(inputDeps.keySet(), state.discoveredInputs);
+    } else {
+      failedActionDeps = inputDeps.keySet();
+    }
+
+    RewindPlan rewindPlan;
+    try {
+      rewindPlan =
+          actionRewindStrategy.getRewindPlan(
+              action, actionLookupData, failedActionDeps, e, runfilesDepOwners, env);
+    } catch (ActionExecutionException rewindingFailedException) {
+      if (e.isActionStartedEventAlreadyEmitted()) {
+        // SkyframeActionExecutor's ActionRunner didn't emit an ActionCompletionEvent because it
+        // hoped rewinding would fix things. Now we know that rewinding won't work.
+        env.getListener()
+            .post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
+      }
+      // This call to processAndGetExceptionToThrow will emit an ActionExecutedEvent and report
+      // the error. The previous call to processAndGetExceptionToThrow didn't.
+      throw new ActionExecutionFunctionException(
+          new AlreadyReportedActionExecutionException(
+              skyframeActionExecutor.processAndGetExceptionToThrow(
+                  env.getListener(),
+                  e.getPrimaryOutputPath(),
+                  action,
+                  rewindingFailedException,
+                  e.getFileOutErr(),
+                  ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
+    }
+
+    skyframeActionExecutor.resetFailedActionExecution(action, lostDiscoveredInputs);
+    for (Action actionToRestart : rewindPlan.getAdditionalActionsToRestart()) {
+      skyframeActionExecutor.resetPreviouslyCompletedActionExecution(actionToRestart);
+    }
+    return rewindPlan.getNodesToRestart();
   }
 
   static Action getActionForLookupData(Environment env, ActionLookupData actionLookupData)
