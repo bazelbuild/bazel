@@ -155,9 +155,24 @@ public abstract class AbstractPackageLoaderTest {
   }
 
   @Test
+  public void externalFile_SupportedByDefault() throws Exception {
+    Path externalPath = file(absolutePath("/external/BUILD"), "sh_library(name = 'foo')");
+    symlink("foo/BUILD", externalPath);
+
+    PackageLoader pkgLoader = newPackageLoader();
+
+    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("foo"));
+    Package fooPkg = pkgLoader.loadPackage(pkgId);
+    assertThat(fooPkg.containsErrors()).isFalse();
+    assertThat(fooPkg.getTarget("foo").getTargetKind()).isEqualTo("sh_library rule");
+    assertNoEvents(fooPkg.getEvents());
+    assertNoEvents(handler.getEvents());
+  }
+
+  @Test
   public void externalFile_AssumeNonExistentAndImmutable() throws Exception {
     Path externalPath = file(absolutePath("/external/BUILD"), "sh_library(name = 'foo')");
-    symlink("foo", externalPath);
+    symlink("foo/BUILD", externalPath);
 
     PackageLoader pkgLoader =
         newPackageLoaderBuilder()
