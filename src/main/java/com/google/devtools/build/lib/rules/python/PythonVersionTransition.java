@@ -14,49 +14,46 @@
 
 package com.google.devtools.build.lib.rules.python;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/**
- * A configuration transition that sets the Python version by setting {@link
- * PythonOptions#forcePython}.
- */
+/** A configuration transition that sets the Python version. */
 @AutoCodec
 public class PythonVersionTransition implements PatchTransition {
-  private final PythonVersion defaultVersion;
+
+  private final PythonVersion version;
 
   /**
-   * Creates a new transition that sets the given version if not already specified by
-   * {@link PythonOptions#forcePython}.
+   * Creates a new transition that sets the version to the given value, if transitioning is allowed.
+   *
+   * <p>See {@link PythonOptions#canTransitionPythonVersion} for information on when transitioning
+   * is allowed.
+   *
+   * <p>{@code version} must be a target version (either {@code PY2} or {@code PY3}), or else null,
+   * which means use the default value ({@link PythonVersion#DEFAULT_TARGET_VALUE}).
+   *
+   * @throws IllegalArgumentException if {@code version} is non-null and not {@code PY2} or {@code
+   *     PY3}
    */
-  PythonVersionTransition(PythonVersion defaultVersion) {
-    this.defaultVersion = defaultVersion;
+  PythonVersionTransition(PythonVersion version) {
+    if (version == null) {
+      version = PythonVersion.DEFAULT_TARGET_VALUE;
+    }
+    Preconditions.checkArgument(version.isTargetValue());
+    this.version = version;
   }
 
   @Override
-   public BuildOptions patch(BuildOptions options) {
-    PythonOptions pyOptions = options.get(PythonOptions.class);
-    // The current Python version is either explicitly set by --force_python or a
-    // build-wide default.
-    PythonVersion currentVersion = pyOptions.getPythonVersion();
-    // The new Python version is either explicitly set by --force_python or this transition's
-    // default.
-    PythonVersion newVersion = pyOptions.getPythonVersion(defaultVersion);
-    if (currentVersion == newVersion) {
+  public BuildOptions patch(BuildOptions options) {
+    PythonOptions opts = options.get(PythonOptions.class);
+    if (!opts.canTransitionPythonVersion(version)) {
       return options;
     }
-
-    // forcePython must be one of PY2 or PY3 because these are the only values Blaze's output
-    // directories can safely distinguish. In other words, a configuration with forcePython=PY2
-    // would have the same output directory prefix as another with forcePython=PY2AND3, which is a
-    // major correctness failure.
-    //
-    // Even though this transition doesn't enforce the above, it only gets called on
-    // "default_python_version" attribute values, which happen to honor this. Proper enforcement is
-    // done in PythonConfiguration#getOutputDirectoryName.
     BuildOptions newOptions = options.clone();
-    newOptions.get(PythonOptions.class).forcePython = newVersion;
+    PythonOptions newOpts = newOptions.get(PythonOptions.class);
+    newOpts.setPythonVersion(version);
     return newOptions;
   }
 }

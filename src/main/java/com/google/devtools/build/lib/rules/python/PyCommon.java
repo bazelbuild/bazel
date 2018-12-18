@@ -96,8 +96,7 @@ public final class PyCommon {
 
   public void initCommon(PythonVersion defaultVersion) {
     this.sourcesVersion = getSrcsVersionAttr(ruleContext);
-    this.version = ruleContext.getFragment(PythonConfiguration.class)
-        .getPythonVersion(defaultVersion);
+    this.version = ruleContext.getFragment(PythonConfiguration.class).getPythonVersion();
     this.transitivePythonSources = collectTransitivePythonSources();
     checkSourceIsCompatible(this.version, this.sourcesVersion, ruleContext.getLabel());
   }
@@ -115,10 +114,6 @@ public final class PyCommon {
           ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
     } else {
       executable = ruleContext.createOutputArtifact();
-    }
-    if (this.version == PythonVersion.PY2AND3) {
-      // TODO(bazel-team): we need to create two actions
-      ruleContext.ruleError("PY2AND3 is not yet implemented");
     }
 
     NestedSetBuilder<Artifact> filesToBuildBuilder =
@@ -194,6 +189,10 @@ public final class PyCommon {
         "No such attribute '%s'");
   }
 
+  /**
+   * Returns the parsed value of the "default_python_version" attribute, or null if it is not
+   * defined for this rule class.
+   */
   public PythonVersion getDefaultPythonVersion() {
     return ruleContext.getRule().isAttrDefined("default_python_version", Type.STRING)
         ? getPythonVersionAttr(ruleContext)

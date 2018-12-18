@@ -143,14 +143,6 @@ public class PythonOptions extends FragmentOptions {
               + " Can be \"PY2\" or \"PY3\".")
   public PythonVersion hostForcePython;
 
-  public PythonVersion getPythonVersion() {
-    return getPythonVersion(PythonVersion.DEFAULT_TARGET_VALUE);
-  }
-
-  public PythonVersion getPythonVersion(PythonVersion defaultVersion) {
-    return (forcePython == null) ? defaultVersion : forcePython;
-  }
-
   /**
    * Returns the Python major version ({@code PY2} or {@code PY3}) that targets should be built for.
    *
@@ -164,9 +156,7 @@ public class PythonOptions extends FragmentOptions {
    *       except {@code --python_version} is ignored.
    * </ul>
    */
-  // TODO(brandjon): Eliminate the NEW prefix, make public, use this to replace the above
-  // getPythonVersion() overloads.
-  PythonVersion NEWgetPythonVersion() {
+  public PythonVersion getPythonVersion() {
     if (experimentalBetterPythonVersionMixing) {
       if (pythonVersion != null) {
         return pythonVersion;
@@ -180,7 +170,10 @@ public class PythonOptions extends FragmentOptions {
    *
    * <p>Under the new semantics ({@link #experimentalBetterPythonVersionMixing} is true), version
    * transitions are always allowed, so this just returns whether the new version is different from
-   * the existing one.
+   * the existing one. However, as a compatibility measure for {@code select()}s that depend on
+   * {@code "force_python"}, transitioning is still done when {@code forcePython} is not in
+   * agreement with {@link #getPythonVersion}, even if {@code #getPythonVersion}'s value would be
+   * unaffected.
    *
    * <p>Under the old semantics ({@link #experimentalBetterPythonVersionMixing} is false), version
    * transitions are not allowed once the version has already been set ({@link #forcePython} is
@@ -191,10 +184,10 @@ public class PythonOptions extends FragmentOptions {
    * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
    */
   public boolean canTransitionPythonVersion(PythonVersion version) {
-    Preconditions.checkArgument(PythonVersion.TARGET_VALUES.contains(version));
+    Preconditions.checkArgument(version.isTargetValue());
     if (experimentalBetterPythonVersionMixing) {
-      PythonVersion currentVersion = NEWgetPythonVersion();
-      return !version.equals(currentVersion);
+      PythonVersion currentVersion = getPythonVersion();
+      return !version.equals(currentVersion) || !version.equals(forcePython);
     } else {
       return forcePython == null && !version.equals(PythonVersion.DEFAULT_TARGET_VALUE);
     }
@@ -212,12 +205,21 @@ public class PythonOptions extends FragmentOptions {
    * false), after this method is called {@code transitionPythonVersion} will not be able to change
    * the version ({@code forcePython} will be non-null).
    *
+   * <p>To help avoid breaking {@code select()} expressions that check the value of {@code
+   * "force_python"}, under the new semantics both {@code pythonVersion} and {@code forcePython} are
+   * updated. Note that it is still not guaranteed that all instances of {@code PythonOptions} that
+   * use the new semantics have {@code forcePython} equal {@code pythonVersion} -- in particular,
+   * this might not be the case for targets that have not gone through a {@link
+   * PythonVersionTransition}.
+   *
    * @throws IllegalArgumentException if {@code version} is not {@code PY2} or {@code PY3}
    */
   public void setPythonVersion(PythonVersion version) {
-    Preconditions.checkArgument(PythonVersion.TARGET_VALUES.contains(version));
+    Preconditions.checkArgument(version.isTargetValue());
     if (experimentalBetterPythonVersionMixing) {
       this.pythonVersion = version;
+      // Meaningless to getPythonVersion(), but read by select()s that depend on "force_python".
+      this.forcePython = version;
     } else {
       this.forcePython = version;
     }

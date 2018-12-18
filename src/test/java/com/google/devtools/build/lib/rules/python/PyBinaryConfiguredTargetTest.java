@@ -32,7 +32,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   }
 
   @Test
-  public void python2WithPy3Dependency() throws Exception {
+  public void python2WithPy3SrcsVersionDependency() throws Exception {
     eventCollector.clear();
     reporter.removeHandler(failFastHandler); // expect errors
     scratch.file("python2/BUILD",
@@ -49,7 +49,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   }
 
   @Test
-  public void python2WithPy3OnlyDependency() throws Exception {
+  public void python2WithPy3OnlySrcsVersionDependency() throws Exception {
     eventCollector.clear();
     reporter.removeHandler(failFastHandler); // expect errors
     scratch.file("python2/BUILD",
@@ -68,7 +68,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   }
 
   @Test
-  public void python3WithPy2OnlyDependency() throws Exception {
+  public void python3WithPy2OnlySrcsVersionDependency() throws Exception {
     eventCollector.clear();
     reporter.removeHandler(failFastHandler); // expect errors
     scratch.file("python3/BUILD",

@@ -145,15 +145,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public String getOutputDirectoryName() {
       return null;
     }
-
-    /**
-     * Returns { 'option name': 'alternative default' } entries for options where the
-     * "real default" should be something besides the default specified in the {@link Option}
-     * declaration.
-     */
-    public Map<String, Object> lateBoundOptionDefaults() {
-      return ImmutableMap.of();
-    }
   }
 
   public static final Label convertOptionsLabel(String input) throws OptionsParsingException {

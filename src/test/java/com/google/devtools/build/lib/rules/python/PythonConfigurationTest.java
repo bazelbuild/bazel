@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.ensureDefaultIsPY2;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -29,17 +29,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link PythonOptions} and {@link PythonConfiguration}. */
 @RunWith(JUnit4.class)
 public class PythonConfigurationTest extends ConfigurationTestCase {
-
-  private void ensureDefaultIsPY2() {
-    // Ensure that the expected value differs from the default value, so that if the code under test
-    // ever returns the default value where it shouldn't have, the test doesn't spuriously succeed.
-    assertWithMessage(
-            "This test case is written with the assumption that the default is Python 2. When "
-                + "updating the default to Python 3, flip all the PY2/PY3 constants in the test "
-                + "case and this helper.")
-        .that(PythonVersion.DEFAULT_TARGET_VALUE)
-        .isEqualTo(PythonVersion.PY2);
-  }
 
   private PythonOptions parsePythonOptions(String... cmdline) throws Exception {
     BuildConfiguration config = create(cmdline);
@@ -63,23 +52,35 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
+  public void newVersionFlagRequiresExperimentalFlag() throws Exception {
+    // Try both Python versions.
+    checkError(
+        "only allowed with `--experimental_better_python_version_mixing`",
+        "--experimental_better_python_version_mixing=false",
+        "--python_version=PY2");
+    checkError(
+        "only allowed with `--experimental_better_python_version_mixing`",
+        "--experimental_better_python_version_mixing=false",
+        "--python_version=PY3");
+  }
+
+  @Test
   public void getPythonVersion_OldApi_NewFlagIgnored() throws Exception {
     ensureDefaultIsPY2();
-    // --python_version should be ignored by getPythonVersion (and in fact would be disallowed in
-    // the analysis phase).
     PythonOptions opts =
         parsePythonOptions(
-            "--experimental_better_python_version_mixing=false",
-            "--force_python=PY3",
-            "--python_version=PY2");
-    assertThat(opts.NEWgetPythonVersion()).isEqualTo(PythonVersion.PY3);
+            "--experimental_better_python_version_mixing=false", "--force_python=PY3");
+    // --python_version should be ignored by getPythonVersion(). (Set manually since parsing would
+    // fail reportInvalidOptions().)
+    opts.pythonVersion = PythonVersion.PY2;
+    assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
   public void getPythonVersion_OldApi_HardcodedDefaultWhenOmitted() throws Exception {
     ensureDefaultIsPY2();
     PythonOptions opts = parsePythonOptions("--experimental_better_python_version_mixing=false");
-    assertThat(opts.NEWgetPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY2);
   }
 
   @Test
@@ -91,7 +92,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             "--experimental_better_python_version_mixing=true",
             "--force_python=PY2",
             "--python_version=PY3");
-    assertThat(opts.NEWgetPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
@@ -101,24 +102,23 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
     PythonOptions opts =
         parsePythonOptions(
             "--experimental_better_python_version_mixing=true", "--force_python=PY3");
-    assertThat(opts.NEWgetPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
   public void getPythonVersion_NewApi_HardcodedDefaultWhenOmitted() throws Exception {
     ensureDefaultIsPY2();
     PythonOptions opts = parsePythonOptions("--experimental_better_python_version_mixing=true");
-    assertThat(opts.NEWgetPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY2);
   }
 
   @Test
   public void canTransitionPythonVersion_OldApi_Yes() throws Exception {
     ensureDefaultIsPY2();
-    PythonOptions opts =
-        parsePythonOptions(
-            "--experimental_better_python_version_mixing=false",
-            // --python_version should be ignored.
-            "--python_version=PY2");
+    PythonOptions opts = parsePythonOptions("--experimental_better_python_version_mixing=false");
+    // Also test that --python_version should be ignored. (Set manually since parsing would fail
+    // reportInvalidOptions().)
+    opts.pythonVersion = PythonVersion.PY2;
     boolean result = opts.canTransitionPythonVersion(PythonVersion.PY3);
     assertThat(result).isTrue();
   }
@@ -165,13 +165,28 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
+  public void canTransitionPythonVersion_NewApi_YesBecauseForcePythonDisagrees() throws Exception {
+    PythonOptions opts =
+        parsePythonOptions(
+            "--experimental_better_python_version_mixing=true",
+            // Even though getPythonVersion() would be PY3 due to the value of --python_version,
+            // test that we should still transition in order to flip --force_python to PY3. This is
+            // needed for compatibility with old-style select()s that depend on config_settings that
+            // read "force_python".
+            "--force_python=PY2",
+            "--python_version=PY3");
+    boolean result = opts.canTransitionPythonVersion(PythonVersion.PY3);
+    assertThat(result).isTrue();
+  }
+
+  @Test
   public void setPythonVersion_OldApi() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
-            "--experimental_better_python_version_mixing=false",
-            "--force_python=PY2",
-            // --python_version should be ignored.
-            "--python_version=PY2");
+            "--experimental_better_python_version_mixing=false", "--force_python=PY2");
+    // Also test that --python_version should be ignored. (Set manually since parsing would fail
+    // reportInvalidOptions().)
+    opts.pythonVersion = PythonVersion.PY2;
     opts.setPythonVersion(PythonVersion.PY3);
     assertThat(opts.experimentalBetterPythonVersionMixing).isFalse();
     assertThat(opts.forcePython).isEqualTo(PythonVersion.PY3);
@@ -183,12 +198,13 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
     PythonOptions opts =
         parsePythonOptions(
             "--experimental_better_python_version_mixing=true",
-            // --force_python should be ignored.
+            // --force_python should be updated too, for improved compatibility with old-style
+            // select()s that depend on config_settings that read "force_python".
             "--force_python=PY2",
             "--python_version=PY2");
     opts.setPythonVersion(PythonVersion.PY3);
     assertThat(opts.experimentalBetterPythonVersionMixing).isTrue();
-    assertThat(opts.forcePython).isEqualTo(PythonVersion.PY2);
+    assertThat(opts.forcePython).isEqualTo(PythonVersion.PY3);
     assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
   }
 
@@ -204,7 +220,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
     PythonOptions newOpts = (PythonOptions) opts.getHost();
     assertThat(newOpts.experimentalBetterPythonVersionMixing).isFalse();
     assertThat(newOpts.forcePython).isEqualTo(PythonVersion.PY3);
-    assertThat(newOpts.NEWgetPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(newOpts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
     assertThat(newOpts.buildPythonZip).isEqualTo(TriState.YES);
   }
 
@@ -220,7 +236,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
     PythonOptions newOpts = (PythonOptions) opts.getHost();
     assertThat(newOpts.experimentalBetterPythonVersionMixing).isTrue();
     assertThat(newOpts.pythonVersion).isEqualTo(PythonVersion.PY3);
-    assertThat(newOpts.NEWgetPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(newOpts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
     assertThat(newOpts.buildPythonZip).isEqualTo(TriState.YES);
   }
 }

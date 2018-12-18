@@ -102,6 +102,11 @@ public enum PythonVersion {
 
   public static final PythonVersion DEFAULT_SRCS_VALUE = PY2AND3;
 
+  /** Returns whether or not this value is a distinct Python version. */
+  public boolean isTargetValue() {
+    return TARGET_VALUES.contains(this);
+  }
+
   /**
    * Converts the string to a target {@code PythonVersion} value (case-sensitive).
    *

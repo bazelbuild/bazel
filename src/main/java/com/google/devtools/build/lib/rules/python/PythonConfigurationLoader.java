@@ -33,11 +33,9 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
   public PythonConfiguration create(BuildOptions buildOptions)
       throws InvalidConfigurationException {
     PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
-    boolean ignorePythonVersionAttribute = pythonOptions.forcePython != null;
     PythonVersion pythonVersion = pythonOptions.getPythonVersion();
     return new PythonConfiguration(
         pythonVersion,
-        ignorePythonVersionAttribute,
         pythonOptions.buildPythonZip,
         pythonOptions.buildTransitiveRunfilesTrees);
   }

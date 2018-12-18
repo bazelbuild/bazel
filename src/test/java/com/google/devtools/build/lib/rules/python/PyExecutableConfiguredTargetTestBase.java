@@ -15,7 +15,10 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.ensureDefaultIsPY2;
 
+import com.google.common.base.Joiner;
 import org.junit.Test;
 
 /** Tests that are common to {@code py_binary} and {@code py_test}. */
@@ -28,135 +31,188 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     this.ruleName = ruleName;
   }
 
+  /**
+   * Sets the configuration, then asserts that a configured target has the given Python version.
+   *
+   * <p>The configuration is given as a series of "--flag=value" strings.
+   */
+  protected void assertPythonVersionIs_UnderNewConfig(
+      String targetName, PythonVersion version, String... flags) throws Exception {
+    useConfiguration(flags);
+    assertThat(getPythonVersion(getConfiguredTarget(targetName))).isEqualTo(version);
+  }
+
+  /**
+   * Asserts that a configured target has the given Python version under multiple configurations.
+   *
+   * <p>The configurations are given as a series of arrays of "--flag=value" strings.
+   *
+   * <p>This destructively changes the current configuration.
+   */
+  protected void assertPythonVersionIs_UnderNewConfigs(
+      String targetName, PythonVersion version, String[]... configs) throws Exception {
+    for (String[] config : configs) {
+      useConfiguration(config);
+      assertWithMessage(String.format("Under config '%s'", Joiner.on(" ").join(config)))
+          .that(getPythonVersion(getConfiguredTarget(targetName)))
+          .isEqualTo(version);
+    }
+  }
+
+  private String ruleDeclWithVersionAttr(String name, String version) {
+    return ruleName + "(\n"
+        + "    name = '" + name + "',\n"
+        + "    srcs = ['" + name + ".py'],\n"
+        + "    default_python_version = '" + version + "'\n"
+        + ")\n";
+  }
+
   @Test
-  public void unknownDefaultPythonVersionValue() throws Exception {
+  public void versionAttr_UnknownValue() throws Exception {
     checkError("pkg", "foo",
         // error:
         "invalid value in 'default_python_version' attribute: "
             + "has to be one of 'PY2' or 'PY3' instead of 'doesnotexist'",
         // build file:
-        ruleName + "(",
-        "     name = 'foo',",
-        "     default_python_version = 'doesnotexist',",
-        "     srcs = ['foo.py'])");
+        ruleDeclWithVersionAttr("foo", "doesnotexist"));
   }
 
   @Test
-  public void badDefaultPythonVersionValue() throws Exception {
+  public void versionAttr_BadValue() throws Exception {
     checkError("pkg", "foo",
         // error:
         "invalid value in 'default_python_version' attribute: "
             + "has to be one of 'PY2' or 'PY3' instead of 'PY2AND3'",
         // build file:
-        ruleName + "(",
-        "     name = 'foo',",
-        "     default_python_version = 'PY2AND3',",
-        "     srcs = ['foo.py'])");
+        ruleDeclWithVersionAttr("foo", "PY2AND3"));
   }
 
   @Test
-  public void goodDefaultPythonVersionValue() throws Exception {
-    scratch.file("foo/BUILD",
-        ruleName + "(",
-        "     name = 'foo',",
-        "     default_python_version = 'PY2',",
-        "     srcs = ['foo.py'])");
-    getConfiguredTarget("//foo:foo");
+  public void versionAttr_GoodValue() throws Exception {
+    scratch.file("pkg/BUILD", ruleDeclWithVersionAttr("foo", "PY2"));
+    getConfiguredTarget("//pkg:foo");
     assertNoEvents();
   }
 
   @Test
-  public void versionIs3WhenSetByDefaultPythonVersion() throws Exception {
-    scratch.file("foo/BUILD",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    default_python_version = 'PY3')");
-    assertThat(getPythonVersion(getConfiguredTarget("//foo:foo"))).isEqualTo(PythonVersion.PY3);
+  public void versionAttrWorksUnderOldAndNewSemantics_WhenNotDefaultValue() throws Exception {
+    ensureDefaultIsPY2();
+    scratch.file("pkg/BUILD", ruleDeclWithVersionAttr("foo", "PY3"));
+
+    assertPythonVersionIs_UnderNewConfigs(
+        "//pkg:foo",
+        PythonVersion.PY3,
+        new String[] {"--experimental_better_python_version_mixing=false"},
+        new String[] {"--experimental_better_python_version_mixing=true"});
   }
 
   @Test
-  public void versionIs2WhenSetByDefaultPythonVersion() throws Exception {
-    scratch.file("foo/BUILD",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    default_python_version = 'PY2')");
-    assertThat(getPythonVersion(getConfiguredTarget("//foo:foo"))).isEqualTo(PythonVersion.PY2);
+  public void versionAttrWorksUnderOldAndNewSemantics_WhenSameAsDefaultValue() throws Exception {
+    ensureDefaultIsPY2();
+    scratch.file("pkg/BUILD", ruleDeclWithVersionAttr("foo", "PY2"));
+
+    assertPythonVersionIs_UnderNewConfigs(
+        "//pkg:foo",
+        PythonVersion.PY2,
+        new String[] {"--experimental_better_python_version_mixing=false"},
+        new String[] {"--experimental_better_python_version_mixing=true"});
   }
 
   @Test
-  public void canBuildTwoTargetsSpecifyingDifferentVersions() throws Exception {
-    scratch.file("foo/BUILD",
-        ruleName + "(",
-        "    name = 'foo_v2',",
-        "    srcs = ['foo_v2.py'],",
-        "    default_python_version = 'PY2')",
-        ruleName + "(",
-        "    name = 'foo_v3',",
-        "    srcs = ['foo_v3.py'],",
-        "    default_python_version = 'PY3')");
-
-    assertThat(getPythonVersion(getConfiguredTarget("//foo:foo_v2"))).isEqualTo(PythonVersion.PY2);
-    assertThat(getPythonVersion(getConfiguredTarget("//foo:foo_v3"))).isEqualTo(PythonVersion.PY3);
+  public void flagTakesPrecedenceUnderOldSemantics_NonDefaultValue() throws Exception {
+    ensureDefaultIsPY2();
+    scratch.file("pkg/BUILD", ruleDeclWithVersionAttr("foo", "PY2"));
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo",
+        PythonVersion.PY3,
+        "--experimental_better_python_version_mixing=false",
+        "--force_python=PY3");
   }
 
   @Test
-  public void flagOverridesDefaultPythonVersionFrom2To3() throws Exception {
-    useConfiguration("--force_python=PY3");
-    scratch.file("foo/BUILD",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    default_python_version = 'PY2')");
-    assertThat(getPythonVersion(getConfiguredTarget("//foo:foo"))).isEqualTo(PythonVersion.PY3);
+  public void flagTakesPrecedenceUnderOldSemantics_DefaultValue() throws Exception {
+    ensureDefaultIsPY2();
+    scratch.file("pkg/BUILD", ruleDeclWithVersionAttr("foo", "PY3"));
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo",
+        PythonVersion.PY2,
+        "--experimental_better_python_version_mixing=false",
+        "--force_python=PY2");
   }
 
   @Test
-  public void flagOverridesDefaultPythonVersionFrom3To2() throws Exception {
-    useConfiguration("--force_python=PY2");
-    scratch.file("foo/BUILD",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        "    default_python_version = 'PY3')");
-    assertThat(getPythonVersion(getConfiguredTarget("//foo:foo"))).isEqualTo(PythonVersion.PY2);
+  public void versionAttrTakesPrecedenceUnderNewSemantics_NonDefaultValue() throws Exception {
+    ensureDefaultIsPY2();
+    scratch.file("pkg/BUILD", ruleDeclWithVersionAttr("foo", "PY3"));
+
+    // Test against both flags.
+    assertPythonVersionIs_UnderNewConfigs(
+        "//pkg:foo",
+        PythonVersion.PY3,
+        new String[] {"--experimental_better_python_version_mixing=true", "--force_python=PY2"},
+        new String[] {"--experimental_better_python_version_mixing=true", "--python_version=PY2"});
   }
 
   @Test
-  public void canBuildTwoTargetsSpecifyingDifferentVersions_ForcedTo2() throws Exception {
-    useConfiguration("--force_python=PY2");
-    scratch.file("foo/BUILD",
-        ruleName + "(",
-        "    name = 'foo_v2',",
-        "    srcs = ['foo_v2.py'],",
-        "    default_python_version = 'PY2')",
-        ruleName + "(",
-        "    name = 'foo_v3',",
-        "    srcs = ['foo_v3.py'],",
-        "    default_python_version = 'PY3')");
-    assertThat(getPythonVersion(getConfiguredTarget("//foo:foo_v2"))).isEqualTo(PythonVersion.PY2);
-    assertThat(getPythonVersion(getConfiguredTarget("//foo:foo_v3"))).isEqualTo(PythonVersion.PY2);
+  public void versionAttrTakesPrecedenceUnderNewSemantics_DefaultValue() throws Exception {
+    ensureDefaultIsPY2();
+    scratch.file("pkg/BUILD", ruleDeclWithVersionAttr("foo", "PY2"));
+
+    // Test against both flags.
+    assertPythonVersionIs_UnderNewConfigs(
+        "//pkg:foo",
+        PythonVersion.PY2,
+        new String[] {"--experimental_better_python_version_mixing=true", "--force_python=PY3"},
+        new String[] {"--experimental_better_python_version_mixing=true", "--python_version=PY3"});
   }
 
   @Test
-  public void canBuildTwoTargetsSpecifyingDifferentVersions_ForcedTo3() throws Exception {
-    useConfiguration("--force_python=PY3");
-    scratch.file("foo/BUILD",
-        ruleName + "(",
-        "    name = 'foo_v2',",
-        "    srcs = ['foo_v2.py'],",
-        "    default_python_version = 'PY2')",
-        ruleName + "(",
-        "    name = 'foo_v3',",
-        "    srcs = ['foo_v3.py'],",
-        "    default_python_version = 'PY3')");
-    assertThat(getPythonVersion(getConfiguredTarget("//foo:foo_v2"))).isEqualTo(PythonVersion.PY3);
-    assertThat(getPythonVersion(getConfiguredTarget("//foo:foo_v3"))).isEqualTo(PythonVersion.PY3);
+  public void canBuildWithDifferentVersionAttrs_UnderOldAndNewSemantics() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        ruleDeclWithVersionAttr("foo_v2", "PY2"),
+        ruleDeclWithVersionAttr("foo_v3", "PY3"));
+
+    assertPythonVersionIs_UnderNewConfigs(
+        "//pkg:foo_v2",
+        PythonVersion.PY2,
+        new String[] {"--experimental_better_python_version_mixing=false"},
+        new String[] {"--experimental_better_python_version_mixing=true"});
+    assertPythonVersionIs_UnderNewConfigs(
+        "//pkg:foo_v3",
+        PythonVersion.PY3,
+        new String[] {"--experimental_better_python_version_mixing=false"},
+        new String[] {"--experimental_better_python_version_mixing=true"});
   }
 
   @Test
-  public void srcsVersionClashesWithDefaultVersionAttr() throws Exception {
+  public void canBuildWithDifferentVersionAttrs_UnderOldSemantics_FlagSetToDefault()
+      throws Exception {
+    ensureDefaultIsPY2();
+    scratch.file(
+        "pkg/BUILD",
+        ruleDeclWithVersionAttr("foo_v2", "PY2"),
+        ruleDeclWithVersionAttr("foo_v3", "PY3"));
+
+    assertPythonVersionIs_UnderNewConfig("//pkg:foo_v2", PythonVersion.PY2, "--force_python=PY2");
+    assertPythonVersionIs_UnderNewConfig("//pkg:foo_v3", PythonVersion.PY2, "--force_python=PY2");
+  }
+
+  @Test
+  public void canBuildWithDifferentVersionAttrs_UnderOldSemantics_FlagSetToNonDefault()
+      throws Exception {
+    ensureDefaultIsPY2();
+    scratch.file(
+        "pkg/BUILD",
+        ruleDeclWithVersionAttr("foo_v2", "PY2"),
+        ruleDeclWithVersionAttr("foo_v3", "PY3"));
+
+    assertPythonVersionIs_UnderNewConfig("//pkg:foo_v2", PythonVersion.PY3, "--force_python=PY3");
+    assertPythonVersionIs_UnderNewConfig("//pkg:foo_v3", PythonVersion.PY3, "--force_python=PY3");
+  }
+
+  @Test
+  public void srcsVersionClashesWithVersionAttr() throws Exception {
     checkError("pkg", "foo",
         // error:
         "'//pkg:foo' can only be used with Python 2",
@@ -169,11 +225,8 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   }
 
   @Test
-  public void srcsVersionClashesWithDefaultVersionAttr_Implicitly() throws Exception {
-    // Canary assertion: This'll fail when we flip the default to PY3. At that point change this
-    // test to use srcs_version = 'PY2ONLY' instead.
-    assertThat(PythonVersion.DEFAULT_TARGET_VALUE).isEqualTo(PythonVersion.PY2);
-
+  public void srcsVersionClashesWithVersionAttr_Implicitly() throws Exception {
+    ensureDefaultIsPY2(); // When changed to PY3, flip srcs_version below to be PY2ONLY.
     // Fails because default_python_version is PY2 by default, so the config is set to PY2
     // regardless of srcs_version.
     checkError("pkg", "foo",

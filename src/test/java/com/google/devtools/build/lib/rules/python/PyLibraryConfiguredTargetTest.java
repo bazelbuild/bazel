@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.ensureDefaultIsPY2;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -30,6 +31,20 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
 
   public PyLibraryConfiguredTargetTest() {
     super("py_library");
+  }
+
+  @Test
+  public void versionIs3IfSetByFlagUnderNewSemantics() throws Exception {
+    // See PyBaseConfiguredTargetTestBase for the analogous test under the old semantics, which
+    // applies not just to py_library but also to py_binary and py_test.
+    ensureDefaultIsPY2();
+    useConfiguration("--experimental_better_python_version_mixing=true", "--python_version=PY3");
+    scratch.file(
+        "pkg/BUILD",
+        "py_library(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'])");
+    assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
