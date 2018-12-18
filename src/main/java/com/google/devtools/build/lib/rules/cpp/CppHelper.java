@@ -502,10 +502,9 @@ public class CppHelper {
    * Emits a warning on the rule if there are identical linkstamp artifacts with different {@code
    * CcCompilationContext}s.
    */
-  public static void checkLinkstampsUnique(
-      RuleErrorConsumer listener, Iterable<CcLinkParams.Linkstamp> linkstamps) {
+  public static void checkLinkstampsUnique(RuleErrorConsumer listener, CcLinkParams linkParams) {
     Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();
-    for (Linkstamp pair : linkstamps) {
+    for (Linkstamp pair : linkParams.getLinkstamps()) {
       Artifact artifact = pair.getArtifact();
       if (result.containsKey(artifact)) {
         listener.ruleWarning("rule inherits the '" + artifact.toDetailString()

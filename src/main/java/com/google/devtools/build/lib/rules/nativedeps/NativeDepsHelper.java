@@ -188,7 +188,7 @@ public abstract class NativeDepsHelper {
     List<String> linkopts = new ArrayList<>(extraLinkOpts);
     linkopts.addAll(linkParams.flattenedLinkopts());
 
-    CppHelper.checkLinkstampsUnique(ruleContext, linkParams.getLinkstamps());
+    CppHelper.checkLinkstampsUnique(ruleContext, linkParams);
     ImmutableSet<Linkstamp> linkstamps = ImmutableSet.copyOf(linkParams.getLinkstamps());
     List<Artifact> buildInfoArtifacts = linkstamps.isEmpty()
         ? ImmutableList.<Artifact>of()

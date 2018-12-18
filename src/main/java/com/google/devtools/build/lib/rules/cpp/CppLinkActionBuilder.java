@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -1320,14 +1321,14 @@ public class CppLinkActionBuilder {
    * Adds multiple artifact to the set of inputs. The artifacts must be archives or shared
    * libraries.
    */
-  public CppLinkActionBuilder addLibraries(Iterable<LibraryToLink> inputs) {
+  public CppLinkActionBuilder addLibraries(NestedSet<LibraryToLink> inputs) {
     for (LibraryToLink input : inputs) {
       checkLibrary(input);
       if (input.isMustKeepDebug()) {
         mustKeepDebug = true;
       }
     }
-    this.libraries.addAll(inputs);
+    this.libraries.addTransitive(inputs);
     return this;
   }
 
@@ -1399,18 +1400,15 @@ public class CppLinkActionBuilder {
    * #addLibraries}, and {@link #addLinkstamps}.
    */
   public CppLinkActionBuilder addLinkParams(
-      List<LibraryToLink> libraries,
-      List<String> userLinkFlags,
-      List<Linkstamp> linkstamps,
-      List<Artifact> nonCodeInputs,
-      RuleErrorConsumer errorListener) {
-    addLinkopts(userLinkFlags);
-    addLibraries(libraries);
-    if (nonCodeInputs != null) {
-      addNonCodeInputs(nonCodeInputs);
+      CcLinkParams linkParams, RuleErrorConsumer errorListener)
+      throws InterruptedException, RuleErrorException {
+    addLinkopts(linkParams.flattenedLinkopts());
+    addLibraries(linkParams.getLibraries());
+    if (linkParams.getNonCodeInputs() != null) {
+      addNonCodeInputs(linkParams.getNonCodeInputs());
     }
-    CppHelper.checkLinkstampsUnique(errorListener, linkstamps);
-    addLinkstamps(linkstamps);
+    CppHelper.checkLinkstampsUnique(errorListener, linkParams);
+    addLinkstamps(linkParams.getLinkstamps());
     return this;
   }
 
