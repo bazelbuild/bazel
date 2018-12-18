@@ -409,4 +409,107 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     getConfiguredTarget("//a:a");
     assertContainsEvent("Tool path for 'dwp' is missing");
   }
+
+  @Test
+  public void testRuntimeLibsAttributesAreNotObligatory() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(name='empty') ",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    proto = \"\"\"",
+        "      toolchain_identifier: \"a\"",
+        "      host_system_name: \"a\"",
+        "      target_system_name: \"a\"",
+        "      target_cpu: \"a\"",
+        "      target_libc: \"a\"",
+        "      compiler: \"a\"",
+        "      abi_version: \"a\"",
+        "      abi_libc_version: \"a\"",
+        "\"\"\")");
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--cpu=k8", "--host_cpu=k8");
+    getConfiguredTarget("//a:a");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testWhenRuntimeLibsAtttributesMandatoryWhenSupportsEmbeddedRuntimes()
+      throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(name='empty') ",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b', 'k9': ':c' },",
+        ")",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    proto = \"\"\"",
+        "      toolchain_identifier: \"a\"",
+        "      host_system_name: \"a\"",
+        "      target_system_name: \"a\"",
+        "      target_cpu: \"a\"",
+        "      target_libc: \"a\"",
+        "      compiler: \"a\"",
+        "      abi_version: \"a\"",
+        "      abi_libc_version: \"a\"",
+        "      supports_embedded_runtimes: true,",
+        "\"\"\")",
+        "cc_toolchain(",
+        "    name = 'c',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    static_runtime_libs = [ ':yolo' ],",
+        "    proto = \"\"\"",
+        "      toolchain_identifier: \"a\"",
+        "      host_system_name: \"a\"",
+        "      target_system_name: \"a\"",
+        "      target_cpu: \"a\"",
+        "      target_libc: \"a\"",
+        "      compiler: \"a\"",
+        "      abi_version: \"a\"",
+        "      abi_libc_version: \"a\"",
+        "      supports_embedded_runtimes: true,",
+        "\"\"\")");
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--cpu=k8", "--host_cpu=k8");
+    getConfiguredTarget("//a:a");
+    assertContainsEvent(
+        "Toolchain supports embedded runtimes, but didn't provide static_runtime_libs attribute.");
+
+    useConfiguration("--cpu=k9", "--host_cpu=k9");
+    getConfiguredTarget("//a:a");
+    assertContainsEvent(
+        "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_libs attribute.");
+  }
 }

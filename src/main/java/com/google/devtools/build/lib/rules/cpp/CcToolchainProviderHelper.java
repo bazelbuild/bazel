@@ -477,6 +477,11 @@ public class CcToolchainProviderHelper {
     final NestedSet<Artifact> staticRuntimeLinkInputs;
     final Artifact staticRuntimeLinkMiddleman;
     if (toolchainInfo.supportsEmbeddedRuntimes()) {
+      if (staticRuntimeLibDep == null) {
+        throw ruleContext.throwWithRuleError(
+            "Toolchain supports embedded runtimes, but didn't "
+                + "provide static_runtime_libs attribute.");
+      }
       staticRuntimeLinkInputs =
           staticRuntimeLibDep.getProvider(FileProvider.class).getFilesToBuild();
     } else {
@@ -505,6 +510,11 @@ public class CcToolchainProviderHelper {
     List<Artifact> dynamicRuntimeLinkInputs = new ArrayList<>();
     Artifact dynamicRuntimeLinkMiddleman;
     if (toolchainInfo.supportsEmbeddedRuntimes()) {
+      if (dynamicRuntimeLibDep == null) {
+        throw ruleContext.throwWithRuleError(
+            "Toolchain supports embedded runtimes, but didn't "
+                + "provide dynamic_runtime_libs attribute.");
+      }
       NestedSetBuilder<Artifact> dynamicRuntimeLinkSymlinksBuilder = NestedSetBuilder.stableOrder();
       for (Artifact artifact :
           dynamicRuntimeLibDep.getProvider(FileProvider.class).getFilesToBuild()) {
@@ -835,6 +845,9 @@ public class CcToolchainProviderHelper {
 
   static TransitiveInfoCollection selectDep(
       ImmutableList<? extends TransitiveInfoCollection> deps, Label label) {
+    if (deps.isEmpty()) {
+      return null;
+    }
     for (TransitiveInfoCollection dep : deps) {
       if (dep.getLabel().equals(label)) {
         return dep;
