@@ -80,13 +80,21 @@ public class CriticalPathComponent {
 
   /**
    * Record the elapsed time in case the new duration is greater. This method could be called
-   * multiple times if we run shared action concurrently and the one that really gets executed takes
-   * more time to send the finish event and the one that was a cache hit manages to send the event
-   * before. In this case we overwrite the time with the greater time.
+   * multiple times in the following cases:
    *
-   * <p>This logic is known to be incorrect, as other actions that depend on this action will not
-   * necessarily use the correct getElapsedTimeNanos(). But we do not want to block action execution
-   * because of this. So in certain conditions we might see another path as the critical path.
+   * <ol>
+   *   <li>Shared actions run concurrently, and the one that really gets executed takes more time to
+   *       send the finish event and the one that was a cache hit manages to send the event before.
+   *   <li>An action gets rewound, and is later reattempted.
+   * </ol>
+   *
+   * <p>In both these cases we overwrite the components' times if the later call specifies a greater
+   * duration.
+   *
+   * <p>In the former case the logic is known to be incorrect, as other actions that depend on this
+   * action will not necessarily use the correct getElapsedTimeNanos(). But we do not want to block
+   * action execution because of this. So in certain conditions we might see another path as the
+   * critical path.
    */
   public synchronized void finishActionExecution(long startNanos, long finishNanos) {
     if (isRunning || finishNanos - startNanos > getElapsedTimeNanos()) {

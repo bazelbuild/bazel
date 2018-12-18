@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
+import com.google.devtools.build.lib.actions.ActionRewoundEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -304,6 +305,19 @@ public class CriticalPathComputer {
     CriticalPathComponent component = Preconditions.checkNotNull(
         outputArtifactToComponent.get(action.getPrimaryOutput()));
     finalizeActionStat(event.getRelativeActionStartTime(), action, component);
+  }
+
+  /**
+   * Record that the failed rewound action is no longer running. The action may or may not start
+   * again later.
+   */
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionRewound(ActionRewoundEvent event) {
+    Action action = event.getFailedRewoundAction();
+    CriticalPathComponent component =
+        Preconditions.checkNotNull(outputArtifactToComponent.get(action.getPrimaryOutput()));
+    component.finishActionExecution(event.getRelativeActionStartTime(), clock.nanoTime());
   }
 
   /** Maximum critical path component found during the build. */

@@ -59,8 +59,12 @@ public class LostInputsExecException extends ExecException {
   public static class LostInputsActionExecutionException extends ActionExecutionException {
 
     /**
-     * If an ActionStartedEvent was emitted, then an ActionCompletionEvent should be emitted if
-     * rewinding fails.
+     * If an ActionStartedEvent was emitted, then:
+     *
+     * <ul>
+     *   <li>if rewinding is attempted, then an ActionRewindEvent should be emitted.
+     *   <li>if rewinding fails, then an ActionCompletionEvent should be emitted.
+     * </ul>
      */
     private boolean actionStartedEventAlreadyEmitted;
 
