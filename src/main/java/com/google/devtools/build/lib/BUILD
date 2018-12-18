@@ -237,12 +237,15 @@ java_library(
         ":base-util",
         ":exitcode-external",
         ":os_util",
+        ":resource-converter",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:apache_commons_lang",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -1149,7 +1152,6 @@ java_library(
     name = "loading-phase-threads-option",
     srcs = ["runtime/LoadingPhaseThreadsOption.java"],
     deps = [
-        ":cpu-threads-converter",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/common/options",
@@ -1158,9 +1160,8 @@ java_library(
 )
 
 java_library(
-    name = "cpu-threads-converter",
+    name = "resource-converter",
     srcs = [
-        "runtime/CpuThreadsConverter.java",
         "runtime/ResourceConverter.java",
     ],
     deps = [
