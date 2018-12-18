@@ -185,7 +185,7 @@ for i in range(len(my_string)):
 ```
 
 *   Flag: `--incompatible_string_is_not_iterable`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5830](https://github.com/bazelbuild/bazel/issues/5830)
 
 

@@ -1,9 +1,8 @@
 # All with empty value
-assert_eq(all(''), True)
 assert_eq(all([]), True)
 
 # All with list
-assert_eq(all('test'), True)
+assert_eq(all(['t', 'e']), True)
 assert_eq(all([False]), False)
 assert_eq(all([True, False]), False)
 assert_eq(all([False, False]), False)
@@ -18,11 +17,9 @@ assert_eq(all({1 : None}), True)
 assert_eq(all({None : 1}), False)
 
 # Any with empty value
-assert_eq(any(''), False)
 assert_eq(any([]), False)
 
 # Any with list
-assert_eq(any('test'), True)
 assert_eq(any([False]), False)
 assert_eq(any([0]), False)
 assert_eq(any(['']), False)

@@ -492,7 +492,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
 
   @Option(
       name = "incompatible_string_is_not_iterable",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -501,8 +501,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       },
       help =
           "If set to true, iterating over a string will throw an error. String indexing and `len` "
-              + "are still allowed."
-  )
+              + "are still allowed.")
   public boolean incompatibleStringIsNotIterable;
 
   /** Used in an integration test to confirm that flags are visible to the interpreter. */

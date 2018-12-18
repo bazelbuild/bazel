@@ -314,18 +314,12 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testNestedListComprehensions() throws Exception {
-    newTest().testExactOrder("li = [[1, 2], [3, 4]]\n" + "[j for i in li for j in i]", 1, 2,
-        3, 4).testExactOrder("input = [['abc'], ['def', 'ghi']]\n"
-        + "['%s %s' % (b, c) for a in input for b in a for c in b]",
-        "abc a",
-        "abc b",
-        "abc c",
-        "def d",
-        "def e",
-        "def f",
-        "ghi g",
-        "ghi h",
-        "ghi i");
+    newTest()
+        .testExactOrder("li = [[1, 2], [3, 4]]\n" + "[j for i in li for j in i]", 1, 2, 3, 4)
+        .testExactOrder(
+            "input = [['abc'], ['def', 'ghi']]\n"
+                + "['%s %s' % (b, c) for a in input for b in a for c in b.elems()]",
+            "abc a", "abc b", "abc c", "def d", "def e", "def f", "ghi g", "ghi h", "ghi i");
   }
 
   @Test

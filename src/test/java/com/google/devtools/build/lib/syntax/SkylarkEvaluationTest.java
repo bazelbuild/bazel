@@ -693,12 +693,15 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testForOnString() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  s = []",
-        "  for i in 'abc':",
-        "    s = s + [i]",
-        "  return s",
-        "s = foo()").testExactOrder("s", "a", "b", "c");
+    new SkylarkTest("--incompatible_string_is_not_iterable=false")
+        .setUp(
+            "def foo():",
+            "  s = []",
+            "  for i in 'abc':",
+            "    s = s + [i]",
+            "  return s",
+            "s = foo()")
+        .testExactOrder("s", "a", "b", "c");
   }
 
   @Test

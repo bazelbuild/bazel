@@ -230,7 +230,7 @@ public abstract class SkylarkSemantics {
           .incompatibleRemoveNativeHttpArchive(true)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleStricArgumentOrdering(false)
-          .incompatibleStringIsNotIterable(false)
+          .incompatibleStringIsNotIterable(true)
           .internalSkylarkFlagTestCanary(false)
           .build();
 

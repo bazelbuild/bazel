@@ -1,10 +1,10 @@
 # lists
 
-assert_eq(reversed(''), [])
-assert_eq(reversed('a'), ['a'])
-assert_eq(reversed('abc'), ['c', 'b', 'a'])
-assert_eq(reversed('__test  '), [' ', ' ', 't', 's', 'e', 't', '_', '_'])
-assert_eq(reversed('bbb'), ['b', 'b', 'b'])
+assert_eq(reversed([]), [])
+assert_eq(reversed('a'.elems()), ['a'])
+assert_eq(reversed('abc'.elems()), ['c', 'b', 'a'])
+assert_eq(reversed('__test  '.elems()), [' ', ' ', 't', 's', 'e', 't', '_', '_'])
+assert_eq(reversed('bbb'.elems()), ['b', 'b', 'b'])
 
 ---
 reversed(None) ### type 'NoneType' is not iterable

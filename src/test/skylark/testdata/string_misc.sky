@@ -123,14 +123,6 @@ assert_eq('012345678'[:], "012345678")
 assert_eq('012345678'[-1:2], "")
 assert_eq('012345678'[4:2], "")
 
-# reversed
-# to be removed, strings should not be iterable
-assert_eq(reversed(''), [])
-assert_eq(reversed('a'), ['a'])
-assert_eq(reversed('abc'), ['c', 'b', 'a'])
-assert_eq(reversed('__test  '), [' ', ' ', 't', 's', 'e', 't', '_', '_'])
-assert_eq(reversed('bbb'), ['b', 'b', 'b'])
-
 # count
 assert_eq('abc'.count('a'), 1)
 assert_eq('abc'.count('b'), 1)
