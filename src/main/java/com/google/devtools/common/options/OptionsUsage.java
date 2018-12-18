@@ -261,14 +261,21 @@ class OptionsUsage {
         Preconditions.checkArgument(!expansion.isEmpty());
         expandsMsg = new StringBuilder("Expands to:<br/>\n");
         for (String exp : expansion) {
-          // TODO(ulfjack): We should link to the expanded flags, but unfortunately we don't
+          // TODO(jingwen): We link to the expanded flags here, but unfortunately we don't
           // currently guarantee that all flags are only printed once. A flag in an OptionBase that
           // is included by 2 different commands, but not inherited through a parent command, will
-          // be printed multiple times.
+          // be printed multiple times. Clicking on the flag will bring the user to its first
+          // definition.
           expandsMsg
-              .append("&nbsp;&nbsp;<code>")
+              .append("&nbsp;&nbsp;")
+              .append("<code><a href=\"#flag")
+              // Link to the '#flag--flag_name' hash.
+              // Some expansions are in the form of '--flag_name=value', so we drop everything from
+              // '=' onwards.
+              .append(escaper.escape(exp).split("=")[0])
+              .append("\">")
               .append(escaper.escape(exp))
-              .append("</code><br/>\n");
+              .append("</a></code><br/>\n");
         }
       }
       usage.append(expandsMsg.toString());
