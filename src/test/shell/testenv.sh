@@ -60,8 +60,16 @@ if is_windows; then
 fi
 
 # Make the command "bazel" available for tests.
-PATH_TO_BAZEL_BIN=$(rlocation io_bazel/src/bazel)
-PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation io_bazel/src/test/shell/bin/bazel))"
+if [ -z "${BAZEL_SUFFIX:-}" ]; then
+  PATH_TO_BAZEL_BIN=$(rlocation "io_bazel/src/bazel")
+  PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation "io_bazel/src/test/shell/bin/bazel"))"
+else
+  DIR_OF_BAZEL_BIN="$(dirname $(rlocation "io_bazel/src/bazel${BAZEL_SUFFIX}"))"
+  ln -s "${DIR_OF_BAZEL_BIN}/bazel${BAZEL_SUFFIX}" "${DIR_OF_BAZEL_BIN}/bazel"
+  PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation "io_bazel/src/test/shell/bin/bazel${BAZEL_SUFFIX}"))"
+  ln -s "${PATH_TO_BAZEL_WRAPPER}/bazel${BAZEL_SUFFIX}" "${PATH_TO_BAZEL_WRAPPER}/bazel"
+  PATH_TO_BAZEL_BIN="${DIR_OF_BAZEL_BIN}/bazel"
+fi
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
 # added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,
 # because ':' is used as both path separator and in C:/msys64/...
