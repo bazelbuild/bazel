@@ -96,6 +96,7 @@ platforms:
     - "-//src/test/shell/integration:discard_analysis_cache_test"
     - "-//src/test/shell/integration:discard_graph_edges_test"
     - "-//src/test/shell/integration:java_integration_test"
+    - "-//src/test/shell/integration:minimal_jdk_test"
     - "-//src/test/shell/integration:nonincremental_builds_test"
     - "-//src/test/shell/integration:output_filter_test"
     - "-//src/test/shell/integration:stub_finds_runfiles_test"
@@ -151,6 +152,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "-//src/test/shell/integration:minimal_jdk_test"
   windows:
     batch_commands:
     - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"

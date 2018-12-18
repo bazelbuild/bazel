@@ -56,6 +56,9 @@ filegroup(
         "@bazel_skylib//:test_deps",
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
+    visibility = [
+        "//src/test/shell:__subpackages__",
+    ],
 )
 
 sh_test(

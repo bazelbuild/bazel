@@ -14,6 +14,16 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "test-deps-minimal-bazel",
+    testonly = 1,
+    srcs = [
+        "//src:bazel-bin_jdk_minimal",
+        "//src/test/shell:bin/bazel_jdk_minimal",
+        "//src/test/shell/bazel:test-deps-wo-bazel",
+    ],
+)
+
 sh_test(
     name = "progress_reporting_test",
     size = "large",
@@ -79,6 +89,19 @@ sh_test(
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "minimal_jdk_test",
+    size = "large",
+    srcs = ["minimal_jdk_test.sh"],
+    data = [
+        ":test-deps-minimal-bazel",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "no_windows",
     ],
 )
 
