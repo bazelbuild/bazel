@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
@@ -79,17 +78,12 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationModeFlags;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingMode;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -972,56 +966,6 @@ public class CcModule
         @Param(name = "abi_version", positional = false, type = String.class, named = true),
         @Param(name = "abi_libc_version", positional = false, type = String.class, named = true),
         @Param(
-            name = "supports_gold_linker",
-            positional = false,
-            defaultValue = "False",
-            type = Boolean.class,
-            named = true),
-        @Param(
-            name = "supports_start_end_lib",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
-            name = "supports_interface_shared_objects",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
-            name = "supports_embedded_runtimes",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
-            name = "static_runtime_filegroup",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "dynamic_runtime_filegroup",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "supports_fission",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
-            name = "supports_dsym",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
             name = "needs_pic",
             positional = false,
             type = Boolean.class,
@@ -1034,100 +978,6 @@ public class CcModule
             defaultValue = "[]",
             type = SkylarkList.class),
         @Param(
-            name = "compiler_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "cxx_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "unfiltered_cxx_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "linker_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "dynamic_library_linker_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "test_only_linker_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "objcopy_embed_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "ld_embed_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "compilation_mode_compiler_flags",
-            positional = false,
-            named = true,
-            defaultValue = "{}",
-            type = SkylarkDict.class),
-        @Param(
-            name = "compilation_mode_cxx_flags",
-            positional = false,
-            named = true,
-            defaultValue = "{}",
-            type = SkylarkDict.class),
-        @Param(
-            name = "compilation_mode_linker_flags",
-            positional = false,
-            named = true,
-            defaultValue = "{}",
-            type = SkylarkDict.class),
-        @Param(
-            name = "mostly_static_linking_mode_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "dynamic_linking_mode_flags",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = NoneType.class)
-            }),
-        @Param(
-            name = "fully_static_linking_mode_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "mostly_static_libraries_linking_mode_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
             name = "make_variables",
             positional = false,
             named = true,
@@ -1135,13 +985,6 @@ public class CcModule
             type = SkylarkList.class),
         @Param(
             name = "builtin_sysroot",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "default_libc_top",
             positional = false,
             noneable = true,
             defaultValue = "None",
@@ -1169,34 +1012,10 @@ public class CcModule
       String compiler,
       String abiVersion,
       String abiLibcVersion,
-      Boolean supportsGoldLinker,
-      Boolean supportsStartEndLib,
-      Boolean supportsInterfaceSharedObjects,
-      Boolean supportsEmbeddedRuntimes,
-      Object staticRuntimesFilegroup,
-      Object dynamicRuntimesFilegroup,
-      Boolean supportsFission,
-      Boolean supportsDsym,
       Boolean needsPic,
       SkylarkList<Object> toolPaths,
-      SkylarkList<String> compilerFlags,
-      SkylarkList<String> cxxFlags,
-      SkylarkList<String> unfilteredCxxFlags,
-      SkylarkList<String> linkerFlags,
-      SkylarkList<String> dynamicLibraryLinkerFlags,
-      SkylarkList<String> testOnlyLinkerFlags,
-      SkylarkList<String> objcopyEmbedFlags,
-      SkylarkList<String> ldEmbedFlags,
-      Object compilationModeCompilerFlagsUnchecked,
-      Object compilationModeCxxFlagsUnchecked,
-      Object compilationModeLinkerFlagsUnchecked,
-      SkylarkList<String> mostlyStaticLinkingModeFlags,
-      Object dynamicLinkingModeFlags,
-      SkylarkList<String> fullyStaticLinkingModeFlags,
-      SkylarkList<String> mostlyStaticLibrariesLinkingModeFlags,
       SkylarkList<Object> makeVariables,
       Object builtinSysroot,
-      Object defaultLibcTop,
       Object ccTargetOs)
       throws InvalidConfigurationException, EvalException {
 
@@ -1222,6 +1041,14 @@ public class CcModule
         featureList.stream()
             .map(feature -> feature.getName())
             .collect(ImmutableSet.toImmutableSet());
+
+    boolean supportsGoldLinker = featureNames.contains("supports_gold_linker");
+    boolean supportsStartEndLib = featureNames.contains("supports_start_end_lib");
+    boolean supportsInterfaceSharedObjects =
+        featureNames.contains("supports_interface_shared_objects");
+    boolean supportsEmbeddedRuntimes = featureNames.contains("supports_embedded_runtimes");
+    boolean supportsFission = featureNames.contains("supports_fission");
+    boolean dynamicLinkingMode = featureNames.contains("dynamic_linking_mode");
 
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (Object actionConfig : actionConfigs) {
@@ -1347,10 +1174,6 @@ public class CcModule
               .build());
     }
 
-    SkylarkList<String> dynamicModeFlags =
-        convertFromNoneable(dynamicLinkingModeFlags, /* defaultValue= */ null);
-    boolean hasDynamicLinkingModeFlags = dynamicModeFlags != null;
-
     cToolchain
         .addAllCxxBuiltinIncludeDirectory(cxxBuiltInIncludeDirectories)
         .setToolchainIdentifier(toolchainIdentifier)
@@ -1361,102 +1184,13 @@ public class CcModule
         .setCompiler(compiler)
         .setAbiVersion(abiVersion)
         .setAbiLibcVersion(abiLibcVersion)
-        .setSupportsGoldLinker(supportsGoldLinker)
-        .setSupportsStartEndLib(supportsStartEndLib)
-        .setSupportsInterfaceSharedObjects(supportsInterfaceSharedObjects)
-        .setSupportsEmbeddedRuntimes(supportsEmbeddedRuntimes);
-
-    if (convertFromNoneable(staticRuntimesFilegroup, /* defaultValue= */ null) != null) {
-      cToolchain.setStaticRuntimesFilegroup((String) staticRuntimesFilegroup);
-    }
-    if (convertFromNoneable(dynamicRuntimesFilegroup, /* defaultValue= */ null) != null) {
-      cToolchain.setDynamicRuntimesFilegroup((String) dynamicRuntimesFilegroup);
-    }
-
-    cToolchain
-        .setSupportsFission(supportsFission)
-        .setSupportsDsym(supportsDsym)
         .setNeedsPic(needsPic);
-
-    cToolchain
-        .addAllCompilerFlag(compilerFlags)
-        .addAllCxxFlag(cxxFlags)
-        .addAllUnfilteredCxxFlag(unfilteredCxxFlags)
-        .addAllLinkerFlag(linkerFlags)
-        .addAllDynamicLibraryLinkerFlag(dynamicLibraryLinkerFlags)
-        .addAllTestOnlyLinkerFlag(testOnlyLinkerFlags)
-        .addAllObjcopyEmbedFlag(objcopyEmbedFlags)
-        .addAllLdEmbedFlag(ldEmbedFlags);
-
-    ImmutableList.Builder<CompilationModeFlags> compilationModeFlagsBuilder =
-        ImmutableList.builder();
-
-    ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeCompilerFlags =
-        getCompilationModeFlagsFromSkylark(
-            compilationModeCompilerFlagsUnchecked, "compilation_mode_compiler_flags");
-    ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeCxxFlags =
-        getCompilationModeFlagsFromSkylark(
-            compilationModeCxxFlagsUnchecked, "compilation_mode_cxx_flags");
-    ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeLinkerFlags =
-        getCompilationModeFlagsFromSkylark(
-            compilationModeLinkerFlagsUnchecked, "compilation_mode_linker_flags");
-
-    compilationModeFlagsBuilder.add(
-        getCompilationModeFlags(
-            CrosstoolConfig.CompilationMode.FASTBUILD,
-            compilationModeCompilerFlags,
-            compilationModeCxxFlags,
-            compilationModeLinkerFlags));
-    compilationModeFlagsBuilder.add(
-        getCompilationModeFlags(
-            CrosstoolConfig.CompilationMode.OPT,
-            compilationModeCompilerFlags,
-            compilationModeCxxFlags,
-            compilationModeLinkerFlags));
-    compilationModeFlagsBuilder.add(
-        getCompilationModeFlags(
-            CrosstoolConfig.CompilationMode.DBG,
-            compilationModeCompilerFlags,
-            compilationModeCxxFlags,
-            compilationModeLinkerFlags));
-
-    cToolchain.addAllCompilationModeFlags(compilationModeFlagsBuilder.build());
-
-    ImmutableList.Builder<CrosstoolConfig.LinkingModeFlags> linkingModeFlags =
-        ImmutableList.builder();
-    if (hasDynamicLinkingModeFlags) {
-      linkingModeFlags.add(
-          LinkingModeFlags.newBuilder()
-              .setMode(LinkingMode.DYNAMIC)
-              .addAllLinkerFlag(dynamicModeFlags)
-              .build());
-    }
-    linkingModeFlags.add(
-        LinkingModeFlags.newBuilder()
-            .setMode(LinkingMode.FULLY_STATIC)
-            .addAllLinkerFlag(fullyStaticLinkingModeFlags)
-            .build());
-    linkingModeFlags.add(
-        LinkingModeFlags.newBuilder()
-            .setMode(LinkingMode.MOSTLY_STATIC)
-            .addAllLinkerFlag(mostlyStaticLinkingModeFlags)
-            .build());
-    linkingModeFlags.add(
-        LinkingModeFlags.newBuilder()
-            .setMode(LinkingMode.MOSTLY_STATIC_LIBRARIES)
-            .addAllLinkerFlag(mostlyStaticLibrariesLinkingModeFlags)
-            .build());
-
-    cToolchain.addAllLinkingModeFlags(linkingModeFlags.build());
 
     if (convertFromNoneable(ccTargetOs, /* defaultValue= */ null) != null) {
       cToolchain.setCcTargetOs((String) ccTargetOs);
     }
     if (convertFromNoneable(builtinSysroot, /* defaultValue= */ null) != null) {
       cToolchain.setBuiltinSysroot((String) builtinSysroot);
-    }
-    if (convertFromNoneable(defaultLibcTop, /* defaultValue= */ null) != null) {
-      cToolchain.setDefaultGrteTop((String) defaultLibcTop);
     }
 
     return new CcToolchainConfigInfo(
@@ -1476,52 +1210,33 @@ public class CcModule
         supportsStartEndLib,
         supportsInterfaceSharedObjects,
         supportsEmbeddedRuntimes,
-        convertFromNoneable(staticRuntimesFilegroup, /* defaultValue= */ ""),
-        convertFromNoneable(dynamicRuntimesFilegroup, /* defaultValue= */ ""),
+        /* staticRuntimesFilegroup= */ "",
+        /* dynamicRuntimesFilegroup= */ "",
         supportsFission,
-        supportsDsym,
+        /* supportsDsym= */ false,
         needsPic,
         toolPathList,
-        ImmutableList.copyOf(compilerFlags),
-        ImmutableList.copyOf(cxxFlags),
-        ImmutableList.copyOf(unfilteredCxxFlags),
-        ImmutableList.copyOf(linkerFlags),
-        ImmutableList.copyOf(dynamicLibraryLinkerFlags),
-        ImmutableList.copyOf(testOnlyLinkerFlags),
-        ImmutableList.copyOf(objcopyEmbedFlags),
-        ImmutableList.copyOf(ldEmbedFlags),
-        compilationModeCompilerFlags,
-        compilationModeCxxFlags,
-        compilationModeLinkerFlags,
-        ImmutableList.copyOf(mostlyStaticLinkingModeFlags),
-        hasDynamicLinkingModeFlags ? ImmutableList.copyOf(dynamicModeFlags) : ImmutableList.of(),
-        ImmutableList.copyOf(fullyStaticLinkingModeFlags),
-        ImmutableList.copyOf(mostlyStaticLibrariesLinkingModeFlags),
+        /* compilerFlags= */ ImmutableList.of(),
+        /* cxxFlags= */ ImmutableList.of(),
+        /* unfilteredCxxFlags= */ ImmutableList.of(),
+        /* linkerFlags= */ ImmutableList.of(),
+        /* dynamicLibraryLinkerFlags= */ ImmutableList.of(),
+        /* testOnlyLinkerFlags= */ ImmutableList.of(),
+        /* objcopyEmbedFlags= */ ImmutableList.of(),
+        /* ldEmbedFlags= */ ImmutableList.of(),
+        /* compilationModeCompilerFlags= */ ImmutableMap.of(),
+        /* compilationModeCxxFlags= */ ImmutableMap.of(),
+        /* compilationModeLinkerFlags= */ ImmutableMap.of(),
+        /* mostlyStaticLinkingModeFlags= */ ImmutableList.of(),
+        /* dynamicLinkingModeFlags= */ ImmutableList.of(),
+        /* fullyStaticLinkingModeFlags= */ ImmutableList.of(),
+        /* mostlyStaticLibrariesLinkingModeFlags= */ ImmutableList.of(),
         makeVariablePairs.build(),
         convertFromNoneable(builtinSysroot, /* defaultValue= */ ""),
-        convertFromNoneable(defaultLibcTop, /* defaultValue= */ ""),
+        /* defaultLibcTop= */ "",
         convertFromNoneable(ccTargetOs, /* defaultValue= */ ""),
-        hasDynamicLinkingModeFlags,
+        dynamicLinkingMode,
         cToolchain.build().toString());
-  }
-
-  private static CrosstoolConfig.CompilationModeFlags getCompilationModeFlags(
-      CrosstoolConfig.CompilationMode mode,
-      ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeCompilerFlags,
-      ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeCxxFlags,
-      ImmutableMap<CompilationMode, ImmutableList<String>> compilationModeLinkerFlags) {
-    return CompilationModeFlags.newBuilder()
-        .setMode(mode)
-        .addAllCompilerFlag(
-            compilationModeCompilerFlags.getOrDefault(
-                CppToolchainInfo.importCompilationMode(mode), ImmutableList.of()))
-        .addAllCxxFlag(
-            compilationModeCxxFlags.getOrDefault(
-                CppToolchainInfo.importCompilationMode(mode), ImmutableList.of()))
-        .addAllLinkerFlag(
-            compilationModeLinkerFlags.getOrDefault(
-                CppToolchainInfo.importCompilationMode(mode), ImmutableList.of()))
-        .build();
   }
 
   /** Checks whether the {@link SkylarkInfo} is of the required type. */
@@ -1981,23 +1696,6 @@ public class CcModule
             provider.getValueOrNull(fieldName), SkylarkInfo.class, fieldName)
         .stream()
         .collect(ImmutableList.toImmutableList());
-  }
-
-  private static ImmutableMap<CompilationMode, ImmutableList<String>>
-      getCompilationModeFlagsFromSkylark(Object compilationModeFlags, String field)
-          throws EvalException {
-    Map<String, SkylarkList> compilationModeLinkerFlagsMap =
-        SkylarkDict.castSkylarkDictOrNoneToDict(
-            compilationModeFlags, String.class, SkylarkList.class, field);
-    ImmutableMap.Builder<CompilationMode, ImmutableList<String>> compilationModeFlagsBuilder =
-        ImmutableMap.builder();
-    for (Entry<String, SkylarkList> entry : compilationModeLinkerFlagsMap.entrySet()) {
-      compilationModeFlagsBuilder.put(
-          CompilationMode.valueOf(entry.getKey()),
-          ImmutableList.copyOf(
-              convertSkylarkListOrNestedSetToList(entry.getValue(), String.class)));
-    }
-    return compilationModeFlagsBuilder.build();
   }
 
   private static void getLegacyArtifactNamePatterns(

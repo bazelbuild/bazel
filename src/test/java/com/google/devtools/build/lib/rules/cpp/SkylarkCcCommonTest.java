@@ -53,9 +53,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationModeFlags;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingMode;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.MakeVariable;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.protobuf.TextFormat;
@@ -4195,18 +4192,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "                target_system_name = 'target',",
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",
-        "                default_libc_top = 'libc_top',",
         "                compiler = 'compiler',",
         "                abi_libc_version = 'abi_libc',",
         "                abi_version = 'abi',",
-        "                supports_gold_linker = True,",
-        "                supports_start_end_lib = True,",
-        "                supports_embedded_runtimes = True,",
         "                tool_paths = [tool_path(name = 'name1', path = 'path1')],",
         "                cc_target_os = 'os',",
-        "                compiler_flags = ['flag1', 'flag2', 'flag3'],",
-        "                linker_flags = ['flag1'],",
-        "                objcopy_embed_flags = ['flag1'],",
         "                needs_pic = True,",
         "                builtin_sysroot = 'sysroot',",
         "                make_variables = [make_variable(name = 'acs', value = 'asd')])",
@@ -4371,7 +4361,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "                target_system_name = 'target',",
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",
-        "                default_libc_top = 'libc_top',",
         "                compiler = 'compiler',",
         "                abi_libc_version = 'abi_libc',",
         "                abi_version = 'abi')",
@@ -4441,7 +4430,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "                target_system_name = 'target',",
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",
-        "                default_libc_top = 'libc_top',",
         "                compiler = 'compiler',",
         "                abi_libc_version = 'abi_libc',",
         "                abi_version = 'abi')",
@@ -4565,43 +4553,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "                compiler = 'compiler',",
         "                abi_libc_version = 'abi_libc',",
         "                abi_version = 'abi',",
-        "                supports_gold_linker = True,",
-        "                supports_start_end_lib = True,",
-        "                supports_interface_shared_objects = True,",
-        "                supports_embedded_runtimes = True,",
-        "                static_runtime_filegroup = 'static',",
-        "                dynamic_runtime_filegroup = 'dynamic',",
-        "                supports_fission = True,",
-        "                supports_dsym = True,",
         "                needs_pic = True,",
         "                tool_paths = [tool_path(name = 'name1', path = 'path1')],",
-        "                compiler_flags = ['flag1', 'flag2', 'flag3'],",
-        "                cxx_flags = ['cxx1', 'cxx2'],",
-        "                unfiltered_cxx_flags = ['ucxx1', 'ucxx2'],",
-        "                linker_flags = ['l2', 'l1'],",
-        "                dynamic_library_linker_flags = ['dll1', 'dll2'],",
-        "                test_only_linker_flags = ['t1', 't2'],",
-        "                objcopy_embed_flags = ['o1', 'o2'],",
-        "                ld_embed_flags = ['ld1', 'ld2'],",
-        "                compilation_mode_compiler_flags = {",
-        "                    'OPT' : ['opt1', 'opt2'],",
-        "                    'FASTBUILD' : ['fbd1', 'fbd2'],",
-        "                    'DBG' : ['dbg1', 'dbg2'] },",
-        "                compilation_mode_cxx_flags = {",
-        "                    'OPT' : ['optcxx1', 'optcxx2'],",
-        "                    'FASTBUILD' : ['fbdcxx1', 'fbdcxx2'],",
-        "                    'DBG' : ['dbgcxx1', 'dbgcxx2'] },",
-        "                compilation_mode_linker_flags = {",
-        "                    'OPT' : ['optl1', 'optl2'],",
-        "                    'FASTBUILD' : ['fbdl1', 'fbdl2'],",
-        "                    'DBG' : ['dbgl1', 'dbgl2'] },",
-        "                mostly_static_linking_mode_flags = ['ms1', 'ms2'],",
-        "                dynamic_linking_mode_flags = ['d1', 'd2'],",
-        "                fully_static_linking_mode_flags = ['fs1', 'fs2'],",
-        "                mostly_static_libraries_linking_mode_flags = ['msl1', 'msl2'],",
         "                make_variables = [make_variable(name = 'variable', value = '--a -b -c')],",
         "                builtin_sysroot = 'sysroot',",
-        "                default_libc_top = 'libc_top',",
         "                cc_target_os = 'os',",
         "        )",
         "cc_toolchain_config_rule = rule(",
@@ -4636,86 +4591,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(toolchain.getCompiler()).isEqualTo("compiler");
     assertThat(toolchain.getAbiLibcVersion()).isEqualTo("abi_libc");
     assertThat(toolchain.getAbiVersion()).isEqualTo("abi");
-    assertThat(toolchain.getSupportsGoldLinker()).isTrue();
-    assertThat(toolchain.getSupportsStartEndLib()).isTrue();
-    assertThat(toolchain.getSupportsInterfaceSharedObjects()).isTrue();
-    assertThat(toolchain.getSupportsEmbeddedRuntimes()).isTrue();
-    assertThat(toolchain.getStaticRuntimesFilegroup()).isEqualTo("static");
-    assertThat(toolchain.getDynamicRuntimesFilegroup()).isEqualTo("dynamic");
-    assertThat(toolchain.getSupportsFission()).isTrue();
-    assertThat(toolchain.getSupportsDsym()).isTrue();
     assertThat(toolchain.getNeedsPic()).isTrue();
     ToolPath toolPath = Iterables.getOnlyElement(toolchain.getToolPathList());
     assertThat(toolPath.getName()).isEqualTo("name1");
     assertThat(toolPath.getPath()).isEqualTo("path1");
-    assertThat(toolchain.getCompilerFlagList())
-        .containsExactly("flag1", "flag2", "flag3")
-        .inOrder();
-    assertThat(toolchain.getCxxFlagList()).containsExactly("cxx1", "cxx2").inOrder();
-    assertThat(toolchain.getUnfilteredCxxFlagList()).containsExactly("ucxx1", "ucxx2").inOrder();
-    assertThat(toolchain.getLinkerFlagList()).containsExactly("l2", "l1").inOrder();
-    assertThat(toolchain.getTestOnlyLinkerFlagList()).containsExactly("t1", "t2");
-    assertThat(toolchain.getObjcopyEmbedFlagList()).containsExactly("o1", "o2").inOrder();
-    assertThat(toolchain.getLdEmbedFlagList()).containsExactly("ld1", "ld2").inOrder();
-    assertThat(toolchain.getCompilationModeFlagsCount()).isEqualTo(3);
-    for (CompilationModeFlags compilationModeFlags : toolchain.getCompilationModeFlagsList()) {
-      switch (compilationModeFlags.getMode()) {
-        case OPT:
-          assertThat(compilationModeFlags.getCompilerFlagList())
-              .containsExactly("opt1", "opt2")
-              .inOrder();
-          assertThat(compilationModeFlags.getCxxFlagList())
-              .containsExactly("optcxx1", "optcxx2")
-              .inOrder();
-          assertThat(compilationModeFlags.getLinkerFlagList())
-              .containsExactly("optl1", "optl2")
-              .inOrder();
-          break;
-        case FASTBUILD:
-          assertThat(compilationModeFlags.getCompilerFlagList())
-              .containsExactly("fbd1", "fbd2")
-              .inOrder();
-          assertThat(compilationModeFlags.getCxxFlagList())
-              .containsExactly("fbdcxx1", "fbdcxx2")
-              .inOrder();
-          assertThat(compilationModeFlags.getLinkerFlagList())
-              .containsExactly("fbdl1", "fbdl2")
-              .inOrder();
-          break;
-        case DBG:
-          assertThat(compilationModeFlags.getCompilerFlagList())
-              .containsExactly("dbg1", "dbg2")
-              .inOrder();
-          assertThat(compilationModeFlags.getCxxFlagList())
-              .containsExactly("dbgcxx1", "dbgcxx2")
-              .inOrder();
-          assertThat(compilationModeFlags.getLinkerFlagList())
-              .containsExactly("dbgl1", "dbgl2")
-              .inOrder();
-          break;
-        default:
-          // COVERAGE mode is ignored
-      }
-    }
-    assertThat(toolchain.getLinkingModeFlagsCount()).isEqualTo(4);
-    for (LinkingModeFlags linkingModeFlags : toolchain.getLinkingModeFlagsList()) {
-      switch (linkingModeFlags.getMode()) {
-        case MOSTLY_STATIC:
-          assertThat(linkingModeFlags.getLinkerFlagList()).containsExactly("ms1", "ms2").inOrder();
-          break;
-        case DYNAMIC:
-          assertThat(linkingModeFlags.getLinkerFlagList()).containsExactly("d1", "d2").inOrder();
-          break;
-        case FULLY_STATIC:
-          assertThat(linkingModeFlags.getLinkerFlagList()).containsExactly("fs1", "fs2").inOrder();
-          break;
-        case MOSTLY_STATIC_LIBRARIES:
-          assertThat(linkingModeFlags.getLinkerFlagList())
-              .containsExactly("msl1", "msl2")
-              .inOrder();
-          break;
-      }
-    }
     MakeVariable makeVariable = Iterables.getOnlyElement(toolchain.getMakeVariableList());
     assertThat(makeVariable.getName()).isEqualTo("variable");
     assertThat(makeVariable.getValue()).isEqualTo("--a -b -c");
@@ -4823,22 +4702,17 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(ccToolchainConfigInfo).isNotNull();
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(ccToolchainConfigInfo.getProto(), toolchainBuilder);
-    CToolchain toolchain = toolchainBuilder.build();
-
-    // Our generated CToolchain must not have a LinkingModeFlags entry with DYNAMIC mode, even
-    // if the list of flags for that entry is empty.
-    assertThat(
-            toolchain.getLinkingModeFlagsList().stream()
-                .noneMatch(
-                    linkingModeFlags -> linkingModeFlags.getMode().equals(LinkingMode.DYNAMIC)))
-        .isTrue();
+    assertNoEvents();
   }
 
   @Test
-  public void testCcToolchainInfoToProtoDynamicLinkingModeEnabledWithEmptyList() throws Exception {
+  public void testCcToolchainConfigInfooDynamicLinkingModeEnabledWithFeature() throws Exception {
     loadCcToolchainConfigLib();
     scratch.file(
         "foo/crosstool.bzl",
+        "load('//tools/cpp:cc_toolchain_config_lib.bzl',",
+        "        'feature')",
+        "",
         "def _impl(ctx):",
         "    return cc_common.create_cc_toolchain_config_info(",
         "                ctx = ctx,",
@@ -4850,7 +4724,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "                compiler = 'compiler',",
         "                abi_libc_version = 'abi_libc',",
         "                abi_version = 'abi',",
-        "                dynamic_linking_mode_flags = [],",
+        "                features = [feature(name = 'dynamic_linking_mode')],",
         "        )",
         "cc_toolchain_config_rule = rule(",
         "    implementation = _impl,",
@@ -4870,17 +4744,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     CcToolchainConfigInfo ccToolchainConfigInfo =
         (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
     assertThat(ccToolchainConfigInfo).isNotNull();
-    CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-    TextFormat.merge(ccToolchainConfigInfo.getProto(), toolchainBuilder);
-    CToolchain toolchain = toolchainBuilder.build();
 
-    // If parameter dynamic_linking_mode_flags is passed to the create_cc_toolchain_config_info
+    // If a feature named 'dynamic_linking_mode' is passed to the create_cc_toolchain_config_info
     // method, the corresponding CToolchain should have an entry in its linking_mode_flags list
     // that has dynamic linking mode.
-    assertThat(
-            toolchain.getLinkingModeFlagsList().stream()
-                .filter(linkingModeFlags -> linkingModeFlags.getMode().equals(LinkingMode.DYNAMIC))
-                .count())
-        .isEqualTo(1);
+    assertThat(ccToolchainConfigInfo.hasDynamicLinkingModeFlags()).isTrue();
   }
 }
