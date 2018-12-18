@@ -224,7 +224,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         Map<String, String> overallMap = new TreeMap<>();
         overallMap.putAll(volatileMap);
         overallMap.putAll(stableMap);
-        actionExecutionContext.getEventBus().post(new BuildInfoEvent(overallMap));
+        actionExecutionContext.getEventHandler().post(new BuildInfoEvent(overallMap));
 
         // Only update the stableStatus contents if they are different than what we have on disk.
         // This is to preserve the old file's mtime so that we do not generate an unnecessary dirty

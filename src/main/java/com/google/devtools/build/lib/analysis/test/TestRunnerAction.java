@@ -412,7 +412,7 @@ public class TestRunnerAction extends AbstractAction
     unconditionalExecution = null;
     try {
       executor
-          .getEventBus()
+          .getEventHandler()
           .post(
               executor
                   .getContext(TestActionContext.class)
