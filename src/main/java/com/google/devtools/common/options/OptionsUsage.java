@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.escape.Escaper;
 import java.text.BreakIterator;
 import java.util.ArrayList;
@@ -200,8 +201,25 @@ class OptionsUsage {
     String flagName = getFlagName(optionDefinition);
     String valueDescription = optionDefinition.getValueTypeHelpText();
     String typeDescription = getTypeDescription(optionDefinition);
-    usage.append("<dt><code><a name=\"flag--").append(plainFlagName).append("\"></a>--");
-    usage.append(flagName);
+
+    // String.format is a lot slower, sometimes up to 10x.
+    // https://stackoverflow.com/questions/925423/is-it-better-practice-to-use-string-format-over-string-concatenation-in-java
+    //
+    // Considering that this runs for every flag in the CLI reference, it's better to use regular
+    // appends here.
+    usage
+        // Add the id of the flag to point anchor hrefs to it
+        .append("<dt id=\"flag--")
+        .append(plainFlagName)
+        .append("\">")
+        // Add the href to the id hash
+        .append("<code><a href=\"#flag--")
+        .append(plainFlagName)
+        .append("\">")
+        .append("--")
+        .append(flagName)
+        .append("</a>");
+
     if (optionDefinition.usesBooleanValueSyntax() || optionDefinition.isVoidField()) {
       // Nothing for boolean, tristate, boolean_or_enum, or void options.
     } else if (!valueDescription.isEmpty()) {
@@ -249,14 +267,21 @@ class OptionsUsage {
         Preconditions.checkArgument(!expansion.isEmpty());
         expandsMsg = new StringBuilder("Expands to:<br/>\n");
         for (String exp : expansion) {
-          // TODO(ulfjack): We should link to the expanded flags, but unfortunately we don't
+          // TODO(jingwen): We link to the expanded flags here, but unfortunately we don't
           // currently guarantee that all flags are only printed once. A flag in an OptionBase that
           // is included by 2 different commands, but not inherited through a parent command, will
-          // be printed multiple times.
+          // be printed multiple times. Clicking on the flag will bring the user to its first
+          // definition.
           expandsMsg
-              .append("&nbsp;&nbsp;<code>")
+              .append("&nbsp;&nbsp;")
+              .append("<code><a href=\"#flag")
+              // Link to the '#flag--flag_name' hash.
+              // Some expansions are in the form of '--flag_name=value', so we drop everything from
+              // '=' onwards.
+              .append(Iterables.get(Splitter.on('=').split(escaper.escape(exp)), 0))
+              .append("\">")
               .append(escaper.escape(exp))
-              .append("</code><br/>\n");
+              .append("</a></code><br/>\n");
         }
       }
       usage.append(expandsMsg.toString());
