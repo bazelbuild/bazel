@@ -131,7 +131,7 @@ my_rule_impl(<a href="#my_rule_impl-ctx">ctx</a>)
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="my_rule_impl-ctx>
+    <tr id="my_rule_impl-ctx">
       <td><code>ctx</code></td>
       <td>
         required.

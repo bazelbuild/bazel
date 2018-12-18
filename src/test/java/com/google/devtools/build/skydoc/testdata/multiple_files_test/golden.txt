@@ -140,19 +140,19 @@ top_fun(<a href="#top_fun-a">a</a>, <a href="#top_fun-b">b</a>, <a href="#top_fu
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="top_fun-a>
+    <tr id="top_fun-a">
       <td><code>a</code></td>
       <td>
         required.
       </td>
     </tr>
-    <tr id="top_fun-b>
+    <tr id="top_fun-b">
       <td><code>b</code></td>
       <td>
         required.
       </td>
     </tr>
-    <tr id="top_fun-c>
+    <tr id="top_fun-c">
       <td><code>c</code></td>
       <td>
         required.
