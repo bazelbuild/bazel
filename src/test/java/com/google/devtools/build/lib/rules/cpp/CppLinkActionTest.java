@@ -577,7 +577,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .addObjectFiles(nonLibraryInputs)
             .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
             .setLinkType(type)
-            .setCrosstoolInputs(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
+            .setLinkerFiles(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
             .setLinkingMode(LinkingMode.STATIC);
     return builder;
   }

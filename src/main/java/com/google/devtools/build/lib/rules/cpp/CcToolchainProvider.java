@@ -55,18 +55,18 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* cppConfiguration= */ null,
           /* toolchainInfo= */ null,
           /* crosstoolTopPathFragment= */ null,
-          /* crosstool= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* crosstoolMiddleman= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* compile= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* compileWithoutIncludes= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* strip= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* objCopy= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* as= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* ar= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* link= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* allFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* allFilesMiddleman= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* compilerFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* compilerFilesWithoutIncludes= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* stripFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* objcopyFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* asFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* arFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* linkerFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* interfaceSoBuilder= */ null,
-          /* dwp= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* coverage= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* dwpFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* coverageFiles= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* libcLink= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* staticRuntimeLinkInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* staticRuntimeLinkMiddleman= */ null,
@@ -92,18 +92,18 @@ public final class CcToolchainProvider extends ToolchainInfo
   @Nullable private final CppConfiguration cppConfiguration;
   private final CppToolchainInfo toolchainInfo;
   private final PathFragment crosstoolTopPathFragment;
-  private final NestedSet<Artifact> crosstool;
-  private final NestedSet<Artifact> crosstoolMiddleman;
-  private final NestedSet<Artifact> compile;
-  private final NestedSet<Artifact> compileWithoutIncludes;
-  private final NestedSet<Artifact> strip;
-  private final NestedSet<Artifact> objCopy;
-  private final NestedSet<Artifact> as;
-  private final NestedSet<Artifact> ar;
-  private final NestedSet<Artifact> link;
+  private final NestedSet<Artifact> allFiles;
+  private final NestedSet<Artifact> allFilesMiddleman;
+  private final NestedSet<Artifact> compilerFiles;
+  private final NestedSet<Artifact> compilerFilesWithoutIncludes;
+  private final NestedSet<Artifact> stripFiles;
+  private final NestedSet<Artifact> objcopyFiles;
+  private final NestedSet<Artifact> asFiles;
+  private final NestedSet<Artifact> arFiles;
+  private final NestedSet<Artifact> linkerFiles;
   private final Artifact interfaceSoBuilder;
-  private final NestedSet<Artifact> dwp;
-  private final NestedSet<Artifact> coverage;
+  private final NestedSet<Artifact> dwpFiles;
+  private final NestedSet<Artifact> coverageFiles;
   private final NestedSet<Artifact> libcLink;
   private final NestedSet<Artifact> staticRuntimeLinkInputs;
   @Nullable private final Artifact staticRuntimeLinkMiddleman;
@@ -139,18 +139,18 @@ public final class CcToolchainProvider extends ToolchainInfo
       @Nullable CppConfiguration cppConfiguration,
       CppToolchainInfo toolchainInfo,
       PathFragment crosstoolTopPathFragment,
-      NestedSet<Artifact> crosstool,
-      NestedSet<Artifact> crosstoolMiddleman,
-      NestedSet<Artifact> compile,
-      NestedSet<Artifact> compileWithoutIncludes,
-      NestedSet<Artifact> strip,
-      NestedSet<Artifact> objCopy,
-      NestedSet<Artifact> as,
-      NestedSet<Artifact> ar,
-      NestedSet<Artifact> link,
+      NestedSet<Artifact> allFiles,
+      NestedSet<Artifact> allFilesMiddleman,
+      NestedSet<Artifact> compilerFiles,
+      NestedSet<Artifact> compilerFilesWithoutIncludes,
+      NestedSet<Artifact> stripFiles,
+      NestedSet<Artifact> objcopyFiles,
+      NestedSet<Artifact> asFiles,
+      NestedSet<Artifact> arFiles,
+      NestedSet<Artifact> linkerFiles,
       Artifact interfaceSoBuilder,
-      NestedSet<Artifact> dwp,
-      NestedSet<Artifact> coverage,
+      NestedSet<Artifact> dwpFiles,
+      NestedSet<Artifact> coverageFiles,
       NestedSet<Artifact> libcLink,
       NestedSet<Artifact> staticRuntimeLinkInputs,
       @Nullable Artifact staticRuntimeLinkMiddleman,
@@ -176,18 +176,18 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.cppConfiguration = cppConfiguration;
     this.toolchainInfo = toolchainInfo;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
-    this.crosstool = Preconditions.checkNotNull(crosstool);
-    this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
-    this.compile = Preconditions.checkNotNull(compile);
-    this.compileWithoutIncludes = Preconditions.checkNotNull(compileWithoutIncludes);
-    this.strip = Preconditions.checkNotNull(strip);
-    this.objCopy = Preconditions.checkNotNull(objCopy);
-    this.as = Preconditions.checkNotNull(as);
-    this.ar = Preconditions.checkNotNull(ar);
-    this.link = Preconditions.checkNotNull(link);
+    this.allFiles = Preconditions.checkNotNull(allFiles);
+    this.allFilesMiddleman = Preconditions.checkNotNull(allFilesMiddleman);
+    this.compilerFiles = Preconditions.checkNotNull(compilerFiles);
+    this.compilerFilesWithoutIncludes = Preconditions.checkNotNull(compilerFilesWithoutIncludes);
+    this.stripFiles = Preconditions.checkNotNull(stripFiles);
+    this.objcopyFiles = Preconditions.checkNotNull(objcopyFiles);
+    this.asFiles = Preconditions.checkNotNull(asFiles);
+    this.arFiles = Preconditions.checkNotNull(arFiles);
+    this.linkerFiles = Preconditions.checkNotNull(linkerFiles);
     this.interfaceSoBuilder = interfaceSoBuilder;
-    this.dwp = Preconditions.checkNotNull(dwp);
-    this.coverage = Preconditions.checkNotNull(coverage);
+    this.dwpFiles = Preconditions.checkNotNull(dwpFiles);
+    this.coverageFiles = Preconditions.checkNotNull(coverageFiles);
     this.libcLink = Preconditions.checkNotNull(libcLink);
     this.staticRuntimeLinkInputs = Preconditions.checkNotNull(staticRuntimeLinkInputs);
     this.staticRuntimeLinkMiddleman = staticRuntimeLinkMiddleman;
@@ -356,85 +356,71 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.getToolchainIdentifier();
   }
 
-  /**
-   * Returns all the files in Crosstool. Is not a middleman.
-   */
-  public NestedSet<Artifact> getCrosstool() {
-    return crosstool;
+  /** Returns all the files in Crosstool. Is not a middleman. */
+  public NestedSet<Artifact> getAllFiles() {
+    return allFiles;
   }
 
-  /**
-   * Returns a middleman for all the files in Crosstool.
-   */
-  public NestedSet<Artifact> getCrosstoolMiddleman() {
-    return crosstoolMiddleman;
+  /** Returns a middleman for all the files in Crosstool. */
+  public NestedSet<Artifact> getAllFilesMiddleman() {
+    return allFilesMiddleman;
   }
 
-  /**
-   * Returns the files necessary for compilation.
-   */
-  public NestedSet<Artifact> getCompile() {
-    return compile;
+  /** Returns the files necessary for compilation. */
+  public NestedSet<Artifact> getCompilerFiles() {
+    return compilerFiles;
   }
 
   /**
    * Returns the files necessary for compilation excluding headers, assuming that included files
    * will be discovered by input discovery. If the toolchain does not provide this fileset, falls
-   * back to {@link #getCompile()}.
+   * back to {@link #getCompilerFiles()}.
    */
-  public NestedSet<Artifact> getCompileWithoutIncludes() {
-    if (compileWithoutIncludes.isEmpty()) {
-      return getCompile();
+  public NestedSet<Artifact> getCompilerFilesWithoutIncludes() {
+    if (compilerFilesWithoutIncludes.isEmpty()) {
+      return getCompilerFiles();
     }
-    return compileWithoutIncludes;
+    return compilerFilesWithoutIncludes;
+  }
+
+  /** Returns the files necessary for a 'strip' invocation. */
+  public NestedSet<Artifact> getStripFiles() {
+    return stripFiles;
+  }
+
+  /** Returns the files necessary for an 'objcopy' invocation. */
+  public NestedSet<Artifact> getObjcopyFiles() {
+    return objcopyFiles;
   }
 
   /**
-   * Returns the files necessary for a 'strip' invocation.
+   * Returns the files necessary for an 'as' invocation. May be empty if the CROSSTOOL file does not
+   * define as_files.
    */
-  public NestedSet<Artifact> getStrip() {
-    return strip;
+  public NestedSet<Artifact> getAsFiles() {
+    return asFiles;
   }
 
   /**
-   * Returns the files necessary for an 'objcopy' invocation.
+   * Returns the files necessary for an 'ar' invocation. May be empty if the CROSSTOOL file does not
+   * define ar_files.
    */
-  public NestedSet<Artifact> getObjcopy() {
-    return objCopy;
+  public NestedSet<Artifact> getArFiles() {
+    return arFiles;
   }
 
-  /**
-   * Returns the files necessary for an 'as' invocation.  May be empty if the CROSSTOOL
-   * file does not define as_files.
-   */
-  public NestedSet<Artifact> getAs() {
-    return as;
+  /** Returns the files necessary for linking, including the files needed for libc. */
+  public NestedSet<Artifact> getLinkerFiles() {
+    return linkerFiles;
   }
 
-  /**
-   * Returns the files necessary for an 'ar' invocation.  May be empty if the CROSSTOOL
-   * file does not define ar_files.
-   */
-  public NestedSet<Artifact> getAr() {
-    return ar;
+  public NestedSet<Artifact> getDwpFiles() {
+    return dwpFiles;
   }
 
-  /**
-   * Returns the files necessary for linking, including the files needed for libc.
-   */
-  public NestedSet<Artifact> getLink() {
-    return link;
-  }
-
-  public NestedSet<Artifact> getDwp() {
-    return dwp;
-  }
-
-  /**
-   * Returns the files necessary for capturing code coverage.
-   */
-  public NestedSet<Artifact> getCoverage() {
-    return coverage;
+  /** Returns the files necessary for capturing code coverage. */
+  public NestedSet<Artifact> getCoverageFiles() {
+    return coverageFiles;
   }
 
   public NestedSet<Artifact> getLibcLink() {
@@ -623,7 +609,8 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /**
-   * Returns the environment variables that need to be added to tests that collect code coverage.
+   * Returns the environment variables that need to be added to tests that collect code
+   * coverageFiles.
    */
   public NestedSet<Pair<String, String>> getCoverageEnvironment() {
     return coverageEnvironment;

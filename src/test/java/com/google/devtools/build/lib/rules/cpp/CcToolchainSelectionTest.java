@@ -61,7 +61,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
             getRuleContext(target)
                 .getToolchainContext()
                 .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE, ImmutableMap.of()));
-    assertThat(Iterables.getOnlyElement(toolchain.getCompile()).getExecPathString())
+    assertThat(Iterables.getOnlyElement(toolchain.getCompilerFiles()).getExecPathString())
         .endsWith("piii");
   }
 

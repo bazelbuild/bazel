@@ -218,7 +218,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       // If cc is used, silently throw in the crosstool filegroup as a dependency.
       inputs.addTransitive(
           CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
-              .getCrosstoolMiddleman());
+              .getAllFilesMiddleman());
     }
 
     if (isStampingEnabled(ruleContext)) {

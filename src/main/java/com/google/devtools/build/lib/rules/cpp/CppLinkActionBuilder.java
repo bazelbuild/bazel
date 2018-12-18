@@ -113,7 +113,7 @@ public class CppLinkActionBuilder {
   private final Set<LinkerInput> objectFiles = new LinkedHashSet<>();
   private final Set<Artifact> nonCodeInputs = new LinkedHashSet<>();
   private final NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
-  private NestedSet<Artifact> crosstoolInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  private NestedSet<Artifact> linkerFiles = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private Artifact runtimeMiddleman;
   private ArtifactCategory toolchainLibrariesType = null;
   private NestedSet<Artifact> toolchainLibrariesInputs =
@@ -932,7 +932,7 @@ public class CppLinkActionBuilder {
 
     // Compute the set of inputs - we only need stable order here.
     NestedSetBuilder<Artifact> dependencyInputsBuilder = NestedSetBuilder.stableOrder();
-    dependencyInputsBuilder.addTransitive(crosstoolInputs);
+    dependencyInputsBuilder.addTransitive(linkerFiles);
     dependencyInputsBuilder.addTransitive(linkActionInputs.build());
     // TODO(b/62693279): Cleanup once internal crosstools specify ifso building correctly.
     if (shouldUseLinkDynamicLibraryTool()) {
@@ -1151,8 +1151,8 @@ public class CppLinkActionBuilder {
   }
 
   /** Set the crosstool inputs required for the action. */
-  public CppLinkActionBuilder setCrosstoolInputs(NestedSet<Artifact> inputs) {
-    this.crosstoolInputs = inputs;
+  public CppLinkActionBuilder setLinkerFiles(NestedSet<Artifact> linkerFiles) {
+    this.linkerFiles = linkerFiles;
     return this;
   }
 

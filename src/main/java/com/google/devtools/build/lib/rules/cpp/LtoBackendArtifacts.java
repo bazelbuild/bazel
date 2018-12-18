@@ -205,7 +205,7 @@ public final class LtoBackendArtifacts {
     if (index != null) {
       builder.addInput(index);
     }
-    builder.addTransitiveInputs(ccToolchain.getCompile());
+    builder.addTransitiveInputs(ccToolchain.getCompilerFiles());
 
     builder.addOutput(objectFile);
 

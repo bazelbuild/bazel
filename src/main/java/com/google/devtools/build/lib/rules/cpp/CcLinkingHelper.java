@@ -771,7 +771,7 @@ public final class CcLinkingHelper {
   private CppLinkActionBuilder newLinkActionBuilder(Artifact outputArtifact) {
     return new CppLinkActionBuilder(
             ruleContext, outputArtifact, ccToolchain, fdoProvider, featureConfiguration, semantics)
-        .setCrosstoolInputs(ccToolchain.getLink())
+        .setLinkerFiles(ccToolchain.getLinkerFiles())
         .setUseTestOnlyFlags(useTestOnlyFlags);
   }
 

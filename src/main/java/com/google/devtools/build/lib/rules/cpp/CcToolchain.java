@@ -86,8 +86,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     ruleConfiguredTargetBuilder
         .addNativeDeclaredProvider(ccToolchainProvider)
         .addNativeDeclaredProvider(templateVariableInfo)
-        .setFilesToBuild(ccToolchainProvider.getCrosstool())
-        .addProvider(new MiddlemanProvider(ccToolchainProvider.getCrosstoolMiddleman()));
+        .setFilesToBuild(ccToolchainProvider.getAllFiles())
+        .addProvider(new MiddlemanProvider(ccToolchainProvider.getAllFilesMiddleman()));
     return ruleConfiguredTargetBuilder.build();
   }
 

@@ -213,7 +213,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // The crosstool inputs for the link action are not sufficient; we also need the crosstool
       // inputs for compilation. Node that these cannot be middlemen because Runfiles does not
       // know how to expand them.
-      builder.addTransitiveArtifacts(toolchain.getCrosstool());
+      builder.addTransitiveArtifacts(toolchain.getAllFiles());
       builder.addTransitiveArtifacts(toolchain.getLibcLink());
       // Add the sources files that are used to compile the object files.
       // We add the headers in the transitive closure and our own sources in the srcs
@@ -801,8 +801,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     // Get the tool inputs necessary to run the dwp command.
-    NestedSet<Artifact> dwpTools = toolchain.getDwp();
-    Preconditions.checkState(!dwpTools.isEmpty());
+    NestedSet<Artifact> dwpFiles = toolchain.getDwpFiles();
+    Preconditions.checkState(!dwpFiles.isEmpty());
 
     // We apply a hierarchical action structure to limit the maximum number of inputs to any
     // single action.
@@ -819,7 +819,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // at the leaves than the root, but that both increases parallelism and reduces the final
     // action's input size.
     Packager packager =
-        createIntermediateDwpPackagers(context, dwpOutput, toolchain, dwpTools, allInputs, 1);
+        createIntermediateDwpPackagers(context, dwpOutput, toolchain, dwpFiles, allInputs, 1);
     packager.spawnAction.setMnemonic("CcGenerateDwp").addOutput(dwpOutput);
     packager.commandLine.addExecPath("-o", dwpOutput);
     context.registerAction(packager.build(context));

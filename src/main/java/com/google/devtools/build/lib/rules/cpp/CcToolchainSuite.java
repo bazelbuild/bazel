@@ -109,9 +109,9 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext)
             .addNativeDeclaredProvider(ccToolchainProvider)
             .addNativeDeclaredProvider(templateVariableInfo)
-            .setFilesToBuild(ccToolchainProvider.getCrosstool())
+            .setFilesToBuild(ccToolchainProvider.getAllFiles())
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
-            .addProvider(new MiddlemanProvider(ccToolchainProvider.getCrosstoolMiddleman()));
+            .addProvider(new MiddlemanProvider(ccToolchainProvider.getAllFilesMiddleman()));
 
     if (ccToolchainProvider.getLicensesProvider() != null) {
       builder.add(LicensesProvider.class, ccToolchainProvider.getLicensesProvider());

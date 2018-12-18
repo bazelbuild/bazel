@@ -257,7 +257,7 @@ public class CppHelper {
   public static NestedSet<Artifact> getGcovFilesIfNeeded(
       RuleContext ruleContext, CcToolchainProvider toolchain) {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return toolchain.getCoverage();
+      return toolchain.getCoverageFiles();
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -687,7 +687,7 @@ public class CppHelper {
     Action[] stripAction =
         new SpawnAction.Builder()
             .addInput(input)
-            .addTransitiveInputs(toolchain.getStrip())
+            .addTransitiveInputs(toolchain.getStripFiles())
             .addOutput(output)
             .useDefaultShellEnvironment()
             .setExecutable(
