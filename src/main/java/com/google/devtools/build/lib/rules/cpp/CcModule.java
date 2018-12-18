@@ -1266,12 +1266,12 @@ public class CcModule
           "A feature must either have a nonempty 'name' field or be enabled.");
     }
 
-    if (!name.matches("^[_a-z0-9+\\-]*$")) {
+    if (!name.matches("^[_a-z0-9+\\-\\.]*$")) {
       throw new EvalException(
           featureStruct.getCreationLoc(),
           String.format(
-              "A feature's name must consist solely of lowercase ASCII letters, digits, '_', '+', "
-                  + "and '-', got '%s'",
+              "A feature's name must consist solely of lowercase ASCII letters, digits, '.', "
+                  + "'_', '+', and '-', got '%s'",
               name));
     }
 
@@ -1576,12 +1576,12 @@ public class CcModule
           actionConfigStruct.getCreationLoc(),
           "The 'action_name' field of action_config must be a nonempty string.");
     }
-    if (!actionName.matches("^[_a-z0-9+\\-]*$")) {
+    if (!actionName.matches("^[_a-z0-9+\\-\\.]*$")) {
       throw new EvalException(
           actionConfigStruct.getCreationLoc(),
           String.format(
-              "An action_config's name must consist solely of lowercase ASCII letters, digits, '_',"
-                  + " '+', and '-', got '%s'",
+              "An action_config's name must consist solely of lowercase ASCII letters, digits, "
+                  + "'.', '_', '+', and '-', got '%s'",
               actionName));
     }
 
