@@ -200,8 +200,20 @@ class OptionsUsage {
     String flagName = getFlagName(optionDefinition);
     String valueDescription = optionDefinition.getValueTypeHelpText();
     String typeDescription = getTypeDescription(optionDefinition);
-    usage.append("<dt><code><a name=\"flag--").append(plainFlagName).append("\"></a>--");
-    usage.append(flagName);
+
+    usage
+        // Add the id of the flag to point anchor hrefs to it
+        .append("<dt id=\"flag--")
+        .append(plainFlagName)
+        .append("\">")
+        // Add the href to the id hash
+        .append("<code><a href=\"#flag--")
+        .append(plainFlagName)
+        .append("\">")
+        // Use the flag name as the link body
+        .append("--" + flagName)
+        .append("</a>");
+
     if (optionDefinition.usesBooleanValueSyntax() || optionDefinition.isVoidField()) {
       // Nothing for boolean, tristate, boolean_or_enum, or void options.
     } else if (!valueDescription.isEmpty()) {

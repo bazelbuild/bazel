@@ -172,3 +172,10 @@ $md-shadow-3: rgba(0, 0, 0, .12);
     box-sizing: content-box !important;
   }
 }
+
+// Used for the Command-line Reference flag anchors. Linkifying the flag name
+// causes it to turn $link-color (green), but we turn it red here to be consistent
+// with the rest of the code block.
+dl > dt > code > a {
+  color: #c7254e;
+}
