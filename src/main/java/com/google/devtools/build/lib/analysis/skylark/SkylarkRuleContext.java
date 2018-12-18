@@ -588,13 +588,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
               "attempting to access 'build_setting_value' of non-build setting %s",
               ruleLabelCanonicalName));
     }
-    ImmutableMap<String, Object> skylarkFlagSettings =
+    ImmutableMap<Label, Object> skylarkFlagSettings =
         ruleContext.getConfiguration().getOptions().getStarlarkOptions();
 
     Type<?> buildSettingType =
         ruleContext.getRule().getRuleClassObject().getBuildSetting().getType();
-    if (skylarkFlagSettings.containsKey(ruleLabelCanonicalName)) {
-      return skylarkFlagSettings.get(ruleLabelCanonicalName);
+    if (skylarkFlagSettings.containsKey(ruleContext.getLabel())) {
+      return skylarkFlagSettings.get(ruleContext.getLabel());
     } else {
       return ruleContext
           .attributes()

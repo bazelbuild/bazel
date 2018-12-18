@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.config;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -85,14 +83,14 @@ interface FeatureFlagValue {
   /** Returns a new BuildOptions with a new map of feature flag values. */
   static BuildOptions replaceFlagValues(BuildOptions original, Map<Label, String> newValues) {
     BuildOptions.Builder result = original.toBuilder();
-    for (Map.Entry<String, Object> entry : original.getStarlarkOptions().entrySet()) {
+    for (Map.Entry<Label, Object> entry : original.getStarlarkOptions().entrySet()) {
       if (entry.getValue() instanceof FeatureFlagValue) {
         result.removeStarlarkOption(entry.getKey());
       }
     }
-    ImmutableMap.Builder<String, Object> newValueObjects = new ImmutableMap.Builder<>();
+    ImmutableMap.Builder<Label, Object> newValueObjects = new ImmutableMap.Builder<>();
     for (Map.Entry<Label, String> entry : newValues.entrySet()) {
-      newValueObjects.put(entry.getKey().toString(), SetValue.of(entry.getValue()));
+      newValueObjects.put(entry.getKey(), SetValue.of(entry.getValue()));
     }
     result.addStarlarkOptions(newValueObjects.build());
     BuildOptions builtResult = result.build();
@@ -105,17 +103,14 @@ interface FeatureFlagValue {
   /** Returns a new BuildOptions with the feature flag values trimmed down to the given flags. */
   static BuildOptions trimFlagValues(BuildOptions original, Set<Label> availableFlags) {
     BuildOptions.Builder result = original.toBuilder();
-    ImmutableSet.Builder<String> seenFlagsBuilder = new ImmutableSet.Builder<>();
-    for (Map.Entry<String, Object> entry : original.getStarlarkOptions().entrySet()) {
+    ImmutableSet.Builder<Label> seenFlagsBuilder = new ImmutableSet.Builder<>();
+    for (Map.Entry<Label, Object> entry : original.getStarlarkOptions().entrySet()) {
       if (entry.getValue() instanceof FeatureFlagValue) {
         seenFlagsBuilder.add(entry.getKey());
       }
     }
-    // TODO(juliexxia): remove this hack-around when the SBC map is Label, Object
-    ImmutableSet<String> availableFlagsAsStrings =
-        availableFlags.stream().map(Label::toString).collect(toImmutableSet());
-    ImmutableSet<String> seenFlags = seenFlagsBuilder.build();
-    for (String trimmedFlag : Sets.difference(seenFlags, availableFlagsAsStrings)) {
+    ImmutableSet<Label> seenFlags = seenFlagsBuilder.build();
+    for (Label trimmedFlag : Sets.difference(seenFlags, availableFlags)) {
       result.removeStarlarkOption(trimmedFlag);
     }
     FeatureFlagValue unknownFlagValue =
@@ -123,7 +118,7 @@ interface FeatureFlagValue {
                 && original.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
             ? DefaultValue.INSTANCE
             : UnknownValue.INSTANCE;
-    for (String unknownFlag : Sets.difference(availableFlagsAsStrings, seenFlags)) {
+    for (Label unknownFlag : Sets.difference(availableFlags, seenFlags)) {
       result.addStarlarkOption(unknownFlag, unknownFlagValue);
     }
     BuildOptions builtResult = result.build();
@@ -141,16 +136,13 @@ interface FeatureFlagValue {
       throws UnknownValueException {
     ImmutableSortedMap.Builder<Label, String> knownValues = ImmutableSortedMap.naturalOrder();
     ImmutableList.Builder<Label> unknownFlagsBuilder = new ImmutableList.Builder<>();
-    for (Map.Entry<String, Object> entry : options.getStarlarkOptions().entrySet()) {
+    for (Map.Entry<Label, Object> entry : options.getStarlarkOptions().entrySet()) {
       if (entry.getValue().equals(UnknownValue.INSTANCE)) {
-        // we can parseAbsoluteUnchecked here and below because no one else should be putting in
-        // FeatureFlagValues, and this package only puts in stringized labels.
-        // TODO(juliexxia): remove this parsing when the SBC map is Label, Object
-        unknownFlagsBuilder.add(Label.parseAbsoluteUnchecked(entry.getKey()));
+        unknownFlagsBuilder.add(entry.getKey());
       } else if (entry.getValue() instanceof FeatureFlagValue) {
         String value = ((FeatureFlagValue) entry.getValue()).getValue();
         if (value != null) {
-          knownValues.put(Label.parseAbsoluteUnchecked(entry.getKey()), value);
+          knownValues.put(entry.getKey(), value);
         }
       }
     }

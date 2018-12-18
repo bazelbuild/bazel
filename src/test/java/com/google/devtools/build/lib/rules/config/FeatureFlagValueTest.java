@@ -41,7 +41,7 @@ public final class FeatureFlagValueTest {
   private Set<Label> getKnownDefaultFlags(BuildOptions options) {
     return options.getStarlarkOptions().entrySet().stream()
         .filter((entry) -> FeatureFlagValue.DefaultValue.INSTANCE.equals(entry.getValue()))
-        .map((entry) -> Label.parseAbsoluteUnchecked(entry.getKey()))
+        .map(Map.Entry::getKey)
         .collect(toImmutableSet());
   }
 
@@ -55,7 +55,7 @@ public final class FeatureFlagValueTest {
     BuildOptions options =
         emptyBuildOptions()
             .toBuilder()
-            .addStarlarkOption("//unrelated/starlark:option", true)
+            .addStarlarkOption(Label.parseAbsoluteUnchecked("//unrelated/starlark:option"), true)
             .build();
     assertThat(FeatureFlagValue.getFlagValues(options)).isEmpty();
   }
@@ -120,11 +120,12 @@ public final class FeatureFlagValueTest {
     BuildOptions options =
         emptyBuildOptions()
             .toBuilder()
-            .addStarlarkOption("//unrelated/starlark:option", true)
+            .addStarlarkOption(Label.parseAbsoluteUnchecked("//unrelated/starlark:option"), true)
             .build();
     options = FeatureFlagValue.replaceFlagValues(options, originalMap);
     options = FeatureFlagValue.replaceFlagValues(options, newMap);
-    assertThat(options.getStarlarkOptions()).containsEntry("//unrelated/starlark:option", true);
+    assertThat(options.getStarlarkOptions())
+        .containsEntry(Label.parseAbsoluteUnchecked("//unrelated/starlark:option"), true);
   }
 
   @Test
@@ -279,7 +280,7 @@ public final class FeatureFlagValueTest {
     BuildOptions options =
         emptyBuildOptions()
             .toBuilder()
-            .addStarlarkOption("//unrelated/starlark:option", true)
+            .addStarlarkOption(Label.parseAbsoluteUnchecked("//unrelated/starlark:option"), true)
             .build();
     options =
         FeatureFlagValue.replaceFlagValues(
@@ -298,7 +299,8 @@ public final class FeatureFlagValueTest {
 
     options = FeatureFlagValue.trimFlagValues(options, ImmutableSet.of());
 
-    assertThat(options.getStarlarkOptions()).containsEntry("//unrelated/starlark:option", true);
+    assertThat(options.getStarlarkOptions())
+        .containsEntry(Label.parseAbsoluteUnchecked("//unrelated/starlark:option"), true);
   }
 
   @Test
@@ -307,7 +309,7 @@ public final class FeatureFlagValueTest {
     BuildOptions options =
         emptyBuildOptions()
             .toBuilder()
-            .addStarlarkOption("//unrelated/starlark:option", true)
+            .addStarlarkOption(Label.parseAbsoluteUnchecked("//unrelated/starlark:option"), true)
             .build();
     options =
         FeatureFlagValue.replaceFlagValues(
@@ -326,7 +328,9 @@ public final class FeatureFlagValueTest {
                 Label.parseAbsoluteUnchecked("//unrelated/starlark:option")));
 
     assertThat(options.getStarlarkOptions())
-        .containsEntry("//unrelated/starlark:option", FeatureFlagValue.DefaultValue.INSTANCE);
+        .containsEntry(
+            Label.parseAbsoluteUnchecked("//unrelated/starlark:option"),
+            FeatureFlagValue.DefaultValue.INSTANCE);
   }
 
   @Test
@@ -335,7 +339,7 @@ public final class FeatureFlagValueTest {
     BuildOptions options =
         emptyBuildOptions()
             .toBuilder()
-            .addStarlarkOption("//unrelated/starlark:option", true)
+            .addStarlarkOption(Label.parseAbsoluteUnchecked("//unrelated/starlark:option"), true)
             .build();
     options =
         FeatureFlagValue.replaceFlagValues(
@@ -360,7 +364,9 @@ public final class FeatureFlagValueTest {
                 Label.parseAbsoluteUnchecked("//unrelated/starlark:option")));
 
     assertThat(options.getStarlarkOptions())
-        .containsEntry("//unrelated/starlark:option", FeatureFlagValue.UnknownValue.INSTANCE);
+        .containsEntry(
+            Label.parseAbsoluteUnchecked("//unrelated/starlark:option"),
+            FeatureFlagValue.UnknownValue.INSTANCE);
   }
 
   @Test

@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.trimming.ConfigurationComparer;
 import com.google.devtools.build.lib.skyframe.trimming.TrimmableTestConfigurationFragments.AOptions;
 import com.google.devtools.build.lib.skyframe.trimming.TrimmableTestConfigurationFragments.BOptions;
@@ -100,7 +101,7 @@ public final class BuildOptionsCompareFragmentsTest {
 
   /** Quick builder for BuildOptions instances. */
   public static final class OptionsBuilder {
-    private final ImmutableMap.Builder<String, Object> starlarkOptions =
+    private final ImmutableMap.Builder<Label, Object> starlarkOptions =
         new ImmutableMap.Builder<>();
     private final ImmutableList.Builder<Class<? extends FragmentOptions>> fragments =
         new ImmutableList.Builder<>();
@@ -114,7 +115,7 @@ public final class BuildOptionsCompareFragmentsTest {
     }
 
     public OptionsBuilder withStarlarkOption(String setting, Object value) {
-      this.starlarkOptions.put(setting, value);
+      this.starlarkOptions.put(Label.parseAbsoluteUnchecked(setting), value);
       return this;
     }
 
