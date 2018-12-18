@@ -26,10 +26,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
@@ -532,6 +534,24 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
 
     public Builder setJavaConstraints(ImmutableList<String> javaConstraints) {
       this.javaConstraints = javaConstraints;
+      return this;
+    }
+
+    public Builder experimentalDisableAnnotationProcessing() {
+      JavaPluginInfoProvider provider = providerMap.getProvider(JavaPluginInfoProvider.class);
+      if (provider != null) {
+        JavaPluginInfo plugins = provider.plugins();
+        providerMap.put(
+            JavaPluginInfoProvider.class,
+            JavaPluginInfoProvider.create(
+                JavaPluginInfo.create(
+                    /* processorClasses= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+                    // Preserve the processor path, since it may contain Error Prone plugins which
+                    // will be service-loaded by JavaBuilder.
+                    plugins.processorClasspath(),
+                    /* data= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)),
+                /* generatesApi= */ false));
+      }
       return this;
     }
 
