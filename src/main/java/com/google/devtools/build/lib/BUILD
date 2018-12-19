@@ -898,6 +898,9 @@ java_library(
         ],
         exclude = ["bazel/repository/MavenConnector.java"],
     ),
+    resources = [
+        "bazel/repository/local_config_platform.WORKSPACE",
+    ],
     runtime_deps = [
         "//third_party:jsch",
         "//third_party:maven_model",

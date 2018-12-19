@@ -386,6 +386,14 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidSdkRepositoryRule());
           builder.addRuleDefinition(new AndroidNdkRepositoryRule());
           builder.addRuleDefinition(new LocalConfigPlatformRule());
+
+          try {
+            builder.addWorkspaceFilePrefix(
+                ResourceFileLoader.loadResource(
+                    LocalConfigPlatformRule.class, "local_config_platform.WORKSPACE"));
+          } catch (IOException e) {
+            throw new IllegalStateException(e);
+          }
         }
 
         @Override
