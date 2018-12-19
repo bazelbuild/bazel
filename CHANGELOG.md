@@ -1,3 +1,96 @@
+## Release 0.21.0 (2018-12-19)
+
+```
+Baseline: cb9b2afbba3f8d3a1db8bf68e65d06f1b36902f5
+
+Cherry picks:
+
+   + 12b96466ee0d6ab83f7d4cd24be110bb5021281d:
+     Windows, test wrapper: rename the associated flag
+   + 7fc967c4d6435de2bb4e34aac00ca2e499f55fca:
+     Use a fixed thread pool in ByteStreamBuildEventArtifactUploader
+   + 798b9a989aa793655d29504edb5fb85f3143db84:
+     Add --build_event_upload_max_threads option
+   + dbe05df23ccf4c919379e0294e0701fd3f66739c:
+     Update the version of  skylib bundled in the distfile
+```
+
+Incompatible changes:
+
+  - The --experimental_stl command line option is removed.
+  - aquery defaults to human readable output format.
+
+New features:
+
+  - repository_ctx.download and repository_ctx.download_and_extract
+    now return a struct.
+  - Android Databinding v2 can be enabled with
+    --experimental_android_databinding_v2.
+
+Important changes:
+
+  - The deprecated and unmaintained Docker rules in
+    tools/build_defs/docker were removed. Please use
+    https://github.com/bazelbuild/rules_docker instead.
+  - The new --upload_query_output_using_bep query/cquery/aquery flag
+    causes query outputs to be uploaded via BEP.
+  - New incompatible flag --incompatible_strict_argument_ordering
+  - --strict_android_deps and --strict_java_deps were renamed to
+    --experimental_strict_java_deps
+  - config_settings that select on "compiler" value instead of values
+    = {"compiler" : "x"} should use flag_values =
+    {"@bazel_tools//tools/cpp:compiler": "x"}.
+  - The new --upload_query_output_using_bep query/cquery/aquery flag
+    causes query outputs to be uploaded via BEP.
+  - Turn on --incompatible_disable_sysroot_from_configuration
+  - We revamped our Android with Bazel tutorial! Check it out
+    [here](https://docs.bazel.build/versions/master/tutorial/android-a
+    pp.html).
+  - --incompatible_disallow_slash_operator is now on by default
+  - Enable --experimental_check_desugar_deps by default.  This flag
+    rules out several types of invalid Android builds at compile-time.
+  - The --max_config_changes_to_show option lists the names of
+    options which
+    have changed and thus caused the analysis cache to be dropped.
+  - The --experimental_strict_action_env option has been renamed to
+    --incompatible_strict_action_env and is now on by default. This
+    means Bazel will no longer use the client's PATH and
+    LD_LIBRARY_PATH environmental variables in the default action
+    environment. If the old behavior is desired, pass
+    --action_env=PATH and --action_env=LD_LIBRARY_PATH.
+    --noincompatible_strict_action_env will also temporarily restore
+    the old behavior. However, as --action_env is a more general and
+    explicit way to pass client environmental variables into actions,
+    --noincompatible_strict_action_env will eventually be deprecated
+    and removed. See #6648 for more details.
+  - XCRUNWRAPPER_LABEL has been removed. If you used this value
+    before, please use @bazel_tools//tools/objc:xcrunwrapper instead.
+  - --incompatible_static_name_resolution is no unable by default
+  - We will phase out --genrule_strategy in favor of
+    --strategy=Genrule=<value> (for genrules) or
+    --spawn_strategy=<value> (for all actions).
+  - --incompatible_package_name_is_a_function is now enabled by
+    default
+  - Dynamic execution is now available with
+    --experimental_spawn_strategy. Dynamic execution allows a build
+    action to run locally and remotely simultaneously, and Bazel
+    picks the fastest action. This provides the best of both worlds:
+    faster clean builds than pure local builds, and faster
+    incremental builds than pure remote builds.
+  - --incompatible_package_name_is_a_function is now enabled by
+    default
+  - New incompatible flag --incompatible_merge_genfiles_directory
+  - grpc log now logs updateActionResult
+  - CppConfiguration doesn't do package loading anymore. That means:
+    * it's no longer needed to have C++ toolchain available when
+    building non-C++ projects
+    * bazel will not analyze C++ toolchain when not needed -> speedup
+    ~2s on bazel startup when C++ rules using hermetic toolchain are
+    not loaded
+  - --incompatible_package_name_is_a_fu...
+
+This release contains contributions from many people at Google, as well as andy g scott ?, Attila Ol?h, Benjamin Peterson, Clint Harrison, Dave Lee, Ed Schouten, Greg Estren, Gregor Jasny, Jamie Snape, Jerry Marino, Loo Rong Jie, Or Shachar, Sevki Hasirci, William Chargin.
+
 ## Release 0.20.0 (2018-11-30)
 
 ```
