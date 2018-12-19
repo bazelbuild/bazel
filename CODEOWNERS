@@ -39,13 +39,13 @@ android/ @ahumesky @jin
 
 # C++
 
-/src/tools/cpp @mhlopko @scentini @oquenchil
+/src/tools/cpp @hlopko @scentini @oquenchil
 
-/src/test/shell/bazel/cpp @mhlopko @scentini @oquenchil
+/src/test/shell/bazel/cpp @hlopko @scentini @oquenchil
 
-/src/test/java/com/google/devtools/build/lib/rules/cpp/ @mhlopko @scentini @oquenchil
+/src/test/java/com/google/devtools/build/lib/rules/cpp/ @hlopko @scentini @oquenchil
 
-/src/main/java/com/google/devtools/build/lib/rules/cpp/ @mhlopko @scentini @oquenchil
+/src/main/java/com/google/devtools/build/lib/rules/cpp/ @hlopko @scentini @oquenchil
 
 # Java
 
