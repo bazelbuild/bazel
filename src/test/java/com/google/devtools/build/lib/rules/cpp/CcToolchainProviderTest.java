@@ -198,8 +198,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'],",
+        "    dynamic_runtime_lib = ':empty',",
+        "    static_runtime_lib = ':empty',",
         "    proto=\"\"\"",
         "      feature { name: 'no_legacy_features' }",
         "      tool_path { name: 'gcc' path: 'path-to-gcc-tool' }",
@@ -246,8 +246,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'],",
         "    proto=\"\"\"",
         "      feature { name: 'no_legacy_features' }",
         "      tool_path { name: 'gcc' path: 'path-to-gcc-tool' }",
@@ -297,8 +295,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'],",
         "    proto = \"\"\"",
         "      toolchain_identifier: \"a\"",
         "      host_system_name: \"a\"",
@@ -336,8 +332,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'],",
         "    proto = \"\"\"",
         "      toolchain_identifier: \"a\"",
         "      host_system_name: \"a\"",
@@ -383,8 +377,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'],",
         "    proto = \"\"\"",
         "      toolchain_identifier: \"a\"",
         "      host_system_name: \"a\"",
@@ -505,11 +497,11 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     useConfiguration("--cpu=k8", "--host_cpu=k8");
     getConfiguredTarget("//a:a");
     assertContainsEvent(
-        "Toolchain supports embedded runtimes, but didn't provide static_runtime_libs attribute.");
+        "Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute.");
 
     useConfiguration("--cpu=k9", "--host_cpu=k9");
     getConfiguredTarget("//a:a");
     assertContainsEvent(
-        "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_libs attribute.");
+        "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute.");
   }
 }

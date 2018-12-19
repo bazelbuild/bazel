@@ -244,8 +244,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    static_runtime_libs = [':empty'],",
-        "    dynamic_runtime_libs = [':empty'],",
         "    all_files = ':empty',",
         "    licenses = ['unencumbered'])");
     scratch.file("crosstool/CROSSTOOL", TextFormat.printToString(release));

@@ -583,6 +583,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.enableCcToolchainConfigInfoFromSkylark;
   }
 
+  boolean disableRuntimesFilegroups() {
+    return cppOptions.disableRuntimesFilegroups;
+  }
+
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */

@@ -214,7 +214,21 @@ public final class CcToolchainRule implements RuleDefinition {
         all_files are used.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("coverage_files", LABEL).legacyAllowAnyFileType().cfg(HostTransition.INSTANCE))
+        /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(static_runtime_lib) -->
+        Static library artifact for the C++ runtime library (e.g. libstdc++.a).
+
+        <p>When specified, this will take precedence over 'static_runtime_libs'.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("static_runtime_lib", LABEL).legacyAllowAnyFileType())
+        /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(dynamic_runtime_lib) -->
+        Dynamic library artifact for the C++ runtime library (e.g. libstdc++.so).
+
+        <p>When specified, this will take precedence over 'dynamic_runtime_libs'.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr("dynamic_runtime_lib", LABEL).legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(static_runtime_libs) -->
+        Deprecated, use 'static_runtime_lib'
+        (see <a href="https://github.com/bazelbuild/bazel/issues/6942">#6942</a>).
         A collection of artifacts for static libraries for the C++ runtime library
         (e.g. libstdc++.a).
 
@@ -223,6 +237,8 @@ public final class CcToolchainRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("static_runtime_libs", LABEL_LIST).legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(dynamic_runtime_libs) -->
+        Deprecated, use 'dynamic_runtime_lib'
+        (see <a href="https://github.com/bazelbuild/bazel/issues/6942">#6942</a>).
         A collection of artifacts for dynamic libraries for the C++ runtime library
         (e.g. libstdc++.so).
 

@@ -106,8 +106,6 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         "   strip_files = ':dummy_filegroup',",
         "   objcopy_files = 'objcopy-piii',",
         "   all_files = ':dummy_filegroup',",
-        "   static_runtime_libs = ['static-runtime-libs-piii'],",
-        "   dynamic_runtime_libs = ['dynamic-runtime-libs-piii'],",
         ")",
         "filegroup(name = 'dummy_filegroup')");
 

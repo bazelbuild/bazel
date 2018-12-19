@@ -228,8 +228,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    strip_files = 'strip-a',",
         "    objcopy_files = 'objcopy-a',",
         "    all_files = 'all-a',",
-        "    dynamic_runtime_libs = [':dynamic'],",
-        "    static_runtime_libs = [':static'])");
+        "    dynamic_runtime_lib = ':dynamic',",
+        "    static_runtime_lib = ':static')");
 
     getAnalysisMock()
         .ccSupport()
@@ -265,8 +265,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])");
+        "    dynamic_runtime_lib = ':empty',",
+        "    static_runtime_lib = ':empty')");
     scratch.file("a/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
 
     // Check defaults.
@@ -419,8 +419,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    strip_files = ':every-file',",
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
-        "    dynamic_runtime_libs = ['dynamic-runtime-libs-cherry'],",
-        "    static_runtime_libs = ['static-runtime-libs-cherry'])");
+        "    dynamic_runtime_lib = 'dynamic-runtime-libs-cherry',",
+        "    static_runtime_lib = 'static-runtime-libs-cherry')");
   }
 
   @Test
@@ -440,8 +440,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    strip_files = ':every-file',",
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
-        "    dynamic_runtime_libs = ['dynamic-runtime-libs-cherry'],",
-        "    static_runtime_libs = ['static-runtime-libs-cherry'])");
+        "    dynamic_runtime_lib = 'dynamic-runtime-libs-cherry',",
+        "    static_runtime_lib = 'static-runtime-libs-cherry')");
   }
 
   @Test
@@ -465,8 +465,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    strip_files = ':every-file',",
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
-        "    dynamic_runtime_libs = ['dynamic-runtime-libs-cherry'],",
-        "    static_runtime_libs = ['static-runtime-libs-cherry'])");
+        "    dynamic_runtime_lib = 'dynamic-runtime-libs-cherry',",
+        "    static_runtime_lib = 'static-runtime-libs-cherry')");
   }
 
   @Test
@@ -569,9 +569,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    dwp_files = ':empty',",
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])");
+        "    objcopy_files = ':empty')");
     scratch.file("fdo/my_profile.afdo", "");
     scratch.file(
         "fdo/BUILD",
@@ -606,8 +604,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'],",
         "    proto=\"\"\"",
         "      toolchain_identifier: \"banana\"",
         "      abi_version: \"banana\"",
@@ -703,8 +699,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'],",
         "    toolchain_config = ':toolchain_config')");
     scratch.file("a/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
 
@@ -833,8 +827,8 @@ public class CcToolchainTest extends BuildViewTestCase {
             mockToolsConfig,
             /* addEmbeddedRuntimes= */ true,
             /* addModuleMap= */ false,
-            /* staticRuntimesLabel= */ null,
-            /* dynamicRuntimesLabel= */ null,
+            /* staticRuntimesLabel= */ "static-runtime",
+            /* dynamicRuntimesLabel= */ "dynamic-runtime",
             toolchainBuilder.buildPartial());
     useConfiguration(configurationToUse);
     ConfiguredTarget target = getConfiguredTarget("//a:b");
@@ -913,8 +907,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'],",
         "    proto = \"\"\"",
         "      toolchain_identifier: \"a\"",
         "      host_system_name: \"a\"",
@@ -965,8 +957,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'],",
         "    proto = \"\"\"",
         "      toolchain_identifier: \"a\"",
         "      host_system_name: \"a\"",

@@ -360,7 +360,9 @@ message CToolchain {
   // If specified, Blaze finds statically linked / dynamically linked runtime
   // libraries in the declared crosstool filegroup. Otherwise, Blaze
   // looks in "[static|dynamic]-runtime-libs-$TARGET_CPU".
+  // Deprecated, see https://github.com/bazelbuild/bazel/issues/6942
   optional string static_runtimes_filegroup = 45;
+  // Deprecated, see https://github.com/bazelbuild/bazel/issues/6942
   optional string dynamic_runtimes_filegroup = 46;
   optional bool supports_incremental_linker = 41 [default = false];
   // This should be true, if the toolchain supports the D flag to ar, which

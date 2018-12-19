@@ -743,6 +743,21 @@ public class CppOptions extends FragmentOptions {
   public boolean disableEmittingStaticLibgcc;
 
   @Option(
+      name = "incompatible_disable_runtimes_filegroups",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, cc_toolchain.static_runtime_libs and cc_toolchain.dynamic_runtime_libs are "
+              + "replaced by cc_toolchain.static_runtime_lib and cc_toolchain.dynamic_runtime_lib "
+              + "(see https://github.com/bazelbuild/bazel/issues/6942)")
+  public boolean disableRuntimesFilegroups;
+
+  @Option(
       name = "experimental_enable_cc_toolchain_config_info",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,

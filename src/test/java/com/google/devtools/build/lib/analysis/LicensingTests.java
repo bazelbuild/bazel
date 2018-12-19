@@ -468,8 +468,8 @@ public class LicensingTests extends BuildViewTestCase {
         "    strip_files = ':every-file',",
         "    objcopy_files = 'objcopy-cherry',",
         "    all_files = ':every-file',",
-        "    dynamic_runtime_libs = ['dynamic-runtime-libs-cherry'],",
-        "    static_runtime_libs = ['static-runtime-libs-cherry'])");
+        "    dynamic_runtime_lib = 'dynamic-runtime-libs-cherry',",
+        "    static_runtime_lib = 'static-runtime-libs-cherry')");
     scratch.file("c/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
 
     ConfiguredTarget target = getConfiguredTarget("//c:c");

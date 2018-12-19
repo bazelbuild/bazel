@@ -528,7 +528,7 @@ public abstract class MockCcSupport {
   public abstract void setup(MockToolsConfig config) throws IOException;
 
   public void setupCrosstoolWithEmbeddedRuntimes(MockToolsConfig config) throws IOException {
-    createCrosstoolPackage(config, true);
+    createCrosstoolPackage(config, /* addEmbeddedRuntimes= */ true);
   }
 
   /**
@@ -549,7 +549,12 @@ public abstract class MockCcSupport {
    */
   public void setupCrosstool(MockToolsConfig config, CToolchain toolchain) throws IOException {
     createCrosstoolPackage(
-        config, /* addEmbeddedRuntimes= */ false, /* addModuleMap= */ true, null, null, toolchain);
+        config,
+        /* addEmbeddedRuntimes= */ false,
+        /* addModuleMap= */ true,
+        /* staticRuntimesLabel= */ null,
+        /* dynamicRuntimesLabel= */ null,
+        toolchain);
   }
 
   /**
@@ -600,7 +605,12 @@ public abstract class MockCcSupport {
 
   protected void createCrosstoolPackage(MockToolsConfig config, boolean addEmbeddedRuntimes)
       throws IOException {
-    createCrosstoolPackage(config, addEmbeddedRuntimes, /*addModuleMap=*/ true, null, null);
+    createCrosstoolPackage(
+        config,
+        addEmbeddedRuntimes,
+        /* addModuleMap= */ true,
+        /* staticRuntimesLabel= */ null,
+        /* dynamicRuntimesLabel= */ null);
   }
 
   private void createCrosstoolPackage(

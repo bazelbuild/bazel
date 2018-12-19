@@ -23,10 +23,8 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -256,6 +254,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  supports_start_end_lib: true\n"
                 + "  supports_normalizing_ar: true\n"
                 + "  supports_embedded_runtimes: true\n"
+                + "  static_runtimes_filegroup: 'static-runtime-1'\n"
+                + "  dynamic_runtimes_filegroup: 'dynamic-runtime-1'\n"
                 + "  needsPic: true\n"
                 + "  compiler_flag: \"compiler-flag-A-1\"\n"
                 + "  compiler_flag: \"compiler-flag-A-2\"\n"
@@ -340,6 +340,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  supports_start_end_lib: true\n"
                 + "  supports_normalizing_ar: true\n"
                 + "  supports_embedded_runtimes: true\n"
+                + "  static_runtimes_filegroup: 'static-runtime-2'\n"
+                + "  dynamic_runtimes_filegroup: 'dynamic-runtime-2'\n"
                 + "  needsPic: true\n"
                 + "  compiler_flag: \"compiler-flag-B-1\"\n"
                 + "  compiler_flag: \"compiler-flag-B-2\"\n"
@@ -650,58 +652,5 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         loader(getConfigWithMissingToolDef(Tool.DWP, "supports_fission: false"));
     // The following line throws an IllegalArgumentException if an expected tool path is missing.
     create(loader, "--cpu=banana_cpu");
-  }
-
-  /**
-   * Tests interpretation of static_runtimes_filegroup / dynamic_runtimes_filegroup.
-   */
-  @Test
-  public void testCustomRuntimeLibraryPaths() throws Exception {
-    CppConfigurationLoader loader =
-        loader(
-            "major_version: \"v17\""
-                + "minor_version: \"0\""
-                + "toolchain {" // "default-libs": runtime libraries in default locations.
-                + "  toolchain_identifier: \"default-libs\""
-                + "  host_system_name: \"host-system-name\""
-                + "  target_system_name: \"target-system-name\""
-                + "  target_cpu: \"k8\""
-                + "  target_libc: \"target-libc\""
-                + "  compiler: \"compiler\""
-                + "  abi_version: \"abi-version\""
-                + "  abi_libc_version: \"abi-libc-version\""
-                + "  supports_embedded_runtimes: true"
-                + "}\n"
-                + "toolchain {" // "custom-libs" runtime libraries in toolchain-specified locations.
-                + "  toolchain_identifier: \"custom-libs\""
-                + "  host_system_name: \"host-system-name\""
-                + "  target_system_name: \"target-system-name\""
-                + "  target_cpu: \"piii\""
-                + "  target_libc: \"target-libc\""
-                + "  compiler: \"compiler\""
-                + "  abi_version: \"abi-version\""
-                + "  abi_libc_version: \"abi-libc-version\""
-                + "  supports_embedded_runtimes: true"
-                + "  static_runtimes_filegroup: \"static-group\""
-                + "  dynamic_runtimes_filegroup: \"dynamic-group\""
-                + "}\n");
-
-    PackageIdentifier ctTop = MockCcSupport.getMockCrosstoolsTop();
-    if (ctTop.getRepository().isDefault()) {
-      ctTop = PackageIdentifier.createInMainRepo(ctTop.getPackageFragment());
-    }
-    CppConfiguration defaultLibs = create(loader, "--cpu=k8", "--host_cpu=k8");
-    CcToolchainProvider defaultLibsToolchain = getCcToolchainProvider(defaultLibs);
-    assertThat(defaultLibsToolchain.getStaticRuntimeLibsLabel())
-        .isEqualTo(Label.create(ctTop, "static-runtime-libs-k8"));
-    assertThat(defaultLibsToolchain.getDynamicRuntimeLibsLabel())
-        .isEqualTo(Label.create(ctTop, "dynamic-runtime-libs-k8"));
-
-    CppConfiguration customLibs = create(loader, "--cpu=piii", "--host_cpu=k8");
-    CcToolchainProvider customLibsToolchain = getCcToolchainProvider(customLibs);
-    assertThat(customLibsToolchain.getStaticRuntimeLibsLabel())
-        .isEqualTo(Label.create(ctTop, "static-group"));
-    assertThat(customLibsToolchain.getDynamicRuntimeLibsLabel())
-        .isEqualTo(Label.create(ctTop, "dynamic-group"));
   }
 }

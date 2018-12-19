@@ -394,6 +394,7 @@ public class CcToolchainProviderHelper {
       return null;
     }
 
+
     if (fdoInputs != null) {
       fdoInputFile = fdoInputs.getFirst();
       protoProfileArtifact = fdoInputs.getSecond();
@@ -472,15 +473,25 @@ public class CcToolchainProviderHelper {
         configuration.getBinFragment().getRelative(runtimeSolibDirBase);
 
     // Static runtime inputs.
+    if (cppConfiguration.disableRuntimesFilegroups()
+        && !attributes.getStaticRuntimesLibs().isEmpty()) {
+      ruleContext.ruleError(
+          "cc_toolchain.static_runtime_libs attribute is removed, please use "
+              + "cc_toolchain.static_runtime_lib (singular) instead. See "
+              + "https://github.com/bazelbuild/bazel/issues/6942 for details.");
+    }
     TransitiveInfoCollection staticRuntimeLibDep =
-        selectDep(attributes.getStaticRuntimesLibs(), toolchainInfo.getStaticRuntimeLibsLabel());
+        attributes.getStaticRuntimeLib() != null
+            ? attributes.getStaticRuntimeLib()
+            : selectDep(
+                attributes.getStaticRuntimesLibs(), toolchainInfo.getStaticRuntimeLibsLabel());
     final NestedSet<Artifact> staticRuntimeLinkInputs;
     final Artifact staticRuntimeLinkMiddleman;
     if (toolchainInfo.supportsEmbeddedRuntimes()) {
       if (staticRuntimeLibDep == null) {
         throw ruleContext.throwWithRuleError(
             "Toolchain supports embedded runtimes, but didn't "
-                + "provide static_runtime_libs attribute.");
+                + "provide static_runtime_lib attribute.");
       }
       staticRuntimeLinkInputs =
           staticRuntimeLibDep.getProvider(FileProvider.class).getFilesToBuild();
@@ -504,8 +515,18 @@ public class CcToolchainProviderHelper {
         (staticRuntimeLinkMiddleman == null) == staticRuntimeLinkInputs.isEmpty());
 
     // Dynamic runtime inputs.
+    if (cppConfiguration.disableRuntimesFilegroups()
+        && !attributes.getDynamicRuntimesLibs().isEmpty()) {
+      ruleContext.ruleError(
+          "cc_toolchain.dynamic_runtime_libs attribute is removed, please use "
+              + "cc_toolchain.dynamic_runtime_lib (singular) instead. See "
+              + "https://github.com/bazelbuild/bazel/issues/6942 for details.");
+    }
     TransitiveInfoCollection dynamicRuntimeLibDep =
-        selectDep(attributes.getDynamicRuntimesLibs(), toolchainInfo.getDynamicRuntimeLibsLabel());
+        attributes.getDynamicRuntimeLib() != null
+            ? attributes.getDynamicRuntimeLib()
+            : selectDep(
+                attributes.getDynamicRuntimesLibs(), toolchainInfo.getDynamicRuntimeLibsLabel());
     NestedSet<Artifact> dynamicRuntimeLinkSymlinks;
     List<Artifact> dynamicRuntimeLinkInputs = new ArrayList<>();
     Artifact dynamicRuntimeLinkMiddleman;
@@ -513,7 +534,7 @@ public class CcToolchainProviderHelper {
       if (dynamicRuntimeLibDep == null) {
         throw ruleContext.throwWithRuleError(
             "Toolchain supports embedded runtimes, but didn't "
-                + "provide dynamic_runtime_libs attribute.");
+                + "provide dynamic_runtime_lib attribute.");
       }
       NestedSetBuilder<Artifact> dynamicRuntimeLinkSymlinksBuilder = NestedSetBuilder.stableOrder();
       for (Artifact artifact :

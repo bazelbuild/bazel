@@ -93,6 +93,8 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final FdoProfileProvider fdoProfileProvider;
   private final FdoProfileProvider xfdoProfileProvider;
   private final Label ccToolchainLabel;
+  private final TransitiveInfoCollection staticRuntimeLib;
+  private final TransitiveInfoCollection dynamicRuntimeLib;
 
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
@@ -162,10 +164,17 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.zipper = ruleContext.getPrerequisiteArtifact(":zipper", Mode.HOST);
     this.purposePrefix = Actions.escapeLabel(ruleContext.getLabel()) + "_";
     this.runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(ruleContext.getLabel());
+    this.staticRuntimeLib = ruleContext.getPrerequisite("static_runtime_lib", Mode.TARGET);
+    this.dynamicRuntimeLib = ruleContext.getPrerequisite("dynamic_runtime_lib", Mode.TARGET);
     this.staticRuntimesLibs =
-        ImmutableList.copyOf(ruleContext.getPrerequisites("static_runtime_libs", Mode.TARGET));
+        staticRuntimeLib == null
+            ? ImmutableList.copyOf(ruleContext.getPrerequisites("static_runtime_libs", Mode.TARGET))
+            : null;
     this.dynamicRuntimesLibs =
-        ImmutableList.copyOf(ruleContext.getPrerequisites("dynamic_runtime_libs", Mode.TARGET));
+        dynamicRuntimeLib == null
+            ? ImmutableList.copyOf(
+                ruleContext.getPrerequisites("dynamic_runtime_libs", Mode.TARGET))
+            : null;
     this.ccToolchainConfigInfo =
         ruleContext.getPrerequisite(
             CcToolchainRule.TOOLCHAIN_CONFIG_ATTR, Mode.TARGET, CcToolchainConfigInfo.PROVIDER);
@@ -245,6 +254,14 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   public ImmutableList<? extends TransitiveInfoCollection> getDynamicRuntimesLibs() {
     return dynamicRuntimesLibs;
+  }
+
+  public TransitiveInfoCollection getStaticRuntimeLib() {
+    return staticRuntimeLib;
+  }
+
+  public TransitiveInfoCollection getDynamicRuntimeLib() {
+    return dynamicRuntimeLib;
   }
 
   public boolean isSupportsHeaderParsing() {
