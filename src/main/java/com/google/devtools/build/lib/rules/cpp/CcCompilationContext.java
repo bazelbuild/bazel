@@ -138,12 +138,34 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   @Override
-  public SkylarkNestedSet getSkylarkDeclaredIncludeDirs() {
+  public SkylarkNestedSet getSkylarkSystemIncludeDirs() {
     return SkylarkNestedSet.of(
         String.class,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getSystemIncludeDirs().stream()
+                .map(PathFragment::getPathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
+  @Override
+  public SkylarkNestedSet getSkylarkIncludeDirs() {
+    return SkylarkNestedSet.of(
+        String.class,
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            getIncludeDirs().stream()
+                .map(PathFragment::getPathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
+  @Override
+  public SkylarkNestedSet getSkylarkQuoteIncludeDirs() {
+    return SkylarkNestedSet.of(
+        String.class,
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            getQuoteIncludeDirs().stream()
                 .map(PathFragment::getPathString)
                 .collect(ImmutableList.toImmutableList())));
   }
@@ -543,6 +565,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
+    /** See {@link #addIncludeDir(PathFragment)} */
+    public Builder addIncludeDirs(Iterable<PathFragment> includeDirs) {
+      Iterables.addAll(this.includeDirs, includeDirs);
+      return this;
+    }
+
     /**
      * Add a single include directory to be added with "-iquote". It can be
      * either relative to the exec root (see {@link
@@ -554,10 +582,16 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
+    /** See {@link #addQuoteIncludeDir(PathFragment)} */
+    public Builder addQuoteIncludeDirs(Iterable<PathFragment> quoteIncludeDirs) {
+      Iterables.addAll(this.quoteIncludeDirs, quoteIncludeDirs);
+      return this;
+    }
+
     /**
-     * Add a single include directory to be added with "-isystem". It can be either relative to the
-     * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot})
-     * or absolute. Before it is stored, the include directory is normalized.
+     * Add include directories to be added with "-isystem". It can be either relative to the exec
+     * root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or
+     * absolute. Before it is stored, the include directory is normalized.
      */
     public Builder addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
       Iterables.addAll(this.systemIncludeDirs, systemIncludeDirs);

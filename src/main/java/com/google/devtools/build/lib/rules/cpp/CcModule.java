@@ -617,8 +617,28 @@ public class CcModule
         @Param(
             name = "system_includes",
             doc =
-                "set of  search paths for headers file referenced by angle brackets, i.e. "
-                    + "<header>.They can be either relative to the exec root or absolute",
+                "set of search paths for header files referenced by angle brackets, i.e. "
+                    + "#include <foo/bar/header.h>. They can be either relative to the exec root "
+                    + "or absolute. Usually passed with -isystem",
+            positional = false,
+            named = true,
+            defaultValue = "depset([])",
+            type = SkylarkNestedSet.class),
+        @Param(
+            name = "includes",
+            doc =
+                "set of search paths for header files referenced both by angle bracket and quotes."
+                    + "Usually passed with -I",
+            positional = false,
+            named = true,
+            defaultValue = "depset([])",
+            type = SkylarkNestedSet.class),
+        @Param(
+            name = "quote_includes",
+            doc =
+                "set of search paths for header files referenced by quotes, i.e. "
+                    + "#include \"foo/bar/header.h\". They can be either relative to the exec "
+                    + "root or absolute. Usually passed with -iquote",
             positional = false,
             named = true,
             defaultValue = "depset([])",
@@ -635,6 +655,8 @@ public class CcModule
       SkylarkRuleContext skylarkRuleContext,
       SkylarkNestedSet headers,
       SkylarkNestedSet systemIncludes,
+      SkylarkNestedSet includes,
+      SkylarkNestedSet quoteIncludes,
       SkylarkNestedSet defines)
       throws EvalException, InterruptedException {
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
@@ -643,6 +665,14 @@ public class CcModule
     ccCompilationContext.addDeclaredIncludeSrcs(headers.getSet(Artifact.class));
     ccCompilationContext.addSystemIncludeDirs(
         systemIncludes.getSet(String.class).toList().stream()
+            .map(x -> PathFragment.create(x))
+            .collect(ImmutableList.toImmutableList()));
+    ccCompilationContext.addIncludeDirs(
+        includes.getSet(String.class).toList().stream()
+            .map(x -> PathFragment.create(x))
+            .collect(ImmutableList.toImmutableList()));
+    ccCompilationContext.addQuoteIncludeDirs(
+        quoteIncludes.getSet(String.class).toList().stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
     ccCompilationContext.addDefines(defines.getSet(String.class));

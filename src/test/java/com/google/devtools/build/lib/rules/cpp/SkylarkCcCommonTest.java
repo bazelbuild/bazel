@@ -982,6 +982,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "licenses(['notice'])",
         "cc_library(",
         "    name='lib',",
         "    hdrs = ['lib.h'],",
@@ -993,6 +994,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    srcs = ['dep1.cc'],",
         "    hdrs = ['dep1.h'],",
         "    includes = ['dep1/baz'],",
+        /*"    include_prefix = 'dep1/include_prefix',",*/
         "    defines = ['DEP1'],",
         ")",
         "cc_library(",
@@ -1000,6 +1002,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    srcs = ['dep2.cc'],",
         "    hdrs = ['dep2.h'],",
         "    includes = ['dep2/qux'],",
+        /*"    include_prefix = 'dep2/include_prefix',",*/
         "    defines = ['DEP2'],",
         ")",
         "crule(name='r')");
@@ -1010,7 +1013,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "  compilation_context = cc_common.create_compilation_context(",
         "    ctx=ctx,",
         "    headers=depset([ctx.file._header]),",
-        "    system_includes=depset([ctx.attr._include]), defines=depset([ctx.attr._define]))",
+        "    system_includes=depset([ctx.attr._system_include]),",
+        "    includes=depset([ctx.attr._include]),",
+        "    quote_includes=depset([ctx.attr._quote_include]),",
+        "    defines=depset([ctx.attr._define]))",
         "  cc_infos = [CcInfo(compilation_context=compilation_context)]",
         "  for dep in ctx.attr._deps:",
         "      cc_infos.append(dep[CcInfo])",
@@ -1019,13 +1025,18 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    providers=[merged_cc_info, cc_common.create_cc_skylark_info(ctx=ctx)],",
         "    merged_headers=merged_cc_info.compilation_context.headers,",
         "    merged_system_includes=merged_cc_info.compilation_context.system_includes,",
+        "    merged_includes=merged_cc_info.compilation_context.includes,",
+        "    merged_quote_includes=merged_cc_info.compilation_context.quote_includes,",
         "    merged_defines=merged_cc_info.compilation_context.defines",
         "  )",
         "crule = rule(",
         "  _impl,",
         "  attrs = { ",
-        "    '_header': attr.label(allow_single_file=True, default=Label('//a:header.h')),",
-        "    '_include': attr.string(default='foo/bar'),",
+        "    '_header': attr.label(allow_single_file=True,",
+        "        default=Label('//a:header.h')),",
+        "    '_system_include': attr.string(default='foo/bar'),",
+        "    '_include': attr.string(default='baz/qux'),",
+        "    '_quote_include': attr.string(default='quux/abc'),",
         "    '_define': attr.string(default='MYDEFINE'),",
         "    '_deps': attr.label_list(default=['//a:dep1', '//a:dep2'])",
         "  },",
@@ -1056,9 +1067,17 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         ((SkylarkNestedSet) r.get("merged_defines")).getSet(String.class).toList();
     assertThat(mergedDefines).containsAllOf("MYDEFINE", "DEP1", "DEP2");
 
-    List<String> mergedIncludes =
+    List<String> mergedSystemIncludes =
         ((SkylarkNestedSet) r.get("merged_system_includes")).getSet(String.class).toList();
-    assertThat(mergedIncludes).containsAllOf("foo/bar", "a/dep1/baz", "a/dep2/qux");
+    assertThat(mergedSystemIncludes).containsAllOf("foo/bar", "a/dep1/baz", "a/dep2/qux");
+
+    List<String> mergedIncludes =
+        ((SkylarkNestedSet) r.get("merged_includes")).getSet(String.class).toList();
+    assertThat(mergedIncludes).contains("baz/qux");
+
+    List<String> mergedQuoteIncludes =
+        ((SkylarkNestedSet) r.get("merged_quote_includes")).getSet(String.class).toList();
+    assertThat(mergedQuoteIncludes).contains("quux/abc");
   }
 
   @Test

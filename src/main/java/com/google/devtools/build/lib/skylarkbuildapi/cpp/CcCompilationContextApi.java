@@ -49,5 +49,19 @@ public interface CcCompilationContextApi {
       documented = false,
       allowReturnNones = true,
       structField = true)
-  SkylarkNestedSet getSkylarkDeclaredIncludeDirs();
+  SkylarkNestedSet getSkylarkSystemIncludeDirs();
+
+  @SkylarkCallable(
+      name = "includes",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  SkylarkNestedSet getSkylarkIncludeDirs();
+
+  @SkylarkCallable(
+      name = "quote_includes",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  SkylarkNestedSet getSkylarkQuoteIncludeDirs();
 }
