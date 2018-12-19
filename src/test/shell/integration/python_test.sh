@@ -183,4 +183,60 @@ EOF
   expect_log "I am Python 3"
 }
 
+# Helper function for test_select_on_python_version. Dependent on its setup.
+function do_test_select_on_python_version() {
+  flags="$1"
+  result="$2"
+  bazel run //test:main $flags \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am $result" "Expected version $result for flags \"$flags\""
+}
+
+function test_select_on_python_version() {
+  mkdir -p test
+
+  cat > test/BUILD << EOF
+sh_binary(name = "main",
+    srcs = select({
+        "$TOOLS_REPOSITORY//tools/python:PY2": ["py2.sh"],
+        "$TOOLS_REPOSITORY//tools/python:PY3": ["py3.sh"],
+    }),
+)
+EOF
+
+  cat > test/py2.sh << EOF
+#/bin/sh
+
+echo "I am PY2"
+EOF
+  sed s/PY2/PY3/ test/py2.sh > test/py3.sh
+  chmod u+x test/py2.sh test/py3.sh
+
+  DEFAULT_VERSION=PY2
+
+  EXPFLAG="--experimental_better_python_version_mixing=true"
+  NO_EXPFLAG="--experimental_better_python_version_mixing=false"
+
+  # --force_python and --python_version have three possible values (including
+  # not being set at all). The experimental flag has two possible values, but
+  # when it's disabled --python_version may not be set. So that's 12
+  # combinations to enumerate here.
+
+  do_test_select_on_python_version "$NO_EXPFLAG" "$DEFAULT_VERSION"
+  do_test_select_on_python_version "$NO_EXPFLAG --force_python=PY2" "PY2"
+  do_test_select_on_python_version "$NO_EXPFLAG --force_python=PY3" "PY3"
+
+  do_test_select_on_python_version "$EXPFLAG" "$DEFAULT_VERSION"
+  do_test_select_on_python_version "$EXPFLAG --force_python=PY2" "PY2"
+  do_test_select_on_python_version "$EXPFLAG --force_python=PY3" "PY3"
+
+  do_test_select_on_python_version "$EXPFLAG --python_version=PY2" "PY2"
+  do_test_select_on_python_version "$EXPFLAG --force_python=PY2 --python_version=PY2" "PY2"
+  do_test_select_on_python_version "$EXPFLAG --force_python=PY3 --python_version=PY2" "PY2"
+
+  do_test_select_on_python_version "$EXPFLAG --python_version=PY3" "PY3"
+  do_test_select_on_python_version "$EXPFLAG --force_python=PY2 --python_version=PY3" "PY3"
+  do_test_select_on_python_version "$EXPFLAG --force_python=PY3 --python_version=PY3" "PY3"
+}
+
 run_suite "Tests for the Python rules"
