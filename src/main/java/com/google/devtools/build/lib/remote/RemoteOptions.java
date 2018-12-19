@@ -237,7 +237,7 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_remote_symlinks",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
