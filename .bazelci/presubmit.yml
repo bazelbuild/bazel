@@ -7,6 +7,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -29,6 +30,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -51,6 +53,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -71,6 +74,7 @@ platforms:
     - "--javabase=@openjdk_linux_archive//:runtime"
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--javabase=@openjdk_linux_archive//:runtime"
     - "--test_timeout=1200"
@@ -131,6 +135,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -153,6 +158,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -177,6 +183,7 @@ platforms:
     - "--apple_platform_type=macos"
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -212,6 +219,7 @@ platforms:
     - "--host_copt=-w"
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
     test_flags:
     - "--copt=-w"
     - "--host_copt=-w"
@@ -227,3 +235,4 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
