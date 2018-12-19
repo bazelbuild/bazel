@@ -78,7 +78,7 @@ java_import(
         "android_common/com.android.tools.build_builder_2.0.0.jar",
         "android_common/com.android.tools.build_builder-model_2.0.0.jar",
         "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
-        "android_common/com.android.tools.build_manifest-merger_25.0.0.jar",
+        "android_common/com.android.tools.build_manifest-merger_25.0.0-patched.jar",
         "android_common/com.android.tools.external.lombok_lombok-ast_0.2.3.jar",
         # layoutlib has been upgraded to 26.1.2 *just* for font resource support.
         # We are unable to upgrade the other libraries yet due to internal
@@ -292,13 +292,19 @@ java_library(
 
 java_import(
     name = "auto_value_value",
-    jars = ["auto/auto-value-1.6.3rc1.jar", "auto/auto-value-annotations-1.6.3rc1.jar"],
+    jars = [
+        "auto/auto-value-1.6.3rc1.jar",
+        "auto/auto-value-annotations-1.6.3rc1.jar",
+    ],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "auto_value-jars",
-    srcs = ["auto/auto-value-1.6.3rc1.jar", "auto/auto-value-annotations-1.6.3rc1.jar"],
+    srcs = [
+        "auto/auto-value-1.6.3rc1.jar",
+        "auto/auto-value-annotations-1.6.3rc1.jar",
+    ],
 )
 
 java_import(
