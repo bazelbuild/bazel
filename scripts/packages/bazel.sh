@@ -61,7 +61,8 @@ function get_realpath() {
     fi
 }
 
-export BAZEL_REAL="$(dirname "$(get_realpath "${BASH_SOURCE[0]}")")/bazel-real"
+BAZEL_REAL="$(dirname "$(get_realpath "${BASH_SOURCE[0]}")")/bazel-real"
+export BAZEL_REAL
 
 WORKSPACE_DIR="${PWD}"
 while [[ "${WORKSPACE_DIR}" != / ]]; do
