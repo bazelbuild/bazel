@@ -765,6 +765,12 @@ public class CcModule
     throw new EvalException(location, "Must pass libraries_to_link, user_link_flags or both.");
   }
 
+  // TODO(b/65151735): Remove when cc_flags is entirely from features.
+  @Override
+  public String legacyCcFlagsMakeVariable(CcToolchainProvider ccToolchain) {
+    return ccToolchain.getLegacyCcFlagsMakeVariable();
+  }
+
   protected static CompilationInfo compile(
       CppSemantics cppSemantics,
       SkylarkRuleContext skylarkRuleContext,

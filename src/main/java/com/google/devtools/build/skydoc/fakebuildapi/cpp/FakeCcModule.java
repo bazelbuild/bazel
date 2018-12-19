@@ -166,6 +166,11 @@ public class FakeCcModule
   }
 
   @Override
+  public String legacyCcFlagsMakeVariable(CcToolchainProviderApi ccToolchain) {
+    return "";
+  }
+
+  @Override
   public CompilationInfoApi compile(
       SkylarkRuleContext skylarkRuleContext,
       FeatureConfigurationApi skylarkFeatureConfiguration,

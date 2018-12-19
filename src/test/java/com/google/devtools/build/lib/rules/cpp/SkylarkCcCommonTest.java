@@ -4770,4 +4770,46 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     // that has dynamic linking mode.
     assertThat(ccToolchainConfigInfo.hasDynamicLinkingModeFlags()).isTrue();
   }
+
+  @Test
+  public void testGetLegacyCcFlagsMakeVariable() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            "make_variable {",
+            "  name: 'CC_FLAGS'",
+            "  value: '-test-cflag1 -testcflag2'",
+            "}");
+    useConfiguration("--incompatible_disable_genrule_cc_toolchain_dependency");
+
+    loadCcToolchainConfigLib();
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  cc_flags = cc_common.legacy_cc_flags_make_variable_do_not_use(",
+        "      cc_toolchain = toolchain)",
+        "  return struct(",
+        "    cc_flags = cc_flags)",
+        "cc_flags = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'cc_flags')",
+        "cc_toolchain_alias(name='alias')",
+        "cc_flags(name='r')");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked")
+    String ccFlags = (String) r.get("cc_flags");
+
+    assertThat(ccFlags).isEqualTo("-test-cflag1 -testcflag2");
+  }
 }

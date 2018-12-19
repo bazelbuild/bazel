@@ -89,6 +89,8 @@ public final class CppToolchainInfo {
   private final String targetSystemName;
 
   private final ImmutableMap<String, String> additionalMakeVariables;
+  // TODO(b/65151735): Remove when cc_flags is entirely from features.
+  private final String legacyCcFlagsMakeVariable;
 
   private final ImmutableList<String> crosstoolCompilerFlags;
   private final ImmutableList<String> crosstoolCxxFlags;
@@ -228,6 +230,7 @@ public final class CppToolchainInfo {
           ccToolchainConfigInfo.getTargetSystemName(),
           computeAdditionalMakeVariables(
               ccToolchainConfigInfo, disableGenruleCcToolchainDependency),
+          computeLegacyCcFlagsMakeVariable(ccToolchainConfigInfo),
           disableLegacyCrosstoolFields
               ? ImmutableList.of()
               : ccToolchainConfigInfo.getCompilerFlags(),
@@ -279,6 +282,7 @@ public final class CppToolchainInfo {
       String abi,
       String targetSystemName,
       ImmutableMap<String, String> additionalMakeVariables,
+      String legacyCcFlagsMakeVariable,
       ImmutableList<String> crosstoolCompilerFlags,
       ImmutableList<String> crosstoolCxxFlags,
       ImmutableListMultimap<CompilationMode, String> cFlagsByCompilationMode,
@@ -319,6 +323,7 @@ public final class CppToolchainInfo {
     this.abi = abi;
     this.targetSystemName = targetSystemName;
     this.additionalMakeVariables = additionalMakeVariables;
+    this.legacyCcFlagsMakeVariable = legacyCcFlagsMakeVariable;
     this.crosstoolCompilerFlags = crosstoolCompilerFlags;
     this.crosstoolCxxFlags = crosstoolCxxFlags;
     this.cFlagsByCompilationMode = cFlagsByCompilationMode;
@@ -676,6 +681,17 @@ public final class CppToolchainInfo {
     return additionalMakeVariables;
   }
 
+  /**
+   * Returns the legacy value of the CC_FLAGS Make variable.
+   *
+   * @deprecated Use the CC_FLAGS from feature configuration instead.
+   */
+  // TODO(b/65151735): Remove when cc_flags is entirely from features.
+  @Deprecated
+  public String getLegacyCcFlagsMakeVariable() {
+    return legacyCcFlagsMakeVariable;
+  }
+
   public final boolean isLLVMCompiler() {
     // TODO(tmsriram): Checking for "llvm" does not handle all the cases.  This
     // is temporary until the crosstool configuration is modified to add fields that
@@ -761,6 +777,21 @@ public final class CppToolchainInfo {
     }
 
     return ImmutableMap.copyOf(makeVariablesBuilder);
+  }
+
+  // TODO(b/65151735): Remove when cc_flags is entirely from features.
+  private static String computeLegacyCcFlagsMakeVariable(
+      CcToolchainConfigInfo ccToolchainConfigInfo) {
+    String legacyCcFlags = "";
+    // Needs to ensure the last value with the name is used, to match the previous logic in
+    // computeAdditionalMakeVariables.
+    for (Pair<String, String> variable : ccToolchainConfigInfo.getMakeVariables()) {
+      if (variable.getFirst().equals(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME)) {
+        legacyCcFlags = variable.getSecond();
+      }
+    }
+
+    return legacyCcFlags;
   }
 
   private static ImmutableMap<String, PathFragment> computeToolPaths(

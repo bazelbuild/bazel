@@ -753,4 +753,19 @@ public interface CcModuleApi<
       })
   CcSkylarkInfoT createCcSkylarkInfo(Object skylarkRuleContextObject)
       throws EvalException, InterruptedException;
+
+  // TODO(b/65151735): Remove when cc_flags is entirely set from features.
+  // This should only be called from the cc_flags_supplier rule.
+  @SkylarkCallable(
+      name = "legacy_cc_flags_make_variable_do_not_use",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "cc_toolchain",
+            doc = "C++ toolchain provider to be used.",
+            positional = false,
+            named = true,
+            type = CcToolchainProviderApi.class)
+      })
+  String legacyCcFlagsMakeVariable(CcToolchainProviderT ccToolchain);
 }

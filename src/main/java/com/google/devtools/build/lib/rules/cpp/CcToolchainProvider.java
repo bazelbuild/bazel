@@ -717,6 +717,17 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.getAdditionalMakeVariables();
   }
 
+  /**
+   * Returns the legacy value of the CC_FLAGS Make variable.
+   *
+   * @deprecated Use the CC_FLAGS from feature configuration instead.
+   */
+  // TODO(b/65151735): Remove when cc_flags is entirely from features.
+  @Deprecated
+  public String getLegacyCcFlagsMakeVariable() {
+    return toolchainInfo.getLegacyCcFlagsMakeVariable();
+  }
+
   public FdoProvider getFdoProvider() {
     return fdoProvider;
   }
