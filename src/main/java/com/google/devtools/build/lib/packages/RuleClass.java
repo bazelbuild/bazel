@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
@@ -616,6 +617,9 @@ public class RuleClass {
      */
     public static final String SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME = "build_setting_default";
 
+    public static final String BUILD_SETTING_DEFAULT_NONCONFIGURABLE =
+        "Build setting defaults are referenced during analysis.";
+
     /** List of required attributes for normal rules, name and type. */
     public static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_NORMAL_RULES =
         ImmutableList.of(attr("tags", Type.STRING_LIST).build());
@@ -784,10 +788,11 @@ public class RuleClass {
         Type<?> type = buildSetting.getType();
         Attribute.Builder<?> attrBuilder =
             attr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, type)
-                .nonconfigurable("Build setting defaults are referenced during analysis.")
+                .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE)
                 .mandatory();
         if (BuildType.isLabelType(type)) {
           attrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
+          attrBuilder.allowedRuleClasses(ANY_RULE);
         }
         this.add(attrBuilder);
       }

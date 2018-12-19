@@ -223,5 +223,59 @@ EOF
   expect_log "type=cowabunga"
 }
 
+# Test that label-typed build setting has access to providers of the target it points to.
+function test_label_flag() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "my_rule", "simple_rule")
+
+my_rule(name = "my_rule")
+
+simple_rule(name = "default", value = "default_val")
+
+simple_rule(name = "command_line", value = "command_line_val")
+
+label_flag(
+    name = "my_label_build_setting",
+    build_setting_default = ":default"
+)
+EOF
+
+  cat > $pkg/rules.bzl <<EOF
+def _impl(ctx):
+    _setting = ctx.attr._label_flag[SimpleRuleInfo].value
+    print("value=" + _setting)
+
+my_rule = rule(
+    implementation = _impl,
+    attrs = {
+        "_label_flag": attr.label(default = Label("//$pkg:my_label_build_setting")),
+    },
+)
+
+SimpleRuleInfo = provider(fields = ['value'])
+
+def _simple_rule_impl(ctx):
+    return [SimpleRuleInfo(value = ctx.attr.value)]
+
+simple_rule = rule(
+    implementation = _simple_rule_impl,
+    attrs = {
+        "value":attr.string(),
+    },
+)
+EOF
+
+  bazel build //$pkg:my_rule > output 2>"$TEST_log" || fail "Expected success"
+
+  expect_log "value=default_val"
+
+  bazel build //$pkg:my_rule --//$pkg:my_label_build_setting=//$pkg:command_line > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  expect_log "value=command_line_val"
+}
 
 run_suite "${PRODUCT_NAME} starlark configurations tests"
