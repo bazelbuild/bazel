@@ -338,7 +338,10 @@ genrule(
     name = "bazel-bin",
     srcs = [":bazel-bin_jdk_allmodules"],
     outs = ["bazel"],
-    cmd = "cp $(location :bazel-bin_jdk_allmodules) $@",
+    # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
+    # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
+    # need to remove bazel.exe first, so that cat to bazel won't fail.
+    cmd = "rm -f $@; cp $(location :bazel-bin_jdk_allmodules) $@",
     executable = 1,
     output_to_bindir = 1,
     visibility = [
