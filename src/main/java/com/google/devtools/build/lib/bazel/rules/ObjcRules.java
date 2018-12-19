@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.objc.J2ObjcCommandLineOptions;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcBuildInfoFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcBundleLibraryRule;
-import com.google.devtools.build.lib.rules.objc.ObjcBundleRule;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.ObjcFrameworkRule;
@@ -81,7 +80,6 @@ public class ObjcRules implements RuleSet {
 
     builder.addRuleDefinition(new AppleCcToolchainRule());
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
-    builder.addRuleDefinition(new ObjcBundleRule());
     builder.addRuleDefinition(new ObjcBundleLibraryRule());
     builder.addRuleDefinition(new ObjcFrameworkRule());
     builder.addRuleDefinition(new ObjcImportRule());

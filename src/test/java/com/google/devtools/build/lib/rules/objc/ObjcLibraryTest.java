@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLU
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
@@ -1125,24 +1124,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    srcs = ['a.m'],",
         "    includes = ['/absolute/path'],",
         ")");
-  }
-
-  @Test
-  public void testExportsBundleDependencies() throws Exception {
-    scratch.file("bundle/bar/x.bundle/1");
-    scratch.file(
-        "bundle/BUILD",
-        "objc_bundle(",
-        "    name = 'bundle',",
-        "    bundle_imports = glob(['bar/**']),",
-        ")");
-    createLibraryTargetWriter("//lib:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setList("bundles", "//bundle:bundle")
-        .write();
-    ObjcProvider provider = providerForTarget("//lib:lib");
-    assertThat(provider.get(BUNDLE_FILE))
-        .contains(new BundleableFile(getSourceArtifact("bundle/bar/x.bundle/1"), "x.bundle/1"));
   }
 
   @Test

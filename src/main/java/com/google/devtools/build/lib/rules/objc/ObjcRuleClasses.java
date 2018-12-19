@@ -459,7 +459,6 @@ public class ObjcRuleClasses {
                   .allowedRuleClasses(
                       "apple_bundle_import",
                       "apple_resource_bundle",
-                      "objc_bundle",
                       "objc_bundle_library")
                   .allowedFileTypes())
           .build();
