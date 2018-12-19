@@ -110,13 +110,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
-            .advertiseProvider(
-                ImmutableList.of(
-                    JavaSkylarkApiProvider.SKYLARK_NAME,
-                    // This is legacy from when we had a "java" provider on the base proto_library,
-                    // forcing us to use a different name ("proto_java") for the aspect's provider.
-                    // For backwards compatibility we retain proto_java as well.
-                    JavaSkylarkApiProvider.PROTO_NAME))
+            .advertiseProvider(ImmutableList.of(JavaSkylarkApiProvider.SKYLARK_NAME))
             .add(
                 attr(JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, LABEL)
                     .mandatoryNativeProviders(
@@ -238,11 +232,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       JavaSkylarkApiProvider skylarkApiProvider = JavaSkylarkApiProvider.fromRuleContext();
       aspect
           .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider)
-          // This is legacy from when we had a "java" provider on the base proto_library,
-          // forcing us to use a different name ("proto_java") for the aspect's provider.
-          // For backwards compatibility we retain proto_java as well.
-          .addSkylarkTransitiveInfo(
-              JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(), skylarkApiProvider)
           .addProvider(
               new JavaProtoLibraryAspectProvider(
                   transitiveOutputJars.build(),

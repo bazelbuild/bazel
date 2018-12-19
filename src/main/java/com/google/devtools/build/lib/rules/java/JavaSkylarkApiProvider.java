@@ -40,12 +40,6 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider
   public static final SkylarkProviderIdentifier SKYLARK_NAME =
       SkylarkProviderIdentifier.forLegacy(NAME);
 
-  // This is legacy from when we had a "java" provider on the base proto_library,
-  // forcing us to use a different name ("proto_java") for the aspect's provider.
-  // For backwards compatibility we retain proto_java as well.
-  public static final SkylarkProviderIdentifier PROTO_NAME =
-      SkylarkProviderIdentifier.forLegacy("proto_java");
-
   @Nullable private final TransitiveInfoProviderMap transitiveInfoProviderMap;
 
   /**
