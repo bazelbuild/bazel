@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildeventservice.client;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -47,9 +48,16 @@ public abstract class BuildEventServiceGrpcClient implements BuildEventServiceCl
   private volatile SettableFuture<Status> streamStatus;
 
   public BuildEventServiceGrpcClient(Channel channel, @Nullable CallCredentials callCredentials) {
-    this.besAsync = withCallCredentials(PublishBuildEventGrpc.newStub(channel), callCredentials);
-    this.besBlocking =
-        withCallCredentials(PublishBuildEventGrpc.newBlockingStub(channel), callCredentials);
+    this(
+        withCallCredentials(PublishBuildEventGrpc.newStub(channel), callCredentials),
+        withCallCredentials(PublishBuildEventGrpc.newBlockingStub(channel), callCredentials));
+  }
+
+  @VisibleForTesting
+  protected BuildEventServiceGrpcClient(
+      PublishBuildEventStub besAsync, PublishBuildEventBlockingStub besBlocking) {
+    this.besAsync = besAsync;
+    this.besBlocking = besBlocking;
   }
 
   private static <T extends AbstractStub<T>> T withCallCredentials(
@@ -77,6 +85,7 @@ public abstract class BuildEventServiceGrpcClient implements BuildEventServiceCl
     Preconditions.checkState(
         stream == null, "Starting a new stream without closing the previous one");
     streamStatus = SettableFuture.create();
+    ListenableFuture<Status> streamStatus0 = streamStatus;
     try {
       stream =
           besAsync.publishBuildToolEventStream(
@@ -114,7 +123,7 @@ public abstract class BuildEventServiceGrpcClient implements BuildEventServiceCl
       Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
       setStreamStatus(Status.fromThrowable(e));
     }
-    return streamStatus;
+    return streamStatus0;
   }
 
   @Override
