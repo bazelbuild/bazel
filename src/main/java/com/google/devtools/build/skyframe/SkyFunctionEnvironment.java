@@ -354,28 +354,37 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    *   <li>{@link #evaluatorContext}'s graph accessing methods
    * </ol>
    *
+   * <p>All {@code keys} not previously requested will be added to a new group in {@link
+   * #newlyRequestedDeps}. The new group will mirror the order of {@code keys}, minus duplicates.
+   *
    * <p>Any key whose {@link NodeEntry}--or absence thereof--had to be read from the graph will also
    * be entered into {@link #newlyRequestedDepsValues} with its value or a {@link #NULL_MARKER}.
    */
   private Map<SkyKey, SkyValue> getValuesFromErrorOrDepsOrGraph(Iterable<? extends SkyKey> keys)
       throws InterruptedException {
     // Uses a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
-    // and ImmutableMap.Builder does not tolerate duplicates.  The map will be thrown away
-    // shortly in any case.
+    // and ImmutableMap.Builder does not tolerate duplicates.
     Map<SkyKey, SkyValue> result = new HashMap<>();
-    ArrayList<SkyKey> missingKeys = new ArrayList<>();
+    Set<SkyKey> missingKeys = new HashSet<>();
+    newlyRequestedDeps.startGroup();
     for (SkyKey key : keys) {
       Preconditions.checkState(
           !key.equals(ErrorTransienceValue.KEY),
           "Error transience key cannot be in requested deps of %s",
           skyKey);
       SkyValue value = maybeGetValueFromErrorOrDeps(key);
+      boolean duplicate;
       if (value == null) {
-        missingKeys.add(key);
+        duplicate = !missingKeys.add(key);
       } else {
-        result.put(key, value);
+        duplicate = result.put(key, value) != null;
+      }
+      if (!duplicate && !previouslyRequestedDepsValues.containsKey(key)) {
+        newlyRequestedDeps.add(key);
       }
     }
+    newlyRequestedDeps.endGroup();
+
     if (missingKeys.isEmpty()) {
       return result;
     }
@@ -507,7 +516,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
       Iterable<? extends SkyKey> depKeys) throws InterruptedException {
     checkActive();
-    newlyRequestedDeps.startGroup();
     Map<SkyKey, SkyValue> values = getValuesFromErrorOrDepsOrGraph(depKeys);
     for (Map.Entry<SkyKey, SkyValue> depEntry : values.entrySet()) {
       SkyKey depKey = depEntry.getKey();
@@ -523,8 +531,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
               skyKey,
               evaluatorContext.getGraph().get(skyKey, Reason.OTHER, depKey),
               evaluatorContext.getGraph().get(null, Reason.OTHER, skyKey));
-        } else {
-          newlyRequestedDeps.add(depKey);
         }
         continue;
       }
@@ -549,12 +555,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           }
         }
       }
-
-      if (!previouslyRequestedDepsValues.containsKey(depKey)) {
-        newlyRequestedDeps.add(depKey);
-      }
     }
-    newlyRequestedDeps.endGroup();
 
     return Maps.transformValues(
         values,
