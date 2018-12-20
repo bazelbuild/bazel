@@ -66,6 +66,8 @@ output_paths = [
      lambda x: 'tools/objc/' + os.path.basename(x) + '.sh'),
     ('*external/openjdk_*/file/*.tar.gz', lambda x: 'jdk.tar.gz'),
     ('*external/openjdk_*/file/*.zip', lambda x: 'jdk.zip'),
+    ('*src/minimal_jdk.tar.gz', lambda x: 'jdk.tar.gz'),
+    ('*src/minimal_jdk.zip', lambda x: 'jdk.zip'),
     ('*', lambda x: re.sub(r'^.*bazel-out/[^/]*/bin/', '', x, count=1)),
 ]
 

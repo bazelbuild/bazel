@@ -246,17 +246,32 @@ sh_binary(
     srcs = ["minimize_jdk.sh"],
 )
 
-genrule(
+filegroup(
     name = "embedded_jdk_minimal",
+    srcs = select({
+        "//src/conditions:windows": [
+            ":embedded_jdk_minimal.zip",
+        ],
+        "//conditions:default": [
+            ":embedded_jdk_minimal.tar.gz",
+        ],
+    }),
+)
+
+[genrule(
+    name = "embedded_jdk_minimal" + suffix,
     srcs = [
         ":embedded_jdk_vanilla",
         ":minimize_jdk.sh",
         ":jdeps_modules.golden",
     ],
-    outs = ["minimal_jdk"],
+    outs = ["minimal_jdk" + suffix],
     cmd = "$(location :minimize_jdk.sh) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
     visibility = ["//src/test/shell/bazel:__pkg__"],
-)
+) for suffix in [
+    ".zip",
+    ".tar.gz",
+]]
 
 [srcsfile(
     name = "embedded_tools" + suffix + "_params",
