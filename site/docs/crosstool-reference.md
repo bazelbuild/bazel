@@ -156,9 +156,9 @@ support and expansion. These are:
    </td>
   </tr>
   <tr>
-   <td><pre>requires: {
-    feature: 'feature-name-1',
-    feature: 'feature-name-2',
+   <td><pre>requires {
+    feature: 'feature-name-1'
+    feature: 'feature-name-2'
 }</pre>
    </td>
    <td>Feature-level. The feature is supported only if the specified required
@@ -192,9 +192,9 @@ support and expansion. These are:
    </td>
   </tr>
   <tr>
-   <td><pre>with_feature: {
-    feature: 'feature-name-1',
-    not_feature: 'feature-name-2',
+   <td><pre>with_feature {
+    feature: 'feature-name-1'
+    not_feature: 'feature-name-2'
 }</pre>
    </td>
    <td>Flag set-level. A feature can specify multiple flag sets with multiple
@@ -1000,7 +1000,7 @@ conditions.
    <td><strong><code>per_object_debug_info</code></strong>
    </td>
     <td>Enabled if the <code>supports_fission</code> attribute is set in the
-        `CROSSTOOL` file and the current compilation mode is specified in the
+        <code>CROSSTOOL</code> file and the current compilation mode is specified in the
         <code>--fission</code> flag.
    </td>
   </tr>
