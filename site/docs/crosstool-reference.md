@@ -168,26 +168,24 @@ support and expansion. These are:
   <tr>
    <td><code>implies: 'feature'</code>
    </td>
-   <td>Feature-level. This feature implies the specified feature. For example, a
+   <td><p>Feature-level. This feature implies the specified feature. For example, a
        module compile implies the need for module maps, which can be implemented
        by a repeated <code>implies</code> string in the feature where each of
        the strings names a specific feature. Enabling a feature also implicitly
-       enables all features implied by it (that is, it functions recursively).
-     <p>
-      Also provides the ability to factor common subsets of functionality out of
-      a set of features, such as the common parts of sanitizers. Implied
-      features cannot be disabled.
+       enables all features implied by it (that is, it functions recursively).</p>
+       <p>Also provides the ability to factor common subsets of functionality out of
+       a set of features, such as the common parts of sanitizers. Implied
+       features cannot be disabled.</p>
    </td>
   </tr>
   <tr>
    <td><code>provides: 'feature'</code>
    </td>
-   <td>Feature-level. Indicates that this feature is one of several mutually
+   <td><p>Feature-level. Indicates that this feature is one of several mutually
        exclusive alternate features. For example, all of the sanitizers could
-       specify <code>provides: "sanitizer"</code>.
-       <p>
-       This improves error handling by listing the alternatives if the user asks
-       for two or more mutually exclusive features at once.
+       specify <code>provides: "sanitizer"</code>.</p>
+       <p>This improves error handling by listing the alternatives if the user asks
+       for two or more mutually exclusive features at once.</p>
    </td>
   </tr>
   <tr>
@@ -478,69 +476,68 @@ files consumable by Xcode.
 With Bazel, this process can instead be implemented as follows, with
 `unbundle-debuginfo` being a Bazel action:
 
-```
-toolchain {
-    action_config {
-        config_name: "c++-link-executable"
-        action_name: "c++-link-executable"
-        tool {
-          with_feature { feature: "generate-debug-symbols" }
-          tool_path: "toolchain/mac/ld-with-dsym-packaging"
+
+    toolchain {
+        action_config {
+            config_name: "c++-link-executable"
+            action_name: "c++-link-executable"
+            tool {
+              with_feature { feature: "generate-debug-symbols" }
+              tool_path: "toolchain/mac/ld-with-dsym-packaging"
+            }
+            tool {
+              tool_path: "toolchain/mac/ld"
+            }
         }
-        tool {
-          tool_path: "toolchain/mac/ld"
+
+        feature {
+            name: "generate-debug-symbols"
+            flag_set {
+                action: "c-compile"
+                action: "c++-compile"
+                flag_group {
+                    flag: "-g"
+                }
+            }
+            implies: "unbundle-debuginfo"
         }
     }
 
-    feature {
-        name: "generate-debug-symbols"
-        flag_set {
-            action: "c-compile"
-            action: "c++-compile"
-            flag_group {
-                flag: "-g"
-            }
-        }
-        implies: { feature: "unbundle-debuginfo" }
-    }
-}
-```
 
 This same feature can be implemented entirely differently for Linux, which uses
 `fission`, or for Windows, which produces `.pdb` files.  For example, the
 implementation for `fission`-based debug symbol generation might look as
 follows:
 
-```
-toolchain {
-    action_config {
-        name: "c++-compile"
 
-    tool {
-          tool_path: "toolchain/bin/gcc"
+    toolchain {
+        action_config {
+            name: "c++-compile"
+            tool {
+                tool_path: "toolchain/bin/gcc"
+            }
+        }
+
+        feature {
+            name: "generate-debug-symbols"
+            requires { feature: "dbg" }
+            flag_set {
+                action: "c++-compile"
+                flag_group {
+                    flag: "-gsplit-dwarf"
+                }
+            }
+            flag_set {
+                action: "c++-link-executable"
+                flag_group {
+                    flag: "-Wl"
+                    flag: "--gdb-index"
+                }
+            }
+          }
         }
     }
 
-    feature {
-        name: "generate-debug-symbols"
-        requires { feature: "dbg" }
-        flag_set {
-          action: "c++-compile"
-          flag_group {
-              flag: "-gsplit-dwarf"
-          }
-        }
-        flag_set {
-          action: "c++-link-executable"
-          flag_group {
-              flag: "-Wl"
-              flag: "--gdb-index"
-          }
-        }
-      }
-    }
-}
-```
 
 ### Flag groups
 
@@ -549,11 +546,10 @@ You can specify a flag within the `CROSSTOOL` file using pre-defined variables
 within the flag value, which the compiler expands when adding the flag to the
 build command. For example:
 
-```
-  flag_group {
-    flag: "%{output_file_path}
-  }
-```
+    flag_group {
+        flag: "%{output_file_path}"
+    }
+
 
 In this case, the contents of the flag will be replaced by the output file path
 of the action.
@@ -565,65 +561,54 @@ For flags that need to repeat with different values when added to the build
 command, the flag group can iterate variables of type `list`. For example, the
 variable `include_path` of type `list`:
 
-```
-   flag_group {
-    iterate_over: "include_paths"
-    flag: "-I%{include_paths}"
-  }
-```
+    flag_group {
+        iterate_over: "include_paths"
+        flag: "-I%{include_paths}"
+    }
 
 expands to `-I<path>` for each path element in the `include_paths` list. All
 flags (or `flag_group`s) in the body of a flag group declaration are expanded as
 a unit. For example:
 
-```
-   flag_group {
-    iterate_over: "include_paths"
-    flag: "-I"
-    flag: "%{include_paths}"
-  }
-```
+    flag_group {
+        iterate_over: "include_paths"
+        flag: "-I"
+        flag: "%{include_paths}"
+    }
 
 expands to `-I <path>` for each path element in the `include_paths` list.
 
 A variable can repeat multiple times. For example:
 
-```
-   flag_group {
-    iterate_over: "include_paths"
-    flag: "-iprefix=%{include_paths}"
-    flag: "-isystem=%{include_paths}"
-  }
-```
+    flag_group {
+        iterate_over: "include_paths"
+        flag: "-iprefix=%{include_paths}"
+        flag: "-isystem=%{include_paths}"
+    }
 
 expands to:
 
-```
-  -iprefix=<inc0> -isystem=<inc0> -iprefix=<inc1> -isystem=<inc1>
-```
+    -iprefix=<inc0> -isystem=<inc0> -iprefix=<inc1> -isystem=<inc1>
 
 Variables can correspond to structures accessible using dot-notation. For
 example:
 
-```
-   flag_group {
-    flag: "-l%{libraries_to_link.name}"
-  }
-```
+    flag_group {
+        flag: "-l%{libraries_to_link.name}"
+    }
 
 Structures can be nested and may also contain sequences. To prevent name clashes
 and to be explicit, you must specify the full path through the fields. For
 example:
 
-```
-   flag_group {
-    iterate_over: "libraries_to_link"
     flag_group {
-      iterate_over: "libraries_to_link.shared_libraries"
-      flag: "-l%{libraries_to_link.shared_libraries.name}"
+        iterate_over: "libraries_to_link"
+        flag_group {
+            iterate_over: "libraries_to_link.shared_libraries"
+            flag: "-l%{libraries_to_link.shared_libraries.name}"
+        }
     }
-  }
-```
+
 
 ### Conditional expansion
 
@@ -631,25 +616,24 @@ Flag groups support conditional expansion based on the presence of a particular
 variable or its field using the `expand_if_all_available`, `expand_if_none_available`,
 `expand_if_true`, `expand_if_false`, or `expand_if_equal` messages. For example:
 
-```
-   flag_group {
-    iterate_over: "libraries_to_link"
+
     flag_group {
-      iterate_over: "libraries_to_link.shared_libraries"
-      flag_group {
-        expand_if_all_available: "libraries_to_link.shared_libraries.is_whole_archive"
-        flag: "--whole_archive"
-      }
-      flag_group {
-        flag: "-l%{libraries_to_link.shared_libraries.name}"
-      }
-      flag_group {
-        expand_if_all_available: "libraries_to_link.shared_libraries.is_whole_archive"
-        flag: "--no_whole_archive"
-      }
+        iterate_over: "libraries_to_link"
+        flag_group {
+            iterate_over: "libraries_to_link.shared_libraries"
+            flag_group {
+                expand_if_all_available: "libraries_to_link.shared_libraries.is_whole_archive"
+                flag: "--whole_archive"
+            }
+            flag_group {
+                flag: "-l%{libraries_to_link.shared_libraries.name}"
+            }
+            flag_group {
+                expand_if_all_available: "libraries_to_link.shared_libraries.is_whole_archive"
+                flag: "--no_whole_archive"
+            }
+        }
     }
-  }
-```
 
 **Note:** The `--whole_archive` and `--no_whole_archive` options are added to
 the build command only when a currently iterated library has an
