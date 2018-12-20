@@ -74,7 +74,7 @@ command line. Specficially, `deps` becomes:
     <td><code>[":arm_lib"]</code></td>
   </tr>
   <tr>
-    <td><code>bazel build //myapp:mybinary --c dbg --cpu=x86</code></td>
+    <td><code>bazel build //myapp:mybinary -c dbg --cpu=x86</code></td>
     <td><code>[":x86_dev_lib"]</code></td>
   </tr>
   <tr>
