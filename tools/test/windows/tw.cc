@@ -141,7 +141,7 @@ struct Duration {
   bool FromString(const wchar_t* str);
 };
 
-void WriteConsole(const std::string& s) {
+void WriteStdout(const std::string& s) {
   DWORD written;
   WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), s.c_str(), s.size(), &written,
             NULL);
@@ -150,18 +150,18 @@ void WriteConsole(const std::string& s) {
 void LogError(const int line) {
   std::stringstream ss;
   ss << "ERROR(" << __FILE__ << ":" << line << ")" << std::endl;
-  WriteConsole(ss.str());
+  WriteStdout(ss.str());
 }
 
 void LogError(const int line, const std::string& msg) {
   std::stringstream ss;
   ss << "ERROR(" << __FILE__ << ":" << line << ") " << msg << std::endl;
-  WriteConsole(ss.str());
+  WriteStdout(ss.str());
 }
 
 void LogError(const int line, const std::wstring& msg) {
   std::string acp_msg;
-  if (!blaze_util::WcsToAcp(msg, &acp_msg)) {
+  if (blaze_util::WcsToAcp(msg, &acp_msg)) {
     LogError(line, acp_msg);
   }
 }
@@ -178,7 +178,7 @@ void LogErrorWithValue(const int line, const std::string& msg, DWORD value) {
 
 void LogErrorWithValue(const int line, const std::wstring& msg, DWORD value) {
   std::string acp_msg;
-  if (!blaze_util::WcsToAcp(msg, &acp_msg)) {
+  if (blaze_util::WcsToAcp(msg, &acp_msg)) {
     LogErrorWithValue(line, acp_msg, value);
   }
 }
@@ -197,7 +197,7 @@ void LogErrorWithArgAndValue(const int line, const std::string& msg,
 void LogErrorWithArgAndValue(const int line, const std::string& msg,
                              const std::wstring& arg, DWORD value) {
   std::string acp_arg;
-  if (!blaze_util::WcsToAcp(arg, &acp_arg)) {
+  if (blaze_util::WcsToAcp(arg, &acp_arg)) {
     LogErrorWithArgAndValue(line, msg, acp_arg, value);
   }
 }
@@ -972,7 +972,7 @@ bool PrintTestLogStartMarker() {
   // This header marks where --test_output=streamed will start being printed.
   ss << "---------------------------------------------------------------------"
         "--------\n";
-  WriteConsole(ss.str());
+  WriteStdout(ss.str());
   return true;
 }
 
