@@ -1003,4 +1003,13 @@ conditions.
      static libraries.
    </td>
   </tr>
+  <tr>
+   <td><strong><code>supports_interface_shared_libraries</code></strong>
+   </td>
+   <td>If enabled (and the option <code>--interface_shared_objects</code> is
+     set), Bazel will link targets that have <code>linkstatic</code> set to
+     False (<code>cc_test</code>s by default) against interface shared
+     libraries. This makes incremental relinking faster.
+   </td>
+  </tr>
 </table>

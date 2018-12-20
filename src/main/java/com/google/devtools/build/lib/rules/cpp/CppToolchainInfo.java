@@ -104,7 +104,7 @@ public final class CppToolchainInfo {
   private final boolean supportsStartEndLib;
   private final boolean supportsEmbeddedRuntimes;
   private final boolean supportsDynamicLinker;
-  private final boolean supportsInterfaceSharedObjects;
+  private final boolean supportsInterfaceSharedLibraries;
   private final boolean supportsGoldLinker;
   private final boolean toolchainNeedsPic;
 
@@ -244,7 +244,7 @@ public final class CppToolchainInfo {
           ccToolchainConfigInfo.supportsStartEndLib(),
           ccToolchainConfigInfo.supportsEmbeddedRuntimes(),
           haveDynamicMode || !ccToolchainConfigInfo.getDynamicLibraryLinkerFlags().isEmpty(),
-          ccToolchainConfigInfo.supportsInterfaceSharedObjects(),
+          ccToolchainConfigInfo.supportsInterfaceSharedLibraries(),
           ccToolchainConfigInfo.supportsGoldLinker(),
           ccToolchainConfigInfo.needsPic());
     } catch (LabelSyntaxException e) {
@@ -292,7 +292,7 @@ public final class CppToolchainInfo {
       boolean supportsStartEndLib,
       boolean supportsEmbeddedRuntimes,
       boolean supportsDynamicLinker,
-      boolean supportsInterfaceSharedObjects,
+      boolean supportsInterfaceSharedLibraries,
       boolean supportsGoldLinker,
       boolean toolchainNeedsPic)
       throws EvalException {
@@ -337,7 +337,7 @@ public final class CppToolchainInfo {
             || toolchainFeatures
                 .getActivatableNames()
                 .contains(CppRuleClasses.DYNAMIC_LINKING_MODE);
-    this.supportsInterfaceSharedObjects = supportsInterfaceSharedObjects;
+    this.supportsInterfaceSharedLibraries = supportsInterfaceSharedLibraries;
     this.supportsGoldLinker = supportsGoldLinker;
     this.toolchainNeedsPic = toolchainNeedsPic;
   }
@@ -600,8 +600,8 @@ public final class CppToolchainInfo {
    *
    * <p>Should be true if this toolchain generates ELF objects.
    */
-  public boolean supportsInterfaceSharedObjects() {
-    return supportsInterfaceSharedObjects;
+  public boolean supportsInterfaceSharedLibraries() {
+    return supportsInterfaceSharedLibraries;
   }
 
   /**

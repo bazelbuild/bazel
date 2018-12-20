@@ -582,13 +582,10 @@ public final class CcToolchainProvider extends ToolchainInfo
         || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB);
   }
 
-  /**
-   * Returns whether this toolchain supports interface shared objects.
-   *
-   * <p>Should be true if this toolchain generates ELF objects.
-   */
-  public boolean supportsInterfaceSharedObjects() {
-    return toolchainInfo.supportsInterfaceSharedObjects();
+  /** Returns whether this toolchain supports interface shared libraries. */
+  public boolean supportsInterfaceSharedLibraries(FeatureConfiguration featureConfiguration) {
+    return toolchainInfo.supportsInterfaceSharedLibraries()
+        || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
   }
 
   @Nullable

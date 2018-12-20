@@ -102,7 +102,7 @@ public final class CcLinkingHelper {
   private boolean neverlink;
 
   private boolean checkDepsGenerateCpp = true;
-  private boolean emitInterfaceSharedObjects;
+  private boolean emitInterfaceSharedLibraries;
   private boolean shouldCreateDynamicLibrary = true;
   private boolean shouldCreateStaticLibraries = true;
   private boolean willOnlyBeLinkedIntoDynamicLibraries;
@@ -307,8 +307,8 @@ public final class CcLinkingHelper {
    * linker generates a dynamic library, and only if the crosstool supports it. The default is not
    * to generate interface dynamic libraries.
    */
-  public CcLinkingHelper emitInterfaceSharedObjects(boolean emitInterfaceSharedObjects) {
-    this.emitInterfaceSharedObjects = emitInterfaceSharedObjects;
+  public CcLinkingHelper emitInterfaceSharedLibraries(boolean emitInterfaceSharedLibraries) {
+    this.emitInterfaceSharedLibraries = emitInterfaceSharedLibraries;
     return this;
   }
 
@@ -394,7 +394,7 @@ public final class CcLinkingHelper {
    *
    * <p>For dynamic libraries, this method can additionally create an interface shared library that
    * can be used for linking, but doesn't contain any executable code. This increases the number of
-   * cache hits for link actions. Call {@link #emitInterfaceSharedObjects(boolean)} to enable this
+   * cache hits for link actions. Call {@link #emitInterfaceSharedLibraries(boolean)} to enable this
    * behavior.
    *
    * @throws RuleErrorException
@@ -603,8 +603,8 @@ public final class CcLinkingHelper {
 
     List<String> sonameLinkopts = ImmutableList.of();
     Artifact soInterface = null;
-    if (CppHelper.useInterfaceSharedObjects(cppConfiguration, ccToolchain)
-        && emitInterfaceSharedObjects) {
+    if (CppHelper.useInterfaceSharedLibraries(cppConfiguration, ccToolchain, featureConfiguration)
+        && emitInterfaceSharedLibraries) {
       soInterface = getLinkedArtifact(LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
       // TODO(b/28946988): Remove this hard-coded flag.
       if (!featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {

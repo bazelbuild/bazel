@@ -177,7 +177,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     assertThat(ccProvider.supportsGoldLinker()).isTrue();
     assertThat(ccProvider.supportsStartEndLib(FeatureConfiguration.EMPTY)).isFalse();
-    assertThat(ccProvider.supportsInterfaceSharedObjects()).isFalse();
+    assertThat(ccProvider.supportsInterfaceSharedLibraries(FeatureConfiguration.EMPTY)).isFalse();
     assertThat(ccProvider.supportsEmbeddedRuntimes()).isFalse();
     assertThat(ccProvider.toolchainNeedsPic()).isFalse();
     assertThat(ccProvider.supportsFission()).isTrue();
@@ -561,7 +561,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     // Don't bother with testing the list of tools again.
     assertThat(ccProviderC.supportsGoldLinker()).isFalse();
     assertThat(ccProviderC.supportsStartEndLib(FeatureConfiguration.EMPTY)).isFalse();
-    assertThat(ccProviderC.supportsInterfaceSharedObjects()).isFalse();
+    assertThat(ccProviderC.supportsInterfaceSharedLibraries(FeatureConfiguration.EMPTY)).isFalse();
     assertThat(ccProviderC.supportsEmbeddedRuntimes()).isFalse();
     assertThat(ccProviderC.toolchainNeedsPic()).isFalse();
     assertThat(ccProviderC.supportsFission()).isFalse();

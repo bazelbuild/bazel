@@ -833,9 +833,12 @@ public class CppHelper {
    * Returns true if interface shared objects should be used in the build implied by the given
    * cppConfiguration and toolchain.
    */
-  public static boolean useInterfaceSharedObjects(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    return toolchain.supportsInterfaceSharedObjects() && config.getUseInterfaceSharedObjects();
+  public static boolean useInterfaceSharedLibraries(
+      CppConfiguration cppConfiguration,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
+    return toolchain.supportsInterfaceSharedLibraries(featureConfiguration)
+        && cppConfiguration.getUseInterfaceSharedLibraries();
   }
 
   public static CcNativeLibraryProvider collectNativeCcLibraries(

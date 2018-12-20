@@ -287,7 +287,7 @@ public class LibrariesToLinkCollector {
             input,
             CppHelper.getArchiveType(cppConfiguration, ccToolchainProvider, featureConfiguration)));
     if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
-        && ccToolchainProvider.supportsInterfaceSharedObjects()) {
+        && ccToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)) {
       // On Windows, dynamic library (dll) cannot be linked directly when using toolchains that
       // support interface library (eg. MSVC).
       Preconditions.checkState(

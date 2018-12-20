@@ -333,6 +333,12 @@ public class CppRuleClasses {
   public static final String TARGETS_WINDOWS = "targets_windows";
 
   /**
+   * A string constant for a feature that indicates we are using a toolchain building for Windows.
+   */
+  public static final String SUPPORTS_INTERFACE_SHARED_LIBRARIES =
+      "supports_interface_shared_libraries";
+
+  /**
    * A string constant for no_stripping feature, if it's specified, then no strip action config is
    * needed, instead the stripped binary will simply be a symlink (or a copy on Windows) of the
    * original binary.

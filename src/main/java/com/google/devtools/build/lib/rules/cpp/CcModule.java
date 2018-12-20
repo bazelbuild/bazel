@@ -1080,8 +1080,8 @@ public class CcModule
 
     boolean supportsGoldLinker = featureNames.contains("supports_gold_linker");
     boolean supportsStartEndLib = featureNames.contains("supports_start_end_lib");
-    boolean supportsInterfaceSharedObjects =
-        featureNames.contains("supports_interface_shared_objects");
+    boolean supportsInterfaceSharedLibraries =
+        featureNames.contains("supports_interface_shared_libraries");
     boolean supportsEmbeddedRuntimes = featureNames.contains("supports_embedded_runtimes");
     boolean supportsFission = featureNames.contains("supports_fission");
     boolean dynamicLinkingMode = featureNames.contains("dynamic_linking_mode");
@@ -1175,7 +1175,7 @@ public class CcModule
               // This should be toolchain-based, rather than feature based, because
               // it controls whether or not to declare the feature at all.
               supportsEmbeddedRuntimes,
-              supportsInterfaceSharedObjects)) {
+              supportsInterfaceSharedLibraries)) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
       legacyFeaturesBuilder.addAll(
@@ -1244,7 +1244,7 @@ public class CcModule
         abiLibcVersion,
         supportsGoldLinker,
         supportsStartEndLib,
-        supportsInterfaceSharedObjects,
+        supportsInterfaceSharedLibraries,
         supportsEmbeddedRuntimes,
         /* staticRuntimesFilegroup= */ "",
         /* dynamicRuntimesFilegroup= */ "",

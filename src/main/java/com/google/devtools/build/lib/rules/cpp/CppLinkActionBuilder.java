@@ -1075,7 +1075,7 @@ public class CppLinkActionBuilder {
 
   private boolean shouldUseLinkDynamicLibraryTool() {
     return linkType.isDynamicLibrary()
-        && toolchain.supportsInterfaceSharedObjects()
+        && toolchain.supportsInterfaceSharedLibraries(featureConfiguration)
         && !featureConfiguration.hasConfiguredLinkerPathInActionConfig();
   }
 

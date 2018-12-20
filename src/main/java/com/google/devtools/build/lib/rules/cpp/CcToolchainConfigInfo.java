@@ -63,7 +63,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final String abiLibcVersion;
   private final boolean supportsGoldLinker;
   private final boolean supportsStartEndLib;
-  private final boolean supportsInterfaceSharedObjects;
+  private final boolean supportsInterfaceSharedLibraries;
   private final boolean supportsEmbeddedRuntimes;
   private final String staticRuntimesFilegroup;
   private final String dynamicRuntimesFilegroup;
@@ -109,7 +109,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       String abiLibcVersion,
       boolean supportsGoldLinker,
       boolean supportsStartEndLib,
-      boolean supportsInterfaceSharedObjects,
+      boolean supportsInterfaceSharedLibraries,
       boolean supportsEmbeddedRuntimes,
       String staticRuntimesFilegroup,
       String dynamicRuntimesFilegroup,
@@ -153,7 +153,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.abiLibcVersion = abiLibcVersion;
     this.supportsGoldLinker = supportsGoldLinker;
     this.supportsStartEndLib = supportsStartEndLib;
-    this.supportsInterfaceSharedObjects = supportsInterfaceSharedObjects;
+    this.supportsInterfaceSharedLibraries = supportsInterfaceSharedLibraries;
     this.supportsEmbeddedRuntimes = supportsEmbeddedRuntimes;
     this.staticRuntimesFilegroup = staticRuntimesFilegroup;
     this.dynamicRuntimesFilegroup = dynamicRuntimesFilegroup;
@@ -407,8 +407,8 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
 
   // TODO(b/65151735): Remove once this field is migrated to features.
   @Deprecated
-  public boolean supportsInterfaceSharedObjects() {
-    return supportsInterfaceSharedObjects;
+  public boolean supportsInterfaceSharedLibraries() {
+    return supportsInterfaceSharedLibraries;
   }
 
   // TODO(b/65151735): Remove once this field is migrated to features.

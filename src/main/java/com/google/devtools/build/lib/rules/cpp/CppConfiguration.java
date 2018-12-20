@@ -408,7 +408,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.parseHeadersVerifiesModules;
   }
 
-  public boolean getUseInterfaceSharedObjects() {
+  public boolean getUseInterfaceSharedLibraries() {
     return cppOptions.useInterfaceSharedObjects;
   }
 

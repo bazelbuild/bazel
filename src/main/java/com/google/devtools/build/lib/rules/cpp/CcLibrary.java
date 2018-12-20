@@ -157,7 +157,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ruleContext.getConfiguration())
             .fromCommon(common)
             .addLinkopts(common.getLinkopts())
-            .emitInterfaceSharedObjects(true)
+            .emitInterfaceSharedLibraries(true)
             .setAlwayslink(alwaysLink)
             .setNeverLink(neverLink)
             .addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));
@@ -217,7 +217,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               ccToolchain,
               ruleContext.getConfiguration(),
               LinkTargetType.NODEPS_DYNAMIC_LIBRARY));
-      if (CppHelper.useInterfaceSharedObjects(ccToolchain.getCppConfiguration(), ccToolchain)) {
+      if (CppHelper.useInterfaceSharedLibraries(
+          ccToolchain.getCppConfiguration(), ccToolchain, featureConfiguration)) {
         dynamicLibraries.add(
             CppHelper.getLinkedArtifact(
                 ruleContext,
@@ -241,7 +242,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               ccToolchain,
               ruleContext.getConfiguration(),
               LinkTargetType.NODEPS_DYNAMIC_LIBRARY));
-      if (CppHelper.useInterfaceSharedObjects(ccToolchain.getCppConfiguration(), ccToolchain)) {
+      if (CppHelper.useInterfaceSharedLibraries(
+          ccToolchain.getCppConfiguration(), ccToolchain, featureConfiguration)) {
         dynamicLibraries.add(
             CppHelper.getLinkedArtifact(
                 ruleContext,
@@ -347,7 +349,11 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (!ccLinkingOutputs.isEmpty()) {
       outputGroups.putAll(
           addLinkerOutputArtifacts(
-              ruleContext, ccToolchain, ruleContext.getConfiguration(), ccCompilationOutputs));
+              ruleContext,
+              ccToolchain,
+              ruleContext.getConfiguration(),
+              ccCompilationOutputs,
+              featureConfiguration));
     }
     CcLinkingOutputs ccLinkingOutputsWithPrecompiledLibraries =
         addPrecompiledLibrariesToLinkingOutputs(
@@ -558,7 +564,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
       BuildConfiguration configuration,
-      CcCompilationOutputs ccCompilationOutputs)
+      CcCompilationOutputs ccCompilationOutputs,
+      FeatureConfiguration featureConfiguration)
       throws RuleErrorException {
 
     NestedSetBuilder<Artifact> archiveFile = new NestedSetBuilder<>(Order.STABLE_ORDER);
@@ -599,7 +606,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
               /* linkedArtifactNameSuffix= */ ""));
 
-      if (CppHelper.useInterfaceSharedObjects(ccToolchain.getCppConfiguration(), ccToolchain)) {
+      if (CppHelper.useInterfaceSharedLibraries(
+          ccToolchain.getCppConfiguration(), ccToolchain, featureConfiguration)) {
         dynamicLibrary.add(
             CppHelper.getLinkedArtifact(
                 ruleContext,

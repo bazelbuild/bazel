@@ -351,7 +351,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                   ruleContext.getConfiguration())
               .fromCommon(common)
               .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
-              .emitInterfaceSharedObjects(true)
+              .emitInterfaceSharedLibraries(true)
               .setAlwayslink(false);
       ccLinkingOutputs = linkingHelper.link(ccCompilationOutputs);
     }
@@ -700,10 +700,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .setDynamicLinkType(linkType)
         .setLinkerOutputArtifact(binary)
         .setNeverLink(true)
-        .emitInterfaceSharedObjects(
+        .emitInterfaceSharedLibraries(
             isLinkShared(ruleContext)
                 && featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
-                && CppHelper.useInterfaceSharedObjects(cppConfiguration, ccToolchain))
+                && CppHelper.useInterfaceSharedLibraries(
+                    cppConfiguration, ccToolchain, featureConfiguration))
         .setPdbFile(pdbFile)
         .setFake(fake);
 

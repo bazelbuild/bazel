@@ -74,8 +74,10 @@ public class CcToolchainTest extends BuildViewTestCase {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
-            CppHelper.useInterfaceSharedObjects(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
+            CppHelper.useInterfaceSharedLibraries(
+                getConfiguration(target).getFragment(CppConfiguration.class),
+                toolchainProvider,
+                FeatureConfiguration.EMPTY))
         .isFalse();
 
     useConfiguration("--interface_shared_objects");
@@ -83,8 +85,10 @@ public class CcToolchainTest extends BuildViewTestCase {
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
-            CppHelper.useInterfaceSharedObjects(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
+            CppHelper.useInterfaceSharedLibraries(
+                getConfiguration(target).getFragment(CppConfiguration.class),
+                toolchainProvider,
+                FeatureConfiguration.EMPTY))
         .isFalse();
 
     getAnalysisMock()
@@ -100,8 +104,10 @@ public class CcToolchainTest extends BuildViewTestCase {
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
-            CppHelper.useInterfaceSharedObjects(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
+            CppHelper.useInterfaceSharedLibraries(
+                getConfiguration(target).getFragment(CppConfiguration.class),
+                toolchainProvider,
+                FeatureConfiguration.EMPTY))
         .isTrue();
 
     useConfiguration("--nointerface_shared_objects");
@@ -109,8 +115,10 @@ public class CcToolchainTest extends BuildViewTestCase {
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
-            CppHelper.useInterfaceSharedObjects(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
+            CppHelper.useInterfaceSharedLibraries(
+                getConfiguration(target).getFragment(CppConfiguration.class),
+                toolchainProvider,
+                FeatureConfiguration.EMPTY))
         .isFalse();
   }
 

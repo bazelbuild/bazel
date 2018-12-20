@@ -661,7 +661,7 @@ public class CcToolchainProviderHelper {
             attributes.getAdditionalBuildVariables()),
         getBuiltinIncludes(attributes.getLibc()),
         coverageEnvironment.build(),
-        toolchainInfo.supportsInterfaceSharedObjects()
+        toolchainInfo.supportsInterfaceSharedLibraries()
             ? attributes.getLinkDynamicLibraryTool()
             : null,
         builtInIncludeDirectories,
