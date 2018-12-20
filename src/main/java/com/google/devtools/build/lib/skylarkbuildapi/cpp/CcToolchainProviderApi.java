@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import javax.annotation.Nullable;
 
 /** Information about the C++ toolchain. */
 @SkylarkModule(name = "CcToolchainInfo", doc = "Information about the C++ compiler being used.")
@@ -45,10 +46,12 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
   @SkylarkCallable(
       name = "sysroot",
       structField = true,
+      allowReturnNones = true,
       doc =
           "Returns the sysroot to be used. If the toolchain compiler does not support "
               + "different sysroots, or the sysroot is the same as the default sysroot, then "
               + "this method returns <code>None</code>.")
+  @Nullable
   public String getSysroot();
 
   @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.",

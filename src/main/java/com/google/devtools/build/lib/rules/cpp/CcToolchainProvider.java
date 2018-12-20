@@ -630,6 +630,7 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   @Override
+  @Nullable
   public String getSysroot() {
     return sysroot != null ? sysroot.getPathString() : null;
   }
