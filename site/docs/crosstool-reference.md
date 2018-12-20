@@ -116,7 +116,7 @@ Bazel binary. C++ rules support multiple unique actions documented in detail
 
 ## `CROSSTOOL` features
 
-A feature is an entity that requires non-default command-line flags, actions,
+A feature is an entity that requires command-line flags, actions,
 constraints on the execution environment, or dependency alterations. A feature
 can be something as simple as allowing BUILD files to select configurations of
 flags, such as `treat_warnings_as_errors`, or interact with the C++ rules and
@@ -124,16 +124,20 @@ include new compile actions and inputs to the compilation, such as
 `header_modules` or `thin_lto`.
 
 Ideally, a toolchain definition consists of a set of features, where each
-feature consists of multiple flag groups, each defining a list of flags that
-apply to specific Bazel actions.
+feature consists of one or more flag groups, each defining a list of flags
+that apply to specific Bazel actions.
 
 A feature is specified by name, which allows full decoupling of the `CROSSTOOL`
 configuration from Bazel releases. In other words, a Bazel release does not
 affect the behavior of `CROSSTOOL` configurations as long as those
 configurations do not require the use of new features.
 
-A feature is enabled only when both Bazel and the CROSSTOOL configuration
-support it.
+A feature is enabled in one of the following ways:
+
+*  The feature's `enabled` field in the `CROSSTOOL` file is set to `true`.
+*  Bazel or the rule owner explicitly enable it.
+*  The user enables it through the `--feature` Bazel option or `features` rule
+   attribute.
 
 Features can have interdependencies, depend on command line flags, `BUILD` file
 settings, and other variables.
