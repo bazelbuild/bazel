@@ -49,6 +49,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:srcs",
+        "//src/test/java/com/google/devtools/build/lib/query2:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/config:srcs",
@@ -106,6 +107,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
@@ -1260,6 +1262,21 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:crosstool_config_java_proto",
         "//src/test/java/com/google/devtools/build/lib/rules/android:AndroidLocalTestTest",
+    ],
+)
+
+java_test(
+    name = "query2-tests",
+    size = "large",
+    shard_count = 20,
+    tags = [
+        "no_windows",
+        "query2",
+    ],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        ":test_runner",
+        "//src/test/java/com/google/devtools/build/lib/query2:Query2Tests_lib",
     ],
 )
 
