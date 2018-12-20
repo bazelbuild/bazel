@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
@@ -158,7 +159,8 @@ public class DigestHashFunction {
       return getDefault();
     } catch (DefaultHashFunctionNotSetException e) {
       // Some tests use this class without calling GoogleUnixFileSystemModule.globalInit().
-      System.err.println("Using DigestHashFunction.DEFAULT_HASH_FOR_TESTS for testing");
+      Preconditions.checkState(
+          System.getenv("TEST_TMPDIR") != null, "Default hash function has not been set");
       return DEFAULT_HASH_FOR_TESTS;
     }
   }
