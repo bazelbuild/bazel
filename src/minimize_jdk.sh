@@ -33,7 +33,8 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --output reduced
-  cp DISCLAIMER readme.txt reduced/
+  cp DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION \
+    reduced/
   zip -r -9 ../reduced.zip reduced/
   cd ..
   mv reduced.zip "$out"
@@ -43,7 +44,8 @@ else
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --output reduced
-  cp DISCLAIMER readme.txt reduced/
+  cp DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION \
+    reduced/
   GZIP=-9 tar -zcf ../reduced.tgz reduced
   cd ..
   mv reduced.tgz "$out"
