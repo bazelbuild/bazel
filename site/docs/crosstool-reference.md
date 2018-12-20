@@ -808,7 +808,7 @@ The following is a reference of `CROSSTOOL` build variables.
    <td>compile</td>
    <td>Sequence of flags from the
      <code>unfiltered_cxx_flag</code> legacy <code>CROSSTOOL</code> field or the
-       <code>unfiltered _compile_flags</code> feature. These are not filtered by
+       <code>unfiltered_compile_flags</code> feature. These are not filtered by
        the <code>nocopts</code> rule attribute.
    </td>
   </tr>
