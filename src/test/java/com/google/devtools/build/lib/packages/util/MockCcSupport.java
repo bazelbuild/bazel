@@ -398,7 +398,10 @@ public abstract class MockCcSupport {
           + "}";
 
   public static final String COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION =
-      "" + "feature { " + "  name: 'copy_dynamic_libraries_to_binary'" + "}";
+      "" + "feature { name: 'copy_dynamic_libraries_to_binary' }";
+
+  public static final String SUPPORTS_START_END_LIB_FEATURE =
+      "" + "feature {" + "   name: 'supports_start_end_lib'" + "   enabled: true" + "}";
 
   public static final String TARGETS_WINDOWS_CONFIGURATION =
       ""

@@ -810,23 +810,28 @@ public class CppHelper {
    * Returns true if the build implied by the given config and toolchain uses --start-lib/--end-lib
    * ld options.
    */
-  public static boolean useStartEndLib(CppConfiguration config, CcToolchainProvider toolchain) {
-    return config.startEndLibIsRequested() && toolchain.supportsStartEndLib();
+  public static boolean useStartEndLib(
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
+    return config.startEndLibIsRequested() && toolchain.supportsStartEndLib(featureConfiguration);
   }
 
   /**
    * Returns the type of archives being used by the build implied by the given config and toolchain.
    */
   public static Link.ArchiveType getArchiveType(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    return useStartEndLib(config, toolchain)
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
+    return useStartEndLib(config, toolchain, featureConfiguration)
         ? Link.ArchiveType.START_END_LIB
         : Link.ArchiveType.REGULAR;
   }
 
   /**
    * Returns true if interface shared objects should be used in the build implied by the given
-   * config and toolchain.
+   * cppConfiguration and toolchain.
    */
   public static boolean useInterfaceSharedObjects(
       CppConfiguration config, CcToolchainProvider toolchain) {

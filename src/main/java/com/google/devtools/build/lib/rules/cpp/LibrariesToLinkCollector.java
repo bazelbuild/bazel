@@ -284,7 +284,8 @@ public class LibrariesToLinkCollector {
             || input.getArtifactCategory() == ArtifactCategory.INTERFACE_LIBRARY);
     Preconditions.checkState(
         !Link.useStartEndLib(
-            input, CppHelper.getArchiveType(cppConfiguration, ccToolchainProvider)));
+            input,
+            CppHelper.getArchiveType(cppConfiguration, ccToolchainProvider, featureConfiguration)));
     if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
         && ccToolchainProvider.supportsInterfaceSharedObjects()) {
       // On Windows, dynamic library (dll) cannot be linked directly when using toolchains that
@@ -379,7 +380,8 @@ public class LibrariesToLinkCollector {
 
     // start-lib/end-lib library: adds its input object files.
     if (Link.useStartEndLib(
-        input, CppHelper.getArchiveType(cppConfiguration, ccToolchainProvider))) {
+        input,
+        CppHelper.getArchiveType(cppConfiguration, ccToolchainProvider, featureConfiguration))) {
       Iterable<Artifact> archiveMembers = input.getObjectFiles();
       if (!Iterables.isEmpty(archiveMembers)) {
         ImmutableList.Builder<Artifact> nonLtoArchiveMembersBuilder = ImmutableList.builder();
@@ -506,7 +508,8 @@ public class LibrariesToLinkCollector {
     // As a bonus, we can rephrase --nostart_end_lib as --features=-start_end_lib and get rid
     // of a command line option.
 
-    Preconditions.checkState(CppHelper.useStartEndLib(cppConfiguration, ccToolchainProvider));
+    Preconditions.checkState(
+        CppHelper.useStartEndLib(cppConfiguration, ccToolchainProvider, featureConfiguration));
     Map<Artifact, Artifact> ltoMap = new HashMap<>();
     for (LtoBackendArtifacts l : allLtoArtifacts) {
       ltoMap.put(l.getBitcodeFile(), l.getObjectFile());

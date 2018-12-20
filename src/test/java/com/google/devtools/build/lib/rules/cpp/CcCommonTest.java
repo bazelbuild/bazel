@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.bazel.rules.ToolchainRules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
@@ -269,6 +270,26 @@ public class CcCommonTest extends BuildViewTestCase {
         "           srcs=['lib.c'])",
         "cc_binary(name='bin',",
         "          srcs=['bin.c'])");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:bin");
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(getExecutable(target));
+    for (Artifact input : action.getInputs()) {
+      String name = input.getFilename();
+      assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
+          .isTrue();
+    }
+  }
+
+  @Test
+  public void testStartEndLibThroughFeature() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_START_END_LIB_FEATURE);
+    useConfiguration("--start_end_lib");
+    scratch.file(
+        "test/BUILD",
+        "cc_library(name='lib', srcs=['lib.c'])",
+        "cc_binary(name='bin', srcs=['bin.c'])");
 
     ConfiguredTarget target = getConfiguredTarget("//test:bin");
     CppLinkAction action = (CppLinkAction) getGeneratingAction(getExecutable(target));

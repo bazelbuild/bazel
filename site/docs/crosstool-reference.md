@@ -939,7 +939,7 @@ The following is a reference of `CROSSTOOL` build variables.
 
 
 
-### CROSSTOOL features
+### Well-known features
 
 The following is a reference of `CROSSTOOL` features and their activation
 conditions.
@@ -950,7 +950,7 @@ conditions.
   <tr>
    <td><strong>Feature</strong>
    </td>
-   <td><strong>Activation Condition</strong>
+   <td><strong>Documentation</strong>
    </td>
   </tr>
   <tr>
@@ -991,6 +991,16 @@ conditions.
    <td>Required if the target needs PIC objects for dynamic libraries. Enabled
        by default - the `pic` variable is present whenever PIC compilation is
        requested.
+   </td>
+  </tr>
+  <tr>
+   <td><strong><code>supports_start_end_lib</code></strong>
+   </td>
+   <td>If enabled (and the option <code>--start_end_lib</code> is set), Bazel
+     will not link against static libraries but instead use the
+     <code>--start-lib/--end-lib</code> linker options to link against objects
+     directly. This speeds up the build since Bazel doesn't have to build
+     static libraries.
    </td>
   </tr>
 </table>

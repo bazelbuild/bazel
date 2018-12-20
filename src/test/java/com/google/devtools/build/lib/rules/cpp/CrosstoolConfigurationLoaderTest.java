@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -175,7 +176,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProvider.getAbiGlibcVersion()).isEqualTo("abi-libc-version");
 
     assertThat(ccProvider.supportsGoldLinker()).isTrue();
-    assertThat(ccProvider.supportsStartEndLib()).isFalse();
+    assertThat(ccProvider.supportsStartEndLib(FeatureConfiguration.EMPTY)).isFalse();
     assertThat(ccProvider.supportsInterfaceSharedObjects()).isFalse();
     assertThat(ccProvider.supportsEmbeddedRuntimes()).isFalse();
     assertThat(ccProvider.toolchainNeedsPic()).isFalse();
@@ -458,7 +459,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderA.getToolPathFragment(Tool.STRIP))
         .isEqualTo(getToolPath("path/to/strip-A"));
     assertThat(ccProviderA.supportsGoldLinker()).isTrue();
-    assertThat(ccProviderA.supportsStartEndLib()).isTrue();
+    assertThat(ccProviderA.supportsStartEndLib(FeatureConfiguration.EMPTY)).isTrue();
     assertThat(ccProviderA.supportsEmbeddedRuntimes()).isTrue();
     assertThat(ccProviderA.toolchainNeedsPic()).isTrue();
 
@@ -559,7 +560,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderC.getAbiGlibcVersion()).isEqualTo("abi-libc-version-C");
     // Don't bother with testing the list of tools again.
     assertThat(ccProviderC.supportsGoldLinker()).isFalse();
-    assertThat(ccProviderC.supportsStartEndLib()).isFalse();
+    assertThat(ccProviderC.supportsStartEndLib(FeatureConfiguration.EMPTY)).isFalse();
     assertThat(ccProviderC.supportsInterfaceSharedObjects()).isFalse();
     assertThat(ccProviderC.supportsEmbeddedRuntimes()).isFalse();
     assertThat(ccProviderC.toolchainNeedsPic()).isFalse();

@@ -382,6 +382,9 @@ public class CppRuleClasses {
   /** A string constant for is_cc_fake_binary feature. */
   public static final String IS_CC_FAKE_BINARY = "is_cc_fake_binary";
 
+  /** A feature marking that the toolchain can use --start-lib/--end-lib flags */
+  public static final String SUPPORTS_START_END_LIB = "supports_start_end_lib";
+
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
     @Override

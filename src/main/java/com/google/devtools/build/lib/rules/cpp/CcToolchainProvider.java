@@ -577,8 +577,9 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /** Returns whether the toolchain supports the --start-lib/--end-lib options. */
-  public boolean supportsStartEndLib() {
-    return toolchainInfo.supportsStartEndLib();
+  public boolean supportsStartEndLib(FeatureConfiguration featureConfiguration) {
+    return toolchainInfo.supportsStartEndLib()
+        || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB);
   }
 
   /**
