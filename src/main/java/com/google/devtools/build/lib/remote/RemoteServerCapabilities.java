@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesBlockingStub
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
+import build.bazel.remote.execution.v2.PriorityCapabilities.PriorityRange;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -185,6 +186,29 @@ class RemoteServerCapabilities {
       }
     }
 
+    // Check result cache priority is in the supported range.
+    int priority = remoteOptions.remoteResultCachePriority;
+    if (priority != 0) {
+      boolean found = false;
+      StringBuilder rangeBuilder = new StringBuilder();
+      for (PriorityRange pr : cacheCap.getCachePriorityCapabilities().getPrioritiesList()) {
+        rangeBuilder.append(String.format("%d-%d,", pr.getMinPriority(), pr.getMaxPriority()));
+        if (pr.getMinPriority() <= priority && priority <= pr.getMaxPriority()) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        String range = rangeBuilder.toString();
+        if (!range.isEmpty()) {
+          range = range.substring(0, range.length() - 1);
+        }
+        result.addError(
+            String.format(
+                "--remote_result_cache_priority %d is outside of server supported range %s.",
+                priority, range));
+      }
+    }
     return result.build();
   }
 }

@@ -278,4 +278,14 @@ public final class RemoteOptions extends OptionsBase {
 
   /** The maximum size of an outbound message sent via a gRPC channel. */
   public int maxOutboundMessageSize = 1024 * 1024;
+
+  @Option(
+      name = "remote_result_cache_priority",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The relative priority of remote actions to be stored in remote cache. "
+              + "The semantics of the particular priority values are server-dependent.")
+  public int remoteResultCachePriority;
 }

@@ -21,6 +21,8 @@ import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesImplBase;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
+import build.bazel.remote.execution.v2.PriorityCapabilities;
+import build.bazel.remote.execution.v2.PriorityCapabilities.PriorityRange;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -342,6 +344,48 @@ public class RemoteServerCapabilitiesTest {
     // Ignored when no uploading local results.
     remoteOptions.remoteLocalFallback = true;
     remoteOptions.remoteUploadLocalResults = false;
+    st =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            caps, remoteOptions, DigestFunction.SHA256);
+    assertThat(st.isOk()).isTrue();
+  }
+
+  @Test
+  public void testCheckClientServerCompatibility_CachePriority() throws Exception {
+    ServerCapabilities caps =
+        ServerCapabilities.newBuilder()
+            .setLowApiVersion(ApiVersion.current.toSemVer())
+            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setCacheCapabilities(
+                CacheCapabilities.newBuilder()
+                    .addDigestFunction(DigestFunction.SHA256)
+                    .setCachePriorityCapabilities(
+                        PriorityCapabilities.newBuilder()
+                            .addPriorities(
+                                PriorityRange.newBuilder().setMinPriority(1).setMaxPriority(2))
+                            .addPriorities(
+                                PriorityRange.newBuilder().setMinPriority(5).setMaxPriority(10)))
+                    .build())
+            .build();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteCache = "server:port";
+    remoteOptions.remoteUploadLocalResults = false;
+    remoteOptions.remoteResultCachePriority = 11;
+    RemoteServerCapabilities.ClientServerCompatibilityStatus st =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            caps, remoteOptions, DigestFunction.SHA256);
+    assertThat(st.getErrors()).hasSize(1);
+    assertThat(st.getErrors().get(0)).containsMatch("remote_result_cache_priority");
+
+    // Valid value in range.
+    remoteOptions.remoteResultCachePriority = 10;
+    st =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            caps, remoteOptions, DigestFunction.SHA256);
+    assertThat(st.isOk()).isTrue();
+
+    // Check not performed if the value is 0.
+    remoteOptions.remoteResultCachePriority = 0;
     st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.SHA256);

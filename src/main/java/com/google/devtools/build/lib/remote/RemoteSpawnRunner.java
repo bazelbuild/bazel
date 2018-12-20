@@ -220,12 +220,17 @@ class RemoteSpawnRunner implements SpawnRunner {
             spawn, context, inputMap, remoteCache, actionKey, action, command, uploadLocalResults);
       }
 
-      ExecuteRequest request =
+      ExecuteRequest.Builder requestBuilder =
           ExecuteRequest.newBuilder()
               .setInstanceName(remoteOptions.remoteInstanceName)
               .setActionDigest(actionKey.getDigest())
-              .setSkipCacheLookup(!acceptCachedResult)
-              .build();
+              .setSkipCacheLookup(!acceptCachedResult);
+      if (remoteOptions.remoteResultCachePriority != 0) {
+        requestBuilder
+            .getResultsCachePolicyBuilder()
+            .setPriority(remoteOptions.remoteResultCachePriority);
+      }
+      ExecuteRequest request = requestBuilder.build();
       try {
         return retrier.execute(
             () -> {
