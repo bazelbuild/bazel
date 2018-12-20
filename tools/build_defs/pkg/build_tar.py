@@ -337,7 +337,7 @@ def main(unused_argv):
   ) as output:
 
     def file_attributes(filename):
-      if filename[0] == '/':
+      if filename.startswith('/'):
         filename = filename[1:]
       return {
           'mode': mode_map.get(filename, default_mode),
