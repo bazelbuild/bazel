@@ -363,7 +363,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         proguardDeps,
         ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.PROVIDER));
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()
-        && ruleContext.attributes().has("$jacoco-runtime", BuildType.LABEL)) {
+        && ruleContext.attributes().has("$jacoco_runtime", BuildType.LABEL)) {
       proguardDeps.add(
           ruleContext.getPrerequisite(
               "$jacoco_runtime", Mode.TARGET, ProguardSpecProvider.PROVIDER));
