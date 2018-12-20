@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.function.Function;
+
 import javax.annotation.Nullable;
 
 /** The cache implementation to store download artifacts from external repositories.
@@ -32,20 +34,31 @@ public class RepositoryCache {
 
   /** The types of cache keys used. */
   public enum KeyType {
-    SHA1("SHA-1", "\\p{XDigit}{40}", "sha1", Hashing.sha1()),
-    SHA256("SHA-256", "\\p{XDigit}{64}", "sha256", Hashing.sha256());
+    SHA1("SHA-1", "\\p{XDigit}{40}", "sha1", Hashing.sha1(), Function.identity()),
+    SHA256("SHA-256", "\\p{XDigit}{64}", "sha256", Hashing.sha256(), Function.identity()),
+    ID_PREFIXED_SHA1("ID_PREFIXED_SHA-1", "^([^- ]+-)+\\p{XDigit}{40}$", "sha1", Hashing.sha1(),
+        (cacheKey) -> {
+          int inx = cacheKey.lastIndexOf('-');
+          if (inx < 0) {
+            throw new IllegalArgumentException("Invalid cache key: " + cacheKey);
+          }
+          return cacheKey.substring(inx + 1);
+        });
 
     private final String stringRepr;
     private final String regexp;
     private final String hashName;
     @SuppressWarnings("ImmutableEnumChecker")
     private final HashFunction hashFunction;
+    private final Function<String, String> hashValueExtractor;
 
-    KeyType(String stringRepr, String regexp, String hashName, HashFunction hashFunction) {
+    KeyType(String stringRepr, String regexp, String hashName, HashFunction hashFunction,
+            Function<String, String> hashValueExtractor) {
       this.stringRepr = stringRepr;
       this.regexp = regexp;
       this.hashName = hashName;
       this.hashFunction = hashFunction;
+      this.hashValueExtractor = hashValueExtractor;
     }
 
     public boolean isValid(@Nullable String checksum) {
@@ -54,6 +67,10 @@ public class RepositoryCache {
 
     public Path getCachePath(Path parentDirectory) {
       return parentDirectory.getChild(hashName);
+    }
+
+    public String getCacheKeyHashValue(String cacheKey) {
+      return hashValueExtractor.apply(cacheKey);
     }
 
     public Hasher newHasher() {
@@ -135,7 +152,8 @@ public class RepositoryCache {
     Path cacheValue = cacheEntry.getRelative(DEFAULT_CACHE_FILENAME);
 
     try {
-      assertFileChecksum(cacheKey, cacheValue, keyType);
+      String expectedChecksum = keyType.getCacheKeyHashValue(cacheKey);
+      assertFileChecksum(expectedChecksum, cacheValue, keyType);
     } catch (IOException e) {
       // New lines because this error message gets large printing multiple absolute filepaths.
       throw new IOException(e.getMessage() + "\n\n"
@@ -183,6 +201,8 @@ public class RepositoryCache {
    * @return The key for the cached entry.
    */
   public synchronized String put(Path sourcePath, KeyType keyType) throws IOException {
+    Preconditions.checkArgument(keyType != KeyType.ID_PREFIXED_SHA1,
+        "Cache key can't be computed from source path for key type: " + keyType);
     String cacheKey = getChecksum(keyType, sourcePath);
     put(cacheKey, sourcePath, keyType);
     return cacheKey;

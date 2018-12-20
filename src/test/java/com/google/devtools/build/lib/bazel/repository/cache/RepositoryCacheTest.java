@@ -99,6 +99,13 @@ public class RepositoryCacheTest {
         .isEqualTo(FileSystemUtils.readContent(cacheValue, Charset.defaultCharset()));
   }
 
+  @Test
+  public void testPutCacheValueWithoutHashThrowsWithIdPrefixedSha1KeyType() throws IOException {
+    thrown.expect(IllegalAccessException.class);
+    thrown.expectMessage("Cache key can't be computed from source path for key type: ID_PREFIXED_SHA-1");
+    repositoryCache.put(downloadedFile, KeyType.ID_PREFIXED_SHA1);
+  }
+
   /**
    * Test that the put method is idempotent, i.e. two successive put calls
    * should not affect the final state in the cache.

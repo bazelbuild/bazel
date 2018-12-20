@@ -83,17 +83,23 @@ public class MavenDownloader extends HttpDownloader {
 
     Artifact artifactWithSrcs = srcjarCoords(artifact);
 
-    boolean isCaching = repositoryCache.isEnabled() && KeyType.SHA1.isValid(sha1);
+    String artifactCacheKey = getCacheKey(artifact, sha1);
+    boolean isCaching =
+        repositoryCache.isEnabled() && KeyType.ID_PREFIXED_SHA1.isValid(artifactCacheKey);
 
+    String srcArtifactCacheKey = null;
     if (isCaching) {
       Path downloadPath = getDownloadDestination(outputDirectory, artifact);
       try {
-        Path cachedDestination = repositoryCache.get(sha1, downloadPath, KeyType.SHA1);
+        Path cachedDestination =
+            repositoryCache.get(artifactCacheKey, downloadPath, KeyType.ID_PREFIXED_SHA1);
         if (cachedDestination != null) {
           Path cachedDestinationSrc = null;
           if (sha1Src != null) {
+            srcArtifactCacheKey = getCacheKey(artifactWithSrcs, sha1Src);
             Path downloadPathSrc = getDownloadDestination(outputDirectory, artifactWithSrcs);
-            cachedDestinationSrc = repositoryCache.get(sha1Src, downloadPathSrc, KeyType.SHA1);
+            cachedDestinationSrc =
+                repositoryCache.get(srcArtifactCacheKey, downloadPathSrc, KeyType.ID_PREFIXED_SHA1);
           }
           return new JarPaths(cachedDestination, Optional.fromNullable(cachedDestinationSrc));
         }
@@ -143,13 +149,29 @@ public class MavenDownloader extends HttpDownloader {
     }
 
     if (isCaching) {
-      repositoryCache.put(sha1, jarDownload, KeyType.SHA1);
-      if (srcjarDownload != null && !Strings.isNullOrEmpty(sha1Src)) {
-        repositoryCache.put(sha1Src, srcjarDownload, KeyType.SHA1);
+      repositoryCache.put(artifactCacheKey, jarDownload, KeyType.ID_PREFIXED_SHA1);
+      if (srcjarDownload != null && !Strings.isNullOrEmpty(srcArtifactCacheKey)) {
+        repositoryCache.put(srcArtifactCacheKey, srcjarDownload, KeyType.ID_PREFIXED_SHA1);
       }
     }
 
     return new JarPaths(jarDownload, Optional.fromNullable(srcjarDownload));
+  }
+
+  private String getCacheKey(Artifact artifact, @Nullable String sha1) {
+    if (sha1 == null) {
+      return null;
+    }
+    StringJoiner j = new StringJoiner("-")
+        .add(artifact.getGroupId())
+        .add(artifact.getArtifactId());
+    String classifier = artifact.getClassifier();
+    if (!Strings.isNullOrEmpty(classifier)) {
+      j.add(classifier);
+    }
+    j.add(artifact.getVersion());
+    j.add(sha1);
+    return j.toString();
   }
 
   private String retrieveSha1(String name, String attribute, WorkspaceAttributeMapper mapper)
