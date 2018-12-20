@@ -545,13 +545,13 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testEmptyLinkVariables() throws Exception {
-    useConfiguration("--linkopt=-foo");
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_LINK_EXECUTABLE,
                 "cc_common.create_link_variables(",
                 "feature_configuration = feature_configuration,",
                 "cc_toolchain = toolchain,",
+                "user_link_flags = [ '-foo' ],",
                 ")"))
         .contains("-foo");
   }
@@ -824,6 +824,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "feature_configuration = feature_configuration,",
                 "cc_toolchain = toolchain,",
                 "is_linking_dynamic_library = True,",
+                "user_link_flags = [ '-pie' ],",
                 ")"))
         .doesNotContain("-pie");
     assertThat(
@@ -834,13 +835,13 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "feature_configuration = feature_configuration,",
                 "cc_toolchain = toolchain,",
                 "is_linking_dynamic_library = False,",
+                "user_link_flags = [ '-pie' ],",
                 ")"))
         .contains("-pie");
   }
 
   @Test
   public void testIsUsingLinkerLinkVariables() throws Exception {
-    useConfiguration("--linkopt=-i_dont_want_to_see_this_on_archiver_command_line");
     assertThat(
             commandLineForVariables(
                 CppActionNames.CPP_LINK_EXECUTABLE,
@@ -849,6 +850,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "feature_configuration = feature_configuration,",
                 "cc_toolchain = toolchain,",
                 "is_using_linker = True,",
+                "user_link_flags = [ '-i_dont_want_to_see_this_on_archiver_command_line' ],",
                 ")"))
         .contains("-i_dont_want_to_see_this_on_archiver_command_line");
     assertThat(
@@ -859,6 +861,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 "feature_configuration = feature_configuration,",
                 "cc_toolchain = toolchain,",
                 "is_using_linker = False,",
+                "user_link_flags = [ '-i_dont_want_to_see_this_on_archiver_command_line' ],",
                 ")"))
         .doesNotContain("-i_dont_want_to_see_this_on_archiver_command_line");
   }

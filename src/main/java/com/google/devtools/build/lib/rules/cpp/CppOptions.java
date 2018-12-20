@@ -715,7 +715,7 @@ public class CppOptions extends FragmentOptions {
   @Option(
       name = "incompatible_linkopts_in_user_link_flags",
       oldName = "experimental_linkopts_in_user_link_flags",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
