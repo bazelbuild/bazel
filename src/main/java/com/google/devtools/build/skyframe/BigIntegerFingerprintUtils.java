@@ -15,7 +15,6 @@
 package com.google.devtools.build.skyframe;
 
 import java.math.BigInteger;
-import java.util.Arrays;
 import javax.annotation.Nullable;
 
 /** Utility class for fingerprint composition. */
@@ -36,33 +35,6 @@ public final class BigIntegerFingerprintUtils {
     return temp;
   }
 
-  /**
-   * Converts a byte array to a BigInteger in the fingerprint range (no more than {@link
-   * #UINT128_LIMIT}).
-   */
-  public static BigInteger fingerprintOf(byte[] bytes) {
-    int numSegments = bytes.length / BYTES;
-    if (numSegments == 0) {
-      return new BigInteger(bytes);
-    }
-    BigInteger result = new BigInteger(/*signum=*/ 1, Arrays.copyOf(bytes, BYTES));
-    for (int segment = 1; segment < numSegments; segment++) {
-      result =
-          composeOrdered(
-              result,
-              new BigInteger(
-                  /*signum=*/ 1,
-                  Arrays.copyOfRange(bytes, segment * BYTES, (segment + 1) * BYTES)));
-    }
-    if (numSegments * BYTES < bytes.length) {
-      result =
-          composeOrdered(
-              result,
-              new BigInteger(
-                  /*signum=*/ 1, Arrays.copyOfRange(bytes, numSegments * BYTES, bytes.length)));
-    }
-    return result;
-  }
   /**
    * Unordered, nullable composition.
    *
