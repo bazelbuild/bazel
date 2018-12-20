@@ -247,7 +247,7 @@ public class RemoteServerCapabilitiesTest {
             caps, remoteOptions, DigestFunction.SHA256);
     assertThat(st.getErrors()).hasSize(1);
     assertThat(st.getErrors().get(0))
-        .containsMatch("remote server prohibits writing local results");
+        .containsMatch("not authorized to write local results to the remote cache");
 
     // Ignored when no local upload.
     remoteOptions.remoteUploadLocalResults = false;
@@ -279,6 +279,7 @@ public class RemoteServerCapabilitiesTest {
             caps, remoteOptions, DigestFunction.SHA256);
     assertThat(st.getErrors()).hasSize(1);
     assertThat(st.getErrors().get(0)).containsMatch("Remote execution is not supported");
+    assertThat(st.getErrors().get(0)).containsMatch("not authorized to use remote execution");
   }
 
   @Test
@@ -332,7 +333,7 @@ public class RemoteServerCapabilitiesTest {
             caps, remoteOptions, DigestFunction.SHA256);
     assertThat(st.getErrors()).hasSize(1);
     assertThat(st.getErrors().get(0))
-        .containsMatch("remote server prohibits writing local results");
+        .containsMatch("not authorized to write local results to the remote cache");
 
     // Ignored when no fallback.
     remoteOptions.remoteLocalFallback = false;
