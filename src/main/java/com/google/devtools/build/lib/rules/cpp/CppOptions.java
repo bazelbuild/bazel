@@ -730,7 +730,7 @@ public class CppOptions extends FragmentOptions {
   @Option(
       name = "incompatible_dont_emit_static_libgcc",
       oldName = "experimental_dont_emit_static_libgcc",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
