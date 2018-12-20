@@ -137,14 +137,14 @@ public class MavenDownloader extends HttpDownloader {
     jarDownload = outputDirectory.getRelative(artifact.getFile().getAbsolutePath());
     // Verify checksum.
     if (!Strings.isNullOrEmpty(sha1)) {
-      RepositoryCache.assertFileChecksum(sha1, jarDownload, KeyType.SHA1);
+      RepositoryCache.assertFileChecksum(sha1, jarDownload, KeyType.ID_PREFIXED_SHA1);
     }
 
     Path srcjarDownload = null;
     if (artifactWithSrcs.getFile() != null) {
       srcjarDownload = outputDirectory.getRelative(artifactWithSrcs.getFile().getAbsolutePath());
       if (!Strings.isNullOrEmpty(sha1Src)) {
-        RepositoryCache.assertFileChecksum(sha1Src, srcjarDownload, KeyType.SHA1);
+        RepositoryCache.assertFileChecksum(sha1Src, srcjarDownload, KeyType.ID_PREFIXED_SHA1);
       }
     }
 
