@@ -1249,7 +1249,6 @@ public class CcModule
         /* staticRuntimesFilegroup= */ "",
         /* dynamicRuntimesFilegroup= */ "",
         supportsFission,
-        /* supportsDsym= */ false,
         needsPic,
         toolPathList,
         /* compilerFlags= */ ImmutableList.of(),

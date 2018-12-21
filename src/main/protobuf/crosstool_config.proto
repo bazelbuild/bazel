@@ -19,7 +19,6 @@ syntax = "proto2";
 // option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.view.config.crosstool";
 
-
 package com.google.devtools.build.lib.view.config.crosstool;
 
 // A description of a toolchain, which includes all the tools generally expected
@@ -40,7 +39,6 @@ package com.google.devtools.build.lib.view.config.crosstool;
 // executable. In particular, it is used to check if the compilation products of
 // a toolchain can run on the host machine.
 message CToolchain {
-
   // A group of correlated flags. Supports parametrization via variable
   // expansion.
   //
@@ -371,7 +369,7 @@ message CToolchain {
   // Legacy field, ignored by Bazel.
   optional bool supports_normalizing_ar = 26 [default = false];
   optional bool supports_fission = 43 [default = false];
-  // Can generate dsym debug symbol information.
+  // Legacy field, ignored by Bazel.
   optional bool supports_dsym = 51 [default = false];
   optional bool needsPic = 12 [default = false];
 

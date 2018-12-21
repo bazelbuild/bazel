@@ -68,7 +68,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final String staticRuntimesFilegroup;
   private final String dynamicRuntimesFilegroup;
   private final boolean supportsFission;
-  private final boolean supportsDsym;
   private final boolean needsPic;
   private final ImmutableList<Pair<String, String>> toolPaths;
   private final ImmutableList<String> compilerFlags;
@@ -114,7 +113,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       String staticRuntimesFilegroup,
       String dynamicRuntimesFilegroup,
       boolean supportsFission,
-      boolean supportsDsym,
       boolean needsPic,
       ImmutableList<Pair<String, String>> toolPaths,
       ImmutableList<String> compilerFlags,
@@ -158,7 +156,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.staticRuntimesFilegroup = staticRuntimesFilegroup;
     this.dynamicRuntimesFilegroup = dynamicRuntimesFilegroup;
     this.supportsFission = supportsFission;
-    this.supportsDsym = supportsDsym;
     this.needsPic = needsPic;
     this.toolPaths = toolPaths;
     this.compilerFlags = compilerFlags;
@@ -299,7 +296,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         toolchain.getStaticRuntimesFilegroup(),
         toolchain.getDynamicRuntimesFilegroup(),
         toolchain.getSupportsFission(),
-        toolchain.getSupportsDsym(),
         toolchain.getNeedsPic(),
         toolchain.getToolPathList().stream()
             .map(a -> Pair.of(a.getName(), a.getPath()))
@@ -433,12 +429,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   @Deprecated
   public boolean supportsFission() {
     return supportsFission;
-  }
-
-  // TODO(b/65151735): Remove once this field is migrated to features.
-  @Deprecated
-  public boolean supportsDsym() {
-    return supportsDsym;
   }
 
   // TODO(b/65151735): Remove once this field is migrated to features.
