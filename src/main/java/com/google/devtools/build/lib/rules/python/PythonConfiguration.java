@@ -41,14 +41,18 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   private final PythonVersion version;
   private final TriState buildPythonZip;
   private final boolean buildTransitiveRunfilesTrees;
+  // TODO(brandjon): Remove once migration to the new API is complete (#6583).
+  private final boolean newPyVersionApiEnabled;
 
   PythonConfiguration(
       PythonVersion defaultPythonVersion,
       TriState buildPythonZip,
-      boolean buildTransitiveRunfilesTrees) {
+      boolean buildTransitiveRunfilesTrees,
+      boolean newPyVersionApiEnabled) {
     this.version = defaultPythonVersion;
     this.buildPythonZip = buildPythonZip;
     this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
+    this.newPyVersionApiEnabled = newPyVersionApiEnabled;
   }
 
   /**
@@ -112,5 +116,13 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean buildTransitiveRunfilesTrees() {
     return buildTransitiveRunfilesTrees;
+  }
+
+  /**
+   * Returns whether use of {@code --python_version} flag and {@code python_version} attribute is
+   * allowed.
+   */
+  public boolean newPyVersionApiEnabled() {
+    return newPyVersionApiEnabled;
   }
 }

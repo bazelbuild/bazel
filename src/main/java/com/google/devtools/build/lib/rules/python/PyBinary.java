@@ -44,7 +44,6 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     PyCommon common = new PyCommon(ruleContext);
-    common.initCommon(common.getDefaultPythonVersion());
 
     RuleConfiguredTargetBuilder builder = init(ruleContext, createSemantics(), common);
     if (builder == null) {

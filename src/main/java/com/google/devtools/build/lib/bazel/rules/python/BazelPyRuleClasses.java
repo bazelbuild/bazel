@@ -164,14 +164,28 @@ public final class BazelPyRuleClasses {
           all of its <code>deps</code>.
           Valid values are <code>"PY2"</code> (default) or <code>"PY3"</code>.
           Python 3 support is experimental.
+          <p>If both this attribute and <code>python_version</code> are supplied,
+          <code>default_python_version</code> will be ignored.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
-              attr("default_python_version", STRING)
+              attr(PyCommon.DEFAULT_PYTHON_VERSION_ATTRIBUTE, STRING)
                   .value(PythonVersion.DEFAULT_TARGET_VALUE.toString())
                   .allowedValues(new AllowedValueSet(PythonVersion.TARGET_STRINGS))
                   .nonconfigurable(
-                      "read by PythonUtils.getNewPythonVersion, which doesn't have access"
-                          + " to configuration keys"))
+                      "read by PyRuleClasses.PYTHON_VERSION_TRANSITION, which doesn't have access"
+                          + " to the configuration"))
+          /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(python_version) -->
+          An experimental replacement for <code>default_python_version</code>. Only available when
+          <code>--experimental_better_python_version_mixing</code> is enabled. If both this and
+          <code>default_python_version</code> are supplied, the latter will be ignored.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr(PyCommon.PYTHON_VERSION_ATTRIBUTE, STRING)
+                  .value(PythonVersion.DEFAULT_TARGET_VALUE.toString())
+                  .allowedValues(new AllowedValueSet(PythonVersion.TARGET_STRINGS))
+                  .nonconfigurable(
+                      "read by PyRuleClasses.PYTHON_VERSION_TRANSITION, which doesn't have access"
+                          + " to the configuration"))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(srcs) -->
           The list of source files that are processed to create the target.
           This includes all your checked-in code and any

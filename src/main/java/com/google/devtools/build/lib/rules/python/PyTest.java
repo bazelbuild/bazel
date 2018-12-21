@@ -34,7 +34,6 @@ public abstract class PyTest implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     PythonSemantics semantics = createSemantics();
     PyCommon common = new PyCommon(ruleContext);
-    common.initCommon(common.getDefaultPythonVersion());
 
     RuleConfiguredTargetBuilder builder = PyBinary.init(ruleContext, semantics, common);
     if (builder == null) {
