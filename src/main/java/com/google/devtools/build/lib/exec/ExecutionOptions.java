@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -56,6 +57,7 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "spawn_strategy",
       defaultValue = "",
+      converter = CommaSeparatedOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -63,7 +65,7 @@ public class ExecutionOptions extends OptionsBase {
               + "'standalone' means run all of them locally without any kind of sandboxing. "
               + "'sandboxed' means to run them in a sandboxed environment with limited privileges "
               + "(details depend on platform support).")
-  public String spawnStrategy;
+  public List<String> spawnStrategy;
 
   @Option(
       name = "genrule_strategy",

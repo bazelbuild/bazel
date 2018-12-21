@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Builder class to create an {@link Executor} instance. This class is part of the module API,
@@ -77,7 +78,25 @@ public class ExecutorBuilder {
    * <code>addStrategyByMnemonic("C++", strategy)</code>.
    */
   public ExecutorBuilder addStrategyByMnemonic(String mnemonic, String strategy) {
-    spawnActionContextMapsBuilder.strategyByMnemonicMap().put(mnemonic, strategy);
+    addStrategyByMnemonic(mnemonic, ImmutableList.of(strategy));
+    return this;
+  }
+
+  /**
+   * Sets the strategy names for a given action mnemonic.
+   *
+   * <p>During execution, the {@link ProxySpawnActionContext} will ask each strategy whether it can
+   * execute a given Spawn. The first strategy in the list that says so will get the job.
+   */
+  public ExecutorBuilder addStrategyByMnemonic(String mnemonic, List<String> strategies) {
+    // Filtering out all empty strings results in replaceValues being called with an empty list,
+    // which will remove the mapping for the given mnemonic and not add any new mappings. This is
+    // exactly what we want (it allows the user to override any earlier set strategy mappings for
+    // the mnemonic and lets it fallback to the default strategy).
+    spawnActionContextMapsBuilder
+        .strategyByMnemonicMap()
+        .replaceValues(
+            mnemonic, strategies.stream().filter(s -> !s.isEmpty()).collect(Collectors.toList()));
     return this;
   }
 

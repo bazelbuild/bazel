@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -192,8 +192,7 @@ public final class SpawnActionContextMaps {
 
   /** Builder for {@code SpawnActionContextMaps}. */
   public static final class Builder {
-    private ImmutableListMultimap.Builder<String, String> strategyByMnemonicMapBuilder =
-        ImmutableListMultimap.builder();
+    private LinkedHashMultimap<String, String> strategyByMnemonicMap = new LinkedHashMultimap<>();
     private ImmutableListMultimap.Builder<Class<? extends ActionContext>, String>
         strategyByContextMapBuilder = ImmutableListMultimap.builder();
 
@@ -206,12 +205,12 @@ public final class SpawnActionContextMaps {
      * <p>If a spawn action is executed whose mnemonic maps to the empty string or is not present in
      * the map at all, the choice of the implementation is left to Blaze.
      *
-     * <p>Matching on mnemonics is done case-insensitively so it is recommended that any
-     * module makes sure that no two strategies refer to the same mnemonic.  If they do, Blaze
-     * will pick the last one added.
+     * <p>Matching on mnemonics is done case-insensitively so it is recommended that any module
+     * makes sure that no two strategies refer to the same mnemonic. If they do, Blaze will pick the
+     * last one added.
      */
-    public ImmutableMultimap.Builder<String, String> strategyByMnemonicMap() {
-      return strategyByMnemonicMapBuilder;
+    public LinkedHashMultimap<String, String> strategyByMnemonicMap() {
+      return strategyByMnemonicMap;
     }
 
     /**
@@ -235,32 +234,27 @@ public final class SpawnActionContextMaps {
         throws ExecutorInitException {
       StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
 
-      ImmutableSortedMap.Builder<String, SpawnActionContext> spawnStrategyMap =
+      ImmutableSortedMap.Builder<String, List<SpawnActionContext>> spawnStrategyMap =
           ImmutableSortedMap.orderedBy(String.CASE_INSENSITIVE_ORDER);
       ImmutableList.Builder<ActionContext> strategies = ImmutableList.builder();
       ImmutableList.Builder<RegexFilterSpawnActionContext> spawnStrategyRegexList =
           ImmutableList.builder();
 
-      ImmutableListMultimap<String, String> multimap = strategyByMnemonicMapBuilder.build();
-      for (String mnemonic : multimap.keySet()) {
-        String strategy = Iterables.getLast(multimap.get(mnemonic));
-        if (strategy.isEmpty() && !mnemonic.isEmpty()) {
-          // If strategy is set to the empty value, and we're not looking at the empty mnemonic,
-          // then don't create a per-mnemonic entry for this case at all. At runtime, we'll fall
-          // back to the setting for the empty mnemonic, which may or may not be the setting for
-          // the "" strategy (the default strategy), but may be overridden to a specific one.
-          continue;
+      for (String mnemonic : strategyByMnemonicMap.keySet()) {
+        ImmutableList.Builder<SpawnActionContext> contexts = ImmutableList.builder();
+        for (String strategy : strategyByMnemonicMap.get(mnemonic)) {
+          SpawnActionContext context =
+              strategyConverter.getStrategy(SpawnActionContext.class, strategy);
+          if (context == null) {
+            String strategyOrNull = Strings.emptyToNull(strategy);
+            throw makeExceptionForInvalidStrategyValue(
+                strategy,
+                Joiner.on(' ').skipNulls().join(strategyOrNull, "spawn"),
+                strategyConverter.getValidValues(SpawnActionContext.class));
+          }
+          contexts.add(context);
         }
-        SpawnActionContext context =
-            strategyConverter.getStrategy(SpawnActionContext.class, strategy);
-        if (context == null) {
-          String strategyOrNull = Strings.emptyToNull(strategy);
-          throw makeExceptionForInvalidStrategyValue(
-              strategy,
-              Joiner.on(' ').skipNulls().join(strategyOrNull, "spawn"),
-              strategyConverter.getValidValues(SpawnActionContext.class));
-        }
-        spawnStrategyMap.put(mnemonic, context);
+        spawnStrategyMap.put(mnemonic, contexts.build());
       }
 
       Set<ActionContext> seenContext = new HashSet<>();
@@ -284,7 +278,7 @@ public final class SpawnActionContextMaps {
         SpawnActionContext context =
             strategyConverter.getStrategy(SpawnActionContext.class, entry.strategy());
         if (context == null) {
-          String strategy = Strings.emptyToNull(entry.strategy().toString());
+          String strategy = Strings.emptyToNull(entry.strategy());
           throw makeExceptionForInvalidStrategyValue(
               entry.regexFilter().toString(),
               Joiner.on(' ').skipNulls().join(strategy, "spawn"),
