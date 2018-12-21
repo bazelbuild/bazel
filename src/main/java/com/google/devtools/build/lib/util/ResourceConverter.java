@@ -47,7 +47,7 @@ public class ResourceConverter extends Converters.IntegerConverter {
           .build();
 
   /** Description of the accepted inputs to the converter. */
-  private static final String FLAG_SYNTAX =
+  public static final String FLAG_SYNTAX =
       "an integer, or a keyword (\"auto\", \"HOST_CPUS\", \"HOST_RAM\"), optionally followed by "
           + "an operation ([-|*]<float>) eg. \"auto\", \"HOST_CPUS*.5\"";
 
@@ -60,79 +60,41 @@ public class ResourceConverter extends Converters.IntegerConverter {
   private final int maxValue;
 
   /**
-   * Creates a builder for the ResourceConverter class. Requires {@code auto(Supplier<Integer>) }
-   * defining the behavior of the {@code auto} keyword. Optional minValue() and maxValue().
+   * Constructs a ResourceConverter for options that take {@value FLAG_SYNTAX}
+   *
+   * @param autoSupplier a supplier for the value of the auto keyword
+   * @param minValue the minimum allowed value
+   * @param maxValue the maximum allowed value
    */
-  public static ResourceConverterBuilder builder() {
-    return new ResourceConverterBuilder();
-  }
+  public ResourceConverter(Supplier<Integer> autoSupplier, int minValue, int maxValue) {
+    this.keywords =
+        ImmutableMap.<String, Supplier<Integer>>builder()
+            .put("auto", autoSupplier)
+            .put(
+                "HOST_CPUS",
+                () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()))
+            .put(
+                "HOST_RAM",
+                () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb()))
+            .build();
 
-  /** Creates a converter for options that accept {@value #FLAG_SYNTAX} */
-  public static final class ResourceConverterBuilder {
-
-    private int minValue = 1;
-    private int maxValue = Integer.MAX_VALUE;
-    private ImmutableMap<String, Supplier<Integer>> keywords;
-    private Pattern validInputPattern;
-
-    private ResourceConverterBuilder() {};
-
-    /** Defines the behavior of the {@code auto} keyword. */
-    // A supplier is used so that the converter responds correctly if host resources are configured
-    // after it is constructed.
-    public ResourceConverterBuilder auto(Supplier<Integer> autoSupplier) {
-      this.keywords =
-          ImmutableMap.<String, Supplier<Integer>>builder()
-              .put("auto", autoSupplier)
-              .put(
-                  "HOST_CPUS",
-                  () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()))
-              .put(
-                  "HOST_RAM",
-                  () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb()))
-              .build();
-
-      this.validInputPattern =
-          Pattern.compile(
-              String.format(
-                  "(?<keyword>%s)(?<expression>[%s][0-9]?(?:.[0-9]+)?)?",
-                  String.join("|", this.keywords.keySet()), String.join("", OPERATORS.keySet())));
-      return this;
-    }
-
-    /** Sets the minimum allowed value. Defaults to 1. */
-    public ResourceConverterBuilder minValue(int minValue) {
-      this.minValue = minValue;
-      return this;
-    }
-
-    /**
-     * Sets the maximum allowed value. Defaults to {@code Integer.MAX_VALUE}, effectively no upper
-     * bound.
-     */
-    public ResourceConverterBuilder maxValue(int maxValue) {
-      this.maxValue = maxValue;
-      return this;
-    }
-
-    public ResourceConverter build() throws OptionsParsingException {
-      if (keywords == null || validInputPattern == null) {
-        throw new OptionsParsingException(
-            "ResourceConverterBuilder must call auto() before build().");
-      }
-      return new ResourceConverter(keywords, validInputPattern, minValue, maxValue);
-    }
-  }
-
-  private ResourceConverter(
-      ImmutableMap<String, Supplier<Integer>> keywords,
-      Pattern validInputPattern,
-      int minValue,
-      int maxValue) {
-    this.keywords = keywords;
-    this.validInputPattern = validInputPattern;
+    this.validInputPattern =
+        Pattern.compile(
+            String.format(
+                "(?<keyword>%s)(?<expression>[%s][0-9]?(?:.[0-9]+)?)?",
+                String.join("|", this.keywords.keySet()), String.join("", OPERATORS.keySet())));
     this.minValue = minValue;
     this.maxValue = maxValue;
+  }
+
+  /**
+   * Constructs a ResourceConverter for options that take {@value FLAG_SYNTAX} and accept any value
+   * greater than 1.
+   *
+   * @param autoSupplier a supplier for the value of the auto keyword
+   */
+  public ResourceConverter(Supplier<Integer> autoSupplier) {
+    this(autoSupplier, 1, Integer.MAX_VALUE);
   }
 
   @Override

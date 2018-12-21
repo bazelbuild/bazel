@@ -32,13 +32,13 @@ public class ResourceConverterTest {
 
   @Test
   public void convertNumber_returnsInt() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> null).build();
+    resourceConverter = new ResourceConverter(() -> null);
     assertThat(resourceConverter.convert("6")).isEqualTo(6);
   }
 
   @Test
-  public void convertNumber_greaterThanMax_throwsException() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> null).maxValue(1).build();
+  public void convertNumber_greaterThanMax_throwsException() {
+    resourceConverter = new ResourceConverter(() -> null, 0, 1);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert("2"));
     assertThat(thrown).hasMessageThat().contains("cannot be greater than 1");
@@ -46,7 +46,7 @@ public class ResourceConverterTest {
 
   @Test
   public void convertNumber_lessThanMin_throwsException() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> null).minValue(-1).build();
+    resourceConverter = new ResourceConverter(() -> null, -1, 1);
     assertThat(resourceConverter.convert("0")).isEqualTo(0);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert("-2"));
@@ -55,19 +55,19 @@ public class ResourceConverterTest {
 
   @Test
   public void convertAuto_returnsSuppliedAutoValue() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> 5).build();
+    resourceConverter = new ResourceConverter(() -> 5);
     assertThat(resourceConverter.convert("auto")).isEqualTo(5);
   }
 
   @Test
   public void convertAuto_withOperator_appliesOperatorToAuto() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> 5).build();
+    resourceConverter = new ResourceConverter(() -> 5);
     assertThat(resourceConverter.convert("auto-1")).isEqualTo(4);
   }
 
   @Test
-  public void convertAuto_withInvalidOperator_throwsException() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> null).build();
+  public void convertAuto_withInvalidOperator_throwsException() {
+    resourceConverter = new ResourceConverter(() -> null);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert("auto/2"));
     assertThat(thrown).hasMessageThat().contains("does not follow correct syntax");
@@ -75,35 +75,35 @@ public class ResourceConverterTest {
 
   @Test
   public void convertAuto_isFloat_returnsRoundedInt() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> 5).build();
+    resourceConverter = new ResourceConverter(() -> 5);
     assertThat(resourceConverter.convert("auto*.51")).isEqualTo(3);
   }
 
   @Test
   public void convertHostCpus_returnsCpuSetting() throws Exception {
     LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(0, 15));
-    resourceConverter = ResourceConverter.builder().auto(() -> 5).build();
+    resourceConverter = new ResourceConverter(() -> 5);
     assertThat(resourceConverter.convert("HOST_CPUS")).isEqualTo(15);
   }
 
   @Test
   public void convertRam_returnsRamSetting() throws Exception {
     LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(10, 0));
-    resourceConverter = ResourceConverter.builder().auto(() -> 5).build();
+    resourceConverter = new ResourceConverter(() -> 5);
     assertThat(resourceConverter.convert("HOST_RAM")).isEqualTo(10);
   }
 
   @Test
-  public void convertFloat_throwsException() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> null).build();
+  public void convertFloat_throwsException() {
+    resourceConverter = new ResourceConverter(() -> null);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert(".5"));
     assertThat(thrown).hasMessageThat().contains("not an int");
   }
 
   @Test
-  public void convertWrongKeyword_throwsException() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> null).build();
+  public void convertWrongKeyword_throwsException() {
+    resourceConverter = new ResourceConverter(() -> null);
     OptionsParsingException thrown =
         assertThrows(
             OptionsParsingException.class, () -> resourceConverter.convert("invalid_keyword"));
@@ -118,8 +118,8 @@ public class ResourceConverterTest {
   }
 
   @Test
-  public void convertAlmostValidKeyword_throwsException() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> null).build();
+  public void convertAlmostValidKeyword_throwsException() {
+    resourceConverter = new ResourceConverter(() -> null);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert("aut"));
     assertThat(thrown).hasMessageThat().contains("does not follow correct syntax");
@@ -127,23 +127,17 @@ public class ResourceConverterTest {
 
   @Test
   public void buildConverter_beforeResources_usesResources() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> null).build();
+    resourceConverter = new ResourceConverter(() -> null);
     LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(0, 15));
     assertThat(resourceConverter.convert("HOST_CPUS")).isEqualTo(15);
   }
 
   @Test
-  public void buildConverter_withNoMin_setsMinTo1() throws Exception {
-    resourceConverter = ResourceConverter.builder().auto(() -> null).build();
+  public void buildConverter_withNoMin_setsMinTo1() {
+    resourceConverter = new ResourceConverter(() -> null);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert("0"));
     assertThat(thrown).hasMessageThat().contains("must be at least 1");
   }
 
-  @Test
-  public void buildConverter_withNoAuto_throwsException() {
-    OptionsParsingException thrown =
-        assertThrows(OptionsParsingException.class, () -> ResourceConverter.builder().build());
-    assertThat(thrown).hasMessageThat().contains("must call auto() before build()");
-  }
 }
