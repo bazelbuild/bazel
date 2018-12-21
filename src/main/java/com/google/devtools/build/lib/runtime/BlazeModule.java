@@ -308,7 +308,7 @@ public abstract class BlazeModule {
    * runtime is allowed.
    */
   public Package.Builder.Helper getPackageBuilderHelper(
-      ConfiguredRuleClassProvider ruleClassProvider) {
+      ConfiguredRuleClassProvider ruleClassProvider, FileSystem fs) {
     return null;
   }
 

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import java.util.List;
 import java.util.Map;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,6 +33,13 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
+
+  @Before
+  public void disablePackageLoadingChecks() throws Exception {
+    // TODO(b/121335551): Re-enable the checks.
+    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
+  }
+
   private void writeWhitelistFile() throws Exception {
     scratch.file(
         "tools/whitelists/function_transition_whitelist/BUILD",

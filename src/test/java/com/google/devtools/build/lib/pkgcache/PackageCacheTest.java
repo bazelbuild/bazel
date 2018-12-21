@@ -104,7 +104,7 @@ public class PackageCacheTest extends FoundationTestCase {
     }
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
-            packageFactoryBuilder.build(ruleClassProvider),
+            packageFactoryBuilder.build(ruleClassProvider, fileSystem),
             fileSystem,
             directories,
             actionKeyContext,

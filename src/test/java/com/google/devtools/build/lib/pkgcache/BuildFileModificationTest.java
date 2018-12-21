@@ -86,7 +86,9 @@ public class BuildFileModificationTest extends FoundationTestCase {
             analysisMock.getProductName());
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
-            analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider),
+            analysisMock
+                .getPackageFactoryBuilderForTesting(directories)
+                .build(ruleClassProvider, fileSystem),
             fileSystem,
             directories,
             actionKeyContext,
