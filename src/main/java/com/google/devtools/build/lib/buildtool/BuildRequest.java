@@ -274,11 +274,6 @@ public class BuildRequest implements OptionsProvider {
     List<String> warnings = new ArrayList<>();
 
     int localTestJobs = getExecutionOptions().localTestJobs;
-    if (localTestJobs < 0) {
-      throw new InvalidConfigurationException(String.format(
-          "Invalid parameter for --local_test_jobs: %d. Only values 0 or greater are "
-              + "allowed.", localTestJobs));
-    }
     int jobs = getBuildOptions().jobs;
     if (localTestJobs > jobs) {
       warnings.add(

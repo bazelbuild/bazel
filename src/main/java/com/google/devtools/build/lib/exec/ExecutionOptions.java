@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Option;
@@ -250,15 +251,18 @@ public class ExecutionOptions extends OptionsBase {
   public boolean localMemoryEstimate;
 
   @Option(
-    name = "local_test_jobs",
-    defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "The max number of local test jobs to run concurrently. "
-            + "0 means local resources will limit the number of local test jobs to run "
-            + "concurrently instead. Setting this greater than the value for --jobs is ineffectual."
-  )
+      name = "local_test_jobs",
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The max number of local test jobs to run concurrently. "
+              + "Takes "
+              + ResourceConverter.FLAG_SYNTAX
+              + ". 0 means local resources will limit the number of local test jobs to run "
+              + "concurrently instead. Setting this greater than the value for --jobs "
+              + "is ineffectual.",
+      converter = LocalTestJobsConverter.class)
   public int localTestJobs;
 
   public boolean usingLocalTestJobs() {
@@ -384,6 +388,13 @@ public class ExecutionOptions extends OptionsBase {
     public String getTypeDescription() {
       return "a positive integer, the string \"default\", or test_regex@attempts. "
           + "This flag may be passed more than once";
+    }
+  }
+
+  /** Converter for --local_test_jobs, which takes {@value FLAG_SYNTAX} */
+  public static class LocalTestJobsConverter extends ResourceConverter {
+    public LocalTestJobsConverter() throws OptionsParsingException {
+      super(/* autoSupplier= */ () -> 0, /* minValue= */ 0, /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 
