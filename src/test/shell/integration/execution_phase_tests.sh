@@ -274,10 +274,6 @@ function do_threading_default_auto_test() {
       "--${flag_name} was not set to auto by default"
 }
 
-function test_jobs_default_auto() {
-  do_threading_default_auto_test "BuildRequest" "jobs"
-}
-
 function test_loading_phase_threads_default_auto() {
   do_threading_default_auto_test "LoadingPhaseThreadsOption" \
       "loading_phase_threads"

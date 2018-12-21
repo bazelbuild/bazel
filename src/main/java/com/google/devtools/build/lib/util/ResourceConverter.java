@@ -55,9 +55,9 @@ public class ResourceConverter extends Converters.IntegerConverter {
 
   private final Pattern validInputPattern;
 
-  private final int minValue;
+  protected final int minValue;
 
-  private final int maxValue;
+  protected final int maxValue;
 
   /**
    * Constructs a ResourceConverter for options that take {@value FLAG_SYNTAX}
@@ -102,16 +102,14 @@ public class ResourceConverter extends Converters.IntegerConverter {
     int value;
     if (NumberUtils.isNumber(input)) {
       value = super.convert(input);
-      checkValidity(value);
-      return value;
+      return checkAndLimit(value);
     }
     Matcher matcher = validInputPattern.matcher(input);
     if (matcher.matches()) {
       Supplier<Integer> resourceSupplier = keywords.get(matcher.group("keyword"));
       if (resourceSupplier != null) {
         value = applyOperator(matcher.group("expression"), resourceSupplier);
-        checkValidity(value);
-        return value;
+        return checkAndLimit(value);
       }
     }
     throw new OptionsParsingException(
@@ -149,10 +147,10 @@ public class ResourceConverter extends Converters.IntegerConverter {
   }
 
   /**
-   * Checks validity of all values, both calculated and explicitly defined, based on test condition
-   * or host capacity.
+   * Checks validity of a resource value against min/max constraints. Implementations may choose to
+   * either raise an exception on out-of-bounds values, or adjust them to within the constraints.
    */
-  private void checkValidity(int value) throws OptionsParsingException {
+  public int checkAndLimit(int value) throws OptionsParsingException {
     if (value < minValue) {
       throw new OptionsParsingException(
           String.format("Value '(%d)' must be at least %d.", value, minValue));
@@ -161,6 +159,7 @@ public class ResourceConverter extends Converters.IntegerConverter {
       throw new OptionsParsingException(
           String.format("Value '(%d)' cannot be greater than %d.", value, maxValue));
     }
+    return value;
   }
 
   @Override

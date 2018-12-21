@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.RangeConverter;
@@ -47,21 +48,20 @@ public class BuildRequestOptions extends OptionsBase {
   /* "Execution": options related to the execution of a build: */
 
   @Option(
-    name = "jobs",
-    abbrev = 'j',
-    defaultValue = "auto",
-    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-    effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
-    converter = JobsConverter.class,
-    help =
-        "The number of concurrent jobs to run. 0 means build sequentially."
-            + " \"auto\" means to use a reasonable value derived from the machine's hardware"
-            + " profile (e.g. the number of processors). Values above "
-            + MAX_JOBS
-            + " are not allowed, and values above "
-            + JOBS_TOO_HIGH_WARNING
-            + " may cause memory issues."
-  )
+      name = "jobs",
+      abbrev = 'j',
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
+      converter = JobsConverter.class,
+      help =
+          "The number of concurrent jobs to run. Takes {@value FLAG_SYNTAX}. Values must be"
+              + " between 1 and"
+              + MAX_JOBS
+              + " values above "
+              + JOBS_TOO_HIGH_WARNING
+              + " may cause memory issues. \"auto\" calculates a reasonable default based on"
+              + " host resources.")
   public int jobs;
 
   @Option(
@@ -244,6 +244,8 @@ public class BuildRequestOptions extends OptionsBase {
   )
   public List<String> aspects;
 
+  public BuildRequestOptions() throws OptionsParsingException {}
+
   public String getSymlinkPrefix(String productName) {
     return symlinkPrefix == null ? productName + "-" : symlinkPrefix;
   }
@@ -314,37 +316,34 @@ public class BuildRequestOptions extends OptionsBase {
       help = "This option is deprecated and has no effect.")
   public boolean discardActionsAfterExecution;
 
-  /** Converter for jobs: [0, MAX_JOBS] or "auto". */
-  public static class JobsConverter extends RangeConverter {
-
+  /**
+   * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
+   * MAX_JOBS.
+   */
+  public static class JobsConverter extends ResourceConverter {
     public JobsConverter() {
-      super(0, MAX_JOBS);
+      super(
+          () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
+          1,
+          MAX_JOBS);
     }
 
     @Override
-    public Integer convert(String input) throws OptionsParsingException {
-      int jobs;
-      if (input.equals("auto")) {
-        jobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
-        if (jobs > MAX_JOBS) {
-          logger.warning(
-              "Detected "
-                  + jobs
-                  + " processors, which exceed the maximum allowed number of jobs of "
-                  + MAX_JOBS
-                  + "; something seems wrong");
-          jobs = MAX_JOBS;
-        }
-        logger.info("Flag \"jobs\" was set to \"auto\"; using " + jobs + " jobs");
-      } else {
-        jobs = super.convert(input);
+    public int checkAndLimit(int value) throws OptionsParsingException {
+      if (value < minValue) {
+        throw new OptionsParsingException(
+            String.format("Value '(%d)' must be at least %d.", value, minValue));
       }
-      return jobs == 0 ? 1 : jobs; // Treat 0 jobs as a single task.
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "\"auto\" or " + super.getTypeDescription();
+      if (value > maxValue) {
+        logger.warning(
+            String.format(
+                "Flag remoteWorker \"jobs\" ('%d') was set too high. "
+                    + "This is a result of passing large values to --local_resources or --jobs. "
+                    + "Using '%d' jobs",
+                value, maxValue));
+        value = maxValue;
+      }
+      return value;
     }
   }
 
