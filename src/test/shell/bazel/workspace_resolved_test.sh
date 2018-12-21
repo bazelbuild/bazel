@@ -316,6 +316,38 @@ EOF
   expect_not_log 'Hello Stable World'
 }
 
+test_http_return_value() {
+  EXTREPODIR=`pwd`
+  tar xvf ${TEST_SRCDIR}/jdk_WORKSPACE_files/archives.tar
+
+  mkdir -p a
+  touch a/WORKSPACE
+  touch a/BUILD
+  touch a/f.txt
+
+  zip a.zip a/*
+  expected_sha256="$(sha256sum "${EXTREPODIR}/a.zip" | head -c 64)"
+  rm -rf a
+
+  # http_archive rule doesn't specify the sha256 attribute
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="a",
+  strip_prefix="a",
+  urls=["file://${EXTREPODIR}/a.zip"],
+)
+EOF
+  touch main/BUILD
+
+  cd main
+  bazel sync --distdir=${EXTREPODIR}/jdk_WORKSPACE/distdir \
+      --experimental_repository_resolved_file=../repo.bzl
+
+  grep ${expected_sha256} ../repo.bzl || fail "didn't return commit"
+}
 
 test_sync_calls_all() {
   EXTREPODIR=`pwd`

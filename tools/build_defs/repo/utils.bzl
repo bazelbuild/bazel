@@ -22,6 +22,8 @@ can be loaded as follows.
 load(
     "@bazel_tools//tools/build_defs/repo:utils.bzl",
     "workspace_and_buildfile",
+    "patch",
+    "update_attrs",
 )
 ```
 """
@@ -86,3 +88,25 @@ def patch(ctx):
         if st.return_code:
             fail("Error applying patch command %s:\n%s%s" %
                  (cmd, st.stdout, st.stderr))
+
+def update_attrs(orig, keys, override):
+    """Utility function for altering and adding the specified attributes to a particular repository rule invocation.
+
+     This is used to make a rule reproducible.
+
+    Args:
+        orig: dict of actually set attributes (either explicitly or implicitly)
+            by a particular rule invocation
+        keys: complete set of attributes defined on this rule
+        override: dict of attributes to override or add to orig
+
+    Returns:
+        dict of attributes with the keys from override inserted/updated
+    """
+    result = {}
+    for key in keys:
+        if getattr(orig, key) != None:
+            result[key] = getattr(orig, key)
+    result["name"] = orig.name
+    result.update(override)
+    return result
