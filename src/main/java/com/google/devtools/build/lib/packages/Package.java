@@ -1644,7 +1644,7 @@ public class Package {
         Package input,
         CodedOutputStream codedOut)
         throws IOException, SerializationException {
-      context.checkClassExplicitlyAllowed(Package.class);
+      context.checkClassExplicitlyAllowed(Package.class, input);
       PackageCodecDependencies codecDeps = context.getDependency(PackageCodecDependencies.class);
       codecDeps.getPackageSerializer().serialize(context, input, codedOut);
     }
