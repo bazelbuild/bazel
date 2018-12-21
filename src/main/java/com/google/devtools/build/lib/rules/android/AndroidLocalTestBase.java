@@ -497,6 +497,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
                 + ".java' and package name doesn't include 'java' or 'javatests'. "
                 + "You might want to rename the rule or add a 'test_class' "
                 + "attribute.)");
+        testClass = "";
       }
     }
     return testClass;
