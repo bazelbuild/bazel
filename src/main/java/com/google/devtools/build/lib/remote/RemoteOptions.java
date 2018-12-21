@@ -288,4 +288,14 @@ public final class RemoteOptions extends OptionsBase {
           "The relative priority of remote actions to be stored in remote cache. "
               + "The semantics of the particular priority values are server-dependent.")
   public int remoteResultCachePriority;
+
+  @Option(
+      name = "remote_execution_priority",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The relative priority of actions to be executed remotely. "
+              + "The semantics of the particular priority values are server-dependent.")
+  public int remoteExecutionPriority;
 }

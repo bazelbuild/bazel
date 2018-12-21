@@ -167,6 +167,7 @@ public class RemoteSpawnRunnerTest {
     options.remoteLocalFallback = false;
     options.remoteUploadLocalResults = true;
     options.remoteResultCachePriority = 1;
+    options.remoteExecutionPriority = 2;
 
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
@@ -205,6 +206,7 @@ public class RemoteSpawnRunnerTest {
     verify(executor).executeRemotely(requestCaptor.capture());
     assertThat(requestCaptor.getValue().getSkipCacheLookup()).isTrue();
     assertThat(requestCaptor.getValue().getResultsCachePolicy().getPriority()).isEqualTo(1);
+    assertThat(requestCaptor.getValue().getExecutionPolicy().getPriority()).isEqualTo(2);
     // TODO(olaola): verify that the uploaded action has the doNotCache set.
 
     verify(cache, never())

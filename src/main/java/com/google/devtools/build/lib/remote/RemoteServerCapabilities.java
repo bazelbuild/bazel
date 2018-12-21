@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.CapabilitiesGrpc.CapabilitiesBlockingStub
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
+import build.bazel.remote.execution.v2.PriorityCapabilities;
 import build.bazel.remote.execution.v2.PriorityCapabilities.PriorityRange;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Strings;
@@ -117,6 +118,33 @@ class RemoteServerCapabilities {
     }
   }
 
+  private static void checkPriorityInRange(
+      int priority,
+      String optionName,
+      PriorityCapabilities prCap,
+      ClientServerCompatibilityStatus.Builder result) {
+    if (priority != 0) {
+      boolean found = false;
+      StringBuilder rangeBuilder = new StringBuilder();
+      for (PriorityRange pr : prCap.getPrioritiesList()) {
+        rangeBuilder.append(String.format("%d-%d,", pr.getMinPriority(), pr.getMaxPriority()));
+        if (pr.getMinPriority() <= priority && priority <= pr.getMaxPriority()) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        String range = rangeBuilder.toString();
+        if (!range.isEmpty()) {
+          range = range.substring(0, range.length() - 1);
+        }
+        result.addError(
+            String.format(
+                "--%s %d is outside of server supported range %s.", optionName, priority, range));
+      }
+    }
+  }
+
   /** Compare the remote server capabilities with those requested by current execution. */
   public static ClientServerCompatibilityStatus checkClientServerCompatibility(
       ServerCapabilities capabilities, RemoteOptions remoteOptions, DigestFunction digestFunction) {
@@ -178,6 +206,12 @@ class RemoteServerCapabilities {
                 + "but the current account is not authorized to write local results "
                 + "to the remote cache.");
       }
+      // Check execution priority is in the supported range.
+      checkPriorityInRange(
+          remoteOptions.remoteExecutionPriority,
+          "remote_execution_priority",
+          execCap.getExecutionPriorityCapabilities(),
+          result);
     } else {
       // Local execution: check updating remote cache is allowed.
       if (remoteOptions.remoteUploadLocalResults
@@ -189,28 +223,11 @@ class RemoteServerCapabilities {
     }
 
     // Check result cache priority is in the supported range.
-    int priority = remoteOptions.remoteResultCachePriority;
-    if (priority != 0) {
-      boolean found = false;
-      StringBuilder rangeBuilder = new StringBuilder();
-      for (PriorityRange pr : cacheCap.getCachePriorityCapabilities().getPrioritiesList()) {
-        rangeBuilder.append(String.format("%d-%d,", pr.getMinPriority(), pr.getMaxPriority()));
-        if (pr.getMinPriority() <= priority && priority <= pr.getMaxPriority()) {
-          found = true;
-          break;
-        }
-      }
-      if (!found) {
-        String range = rangeBuilder.toString();
-        if (!range.isEmpty()) {
-          range = range.substring(0, range.length() - 1);
-        }
-        result.addError(
-            String.format(
-                "--remote_result_cache_priority %d is outside of server supported range %s.",
-                priority, range));
-      }
-    }
+    checkPriorityInRange(
+        remoteOptions.remoteResultCachePriority,
+        "remote_result_cache_priority",
+        cacheCap.getCachePriorityCapabilities(),
+        result);
     return result.build();
   }
 }

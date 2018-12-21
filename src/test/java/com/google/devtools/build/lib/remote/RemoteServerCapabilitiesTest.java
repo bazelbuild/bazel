@@ -392,4 +392,58 @@ public class RemoteServerCapabilitiesTest {
             caps, remoteOptions, DigestFunction.SHA256);
     assertThat(st.isOk()).isTrue();
   }
+
+  @Test
+  public void testCheckClientServerCompatibility_ExecutionPriority() throws Exception {
+    ServerCapabilities caps =
+        ServerCapabilities.newBuilder()
+            .setLowApiVersion(ApiVersion.current.toSemVer())
+            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setCacheCapabilities(
+                CacheCapabilities.newBuilder().addDigestFunction(DigestFunction.SHA256).build())
+            .setExecutionCapabilities(
+                ExecutionCapabilities.newBuilder()
+                    .setDigestFunction(DigestFunction.SHA256)
+                    .setExecEnabled(true)
+                    .setExecutionPriorityCapabilities(
+                        PriorityCapabilities.newBuilder()
+                            .addPriorities(
+                                PriorityRange.newBuilder().setMinPriority(1).setMaxPriority(2))
+                            .addPriorities(
+                                PriorityRange.newBuilder().setMinPriority(5).setMaxPriority(10)))
+                    .build())
+            .build();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteExecutor = "server:port";
+    remoteOptions.remoteUploadLocalResults = false;
+    remoteOptions.remoteExecutionPriority = 11;
+    RemoteServerCapabilities.ClientServerCompatibilityStatus st =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            caps, remoteOptions, DigestFunction.SHA256);
+    assertThat(st.getErrors()).hasSize(1);
+    assertThat(st.getErrors().get(0)).containsMatch("remote_execution_priority");
+
+    // Valid value in range.
+    remoteOptions.remoteExecutionPriority = 10;
+    st =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            caps, remoteOptions, DigestFunction.SHA256);
+    assertThat(st.isOk()).isTrue();
+
+    // Check not performed if the value is 0.
+    remoteOptions.remoteExecutionPriority = 0;
+    st =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            caps, remoteOptions, DigestFunction.SHA256);
+    assertThat(st.isOk()).isTrue();
+
+    // Ignored when no remote execution requested.
+    remoteOptions.remoteExecutionPriority = 11;
+    remoteOptions.remoteExecutor = "";
+    remoteOptions.remoteCache = "server:port";
+    st =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            caps, remoteOptions, DigestFunction.SHA256);
+    assertThat(st.isOk()).isTrue();
+  }
 }
