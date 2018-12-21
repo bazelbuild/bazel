@@ -562,9 +562,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                 }
 
                 long sleepMillis = retrySleepMillis(retryAttempt);
-                logInfo(
-                    "Retrying publishLifecycleEvent: status='%s', sleepMillis=%d",
-                    streamStatus, sleepMillis);
+                logInfo("Retrying stream: status='%s', sleepMillis=%d", streamStatus, sleepMillis);
                 sleeper.sleepMillis(sleepMillis);
 
                 // If we made progress, meaning the server ACKed events that we sent, then reset
