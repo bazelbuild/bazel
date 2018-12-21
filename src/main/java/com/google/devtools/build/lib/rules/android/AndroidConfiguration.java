@@ -303,22 +303,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         metadataTags = {OptionMetadataTag.INTERNAL})
     public ConfigurationDistinguisher configurationDistinguisher;
 
-    // For deploying incremental installation of native libraries. Do not use on the command line.
-    // The idea is that once this option works, we'll flip the default value in a config file, then
-    // once it is proven that it works, remove it from Bazel and said config file.
-    @Option(
-        name = "android_incremental_native_libs",
-        defaultValue = "false",
-        // mobile-install v1 is going away, and this flag does not apply to v2
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.EXECUTION,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        metadataTags = OptionMetadataTag.EXPERIMENTAL)
-    public boolean incrementalNativeLibs;
-
     @Option(
         name = "android_crosstool_top",
         defaultValue = "//external:android/crosstool",
@@ -975,7 +959,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   private final Label sdk;
   private final String cpu;
-  private final boolean useIncrementalNativeLibs;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
@@ -1018,7 +1001,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
-    this.useIncrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
@@ -1089,11 +1071,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       defaultInToolRepository = true)
   public Label getSdk() {
     return sdk;
-  }
-
-  @Override
-  public boolean useIncrementalNativeLibs() {
-    return useIncrementalNativeLibs;
   }
 
   /** Returns whether to use incremental dexing. */

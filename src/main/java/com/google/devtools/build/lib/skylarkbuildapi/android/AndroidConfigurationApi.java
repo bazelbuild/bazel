@@ -37,13 +37,6 @@ public interface AndroidConfigurationApi {
   String getCpu();
 
   @SkylarkCallable(
-      name = "use_incremental_native_libs",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useIncrementalNativeLibs();
-
-  @SkylarkCallable(
       name = "use_incremental_dexing",
       structField = true,
       doc = "",
