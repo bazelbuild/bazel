@@ -248,37 +248,6 @@ function test_cache_computed_file_digests_ui() {
       "Digests cache not reenabled"
 }
 
-function do_threading_default_auto_test() {
-  local context="${1}"; shift
-  local flag_name="${1}"; shift
-
-  local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg" || fail "could not create \"$pkg\""
-
-  mkdir -p $pkg/package || fail "mkdir failed"
-  echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >$pkg/package/BUILD
-  echo "int foo(void) { return 0; }" >$pkg/package/foo.cc
-
-  # The default value of the flag under test is only read if it is not set
-  # explicitly.  Do not use a bazelrc here as it would break the test.
-  local java_log
-  java_log="$(bazel --nomaster_bazelrc --bazelrc=/dev/null info server_log \
-      2>/dev/null)" || fail "bazel info should work"
-  bazel --nomaster_bazelrc --bazelrc=/dev/null build $pkg/package:foo \
-      >>"${TEST_log}" 2>&1 || fail "Should build"
-
-  assert_last_log \
-      "${context}" \
-      "Flag \"${flag_name}\" was set to \"auto\"" \
-      "${java_log}" \
-      "--${flag_name} was not set to auto by default"
-}
-
-function test_loading_phase_threads_default_auto() {
-  do_threading_default_auto_test "LoadingPhaseThreadsOption" \
-      "loading_phase_threads"
-}
-
 function test_analysis_warning_cached() {
   mkdir -p "foo" "bar" || fail "Could not create directories"
   cat > foo/BUILD <<'EOF' || fail "foo/BUILD"

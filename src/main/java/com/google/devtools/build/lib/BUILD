@@ -1155,6 +1155,7 @@ java_library(
     name = "loading-phase-threads-option",
     srcs = ["runtime/LoadingPhaseThreadsOption.java"],
     deps = [
+        ":resource-converter",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/common/options",
@@ -1165,7 +1166,7 @@ java_library(
 java_library(
     name = "resource-converter",
     srcs = [
-        "runtime/ResourceConverter.java",
+        "util/ResourceConverter.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
