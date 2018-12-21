@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.runtime.commands.CleanCommand.CleanStarting
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.worker.WorkerOptions.MultiResourceConverter;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.util.LinkedHashMap;
@@ -51,9 +52,9 @@ public class WorkerModule extends BlazeModule {
 
   private WorkerFactory workerFactory;
   private WorkerPool workerPool;
-  private ImmutableMap<String, Integer> workerPoolConfig;
   private WorkerOptions options;
-
+  private ImmutableMap<String, Integer> workerPoolConfig;
+  
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
@@ -115,11 +116,15 @@ public class WorkerModule extends BlazeModule {
     for (Map.Entry<String, Integer> entry : options.workerMaxInstances) {
       newConfigBuilder.put(entry.getKey(), entry.getValue());
     }
+
     if (!newConfigBuilder.containsKey("")) {
       // Empty string gives the number of workers for any type of worker not explicitly specified.
       // If no value is given, use the default, 4.
-      newConfigBuilder.put("", 4);
+      // TODO(steinman): Calculate a reasonable default value instead of arbitrarily defaulting to
+      // 4.
+      newConfigBuilder.put("", MultiResourceConverter.DEFAULT_VALUE);
     }
+
     ImmutableMap<String, Integer> newConfig = ImmutableMap.copyOf(newConfigBuilder);
 
     // If the config changed compared to the last run, we have to create a new pool.

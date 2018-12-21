@@ -1651,10 +1651,12 @@ java_test(
         ":test_runner",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:os_util",
+        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib/worker",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/main/protobuf:worker_protocol_java_proto",
     ],
 )
