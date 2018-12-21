@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.rules.android.databinding;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * A provider that exposes this enables <a
@@ -39,14 +39,18 @@ public final class DataBindingV2Provider extends NativeInfo
 
   private final NestedSet<Artifact> transitiveBRFiles;
 
+  private final NestedSet<LabelJavaPackagePair> transitiveLabelAndJavaPackages;
+
   public DataBindingV2Provider(
       ImmutableList<Artifact> classInfos,
       ImmutableList<Artifact> setterStores,
-      NestedSet<Artifact> transitiveBRFiles) {
+      NestedSet<Artifact> transitiveBRFiles,
+      NestedSet<LabelJavaPackagePair> transitiveLabelAndJavaPackages) {
     super(PROVIDER);
     this.classInfos = classInfos;
     this.setterStores = setterStores;
     this.transitiveBRFiles = transitiveBRFiles;
+    this.transitiveLabelAndJavaPackages = transitiveLabelAndJavaPackages;
   }
 
   @Override
@@ -64,6 +68,63 @@ public final class DataBindingV2Provider extends NativeInfo
     return transitiveBRFiles;
   }
 
+  @Override
+  public NestedSet<LabelJavaPackagePair> getTransitiveLabelAndJavaPackages() {
+    return transitiveLabelAndJavaPackages;
+  }
+
+  public static DataBindingV2Provider createProvider(
+      Artifact setterStoreFile,
+      Artifact classInfoFile,
+      Artifact brFile,
+      String label,
+      String javaPackage,
+      Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInDeps,
+      Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInExports) {
+
+    ImmutableList.Builder<Artifact> setterStoreFiles = ImmutableList.builder();
+    if (setterStoreFile != null) {
+      setterStoreFiles.add(setterStoreFile);
+    }
+
+    ImmutableList.Builder<Artifact> classInfoFiles = ImmutableList.builder();
+    if (classInfoFile != null) {
+      classInfoFiles.add(classInfoFile);
+    }
+
+    NestedSetBuilder<Artifact> brFiles = NestedSetBuilder.stableOrder();
+    if (brFile != null) {
+      brFiles.add(brFile);
+    }
+
+    NestedSetBuilder<LabelJavaPackagePair> labelAndJavaPackages = NestedSetBuilder.stableOrder();
+    labelAndJavaPackages.add(LabelJavaPackagePair.create(label, javaPackage));
+
+    if (databindingV2ProvidersInDeps != null) {
+
+      for (DataBindingV2ProviderApi<Artifact> provider : databindingV2ProvidersInDeps) {
+        brFiles.addTransitive(provider.getTransitiveBRFiles());
+        labelAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
+      }
+    }
+
+    if (databindingV2ProvidersInExports != null) {
+
+      for (DataBindingV2ProviderApi<Artifact> provider : databindingV2ProvidersInExports) {
+        setterStoreFiles.addAll(provider.getSetterStores());
+        classInfoFiles.addAll(provider.getClassInfos());
+        brFiles.addTransitive(provider.getTransitiveBRFiles());
+        labelAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
+      }
+    }
+
+    return new DataBindingV2Provider(
+        classInfoFiles.build(),
+        setterStoreFiles.build(),
+        brFiles.build(),
+        labelAndJavaPackages.build());
+  }
+
   /** The provider can construct the DataBindingV2Provider provider. */
   public static class Provider extends BuiltinProvider<DataBindingV2Provider>
       implements DataBindingV2ProviderApi.Provider<Artifact> {
@@ -74,14 +135,27 @@ public final class DataBindingV2Provider extends NativeInfo
 
     @Override
     public DataBindingV2ProviderApi<Artifact> createInfo(
-        SkylarkList<Artifact> setterStores,
-        SkylarkList<Artifact> clientInfos,
-        SkylarkNestedSet transitiveBrFiles) throws EvalException {
+        Artifact setterStoreFile,
+        Artifact classInfoFile,
+        Artifact brFile,
+        String label,
+        String javaPackage,
+        SkylarkList<DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInDeps,
+        SkylarkList<DataBindingV2ProviderApi<Artifact>> databindingV2ProvidersInExports)
+        throws EvalException {
 
-      return new DataBindingV2Provider(
-          setterStores.getImmutableList(),
-          clientInfos.getImmutableList(),
-          transitiveBrFiles.getSet(Artifact.class));
+      return createProvider(
+          setterStoreFile,
+          classInfoFile,
+          brFile,
+          label,
+          javaPackage,
+          databindingV2ProvidersInDeps == null
+              ? null
+              : databindingV2ProvidersInDeps.getImmutableList(),
+          databindingV2ProvidersInExports == null
+              ? null
+              : databindingV2ProvidersInExports.getImmutableList());
     }
   }
 }

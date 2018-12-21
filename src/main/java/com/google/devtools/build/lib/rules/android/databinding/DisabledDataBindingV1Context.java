@@ -35,7 +35,7 @@ class DisabledDataBindingV1Context implements DataBindingContext {
       BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer) { }
 
   @Override
-  public ImmutableList<Artifact> processDeps(RuleContext ruleContext) {
+  public ImmutableList<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {
     return ImmutableList.of();
   }
 

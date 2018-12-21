@@ -77,10 +77,11 @@ public interface DataBindingContext {
    * Processes deps that also apply data binding.
    *
    * @param ruleContext the current rule
+   * @param isBinary whether this rule is a "binary" rule (i.e., top-level android rule)
    * @return the deps' metadata outputs. These need to be staged as compilation inputs to the
    *     current rule.
    */
-  ImmutableList<Artifact> processDeps(RuleContext ruleContext);
+  ImmutableList<Artifact> processDeps(RuleContext ruleContext, boolean isBinary);
 
   /**
    * Creates and adds the generated Java source for data binding annotation processor to read and

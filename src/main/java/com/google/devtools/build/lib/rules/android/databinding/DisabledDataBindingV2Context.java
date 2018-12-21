@@ -19,11 +19,11 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
+import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi.LabelJavaPackagePair;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -38,7 +38,7 @@ class DisabledDataBindingV2Context implements DataBindingContext {
       BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer) { }
 
   @Override
-  public ImmutableList<Artifact> processDeps(RuleContext ruleContext) {
+  public ImmutableList<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {
     return ImmutableList.of();
   }
 
@@ -52,7 +52,9 @@ class DisabledDataBindingV2Context implements DataBindingContext {
 
     ImmutableList.Builder<Artifact> setterStores = ImmutableList.builder();
     ImmutableList.Builder<Artifact> classInfos = ImmutableList.builder();
-    NestedSetBuilder<Artifact> brFiles = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    NestedSetBuilder<Artifact> brFiles = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<LabelJavaPackagePair> targetNameAndJavaPackages =
+        NestedSetBuilder.stableOrder();
 
     // android_binary doesn't have "exports"
     if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
@@ -63,22 +65,24 @@ class DisabledDataBindingV2Context implements DataBindingContext {
         setterStores.addAll(provider.getSetterStores());
         classInfos.addAll(provider.getClassInfos());
         brFiles.addTransitive(provider.getTransitiveBRFiles());
+        targetNameAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
       }
     }
-
 
     Iterable<DataBindingV2Provider> depsProviders = ruleContext.getPrerequisites(
         "deps", RuleConfiguredTarget.Mode.TARGET, DataBindingV2Provider.PROVIDER);
 
     for (DataBindingV2Provider provider : depsProviders) {
       brFiles.addTransitive(provider.getTransitiveBRFiles());
+      targetNameAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
     }
 
     builder.addNativeDeclaredProvider(
         new DataBindingV2Provider(
             classInfos.build(),
             setterStores.build(),
-            brFiles.build()));
+            brFiles.build(),
+            targetNameAndJavaPackages.build()));
   }
 
   @Override

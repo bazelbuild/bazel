@@ -524,9 +524,12 @@ public class AndroidCommon {
       jarsProducedForRuntime.add(resourceApk.getResourceJavaClassJar());
     }
 
+    // Databinding metadata that the databinding annotation processor reads.
+    ImmutableList<Artifact> additionalJavaInputsFromDatabinding =
+        resourceApk.asDataBindingContext().processDeps(ruleContext, isBinary);
+
     JavaCompilationHelper helper =
-        initAttributes(
-            attributes, javaSemantics, resourceApk.asDataBindingContext().processDeps(ruleContext));
+        initAttributes(attributes, javaSemantics, additionalJavaInputsFromDatabinding);
     if (ruleContext.hasErrors()) {
       return null;
     }

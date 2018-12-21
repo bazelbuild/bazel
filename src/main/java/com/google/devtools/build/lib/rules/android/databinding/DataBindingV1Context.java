@@ -90,7 +90,7 @@ final class DataBindingV1Context implements DataBindingContext {
   }
 
   @Override
-  public ImmutableList<Artifact> processDeps(RuleContext ruleContext) {
+  public ImmutableList<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {
 
     ImmutableList.Builder<Artifact> dataBindingJavaInputs = ImmutableList.builder();
     if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {

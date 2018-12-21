@@ -584,4 +584,312 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "java/a/databinding/a/bin-files/a-a-br.bin",
             "java/b/databinding/b/bin-files/b-b-br.bin");
   }
+
+  @Test
+  public void testMultipleAndroidLibraryDepsWithSameJavaPackageRaisesError() throws Exception {
+
+    String databindingRuntime =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/databinding"
+            + ":runtime";
+    String supportAnnotations =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/annotations"
+            + ":annotations";
+
+    scratch.file(
+        "java/com/lib/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['User.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")",
+        "android_library(",
+        "    name = 'lib2',",
+        "    srcs = ['User2.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res2/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/bin/BUILD",
+        "android_binary(",
+        "    name = 'bin',",
+        "    srcs = ['MyActivity.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '//java/com/lib',",
+        "        '//java/com/lib:lib2',",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    checkError(
+        "//java/com/bin:bin",
+        "Java package com.lib:\n" + "    //java/com/lib:lib\n" + "    //java/com/lib:lib2");
+  }
+
+  @Test
+  public void testMultipleAndroidLibraryDepsWithSameJavaPackageThroughDiamondRaisesError()
+      throws Exception {
+
+    String databindingRuntime =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/databinding"
+            + ":runtime";
+    String supportAnnotations =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/annotations"
+            + ":annotations";
+
+    // The bin target depends on these target indirectly and separately through the libraries
+    // in middleA and middleB.
+    scratch.file(
+        "java/com/bottom/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['User.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")",
+        "android_library(",
+        "    name = 'lib2',",
+        "    srcs = ['User2.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res2/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/middleA/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['UserMiddleA.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [",
+        "        '//java/com/bottom:lib',",
+        "    ],",
+        ")");
+    scratch.file(
+        "java/com/middleB/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['UserMiddleB.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [",
+        "        '//java/com/bottom:lib2',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/bin/BUILD",
+        "android_binary(",
+        "    name = 'bin',",
+        "    srcs = ['MyActivity.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '//java/com/middleA:lib',",
+        "        '//java/com/middleB:lib',",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    checkError(
+        "//java/com/bin:bin",
+        "Java package com.bottom:\n"
+            + "    //java/com/bottom:lib\n"
+            + "    //java/com/bottom:lib2");
+  }
+
+  @Test
+  public void testMultipleAndroidLibraryDepsWithSameJavaPackageThroughCustomPackageAttrRaisesError()
+      throws Exception {
+
+    String databindingRuntime =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/databinding"
+            + ":runtime";
+    String supportAnnotations =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/annotations"
+            + ":annotations";
+
+    // The bin target depends on these target indirectly and separately through the libraries
+    // in middleA and middleB.
+    scratch.file(
+        "libA/BUILD",
+        "android_library(",
+        "    name = 'libA',",
+        "    srcs = ['UserA.java'],",
+        "    custom_package = 'com.foo',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "libB/BUILD",
+        "android_library(",
+        "    name = 'libB',",
+        "    srcs = ['UserB.java'],",
+        "    custom_package = 'com.foo',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/bin/BUILD",
+        "android_binary(",
+        "    name = 'bin',",
+        "    srcs = ['MyActivity.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '//libA:libA',",
+        "        '//libB:libB',",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    checkError(
+        "//java/com/bin:bin", "Java package com.foo:\n" + "    //libA:libA\n" + "    //libB:libB");
+  }
+
+  @Test
+  public void testAndroidBinaryAndroidLibraryWithDatabindingSamePackageRaisesError()
+      throws Exception {
+
+    String databindingRuntime =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/databinding"
+            + ":runtime";
+    String supportAnnotations =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/annotations"
+            + ":annotations";
+
+    // The android_binary and android_library are in the same java package and have
+    // databinding.
+    scratch.file(
+        "java/com/bin/BUILD",
+        "android_binary(",
+        "    name = 'bin',",
+        "    srcs = ['MyActivity.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        ':lib',",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['User.java'],",
+        "    manifest = 'LibManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    checkError(
+        "//java/com/bin:bin",
+        "Java package com.bin:\n" + "    //java/com/bin:bin\n" + "    //java/com/bin:lib");
+  }
+
+  @Test
+  public void testSameAndroidLibraryMultipleTimesThroughDiamondDoesNotRaiseSameJavaPackageError()
+      throws Exception {
+
+    String databindingRuntime =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/databinding"
+            + ":runtime";
+    String supportAnnotations =
+        "//third_party/java/android/android_sdk_linux/extras/android/compatibility/annotations"
+            + ":annotations";
+
+    // The bin target depends on this twice target indirectly and separately through the libraries
+    // in middleA and middleB, but this should not be a problem.
+    scratch.file(
+        "java/com/bottom/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['User.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    resource_files = glob(['res/**']),",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/middleA/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['UserMiddleA.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [",
+        "        '//java/com/bottom:lib',",
+        "    ],",
+        ")");
+    scratch.file(
+        "java/com/middleB/BUILD",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['UserMiddleB.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    deps = [",
+        "        '//java/com/bottom:lib',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "java/com/bin/BUILD",
+        "android_binary(",
+        "    name = 'bin',",
+        "    srcs = ['MyActivity.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    enable_data_binding = 1,",
+        "    deps = [",
+        "        '//java/com/middleA:lib',",
+        "        '//java/com/middleB:lib',",
+        "        '" + databindingRuntime + "',",
+        "        '" + supportAnnotations + "',",
+        "    ],",
+        ")");
+
+    // Should not throw error.
+    getConfiguredTarget("//java/com/bin:bin");
+  }
 }
