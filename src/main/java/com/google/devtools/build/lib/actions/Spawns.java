@@ -54,6 +54,10 @@ public final class Spawns {
         && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE);
   }
 
+  public static boolean supportsWorkers(Spawn spawn) {
+    return "1".equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_WORKERS));
+  }
+
   /**
    * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return -1.
    */
