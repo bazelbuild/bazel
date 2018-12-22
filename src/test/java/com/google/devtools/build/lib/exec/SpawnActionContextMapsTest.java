@@ -133,6 +133,11 @@ public class SpawnActionContextMapsTest {
         throws ExecException, InterruptedException {
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public boolean supports(Spawn spawn) {
+      return true;
+    }
   }
 
   @ExecutionStrategy(contextType = SpawnActionContext.class, name = "ac2")
@@ -141,6 +146,11 @@ public class SpawnActionContextMapsTest {
     public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
         throws ExecException, InterruptedException {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean supports(Spawn spawn) {
+      return true;
     }
   }
 

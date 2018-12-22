@@ -102,6 +102,11 @@ public class DynamicSpawnStrategyTest {
     }
 
     @Override
+    public boolean supports(Spawn spawn) {
+      return true;
+    }
+
+    @Override
     public List<SpawnResult> exec(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,

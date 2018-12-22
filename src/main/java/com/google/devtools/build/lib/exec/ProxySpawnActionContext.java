@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import java.util.List;
 
 /** Proxy that looks up the right SpawnActionContext for a spawn during exec. */
@@ -38,13 +39,21 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
     List<SpawnActionContext> strategies = resolve(spawn, actionExecutionContext.getEventHandler());
 
     for (SpawnActionContext strategy : strategies) {
-      return strategy.exec(spawn, actionExecutionContext);
+      if (strategy.supports(spawn)) {
+        return strategy.exec(spawn, actionExecutionContext);
+      }
     }
 
     throw new UserExecException(String.format(
         "No usable spawn strategy found for spawn with mnemonic %s. Are your --spawn_strategy or --strategy flags too strict?",
         spawn.getMnemonic()));
 
+  }
+
+  @Override
+  public boolean supports(Spawn spawn) {
+    return resolve(spawn, NullEventHandler.INSTANCE).stream()
+        .anyMatch(spawnActionContext -> spawnActionContext.supports(spawn));
   }
 
   @VisibleForTesting

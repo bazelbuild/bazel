@@ -154,6 +154,11 @@ public class LocalSpawnRunner implements SpawnRunner {
     }
   }
 
+  @Override
+  public boolean supports(Spawn spawn) {
+    return true;
+  }
+
   protected Path createActionTemp(Path execRoot) throws IOException {
     return execRoot.getRelative(
         java.nio.file.Files.createTempDirectory(

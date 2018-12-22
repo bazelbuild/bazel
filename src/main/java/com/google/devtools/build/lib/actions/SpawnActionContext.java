@@ -24,4 +24,7 @@ public interface SpawnActionContext extends ActionContext {
   /** Executes the given spawn and returns metadata about the execution. */
   List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
+
+  /** Returns whether this SpawnActionContext supports executing the given Spawn. */
+  boolean supports(Spawn spawn);
 }

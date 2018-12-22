@@ -290,11 +290,16 @@ public final class SandboxModule extends BlazeModule {
     @Override
     public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
         throws InterruptedException, IOException, ExecException {
-      if (!Spawns.mayBeSandboxed(spawn)) {
-        return fallbackSpawnRunner.exec(spawn, context);
-      } else {
+      if (sandboxSpawnRunner.supports(spawn)) {
         return sandboxSpawnRunner.exec(spawn, context);
+      } else {
+        return fallbackSpawnRunner.exec(spawn, context);
       }
+    }
+
+    @Override
+    public boolean supports(Spawn spawn) {
+      return sandboxSpawnRunner.supports(spawn) || fallbackSpawnRunner.supports(spawn);
     }
   }
 

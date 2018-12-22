@@ -316,6 +316,11 @@ public class DynamicSpawnStrategy implements SpawnActionContext {
     return dynamicExecutionResult.spawnResults();
   }
 
+  @Override
+  public boolean supports(Spawn spawn) {
+    return remoteStrategy.supports(spawn) || workerStrategy.supports(spawn) || localStrategy.supports(spawn);
+  }
+
   private void moveFileOutErr(ActionExecutionContext actionExecutionContext, FileOutErr outErr)
       throws IOException {
     if (outErr.getOutputPath().exists()) {

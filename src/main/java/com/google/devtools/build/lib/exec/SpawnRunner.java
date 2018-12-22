@@ -232,6 +232,9 @@ public interface SpawnRunner {
   SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException;
 
+  /** Returns whether this SpawnRunner supports executing the given Spawn. */
+  boolean supports(Spawn spawn);
+
   /* Name of the SpawnRunner. */
   String getName();
 }
