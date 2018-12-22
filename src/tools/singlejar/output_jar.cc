@@ -77,7 +77,7 @@ OutputJar::OutputJar()
       "Created-By: singlejar\r\n");
 }
 
-static std::string Basename(const std::string& path) {
+static std::string Basename(const std::string &path) {
   size_t pos = path.rfind('/');
   if (pos == std::string::npos) {
     return path;
@@ -276,7 +276,7 @@ OutputJar::~OutputJar() {
 
 // Try to perform I/O in units of this size.
 // (128KB is the default max request size for fuse filesystems.)
-static const size_t kBufferSize = 128<<10;
+static constexpr size_t kBufferSize = 128 << 10;
 
 bool OutputJar::Open() {
   if (file_) {
@@ -285,12 +285,31 @@ bool OutputJar::Open() {
 
   // Set execute bits since we may produce an executable output file.
   int mode = O_CREAT | O_WRONLY | O_TRUNC;
+
 #ifdef _WIN32
+  std::wstring wpath;
+  std::string error;
+  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
+    diag_warn("%s:%d: AsAbsoluteWindowsPath failed: %s", __FILE__, __LINE__,
+              error.c_str());
+    return false;
+  }
+
+  HANDLE hFile = CreateFileW(wpath.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
+                             NULL, CREATE_ALWAYS, 0, NULL);
+  if (hFile == INVALID_HANDLE_VALUE) {
+    diag_warn("%s:%d: CreateFileW failed for %S", __FILE__, __LINE__,
+              wpath.c_str());
+    return false;
+  }
+
   // Make sure output file is in binary mode, or \r\n will be converted to \n.
   mode |= _O_BINARY;
+  int fd = _open_osfhandle(hFile, mode);
+#else
+  int fd = open(path(), mode, 0777);
 #endif
 
-  int fd = open(path(), mode, 0777);
   if (fd < 0) {
     diag_warn("%s:%d: %s", __FILE__, __LINE__, path());
     return false;
@@ -346,7 +365,7 @@ bool OutputJar::AddJar(int jar_path_index) {
 
     bool include_entry = true;
     if (!options_->include_prefixes.empty()) {
-      for (auto& prefix : options_->include_prefixes) {
+      for (auto &prefix : options_->include_prefixes) {
         if ((include_entry =
                  (prefix.size() <= file_name_length &&
                   0 == strncmp(file_name, prefix.c_str(), prefix.size())))) {
@@ -390,7 +409,7 @@ bool OutputJar::AddJar(int jar_path_index) {
     auto got =
         known_members_.emplace(std::string(file_name, file_name_length),
                                EntryInfo{is_file ? nullptr : &null_combiner_,
-                                         is_file ? jar_path_index: -1});
+                                         is_file ? jar_path_index : -1});
     if (!got.second) {
       auto &entry_info = got.first->second;
       // Handle special entries (the ones that have a combiner).
@@ -829,7 +848,7 @@ bool OutputJar::Close() {
     }
     {
       ECD64Locator *ecd64_locator =
-        reinterpret_cast<ECD64Locator *>(ReserveCdh(sizeof(ECD64Locator)));
+          reinterpret_cast<ECD64Locator *>(ReserveCdh(sizeof(ECD64Locator)));
       ecd64_locator->signature();
       ecd64_locator->ecd64_offset(output_position + cen_size);
       ecd64_locator->total_disks(1);
@@ -927,7 +946,7 @@ ssize_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
   if (count == 0) {
     return 0;
   }
-  std::unique_ptr<void, decltype(free)*> buffer(malloc(kBufferSize), free);
+  std::unique_ptr<void, decltype(free) *> buffer(malloc(kBufferSize), free);
   if (buffer == nullptr) {
     diag_err(1, "%s:%d: malloc", __FILE__, __LINE__);
   }
