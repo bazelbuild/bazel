@@ -289,7 +289,7 @@ bool OutputJar::Open() {
 #ifdef _WIN32
   std::wstring wpath;
   std::string error;
-  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
+  if (!blaze_util::AsAbsoluteWindowsPath(path(), &wpath, &error)) {
     diag_warn("%s:%d: AsAbsoluteWindowsPath failed: %s", __FILE__, __LINE__,
               error.c_str());
     return false;
@@ -305,7 +305,7 @@ bool OutputJar::Open() {
 
   // Make sure output file is in binary mode, or \r\n will be converted to \n.
   mode |= _O_BINARY;
-  int fd = _open_osfhandle(hFile, mode);
+  int fd = _open_osfhandle(reinterpret_cast<intptr_t>(hFile), mode);
 #else
   int fd = open(path(), mode, 0777);
 #endif
