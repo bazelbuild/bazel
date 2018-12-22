@@ -308,7 +308,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       helper.addDeps(deps);
       // TODO(dougk): Configure output artifact with action_config
       // once proto compile action is configurable from the crosstool.
-      if (!toolchain.supportsDynamicLinker()) {
+      if (!toolchain.supportsDynamicLinker(featureConfiguration)) {
         helper.setShouldCreateDynamicLibrary(false);
       }
       return helper;

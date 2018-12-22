@@ -332,11 +332,7 @@ public final class CppToolchainInfo {
     this.supportsFission = supportsFission;
     this.supportsStartEndLib = supportsStartEndLib;
     this.supportsEmbeddedRuntimes = supportsEmbeddedRuntimes;
-    this.supportsDynamicLinker =
-        supportsDynamicLinker
-            || toolchainFeatures
-                .getActivatableNames()
-                .contains(CppRuleClasses.DYNAMIC_LINKING_MODE);
+    this.supportsDynamicLinker = supportsDynamicLinker;
     this.supportsInterfaceSharedLibraries = supportsInterfaceSharedLibraries;
     this.supportsGoldLinker = supportsGoldLinker;
     this.toolchainNeedsPic = toolchainNeedsPic;

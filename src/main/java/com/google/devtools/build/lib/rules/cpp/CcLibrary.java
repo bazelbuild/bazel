@@ -163,7 +163,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));
 
     Artifact soImplArtifact = null;
-    boolean supportsDynamicLinker = ccToolchain.supportsDynamicLinker();
+    boolean supportsDynamicLinker = ccToolchain.supportsDynamicLinker(featureConfiguration);
     // TODO(djasper): This is hacky. We should actually try to figure out whether we generate
     // ccOutputs.
     boolean createDynamicLibrary =

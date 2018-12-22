@@ -1035,4 +1035,11 @@ conditions.
      libraries. This makes incremental relinking faster.
    </td>
   </tr>
+  <tr>
+   <td><strong><code>supports_dynamic_linker</code></strong>
+   </td>
+   <td>If enabled, C++ rules will know the toolchain can produce shared
+     libraries.
+   </td>
+  </tr>
 </table>

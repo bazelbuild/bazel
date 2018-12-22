@@ -553,11 +553,10 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.supportsGoldLinker();
   }
 
-  /**
-   * Returns whether the toolchain supports dynamic linking.
-   */
-  public boolean supportsDynamicLinker() {
-    return toolchainInfo.supportsDynamicLinker();
+  /** Returns whether the toolchain supports dynamic linking. */
+  public boolean supportsDynamicLinker(FeatureConfiguration featureConfiguration) {
+    return toolchainInfo.supportsDynamicLinker()
+        || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER);
   }
 
   /**

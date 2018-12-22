@@ -391,6 +391,11 @@ public class CppRuleClasses {
   /** A feature marking that the toolchain can use --start-lib/--end-lib flags */
   public static final String SUPPORTS_START_END_LIB = "supports_start_end_lib";
 
+  /**
+   * A feature marking that the toolchain can produce binaries that load shared libraries at
+   * runtime.
+   */
+  public static final String SUPPORTS_DYNAMIC_LINKER = "supports_dynamic_linker";
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
     @Override

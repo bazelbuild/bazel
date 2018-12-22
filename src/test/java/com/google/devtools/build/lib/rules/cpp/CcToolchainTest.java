@@ -774,7 +774,7 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSupportsDynamicLinkerCheckFeatures() throws Exception {
+  public void testSupportsDynamicLinkerIsFalseWhenFeatureNotSet() throws Exception {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
 
     getAnalysisMock()
@@ -789,7 +789,29 @@ public class CcToolchainTest extends BuildViewTestCase {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
 
-    assertThat(toolchainProvider.supportsDynamicLinker()).isTrue();
+    assertThat(toolchainProvider.supportsDynamicLinker(FeatureConfiguration.EMPTY)).isFalse();
+  }
+
+  @Test
+  public void testSupportsDynamicLinkerIsTrueWhenFeatureSet() throws Exception {
+    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.DYNAMIC_LINKING_MODE_FEATURE,
+            MockCcSupport.SUPPORTS_DYNAMIC_LINKER_FEATURE);
+
+    // To make sure the toolchain doesn't define linking_mode_flags { mode: DYNAMIC } as that would
+    // also result in supportsDynamicLinker returning true
+    useConfiguration("--compiler=compiler_no_dyn_linker");
+
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+
+    assertThat(toolchainProvider.supportsDynamicLinker(FeatureConfiguration.EMPTY)).isFalse();
   }
 
   // Tests CcCommon::enableStaticLinkCppRuntimesFeature when supports_embedded_runtimes is not

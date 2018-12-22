@@ -62,6 +62,9 @@ public abstract class MockCcSupport {
   public static final String DYNAMIC_LINKING_MODE_FEATURE =
       "feature { name: '" + CppRuleClasses.DYNAMIC_LINKING_MODE + "'}";
 
+  public static final String SUPPORTS_DYNAMIC_LINKER_FEATURE =
+      "feature { name: '" + CppRuleClasses.SUPPORTS_DYNAMIC_LINKER + " enabled: true'}";
+
   /** Feature expected by the C++ rules when pic build is requested */
   public static final String PIC_FEATURE =
       ""
