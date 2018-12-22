@@ -355,6 +355,7 @@ cc_library(
     deps = [
         ":diag",
         ":port",
+        "//src/main/cpp/util",
     ],
 )
 
@@ -413,10 +414,7 @@ cc_library(
     hdrs = ["test_util.h"],
     deps = [
         "//src/main/cpp/util",
-        # TODO(laszlocsomor) Use @bazel_tools//tools/cpp/runfiles after Bazel is
-        # released with
-        # https://github.com/bazelbuild/bazel/commit/23bc3bee79d8a8b8dc15bbfb6072ec9f965dff96.
-        "//tools/cpp/runfiles:runfiles_src_for_singlejar_only",
+        "@bazel_tools//tools/cpp/runfiles",
         "@com_google_googletest//:gtest_main",
     ],
 )

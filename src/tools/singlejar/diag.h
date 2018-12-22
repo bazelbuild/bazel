@@ -36,7 +36,7 @@
   { fprintf(stderr, prefix msg, __VA_ARGS__); }
 #define _diag_msgx(exit_value, prefix, msg, ...) \
   { \
-    _diag_msg(prefix, msg, __VA_ARGS__); \
+    _diag_msg(prefix, msg "\n", __VA_ARGS__); \
     ::ExitProcess(exit_value); \
   }
 #define diag_err(exit_value, fmt, ...) \

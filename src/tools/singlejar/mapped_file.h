@@ -50,16 +50,17 @@ class MappedFile {
   off64_t offset(const void *address) const {
     return reinterpret_cast<const unsigned char *>(address) - mapped_start_;
   }
-  int fd() const { return fd_; }
   size_t size() const { return mapped_end_ - mapped_start_; }
-  bool is_open() const { return fd_ >= 0; }
+  bool is_open() const;
 
  private:
   unsigned char *mapped_start_;
   unsigned char *mapped_end_;
-  int fd_;
 #ifdef _WIN32
+  /* HANDLE */ void *hFile_;
   /* HANDLE */ void *hMapFile_;
+#else
+  int fd_;
 #endif
 };
 

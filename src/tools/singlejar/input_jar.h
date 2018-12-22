@@ -45,8 +45,6 @@ class InputJar {
 
   ~InputJar() { Close(); }
 
-  int fd() const { return mapped_file_.fd(); }
-
   // Opens the file, memory maps it and locates Central Directory.
   bool Open(const std::string& path);
 

@@ -69,4 +69,6 @@ void MappedFile::Close() {
   }
 }
 
+bool MappedFile::is_open() const { return fd_ >= 0; }
+
 #endif  // BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_POSIX_H_
