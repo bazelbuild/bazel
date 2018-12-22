@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
@@ -68,7 +69,7 @@ public class BazelStrategyModule extends BlazeModule {
     builder.addStrategyByMnemonic("", options.spawnStrategy);
 
     for (Map.Entry<RegexFilter, String> entry : options.strategyByRegexp) {
-      builder.addStrategyByRegexp(entry.getKey(), entry.getValue());
+      builder.addStrategyByRegexp(entry.getKey(), Splitter.on(',').splitToList(entry.getValue()));
     }
 
     builder

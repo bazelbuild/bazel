@@ -137,17 +137,17 @@ public class StandaloneSpawnStrategyTest {
             optionsParser,
             SpawnActionContextMaps.createStub(
                 ImmutableList.of(),
-                ImmutableMap.<String, SpawnActionContext>of(
+                ImmutableMap.of(
                     "",
-                    new StandaloneSpawnStrategy(
+                    ImmutableList.of(new StandaloneSpawnStrategy(
                         execRoot,
                         new LocalSpawnRunner(
                             execRoot,
                             localExecutionOptions,
                             resourceManager,
                             LocalEnvProvider.UNMODIFIED,
-                            BinTools.forIntegrationTesting(directories, ImmutableList.of()))))),
-            ImmutableList.<ActionContextProvider>of());
+                            BinTools.forIntegrationTesting(directories, ImmutableList.of())))))),
+            ImmutableList.of());
 
     executor.getExecRoot().createDirectoryAndParents();
   }
@@ -193,7 +193,7 @@ public class StandaloneSpawnStrategyTest {
         null,
         outErr,
         executor.getEventHandler(),
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         ImmutableMap.of(),
         SIMPLE_ARTIFACT_EXPANDER,
         /*actionFileSystem=*/ null,

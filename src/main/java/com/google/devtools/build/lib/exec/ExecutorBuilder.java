@@ -125,7 +125,7 @@ public class ExecutorBuilder {
    * Similar to {@link #addStrategyByMnemonic}, but allows specifying a regex for the set of
    * matching mnemonics, instead of an exact string.
    */
-  public ExecutorBuilder addStrategyByRegexp(RegexFilter regexFilter, String strategy) {
+  public ExecutorBuilder addStrategyByRegexp(RegexFilter regexFilter, List<String> strategy) {
     spawnActionContextMapsBuilder.addStrategyByRegexp(regexFilter, strategy);
     return this;
   }

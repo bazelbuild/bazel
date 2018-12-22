@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
 import java.util.List;
 
@@ -34,12 +35,20 @@ public final class ProxySpawnActionContext implements SpawnActionContext {
   @Override
   public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    return resolve(spawn, actionExecutionContext.getEventHandler())
-        .exec(spawn, actionExecutionContext);
+    List<SpawnActionContext> strategies = resolve(spawn, actionExecutionContext.getEventHandler());
+
+    for (SpawnActionContext strategy : strategies) {
+      return strategy.exec(spawn, actionExecutionContext);
+    }
+
+    throw new UserExecException(String.format(
+        "No usable spawn strategy found for spawn with mnemonic %s. Are your --spawn_strategy or --strategy flags too strict?",
+        spawn.getMnemonic()));
+
   }
 
   @VisibleForTesting
-  public SpawnActionContext resolve(Spawn spawn, EventHandler eventHandler) {
+  public List<SpawnActionContext> resolve(Spawn spawn, EventHandler eventHandler) {
     return spawnActionContextMaps.getSpawnActionContext(spawn, eventHandler);
   }
 }
