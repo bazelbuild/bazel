@@ -46,14 +46,16 @@ bool MappedFile::Open(const std::string& path) {
   std::wstring wpath;
   std::string error;
   if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    diag_warn("%s:%d: AsAbsoluteWindowsPath failed: %s", __FILE__, __LINE__, error.c_str());
+    diag_warn("%s:%d: AsAbsoluteWindowsPath failed: %s", __FILE__, __LINE__,
+              error.c_str());
     return false;
   }
 
   hFile_ = CreateFileW(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
                        OPEN_EXISTING, 0, NULL);
   if (hFile_ == INVALID_HANDLE_VALUE) {
-    diag_warn("%s:%d: CreateFileW failed for %S", __FILE__, __LINE__, wpath.c_str());
+    diag_warn("%s:%d: CreateFileW failed for %S", __FILE__, __LINE__,
+              wpath.c_str());
     return false;
   }
 
