@@ -284,6 +284,7 @@ public interface JavaSemantics {
       RuleContext ruleContext,
       JavaCommon javaCommon,
       List<String> jvmFlags,
+      String nativeLibraryPath,
       Artifact executable,
       String javaStartClass,
       String javaExecutable)
@@ -303,6 +304,7 @@ public interface JavaSemantics {
       RuleContext ruleContext,
       JavaCommon javaCommon,
       List<String> jvmFlags,
+      String nativeLibraryPath,
       Artifact executable,
       String javaStartClass,
       String coverageStartClass,

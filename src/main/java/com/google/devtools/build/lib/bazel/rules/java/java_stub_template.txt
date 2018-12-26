@@ -279,10 +279,19 @@ if [[ -n "$TEST_TMPDIR" && -d "$TEST_TMPDIR" ]]; then
   JVM_FLAGS+=" -Djava.io.tmpdir=$TEST_TMPDIR"
 fi
 
+MORE_JVM_FLAGS=( %jvm_flags% )
+NATIVE_LIBRARY_PATH=( %native_library_path% )
+if [ ! -z "${NATIVE_LIBRARY_PATH[@]}" ]; then
+  MORE_JVM_FLAGS+=( "-Djava.library.path=${NATIVE_LIBRARY_PATH[@]}" )
+  LIBRARY_PATH=${NATIVE_LIBRARY_PATH[@]}:$LD_LIBRARY_PATH
+else
+  LIBRARY_PATH=$LD_LIBRARY_PATH
+fi
+
 ARGS=(
   ${JVM_DEBUG_FLAGS}
   ${JVM_FLAGS}
-  %jvm_flags%
+  "${MORE_JVM_FLAGS[@]}"
   "${JVM_FLAGS_CMDLINE[@]}"
   ${MAIN_ADVICE}
   %java_start_class%
@@ -337,7 +346,7 @@ function create_and_run_classpath_jar() {
     die "ERROR: $self failed because $JARBIN failed"
 
   # Execute JAVA command
-  $JAVABIN -classpath "$MANIFEST_JAR_FILE" "${ARGS[@]}"
+  LD_LIBRARY_PATH=$LIBRARY_PATH $JAVABIN -classpath "$MANIFEST_JAR_FILE" "${ARGS[@]}"
   exit_code=$?
   rm -f "$MANIFEST_FILE"
   rm -f "$MANIFEST_JAR_FILE"
@@ -356,5 +365,5 @@ if is_windows && (("${#CLASSPATH}" > ${CLASSPATH_LIMIT} )); then
 elif (("${#CLASSPATH}" > ${CLASSPATH_LIMIT})); then
   create_and_run_classpath_jar "local_jdk/bin/jar"
 else
-  exec $JAVABIN -classpath $CLASSPATH "${ARGS[@]}"
+  LD_LIBRARY_PATH=$LIBRARY_PATH exec $JAVABIN -classpath $CLASSPATH "${ARGS[@]}"
 fi

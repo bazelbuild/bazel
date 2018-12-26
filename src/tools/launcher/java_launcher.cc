@@ -45,6 +45,7 @@ static constexpr const char* JAR_BIN_PATH = "jar_bin_path";
 static constexpr const char* CLASSPATH = "classpath";
 static constexpr const char* JAVA_START_CLASS = "java_start_class";
 static constexpr const char* JVM_FLAGS = "jvm_flags";
+static constexpr const char* NATIVE_LIBRARY_PATH = "native_library_path";
 
 // Check if a string start with a certain prefix.
 // If it's true, store the substring without the prefix in value.
@@ -363,6 +364,10 @@ ExitCode JavaBinaryLauncher::Launch() {
   wstringstream jvm_flags_launch_info_ss(this->GetLaunchInfoByKey(JVM_FLAGS));
   while (getline(jvm_flags_launch_info_ss, flag, L'\t')) {
     jvm_flags.push_back(flag);
+  }
+  wstring native_library_path = this->GetLaunchInfoByKey(NATIVE_LIBRARY_PATH);
+  if (!native_library_path.empty()) {
+    jvm_flags.push_back(L"-Djava.library.path=" + native_library_path);
   }
 
   // Check if TEST_TMPDIR is available to use for scratch.

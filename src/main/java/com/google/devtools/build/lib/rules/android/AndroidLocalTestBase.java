@@ -269,6 +269,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         ruleContext,
         javaCommon,
         getJvmFlags(ruleContext, testClass),
+        /* nativeLibraryPath= */ "",
         executable,
         mainClass,
         originalMainClass,
