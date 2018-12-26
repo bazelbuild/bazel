@@ -368,6 +368,7 @@ message CToolchain {
   optional bool supports_incremental_linker = 41 [default = false];
   // Legacy field, ignored by Bazel.
   optional bool supports_normalizing_ar = 26 [default = false];
+  // Legacy field, use 'per_object_debug_info' feature instead.
   optional bool supports_fission = 43 [default = false];
   // Legacy field, ignored by Bazel.
   optional bool supports_dsym = 51 [default = false];

@@ -864,7 +864,7 @@ public final class CcCommon {
       allFeatures.add("nonhost");
     }
 
-    if (toolchain.useFission()) {
+    if (toolchain.useFission() && !cppConfiguration.disableLegacyCrosstoolFields()) {
       allFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
 

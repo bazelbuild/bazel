@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.UNCOMPRESSED;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -40,6 +42,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
@@ -140,9 +144,18 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         ruleContext.getConfiguration().getFragment(CppConfiguration.class);
     CcToolchainProvider ccToolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-    // TODO(b/64384912): Remove in favor of CcToolchainProvider
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext,
+            /* requestedFeatures= */ ImmutableSet.<String>builder()
+                .addAll(ruleContext.getFeatures())
+                .add(STATIC_LINKING_MODE)
+                .build(),
+            /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
+            ccToolchain);
     boolean stripAsDefault =
-        ccToolchain.useFission() && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
+        ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration)
+            && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
     DeployArchiveBuilder unstrippedDeployArchiveBuilder = null;
     if (stripAsDefault) {
       unstrippedDeployArchiveBuilder = new DeployArchiveBuilder(semantics, ruleContext);
@@ -156,7 +169,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             runfilesBuilder,
             jvmFlags,
             attributesBuilder,
-            stripAsDefault);
+            stripAsDefault,
+            ccToolchain,
+            featureConfiguration);
     Artifact launcher = launcherAndUnstrippedLauncher.first;
     Artifact unstrippedLauncher = launcherAndUnstrippedLauncher.second;
 
