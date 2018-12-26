@@ -111,7 +111,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
         }
       }
     } catch (IOException e) {
-      throw new EnvironmentalExecException("Unexpected IO error.", e);
+      throw new EnvironmentalExecException("Unexpected IO error", e);
     } catch (SpawnExecException e) {
       ex = e;
       spawnResult = e.getSpawnResult();
