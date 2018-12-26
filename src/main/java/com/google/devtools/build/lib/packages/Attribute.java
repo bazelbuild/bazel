@@ -2002,19 +2002,6 @@ public final class Attribute implements Comparable<Attribute> {
           "a late bound default value using the host configuration must use the host transition");
     }
 
-    if (name.equals(FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME)) {
-      Preconditions.checkArgument(
-          BuildType.isLabelType(type),
-          "_whitelist_function_transition attribute must be a label");
-      Preconditions.checkArgument(
-          defaultValue != null,
-          "_whitelist_function_transition attribute must have a default value");
-      Preconditions.checkArgument(
-          ((Label) defaultValue).equals(FunctionSplitTransitionWhitelist.WHITELIST_LABEL),
-          "_whitelist_function_transition attribute does not have the expected value "
-          + FunctionSplitTransitionWhitelist.WHITELIST_LABEL);
-    }
-
     this.name = name;
     this.type = type;
     this.propertyFlags = propertyFlags;
@@ -2339,7 +2326,7 @@ public final class Attribute implements Comparable<Attribute> {
    * or a late-bound default.
    */
   @VisibleForTesting
-  public Object getDefaultValueForTesting() {
+  public Object getDefaultValueUnchecked() {
     return defaultValue;
   }
 

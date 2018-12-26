@@ -173,7 +173,7 @@ public class RuleDocumentationAttribute
       return "";
     }
     String prefix = "; default is ";
-    Object value = attribute.getDefaultValueForTesting();
+    Object value = attribute.getDefaultValueUnchecked();
     if (value instanceof Boolean) {
       return prefix + ((Boolean) value ? "True" : "False");
     } else if (value instanceof Integer) {

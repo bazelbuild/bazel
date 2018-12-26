@@ -488,13 +488,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrDefaultValue() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.string(default = 'some value')");
-    assertThat(attr.getDefaultValueForTesting()).isEqualTo("some value");
+    assertThat(attr.getDefaultValueUnchecked()).isEqualTo("some value");
   }
 
   @Test
   public void testLabelAttrDefaultValueAsString() throws Exception {
     Attribute sligleAttr = buildAttribute("a1", "attr.label(default = '//foo:bar')");
-    assertThat(sligleAttr.getDefaultValueForTesting())
+    assertThat(sligleAttr.getDefaultValueUnchecked())
         .isEqualTo(
             Label.parseAbsolute(
                 "//foo:bar",
@@ -503,7 +503,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
     Attribute listAttr =
         buildAttribute("a2", "attr.label_list(default = ['//foo:bar', '//bar:foo'])");
-    assertThat(listAttr.getDefaultValueForTesting())
+    assertThat(listAttr.getDefaultValueUnchecked())
         .isEqualTo(
             ImmutableList.of(
                 Label.parseAbsolute(
@@ -517,7 +517,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
     Attribute dictAttr =
         buildAttribute("a3", "attr.label_keyed_string_dict(default = {'//foo:bar': 'my value'})");
-    assertThat(dictAttr.getDefaultValueForTesting())
+    assertThat(dictAttr.getDefaultValueUnchecked())
         .isEqualTo(
             ImmutableMap.of(
                 Label.parseAbsolute(
@@ -839,8 +839,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
             + "attr.label(default = Label('//foo:foo'), allow_files=True)})");
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     Attribute a = c.getAttributeByName("a1");
-    assertThat(a.getDefaultValueForTesting()).isInstanceOf(Label.class);
-    assertThat(a.getDefaultValueForTesting().toString()).isEqualTo("//foo:foo");
+    assertThat(a.getDefaultValueUnchecked()).isInstanceOf(Label.class);
+    assertThat(a.getDefaultValueUnchecked().toString()).isEqualTo("//foo:foo");
   }
 
   @Test
@@ -850,7 +850,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "r1 = rule(impl, attrs = {'a1': attr.int(default = 40+2)})");
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     Attribute a = c.getAttributeByName("a1");
-    assertThat(a.getDefaultValueForTesting()).isEqualTo(42);
+    assertThat(a.getDefaultValueUnchecked()).isEqualTo(42);
   }
 
   @Test

@@ -781,9 +781,6 @@ public class RuleClass {
                 .nonconfigurable("Used in toolchain resolution")
                 .value(ImmutableList.of()));
       }
-      if (skylark) {
-        assertRuleClassProperStarlarkDefinedTransitionUsage();
-      }
       if (buildSetting != null) {
         Type<?> type = buildSetting.getType();
         Attribute.Builder<?> attrBuilder =
@@ -851,35 +848,6 @@ public class RuleClass {
           "Concrete Starlark rule classes can't have null labels: %s %s",
           ruleDefinitionEnvironmentLabel,
           type);
-    }
-
-    private void assertRuleClassProperStarlarkDefinedTransitionUsage() {
-      boolean hasStarlarkDefinedTransition = false;
-      boolean hasAnalysisTestTransitionAttribute = false;
-      for (Attribute attribute : attributes.values()) {
-        hasStarlarkDefinedTransition |= attribute.hasStarlarkDefinedTransition();
-        hasAnalysisTestTransitionAttribute |= attribute.hasAnalysisTestTransition();
-      }
-
-      if (hasAnalysisTestTransitionAttribute) {
-        Preconditions.checkState(
-            isAnalysisTest,
-            "Only rule definitions with analysis_test=True may have attributes with "
-                + "analysis_test_transition transitions");
-      }
-      if (hasStarlarkDefinedTransition) {
-        Preconditions.checkState(
-            hasFunctionTransitionWhitelist,
-            "Use of function based split transition without whitelist: %s %s",
-            ruleDefinitionEnvironmentLabel,
-            type);
-      } else {
-        Preconditions.checkState(
-            !hasFunctionTransitionWhitelist,
-            "Unused function based split transition whitelist: %s %s",
-            ruleDefinitionEnvironmentLabel,
-            type);
-      }
     }
 
       /**
@@ -1187,6 +1155,10 @@ public class RuleClass {
       return this;
     }
 
+    public Label getRuleDefinitionEnvironmentLabel() {
+      return this.ruleDefinitionEnvironmentLabel;
+    }
+
     /**
      * Removes an attribute with the same name from this rule class.
      *
@@ -1215,6 +1187,10 @@ public class RuleClass {
       return this;
     }
 
+    public boolean isAnalysisTest() {
+      return this.isAnalysisTest;
+    }
+
     /**
      * This rule class has the _whitelist_function_transition attribute.  Intended only for Skylark
      * rules.
@@ -1222,6 +1198,10 @@ public class RuleClass {
     public <TYPE> Builder setHasFunctionTransitionWhitelist() {
       this.hasFunctionTransitionWhitelist = true;
       return this;
+    }
+
+    public RuleClassType getType() {
+      return this.type;
     }
 
     /**
