@@ -119,6 +119,20 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
     testSplitTransitionCheckK8Deps(getConfiguredTarget("//test/skylark:test"));
   }
 
+  @Test
+  public void testTargetNotInWhitelist() throws Exception {
+    writeBasicTestFiles();
+    scratch.file(
+        "test/not_whitelisted/BUILD",
+        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':main')",
+        "cc_binary(name = 'main', srcs = ['main.c'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/not_whitelisted:test");
+    assertContainsEvent("Non-whitelisted use of function-base split transition");
+  }
+
   private void testSplitTransitionCheckSplitAttrDeps(ConfiguredTarget target) throws Exception {
     // Check that ctx.split_attr.deps has this structure:
     // {
