@@ -40,7 +40,7 @@ public interface PythonSemantics {
   /** Extends for the default and data runfiles of {@code py_binary} rules with custom elements. */
   void collectRunfilesForBinary(
       RuleContext ruleContext, Runfiles.Builder builder, PyCommon common, CcInfo ccInfo)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   /** Extends the default runfiles of {@code py_binary} rules with custom elements. */
   void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder)

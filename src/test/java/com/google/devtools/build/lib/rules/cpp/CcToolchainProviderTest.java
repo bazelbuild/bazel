@@ -439,11 +439,13 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWhenRuntimeLibsAtttributesMandatoryWhenSupportsEmbeddedRuntimes()
+  public void testWhenRuntimeLibsAttributesMandatoryWhenSupportsEmbeddedRuntimes()
       throws Exception {
     scratch.file(
         "a/BUILD",
-        "filegroup(name='empty') ",
+        "filegroup(name = 'empty')",
+        "cc_binary(name = 'main', srcs = [ 'main.cc' ],)",
+        "cc_binary(name = 'test', linkstatic = 0, srcs = [ 'test.cc' ],)",
         "cc_toolchain_suite(",
         "    name = 'a',",
         "    toolchains = { 'k8': ':b', 'k9': ':c' },",
@@ -468,7 +470,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "      compiler: \"a\"",
         "      abi_version: \"a\"",
         "      abi_libc_version: \"a\"",
-        "      supports_embedded_runtimes: true,",
+        "      feature { name: 'static_link_cpp_runtimes' enabled: true }",
         "\"\"\")",
         "cc_toolchain(",
         "    name = 'c',",
@@ -481,7 +483,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    static_runtime_libs = [ ':yolo' ],",
+        "    static_runtime_lib = ':empty',",
         "    proto = \"\"\"",
         "      toolchain_identifier: \"a\"",
         "      host_system_name: \"a\"",
@@ -491,16 +493,27 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "      compiler: \"a\"",
         "      abi_version: \"a\"",
         "      abi_libc_version: \"a\"",
-        "      supports_embedded_runtimes: true,",
+        "      feature { name: 'supports_dynamic_linker' enabled: true }",
+        "      feature { name: 'static_link_cpp_runtimes' enabled: true }",
         "\"\"\")");
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--cpu=k8", "--host_cpu=k8");
-    getConfiguredTarget("//a:a");
+    useConfiguration(
+        "--crosstool_top=//a:a",
+        "--cpu=k8",
+        "--host_cpu=k8",
+        "--experimental_disable_legacy_crosstool_fields");
+    assertThat(getConfiguredTarget("//a:main")).isNull();
     assertContainsEvent(
         "Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute.");
+    eventCollector.clear();
 
-    useConfiguration("--cpu=k9", "--host_cpu=k9");
-    getConfiguredTarget("//a:a");
+    useConfiguration(
+        "--crosstool_top=//a:a",
+        "--cpu=k9",
+        "--host_cpu=k9",
+        "--dynamic_mode=fully",
+        "--experimental_disable_legacy_crosstool_fields");
+    assertThat(getConfiguredTarget("//a:test")).isNull();
     assertContainsEvent(
         "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute.");
   }

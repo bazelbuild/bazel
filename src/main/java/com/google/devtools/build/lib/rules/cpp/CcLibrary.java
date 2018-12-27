@@ -423,7 +423,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     builder.addDataDeps(ruleContext);
     builder.add(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     if (addDynamicRuntimeInputArtifactsToRunfiles) {
-      builder.addTransitiveArtifacts(ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+      builder.addTransitiveArtifacts(
+          ccToolchain.getDynamicRuntimeLinkInputs(ruleContext, featureConfiguration));
     }
     Runfiles runfiles = builder.build();
     Runfiles.Builder defaultRunfiles =

@@ -647,13 +647,13 @@ public final class CcLinkingHelper {
     if (linkingMode == LinkingMode.DYNAMIC) {
       dynamicLinkActionBuilder.setRuntimeInputs(
           ArtifactCategory.DYNAMIC_LIBRARY,
-          ccToolchain.getDynamicRuntimeLinkMiddleman(featureConfiguration),
-          ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+          ccToolchain.getDynamicRuntimeLinkMiddleman(ruleContext, featureConfiguration),
+          ccToolchain.getDynamicRuntimeLinkInputs(ruleContext, featureConfiguration));
     } else {
       dynamicLinkActionBuilder.setRuntimeInputs(
           ArtifactCategory.STATIC_LIBRARY,
-          ccToolchain.getStaticRuntimeLinkMiddleman(featureConfiguration),
-          ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration));
+          ccToolchain.getStaticRuntimeLinkMiddleman(ruleContext, featureConfiguration),
+          ccToolchain.getStaticRuntimeLinkInputs(ruleContext, featureConfiguration));
     }
 
     if (CppLinkAction.enableSymbolsCounts(

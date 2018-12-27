@@ -283,7 +283,7 @@ public class CppHelper {
    * for non C++ rules that link against the C++ runtime.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
-      RuleContext ruleContext) {
+      RuleContext ruleContext) throws RuleErrorException {
     CcToolchainProvider defaultToolchain =
         getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
     if (defaultToolchain == null) {
@@ -291,7 +291,7 @@ public class CppHelper {
     }
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
-    return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
+    return defaultToolchain.getDynamicRuntimeLinkInputs(ruleContext, featureConfiguration);
   }
 
   /**
@@ -299,7 +299,7 @@ public class CppHelper {
    * for non C++ rules that link against the C++ runtime.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainStaticRuntimeInputs(
-      RuleContext ruleContext) {
+      RuleContext ruleContext) throws RuleErrorException {
     CcToolchainProvider defaultToolchain =
         getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
     if (defaultToolchain == null) {
@@ -307,7 +307,7 @@ public class CppHelper {
     }
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
-    return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
+    return defaultToolchain.getStaticRuntimeLinkInputs(ruleContext, featureConfiguration);
   }
 
   /**

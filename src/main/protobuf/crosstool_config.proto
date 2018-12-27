@@ -356,6 +356,7 @@ message CToolchain {
   optional bool supports_start_end_lib = 28 [default = false];
   // Legacy field, use 'supports_interface_shared_libraries' instead.
   optional bool supports_interface_shared_objects = 32 [default = false];
+  // Legacy field, use 'static_link_cpp_runtimes' feature instead.
   optional bool supports_embedded_runtimes = 40 [default = false];
   // If specified, Blaze finds statically linked / dynamically linked runtime
   // libraries in the declared crosstool filegroup. Otherwise, Blaze

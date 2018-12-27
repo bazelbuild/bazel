@@ -960,6 +960,7 @@ java_library(
     ),
     deps = [
         ":build-base",
+        ":packages-internal",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",

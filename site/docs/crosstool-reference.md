@@ -1042,4 +1042,14 @@ conditions.
      libraries.
    </td>
   </tr>
+  <tr>
+   <td><strong><code>static_link_cpp_runtimes</code></strong>
+   </td>
+   <td>If enabled, Bazel will link the C++ runtime statically in static linking
+     mode and dynamically in dynamic linking mode. Artifacts
+     specified in the <code>cc_toolchain.static_runtime_lib</code> or
+     <code>cc_toolchain.dynamic_runtime_lib</code> attribute (depending on the
+     linking mode) will be added to the linking actions.
+   </td>
+  </tr>
 </table>

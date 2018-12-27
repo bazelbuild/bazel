@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -29,6 +30,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
@@ -105,9 +108,9 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final NestedSet<Artifact> dwpFiles;
   private final NestedSet<Artifact> coverageFiles;
   private final NestedSet<Artifact> libcLink;
-  private final NestedSet<Artifact> staticRuntimeLinkInputs;
+  @Nullable private final NestedSet<Artifact> staticRuntimeLinkInputs;
   @Nullable private final Artifact staticRuntimeLinkMiddleman;
-  private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
+  @Nullable private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
   @Nullable private final Artifact dynamicRuntimeLinkMiddleman;
   private final PathFragment dynamicRuntimeSolibDir;
   private final CcInfo ccInfo;
@@ -189,9 +192,9 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.dwpFiles = Preconditions.checkNotNull(dwpFiles);
     this.coverageFiles = Preconditions.checkNotNull(coverageFiles);
     this.libcLink = Preconditions.checkNotNull(libcLink);
-    this.staticRuntimeLinkInputs = Preconditions.checkNotNull(staticRuntimeLinkInputs);
+    this.staticRuntimeLinkInputs = staticRuntimeLinkInputs;
     this.staticRuntimeLinkMiddleman = staticRuntimeLinkMiddleman;
-    this.dynamicRuntimeLinkInputs = Preconditions.checkNotNull(dynamicRuntimeLinkInputs);
+    this.dynamicRuntimeLinkInputs = dynamicRuntimeLinkInputs;
     this.dynamicRuntimeLinkMiddleman = dynamicRuntimeLinkMiddleman;
     this.dynamicRuntimeSolibDir = Preconditions.checkNotNull(dynamicRuntimeSolibDir);
     this.ccInfo =
@@ -437,8 +440,15 @@ public final class CcToolchainProvider extends ToolchainInfo
   }
 
   /** Returns the static runtime libraries. */
-  public NestedSet<Artifact> getStaticRuntimeLinkInputs(FeatureConfiguration featureConfiguration) {
+  public NestedSet<Artifact> getStaticRuntimeLinkInputs(
+      RuleContext ruleContext, FeatureConfiguration featureConfiguration)
+      throws RuleErrorException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
+      if (staticRuntimeLinkInputs == null) {
+        throw ruleContext.throwWithRuleError(
+            "Toolchain supports embedded runtimes, but didn't "
+                + "provide static_runtime_lib attribute.");
+      }
       return staticRuntimeLinkInputs;
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -447,8 +457,15 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   /** Returns an aggregating middleman that represents the static runtime libraries. */
   @Nullable
-  public Artifact getStaticRuntimeLinkMiddleman(FeatureConfiguration featureConfiguration) {
+  public Artifact getStaticRuntimeLinkMiddleman(
+      RuleContext ruleContext, FeatureConfiguration featureConfiguration)
+      throws RuleErrorException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
+      if (staticRuntimeLinkInputs == null) {
+        throw ruleContext.throwWithRuleError(
+            "Toolchain supports embedded runtimes, but didn't "
+                + "provide static_runtime_lib attribute.");
+      }
       return staticRuntimeLinkMiddleman;
     } else {
       return null;
@@ -457,8 +474,14 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   /** Returns the dynamic runtime libraries. */
   public NestedSet<Artifact> getDynamicRuntimeLinkInputs(
-      FeatureConfiguration featureConfiguration) {
+      RuleErrorConsumer ruleContext, FeatureConfiguration featureConfiguration)
+      throws RuleErrorException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
+      if (dynamicRuntimeLinkInputs == null) {
+        throw ruleContext.throwWithRuleError(
+            "Toolchain supports embedded runtimes, but didn't "
+                + "provide dynamic_runtime_lib attribute.");
+      }
       return dynamicRuntimeLinkInputs;
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -467,8 +490,15 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   /** Returns an aggregating middleman that represents the dynamic runtime libraries. */
   @Nullable
-  public Artifact getDynamicRuntimeLinkMiddleman(FeatureConfiguration featureConfiguration) {
+  public Artifact getDynamicRuntimeLinkMiddleman(
+      RuleErrorConsumer ruleContext, FeatureConfiguration featureConfiguration)
+      throws RuleErrorException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
+      if (dynamicRuntimeLinkInputs == null) {
+        throw ruleContext.throwWithRuleError(
+            "Toolchain supports embedded runtimes, but didn't "
+                + "provide dynamic_runtime_lib attribute.");
+      }
       return dynamicRuntimeLinkMiddleman;
     } else {
       return null;

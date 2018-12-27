@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -60,7 +61,7 @@ public final class NativeLibs {
       ImmutableList<String> depsAttributes,
       String nativeDepsFileName,
       CppSemantics cppSemantics)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Map<String, CcToolchainProvider> toolchainsByCpu = getToolchainsByCpu(ruleContext);
     Map<String, BuildConfiguration> configurationMap = getBuildConfigurationsByCpu(ruleContext);
     Map<String, NestedSet<Artifact>> result = new LinkedHashMap<>();

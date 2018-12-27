@@ -536,7 +536,7 @@ public final class CppToolchainInfo {
    * (i.e. libgcc.a, libgcc_eh.a, libstdc++.a) for the target architecture.
    */
   public Label getStaticRuntimeLibsLabel() {
-    return supportsEmbeddedRuntimes() ? staticRuntimeLibsLabel : null;
+    return staticRuntimeLibsLabel;
   }
 
   /**
@@ -544,7 +544,7 @@ public final class CppToolchainInfo {
    * (i.e. libgcc_s.so, libstdc++.so) for the target architecture.
    */
   public Label getDynamicRuntimeLibsLabel() {
-    return supportsEmbeddedRuntimes() ? dynamicRuntimeLibsLabel : null;
+    return dynamicRuntimeLibsLabel;
   }
 
   /**

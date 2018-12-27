@@ -134,7 +134,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
 
   private static Runfiles collectCommonRunfiles(
       RuleContext ruleContext, PyCommon common, PythonSemantics semantics, CcInfo ccInfo)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Runfiles.Builder builder = new Runfiles.Builder(
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles());
     builder.addArtifact(common.getExecutable());

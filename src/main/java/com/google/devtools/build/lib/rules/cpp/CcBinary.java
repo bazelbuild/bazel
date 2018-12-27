@@ -163,7 +163,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       Iterable<Artifact> fakeLinkerInputs,
       boolean fake,
       ImmutableSet<CppSource> cAndCppSources,
-      boolean linkCompileOutputSeparately) {
+      boolean linkCompileOutputSeparately)
+      throws RuleErrorException {
     Runfiles.Builder builder =
         new Runfiles.Builder(
             ruleContext.getWorkspaceName(),
@@ -189,7 +190,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     builder.add(ruleContext, runfilesMapping);
     // Add the C++ runtime libraries if linking them dynamically.
     if (linkingMode == Link.LinkingMode.DYNAMIC) {
-      builder.addTransitiveArtifacts(toolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+      builder.addTransitiveArtifacts(
+          toolchain.getDynamicRuntimeLinkInputs(ruleContext, featureConfiguration));
     }
     if (linkCompileOutputSeparately) {
       builder.addArtifacts(
@@ -664,7 +666,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // Only force a static link of libgcc if static runtime linking is enabled (which
       // can't be true if runtimeInputs is empty).
       // TODO(bazel-team): Move this to CcToolchain.
-      if (!ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration).isEmpty()) {
+      if (!ccToolchain.getStaticRuntimeLinkInputs(ruleContext, featureConfiguration).isEmpty()) {
         ccLinkParamsBuilder.addLinkOpts(ImmutableList.of("-static-libgcc"));
       }
     }

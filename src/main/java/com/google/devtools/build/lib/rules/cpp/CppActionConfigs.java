@@ -720,7 +720,7 @@ public class CppActionConfigs {
                         "    }",
                         "  }")));
       }
-      if (supportsEmbeddedRuntimes && !existingFeatureNames.contains("static_libgcc")) {
+      if (!existingFeatureNames.contains("static_libgcc")) {
         featureBuilder.add(
             getFeature(
                 Joiner.on("\n")

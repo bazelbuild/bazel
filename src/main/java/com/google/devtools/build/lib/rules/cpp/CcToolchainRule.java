@@ -218,12 +218,18 @@ public final class CcToolchainRule implements RuleDefinition {
         Static library artifact for the C++ runtime library (e.g. libstdc++.a).
 
         <p>When specified, this will take precedence over 'static_runtime_libs'.</p>
+
+        <p>This will be used when 'static_link_cpp_runtimes' feature is enabled, and we're linking
+        dependencies statically.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("static_runtime_lib", LABEL).legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(dynamic_runtime_lib) -->
         Dynamic library artifact for the C++ runtime library (e.g. libstdc++.so).
 
         <p>When specified, this will take precedence over 'dynamic_runtime_libs'.</p>
+
+        <p>This will be used when 'static_link_cpp_runtimes' feature is enabled, and we're linking
+        dependencies dynamically.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("dynamic_runtime_lib", LABEL).legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(static_runtime_libs) -->
@@ -234,6 +240,9 @@ public final class CcToolchainRule implements RuleDefinition {
 
         <p>cc_toolchain will select one of these libraries based on the label from
         crosstool_proto.static_runtimes_filegroup field.</p>
+
+        <p>This will be used when 'static_link_cpp_runtimes' feature is enabled, and we're linking
+        dependencies statically.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("static_runtime_libs", LABEL_LIST).legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(dynamic_runtime_libs) -->
@@ -244,6 +253,9 @@ public final class CcToolchainRule implements RuleDefinition {
 
         <p>cc_toolchain will select one of these libraries based on the label from
         crosstool_proto.dynamic_runtimes_filegroup field.</p>
+
+        <p>This will be used when 'static_link_cpp_runtimes' feature is enabled, and we're linking
+        dependencies dynamically.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("dynamic_runtime_libs", LABEL_LIST).legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(module_map) -->

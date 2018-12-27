@@ -487,32 +487,27 @@ public class CcToolchainProviderHelper {
                 attributes.getStaticRuntimesLibs(), toolchainInfo.getStaticRuntimeLibsLabel());
     final NestedSet<Artifact> staticRuntimeLinkInputs;
     final Artifact staticRuntimeLinkMiddleman;
-    if (toolchainInfo.supportsEmbeddedRuntimes()) {
-      if (staticRuntimeLibDep == null) {
-        throw ruleContext.throwWithRuleError(
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide static_runtime_lib attribute.");
-      }
+
+    if (staticRuntimeLibDep != null) {
       staticRuntimeLinkInputs =
           staticRuntimeLibDep.getProvider(FileProvider.class).getFilesToBuild();
+      if (!staticRuntimeLinkInputs.isEmpty()) {
+        NestedSet<Artifact> staticRuntimeLinkMiddlemanSet =
+            CompilationHelper.getAggregatingMiddleman(
+                ruleContext, purposePrefix + "static_runtime_link", staticRuntimeLibDep);
+        staticRuntimeLinkMiddleman =
+            staticRuntimeLinkMiddlemanSet.isEmpty()
+                ? null
+                : Iterables.getOnlyElement(staticRuntimeLinkMiddlemanSet);
+      } else {
+        staticRuntimeLinkMiddleman = null;
+      }
+      Preconditions.checkState(
+          (staticRuntimeLinkMiddleman == null) == staticRuntimeLinkInputs.isEmpty());
     } else {
-      staticRuntimeLinkInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-
-    if (!staticRuntimeLinkInputs.isEmpty()) {
-      NestedSet<Artifact> staticRuntimeLinkMiddlemanSet =
-          CompilationHelper.getAggregatingMiddleman(
-              ruleContext, purposePrefix + "static_runtime_link", staticRuntimeLibDep);
-      staticRuntimeLinkMiddleman =
-          staticRuntimeLinkMiddlemanSet.isEmpty()
-              ? null
-              : Iterables.getOnlyElement(staticRuntimeLinkMiddlemanSet);
-    } else {
+      staticRuntimeLinkInputs = null;
       staticRuntimeLinkMiddleman = null;
     }
-
-    Preconditions.checkState(
-        (staticRuntimeLinkMiddleman == null) == staticRuntimeLinkInputs.isEmpty());
 
     // Dynamic runtime inputs.
     if (cppConfiguration.disableRuntimesFilegroups()
@@ -530,12 +525,7 @@ public class CcToolchainProviderHelper {
     NestedSet<Artifact> dynamicRuntimeLinkSymlinks;
     List<Artifact> dynamicRuntimeLinkInputs = new ArrayList<>();
     Artifact dynamicRuntimeLinkMiddleman;
-    if (toolchainInfo.supportsEmbeddedRuntimes()) {
-      if (dynamicRuntimeLibDep == null) {
-        throw ruleContext.throwWithRuleError(
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide dynamic_runtime_lib attribute.");
-      }
+    if (dynamicRuntimeLibDep != null) {
       NestedSetBuilder<Artifact> dynamicRuntimeLinkSymlinksBuilder = NestedSetBuilder.stableOrder();
       for (Artifact artifact :
           dynamicRuntimeLibDep.getProvider(FileProvider.class).getFilesToBuild()) {
@@ -550,9 +540,14 @@ public class CcToolchainProviderHelper {
                   configuration));
         }
       }
-      dynamicRuntimeLinkSymlinks = dynamicRuntimeLinkSymlinksBuilder.build();
+      if (dynamicRuntimeLinkInputs.isEmpty()) {
+        dynamicRuntimeLinkSymlinks = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      } else {
+        dynamicRuntimeLinkSymlinks = dynamicRuntimeLinkSymlinksBuilder.build();
+      }
+
     } else {
-      dynamicRuntimeLinkSymlinks = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      dynamicRuntimeLinkSymlinks = null;
     }
 
     if (!dynamicRuntimeLinkInputs.isEmpty()) {
@@ -573,7 +568,8 @@ public class CcToolchainProviderHelper {
     }
 
     Preconditions.checkState(
-        (dynamicRuntimeLinkMiddleman == null) == dynamicRuntimeLinkSymlinks.isEmpty());
+        (dynamicRuntimeLinkMiddleman == null)
+            == (dynamicRuntimeLinkSymlinks == null || dynamicRuntimeLinkSymlinks.isEmpty()));
 
     CcCompilationContext.Builder ccCompilationContextBuilder =
         new CcCompilationContext.Builder(ruleContext);
