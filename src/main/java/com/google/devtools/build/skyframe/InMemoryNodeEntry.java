@@ -339,7 +339,7 @@ public class InMemoryNodeEntry implements NodeEntry {
    * <p>Implementations need not check whether the value has changed - this will only be called if
    * the value has not changed.
    */
-  public boolean isEligibleForChangePruningOnUnchangedValue() {
+  protected boolean isEligibleForChangePruningOnUnchangedValue() {
     return true;
   }
 
