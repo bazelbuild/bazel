@@ -239,4 +239,73 @@ EOF
   do_test_select_on_python_version "$EXPFLAG --force_python=PY3 --python_version=PY3" "PY3"
 }
 
+function test_cannot_select_on_python_version_native_flags() {
+  mkdir -p test
+
+  cat > test/BUILD << EOF
+config_setting(
+    name = "badconfig_pv",
+    values = {"python_version": "PY2"},
+)
+
+config_setting(
+    name = "badconfig_fp",
+    values = {"force_python": "PY2"},
+)
+
+config_setting(
+    name = "badconfig_hfp",
+    values = {"host_force_python": "PY2"},
+)
+
+sh_binary(name = "bad_pv",
+    srcs = select({
+        ":badconfig_pv": ["bad.sh"],
+        "//conditions:default": ["bad.sh"],
+    }),
+)
+
+sh_binary(name = "bad_fp",
+    srcs = select({
+        ":badconfig_fp": ["bad.sh"],
+        "//conditions:default": ["bad.sh"],
+    }),
+)
+
+sh_binary(name = "bad_hfp",
+    srcs = select({
+        ":badconfig_hfp": ["bad.sh"],
+        "//conditions:default": ["bad.sh"],
+    }),
+)
+EOF
+
+  touch bad.sh
+  chmod u+x bad.sh
+
+  EXPFLAG="--experimental_better_python_version_mixing=true"
+  NO_EXPFLAG="--experimental_better_python_version_mixing=false"
+
+  # --python_version is always unselectable.
+
+  bazel build //test:bad_pv $NO_EXPFLAG \
+      &> $TEST_log && fail "expected analysis to fail"
+  expect_log "'python_version' cannot be used in a config_setting"
+
+  bazel build //test:bad_pv $EXPFLAG \
+      &> $TEST_log && fail "expected analysis to fail"
+  expect_log "'python_version' cannot be used in a config_setting"
+
+  # --force_python and --host_force_python are only unselectable with the
+  # experimental flag enabled.
+
+  bazel build //test:bad_fp $EXPFLAG \
+      &> $TEST_log && fail "expected analysis to fail"
+  expect_log "'force_python' cannot be used in a config_setting"
+
+  bazel build //test:bad_hfp $EXPFLAG \
+      &> $TEST_log && fail "expected analysis to fail"
+  expect_log "'host_force_python' cannot be used in a config_setting"
+}
+
 run_suite "Tests for the Python rules"

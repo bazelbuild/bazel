@@ -98,6 +98,8 @@ function use_system_python_2_3_runtimes() {
 'python2', 'python3'"
   fi
 
+  # Point Python builds at a py_runtime target defined in a //tools package of
+  # the main repo. This is not related to @bazel_tools//tools/python.
   add_to_bazelrc "build --python_top=//tools/python:default_runtime"
 
   mkdir -p tools/python
@@ -105,24 +107,12 @@ function use_system_python_2_3_runtimes() {
   cat > tools/python/BUILD << EOF
 package(default_visibility=["//visibility:public"])
 
-sh_binary(
-    name = '2to3',
-    srcs = ['2to3.sh']
-)
-
-config_setting(
-    name = "py3_mode",
-    values = {"force_python": "PY3"},
-)
-
-# TODO(brandjon): Replace dependency on "force_python" with a 2-valued feature
-# flag instead
 py_runtime(
     name = "default_runtime",
     files = [],
     interpreter_path = select({
-        "py3_mode": "${PYTHON3_BIN}",
-        "//conditions:default": "${PYTHON2_BIN}",
+        "@bazel_tools//tools/python:PY2": "${PYTHON2_BIN}",
+        "@bazel_tools//tools/python:PY3": "${PYTHON3_BIN}",
     }),
 )
 EOF

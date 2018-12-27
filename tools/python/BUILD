@@ -36,14 +36,14 @@ test_suite(
 #
 # If you do not need to test any other flags in combination with the Python
 # version, then as a convenience you may use the predefined `config_setting`s
-# `@bazel_tools//python:PY2` and `@bazel_tools//python:PY3`.
+# `@bazel_tools//tools/python:PY2` and `@bazel_tools//tools/python:PY3`.
 #
 # Example usage:
 #
 #     config_setting(
 #         name = "py3_on_arm",
 #         values = {"cpu": "arm"},
-#         flag_values = {"@bazel_tools//python:python_version": "PY3"},
+#         flag_values = {"@bazel_tools//tools/python:python_version": "PY3"},
 #     )
 #
 #     my_target(

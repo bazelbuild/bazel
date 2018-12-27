@@ -16,14 +16,18 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import java.util.Map;
 
 /**
  * Python-related command-line options.
@@ -106,6 +110,9 @@ public class PythonOptions extends FragmentOptions {
               + "explicitly), so there is usually not much reason to supply this flag.")
   public PythonVersion pythonVersion;
 
+  private static final OptionDefinition PYTHON_VERSION_DEFINITION =
+      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "python_version");
+
   /**
    * This field should be either null, {@code PY2}, or {@code PY3}. Other {@code PythonVersion}
    * values do not represent distinct Python versions and are not allowed.
@@ -126,6 +133,9 @@ public class PythonOptions extends FragmentOptions {
       help = "Overrides default_python_version attribute. Can be \"PY2\" or \"PY3\".")
   public PythonVersion forcePython;
 
+  private static final OptionDefinition FORCE_PYTHON_DEFINITION =
+      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "force_python");
+
   /**
    * This field should be either null, {@code PY2}, or {@code PY3}. Other {@code PythonVersion}
    * values do not represent distinct Python versions and are not allowed.
@@ -142,6 +152,28 @@ public class PythonOptions extends FragmentOptions {
           "Overrides default_python_version attribute for the host configuration."
               + " Can be \"PY2\" or \"PY3\".")
   public PythonVersion hostForcePython;
+
+  private static final OptionDefinition HOST_FORCE_PYTHON_DEFINITION =
+      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "host_force_python");
+
+  @Override
+  public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
+    // TODO(brandjon): Add an error string that references documentation explaining to use
+    // @bazel_tools//tools/python:python_version instead.
+    ImmutableMap.Builder<OptionDefinition, SelectRestriction> restrictions = ImmutableMap.builder();
+    restrictions.put(
+        PYTHON_VERSION_DEFINITION,
+        new SelectRestriction(/*visibleWithinToolsPackage=*/ true, /*errorMessage=*/ null));
+    if (experimentalBetterPythonVersionMixing) {
+      restrictions.put(
+          FORCE_PYTHON_DEFINITION,
+          new SelectRestriction(/*visibleWithinToolsPackage=*/ true, /*errorMessage=*/ null));
+      restrictions.put(
+          HOST_FORCE_PYTHON_DEFINITION,
+          new SelectRestriction(/*visibleWithinToolsPackage=*/ false, /*errorMessage=*/ null));
+    }
+    return restrictions.build();
+  }
 
   /**
    * Returns the Python major version ({@code PY2} or {@code PY3}) that targets should be built for.
