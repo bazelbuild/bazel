@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -612,8 +613,8 @@ public class CcModule
             doc = "the set of headers needed to compile this target",
             positional = false,
             named = true,
-            defaultValue = "depset([])",
-            type = SkylarkNestedSet.class),
+            defaultValue = "unbound",
+            type = Object.class),
         @Param(
             name = "system_includes",
             doc =
@@ -622,8 +623,8 @@ public class CcModule
                     + "or absolute. Usually passed with -isystem",
             positional = false,
             named = true,
-            defaultValue = "depset([])",
-            type = SkylarkNestedSet.class),
+            defaultValue = "unbound",
+            type = Object.class),
         @Param(
             name = "includes",
             doc =
@@ -631,8 +632,8 @@ public class CcModule
                     + "Usually passed with -I",
             positional = false,
             named = true,
-            defaultValue = "depset([])",
-            type = SkylarkNestedSet.class),
+            defaultValue = "unbound",
+            type = Object.class),
         @Param(
             name = "quote_includes",
             doc =
@@ -641,42 +642,74 @@ public class CcModule
                     + "root or absolute. Usually passed with -iquote",
             positional = false,
             named = true,
-            defaultValue = "depset([])",
-            type = SkylarkNestedSet.class),
+            defaultValue = "unbound",
+            type = Object.class),
         @Param(
             name = "defines",
             doc = "the set of defines needed to compile this target. Each define is a string",
             positional = false,
             named = true,
-            defaultValue = "depset([])",
-            type = SkylarkNestedSet.class)
+            defaultValue = "unbound",
+            type = Object.class)
       })
   public CcCompilationContext createCcCompilationContext(
       SkylarkRuleContext skylarkRuleContext,
-      SkylarkNestedSet headers,
-      SkylarkNestedSet systemIncludes,
-      SkylarkNestedSet includes,
-      SkylarkNestedSet quoteIncludes,
-      SkylarkNestedSet defines)
+      Object headers,
+      Object systemIncludes,
+      Object includes,
+      Object quoteIncludes,
+      Object defines)
       throws EvalException, InterruptedException {
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
     CcCompilationContext.Builder ccCompilationContext =
         new CcCompilationContext.Builder(/* ruleContext= */ null);
-    ccCompilationContext.addDeclaredIncludeSrcs(headers.getSet(Artifact.class));
+    ccCompilationContext.addDeclaredIncludeSrcs(
+        toNestedSetOfArtifacts(headers, "headers").getSet(Artifact.class));
     ccCompilationContext.addSystemIncludeDirs(
-        systemIncludes.getSet(String.class).toList().stream()
+        toNestedSetOfStrings(systemIncludes, "system_includes").getSet(String.class).toList()
+            .stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
     ccCompilationContext.addIncludeDirs(
-        includes.getSet(String.class).toList().stream()
+        toNestedSetOfStrings(includes, "includes").getSet(String.class).toList().stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
     ccCompilationContext.addQuoteIncludeDirs(
-        quoteIncludes.getSet(String.class).toList().stream()
+        toNestedSetOfStrings(quoteIncludes, "quote_includes").getSet(String.class).toList().stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
-    ccCompilationContext.addDefines(defines.getSet(String.class));
+    ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines").getSet(String.class));
     return ccCompilationContext.build();
+  }
+
+  private static SkylarkNestedSet toNestedSetOfArtifacts(Object obj, String fieldName)
+      throws EvalException {
+    if (obj == Runtime.UNBOUND) {
+      return SkylarkNestedSet.of(SkylarkType.STRING, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    } else {
+      return SkylarkType.cast(
+          obj,
+          SkylarkNestedSet.class,
+          Artifact.class,
+          Location.BUILTIN,
+          "'%s' argument must be a depset of artifacts",
+          fieldName);
+    }
+  }
+
+  private static SkylarkNestedSet toNestedSetOfStrings(Object obj, String fieldName)
+      throws EvalException {
+    if (obj == Runtime.UNBOUND) {
+      return SkylarkNestedSet.of(SkylarkType.STRING, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    } else {
+      return SkylarkType.cast(
+          obj,
+          SkylarkNestedSet.class,
+          String.class,
+          Location.BUILTIN,
+          "'%s' argument must be a depset of strings",
+          fieldName);
+    }
   }
 
   @Override

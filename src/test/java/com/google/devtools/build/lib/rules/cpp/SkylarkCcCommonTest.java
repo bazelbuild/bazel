@@ -1081,6 +1081,50 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCcCompilationProviderDefaultValues() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "licenses(['notice'])",
+        "crule(name='r')");
+    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.file(
+        "tools/build_defs/cc/rule.bzl",
+        "def _impl(ctx):",
+        "  compilation_context = cc_common.create_compilation_context(ctx=ctx)",
+        "  return struct()",
+        "crule = rule(",
+        "  _impl,",
+        "  fragments = ['cpp'],",
+        ");");
+
+    assertThat(getConfiguredTarget("//a:r")).isNotNull();
+  }
+
+  @Test
+  public void testCcCompilationProviderInvalidValues() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "a/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "licenses(['notice'])",
+        "crule(name='r')");
+    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.file(
+        "tools/build_defs/cc/rule.bzl",
+        "def _impl(ctx):",
+        "  compilation_context = cc_common.create_compilation_context(ctx=ctx, headers=[])",
+        "  return struct()",
+        "crule = rule(",
+        "  _impl,",
+        "  fragments = ['cpp'],",
+        ");");
+
+    getConfiguredTarget("//a:r");
+    assertContainsEvent("'headers' argument must be a depset");
+  }
+
+  @Test
   @Deprecated
   // TODO(118663806): Libraries won't be created this way from Skylark after removing CcLinkParams.
   public void testLibraryLinkerInputs() throws Exception {
