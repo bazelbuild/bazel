@@ -1262,7 +1262,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     this.testEnv = setupTestEnvironment();
 
     this.transitiveOptionDetails =
-        TransitiveOptionDetails.forOptionsWithDefaults(buildOptions.getNativeOptions());
+        TransitiveOptionDetails.forOptions(buildOptions.getNativeOptions());
 
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
 

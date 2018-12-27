@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
@@ -131,10 +133,22 @@ public class ConfigRuleClasses {
     /** The name of the attribute that declares constraint_values. */
     public static final String CONSTRAINT_VALUES_ATTRIBUTE = "constraint_values";
 
+    /** The name of the tools repository. */
+    public static final String TOOLS_REPOSITORY_ATTRIBUTE = "$tools_repository";
+
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .requiresConfigurationFragments(PlatformConfiguration.class)
+          .add(
+              attr(TOOLS_REPOSITORY_ATTRIBUTE, STRING)
+                  .value(
+                      new ComputedDefault() {
+                        @Override
+                        public Object getDefault(AttributeMap rule) {
+                          return env.getToolsRepository();
+                        }
+                      }))
 
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(values) -->
           The set of configuration values that match this rule (expressed as Bazel flags)

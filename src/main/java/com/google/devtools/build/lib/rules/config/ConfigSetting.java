@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.devtools.build.lib.analysis.platform.PlatformInfo.DuplicateConstraintException.formatError;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultiset;
@@ -41,6 +42,8 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
 import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
@@ -48,13 +51,16 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
@@ -168,6 +174,33 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     return true;
   }
 
+  private static RepositoryName getToolsRepository(RuleContext ruleContext) {
+    try {
+      return RepositoryName.create(
+          ruleContext.attributes().get(ConfigSettingRule.TOOLS_REPOSITORY_ATTRIBUTE, Type.STRING));
+    } catch (LabelSyntaxException ex) {
+      throw new IllegalStateException(ex);
+    }
+  }
+
+  /**
+   * Returns whether the given label falls under the {@code //tools} package (including subpackages)
+   * of the tools repository.
+   */
+  @VisibleForTesting
+  static boolean isUnderToolsPackage(Label label, RepositoryName toolsRepository) {
+    PackageIdentifier packageId = label.getPackageIdentifier();
+    if (!packageId.getRepository().equals(toolsRepository)) {
+      return false;
+    }
+    try {
+      return packageId.getPackageFragment().subFragment(0, 1).equals(PathFragment.create("tools"));
+    } catch (IndexOutOfBoundsException e) {
+      // Top-level package (//).
+      return false;
+    }
+  }
+
   /**
    * User error when value settings can't be properly parsed.
    */
@@ -197,13 +230,13 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Given a list of [flagName, flagValue] pairs for native Blaze flags, returns true if
-   * flagName == flagValue for every item in the list under this configuration, false otherwise.
+   * Given a list of [flagName, flagValue] pairs for native Blaze flags, returns true if flagName ==
+   * flagValue for every item in the list under this configuration, false otherwise.
    */
-  private boolean matchesConfig(
+  private static boolean matchesConfig(
       Collection<Map.Entry<String, String>> expectedSettings,
       TransitiveOptionDetails options,
-      RuleErrorConsumer errors) {
+      RuleContext ruleContext) {
     // Rather than returning fast when we find a mismatch, continue looking at the other flags
     // to check they're indeed valid flag specifications.
     boolean foundMismatch = false;
@@ -218,13 +251,35 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       String expectedRawValue = setting.getValue();
       int previousOptionCount = optionsCount.add(optionName, 1);
 
-      Class<? extends OptionsBase> optionClass = options.getOptionClass(optionName);
+      Class<? extends FragmentOptions> optionClass = options.getOptionClass(optionName);
       if (optionClass == null) {
-        errors.attributeError(
+        ruleContext.attributeError(
             ConfigSettingRule.SETTINGS_ATTRIBUTE,
             String.format(PARSE_ERROR_MESSAGE + "unknown option: '%s'", optionName));
         foundMismatch = true;
         continue;
+      }
+
+      SelectRestriction selectRestriction = options.getSelectRestriction(optionName);
+      if (selectRestriction != null) {
+        boolean underToolsPackage =
+            isUnderToolsPackage(ruleContext.getRule().getLabel(), getToolsRepository(ruleContext));
+        if (!(selectRestriction.isVisibleWithinToolsPackage() && underToolsPackage)) {
+          String errorMessage =
+              String.format("option '%s' cannot be used in a config_setting", optionName);
+          if (selectRestriction.isVisibleWithinToolsPackage()) {
+            errorMessage +=
+                String.format(
+                    " (it is whitelisted to %s//tools/... only)",
+                    getToolsRepository(ruleContext).getDefaultCanonicalForm());
+          }
+          if (selectRestriction.getErrorMessage() != null) {
+            errorMessage += ". " + selectRestriction.getErrorMessage();
+          }
+          ruleContext.attributeError(ConfigSettingRule.SETTINGS_ATTRIBUTE, errorMessage);
+          foundMismatch = true;
+          continue;
+        }
       }
 
       OptionsParser parser;
@@ -232,9 +287,8 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         parser = OptionsParser.newOptionsParser(optionClass);
         parser.parse("--" + optionName + "=" + expectedRawValue);
       } catch (OptionsParsingException ex) {
-        errors.attributeError(
-            ConfigSettingRule.SETTINGS_ATTRIBUTE,
-            PARSE_ERROR_MESSAGE + ex.getMessage());
+        ruleContext.attributeError(
+            ConfigSettingRule.SETTINGS_ATTRIBUTE, PARSE_ERROR_MESSAGE + ex.getMessage());
         foundMismatch = true;
         continue;
       }

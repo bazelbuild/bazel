@@ -218,6 +218,14 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
+   * Returns the repository name, except that the main repo is conflated with the default repo
+   * ({@code "@"} becomes the empty string).
+   */
+  public String getDefaultCanonicalForm() {
+    return isMain() ? "" : getName();
+  }
+
+  /**
    * Returns the relative path to the repository source. Returns "" for the main repository and
    * external/[repository name] for external repositories.
    */

@@ -452,12 +452,7 @@ public final class Label
    * conflated.
    */
   public String getDefaultCanonicalForm() {
-    String repository;
-    if (packageIdentifier.getRepository().isMain()) {
-      repository = "";
-    } else {
-      repository = packageIdentifier.getRepository().getName();
-    }
+    String repository = packageIdentifier.getRepository().getDefaultCanonicalForm();
     return repository + "//" + packageIdentifier.getPackageFragment() + ":" + name;
   }
 
