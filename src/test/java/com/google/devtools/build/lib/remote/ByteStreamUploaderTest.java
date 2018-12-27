@@ -28,7 +28,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -418,8 +417,7 @@ public class ByteStreamUploaderTest {
     try {
       uploader.uploadBlob(chunker, true);
       fail("Should have thrown an exception.");
-    } catch (RetryException e) {
-      assertThat(e.getAttempts()).isEqualTo(2);
+    } catch (IOException e) {
       assertThat(RemoteRetrierUtils.causedByStatus(e, Code.INTERNAL)).isTrue();
     }
 
@@ -517,7 +515,7 @@ public class ByteStreamUploaderTest {
     try {
       uploader.uploadBlob(chunker, true);
       fail("Should have thrown an exception.");
-    } catch (RetryException e) {
+    } catch (IOException e) {
       assertThat(e).hasCauseThat().isInstanceOf(RejectedExecutionException.class);
     }
 
@@ -595,7 +593,7 @@ public class ByteStreamUploaderTest {
     try {
       uploader.uploadBlob(chunker, true);
       fail("Should have thrown an exception.");
-    } catch (RetryException e) {
+    } catch (IOException e) {
       assertThat(numCalls.get()).isEqualTo(1);
     }
 
@@ -662,7 +660,7 @@ public class ByteStreamUploaderTest {
     try {
       // This should fail
       uploader.uploadBlob(chunker, true);
-    } catch (RetryException e) {
+    } catch (IOException e) {
       if (e.getCause() instanceof StatusRuntimeException) {
         expected = (StatusRuntimeException) e.getCause();
       }

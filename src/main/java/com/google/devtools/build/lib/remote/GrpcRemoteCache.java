@@ -44,7 +44,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
@@ -323,15 +322,19 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     if (!uploadAction) {
       return;
     }
-    retrier.execute(
-        () ->
-            acBlockingStub()
-                .updateActionResult(
-                    UpdateActionResultRequest.newBuilder()
-                        .setInstanceName(options.remoteInstanceName)
-                        .setActionDigest(actionKey.getDigest())
-                        .setActionResult(result)
-                        .build()));
+    try {
+      retrier.execute(
+          () ->
+              acBlockingStub()
+                  .updateActionResult(
+                      UpdateActionResultRequest.newBuilder()
+                          .setInstanceName(options.remoteInstanceName)
+                          .setActionDigest(actionKey.getDigest())
+                          .setActionResult(result)
+                          .build()));
+    } catch (StatusRuntimeException e) {
+      throw new IOException(e);
+    }
   }
 
   void upload(
@@ -433,12 +436,12 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
                           .setInstanceName(options.remoteInstanceName)
                           .setActionDigest(actionKey.getDigest())
                           .build()));
-    } catch (RetryException e) {
-      if (RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)) {
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
         // Return null to indicate that it was a cache miss.
         return null;
       }
-      throw e;
+      throw new IOException(e);
     }
   }
 }

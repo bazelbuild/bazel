@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -405,7 +404,7 @@ public class RemoteSpawnCacheTest {
 
   @Test
   public void printWarningIfDownloadFails() throws Exception {
-    doThrow(new RetryException("reason", 0, io.grpc.Status.UNAVAILABLE.asRuntimeException()))
+    doThrow(new IOException(io.grpc.Status.UNAVAILABLE.asRuntimeException()))
         .when(remoteCache)
         .getCachedActionResult(any(ActionKey.class));
 
@@ -452,7 +451,7 @@ public class RemoteSpawnCacheTest {
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
-    assertThat(evt.getMessage()).contains("reason");
+    assertThat(evt.getMessage()).contains("UNAVAILABLE");
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
@@ -475,7 +474,7 @@ public class RemoteSpawnCacheTest {
                 return actionResult;
               }
             });
-    doThrow(new RetryException("cache miss", 0, new CacheNotFoundException(digest, digestUtil)))
+    doThrow(new CacheNotFoundException(digest, digestUtil))
         .when(remoteCache)
         .download(actionResult, execRoot, outErr);
 

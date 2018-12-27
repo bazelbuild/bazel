@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
@@ -366,12 +367,7 @@ public class RemoteSpawnRunnerTest {
                 digestUtil,
                 logDir));
 
-    try {
-      runner.exec(spawn, policy);
-      fail("Expected exception");
-    } catch (EnvironmentalExecException expected) {
-      // Intentionally left empty.
-    }
+    assertThrows(EnvironmentalExecException.class, () -> runner.exec(spawn, policy));
   }
 
   @Test
@@ -631,8 +627,7 @@ public class RemoteSpawnRunnerTest {
             .setStatus(timeoutStatus)
             .build();
     when(executor.executeRemotely(any(ExecuteRequest.class)))
-        .thenThrow(new Retrier.RetryException(
-                "", 1, new ExecutionStatusException(resp.getStatus(), resp)));
+        .thenThrow(new IOException(new ExecutionStatusException(resp.getStatus(), resp)));
     SettableFuture<Void> completed = SettableFuture.create();
     completed.set(null);
     when(cache.downloadFile(eq(logPath), eq(logDigest))).thenReturn(completed);
@@ -749,9 +744,7 @@ public class RemoteSpawnRunnerTest {
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(cachedResult);
-    Retrier.RetryException downloadFailure =
-        new Retrier.RetryException(
-            "", 1, new CacheNotFoundException(Digest.getDefaultInstance(), digestUtil));
+    Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance(), digestUtil);
     doThrow(downloadFailure)
         .when(cache)
         .download(eq(cachedResult), any(Path.class), any(FileOutErr.class));
@@ -804,9 +797,7 @@ public class RemoteSpawnRunnerTest {
                     .build())
             .build();
     when(executor.executeRemotely(any(ExecuteRequest.class)))
-        .thenThrow(
-            new Retrier.RetryException(
-                "", 1, new ExecutionStatusException(resp.getStatus(), resp)));
+        .thenThrow(new IOException(new ExecutionStatusException(resp.getStatus(), resp)));
 
     Spawn spawn = newSimpleSpawn();
 
@@ -853,9 +844,7 @@ public class RemoteSpawnRunnerTest {
                     .build())
             .build();
     when(executor.executeRemotely(any(ExecuteRequest.class)))
-        .thenThrow(
-            new Retrier.RetryException(
-                "", 1, new ExecutionStatusException(resp.getStatus(), resp)));
+        .thenThrow(new IOException(new ExecutionStatusException(resp.getStatus(), resp)));
 
     Spawn spawn = newSimpleSpawn();
 

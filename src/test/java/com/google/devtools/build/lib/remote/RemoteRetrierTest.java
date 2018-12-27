@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
 
@@ -23,14 +24,12 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.Retrier.Sleeper;
 import com.google.devtools.common.options.Options;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.time.Duration;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -94,15 +93,6 @@ public class RemoteRetrierTest {
     assertThat(backoff.nextDelayMillis()).isLessThan(0L);
   }
 
-  private void assertThrows(RemoteRetrier retrier, int attempts) throws Exception {
-    try {
-      retrier.execute(() -> fooMock.foo());
-      fail();
-    } catch (RetryException e) {
-      assertThat(e.getAttempts()).isEqualTo(attempts);
-    }
-  }
-
   @Test
   public void testNoRetries() throws Exception {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
@@ -114,7 +104,7 @@ public class RemoteRetrierTest {
         .thenReturn("bla")
         .thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
     assertThat(retrier.execute(() -> fooMock.foo())).isEqualTo("bla");
-    assertThrows(retrier, 1);
+    assertThrows(StatusRuntimeException.class, () -> retrier.execute(fooMock::foo));
     Mockito.verify(fooMock, Mockito.times(2)).foo();
   }
 
@@ -131,7 +121,7 @@ public class RemoteRetrierTest {
                 Retrier.ALLOW_ALL_CALLS,
                 Mockito.mock(Sleeper.class)));
     when(fooMock.foo()).thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
-    assertThrows(retrier, 1);
+    assertThrows(StatusRuntimeException.class, () -> retrier.execute(fooMock::foo));
     Mockito.verify(fooMock, Mockito.times(1)).foo();
   }
 
@@ -145,8 +135,8 @@ public class RemoteRetrierTest {
             new RemoteRetrier(s, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS, sleeper));
 
     when(fooMock.foo()).thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
-    assertThrows(retrier, 3);
-    assertThrows(retrier, 3);
+    assertThrows(StatusRuntimeException.class, () -> retrier.execute(fooMock::foo));
+    assertThrows(StatusRuntimeException.class, () -> retrier.execute(fooMock::foo));
     Mockito.verify(sleeper, Mockito.times(2)).sleep(1000);
     Mockito.verify(sleeper, Mockito.times(2)).sleep(2000);
     Mockito.verify(fooMock, Mockito.times(6)).foo();
@@ -168,27 +158,5 @@ public class RemoteRetrierTest {
     } catch (InterruptedException expected) {
       assertThat(expected).isSameAs(thrown);
     }
-  }
-
-  @Test
-  public void testPassThroughException() throws Exception {
-    StatusRuntimeException thrown = Status.Code.UNKNOWN.toStatus().asRuntimeException();
-
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    RemoteRetrier retrier =
-        new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
-
-    AtomicInteger numCalls = new AtomicInteger();
-    try {
-      retrier.execute(() -> {
-        numCalls.incrementAndGet();
-        throw new RemoteRetrier.PassThroughException(thrown);
-      });
-      fail();
-    } catch (RetryException expected) {
-      assertThat(expected).hasCauseThat().isSameAs(thrown);
-    }
-
-    assertThat(numCalls.get()).isEqualTo(1);
   }
 }

@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import io.grpc.CallCredentials;
 import io.grpc.Context;
+import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -73,6 +74,8 @@ class RemoteServerCapabilities {
               ? GetCapabilitiesRequest.getDefaultInstance()
               : GetCapabilitiesRequest.newBuilder().setInstanceName(instanceName).build();
       return retrier.execute(() -> capabilitiesBlockingStub().getCapabilities(request));
+    } catch (StatusRuntimeException e) {
+      throw new IOException(e);
     } finally {
       withMetadata.detach(previous);
     }

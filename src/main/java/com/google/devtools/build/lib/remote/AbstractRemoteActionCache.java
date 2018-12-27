@@ -71,10 +71,6 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     ((SettableFuture<byte[]>) EMPTY_BYTES).set(new byte[0]);
   }
 
-  public static boolean causedByCacheMiss(IOException t) {
-    return t.getCause() instanceof CacheNotFoundException;
-  }
-
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
   private final Retrier retrier;
