@@ -94,8 +94,10 @@ public class CrosstoolConfigurationHelper {
         .setAbiVersion("gcc-3.4")
         .setAbiLibcVersion("2.3.2")
         // add a submessage that implies support for '.so' files
-        .addLinkingModeFlags(CrosstoolConfig.LinkingModeFlags.newBuilder()
-            .setMode(CrosstoolConfig.LinkingMode.DYNAMIC))
+        .addFeature(
+            CrosstoolConfig.CToolchain.Feature.newBuilder()
+                .setName(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER)
+                .setEnabled(true))
         .addCxxBuiltinIncludeDirectory("/include/directory");
     builder.addToolchain(toolchainBuilder);
     return builder.build();

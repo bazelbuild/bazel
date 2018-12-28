@@ -115,8 +115,6 @@ public final class CppToolchainInfo {
       Label toolchainLabel,
       CcToolchainConfigInfo ccToolchainConfigInfo,
       boolean disableLegacyCrosstoolFields,
-      boolean disableCompilationModeFlags,
-      boolean disableLinkingModeFlags,
       boolean disableGenruleCcToolchainDependency)
       throws EvalException {
     ImmutableMap<String, PathFragment> toolPaths =
@@ -128,7 +126,7 @@ public final class CppToolchainInfo {
         ImmutableListMultimap.builder();
 
     boolean haveDynamicMode = false;
-    if (!disableLinkingModeFlags) {
+    if (!disableLegacyCrosstoolFields) {
       // If a toolchain supports dynamic libraries at all, there must be at least one
       // of the following:
       // - a "DYNAMIC" section in linking_mode_flags (even if no flags are needed)
@@ -153,7 +151,7 @@ public final class CppToolchainInfo {
     ImmutableListMultimap.Builder<CompilationMode, String> linkOptionsFromCompilationModeBuilder =
         ImmutableListMultimap.builder();
 
-    if (!disableCompilationModeFlags) {
+    if (!disableLegacyCrosstoolFields) {
       cFlagsBuilder.putAll(
           importCompilationMode(CrosstoolConfig.CompilationMode.OPT),
           ccToolchainConfigInfo.getOptCompilationModeCompilerFlags());
@@ -212,19 +210,27 @@ public final class CppToolchainInfo {
           disableLegacyCrosstoolFields
               ? ImmutableList.of()
               : ccToolchainConfigInfo.getTestOnlyLinkerFlags(),
-          ccToolchainConfigInfo.getLdEmbedFlags(),
-          ccToolchainConfigInfo.getObjcopyEmbedFlags(),
+          disableLegacyCrosstoolFields
+              ? ImmutableList.of()
+              : ccToolchainConfigInfo.getLdEmbedFlags(),
+          disableLegacyCrosstoolFields
+              ? ImmutableList.of()
+              : ccToolchainConfigInfo.getObjcopyEmbedFlags(),
           toolchainLabel,
-          toolchainLabel.getRelativeWithRemapping(
-              !ccToolchainConfigInfo.getStaticRuntimesFilegroup().isEmpty()
-                  ? ccToolchainConfigInfo.getStaticRuntimesFilegroup()
-                  : "static-runtime-libs-" + ccToolchainConfigInfo.getTargetCpu(),
-              ImmutableMap.of()),
-          toolchainLabel.getRelativeWithRemapping(
-              !ccToolchainConfigInfo.getDynamicRuntimesFilegroup().isEmpty()
-                  ? ccToolchainConfigInfo.getDynamicRuntimesFilegroup()
-                  : "dynamic-runtime-libs-" + ccToolchainConfigInfo.getTargetCpu(),
-              ImmutableMap.of()),
+          disableLegacyCrosstoolFields
+              ? null
+              : toolchainLabel.getRelativeWithRemapping(
+                  !ccToolchainConfigInfo.getStaticRuntimesFilegroup().isEmpty()
+                      ? ccToolchainConfigInfo.getStaticRuntimesFilegroup()
+                      : "static-runtime-libs-" + ccToolchainConfigInfo.getTargetCpu(),
+                  ImmutableMap.of()),
+          disableLegacyCrosstoolFields
+              ? null
+              : toolchainLabel.getRelativeWithRemapping(
+                  !ccToolchainConfigInfo.getDynamicRuntimesFilegroup().isEmpty()
+                      ? ccToolchainConfigInfo.getDynamicRuntimesFilegroup()
+                      : "dynamic-runtime-libs-" + ccToolchainConfigInfo.getTargetCpu(),
+                  ImmutableMap.of()),
           "_solib_" + ccToolchainConfigInfo.getTargetCpu(),
           ccToolchainConfigInfo.getAbiVersion(),
           ccToolchainConfigInfo.getTargetSystemName(),
@@ -240,13 +246,17 @@ public final class CppToolchainInfo {
           disableLegacyCrosstoolFields
               ? ImmutableList.of()
               : ccToolchainConfigInfo.getUnfilteredCxxFlags(),
-          ccToolchainConfigInfo.supportsFission(),
-          ccToolchainConfigInfo.supportsStartEndLib(),
-          ccToolchainConfigInfo.supportsEmbeddedRuntimes(),
-          haveDynamicMode || !ccToolchainConfigInfo.getDynamicLibraryLinkerFlags().isEmpty(),
-          ccToolchainConfigInfo.supportsInterfaceSharedLibraries(),
-          ccToolchainConfigInfo.supportsGoldLinker(),
-          ccToolchainConfigInfo.needsPic());
+          disableLegacyCrosstoolFields ? false : ccToolchainConfigInfo.supportsFission(),
+          disableLegacyCrosstoolFields ? false : ccToolchainConfigInfo.supportsStartEndLib(),
+          disableLegacyCrosstoolFields ? false : ccToolchainConfigInfo.supportsEmbeddedRuntimes(),
+          disableLegacyCrosstoolFields
+              ? false
+              : haveDynamicMode || !ccToolchainConfigInfo.getDynamicLibraryLinkerFlags().isEmpty(),
+          disableLegacyCrosstoolFields
+              ? false
+              : ccToolchainConfigInfo.supportsInterfaceSharedLibraries(),
+          disableLegacyCrosstoolFields ? false : ccToolchainConfigInfo.supportsGoldLinker(),
+          disableLegacyCrosstoolFields ? false : ccToolchainConfigInfo.needsPic());
     } catch (LabelSyntaxException e) {
       // All of the above label.getRelativeWithRemapping() calls are valid labels, and the
       // crosstool_top was already checked earlier in the process.

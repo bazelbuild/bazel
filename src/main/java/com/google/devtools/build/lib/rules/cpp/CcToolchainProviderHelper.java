@@ -722,8 +722,6 @@ public class CcToolchainProviderHelper {
               ruleContext.getLabel(),
               configInfo,
               cppConfiguration.disableLegacyCrosstoolFields(),
-              cppConfiguration.disableCompilationModeFlags(),
-              cppConfiguration.disableLinkingModeFlags(),
               cppConfiguration.disableGenruleCcToolchainDependency());
         } catch (EvalException e) {
           throw ruleContext.throwWithRuleError(e.getMessage());
@@ -748,13 +746,12 @@ public class CcToolchainProviderHelper {
       toolchain =
           CppToolchainInfo.addLegacyFeatures(
               toolchain, CppToolchainInfo.getToolsDirectory(attributes.getCcToolchainLabel()));
-      CcToolchainConfigInfo ccToolchainConfigInfo = CcToolchainConfigInfo.fromToolchain(toolchain);
+      CcToolchainConfigInfo ccToolchainConfigInfo =
+          CcToolchainConfigInfo.fromToolchain(ruleContext, toolchain);
       return CppToolchainInfo.create(
           attributes.getCcToolchainLabel(),
           ccToolchainConfigInfo,
           cppConfiguration.disableLegacyCrosstoolFields(),
-          cppConfiguration.disableCompilationModeFlags(),
-          cppConfiguration.disableLinkingModeFlags(),
           cppConfiguration.disableGenruleCcToolchainDependency());
     } catch (EvalException e) {
       throw ruleContext.throwWithRuleError(e.getMessage());

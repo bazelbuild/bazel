@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.rules.cpp.CppConfiguration.getLegacyCrosstoolFieldErrorMessage;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -181,8 +184,10 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.proto = proto;
   }
 
-  public static CcToolchainConfigInfo fromToolchain(CToolchain toolchain) throws EvalException {
-
+  public static CcToolchainConfigInfo fromToolchain(RuleContext ruleContext, CToolchain toolchain)
+      throws EvalException {
+    boolean disableLegacyCrosstoolFields =
+        ruleContext.getFragment(CppConfiguration.class).disableLegacyCrosstoolFields();
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (CToolchain.ActionConfig actionConfig : toolchain.getActionConfigList()) {
       actionConfigBuilder.add(new ActionConfig(actionConfig));
@@ -213,6 +218,103 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     ImmutableList.Builder<String> mostlyStaticLinkerFlags = ImmutableList.builder();
     ImmutableList.Builder<String> dynamicLinkerFlags = ImmutableList.builder();
     ImmutableList.Builder<String> mostlyStaticLibrariesLinkerFlags = ImmutableList.builder();
+
+    if (disableLegacyCrosstoolFields) {
+      if (toolchain.getCompilationModeFlagsCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("compilation_mode_flags"));
+      }
+      if (toolchain.getLinkingModeFlagsCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("linking_mode_flags"));
+      }
+      if (toolchain.getArFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("ar_flag"));
+      }
+      if (toolchain.getArThinArchivesFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("ar_thin_archives_flag"));
+      }
+      if (toolchain.getCompilerFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("compiler_flag"));
+      }
+      if (toolchain.getCxxFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("cxx_flag"));
+      }
+      if (toolchain.getDebianExtraRequiresCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("debian_extra_requires"));
+      }
+      if (toolchain.hasDefaultPythonTop()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("default_python_top"));
+      }
+      if (toolchain.hasDefaultPythonVersion()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("default_python_version"));
+      }
+      if (toolchain.getDynamicLibraryLinkerFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("dynamic_library_linker_flag"));
+      }
+      if (toolchain.getGccPluginCompilerFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("gcc_plugin_compiler_flag"));
+      }
+      if (toolchain.getGccPluginHeaderDirectoryCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("gcc_plugin_header_directory"));
+      }
+      if (toolchain.getLdEmbedFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("ld_embed_flag"));
+      }
+      if (toolchain.getLinkerFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("linker_flag"));
+      }
+      if (toolchain.getMaoPluginHeaderDirectoryCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("mao_plugin_header_directory"));
+      }
+      if (toolchain.hasNeedsPic()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("needsPic"));
+      }
+      if (toolchain.getObjcopyEmbedFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("objcopy_embed_flag"));
+      }
+      if (toolchain.hasPythonPreloadSwigdeps()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("python_preload_swigdeps"));
+      }
+      if (toolchain.hasStaticRuntimesFilegroup()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("static_runtimes_filegroup"));
+      }
+      if (toolchain.hasDynamicRuntimesFilegroup()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("dynamic_runtimes_filegroup"));
+      }
+      if (toolchain.hasSupportsDsym()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_dsym"));
+      }
+      if (toolchain.hasSupportsEmbeddedRuntimes()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_embedded_runtimes"));
+      }
+      if (toolchain.hasSupportsFission()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_fission"));
+      }
+      if (toolchain.hasSupportsGoldLinker()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_gold_linker"));
+      }
+      if (toolchain.hasSupportsIncrementalLinker()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_incremental_linker"));
+      }
+      if (toolchain.hasSupportsInterfaceSharedObjects()) {
+        ruleContext.ruleError(
+            getLegacyCrosstoolFieldErrorMessage("supports_interface_shared_objects"));
+      }
+      if (toolchain.hasSupportsNormalizingAr()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_normalizing_ar"));
+      }
+      if (toolchain.hasSupportsStartEndLib()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_start_end_lib"));
+      }
+      if (toolchain.hasSupportsThinArchives()) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("supports_thin_archives"));
+      }
+      if (toolchain.getTestOnlyLinkerFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("test_only_linker_flag"));
+      }
+      if (toolchain.getUnfilteredCxxFlagCount() != 0) {
+        ruleContext.ruleError(getLegacyCrosstoolFieldErrorMessage("unfiltered_cxx_flag"));
+      }
+    }
 
     for (CompilationModeFlags flag : toolchain.getCompilationModeFlagsList()) {
       switch (flag.getMode()) {

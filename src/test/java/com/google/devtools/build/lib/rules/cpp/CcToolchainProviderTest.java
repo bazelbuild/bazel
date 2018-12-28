@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -83,6 +82,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
 
   @Test
   public void testDisablingCompilationModeFlags() throws Exception {
+    reporter.removeHandler(failFastHandler);
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(
@@ -92,7 +92,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             "compilation_mode_flags { mode: OPT linker_flag: '-baz_from_compilation_mode' }");
     scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])");
 
-    useConfiguration("-c", "opt");
+    useConfiguration("-c", "opt", "--noincompatible_disable_legacy_crosstool_fields");
     CcToolchainProvider ccToolchainProvider = getCcToolchainProvider();
     assertThat(ccToolchainProvider.getLegacyCompileOptionsWithCopts())
         .contains("-foo_from_compilation_mode");
@@ -100,12 +100,11 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     assertThat(ccToolchainProvider.getLegacyMostlyStaticLinkFlags(CompilationMode.OPT))
         .contains("-baz_from_compilation_mode");
 
-    useConfiguration("-c", "opt", "--experimental_disable_compilation_mode_flags");
-    ccToolchainProvider = getCcToolchainProvider();
-    assertThat(ccToolchainProvider.getLegacyCxxOptions())
-        .doesNotContain("-bar_from_compilation_mode");
-    assertThat(ccToolchainProvider.getLegacyMostlyStaticLinkFlags(CompilationMode.OPT))
-        .doesNotContain("-baz_from_compilation_mode");
+    useConfiguration("-c", "opt", "--incompatible_disable_legacy_crosstool_fields");
+    getConfiguredTarget("//a");
+    assertContainsEvent(
+        "compilation_mode_flags is disabled by "
+            + "--incompatible_disable_legacy_crosstool_fields, please migrate your CROSSTOOL");
   }
 
   private CcToolchainProvider getCcToolchainProvider() throws Exception {
@@ -116,6 +115,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
 
   @Test
   public void testDisablingLinkingModeFlags() throws Exception {
+    reporter.removeHandler(failFastHandler);
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(
@@ -123,53 +123,36 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             "linking_mode_flags { mode: MOSTLY_STATIC linker_flag: '-foo_from_linking_mode' }");
     scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])");
 
-    useConfiguration();
+    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
     CcToolchainProvider ccToolchainProvider = getCcToolchainProvider();
     assertThat(ccToolchainProvider.getLegacyMostlyStaticLinkFlags(CompilationMode.OPT))
         .contains("-foo_from_linking_mode");
 
-    useConfiguration("--experimental_disable_linking_mode_flags");
-    ccToolchainProvider = getCcToolchainProvider();
-    assertThat(ccToolchainProvider.getLegacyMostlyStaticLinkFlags(CompilationMode.OPT))
-        .doesNotContain("-foo_from_linking_mode");
+    useConfiguration("--incompatible_disable_legacy_crosstool_fields");
+    getConfiguredTarget("//a");
+    assertContainsEvent(
+        "linking_mode_flags is disabled by "
+            + "--incompatible_disable_legacy_crosstool_fields, please migrate your CROSSTOOL");
   }
 
   @Test
   public void testDisablingLegacyCrosstoolFields() throws Exception {
+    reporter.removeHandler(failFastHandler);
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "compiler_flag: '-foo_compiler_flag'",
-            "cxx_flag: '-foo_cxx_flag'",
-            "unfiltered_cxx_flag: '-foo_unfiltered_cxx_flag'",
-            "linker_flag: '-foo_linker_flag'",
-            "dynamic_library_linker_flag: '-foo_dynamic_library_linker_flag'",
-            "test_only_linker_flag: '-foo_test_only_linker_flag'");
+        .setupCrosstool(mockToolsConfig, "compiler_flag: '-foo_compiler_flag'");
     scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])");
 
-    useConfiguration();
+    useConfiguration("--noincompatible_disable_legacy_crosstool_fields");
     CcToolchainProvider ccToolchainProvider = getCcToolchainProvider();
     assertThat(ccToolchainProvider.getLegacyCompileOptions()).contains("-foo_compiler_flag");
-    assertThat(ccToolchainProvider.getLegacyCxxOptions()).contains("-foo_cxx_flag");
-    assertThat(ccToolchainProvider.getUnfilteredCompilerOptions())
-        .contains("-foo_unfiltered_cxx_flag");
-    assertThat(ccToolchainProvider.getLegacyLinkOptions()).contains("-foo_linker_flag");
-    assertThat(ccToolchainProvider.getSharedLibraryLinkOptions(/* flags= */ ImmutableList.of()))
-        .contains("-foo_dynamic_library_linker_flag");
-    assertThat(ccToolchainProvider.getTestOnlyLinkOptions()).contains("-foo_test_only_linker_flag");
 
-    useConfiguration("--experimental_disable_legacy_crosstool_fields");
-    ccToolchainProvider = getCcToolchainProvider();
-    assertThat(ccToolchainProvider.getLegacyCompileOptions()).doesNotContain("-foo_compiler_flag");
-    assertThat(ccToolchainProvider.getLegacyCxxOptions()).doesNotContain("-foo_cxx_flag");
-    assertThat(ccToolchainProvider.getUnfilteredCompilerOptions())
-        .doesNotContain("-foo_unfiltered_cxx_flag");
-    assertThat(ccToolchainProvider.getLegacyLinkOptions()).doesNotContain("-foo_linker_flag");
-    assertThat(ccToolchainProvider.getSharedLibraryLinkOptions(/* flags= */ ImmutableList.of()))
-        .doesNotContain("-foo_dynamic_library_linker_flag");
-    assertThat(ccToolchainProvider.getTestOnlyLinkOptions())
-        .doesNotContain("-foo_test_only_linker_flag");
+    useConfiguration("--incompatible_disable_legacy_crosstool_fields");
+    getConfiguredTarget("//a");
+
+    assertContainsEvent(
+        "compiler_flag is disabled by --incompatible_disable_legacy_crosstool_fields, please "
+            + "migrate your CROSSTOOL");
   }
 
   /*

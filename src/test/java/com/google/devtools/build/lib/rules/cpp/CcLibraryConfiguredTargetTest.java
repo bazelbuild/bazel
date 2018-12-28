@@ -222,10 +222,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testFilesToBuildWithoutDSO() throws Exception {
     CrosstoolConfig.CrosstoolRelease.Builder release = CrosstoolConfig.CrosstoolRelease.newBuilder()
         .mergeFrom(CrosstoolConfigurationHelper.simpleCompleteToolchainProto());
-    release.getToolchainBuilder(0)
+    release
+        .getToolchainBuilder(0)
         .setTargetCpu("k8")
         .setCompiler("compiler")
-        .clearLinkingModeFlags();
+        // To remove "supports_dynamic_linker" feature
+        .clearFeature();
 
     scratch.file("crosstool/BUILD",
         "cc_toolchain_suite(",

@@ -69,6 +69,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link CppLinkAction}. */
 @RunWith(JUnit4.class)
 public class CppLinkActionTest extends BuildViewTestCase {
+
   private RuleContext createDummyRuleContext() throws Exception {
     return view.getRuleContextForTesting(
         reporter,
@@ -92,7 +93,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
         masterConfig);
   }
 
-  private final FeatureConfiguration getMockFeatureConfiguration() throws Exception {
+  private final FeatureConfiguration getMockFeatureConfiguration(RuleContext ruleContext)
+      throws Exception {
     ImmutableList<CToolchain.Feature> features =
         new ImmutableList.Builder<CToolchain.Feature>()
             .addAll(
@@ -113,7 +115,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             "strip_tool",
             /* supportsInterfaceSharedLibraries= */ false);
 
-    return CcToolchainFeaturesTest.buildFeatures(features, actionConfigs)
+    return CcToolchainFeaturesTest.buildFeatures(ruleContext, features, actionConfigs)
         .getFeatureConfiguration(
             ImmutableSet.of(
                 Link.LinkTargetType.EXECUTABLE.getActionName(),
@@ -124,8 +126,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testToolchainFeatureFlags() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
+                ruleContext,
                 MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
                 "feature {",
                 "   name: 'a'",
@@ -139,6 +144,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     CppLinkAction linkAction =
         createLinkBuilder(
+                ruleContext,
                 Link.LinkTargetType.EXECUTABLE,
                 "dummyRuleContext/out",
                 ImmutableList.<Artifact>of(),
@@ -150,8 +156,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testExecutionRequirementsFromCrosstool() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
+                ruleContext,
                 "action_config {",
                 "   config_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
                 "   action_name: '" + LinkTargetType.EXECUTABLE.getActionName() + "'",
@@ -164,6 +173,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     CppLinkAction linkAction =
         createLinkBuilder(
+                ruleContext,
                 LinkTargetType.EXECUTABLE,
                 "dummyRuleContext/out",
                 ImmutableList.of(),
@@ -329,8 +339,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testToolchainFeatureEnv() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
+                ruleContext,
                 MockCcSupport.EMPTY_EXECUTABLE_ACTION_CONFIG,
                 "feature {",
                 "   name: 'a'",
@@ -344,6 +357,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     CppLinkAction linkAction =
         createLinkBuilder(
+                ruleContext,
                 Link.LinkTargetType.EXECUTABLE,
                 "dummyRuleContext/out",
                 ImmutableList.<Artifact>of(),
@@ -372,7 +386,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     final PathFragment dynamicOutputPath = PathFragment.create("dummyRuleContext/output/path.so");
     final Artifact staticOutputFile = getBinArtifactWithNoOwner(exeOutputPath.getPathString());
     final Artifact dynamicOutputFile = getBinArtifactWithNoOwner(dynamicOutputPath.getPathString());
-    final FeatureConfiguration featureConfiguration = getMockFeatureConfiguration();
+    final FeatureConfiguration featureConfiguration = getMockFeatureConfiguration(ruleContext);
 
     ActionTester.runTest(
         NonStaticAttributes.class,
@@ -430,7 +444,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     final PathFragment dynamicOutputPath = PathFragment.create("dummyRuleContext/output/path.so");
     final Artifact staticOutputFile = getBinArtifactWithNoOwner(staticOutputPath.getPathString());
     final Artifact dynamicOutputFile = getBinArtifactWithNoOwner(dynamicOutputPath.getPathString());
-    final FeatureConfiguration featureConfiguration = getMockFeatureConfiguration();
+    final FeatureConfiguration featureConfiguration = getMockFeatureConfiguration(ruleContext);
 
     ActionTester.runTest(
         StaticKeyAttributes.class,
@@ -517,6 +531,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   private void assertLinkSizeAccuracy(int inputs) throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     ImmutableList.Builder<Artifact> objects = ImmutableList.builder();
     for (int i = 0; i < inputs; i++) {
       objects.add(getOutputArtifact("object" + i + ".o"));
@@ -524,11 +540,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     CppLinkAction linkAction =
         createLinkBuilder(
+                ruleContext,
                 Link.LinkTargetType.EXECUTABLE,
                 "dummyRuleContext/binary2",
                 objects.build(),
                 ImmutableList.<LibraryToLink>of(),
-                getMockFeatureConfiguration())
+                getMockFeatureConfiguration(ruleContext))
             .setFake(true)
             .build();
 
@@ -553,13 +570,13 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   private CppLinkActionBuilder createLinkBuilder(
+      RuleContext ruleContext,
       Link.LinkTargetType type,
       String outputPath,
       Iterable<Artifact> nonLibraryInputs,
       ImmutableList<LibraryToLink> libraryInputs,
       FeatureConfiguration featureConfiguration)
       throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
     CcToolchainProvider toolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder builder =
@@ -582,14 +599,16 @@ public class CppLinkActionTest extends BuildViewTestCase {
     return builder;
   }
 
-  private CppLinkActionBuilder createLinkBuilder(Link.LinkTargetType type) throws Exception {
+  private CppLinkActionBuilder createLinkBuilder(RuleContext ruleContext, Link.LinkTargetType type)
+      throws Exception {
     PathFragment output = PathFragment.create("dummyRuleContext/output/path.a");
     return createLinkBuilder(
+        ruleContext,
         type,
         output.getPathString(),
         ImmutableList.<Artifact>of(),
         ImmutableList.<LibraryToLink>of(),
-        getMockFeatureConfiguration());
+        getMockFeatureConfiguration(ruleContext));
   }
 
   public Artifact getOutputArtifact(String relpath) {
@@ -621,8 +640,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testInterfaceOutputWithoutBuildingDynamicLibraryIsError() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     CppLinkActionBuilder builder =
-        createLinkBuilder(LinkTargetType.EXECUTABLE)
+        createLinkBuilder(ruleContext, LinkTargetType.EXECUTABLE)
             .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput"));
 
     assertError("Interface output can only be used with non-fake DYNAMIC_LIBRARY targets", builder);
@@ -630,8 +651,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testInterfaceOutputForDynamicLibrary() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
+                ruleContext,
                 "supports_interface_shared_objects: true ",
                 "feature {",
                 "   name: 'build_interface_libraries'",
@@ -674,6 +698,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName()));
     CppLinkActionBuilder builder =
         createLinkBuilder(
+                ruleContext,
                 LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
                 "foo.so",
                 ImmutableList.<Artifact>of(),
@@ -694,8 +719,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testStaticLinkWithDynamicIsError() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     CppLinkActionBuilder builder =
-        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
             .setLinkingMode(Link.LinkingMode.DYNAMIC)
             .setLibraryIdentifier("foo");
 
@@ -704,8 +731,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testStaticLinkWithSymbolsCountOutputIsError() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     CppLinkActionBuilder builder =
-        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
             .setLinkingMode(LinkingMode.STATIC)
             .setLibraryIdentifier("foo")
             .setSymbolCountsOutput(scratchArtifact("dummySymbolCounts"));
@@ -715,8 +744,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testStaticLinkWithNativeDepsIsError() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     CppLinkActionBuilder builder =
-        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
             .setLinkingMode(LinkingMode.STATIC)
             .setLibraryIdentifier("foo")
             .setNativeDeps(true);
@@ -726,8 +757,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testStaticLinkWithWholeArchiveIsError() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     CppLinkActionBuilder builder =
-        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
             .setLinkingMode(LinkingMode.STATIC)
             .setLibraryIdentifier("foo")
             .setWholeArchive(true);
@@ -756,6 +789,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testLinksTreeArtifactLibraries() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
     TreeFileArtifact library0 = ActionInputHelper.treeFileArtifact(testTreeArtifact, "library0.o");
@@ -773,7 +808,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         };
 
     CppLinkActionBuilder builder =
-        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
             .setLibraryIdentifier("foo")
             .addObjectFiles(ImmutableList.of(testTreeArtifact));
 
@@ -801,6 +836,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     // This test only makes sense if start/end lib archives are supported.
     analysisMock.ccSupport().setupCrosstool(mockToolsConfig, "supports_start_end_lib: true");
     useConfiguration("--start_end_lib");
+    RuleContext ruleContext = createDummyRuleContext();
 
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
@@ -821,7 +857,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     Artifact archiveFile = scratchArtifact("library.a");
 
     CppLinkActionBuilder builder =
-        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
             .setLibraryIdentifier("foo")
             .addLibrary(
                 LinkerInputs.newInputLibrary(
@@ -855,6 +891,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testStaticLinking() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     ImmutableList<LinkTargetType> targetTypesToTest =
         ImmutableList.of(
             LinkTargetType.STATIC_LIBRARY,
@@ -884,11 +922,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
       CppLinkActionBuilder builder =
           createLinkBuilder(
+                  ruleContext,
                   linkType,
                   output.getExecPathString(),
                   ImmutableList.<Artifact>of(),
                   ImmutableList.<LibraryToLink>of(),
-                  getMockFeatureConfiguration())
+                  getMockFeatureConfiguration(ruleContext))
               .setLibraryIdentifier("foo")
               .addObjectFiles(ImmutableList.of(testTreeArtifact))
               .addObjectFile(objectFile)
@@ -908,13 +947,16 @@ public class CppLinkActionTest extends BuildViewTestCase {
   /** Tests that -pie is removed when -shared is also present (http://b/5611891#). */
   @Test
   public void testPieOptionDisabledForSharedLibraries() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     CppLinkAction linkAction =
         createLinkBuilder(
+                ruleContext,
                 LinkTargetType.DYNAMIC_LIBRARY,
                 "dummyRuleContext/out.so",
                 ImmutableList.of(),
                 ImmutableList.of(),
-                getMockFeatureConfiguration())
+                getMockFeatureConfiguration(ruleContext))
             .setLinkingMode(Link.LinkingMode.STATIC)
             .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
             .setLibraryIdentifier("foo")
@@ -928,13 +970,16 @@ public class CppLinkActionTest extends BuildViewTestCase {
   /** Tests that -pie is removed when -shared is also present (http://b/5611891#). */
   @Test
   public void testPieOptionKeptForExecutables() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     CppLinkAction linkAction =
         createLinkBuilder(
+                ruleContext,
                 LinkTargetType.EXECUTABLE,
                 "dummyRuleContext/out",
                 ImmutableList.of(),
                 ImmutableList.of(),
-                getMockFeatureConfiguration())
+                getMockFeatureConfiguration(ruleContext))
             .setLinkingMode(Link.LinkingMode.STATIC)
             .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
             .build();
@@ -946,6 +991,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testLinkoptsComeAfterLinkerInputs() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     String solibPrefix = "_solib_" + CrosstoolConfigurationHelper.defaultCpu();
     Iterable<LibraryToLink> linkerInputs =
         LinkerInputs.opaqueLibrariesToLink(
@@ -958,11 +1005,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     CppLinkAction linkAction =
         createLinkBuilder(
+                ruleContext,
                 LinkTargetType.EXECUTABLE,
                 "dummyRuleContext/out",
                 ImmutableList.of(),
                 ImmutableList.copyOf(linkerInputs),
-                getMockFeatureConfiguration())
+                getMockFeatureConfiguration(ruleContext))
             .addLinkopts(ImmutableList.of("FakeLinkopt1", "FakeLinkopt2"))
             .build();
 
@@ -977,8 +1025,10 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testLinkoptsAreOmittedForStaticLibrary() throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+
     CppLinkAction linkAction =
-        createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
+        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
             .addLinkopt("FakeLinkopt1")
             .setLibraryIdentifier("foo")
             .build();
@@ -988,7 +1038,9 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testSplitExecutableLinkCommand() throws Exception {
-    CppLinkAction linkAction = createLinkBuilder(LinkTargetType.EXECUTABLE).build();
+    RuleContext ruleContext = createDummyRuleContext();
+
+    CppLinkAction linkAction = createLinkBuilder(ruleContext, LinkTargetType.EXECUTABLE).build();
     Pair<List<String>, List<String>> result = linkAction.getLinkCommandLine().splitCommandline();
 
     String linkCommandLine = Joiner.on(" ").join(result.first);

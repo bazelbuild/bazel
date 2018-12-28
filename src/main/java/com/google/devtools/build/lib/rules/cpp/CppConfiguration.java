@@ -548,12 +548,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableLegacyCrosstoolFields;
   }
 
-  public boolean disableCompilationModeFlags() {
-    return cppOptions.disableCompilationModeFlags;
-  }
-
-  public boolean disableLinkingModeFlags() {
-    return cppOptions.disableLinkingModeFlags;
+  public static String getLegacyCrosstoolFieldErrorMessage(String field) {
+    Preconditions.checkNotNull(field);
+    return field
+        + " is disabled by --incompatible_disable_legacy_crosstool_fields, please "
+        + "migrate your CROSSTOOL (see https://github.com/bazelbuild/bazel/issues/6861 for "
+        + "migration instructions).";
   }
 
   public boolean enableLinkoptsInUserLinkFlags() {
