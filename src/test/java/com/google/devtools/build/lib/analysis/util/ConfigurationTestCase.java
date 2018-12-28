@@ -215,7 +215,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         parser.getOptions(TestOptions.class).multiCpus);
 
     skyframeExecutor.handleDiffs(reporter);
-    skyframeExecutor.setConfigurationFragmentFactories(configurationFragmentFactories);
     BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(
         reporter, BuildOptions.of(buildOptionClasses, parser), multiCpu, false);
     return collection;

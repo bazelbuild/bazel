@@ -106,8 +106,6 @@ public final class SkyFunctions {
           "TEST_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION");
-  public static final SkyFunctionName CONFIGURATION_FRAGMENT =
-      SkyFunctionName.createHermetic("CONFIGURATION_FRAGMENT");
   public static final SkyFunctionName ACTION_EXECUTION = ActionLookupData.NAME;
   static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
       SkyFunctionName.createHermetic("RECURSIVE_DIRECTORY_TRAVERSAL");
