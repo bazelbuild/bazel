@@ -159,6 +159,7 @@ public interface OutputService {
 
   default ArtifactPathResolver createPathResolverForArtifactValues(
       PathFragment execRoot,
+      String relativeOutputPath,
       FileSystem fileSystem,
       ImmutableList<Root> pathEntries,
       ActionInputMap actionInputMap,

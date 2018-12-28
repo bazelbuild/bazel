@@ -61,7 +61,7 @@ class NamedArtifactGroup implements BuildEvent {
     // This has to be consistent with the code below.
     ImmutableList.Builder<LocalFile> artifacts = ImmutableList.builder();
     for (Artifact artifact : view.directs()) {
-      if (artifact.isMiddlemanArtifact()) {
+      if (artifact.isMiddlemanArtifact() || artifact.isFileset()) {
         continue;
       }
       artifacts.add(new LocalFile(pathResolver.toPath(artifact), LocalFileType.OUTPUT));
@@ -78,7 +78,7 @@ class NamedArtifactGroup implements BuildEvent {
         BuildEventStreamProtos.NamedSetOfFiles.newBuilder();
     for (Artifact artifact : view.directs()) {
       // We never want to report middleman artifacts. They are for internal use only.
-      if (artifact.isMiddlemanArtifact()) {
+      if (artifact.isMiddlemanArtifact() || artifact.isFileset()) {
         continue;
       }
       String name = artifact.getRootRelativePathString();

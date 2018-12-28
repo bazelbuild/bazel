@@ -346,6 +346,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Preconditions.checkState(shouldCreatePathResolverForArtifactValues());
       return outputService.createPathResolverForArtifactValues(
           directories.getExecRoot().asFragment(),
+          directories.getRelativeOutputPath(),
           fileSystem,
           getPathEntries(),
           actionInputMap,
