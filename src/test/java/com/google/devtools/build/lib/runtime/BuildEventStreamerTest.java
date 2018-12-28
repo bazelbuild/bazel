@@ -136,10 +136,6 @@ public class BuildEventStreamerTest extends FoundationTestCase {
       return Futures.immediateFuture(null);
     }
 
-    @Override
-    public void closeNow() {
-    }
-
     List<BuildEvent> getEvents() {
       return events;
     }
@@ -484,7 +480,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   }
 
   @Test
-  public void testMissingPrerequisits() {
+  public void testMissingPrerequisites() {
     // Verify that an event where the prerequisite is never coming till the end of
     // the build still gets posted, with the prerequisite aborted.
 
@@ -628,6 +624,45 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     assertWithMessage("Unexpected events should be linked")
         .that(linkEvent.getChildrenEvents().contains(unexpectedEvent.getEventId()))
         .isTrue();
+    assertThat(linkEventProto.getProgress().getStdout()).isEqualTo(stdoutMsg);
+    assertThat(linkEventProto.getProgress().getStderr()).isEqualTo(stderrMsg);
+
+    // As there is only one progress event, the OutErrProvider should be queried
+    // only once for stdout and stderr.
+    verify(outErr, times(1)).getOut();
+    verify(outErr, times(1)).getErr();
+  }
+
+  @Test
+  public void testStdoutReportedAfterCrash() {
+    // Verify that stdout and stderr are reported in the build-event stream on progress
+    // events.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+    BuildEventStreamer.OutErrProvider outErr =
+        Mockito.mock(BuildEventStreamer.OutErrProvider.class);
+    String stdoutMsg = "Some text that was written to stdout.";
+    String stderrMsg = "The UI text that bazel wrote to stderr.";
+    when(outErr.getOut()).thenReturn(stdoutMsg);
+    when(outErr.getErr()).thenReturn(stderrMsg);
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.buildEvent(startEvent);
+    // Simulate a crash with an abrupt call to #close().
+    streamer.close();
+    assertThat(streamer.isClosed()).isTrue();
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(2);
+    assertThat(eventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    BuildEvent linkEvent = eventsSeen.get(1);
+    BuildEventStreamProtos.BuildEvent linkEventProto = transport.getEventProtos().get(1);
+    assertThat(linkEvent.getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
     assertThat(linkEventProto.getProgress().getStdout()).isEqualTo(stdoutMsg);
     assertThat(linkEventProto.getProgress().getStderr()).isEqualTo(stderrMsg);
 

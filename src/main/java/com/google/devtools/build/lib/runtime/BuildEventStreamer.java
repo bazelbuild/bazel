@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.events.EventKind.PROGRESS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -106,13 +107,13 @@ public class BuildEventStreamer implements EventHandler {
   private int progressCount;
   private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
   private OutErrProvider outErrProvider;
-  private AbortReason abortReason = AbortReason.UNKNOWN;
+  private volatile AbortReason abortReason = AbortReason.UNKNOWN;
   // Will be set to true if the build was invoked through "bazel test" or "bazel coverage".
   private boolean isTestCommand;
 
-  // After a BuildCompetingEvent we might expect a whitelisted set of events. If non-null,
-  // the streamer is restricted to only allow those events and fully close after having seen
-  // them.
+  // After #buildComplete is called, contains the set of events that the streamer is expected to
+  // process. The streamer will fully close after seeing them. This field is null until
+  // #buildComplete is called.
   private Set<BuildEventId> finalEventsToCome = null;
 
   // True, if we already closed the stream.
@@ -358,17 +359,30 @@ public class BuildEventStreamer implements EventHandler {
         TimeUnit.SECONDS);
   }
 
-  public boolean isClosed() {
+  public synchronized boolean isClosed() {
     return closed;
   }
 
-  private void close() {
+  public void close() {
+    close(null);
+  }
+
+  public void close(@Nullable AbortReason reason) {
     synchronized (this) {
       if (closed) {
         return;
       }
       closed = true;
+      if (reason != null) {
+        abortReason = reason;
+      }
+
+      if (finalEventsToCome == null) {
+        // This should only happen if there's a crash. Try to clean up as best we can.
+        clearEventsAndPostFinalProgress(null);
+      }
     }
+
 
     ScheduledExecutorService executor = null;
     try {
@@ -567,7 +581,7 @@ public class BuildEventStreamer implements EventHandler {
     return ImmutableSet.copyOf(transports);
   }
 
-  private void buildComplete(ChainableEvent event) {
+  private synchronized void clearEventsAndPostFinalProgress(ChainableEvent event) {
     clearPendingEvents();
     String out = null;
     String err = null;
@@ -576,11 +590,14 @@ public class BuildEventStreamer implements EventHandler {
       err = outErrProvider.getErr();
     }
     post(ProgressEvent.finalProgressUpdate(progressCount, out, err));
-    clearAnnouncedEvents(event.getChildrenEvents());
+    clearAnnouncedEvents(event == null ? ImmutableList.of() : event.getChildrenEvents());
+  }
+
+  private synchronized void buildComplete(ChainableEvent event) {
+    clearEventsAndPostFinalProgress(event);
 
     finalEventsToCome = new HashSet<>(announcedEvents);
     finalEventsToCome.removeAll(postedEvents);
-
     if (finalEventsToCome.isEmpty()) {
       close();
     }
@@ -624,10 +641,7 @@ public class BuildEventStreamer implements EventHandler {
       // Publish failed actions
       return true;
     }
-    if (event.getAction() instanceof ExtraAction) {
-      return true;
-    }
-    return false;
+    return (event.getAction() instanceof ExtraAction);
   }
 
   private boolean bufferUntilPrerequisitesReceived(BuildEvent event) {

@@ -52,14 +52,4 @@ public interface BuildEventTransport {
    * <p>This method should not throw any exceptions.
    */
   ListenableFuture<Void> close();
-
-  /**
-   * Similar to {@link #close()}. Instructs the transport to close as soon as possible even if
-   * some build events will be lost.
-   *
-   * <p>This method might be called multiple times without any effect after the first call.
-   *
-   * <p>This method should not throw any exceptions.
-   */
-  void closeNow();
 }

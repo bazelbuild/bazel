@@ -208,11 +208,6 @@ abstract class FileTransport implements BuildEventTransport {
     return writer.close();
   }
 
-  @Override
-  public synchronized void closeNow() {
-    writer.closeNow();
-  }
-
   /**
    * Converts the given event into a proto object; this may trigger uploading of referenced files as
    * a side effect. May return {@code null} if there was an interrupt. This method is not

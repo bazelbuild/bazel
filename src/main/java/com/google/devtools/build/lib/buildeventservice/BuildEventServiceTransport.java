@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.util.JavaSleeper;
+import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Sleeper;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.v1.BuildStatus.Result;
@@ -159,11 +160,6 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     ListenableFuture<Void> uploaderCloseFuture = besUploader.close();
     uploaderCloseFuture.addListener(() -> closeFuture.set(null), MoreExecutors.directExecutor());
     return closeFuture;
-  }
-
-  @Override
-  public void closeNow() {
-    besUploader.closeNow(/*causedByTimeout=*/ false);
   }
 
   @Override
@@ -347,14 +343,14 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     }
 
     /** Stops the upload immediately. Enqueued events that have not been sent yet will be lost. */
-    public void closeNow(boolean causedByTimeout) {
+    public void closeOnTimeout() {
       synchronized (lock) {
         if (uploadThread != null) {
           if (uploadThread.isInterrupted()) {
             return;
           }
 
-          interruptCausedByTimeout = causedByTimeout;
+          interruptCausedByTimeout = true;
           uploadThread.interrupt();
         }
       }
@@ -670,15 +666,16 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       Thread closeTimer =
           new Thread(
               () -> {
-                // Call closeNow() if the future does not complete within closeTimeout
+                // Call closeOnTimeout() if the future does not complete within closeTimeout
                 try {
                   closeFuture.get(closeTimeout.toMillis(), TimeUnit.MILLISECONDS);
                 } catch (InterruptedException | TimeoutException e) {
-                  closeNow(/*causedByTimeout=*/ true);
+                  closeOnTimeout();
                 } catch (ExecutionException e) {
-                  // Intentionally left empty, because this code only cares about
-                  // calling closeNow() if the closeFuture does not complete within
-                  // closeTimeout.
+                  // This code only cares about calling closeOnTimeout() if the closeFuture does not
+                  // complete within closeTimeout.
+                  logError(e, "closeTimeout failure");
+                  LoggingUtil.logToRemote(Level.SEVERE, "closeTimeout failure", e);
                 }
               },
               "bes-uploader-close-timer");

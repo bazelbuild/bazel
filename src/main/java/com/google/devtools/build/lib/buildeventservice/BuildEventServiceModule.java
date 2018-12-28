@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceC
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
@@ -61,8 +62,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   private static final Logger logger = Logger.getLogger(BuildEventServiceModule.class.getName());
 
   private OutErr outErr;
-
-  private Set<BuildEventTransport> transports = ImmutableSet.of();
+  private BuildEventStreamer streamer;
 
   /** Whether an error in the Build Event Service upload causes the build to fail. */
   protected boolean errorsShouldFailTheBuild() {
@@ -95,7 +95,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       return;
     }
 
-    BuildEventStreamer streamer = tryCreateStreamer(commandEnvironment);
+    streamer = tryCreateStreamer(commandEnvironment);
     if (streamer != null) {
       commandEnvironment.getReporter().addHandler(streamer);
       commandEnvironment.getEventBus().register(streamer);
@@ -129,9 +129,16 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   }
 
   @Override
+  public void blazeShutdownOnCrash() {
+    if (streamer != null) {
+      streamer.close(AbortReason.INTERNAL);
+    }
+  }
+
+  @Override
   public void afterCommand() {
     this.outErr = null;
-    this.transports = ImmutableSet.of();
+    this.streamer = null;
   }
 
   /** Returns {@code null} if no stream could be created. */
@@ -161,7 +168,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
         transportsBuilder.add(besTransport);
       }
 
-      transports = transportsBuilder.build();
+      ImmutableSet<BuildEventTransport> transports = transportsBuilder.build();
       if (!transports.isEmpty()) {
         BuildEventStreamOptions buildEventStreamOptions =
             env.getOptions().getOptions(BuildEventStreamOptions.class);
@@ -260,13 +267,6 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
                       env.getReporter(), env.getBlazeModuleEnvironment(), besResultsUrl));
       logger.fine("BuildEventServiceTransport was created successfully");
       return besTransport;
-    }
-  }
-
-  @Override
-  public void blazeShutdown() {
-    for (BuildEventTransport transport : transports) {
-      transport.closeNow();
     }
   }
 
