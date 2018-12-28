@@ -236,7 +236,7 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact grepIncludes) {
     super(
         owner,
-        NestedSetBuilder.fromNestedSet(mandatoryInputs).addAll(inputsForInvalidation).build(),
+        createInputsBuilder(mandatoryInputs, inputsForInvalidation).build(),
         CollectionUtils.asSetWithoutNulls(
             outputFile,
             dotdFile == null ? null : dotdFile.artifact(),
@@ -941,16 +941,22 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
-  /** Recalculates this action's live input collection, including sources, middlemen. */
+  /**
+   * Recalculates this action's live input collection, including sources, middlemen.
+   *
+   * <p>Can only be called if {@link #discoversInputs}, and must be called after execution in that
+   * case.
+   */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   @ThreadCompatible
-  public final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
+  final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
+    Preconditions.checkState(
+        discoversInputs(), "Can't call if not discovering inputs: %s %s", discoveredInputs, this);
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, describe())) {
-      inputs.addTransitive(mandatoryInputs);
-      inputs.addAll(inputsForInvalidation);
-      inputs.addTransitive(discoveredInputs);
-      super.updateInputs(inputs.build());
+      super.updateInputs(
+          createInputsBuilder(mandatoryInputs, inputsForInvalidation)
+              .addTransitive(discoveredInputs)
+              .build());
     }
   }
 
@@ -1209,9 +1215,17 @@ public class CppCompileAction extends AbstractAction
     }
     reply = null; // Clear in-memory .d files early.
 
-    // Post-execute "include scanning", which modifies the action inputs to match what the compile
-    // action actually used by incorporating the results of .d file parsing.
-    updateActionInputs(discoveredInputs);
+    if (discoversInputs()) {
+      // Post-execute "include scanning", which modifies the action inputs to match what the compile
+      // action actually used by incorporating the results of .d file parsing.
+      updateActionInputs(discoveredInputs);
+    } else {
+      Preconditions.checkState(
+          discoveredInputs.isEmpty(),
+          "Discovered inputs without discovering inputs? %s %s",
+          discoveredInputs,
+          this);
+    }
 
     // hdrs_check: This cannot be switched off for C++ build actions,
     // because doing so would allow for incorrect builds.
@@ -1485,6 +1499,13 @@ public class CppCompileAction extends AbstractAction
             "%s missing action index for module %s",
             lookupValue,
             module));
+  }
+
+  private static NestedSetBuilder<Artifact> createInputsBuilder(
+      NestedSet<Artifact> mandatoryInputs, Iterable<Artifact> inputsForInvalidation) {
+    return NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(mandatoryInputs)
+        .addAll(inputsForInvalidation);
   }
 
   /**

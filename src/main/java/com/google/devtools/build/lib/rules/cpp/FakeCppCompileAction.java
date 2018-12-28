@@ -193,7 +193,15 @@ public class FakeCppCompileAction extends CppCompileAction {
                   e.getMessage() + ";\n  this warning may eventually become an error"));
     }
 
-    updateActionInputs(discoveredInputs);
+    if (discoversInputs()) {
+      updateActionInputs(discoveredInputs);
+    } else {
+      Preconditions.checkState(
+          discoveredInputs.isEmpty(),
+          "Discovered inputs without discovering inputs? %s %s",
+          discoveredInputs,
+          this);
+    }
 
     // Generate a fake ".o" file containing the command line needed to generate
     // the real object file.
