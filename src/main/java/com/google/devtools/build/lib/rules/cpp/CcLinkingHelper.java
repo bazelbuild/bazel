@@ -411,8 +411,9 @@ public final class CcLinkingHelper {
 
     CcLinkingOutputs.Builder result = new CcLinkingOutputs.Builder();
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
-    boolean usePicForBinaries = CppHelper.usePicForBinaries(ruleContext, ccToolchain);
-    boolean usePicForDynamicLibs = ccToolchain.usePicForDynamicLibraries();
+    boolean usePicForBinaries =
+        CppHelper.usePicForBinaries(ruleContext, ccToolchain, featureConfiguration);
+    boolean usePicForDynamicLibs = ccToolchain.usePicForDynamicLibraries(featureConfiguration);
 
     PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
     String libraryIdentifier =

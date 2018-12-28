@@ -1035,12 +1035,6 @@ public class CcModule
         @Param(name = "abi_version", positional = false, type = String.class, named = true),
         @Param(name = "abi_libc_version", positional = false, type = String.class, named = true),
         @Param(
-            name = "needs_pic",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
             name = "tool_paths",
             positional = false,
             named = true,
@@ -1081,7 +1075,6 @@ public class CcModule
       String compiler,
       String abiVersion,
       String abiLibcVersion,
-      Boolean needsPic,
       SkylarkList<Object> toolPaths,
       SkylarkList<Object> makeVariables,
       Object builtinSysroot,
@@ -1252,8 +1245,7 @@ public class CcModule
         .setTargetLibc(targetLibc)
         .setCompiler(compiler)
         .setAbiVersion(abiVersion)
-        .setAbiLibcVersion(abiLibcVersion)
-        .setNeedsPic(needsPic);
+        .setAbiLibcVersion(abiLibcVersion);
 
     if (convertFromNoneable(ccTargetOs, /* defaultValue= */ null) != null) {
       cToolchain.setCcTargetOs((String) ccTargetOs);
@@ -1282,7 +1274,7 @@ public class CcModule
         /* staticRuntimesFilegroup= */ "",
         /* dynamicRuntimesFilegroup= */ "",
         supportsFission,
-        needsPic,
+        /* needsPic= */ false,
         toolPathList,
         /* compilerFlags= */ ImmutableList.of(),
         /* cxxFlags= */ ImmutableList.of(),

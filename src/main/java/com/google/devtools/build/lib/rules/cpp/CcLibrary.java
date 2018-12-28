@@ -455,7 +455,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(RunfilesProvider.withData(defaultRunfiles.build(), dataRunfiles.build()))
         .addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL,
-            collectHiddenTopLevelArtifacts(ruleContext, ccToolchain, ccCompilationOutputs))
+            collectHiddenTopLevelArtifacts(
+                ruleContext, ccToolchain, ccCompilationOutputs, featureConfiguration))
         .addOutputGroup(
             CcCompilationHelper.HIDDEN_HEADER_TOKENS,
             CcCompilationHelper.collectHeaderTokens(ruleContext, ccCompilationOutputs));
@@ -464,12 +465,13 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(
       RuleContext ruleContext,
       CcToolchainProvider toolchain,
-      CcCompilationOutputs ccCompilationOutputs) {
+      CcCompilationOutputs ccCompilationOutputs,
+      FeatureConfiguration featureConfiguration) {
     // Ensure that we build all the dependencies, otherwise users may get confused.
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-    boolean usePic = toolchain.usePicForDynamicLibraries();
+    boolean usePic = toolchain.usePicForDynamicLibraries(featureConfiguration);
     artifactsToForceBuilder.addTransitive(
         ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
     for (OutputGroupInfo dep :

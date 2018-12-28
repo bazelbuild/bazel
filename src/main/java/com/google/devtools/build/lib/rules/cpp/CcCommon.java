@@ -85,7 +85,8 @@ public final class CcCommon {
   public static final String MINIMUM_OS_VERSION_VARIABLE_NAME = "minimum_os_version";
 
   public static final String PIC_CONFIGURATION_ERROR =
-      "PIC compilation is requested but the toolchain does not support it";
+      "PIC compilation is requested but the toolchain does not support it "
+          + "(feature named 'supports_pic' is not enabled)";
 
   private static final String NO_COPTS_ATTRIBUTE = "nocopts";
 
@@ -838,6 +839,10 @@ public final class CcCommon {
       }
     }
 
+    if (cppConfiguration.forcePic()) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.SUPPORTS_PIC);
+    }
+
     ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();
 
     // If STATIC_LINK_MSVCRT feature isn't specified by user, we add DYNAMIC_LINK_MSVCRT_* feature
@@ -934,7 +939,8 @@ public final class CcCommon {
         }
       }
       if ((cppConfiguration.forcePic() || toolchain.toolchainNeedsPic())
-          && !featureConfiguration.isEnabled(CppRuleClasses.PIC)) {
+          && (!featureConfiguration.isEnabled(CppRuleClasses.PIC)
+              && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC))) {
         throw new EvalException(/* location= */ null, PIC_CONFIGURATION_ERROR);
       }
       return featureConfiguration;

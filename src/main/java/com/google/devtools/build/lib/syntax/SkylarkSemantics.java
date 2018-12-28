@@ -49,6 +49,8 @@ public abstract class SkylarkSemantics {
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(
         SkylarkSemantics::incompatibleNoTargetOutputGroup),
     INCOMPATIBLE_NO_ATTR_LICENSE(SkylarkSemantics::incompatibleNoAttrLicense),
+    INCOMPATIBLE_REQUIRE_FEATURE_CONFIGURATION_FOR_PIC(
+        SkylarkSemantics::incompatibleRequireFeatureConfigurationForPic),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -176,6 +178,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
+  public abstract boolean incompatibleRequireFeatureConfigurationForPic();
+
   public abstract boolean incompatibleStricArgumentOrdering();
 
   public abstract boolean incompatibleStringIsNotIterable();
@@ -229,6 +233,7 @@ public abstract class SkylarkSemantics {
           .incompatibleRemoveNativeGitRepository(true)
           .incompatibleRemoveNativeHttpArchive(true)
           .incompatibleRemoveNativeMavenJar(false)
+          .incompatibleRequireFeatureConfigurationForPic(false)
           .incompatibleStricArgumentOrdering(false)
           .incompatibleStringIsNotIterable(true)
           .internalSkylarkFlagTestCanary(false)
@@ -260,6 +265,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDepsetUnion(boolean value);
 
     public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
+
+    public abstract Builder incompatibleRequireFeatureConfigurationForPic(boolean value);
 
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
 

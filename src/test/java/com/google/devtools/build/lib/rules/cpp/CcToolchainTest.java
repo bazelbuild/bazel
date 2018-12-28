@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertDoesNotCo
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -213,8 +214,13 @@ public class CcToolchainTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrThrowEvalException(
+            /* requestedFeatures= */ ImmutableSet.of(),
+            /* unsupportedFeatures= */ ImmutableSet.of(),
+            toolchainProvider);
     RuleContext ruleContext = getRuleContext(target);
-    return CppHelper.usePicForBinaries(ruleContext, toolchainProvider);
+    return CppHelper.usePicForBinaries(ruleContext, toolchainProvider, featureConfiguration);
   }
 
   @Test
@@ -763,7 +769,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "                     tool_path(name = 'llvm_profdata', path = '/some/path'),",
         "                ],",
         "                cc_target_os = 'os',",
-        "                needs_pic = True,",
         "                builtin_sysroot = 'sysroot')",
         "cc_toolchain_config_rule = rule(",
         "    implementation = _impl,",

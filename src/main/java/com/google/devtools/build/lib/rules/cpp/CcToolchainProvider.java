@@ -48,7 +48,7 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class CcToolchainProvider extends ToolchainInfo
-    implements CcToolchainProviderApi, HasCcToolchainLabel {
+    implements CcToolchainProviderApi<FeatureConfiguration>, HasCcToolchainLabel {
   public static final String SKYLARK_NAME = "CcToolchainInfo";
 
   /** An empty toolchain to be returned in the error case (instead of null). */
@@ -289,8 +289,25 @@ public final class CcToolchainProvider extends ToolchainInfo
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
   @Override
-  public boolean usePicForDynamicLibraries() {
-    return forcePic || toolchainNeedsPic();
+  public boolean usePicForDynamicLibraries(FeatureConfiguration featureConfiguration) {
+    return forcePic
+        || toolchainNeedsPic()
+        || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC);
+  }
+
+  /**
+   * Deprecated since it uses legacy crosstool fields.
+   *
+   * <p>See {link {@link #usePicForDynamicLibraries(FeatureConfiguration)} for docs}
+   *
+   * @return
+   */
+  @Deprecated
+  @Override
+  public boolean usePicForDynamicLibrariesUsingLegacyFields() {
+    return forcePic
+        || toolchainNeedsPic()
+        || FeatureConfiguration.EMPTY.isEnabled(CppRuleClasses.SUPPORTS_PIC);
   }
 
   /**

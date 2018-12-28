@@ -236,6 +236,9 @@ public class CppRuleClasses {
    */
   public static final String PIC = "pic";
 
+  /** A string constant for a feature that indicates that the toolchain can produce PIC objects. */
+  public static final String SUPPORTS_PIC = "supports_pic";
+
   /**
    * A string constant for the feature the represents preprocessor defines.
    */
@@ -396,6 +399,7 @@ public class CppRuleClasses {
    * runtime.
    */
   public static final String SUPPORTS_DYNAMIC_LINKER = "supports_dynamic_linker";
+
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
     @Override

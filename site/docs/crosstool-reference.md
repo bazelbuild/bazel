@@ -901,7 +901,7 @@ The following is a reference of `CROSSTOOL` build variables.
    <td><strong><code>legacy_link_flags</code></strong>
    </td>
    <td>link</td>
-   <td>Linker flags coming from the legacy <code>CROSSTOOL</code>.
+   <td>Linker flags coming from the legacy <code>CROSSTOOL</code> fields.
    </td>
   </tr>
   <tr>
@@ -930,7 +930,8 @@ The following is a reference of `CROSSTOOL` build variables.
    <td><strong><code>force_pic</code></strong>
    </td>
    <td>link</td>
-   <td>Presence of this variable indicates that PIC code should be generated.
+   <td>Presence of this variable indicates that PIC/PIE code should
+     be generated (Bazel option `--force_pic` was passed).
    </td>
   </tr>
   <tr>
@@ -997,14 +998,6 @@ conditions.
    </td>
   </tr>
   <tr>
-   <td><strong><code>pic</code></strong>
-   </td>
-   <td>Required if the target needs PIC objects for dynamic libraries. Enabled
-       by default - the `pic` variable is present whenever PIC compilation is
-       requested.
-   </td>
-  </tr>
-  <tr>
    <td><strong><code>supports_start_end_lib</code></strong>
    </td>
    <td>If enabled (and the option <code>--start_end_lib</code> is set), Bazel
@@ -1038,6 +1031,16 @@ conditions.
      specified in the <code>cc_toolchain.static_runtime_lib</code> or
      <code>cc_toolchain.dynamic_runtime_lib</code> attribute (depending on the
      linking mode) will be added to the linking actions.
+   </td>
+  </tr>
+  <tr>
+   <td><strong><code>supports_pic</code></strong>
+   </td>
+   <td>If enabled, toolchain will know to use PIC objects for dynamic libraries.
+     The `pic` variable is present whenever PIC compilation is needed. If not enabled
+     by default, and `--force_pic` is passed, Bazel will request `supports_pic` and
+     validate that the feature is enabled. If the feature is missing, or couldn't
+      be enabled, `--force_pic` cannot be used.
    </td>
   </tr>
 </table>

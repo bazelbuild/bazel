@@ -519,13 +519,17 @@ public class CppHelper {
   // CcCommonConfiguredTarget.noCoptsMatches().
 
   /** Returns whether binaries must be compiled with position independent code. */
-  public static boolean usePicForBinaries(RuleContext ruleContext, CcToolchainProvider toolchain) {
+  public static boolean usePicForBinaries(
+      RuleContext ruleContext,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
     CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
     if (CcCommon.noCoptsMatches("-fPIC", ruleContext)) {
       return false;
     }
     return config.forcePic()
-        || (toolchain.toolchainNeedsPic() && config.getCompilationMode() != CompilationMode.OPT);
+        || (toolchain.usePicForDynamicLibraries(featureConfiguration)
+            && config.getCompilationMode() != CompilationMode.OPT);
   }
 
   /**

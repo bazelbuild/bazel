@@ -373,6 +373,7 @@ message CToolchain {
   optional bool supports_fission = 43 [default = false];
   // Legacy field, ignored by Bazel.
   optional bool supports_dsym = 51 [default = false];
+  // Legacy field, use 'supports_pic' feature instead
   optional bool needsPic = 12 [default = false];
 
   // Compiler flags for C/C++/Asm compilation.
