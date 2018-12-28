@@ -28,9 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * An implementation for the {@code py_library} rule.
- */
+/** Base implementation of {@code py_library}. */
 public abstract class PyLibrary implements RuleConfiguredTargetFactory {
 
   /**
@@ -40,7 +38,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
   protected abstract PythonSemantics createSemantics();
 
   @Override
-  public ConfiguredTarget create(final RuleContext ruleContext)
+  public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     PythonSemantics semantics = createSemantics();
     PyCommon common = new PyCommon(ruleContext);

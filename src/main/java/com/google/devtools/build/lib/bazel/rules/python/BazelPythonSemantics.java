@@ -222,8 +222,8 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   @Override
-  public void postInitBinary(RuleContext ruleContext, RunfilesSupport runfilesSupport,
-      PyCommon common) throws InterruptedException {
+  public void postInitExecutable(
+      RuleContext ruleContext, RunfilesSupport runfilesSupport, PyCommon common) {
     if (ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
       FilesToRunProvider zipper = ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST);
       Artifact executable = common.getExecutable();

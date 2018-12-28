@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,13 +31,11 @@ import com.google.devtools.build.lib.syntax.Type;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * An implementation for the {@code py_binary} rule.
- */
-public abstract class PyBinary implements RuleConfiguredTargetFactory {
+/** Common implementation logic for {@code py_binary} and {@code py_test}. */
+public abstract class PyExecutable implements RuleConfiguredTargetFactory {
+
   /**
-   * Create a {@link PythonSemantics} object that governs
-   * the behavior of this rule.
+   * Creates a pluggable semantics object to be used for the analysis of a target of this rule type.
    */
   protected abstract PythonSemantics createSemantics();
 
@@ -44,17 +43,8 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     PyCommon common = new PyCommon(ruleContext);
+    PythonSemantics semantics = createSemantics();
 
-    RuleConfiguredTargetBuilder builder = init(ruleContext, createSemantics(), common);
-    if (builder == null) {
-      return null;
-    }
-    return builder.build();
-  }
-
-  static RuleConfiguredTargetBuilder init(
-      RuleContext ruleContext, PythonSemantics semantics, PyCommon common)
-      throws InterruptedException, RuleErrorException {
     ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
 
     List<Artifact> srcs = common.validateSrcs();
@@ -122,14 +112,15 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext);
     common.addCommonTransitiveInfoProviders(builder, semantics, common.getFilesToBuild(), imports);
 
-    semantics.postInitBinary(ruleContext, runfilesSupport, common);
+    semantics.postInitExecutable(ruleContext, runfilesSupport, common);
 
     return builder
         .setFilesToBuild(common.getFilesToBuild())
         .add(RunfilesProvider.class, runfilesProvider)
         .setRunfilesSupport(runfilesSupport, realExecutable)
         .addNativeDeclaredProvider(new PyCcLinkParamsProvider(ccInfo))
-        .add(PythonImportsProvider.class, new PythonImportsProvider(imports));
+        .add(PythonImportsProvider.class, new PythonImportsProvider(imports))
+        .build();
   }
 
   private static Runfiles collectCommonRunfiles(

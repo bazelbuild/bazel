@@ -33,16 +33,23 @@ import java.util.List;
  */
 public interface PythonSemantics {
   /**
-   * Called at the beginning of the analysis of {@code py_binary} rules to validate its attributes.
+   * Called at the beginning of the analysis of {@code py_binary}, {@code py_test}, and {@code
+   * py_library} targets to validate their attributes.
    */
   void validate(RuleContext ruleContext, PyCommon common);
 
-  /** Extends for the default and data runfiles of {@code py_binary} rules with custom elements. */
+  /**
+   * Extends for the default and data runfiles of {@code py_binary} and {@code py_test} rules with
+   * custom elements.
+   */
   void collectRunfilesForBinary(
       RuleContext ruleContext, Runfiles.Builder builder, PyCommon common, CcInfo ccInfo)
       throws InterruptedException, RuleErrorException;
 
-  /** Extends the default runfiles of {@code py_binary} rules with custom elements. */
+  /**
+   * Extends the default runfiles of {@code py_binary} and {@code py_test} rules with custom
+   * elements.
+   */
   void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder)
       throws InterruptedException;
 
@@ -77,11 +84,12 @@ public interface PythonSemantics {
       throws InterruptedException, RuleErrorException;
 
   /**
-   * Called at the end of the analysis of {@code py_binary} rules.
+   * Called at the end of the analysis of {@code py_binary} and {@code py_test} targets.
+   *
    * @throws InterruptedException
    */
-  void postInitBinary(RuleContext ruleContext, RunfilesSupport runfilesSupport,
-      PyCommon common) throws InterruptedException;
+  void postInitExecutable(RuleContext ruleContext, RunfilesSupport runfilesSupport, PyCommon common)
+      throws InterruptedException;
 
   CcInfo buildCcInfoProvider(Iterable<? extends TransitiveInfoCollection> deps);
 }
