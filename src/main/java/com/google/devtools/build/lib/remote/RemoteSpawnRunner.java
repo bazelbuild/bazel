@@ -142,6 +142,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     if (!Spawns.mayBeExecutedRemotely(spawn) || remoteCache == null) {
       return execLocally(spawn, context);
     }
+    boolean spawnCachable = Spawns.mayBeCached(spawn);
 
     context.report(ProgressStatus.EXECUTING, getName());
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
@@ -169,7 +170,7 @@ class RemoteSpawnRunner implements SpawnRunner {
               digestUtil.compute(command),
               repository.getMerkleDigest(inputRoot),
               context.getTimeout(),
-              Spawns.mayBeCached(spawn));
+              spawnCachable);
       actionKey = digestUtil.computeActionKey(action);
     }
 
@@ -178,8 +179,8 @@ class RemoteSpawnRunner implements SpawnRunner {
         TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, actionKey);
     Context previous = withMetadata.attach();
     try {
-      boolean acceptCachedResult = remoteOptions.remoteAcceptCached && Spawns.mayBeCached(spawn);
-      boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults;
+      boolean acceptCachedResult = remoteOptions.remoteAcceptCached && spawnCachable;
+      boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults && spawnCachable;
 
       try {
         // Try to lookup the action in the action cache.
@@ -511,10 +512,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     if (!uploadLocalResults) {
       return result;
     }
-    boolean uploadAction =
-        Spawns.mayBeCached(spawn)
-            && Status.SUCCESS.equals(result.status())
-            && result.exitCode() == 0;
+    boolean uploadAction = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
     Collection<Path> outputFiles = resolveActionInputs(execRoot, spawn.getOutputFiles());
     try (SilentCloseable c = Profiler.instance().profile("Remote.upload")) {
       remoteCache.upload(
