@@ -73,27 +73,23 @@ class GrpcRemoteExecutor {
     }
     if (op.getDone()) {
       Preconditions.checkState(op.getResultCase() != Operation.ResultCase.RESULT_NOT_SET);
-      try {
-        ExecuteResponse resp = op.getResponse().unpack(ExecuteResponse.class);
-        if (resp.hasStatus()) {
-          handleStatus(resp.getStatus(), resp);
-        }
-        Preconditions.checkState(
-            resp.hasResult(), "Unexpected result of remote execution: no result");
-        ActionResult res = resp.getResult();
-        if (res.getExitCode() == 0) {
-          Preconditions.checkState(
-              res.getOutputFilesCount()
-                      + res.getOutputFileSymlinksCount()
-                      + res.getOutputDirectoriesCount()
-                      + res.getOutputDirectorySymlinksCount()
-                  > 0,
-              "Unexpected result of remote execution: no output files.");
-        }
-        return resp;
-      } catch (InvalidProtocolBufferException e) {
-        throw new IOException(e);
+      ExecuteResponse resp = op.getResponse().unpack(ExecuteResponse.class);
+      if (resp.hasStatus()) {
+        handleStatus(resp.getStatus(), resp);
       }
+      Preconditions.checkState(
+          resp.hasResult(), "Unexpected result of remote execution: no result");
+      ActionResult res = resp.getResult();
+      if (res.getExitCode() == 0) {
+        Preconditions.checkState(
+            res.getOutputFilesCount()
+                    + res.getOutputFileSymlinksCount()
+                    + res.getOutputDirectoriesCount()
+                    + res.getOutputDirectorySymlinksCount()
+                > 0,
+            "Unexpected result of remote execution: no output files.");
+      }
+      return resp;
     }
     return null;
   }
