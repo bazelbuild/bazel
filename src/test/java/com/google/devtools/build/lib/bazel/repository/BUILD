@@ -6,8 +6,11 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )
 
 genrule(
@@ -81,6 +84,7 @@ test_suite(
     tests = [
         ":windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:all_windows_tests",
     ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )
