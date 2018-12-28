@@ -989,18 +989,6 @@ conditions.
    </td>
   </tr>
   <tr>
-   <td><strong><code>random_seed</code></strong>
-   </td>
-   <td>Enabled by default.
-   </td>
-  </tr>
-  <tr>
-   <td><strong><code>dependency_file</code></strong>
-   </td>
-   <td>Enabled by default.
-   </td>
-  </tr>
-  <tr>
    <td><strong><code>per_object_debug_info</code></strong>
    </td>
     <td>Enabled if the <code>supports_fission</code> attribute is set in the

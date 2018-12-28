@@ -88,6 +88,7 @@ public class CppActionConfigs {
                 Joiner.on("\n")
                     .join(
                         "  name: 'dependency_file'",
+                        "  enabled: true",
                         "  flag_set {",
                         "    action: 'assemble'",
                         "    action: 'preprocess-assemble'",
@@ -118,6 +119,7 @@ public class CppActionConfigs {
                 Joiner.on("\n")
                     .join(
                         "  name: 'random_seed'",
+                        "  enabled: true",
                         "  flag_set {",
                         "    action: 'c-compile'",
                         "    action: 'c++-compile'",
@@ -135,6 +137,7 @@ public class CppActionConfigs {
                 Joiner.on("\n")
                     .join(
                         "  name: 'pic'",
+                        "  enabled: true",
                         "  flag_set {",
                         "    action: 'assemble'",
                         "    action: 'preprocess-assemble'",
@@ -173,6 +176,7 @@ public class CppActionConfigs {
                 Joiner.on("\n")
                     .join(
                         "  name: 'preprocessor_defines'",
+                        "  enabled: true",
                         "  flag_set {",
                         "    action: 'preprocess-assemble'",
                         "    action: 'linkstamp-compile'",
@@ -218,6 +222,7 @@ public class CppActionConfigs {
                 Joiner.on("\n")
                     .join(
                         "  name: 'include_paths'",
+                        "  enabled: true",
                         "  flag_set {",
                         "    action: 'preprocess-assemble'",
                         "    action: 'linkstamp-compile'",

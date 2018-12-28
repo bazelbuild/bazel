@@ -859,7 +859,10 @@ public final class CcCommon {
     ImmutableList.Builder<String> allFeatures =
         new ImmutableList.Builder<String>()
             .addAll(ImmutableSet.of(toolchain.getCompilationMode().toString()))
-            .addAll(DEFAULT_FEATURES)
+            .addAll(
+                cppConfiguration.disableLegacyCrosstoolFields()
+                    ? ImmutableList.of()
+                    : DEFAULT_FEATURES)
             .addAll(DEFAULT_ACTION_CONFIGS)
             .addAll(requestedFeatures)
             .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs());
