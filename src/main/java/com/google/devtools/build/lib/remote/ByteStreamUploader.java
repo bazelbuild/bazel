@@ -230,6 +230,10 @@ class ByteStreamUploader extends AbstractReferenceCounted {
       }
 
       final SettableFuture<Void> uploadResult = SettableFuture.create();
+      Context ctx = Context.current();
+      retrier.executeAsync(
+          () -> ctx.call(() -> startAsyncUpload(chunker, uploadResult)), uploadResult);
+      uploadsInProgress.put(digest, uploadResult);
       uploadResult.addListener(
           () -> {
             synchronized (lock) {
@@ -238,10 +242,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
             }
           },
           MoreExecutors.directExecutor());
-      Context ctx = Context.current();
-      retrier.executeAsync(
-          () -> ctx.call(() -> startAsyncUpload(chunker, uploadResult)), uploadResult);
-      uploadsInProgress.put(digest, uploadResult);
       return uploadResult;
     }
   }
