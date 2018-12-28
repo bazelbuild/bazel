@@ -110,12 +110,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     String strategyName = remoteOptions.remoteLocalFallbackStrategy;
 
     for (ActionContext context : usedContexts) {
-      if (context instanceof RemoteSpawnStrategy && cache == null) {
-        throw new ExecutorInitException(
-            "--remote_cache or --remote_executor should be initialized when using "
-                + "--spawn_strategy=remote",
-            ExitCode.COMMAND_LINE_ERROR);
-      }
       if (context instanceof AbstractSpawnStrategy) {
         ExecutionStrategy annotation = context.getClass().getAnnotation(ExecutionStrategy.class);
         if (annotation != null) {

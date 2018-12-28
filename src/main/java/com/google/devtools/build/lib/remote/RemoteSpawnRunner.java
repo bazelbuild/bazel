@@ -34,11 +34,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -79,9 +81,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
-/** A client for the remote execution service. */
+/**
+ * A client for the remote execution service.
+ */
 @ThreadSafe
 class RemoteSpawnRunner implements SpawnRunner {
+
   private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
 
   private final Path execRoot;
@@ -90,10 +95,14 @@ class RemoteSpawnRunner implements SpawnRunner {
   private final AtomicReference<SpawnRunner> fallbackRunner;
   private final boolean verboseFailures;
 
-  @Nullable private final Reporter cmdlineReporter;
-  @Nullable private final AbstractRemoteActionCache remoteCache;
-  @Nullable private final GrpcRemoteExecutor remoteExecutor;
-  @Nullable private final RemoteRetrier retrier;
+  @Nullable
+  private final Reporter cmdlineReporter;
+  @Nullable
+  private final AbstractRemoteActionCache remoteCache;
+  @Nullable
+  private final GrpcRemoteExecutor remoteExecutor;
+  @Nullable
+  private final RemoteRetrier retrier;
   private final String buildRequestId;
   private final String commandId;
   private final DigestUtil digestUtil;
@@ -142,6 +151,11 @@ class RemoteSpawnRunner implements SpawnRunner {
     if (!Spawns.mayBeExecutedRemotely(spawn) || remoteCache == null) {
       return execLocally(spawn, context);
     }
+
+//    if (remoteExecutor == null) {
+//      throw new UserExecException(
+//          "--remote_executor should be initialized when using --spawn_strategy=remote");
+//    }
 
     context.report(ProgressStatus.EXECUTING, getName());
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
@@ -272,7 +286,7 @@ class RemoteSpawnRunner implements SpawnRunner {
 
   @Override
   public boolean supports(Spawn spawn) {
-    return Spawns.mayBeExecutedRemotely(spawn);
+    return Spawns.mayBeExecutedRemotely(spawn) && remoteExecutor != null;
   }
 
   private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
@@ -351,7 +365,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
     if (remoteOptions.remoteLocalFallback
         && !(cause instanceof RetryException
-            && RemoteRetrierUtils.causedByExecTimeout((RetryException) cause))) {
+        && RemoteRetrierUtils.causedByExecTimeout((RetryException) cause))) {
       return execLocallyAndUpload(
           spawn, context, inputMap, remoteCache, actionKey, action, command, uploadLocalResults);
     }
@@ -474,7 +488,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private Map<Path, Long> getInputCtimes(SortedMap<PathFragment, ActionInput> inputMap) {
-    HashMap<Path, Long>  ctimes = new HashMap<>();
+    HashMap<Path, Long> ctimes = new HashMap<>();
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       ActionInput input = e.getValue();
       if (input instanceof VirtualActionInput) {

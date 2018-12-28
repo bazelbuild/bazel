@@ -27,6 +27,7 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -37,18 +38,15 @@ import java.util.Map;
 /**
  * Options affecting the execution phase of a build.
  *
- * These options are interpreted by the BuildTool to choose an Executor to
- * be used for the build.
+ * These options are interpreted by the BuildTool to choose an Executor to be used for the build.
  *
- * Note: from the user's point of view, the characteristic function of this
- * set of options is indistinguishable from that of the BuildRequestOptions:
- * they are all per-request.  The difference is only apparent in the
- * implementation: these options are used only by the lib.exec machinery, which
- * affects how C++ and Java compilation occur.  (The BuildRequestOptions
- * contain a mixture of "semantic" options affecting the choice of targets to
- * build, and "non-semantic" options affecting the lib.actions machinery.)
- * Ideally, the user would be unaware of the difference.  For now, the usage
- * strings are identical modulo "part 1", "part 2".
+ * Note: from the user's point of view, the characteristic function of this set of options is
+ * indistinguishable from that of the BuildRequestOptions: they are all per-request.  The difference
+ * is only apparent in the implementation: these options are used only by the lib.exec machinery,
+ * which affects how C++ and Java compilation occur.  (The BuildRequestOptions contain a mixture of
+ * "semantic" options affecting the choice of targets to build, and "non-semantic" options affecting
+ * the lib.actions machinery.) Ideally, the user would be unaware of the difference.  For now, the
+ * usage strings are identical modulo "part 1", "part 2".
  */
 public class ExecutionOptions extends OptionsBase {
 
@@ -56,7 +54,7 @@ public class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "spawn_strategy",
-      defaultValue = "",
+      defaultValue = "remote,worker,sandboxed,local",
       converter = CommaSeparatedOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -111,6 +109,17 @@ public class ExecutionOptions extends OptionsBase {
               + "the 'local' strategy, but reversing the order would run it with 'sandboxed'. ")
   public List<Map.Entry<RegexFilter, String>> strategyByRegexp;
 
+//  @Option(
+//      name = "incompatible_automatic_spawn_strategy_selection",
+//      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+//      effectTags = {OptionEffectTag.EXECUTION},
+//      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE,
+//          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES},
+//      defaultValue = "false",
+//      help = ""
+//  )
+//  public boolean automaticSpawnStrategySelection;
+
   @Option(
       name = "materialize_param_files",
       defaultValue = "false",
@@ -122,97 +131,97 @@ public class ExecutionOptions extends OptionsBase {
   public boolean materializeParamFiles;
 
   @Option(
-    name = "verbose_failures",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "If a command fails, print out the full command line."
+      name = "verbose_failures",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If a command fails, print out the full command line."
   )
   public boolean verboseFailures;
 
   @Option(
-    name = "subcommands",
-    abbrev = 's',
-    defaultValue = "false",
-    converter = ShowSubcommandsConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Display the subcommands executed during a build."
+      name = "subcommands",
+      abbrev = 's',
+      defaultValue = "false",
+      converter = ShowSubcommandsConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Display the subcommands executed during a build."
   )
   public ShowSubcommands showSubcommands;
 
   @Option(
-    name = "check_up_to_date",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Don't perform the build, just check if it is up-to-date.  If all targets are "
-            + "up-to-date, the build completes successfully.  If any step needs to be executed "
-            + "an error is reported and the build fails."
+      name = "check_up_to_date",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Don't perform the build, just check if it is up-to-date.  If all targets are "
+              + "up-to-date, the build completes successfully.  If any step needs to be executed "
+              + "an error is reported and the build fails."
   )
   public boolean checkUpToDate;
 
   @Option(
-    name = "check_tests_up_to_date",
-    defaultValue = "false",
-    implicitRequirements = {"--check_up_to_date"},
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Don't run tests, just check if they are up-to-date.  If all tests results are "
-            + "up-to-date, the testing completes successfully.  If any test needs to be built or "
-            + "executed, an error is reported and the testing fails.  This option implies "
-            + "--check_up_to_date behavior."
+      name = "check_tests_up_to_date",
+      defaultValue = "false",
+      implicitRequirements = {"--check_up_to_date"},
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Don't run tests, just check if they are up-to-date.  If all tests results are "
+              + "up-to-date, the testing completes successfully.  If any test needs to be built or "
+              + "executed, an error is reported and the testing fails.  This option implies "
+              + "--check_up_to_date behavior."
   )
   public boolean testCheckUpToDate;
 
   @Option(
-    name = "test_strategy",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Specifies which strategy to use when running tests."
+      name = "test_strategy",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Specifies which strategy to use when running tests."
   )
   public String testStrategy;
 
   @Option(
-    name = "test_keep_going",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "When disabled, any non-passing test will cause the entire build to stop. By default "
-            + "all tests are run, even if some do not pass."
+      name = "test_keep_going",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "When disabled, any non-passing test will cause the entire build to stop. By default "
+              + "all tests are run, even if some do not pass."
   )
   public boolean testKeepGoing;
 
   @Option(
-    name = "runs_per_test_detects_flakes",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If true, any shard in which at least one run/attempt passes and at least one "
-            + "run/attempt fails gets a FLAKY status."
+      name = "runs_per_test_detects_flakes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, any shard in which at least one run/attempt passes and at least one "
+              + "run/attempt fails gets a FLAKY status."
   )
   public boolean runsPerTestDetectsFlakes;
 
   @Option(
-    name = "flaky_test_attempts",
-    allowMultiple = true,
-    defaultValue = "default",
-    converter = TestAttemptsConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Each test will be retried up to the specified number of times in case of any test "
-            + "failure. Tests that required more than one attempt to pass would be marked as "
-            + "'FLAKY' in the test summary. If this option is set, it should specify an int N or "
-            + "the string 'default'. If it's an int, then all tests will be run up to N times. "
-            + "If it is not specified or its value is 'default', then only a single test attempt "
-            + "will be made for regular tests and three for tests marked explicitly as flaky by "
-            + "their rule (flaky=1 attribute)."
+      name = "flaky_test_attempts",
+      allowMultiple = true,
+      defaultValue = "default",
+      converter = TestAttemptsConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Each test will be retried up to the specified number of times in case of any test "
+              + "failure. Tests that required more than one attempt to pass would be marked as "
+              + "'FLAKY' in the test summary. If this option is set, it should specify an int N or "
+              + "the string 'default'. If it's an int, then all tests will be run up to N times. "
+              + "If it is not specified or its value is 'default', then only a single test attempt "
+              + "will be made for regular tests and three for tests marked explicitly as flaky by "
+              + "their rule (flaky=1 attribute)."
   )
   public List<PerLabelOptions> testAttempts;
 
@@ -226,40 +235,40 @@ public class ExecutionOptions extends OptionsBase {
   public PathFragment testTmpDir;
 
   @Option(
-    name = "test_output",
-    defaultValue = "summary",
-    converter = TestStrategy.TestOutputFormat.Converter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies desired output mode. Valid values are 'summary' to output only test status "
-            + "summary, 'errors' to also print test logs for failed tests, 'all' to print logs "
-            + "for all tests and 'streamed' to output logs for all tests in real time "
-            + "(this will force tests to be executed locally one at a time regardless of "
-            + "--test_strategy value)."
+      name = "test_output",
+      defaultValue = "summary",
+      converter = TestStrategy.TestOutputFormat.Converter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies desired output mode. Valid values are 'summary' to output only test status "
+              + "summary, 'errors' to also print test logs for failed tests, 'all' to print logs "
+              + "for all tests and 'streamed' to output logs for all tests in real time "
+              + "(this will force tests to be executed locally one at a time regardless of "
+              + "--test_strategy value)."
   )
   public TestStrategy.TestOutputFormat testOutput;
 
   @Option(
-    name = "test_summary",
-    defaultValue = "short",
-    converter = TestStrategy.TestSummaryFormat.Converter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specifies the desired format ot the test summary. Valid values are 'short' to print "
-            + "information only about tests executed, 'terse', to print information only about "
-            + "unsuccessful tests that were run, 'detailed' to print detailed information about "
-            + "failed test cases, and 'none' to omit the summary."
+      name = "test_summary",
+      defaultValue = "short",
+      converter = TestStrategy.TestSummaryFormat.Converter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies the desired format ot the test summary. Valid values are 'short' to print "
+              + "information only about tests executed, 'terse', to print information only about "
+              + "unsuccessful tests that were run, 'detailed' to print detailed information about "
+              + "failed test cases, and 'none' to omit the summary."
   )
   public TestStrategy.TestSummaryFormat testSummary;
 
   @Option(
-    name = "resource_autosense",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "This flag has no effect, and is deprecated"
+      name = "resource_autosense",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "This flag has no effect, and is deprecated"
   )
   public boolean useResourceAutoSense;
 
@@ -296,17 +305,17 @@ public class ExecutionOptions extends OptionsBase {
   public ResourceSet availableResources;
 
   @Option(
-    name = "experimental_local_memory_estimate",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Estimate the actual memory available online. "
-            + "By default, Blaze assumes most actions use a fixed amount of memory, and counts "
-            + "that against the total available system memory, regardless of how much memory is "
-            + "actually available.  This option enables online estimation of how much memory is "
-            + "available at any given time, and thus does not require accurate estimation of how "
-            + "much memory a given action will take."
+      name = "experimental_local_memory_estimate",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Estimate the actual memory available online. "
+              + "By default, Blaze assumes most actions use a fixed amount of memory, and counts "
+              + "that against the total available system memory, regardless of how much memory is "
+              + "actually available.  This option enables online estimation of how much memory is "
+              + "available at any given time, and thus does not require accurate estimation of how "
+              + "much memory a given action will take."
   )
   public boolean localMemoryEstimate;
 
@@ -330,11 +339,11 @@ public class ExecutionOptions extends OptionsBase {
   }
 
   @Option(
-    name = "debug_print_action_contexts",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Print the contents of the SpawnActionContext and ContextProviders maps."
+      name = "debug_print_action_contexts",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Print the contents of the SpawnActionContext and ContextProviders maps."
   )
   public boolean debugPrintActionContexts;
 
@@ -352,14 +361,14 @@ public class ExecutionOptions extends OptionsBase {
   public long cacheSizeForComputedFileDigests;
 
   @Option(
-    name = "experimental_enable_critical_path_profiling",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If set (the default), critical path profiling is enabled for the execution phase. "
-            + "This has a slight overhead in RAM and CPU, and may prevent Bazel from making certain"
-            + " aggressive RAM optimizations in some cases."
+      name = "experimental_enable_critical_path_profiling",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set (the default), critical path profiling is enabled for the execution phase. "
+              + "This has a slight overhead in RAM and CPU, and may prevent Bazel from making certain"
+              + " aggressive RAM optimizations in some cases."
   )
   public boolean enableCriticalPathProfiling;
 
@@ -373,28 +382,31 @@ public class ExecutionOptions extends OptionsBase {
   public boolean statsSummary;
 
   @Option(
-    name = "experimental_execution_log_file",
-    defaultValue = "",
-    category = "verbosity",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Log the executed spawns into this file as delimited Spawn protos."
+      name = "experimental_execution_log_file",
+      defaultValue = "",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Log the executed spawns into this file as delimited Spawn protos."
   )
   public String executionLogFile;
 
   @Option(
-    name = "experimental_split_xml_generation",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-    effectTags = {OptionEffectTag.EXECUTION},
-    help = "If this flag is set, and a test action does not generate a test.xml file, then "
-        + "Bazel uses a separate action to generate a dummy test.xml file containing the test log. "
-        + "Otherwise, Bazel generates the test.xml as part of the test action."
+      name = "experimental_split_xml_generation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If this flag is set, and a test action does not generate a test.xml file, then "
+          + "Bazel uses a separate action to generate a dummy test.xml file containing the test log. "
+          + "Otherwise, Bazel generates the test.xml as part of the test action."
   )
   public boolean splitXmlGeneration;
 
-  /** Converter for the --flaky_test_attempts option. */
+  /**
+   * Converter for the --flaky_test_attempts option.
+   */
   public static class TestAttemptsConverter extends PerLabelOptions.PerLabelOptionsConverter {
+
     private static final int MIN_VALUE = 1;
     private static final int MAX_VALUE = 10;
 
@@ -451,15 +463,21 @@ public class ExecutionOptions extends OptionsBase {
     }
   }
 
-  /** Converter for --local_test_jobs, which takes {@value FLAG_SYNTAX} */
+  /**
+   * Converter for --local_test_jobs, which takes {@value FLAG_SYNTAX}
+   */
   public static class LocalTestJobsConverter extends ResourceConverter {
+
     public LocalTestJobsConverter() throws OptionsParsingException {
       super(/* autoSupplier= */ () -> 0, /* minValue= */ 0, /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 
-  /** Converter for --subcommands */
+  /**
+   * Converter for --subcommands
+   */
   public static class ShowSubcommandsConverter extends BoolOrEnumConverter<ShowSubcommands> {
+
     public ShowSubcommandsConverter() {
       super(
           ShowSubcommands.class, "subcommand option", ShowSubcommands.TRUE, ShowSubcommands.FALSE);

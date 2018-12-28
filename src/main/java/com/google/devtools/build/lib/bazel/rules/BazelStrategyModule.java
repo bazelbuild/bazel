@@ -47,22 +47,21 @@ public class BazelStrategyModule extends BlazeModule {
     builder.addActionContext(new WriteAdbArgsActionContext(env.getClientEnv().get("HOME")));
     ExecutionOptions options = env.getOptions().getOptions(ExecutionOptions.class);
 
-    // Default strategies for certain mnemonics - they can be overridden by --strategy= flags.
-    builder.addStrategyByMnemonic("Javac", "worker");
-    builder.addStrategyByMnemonic("Closure", "worker");
-    builder.addStrategyByMnemonic("DexBuilder", "worker");
+//    if (options.automaticSpawnStrategySelection) {
+//      if (options.spawnStrategy.isEmpty()) {
+//        options.spawnStrategy = ImmutableList.of("worker", "sandboxed", "local");
+//      }
+//    } else {
+//      // Default strategies for certain mnemonics - they can be overridden by --strategy= flags.
+//      builder.addStrategyByMnemonic("Javac", "worker");
+//      builder.addStrategyByMnemonic("Closure", "worker");
+//      builder.addStrategyByMnemonic("DexBuilder", "worker");
+//    }
 
-    // Allow genrule_strategy to also be overridden by --strategy= flags.
     builder.addStrategyByMnemonic("Genrule", options.genruleStrategy);
 
     for (Map.Entry<String, String> strategy : options.strategy) {
       String strategyName = strategy.getValue();
-      // TODO(philwo) - remove this when the standalone / local mess is cleaned up.
-      // Some flag expansions use "local" as the strategy name, but the strategy is now called
-      // "standalone", so we'll translate it here.
-      if (strategyName.equals("local")) {
-        strategyName = "standalone";
-      }
       builder.addStrategyByMnemonic(strategy.getKey(), strategyName);
     }
 
