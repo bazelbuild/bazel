@@ -844,7 +844,7 @@ For Starlark rules using C++ Make Variables:
 ```python
 # Before
 def _impl(ctx):
-    strip = ctx.vars["STRIP"]
+    strip = ctx.var["STRIP"]
     ...
 
 my_rule = rule(
@@ -855,7 +855,7 @@ my_rule = rule(
 
 # After
 def _impl(ctx):
-    strip = ctx.vars["STRIP"]
+    strip = ctx.var["STRIP"]
     ...
 
 my_rule = rule(
