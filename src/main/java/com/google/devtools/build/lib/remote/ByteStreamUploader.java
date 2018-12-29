@@ -28,6 +28,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.hash.HashCode;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -234,7 +235,22 @@ class ByteStreamUploader extends AbstractReferenceCounted {
           () -> {
             synchronized (lock) {
               uploadsInProgress.remove(digest);
-              uploadedBlobs.add(hash);
+            }
+          },
+          MoreExecutors.directExecutor());
+      Futures.addCallback(
+          uploadResult,
+          new FutureCallback<Void>() {
+            @Override
+            public void onSuccess(Void result) {
+              synchronized (lock) {
+                uploadedBlobs.add(hash);
+              }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+              // ignore
             }
           },
           MoreExecutors.directExecutor());
