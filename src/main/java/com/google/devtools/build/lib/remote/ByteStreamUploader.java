@@ -259,14 +259,13 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    */
   private ListenableFuture<Void> startAsyncUpload(
       Chunker chunker, ListenableFuture<Void> overallUploadResult) {
-    SettableFuture<Void> currUpload = SettableFuture.create();
     try {
       chunker.reset();
     } catch (IOException e) {
-      currUpload.setException(e);
-      return currUpload;
+      return Futures.immediateFailedFuture(e);
     }
 
+    SettableFuture<Void> currUpload = SettableFuture.create();
     AsyncUpload newUpload =
         new AsyncUpload(
             channel, callCredentials, callTimeoutSecs, instanceName, chunker, currUpload);
