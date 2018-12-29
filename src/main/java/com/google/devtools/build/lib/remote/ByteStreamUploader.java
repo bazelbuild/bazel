@@ -238,10 +238,10 @@ class ByteStreamUploader extends AbstractReferenceCounted {
             }
           },
           MoreExecutors.directExecutor());
+      uploadsInProgress.put(digest, uploadResult);
       Context ctx = Context.current();
       retrier.executeAsync(
           () -> ctx.call(() -> startAsyncUpload(chunker, uploadResult)), uploadResult);
-      uploadsInProgress.put(digest, uploadResult);
       return uploadResult;
     }
   }
