@@ -78,10 +78,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
 
   private final Object lock = new Object();
 
-  /** Contains the hash codes of already uploaded blobs. **/
-  @GuardedBy("lock")
-  private final Set<HashCode> uploadedBlobs = new HashSet<>();
-
   @GuardedBy("lock")
   private final Map<Digest, ListenableFuture<Void>> uploadsInProgress = new HashMap<>();
 
@@ -126,14 +122,12 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    * performed. This is transparent to the user of this API.
    *
    * @param chunker the data to upload.
-   * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
-   *        uploaded, if {@code true} the blob is uploaded.
    * @throws IOException when reading of the {@link Chunker}s input source fails
    * @throws RetryException when the upload failed after a retry
    */
-  public void uploadBlob(Chunker chunker, boolean forceUpload) throws IOException,
+  public void uploadBlob(Chunker chunker) throws IOException,
       InterruptedException {
-    uploadBlobs(singletonList(chunker), forceUpload);
+    uploadBlobs(singletonList(chunker));
   }
 
   /**
@@ -149,17 +143,15 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    * performed. This is transparent to the user of this API.
    *
    * @param chunkers the data to upload.
-   * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
-   *        uploaded, if {@code true} the blob is uploaded.
    * @throws IOException when reading of the {@link Chunker}s input source fails
    * @throws RetryException when the upload failed after a retry
    */
-  public void uploadBlobs(Iterable<Chunker> chunkers, boolean forceUpload) throws IOException,
+  public void uploadBlobs(Iterable<Chunker> chunkers) throws IOException,
       InterruptedException {
     List<ListenableFuture<Void>> uploads = new ArrayList<>();
 
     for (Chunker chunker : chunkers) {
-      uploads.add(uploadBlobAsync(chunker, forceUpload));
+      uploads.add(uploadBlobAsync(chunker));
     }
 
     try {
@@ -208,21 +200,15 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    * performed. This is transparent to the user of this API.
    *
    * @param chunker the data to upload.
-   * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
-   *        uploaded, if {@code true} the blob is uploaded.
    * @throws IOException when reading of the {@link Chunker}s input source fails
    * @throws RetryException when the upload failed after a retry
    */
-  public ListenableFuture<Void> uploadBlobAsync(Chunker chunker, boolean forceUpload) {
+  public ListenableFuture<Void> uploadBlobAsync(Chunker chunker) {
     Digest digest = checkNotNull(chunker.digest());
     HashCode hash = HashCode.fromString(digest.getHash());
 
     synchronized (lock) {
       checkState(!isShutdown, "Must not call uploadBlobs after shutdown.");
-
-      if (!forceUpload && uploadedBlobs.contains(hash)) {
-        return Futures.immediateFuture(null);
-      }
 
       ListenableFuture<Void> inProgress = uploadsInProgress.get(digest);
       if (inProgress != null) {
@@ -234,7 +220,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
           () -> {
             synchronized (lock) {
               uploadsInProgress.remove(digest);
-              uploadedBlobs.add(hash);
             }
           },
           MoreExecutors.directExecutor());

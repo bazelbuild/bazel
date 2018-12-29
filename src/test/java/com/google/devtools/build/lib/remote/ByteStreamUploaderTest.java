@@ -229,7 +229,7 @@ public class ByteStreamUploaderTest {
 
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
 
-    uploader.uploadBlobs(builders, true);
+    uploader.uploadBlobs(builders);
 
     blockUntilInternalStateConsistent(uploader);
 

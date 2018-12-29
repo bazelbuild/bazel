@@ -222,21 +222,17 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       toUpload.add(
           Chunker.builder(digestUtil).setInput(commandDigest, command.toByteArray()).build());
     }
-    if (!missingTreeNodes.isEmpty()) {
-      for (Map.Entry<Digest, Directory> entry : missingTreeNodes.entrySet()) {
-        Digest digest = entry.getKey();
-        Directory d = entry.getValue();
-        toUpload.add(Chunker.builder(digestUtil).setInput(digest, d.toByteArray()).build());
-      }
+    for (Map.Entry<Digest, Directory> entry : missingTreeNodes.entrySet()) {
+      Digest digest = entry.getKey();
+      Directory d = entry.getValue();
+      toUpload.add(Chunker.builder(digestUtil).setInput(digest, d.toByteArray()).build());
     }
-    if (!missingActionInputs.isEmpty()) {
-      for (Map.Entry<Digest, ActionInput> entry : missingActionInputs.entrySet()) {
-        Digest digest = entry.getKey();
-        ActionInput actionInput = entry.getValue();
-        toUpload.add(Chunker.builder(digestUtil).setInput(digest, actionInput, execRoot).build());
-      }
+    for (Map.Entry<Digest, ActionInput> entry : missingActionInputs.entrySet()) {
+      Digest digest = entry.getKey();
+      ActionInput actionInput = entry.getValue();
+      toUpload.add(Chunker.builder(digestUtil).setInput(digest, actionInput, execRoot).build());
     }
-    uploader.uploadBlobs(toUpload, true);
+    uploader.uploadBlobs(toUpload);
   }
 
   @Override
@@ -374,7 +370,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     }
 
     if (!filesToUpload.isEmpty()) {
-      uploader.uploadBlobs(filesToUpload, /*forceUpload=*/true);
+      uploader.uploadBlobs(filesToUpload);
     }
 
     // TODO(olaola): inline small stdout/stderr here.
