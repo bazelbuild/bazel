@@ -17,6 +17,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -44,17 +45,20 @@ class ByteStreamBuildEventArtifactUploader implements BuildEventArtifactUploader
   private final ListeningExecutorService uploadExecutor;
   private final Context ctx;
   private final ByteStreamUploader uploader;
+  private final Set<Digest> uploadedBlobs;
   private final String remoteServerInstanceName;
 
   private final AtomicBoolean shutdown = new AtomicBoolean();
 
   ByteStreamBuildEventArtifactUploader(
       ByteStreamUploader uploader,
+      Set<Digest> uploadedBlobs,
       String remoteServerName,
       Context ctx,
       @Nullable String remoteInstanceName,
       int maxUploadThreads) {
     this.uploader = Preconditions.checkNotNull(uploader);
+    this.uploadedBlobs = Preconditions.checkNotNull(uploadedBlobs);
     String remoteServerInstanceName = Preconditions.checkNotNull(remoteServerName);
     if (!Strings.isNullOrEmpty(remoteInstanceName)) {
       remoteServerInstanceName += "/" + remoteInstanceName;
@@ -85,13 +89,30 @@ class ByteStreamBuildEventArtifactUploader implements BuildEventArtifactUploader
                 }
                 DigestUtil digestUtil = new DigestUtil(file.getFileSystem().getDigestFunction());
                 Digest digest = digestUtil.compute(file);
-                Chunker chunker = Chunker.builder(digestUtil).setInput(digest, file).build();
                 final ListenableFuture<Void> upload;
-                Context prevCtx = ctx.attach();
-                try {
-                  upload = uploader.uploadBlobAsync(chunker, /*forceUpload=*/ false);
-                } finally {
-                  ctx.detach(prevCtx);
+                if (uploadedBlobs.contains(digest)) {
+                  upload = Futures.immediateFuture(null);
+                } else {
+                  Chunker chunker = Chunker.builder(digestUtil).setInput(digest, file).build();
+                  Context prevCtx = ctx.attach();
+                  try {
+                    upload = uploader.uploadBlobAsync(chunker);
+                  } finally {
+                    ctx.detach(prevCtx);
+                  }
+                  Futures.addCallback(
+                      upload,
+                      new FutureCallback<Void>() {
+                        @Override
+                        public void onSuccess(Void result) {
+                          uploadedBlobs.add(digest);
+                        }
+
+                        @Override
+                        public void onFailure(Throwable t) {
+                        }
+                      },
+                      uploadExecutor);
                 }
                 return Futures.transform(
                     upload, unused -> new PathDigestPair(file, digest), uploadExecutor);

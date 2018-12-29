@@ -19,6 +19,7 @@ import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -242,6 +243,7 @@ public final class RemoteModule extends BlazeModule {
         buildEventArtifactUploaderFactoryDelegate.init(
             new ByteStreamBuildEventArtifactUploaderFactory(
                 uploader,
+                Sets.newConcurrentHashSet(),
                 cacheChannel.authority(),
                 requestContext,
                 remoteOptions.remoteInstanceName));

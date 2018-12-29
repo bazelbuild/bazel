@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import io.grpc.Context;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -26,14 +28,19 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
     BuildEventArtifactUploaderFactory {
 
   private final ByteStreamUploader uploader;
+  private final Set<Digest> uploadedBlobs;
   private final String remoteServerName;
   private final Context ctx;
   private final @Nullable String remoteInstanceName;
 
   ByteStreamBuildEventArtifactUploaderFactory(
-      ByteStreamUploader uploader, String remoteServerName, Context ctx,
+      ByteStreamUploader uploader,
+      Set<Digest> uploadedBlobs,
+      String remoteServerName,
+      Context ctx,
       @Nullable String remoteInstanceName) {
     this.uploader = uploader;
+    this.uploadedBlobs = uploadedBlobs;
     this.remoteServerName = remoteServerName;
     this.ctx = ctx;
     this.remoteInstanceName = remoteInstanceName;
@@ -43,6 +50,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
   public BuildEventArtifactUploader create(CommandEnvironment env) {
     return new ByteStreamBuildEventArtifactUploader(
         uploader.retain(),
+        uploadedBlobs,
         remoteServerName,
         ctx,
         remoteInstanceName,

@@ -392,18 +392,11 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
    */
   private Digest uploadFileContents(Path file) throws IOException, InterruptedException {
     Digest digest = digestUtil.compute(file);
-    ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
-    if (!missing.isEmpty()) {
-      uploader.uploadBlob(Chunker.builder(digestUtil).setInput(digest, file).build(), true);
-    }
-    return digest;
-  }
-
-  Digest uploadBlob(byte[] blob) throws IOException, InterruptedException {
-    Digest digest = digestUtil.compute(blob);
-    ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
-    if (!missing.isEmpty()) {
-      uploader.uploadBlob(Chunker.builder(digestUtil).setInput(digest, blob).build(), true);
+    if (digest.getSizeBytes() != 0) {
+      ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
+      if (!missing.isEmpty()) {
+        uploader.uploadBlob(Chunker.builder(digestUtil).setInput(digest, file).build());
+      }
     }
     return digest;
   }
