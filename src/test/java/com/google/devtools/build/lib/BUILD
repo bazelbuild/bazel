@@ -1026,6 +1026,7 @@ java_test(
         "//src/main/protobuf:crosstool_config_java_proto",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//src/test/java/com/google/devtools/build/lib/rules/android:AndroidLocalTestTest",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

@@ -967,6 +967,7 @@ java_library(
         "rules/android/android_device_stub_template.txt",
         "rules/android/android_instrumentation_test_template.txt",
         "rules/android/databinding_annotation_template.txt",
+        "rules/android/robolectric_properties_template.txt",
         "rules/android/test_suite_property_name.txt",
     ],
     deps = [

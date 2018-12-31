@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRul
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
+import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.common.BazelFilegroupRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcBinaryRule;
@@ -485,6 +486,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelAarImportRule());
           builder.addRuleDefinition(new AndroidDeviceRule());
           builder.addRuleDefinition(new AndroidLocalTestBaseRule());
+          builder.addRuleDefinition(new BazelAndroidLocalTestRule());
 
           builder.addSkylarkAccessibleTopLevels("android_common", new AndroidSkylarkCommon());
 

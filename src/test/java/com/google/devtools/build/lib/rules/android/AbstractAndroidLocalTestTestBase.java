@@ -10,7 +10,7 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License.package com.google.devtools.build.lib.rules.android;
+// limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -54,23 +54,6 @@ public abstract class AbstractAndroidLocalTestTestBase extends BuildViewTestCase
   }
 
   @Test
-  public void testCollectCodeCoverageWorks() throws Exception {
-    writeFile(
-        "java/test/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(name = 'dummyTest',",
-        "        srcs = [ 'test.java'],",
-        "        deps = [ '//java/foo:lib'] + extra_deps)");
-
-    writeFile("java/foo/BUILD",
-        "java_library(name = 'lib',",
-        "srcs = ['foo.java'])");
-
-    useConfiguration("--collect_code_coverage");
-    checkMainClass(getConfiguredTarget("//java/test:dummyTest"), "dummyTest", true);
-  }
-
-  @Test
   public void testDataDependency() throws Exception {
     writeFile(
         "java/test/BUILD",
@@ -104,20 +87,6 @@ public abstract class AbstractAndroidLocalTestTestBase extends BuildViewTestCase
         "android_library(name = 'neverlink_lib',",
         "                srcs = ['dummyNeverlink.java'],",
         "                neverlink = 1,)");
-  }
-
-  @Test
-  public void testDisallowPrecompiledJars() throws Exception {
-    checkError(
-        "java/test",
-        "dummyTest",
-        // messages:
-        "expected .java, .srcjar, .properties or .xmb",
-        // build file:
-        String.format("%s(name = 'dummyTest',", getRuleName()),
-        "    srcs = ['test.java', ':jar'])",
-        "filegroup(name = 'jar',",
-        "    srcs = ['lib.jar'])");
   }
 
   @Test
