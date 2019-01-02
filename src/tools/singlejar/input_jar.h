@@ -45,6 +45,11 @@ class InputJar {
 
   ~InputJar() { Close(); }
 
+#ifndef _WIN32
+  // Used by Google-internal only. Do not add more usage of it.
+  int fd() const { return mapped_file.fd(); }
+#endif
+
   // Opens the file, memory maps it and locates Central Directory.
   bool Open(const std::string& path);
 

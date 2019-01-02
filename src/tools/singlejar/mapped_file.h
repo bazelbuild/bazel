@@ -50,6 +50,15 @@ class MappedFile {
   off64_t offset(const void *address) const {
     return reinterpret_cast<const unsigned char *>(address) - mapped_start_;
   }
+
+#ifndef _WIN32
+  // Used by Google-internal only. Do not add more usage of it.
+  // It is not available on Windows because Windows' implementation does not
+  // use fd at all and adding it would just make the implementation too
+  // complicated.
+  int fd() const { return fd_; }
+#endif
+
   size_t size() const { return mapped_end_ - mapped_start_; }
   bool is_open() const;
 
