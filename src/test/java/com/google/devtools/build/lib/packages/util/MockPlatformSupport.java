@@ -22,10 +22,13 @@ import java.io.IOException;
 public class MockPlatformSupport {
 
   /** Adds mocks for basic host and target platform. */
-  public static void setup(MockToolsConfig mockToolsConfig, String platformsPath)
+  public static void setup(
+      MockToolsConfig mockToolsConfig,
+      String bazelToolsPlatformsPath,
+      String localConfigPlatformPath)
       throws IOException {
     mockToolsConfig.create(
-        platformsPath + "/BUILD",
+        bazelToolsPlatformsPath + "/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "constraint_setting(name = 'cpu')",
         "constraint_value(",
@@ -107,6 +110,12 @@ public class MockPlatformSupport {
         "        ':windows',",
         "    ],",
         ")");
+    mockToolsConfig.create(
+        localConfigPlatformPath + "/WORKSPACE", "workspace(name = 'local_config_platform')");
+    mockToolsConfig.create(
+        localConfigPlatformPath + "/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "platform(name = 'host')");
   }
 
   /** Adds a mock piii platform. */

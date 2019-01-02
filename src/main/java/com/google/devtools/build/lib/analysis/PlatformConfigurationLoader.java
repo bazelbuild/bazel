@@ -35,15 +35,34 @@ public class PlatformConfigurationLoader implements ConfigurationFragmentFactory
   public PlatformConfiguration create(BuildOptions buildOptions)
       throws InvalidConfigurationException {
     PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
-    if (platformOptions.hostPlatform == null) {
-      throw new InvalidConfigurationException("Host platform not set");
+
+    // Handle default values for the host and target platform.
+    // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
+    // directly.
+    Label hostPlatform;
+    if (platformOptions.hostPlatform != null) {
+      hostPlatform = platformOptions.hostPlatform;
+    } else if (platformOptions.autoConfigureHostPlatform) {
+      // Use the auto-configured host platform.
+      hostPlatform = PlatformOptions.DEFAULT_HOST_PLATFORM;
+    } else {
+      // Use the legacy host platform.
+      hostPlatform = PlatformOptions.LEGACY_DEFAULT_HOST_PLATFORM;
     }
-    Label targetPlatform = Iterables.getFirst(platformOptions.platforms, null);
-    if (targetPlatform == null) {
-      throw new InvalidConfigurationException("Target platform not set");
+
+    Label targetPlatform;
+    if (!platformOptions.platforms.isEmpty()) {
+      targetPlatform = Iterables.getFirst(platformOptions.platforms, null);
+    } else if (platformOptions.autoConfigureHostPlatform) {
+      // Default to the host platform, whatever it is.
+      targetPlatform = hostPlatform;
+    } else {
+      // Use the legacy target platform
+      targetPlatform = PlatformOptions.LEGACY_DEFAULT_TARGET_PLATFORM;
     }
+
     return new PlatformConfiguration(
-        platformOptions.hostPlatform,
+        hostPlatform,
         ImmutableList.copyOf(platformOptions.extraExecutionPlatforms),
         targetPlatform,
         ImmutableList.copyOf(platformOptions.extraToolchains),

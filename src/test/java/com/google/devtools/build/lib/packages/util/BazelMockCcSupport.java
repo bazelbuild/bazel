@@ -340,7 +340,8 @@ public final class BazelMockCcSupport extends MockCcSupport {
     } else {
       config.create("tools/cpp/link_dynamic_library.sh", "");
     }
-    MockPlatformSupport.setup(config, "/bazel_tools_workspace/platforms");
+    MockPlatformSupport.setup(
+        config, "/bazel_tools_workspace/platforms", "/local_config_platform_workspace");
   }
 
   @Override
