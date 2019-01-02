@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -20,6 +22,7 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -32,6 +35,7 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -143,6 +147,9 @@ public abstract class FileStateValue implements SkyValue {
   byte[] getDigest() {
     throw new IllegalStateException();
   }
+
+  @Override
+  public abstract BigInteger getValueFingerprint();
 
   @Override
   public String toString() {
@@ -259,6 +266,15 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
+    public BigInteger getValueFingerprint() {
+      BigIntegerFingerprint fp = new BigIntegerFingerprint().addBytes(digest).addLong(size);
+      if (contentsProxy != null) {
+        contentsProxy.addToFingerprint(fp);
+      }
+      return fp.getFingerprint();
+    }
+
+    @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
           .add("digest", digest)
@@ -281,7 +297,7 @@ public abstract class FileStateValue implements SkyValue {
     private final FileContentsProxy contentsProxy;
 
     public SpecialFileStateValue(FileContentsProxy contentsProxy) {
-      this.contentsProxy = contentsProxy;
+      this.contentsProxy = Preconditions.checkNotNull(contentsProxy);
     }
 
     static SpecialFileStateValue fromStat(PathFragment path, FileStatus stat,
@@ -322,12 +338,19 @@ public abstract class FileStateValue implements SkyValue {
         return false;
       }
       SpecialFileStateValue other = (SpecialFileStateValue) obj;
-      return Objects.equals(contentsProxy, other.contentsProxy);
+      return contentsProxy.equals(other.contentsProxy);
     }
 
     @Override
     public int hashCode() {
       return contentsProxy.hashCode();
+    }
+
+    @Override
+    public BigInteger getValueFingerprint() {
+      BigIntegerFingerprint fp = new BigIntegerFingerprint();
+      contentsProxy.addToFingerprint(fp);
+      return fp.getFingerprint();
     }
 
     @Override
@@ -338,6 +361,8 @@ public abstract class FileStateValue implements SkyValue {
 
   /** Implementation of {@link FileStateValue} for directories that exist. */
   public static final class DirectoryFileStateValue extends FileStateValue {
+    private static final BigInteger FINGERPRINT =
+        new BigInteger(1, "DirectoryFileStateValue".getBytes(UTF_8));
 
     private DirectoryFileStateValue() {
     }
@@ -361,6 +386,11 @@ public abstract class FileStateValue implements SkyValue {
     @Override
     public int hashCode() {
       return 7654321;
+    }
+
+    @Override
+    public BigInteger getValueFingerprint() {
+      return FINGERPRINT;
     }
   }
 
@@ -399,6 +429,11 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
+    public BigInteger getValueFingerprint() {
+      return new BigIntegerFingerprint().addPath(symlinkTarget).getFingerprint();
+    }
+
+    @Override
     public String prettyPrint() {
       return "symlink to " + symlinkTarget;
     }
@@ -407,6 +442,8 @@ public abstract class FileStateValue implements SkyValue {
   /** Implementation of {@link FileStateValue} for nonexistent files. */
   @AutoCodec.VisibleForSerialization
   static final class NonexistentFileStateValue extends FileStateValue {
+    private static final BigInteger FINGERPRINT =
+        new BigInteger(1, "NonexistentFileStateValue".getBytes(UTF_8));
 
     private NonexistentFileStateValue() {
     }
@@ -433,6 +470,11 @@ public abstract class FileStateValue implements SkyValue {
     @Override
     public int hashCode() {
       return 8765432;
+    }
+
+    @Override
+    public BigInteger getValueFingerprint() {
+      return FINGERPRINT;
     }
   }
 }

@@ -192,7 +192,7 @@ public abstract class ArtifactFileMetadata {
       fp.addBigIntegerOrdered(original);
       fp.addString(getClass().getCanonicalName());
       fp.addPath(realPath);
-      fp.addBytes(fileStateValue.getDigest());
+      fp.addBigIntegerOrdered(fileStateValue.getValueFingerprint());
       return fp.getFingerprint();
     }
   }
@@ -218,7 +218,7 @@ public abstract class ArtifactFileMetadata {
       fp.addBigIntegerOrdered(original);
       fp.addString(getClass().getCanonicalName());
       fp.addPath(realPath);
-      fp.addBytes(realFileStateValue.getDigest());
+      fp.addBigIntegerOrdered(realFileStateValue.getValueFingerprint());
       return fp.getFingerprint();
     }
 
@@ -268,8 +268,6 @@ public abstract class ArtifactFileMetadata {
       fp.addBigIntegerOrdered(original);
       fp.addString(getClass().getCanonicalName());
       fp.addPath(linkTarget);
-      fp.addPath(realPath);
-      fp.addBytes(realFileStateValue.getDigest());
       return fp.getFingerprint();
     }
 

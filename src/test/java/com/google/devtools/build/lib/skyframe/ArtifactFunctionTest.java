@@ -37,13 +37,16 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -278,6 +281,44 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     assertThat(value.getChildValues()).containsKey(treeFileArtifact2);
     assertThat(value.getChildValues().get(treeFileArtifact1).getDigest()).isNotNull();
     assertThat(value.getChildValues().get(treeFileArtifact2).getDigest()).isNotNull();
+  }
+
+  @Test
+  public void actionExecutionValueSerialization() throws Exception {
+    Artifact artifact1 = createDerivedArtifact("one");
+    Artifact artifact2 = createDerivedArtifact("two");
+    ArtifactFileMetadata metadata1 =
+        ActionMetadataHandler.fileMetadataFromArtifact(artifact1, null, null);
+    SpecialArtifact treeArtifact = createDerivedTreeArtifactOnly("tree");
+    TreeFileArtifact treeFileArtifact =
+        createFakeTreeFileArtifact(treeArtifact, "subpath", "content");
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.create(
+            ImmutableMap.of(treeFileArtifact, FileArtifactValue.create(treeFileArtifact)));
+    Artifact artifact3 = createDerivedArtifact("three");
+    FilesetOutputSymlink filesetOutputSymlink =
+        FilesetOutputSymlink.createForTesting(
+            PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT);
+    ActionExecutionValue actionExecutionValue =
+        ActionExecutionValue.create(
+            ImmutableMap.of(artifact1, metadata1, artifact2, ArtifactFileMetadata.PLACEHOLDER),
+            ImmutableMap.of(treeArtifact, treeArtifactValue),
+            ImmutableMap.of(artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
+            ImmutableList.of(filesetOutputSymlink),
+            null,
+            true);
+    ActionExecutionValue valueWithFingerprint =
+        ActionExecutionValue.create(
+            ImmutableMap.of(artifact1, metadata1, artifact2, ArtifactFileMetadata.PLACEHOLDER),
+            ImmutableMap.of(treeArtifact, treeArtifactValue),
+            ImmutableMap.of(artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
+            ImmutableList.of(filesetOutputSymlink),
+            null,
+            true);
+    valueWithFingerprint.getValueFingerprint();
+    new SerializationTester(actionExecutionValue, valueWithFingerprint)
+        .addDependency(FileSystem.class, root.getFileSystem())
+        .runTests();
   }
 
   private void file(Path path, String contents) throws Exception {
