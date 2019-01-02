@@ -34,7 +34,7 @@ public class CppActionConfigs {
     MAC
   }
 
-  // Note:  these features won't be added to the crosstools that defines no_legacy_features feature
+  // Note: these features won't be added to the crosstools that defines no_legacy_features feature
   // (e.g. ndk, apple, enclave crosstools). Those need to be modified separately.
   public static ImmutableList<CToolchain.Feature> getLegacyFeatures(
       CppPlatform platform,
@@ -45,6 +45,14 @@ public class CppActionConfigs {
 
     ImmutableList.Builder<CToolchain.Feature> featureBuilder = ImmutableList.builder();
     try {
+      if (!existingFeatureNames.contains(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)
+          && supportsEmbeddedRuntimes) {
+        featureBuilder.add(getFeature("name: 'static_link_cpp_runtimes' enabled: true"));
+      }
+      if (!existingFeatureNames.contains(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES)
+          && supportsInterfaceSharedLibraries) {
+        featureBuilder.add(getFeature("name: 'supports_interface_shared_libraries' enabled: true"));
+      }
       if (!existingFeatureNames.contains(CppRuleClasses.LEGACY_COMPILE_FLAGS)) {
         featureBuilder.add(
             getFeature(
@@ -69,9 +77,6 @@ public class CppActionConfigs {
                         "      flag: '%{legacy_compile_flags}'",
                         "    }",
                         "  }")));
-    }
-      if (!existingFeatureNames.contains(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)) {
-        featureBuilder.add(getFeature("  name: 'static_link_cpp_runtimes'"));
       }
       // Gcc options:
       //  -MD turns on .d file output as a side-effect (doesn't imply -E)
@@ -323,41 +328,42 @@ public class CppActionConfigs {
                         "  }")));
       }
 
-      if (supportsInterfaceSharedLibraries) {
+      featureBuilder.add(
+          getFeature(
+              Joiner.on("\n")
+                  .join(
+                      "  name: 'build_interface_libraries'",
+                      "  flag_set {",
+                      "    with_feature { feature: 'supports_interface_shared_libraries' }",
+                      "    expand_if_all_available: 'generate_interface_library'",
+                      "    action: 'c++-link-dynamic-library'",
+                      "    action: 'c++-link-nodeps-dynamic-library'",
+                      "    flag_group {",
+                      "      flag: '%{generate_interface_library}'",
+                      "      flag: '%{interface_library_builder_path}'",
+                      "      flag: '%{interface_library_input_path}'",
+                      "      flag: '%{interface_library_output_path}'",
+                      "    }",
+                      "  }")));
+      // Order of feature declaration matters, cppDynamicLibraryLinkerTool has to
+      // follow right after build_interface_libraries.
+      if (!existingFeatureNames.contains("dynamic_library_linker_tool")) {
         featureBuilder.add(
             getFeature(
                 Joiner.on("\n")
                     .join(
-                        "  name: 'build_interface_libraries'",
+                        "  name: 'dynamic_library_linker_tool'",
                         "  flag_set {",
-                        "    expand_if_all_available: 'generate_interface_library'",
+                        "    with_feature { feature: 'supports_interface_shared_libraries' }",
                         "    action: 'c++-link-dynamic-library'",
                         "    action: 'c++-link-nodeps-dynamic-library'",
                         "    flag_group {",
-                        "      flag: '%{generate_interface_library}'",
-                        "      flag: '%{interface_library_builder_path}'",
-                        "      flag: '%{interface_library_input_path}'",
-                        "      flag: '%{interface_library_output_path}'",
+                        "      expand_if_all_available: 'generate_interface_library'",
+                        "      flag: '" + cppLinkDynamicLibraryToolPath + "'",
                         "    }",
                         "  }")));
-        // Order of feature declaration matters, cppDynamicLibraryLinkerTool has to
-        // follow right after build_interface_libraries.
-        if (!existingFeatureNames.contains("dynamic_library_linker_tool")) {
-          featureBuilder.add(
-              getFeature(
-                  Joiner.on("\n")
-                      .join(
-                          "  name: 'dynamic_library_linker_tool'",
-                          "  flag_set {",
-                          "    action: 'c++-link-dynamic-library'",
-                          "    action: 'c++-link-nodeps-dynamic-library'",
-                          "    flag_group {",
-                          "      expand_if_all_available: 'generate_interface_library'",
-                          "      flag: '" + cppLinkDynamicLibraryToolPath + "'",
-                          "    }",
-                          "  }")));
-        }
       }
+
       if (!existingFeatureNames.contains("symbol_counts")) {
         featureBuilder.add(
             getFeature(
@@ -430,32 +436,51 @@ public class CppActionConfigs {
                         "  name: 'runtime_library_search_directories',",
                         "  flag_set {",
                         "    expand_if_all_available: 'runtime_library_search_directories'",
+                        "    with_feature { feature: 'static_link_cpp_runtimes' }",
                         "    action: 'c++-link-executable'",
                         "    action: 'c++-link-dynamic-library'",
                         "    action: 'c++-link-nodeps-dynamic-library'",
                         "    flag_group {",
                         "      iterate_over: 'runtime_library_search_directories'",
                         "      flag_group {",
-                        ifTrue(
-                            supportsEmbeddedRuntimes,
-                            "    expand_if_true: 'is_cc_test'",
-                            // TODO(b/27153401): This should probably be @loader_path on osx.
-                            "    flag: ",
-                            "      '-Wl,-rpath,$EXEC_ORIGIN/%{runtime_library_search_directories}'",
-                            "  }",
-                            "  flag_group {",
-                            "    expand_if_false: 'is_cc_test'"),
+                        "        expand_if_true: 'is_cc_test'",
+                        // TODO(b/27153401): This should probably be @loader_path on osx.
+                        "        flag: ",
+                        "          '-Wl,-rpath,$EXEC_ORIGIN/%{runtime_library_search_directories}'",
+                        "      }",
+                        "      flag_group {",
+                        "        expand_if_false: 'is_cc_test'",
                         ifLinux(
                             platform,
-                            "    flag: '-Wl,-rpath,$ORIGIN/"
+                            "        flag: '-Wl,-rpath,$ORIGIN/"
                                 + "%{runtime_library_search_directories}'"),
                         ifMac(
                             platform,
-                            "   flag: '-Wl,-rpath,@loader_path/"
+                            "        flag: '-Wl,-rpath,@loader_path/"
                                 + "%{runtime_library_search_directories}'"),
                         "      }",
                         "    }",
-                        "  }")));
+                        "  }",
+                        "  flag_set {",
+                        "    expand_if_all_available: 'runtime_library_search_directories'",
+                        "    with_feature { not_feature: 'static_link_cpp_runtimes' }",
+                        "    action: 'c++-link-executable'",
+                        "    action: 'c++-link-dynamic-library'",
+                        "    action: 'c++-link-nodeps-dynamic-library'",
+                        "    flag_group {",
+                        "      iterate_over: 'runtime_library_search_directories'",
+                        "      flag_group {",
+                        ifLinux(
+                            platform,
+                            "        flag: '-Wl,-rpath,$ORIGIN/"
+                                + "%{runtime_library_search_directories}'"),
+                        ifMac(
+                            platform,
+                            "        flag: '-Wl,-rpath,@loader_path/"
+                                + "%{runtime_library_search_directories}'"),
+                        "    }",
+                        "  }",
+                        "}")));
       }
       if (!existingFeatureNames.contains("library_search_directories")) {
         featureBuilder.add(
@@ -996,10 +1021,8 @@ public class CppActionConfigs {
                       "  tool {",
                       "    tool_path: '" + gccToolPath + "'",
                       "  }",
-                      ifTrue(
-                          supportsInterfaceSharedLibraries,
-                          "implies: 'build_interface_libraries'",
-                          "implies: 'dynamic_library_linker_tool'"),
+                      "  implies: 'build_interface_libraries'",
+                      "  implies: 'dynamic_library_linker_tool'",
                       "  implies: 'symbol_counts'",
                       "  implies: 'strip_debug_symbols'",
                       "  implies: 'shared_flag'",
@@ -1021,10 +1044,8 @@ public class CppActionConfigs {
                       "  tool {",
                       "    tool_path: '" + gccToolPath + "'",
                       "  }",
-                      ifTrue(
-                          supportsInterfaceSharedLibraries,
-                          "implies: 'build_interface_libraries'",
-                          "implies: 'dynamic_library_linker_tool'"),
+                      "  implies: 'build_interface_libraries'",
+                      "  implies: 'dynamic_library_linker_tool'",
                       "  implies: 'symbol_counts'",
                       "  implies: 'strip_debug_symbols'",
                       "  implies: 'shared_flag'",
