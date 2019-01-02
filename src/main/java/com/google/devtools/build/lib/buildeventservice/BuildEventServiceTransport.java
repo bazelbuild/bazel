@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamContext;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -262,6 +263,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     @GuardedBy("lock")
     private boolean interruptCausedByTimeout;
 
+    private StreamContext streamContext;
+
     public BuildEventServiceUploader(
         BuildEventServiceClient besClient,
         BuildEventArtifactUploader localFileUploader,
@@ -459,12 +462,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                 // Invariant: the eventQueue only contains events of type SEND_BUILD_EVENT
                 // or SEND_LAST_EVENT
                 logInfo("Starting publishBuildEvents: eventQueue=%d", eventQueue.size());
-                ListenableFuture<Status> streamFuture =
+                streamContext =
                     besClient.openStream(
                         (ack) ->
                             eventQueue.addLast(new AckReceivedCommand(ack.getSequenceNumber())));
                 addStreamStatusListener(
-                    streamFuture,
+                    streamContext.getStatus(),
                     (status) -> eventQueue.addLast(new StreamCompleteCommand(status)));
               }
               break;
@@ -475,7 +478,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                 SendRegularBuildEventCommand buildEvent = (SendRegularBuildEventCommand) event;
                 ackQueue.addLast(buildEvent);
                 PathConverter pathConverter = waitForLocalFileUploads(buildEvent);
-                besClient.sendOverStream(buildEvent.serialize(pathConverter));
+                streamContext.sendOverStream(buildEvent.serialize(pathConverter));
               }
               break;
 
@@ -485,8 +488,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                 SendLastBuildEventCommand lastEvent = (SendLastBuildEventCommand) event;
                 ackQueue.addLast(lastEvent);
                 lastEventSent = true;
-                besClient.sendOverStream(lastEvent.serialize());
-                besClient.halfCloseStream();
+                streamContext.sendOverStream(lastEvent.serialize());
+                streamContext.halfCloseStream();
               }
               break;
 
@@ -506,7 +509,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                             "Expected ACK with seqNum=%d but received ACK with seqNum=%d",
                             expected.getSequenceNumber(), actualSeqNum);
                     logInfo(message);
-                    besClient.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
+                    streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
                   }
                 } else {
                   String message =
@@ -514,7 +517,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                           "Received ACK (seqNum=%d) when no ACK was expected",
                           ackEvent.getSequenceNumber());
                   logInfo(message);
-                  besClient.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
+                  streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
                 }
               }
               break;
@@ -523,6 +526,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
               {
                 // Invariant: the eventQueue only contains events of type SEND_BUILD_EVENT
                 // or SEND_LAST_EVENT
+                streamContext = null;
                 StreamCompleteCommand completeEvent = (StreamCompleteCommand) event;
                 Status streamStatus = completeEvent.status();
                 if (streamStatus.isOk()) {
@@ -585,7 +589,9 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                 Iterables.limit(ackQueue, limit),
                 eventQueue.size(),
                 Iterables.limit(eventQueue, limit)));
-        besClient.abortStream(Status.CANCELLED);
+        if (streamContext != null) {
+          streamContext.abortStream(Status.CANCELLED);
+        }
         throw e;
       } finally {
         // Cancel all local file uploads that may still be running
