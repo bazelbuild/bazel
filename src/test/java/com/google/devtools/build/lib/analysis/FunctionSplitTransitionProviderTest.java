@@ -18,7 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import java.util.List;
@@ -80,6 +82,63 @@ public class FunctionSplitTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test', deps = [':main1', ':main2'], dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])",
         "cc_binary(name = 'main2', srcs = ['main2.c'])");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testParameterizedTransition() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+
+    writeWhitelistFile();
+    scratch.file(
+        "test/skylark/my_rule.bzl",
+        "def _transition_impl(settings, attr):",
+        "  if (attr.big_foot_is_real):",
+        "    return {'t0': {'//command_line_option:cpu': 'x86_64'}}",
+        "  else:",
+        "    return {'t0': {'//command_line_option:cpu': 'armeabi-v7a'}}",
+        "",
+        "my_transition = transition(implementation = _transition_impl, inputs = [],",
+        "  outputs = ['//command_line_option:cpu'])",
+        "def _my_rule_impl(ctx): ",
+        "  return struct(",
+        "    split_attr_dep = ctx.split_attr.dep,",
+        "    attr_dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "  attrs = {",
+        "    'big_foot_is_real': attr.bool(default = False),",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })",
+        "def _simple_impl(ctx):",
+        "  return []",
+        "simple_rule = rule(implementation = _simple_impl)");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:my_rule.bzl', 'my_rule', 'simple_rule')",
+        "my_rule(name = 'lies', dep = ':dep')",
+        "my_rule(name = 'the-truth', dep = ':dep', big_foot_is_real = True)",
+        "simple_rule(name = 'dep')");
+
+    useConfiguration("--cpu=k8");
+
+    BuildConfiguration liesDepConfiguration =
+        getConfiguration(
+            Iterables.getOnlyElement(
+                (List<ConfiguredTarget>)
+                    getConfiguredTarget("//test/skylark:lies").get("attr_dep")));
+    assertThat(liesDepConfiguration.getCpu()).isEqualTo("armeabi-v7a");
+
+    BuildConfiguration theTruthDepConfiguration =
+        getConfiguration(
+            Iterables.getOnlyElement(
+                (List<ConfiguredTarget>)
+                    getConfiguredTarget("//test/skylark:the-truth").get("attr_dep")));
+    assertThat(theTruthDepConfiguration.getCpu()).isEqualTo("x86_64");
   }
 
   @Test
