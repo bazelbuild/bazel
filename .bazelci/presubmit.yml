@@ -181,11 +181,15 @@ platforms:
     - rm -f WORKSPACE.bak
     build_flags:
     - "--apple_platform_type=macos"
+    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
+    - "--noincompatible_strict_action_env"
     build_targets:
     - "//src:bazel"
     - "//src:bazel_jdk_minimal"
     test_flags:
     - "--test_timeout=1200"
+    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
+    - "--noincompatible_strict_action_env"
     test_targets:
     - "--"
     - "//scripts/..."
@@ -217,6 +221,8 @@ platforms:
     build_flags:
     - "--copt=-w"
     - "--host_copt=-w"
+    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
+    - "--noincompatible_strict_action_env"
     build_targets:
     - "//src:bazel"
     - "//src:bazel_jdk_minimal"
@@ -225,6 +231,8 @@ platforms:
     - "--host_copt=-w"
     - "--test_env=JAVA_HOME"
     - "--test_timeout=1200"
+    # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
+    - "--noincompatible_strict_action_env"
     test_targets:
     - "--"
     - "//src:all_windows_tests"
