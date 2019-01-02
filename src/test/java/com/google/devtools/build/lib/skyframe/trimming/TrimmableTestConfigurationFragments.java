@@ -127,7 +127,7 @@ public final class TrimmableTestConfigurationFragments {
         .addConfigurationOptions(BuildConfiguration.Options.class)
         // Need to have some defaults values to satisfy DefaultsPackage.getContent()
         // TODO(dbabkin): remove when DefaultsPackage been deprecated b/79239052
-        .addConfig(TestConfiguration.TestOptions.class, new TestConfiguration.Loader())
+        .addConfigurationFragment(new TestConfiguration.Loader())
         // needed for the other rules to build on and the default workspace
         .addRuleDefinition(new BaseRuleClasses.RootRule())
         .addRuleDefinition(new BaseRuleClasses.BaseRule())
@@ -251,11 +251,11 @@ public final class TrimmableTestConfigurationFragments {
                     });
 
     builder
-        .addConfig(AOptions.class, AConfig.FACTORY)
-        .addConfig(BOptions.class, BConfig.FACTORY)
-        .addConfig(COptions.class, CConfig.FACTORY)
-        .addConfig(DOptions.class, DConfig.FACTORY)
-        .addConfig(EOptions.class, EConfig.FACTORY)
+        .addConfigurationFragment(AConfig.FACTORY)
+        .addConfigurationFragment(BConfig.FACTORY)
+        .addConfigurationFragment(CConfig.FACTORY)
+        .addConfigurationFragment(DConfig.FACTORY)
+        .addConfigurationFragment(EConfig.FACTORY)
         .addRuleDefinition(transitionRule)
         .addRuleDefinition(alphaRule)
         .addRuleDefinition(bravoRule)

@@ -38,8 +38,7 @@ public final class ConfigRules implements RuleSet {
         new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR));
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigBaseRule());
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigSettingRule());
-    builder.addConfig(ConfigFeatureFlagOptions.class,
-        new ConfigFeatureFlagConfiguration.Loader());
+    builder.addConfigurationFragment(new ConfigFeatureFlagConfiguration.Loader());
 
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigFeatureFlagRule());
     builder.addSkylarkBootstrap(

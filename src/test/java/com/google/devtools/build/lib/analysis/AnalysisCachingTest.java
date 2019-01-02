@@ -628,7 +628,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
             DiffResetOptions.PROBABLY_IRRELEVANT_OPTION, DiffResetOptions.ALSO_IRRELEVANT_OPTION);
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addConfig(DiffResetOptions.class, new DiffResetFactory());
+    builder.addConfigurationFragment(new DiffResetFactory());
     builder.overrideShouldInvalidateCacheForOptionDiffForTesting(
         (newOptions, changedOption, oldValue, newValue) -> {
           return !optionsThatCanChange.contains(changedOption);
