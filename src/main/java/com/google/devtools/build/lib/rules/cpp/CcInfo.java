@@ -136,10 +136,6 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
         Location location,
         Environment environment)
         throws EvalException {
-      CcCommon.checkLocationWhitelisted(
-          environment.getSemantics(),
-          location,
-          environment.getGlobals().getLabel().getPackageIdentifier().toString());
       CcCompilationContext ccCompilationContext =
           nullIfNone(skylarkCcCompilationContext, CcCompilationContext.class);
       CcLinkingInfo ccLinkingInfo = null;

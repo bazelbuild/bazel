@@ -401,10 +401,6 @@ public class CcModule
       Location location,
       Environment environment)
       throws EvalException, InterruptedException {
-    CcCommon.checkLocationWhitelisted(
-        environment.getSemantics(),
-        location,
-        environment.getGlobals().getLabel().getPackageIdentifier().toString());
     SkylarkRuleContext skylarkRuleContext =
         nullIfNone(skylarkRuleContextObject, SkylarkRuleContext.class);
     Artifact library = nullIfNone(libraryObject, Artifact.class);
@@ -430,6 +426,10 @@ public class CcModule
             + parameters;
 
     if (skylarkRuleContext != null || library != null || skylarkArtifactCategory != null) {
+      CcCommon.checkLocationWhitelisted(
+          environment.getSemantics(),
+          location,
+          environment.getGlobals().getLabel().getPackageIdentifier().toString());
       if (skylarkRuleContext == null
           || library == null
           || skylarkArtifactCategory == null
@@ -603,12 +603,6 @@ public class CcModule
       documented = false,
       parameters = {
         @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            type = SkylarkRuleContextApi.class,
-            doc = "The rule context."),
-        @Param(
             name = "headers",
             doc = "the set of headers needed to compile this target",
             positional = false,
@@ -653,14 +647,12 @@ public class CcModule
             type = Object.class)
       })
   public CcCompilationContext createCcCompilationContext(
-      SkylarkRuleContext skylarkRuleContext,
       Object headers,
       Object systemIncludes,
       Object includes,
       Object quoteIncludes,
       Object defines)
       throws EvalException, InterruptedException {
-    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
     CcCompilationContext.Builder ccCompilationContext =
         new CcCompilationContext.Builder(/* ruleContext= */ null);
     ccCompilationContext.addDeclaredIncludeSrcs(
@@ -724,10 +716,6 @@ public class CcModule
       Location location,
       Environment environment)
       throws EvalException, InterruptedException {
-    CcCommon.checkLocationWhitelisted(
-        environment.getSemantics(),
-        location,
-        environment.getGlobals().getLabel().getPackageIdentifier().toString());
     SkylarkRuleContext skylarkRuleContext =
         nullIfNone(skylarkRuleContextObject, SkylarkRuleContext.class);
     CcLinkParams staticModeParamsForDynamicLibrary =
@@ -756,6 +744,10 @@ public class CcModule
         || staticModeParamsForExecutable != null
         || dynamicModeParamsForDynamicLibrary != null
         || dynamicModeParamsForExecutable != null) {
+      CcCommon.checkLocationWhitelisted(
+          environment.getSemantics(),
+          location,
+          environment.getGlobals().getLabel().getPackageIdentifier().toString());
       if (skylarkRuleContext == null
           || staticModeParamsForDynamicLibrary == null
           || staticModeParamsForExecutable == null

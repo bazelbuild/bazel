@@ -1011,7 +1011,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "tools/build_defs/cc/rule.bzl",
         "def _impl(ctx):",
         "  compilation_context = cc_common.create_compilation_context(",
-        "    ctx=ctx,",
         "    headers=depset([ctx.file._header]),",
         "    system_includes=depset([ctx.attr._system_include]),",
         "    includes=depset([ctx.attr._include]),",
@@ -1091,7 +1090,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         "def _impl(ctx):",
-        "  compilation_context = cc_common.create_compilation_context(ctx=ctx)",
+        "  compilation_context = cc_common.create_compilation_context()",
         "  return struct()",
         "crule = rule(",
         "  _impl,",
@@ -1113,7 +1112,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         "def _impl(ctx):",
-        "  compilation_context = cc_common.create_compilation_context(ctx=ctx, headers=[])",
+        "  compilation_context = cc_common.create_compilation_context(headers=[])",
         "  return struct()",
         "crule = rule(",
         "  _impl,",
