@@ -472,54 +472,22 @@ public interface CcModuleApi<
       useEnvironment = true,
       parameters = {
         @Param(
-            name = "ctx",
-            doc = "Starlark rule context.",
-            positional = false,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            type = SkylarkRuleContext.class),
-        @Param(
-            name = "library",
-            doc = "Library to be linked.",
-            positional = false,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            type = Artifact.class),
-        @Param(
-            name = "artifact_category",
-            doc =
-                "Artifact category. Can be: static_library, alwayslink_static_library, "
-                    + "dynamic_library or interface_library",
-            positional = false,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            type = String.class),
-        @Param(
             name = "actions",
             type = SkylarkActionFactoryApi.class,
             positional = false,
             named = true,
-            noneable = true,
-            defaultValue = "None",
             doc = "Actions."),
         @Param(
             name = "feature_configuration",
             doc = "Feature configuration to be queried.",
             positional = false,
             named = true,
-            noneable = true,
-            defaultValue = "None",
             type = FeatureConfigurationApi.class),
         @Param(
             name = "cc_toolchain",
             doc = "C++ toolchain provider to be used.",
             positional = false,
             named = true,
-            noneable = true,
-            defaultValue = "None",
             type = CcToolchainProviderApi.class),
         @Param(
             name = "static_library",
@@ -561,9 +529,6 @@ public interface CcModuleApi<
             defaultValue = "False"),
       })
   Object createLibraryLinkerInput(
-      Object skylarkRuleContext,
-      Object library,
-      Object skylarkArtifactCategory,
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,
@@ -583,46 +548,6 @@ public interface CcModuleApi<
       useEnvironment = true,
       parameters = {
         @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            type = SkylarkRuleContextApi.class,
-            doc = "The rule context."),
-        @Param(
-            name = "static_mode_params_for_dynamic_library",
-            positional = false,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            type = CcLinkParamsApi.class,
-            doc = "Parameters for linking a dynamic library statically."),
-        @Param(
-            name = "static_mode_params_for_executable",
-            doc = "Parameters for linking an executable statically",
-            positional = false,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            type = CcLinkParamsApi.class),
-        @Param(
-            name = "dynamic_mode_params_for_dynamic_library",
-            doc = "Parameters for linking a dynamic library dynamically",
-            positional = false,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            type = CcLinkParamsApi.class),
-        @Param(
-            name = "dynamic_mode_params_for_executable",
-            doc = "Parameters for linking an executable dynamically",
-            positional = false,
-            named = true,
-            noneable = true,
-            defaultValue = "None",
-            type = CcLinkParamsApi.class),
-        @Param(
             name = "libraries_to_link",
             doc = "The libraries to link",
             positional = false,
@@ -640,11 +565,6 @@ public interface CcModuleApi<
             type = SkylarkList.class)
       })
   Object createCcLinkingInfo(
-      Object skylarkRuleContextObject,
-      Object staticModeParamsForDynamicLibraryObject,
-      Object staticModeParamsForExecutableObject,
-      Object dynamicModeParamsForDynamicLibraryObject,
-      Object dynamicModeParamsForExecutableObject,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Location location,

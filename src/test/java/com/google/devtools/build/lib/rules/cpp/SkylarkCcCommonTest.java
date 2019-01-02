@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -1056,8 +1055,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     List<Artifact> mergedHeaders =
         ((SkylarkNestedSet) r.get("merged_headers")).getSet(Artifact.class).toList();
     assertThat(
-            mergedHeaders
-                .stream()
+            mergedHeaders.stream()
                 .map(Artifact::getFilename)
                 .collect(ImmutableList.toImmutableList()))
         .containsAllOf("header.h", "dep1.h", "dep2.h");
@@ -1124,92 +1122,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  @Deprecated
-  // TODO(118663806): Libraries won't be created this way from Skylark after removing CcLinkParams.
-  public void testLibraryLinkerInputs() throws Exception {
-    scratch.file("a/BUILD", "load('//tools/build_defs/cc:rule.bzl', 'crule')", "crule(name='r')");
-    scratch.file("a/lib.a", "");
-    scratch.file("a/lib.lo", "");
-    scratch.file("a/lib.so", "");
-    scratch.file("a/lib.ifso", "");
-    scratch.file("tools/build_defs/cc/BUILD", "");
-    scratch.file(
-        "tools/build_defs/cc/rule.bzl",
-        "def _create(ctx, lib, c):",
-        "  return cc_common.create_library_to_link(ctx=ctx, library=lib, artifact_category=c)",
-        "def _impl(ctx):",
-        "  static_library = _create(ctx, ctx.file.liba, 'static_library')",
-        "  alwayslink_static_library = _create(ctx, ctx.file.liblo, 'alwayslink_static_library')",
-        "  dynamic_library = _create(ctx, ctx.file.libso, 'dynamic_library')",
-        "  interface_library = _create(ctx, ctx.file.libifso, 'interface_library')",
-        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  symlink_library = cc_common.create_symlink_library_to_link(",
-        "      ctx=ctx, cc_toolchain=toolchain, library=ctx.file.libso)",
-        "  return struct(",
-        "    static_library = static_library,",
-        "    alwayslink_static_library = alwayslink_static_library,",
-        "    dynamic_library = dynamic_library,",
-        "    interface_library = interface_library,",
-        "    symlink_library = symlink_library",
-        "  )",
-        "crule = rule(",
-        "  _impl,",
-        "  attrs = { ",
-        "    'liba': attr.label(default='//a:lib.a', allow_single_file=True),",
-        "    'liblo': attr.label(default='//a:lib.lo', allow_single_file=True),",
-        "    'libso': attr.label(default='//a:lib.so', allow_single_file=True),",
-        "    'libifso': attr.label(default='//a:lib.ifso', allow_single_file=True),",
-        "     '_cc_toolchain': attr.label(default =",
-        "         configuration_field(fragment = 'cpp', name = 'cc_toolchain'))",
-        "  },",
-        "  fragments = ['cpp'],",
-        ");");
-    ConfiguredTarget r = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked")
-    LibraryToLink staticLibrary = (LibraryToLink) r.get("static_library");
-    assertThat(staticLibrary.getArtifact().getFilename()).isEqualTo("lib.a");
-    LibraryToLink alwaysLinkStaticLibrary = (LibraryToLink) r.get("alwayslink_static_library");
-    assertThat(alwaysLinkStaticLibrary.getArtifact().getFilename()).isEqualTo("lib.lo");
-    LibraryToLink dynamicLibrary = (LibraryToLink) r.get("dynamic_library");
-    assertThat(dynamicLibrary.getArtifact().getFilename()).isEqualTo("lib.so");
-    LibraryToLink interfaceLibrary = (LibraryToLink) r.get("interface_library");
-    assertThat(interfaceLibrary.getArtifact().getFilename()).isEqualTo("lib.ifso");
-    LibraryToLink symlinkLibrary = (LibraryToLink) r.get("symlink_library");
-    assertThat(symlinkLibrary.getArtifact().getFilename()).isEqualTo("lib.so");
-    assertThat(symlinkLibrary.getArtifact().getPath())
-        .isNotEqualTo(symlinkLibrary.getOriginalLibraryArtifact().getPath());
-  }
-
-  @Test
-  @Deprecated
-  // TODO(118663806): Artifact category won't be part of API.
-  public void testLibraryLinkerInputArtifactCategoryError() throws Exception {
-    scratch.file("a/BUILD", "load('//tools/build_defs/cc:rule.bzl', 'crule')", "crule(name='r')");
-    scratch.file("a/lib.a", "");
-    scratch.file("tools/build_defs/cc/BUILD", "");
-    scratch.file(
-        "tools/build_defs/cc/rule.bzl",
-        "def _impl(ctx):",
-        "  executable = cc_common.create_library_to_link(",
-        "    ctx=ctx, library=ctx.file.lib, artifact_category='executable')",
-        "  return struct(",
-        "    executable = executable,",
-        "  )",
-        "crule = rule(",
-        "  _impl,",
-        "  attrs = { ",
-        "    'lib': attr.label(default='//a:lib.a', allow_single_file=True),",
-        "  },",
-        "  fragments = ['cpp'],",
-        ");");
-    reporter.removeHandler(failFastHandler);
-    assertThat(getConfiguredTarget("//a:r")).isNull();
-    assertContainsEvent(
-        "Possible values for artifact_category: static_library, "
-            + "alwayslink_static_library, dynamic_library, interface_library");
-  }
-
-  @Test
   public void testFlagWhitelist() throws Exception {
     setSkylarkSemanticsOptions("--experimental_cc_skylark_api_enabled_packages=\"\"");
     SkylarkCcCommonTestHelper.createFiles(scratch, "foo/bar");
@@ -1219,174 +1131,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "You can try it out by passing "
             + "--experimental_cc_skylark_api_enabled_packages=<list of packages>. Beware that we "
             + "will be making breaking changes to this API without prior warning.");
-  }
-
-  @Test
-  public void testOldCcLinkingProvider() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            "supports_interface_shared_objects: false");
-    useConfiguration();
-    setUpOldCcLinkingProviderParamsTest();
-    ConfiguredTarget r = getConfiguredTarget("//a:r");
-
-    List<String> staticSharedLinkopts =
-        ((SkylarkNestedSet) r.get("sd_linkopts")).getSet(String.class).toList();
-    List<String> staticNoSharedLinkopts =
-        ((SkylarkNestedSet) r.get("se_linkopts")).getSet(String.class).toList();
-    List<String> noStaticSharedLinkopts =
-        ((SkylarkNestedSet) r.get("dd_linkopts")).getSet(String.class).toList();
-    List<String> noStaticNoSharedLinkopts =
-        ((SkylarkNestedSet) r.get("de_linkopts")).getSet(String.class).toList();
-    assertThat(staticSharedLinkopts)
-        .containsAllOf("-static_for_dynamic", "-DEP1_LINKOPT", "-DEP2_LINKOPT");
-    assertThat(staticNoSharedLinkopts)
-        .containsAllOf("-static_for_executable", "-DEP1_LINKOPT", "-DEP2_LINKOPT");
-    assertThat(noStaticSharedLinkopts)
-        .containsAllOf("-dynamic_for_dynamic", "-DEP1_LINKOPT", "-DEP2_LINKOPT");
-    assertThat(noStaticNoSharedLinkopts)
-        .containsAllOf("-dynamic_for_executable", "-DEP1_LINKOPT", "-DEP2_LINKOPT");
-
-    List<LibraryToLink> staticSharedLibs =
-        ((SkylarkNestedSet) r.get("sd_libs")).getSet(LibraryToLink.class).toList();
-    List<LibraryToLink> staticNoSharedLibs =
-        ((SkylarkNestedSet) r.get("se_libs")).getSet(LibraryToLink.class).toList();
-    List<LibraryToLink> noStaticSharedLibs =
-        ((SkylarkNestedSet) r.get("dd_libs")).getSet(LibraryToLink.class).toList();
-    List<LibraryToLink> noStaticNoSharedLibs =
-        ((SkylarkNestedSet) r.get("de_libs")).getSet(LibraryToLink.class).toList();
-    assertThat(
-            staticSharedLibs
-                .stream()
-                .map(x -> x.getOriginalLibraryArtifact().getFilename())
-                .collect(ImmutableList.toImmutableList()))
-        .containsAllOf("lib.a", "libdep1.a", "libdep2.a");
-    assertThat(
-            staticNoSharedLibs
-                .stream()
-                .map(x -> x.getOriginalLibraryArtifact().getFilename())
-                .collect(ImmutableList.toImmutableList()))
-        .containsAllOf("lib.a", "libdep1.a", "libdep2.a");
-
-    assertThat(
-            noStaticSharedLibs
-                .stream()
-                .map(x -> x.getOriginalLibraryArtifact().getFilename())
-                .collect(ImmutableList.toImmutableList()))
-        .containsAllOf("lib.so", "libdep1.so", "libdep2.so");
-    assertThat(
-            noStaticNoSharedLibs
-                .stream()
-                .map(x -> x.getOriginalLibraryArtifact().getFilename())
-                .collect(ImmutableList.toImmutableList()))
-        .containsAllOf("lib.so", "libdep1.so", "libdep2.so");
-
-    List<Artifact> staticSharedRunLibs =
-        ((SkylarkNestedSet) r.get("sd_runlibs")).getSet(Artifact.class).toList();
-    List<Artifact> staticNoSharedRunLibs =
-        ((SkylarkNestedSet) r.get("se_runlibs")).getSet(Artifact.class).toList();
-    List<Artifact> noStaticSharedRunLibs =
-        ((SkylarkNestedSet) r.get("dd_runlibs")).getSet(Artifact.class).toList();
-    List<Artifact> noStaticNoSharedRunLibs =
-        ((SkylarkNestedSet) r.get("de_runlibs")).getSet(Artifact.class).toList();
-    assertThat(
-            staticSharedRunLibs
-                .stream()
-                .map(Artifact::getFilename)
-                .collect(ImmutableList.toImmutableList()))
-        .isEmpty();
-    assertThat(
-            staticNoSharedRunLibs
-                .stream()
-                .map(Artifact::getFilename)
-                .collect(ImmutableList.toImmutableList()))
-        .isEmpty();
-    assertThat(
-            noStaticSharedRunLibs
-                .stream()
-                .map(Artifact::getFilename)
-                .collect(ImmutableList.toImmutableList()))
-        .containsAllOf("lib.so", "liba_Slibdep1.so", "liba_Slibdep2.so");
-    assertThat(
-            noStaticNoSharedRunLibs
-                .stream()
-                .map(Artifact::getFilename)
-                .collect(ImmutableList.toImmutableList()))
-        .containsAllOf("lib.so", "liba_Slibdep1.so", "liba_Slibdep2.so");
-  }
-
-  private void setUpOldCcLinkingProviderParamsTest() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
-        "crule(name='r')",
-        "cc_library(",
-        "    name = 'dep1',",
-        "    srcs = ['dep1.cc'],",
-        "    hdrs = ['dep1.h'],",
-        "    linkopts = ['-DEP1_LINKOPT'],",
-        ")",
-        "cc_library(",
-        "    name = 'dep2',",
-        "    srcs = ['dep2.cc'],",
-        "    hdrs = ['dep2.h'],",
-        "    linkopts = ['-DEP2_LINKOPT'],",
-        ")");
-    scratch.file("a/lib.a", "");
-    scratch.file("a/lib.so", "");
-    scratch.file("tools/build_defs/cc/BUILD", "");
-    scratch.file(
-        "tools/build_defs/cc/rule.bzl",
-        "def _create(ctx, l, r, f):",
-        "  return cc_common.create_cc_link_params(",
-        "    ctx=ctx, libraries_to_link=depset(l), dynamic_libraries_for_runtime=depset(r),",
-        "        user_link_flags=depset(f))",
-        "def _impl(ctx):",
-        "  liba = cc_common.create_library_to_link(ctx=ctx, library=ctx.file.liba,",
-        "    artifact_category='static_library')",
-        "  libso = cc_common.create_library_to_link(ctx=ctx, library=ctx.file.libso,",
-        "    artifact_category='dynamic_library')",
-        "  sd = _create(ctx, [liba], [], ['-static_for_dynamic'])",
-        "  se = _create(ctx, [liba], [], ['-static_for_executable'])",
-        "  dd = _create(ctx, [libso], [ctx.file.libso], ['-dynamic_for_dynamic'])",
-        "  de = _create(ctx, [libso], [ctx.file.libso], ['-dynamic_for_executable'])",
-        "  linking_context = cc_common.create_linking_context(ctx=ctx,",
-        "    static_mode_params_for_dynamic_library=sd, static_mode_params_for_executable=se,",
-        "    dynamic_mode_params_for_dynamic_library=dd, dynamic_mode_params_for_executable=de)",
-        "  cc_infos = [CcInfo(linking_context=linking_context)]",
-        "  for dep in ctx.attr._deps:",
-        "      cc_infos.append(dep[CcInfo])",
-        "  merged_cc_info = cc_common.merge_cc_infos(cc_infos=cc_infos)",
-        "  sd = merged_cc_info.linking_context.static_mode_params_for_dynamic_library",
-        "  se = merged_cc_info.linking_context.static_mode_params_for_executable",
-        "  dd = merged_cc_info.linking_context.dynamic_mode_params_for_dynamic_library",
-        "  de = merged_cc_info.linking_context.dynamic_mode_params_for_executable",
-        "  return struct(",
-        "    cc_info = merged_cc_info,",
-        "    sd_linkopts = sd.user_link_flags,",
-        "    se_linkopts = se.user_link_flags,",
-        "    dd_linkopts = dd.user_link_flags,",
-        "    de_linkopts = de.user_link_flags,",
-        "    sd_libs = sd.libraries_to_link,",
-        "    se_libs = se.libraries_to_link,",
-        "    dd_libs = dd.libraries_to_link,",
-        "    de_libs = de.libraries_to_link,",
-        "    sd_runlibs = sd.dynamic_libraries_for_runtime,",
-        "    se_runlibs = se.dynamic_libraries_for_runtime,",
-        "    dd_runlibs = dd.dynamic_libraries_for_runtime,",
-        "    de_runlibs = de.dynamic_libraries_for_runtime,",
-        "  )",
-        "crule = rule(",
-        "  _impl,",
-        "  attrs = { ",
-        "    'liba': attr.label(default='//a:lib.a', allow_single_file=True),",
-        "    'libso': attr.label(default='//a:lib.so', allow_single_file=True),",
-        "    '_deps': attr.label_list(default=['//a:dep1', '//a:dep2']),",
-        "  },",
-        "  fragments = ['cpp'],",
-        ");");
   }
 
   @Test
@@ -1585,8 +1329,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     SkylarkList<LibraryToLinkApi> libraries =
         (SkylarkList<LibraryToLinkApi>) target.get("libraries");
     assertThat(
-            libraries
-                .stream()
+            libraries.stream()
                 .map(x -> x.getOriginalLibraryArtifact().getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .contains("libskylark_lib.so");
@@ -1612,9 +1355,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(
-            getFilesToBuild(target)
-                .toCollection()
-                .stream()
+            getFilesToBuild(target).toCollection().stream()
                 .map(x -> x.getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .contains("dynamic_lib_artifact.so");
