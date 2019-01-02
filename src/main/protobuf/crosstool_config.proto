@@ -148,6 +148,9 @@ message CToolchain {
     // unconditionally for every action specified.
     repeated WithFeatureSet with_feature = 3;
 
+    // Deprecated (https://github.com/bazelbuild/bazel/issues/7008) - use
+    // expand_if_all_available in flag_group
+    //
     // A list of build variables that this feature set needs, but which are
     // allowed to not be set. If any of the build variables listed is not
     // set, the feature set will not be expanded.

@@ -700,6 +700,20 @@ public class CppOptions extends FragmentOptions {
   public boolean disableLegacyCrosstoolFields;
 
   @Option(
+      name = "incompatible_disable_expand_if_all_available_in_flag_set",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Bazel will not allow specifying expand_if_all_available in flag_sets"
+              + "(see https://github.com/bazelbuild/bazel/issues/7008 for migration instructions).")
+  public boolean disableExpandIfAllAvailableInFlagSet;
+
+  @Option(
       name = "incompatible_linkopts_in_user_link_flags",
       oldName = "experimental_linkopts_in_user_link_flags",
       defaultValue = "false",
@@ -850,6 +864,7 @@ public class CppOptions extends FragmentOptions {
     host.disableEmittingStaticLibgcc = disableEmittingStaticLibgcc;
     host.disableDepsetInUserFlags = disableDepsetInUserFlags;
     host.disableRuntimesFilegroups = disableRuntimesFilegroups;
+    host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
 
     return host;
   }

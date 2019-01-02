@@ -163,8 +163,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -257,8 +257,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -295,8 +295,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -308,8 +308,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -319,8 +319,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -333,8 +333,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -344,8 +344,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -355,8 +355,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -369,8 +369,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -380,8 +380,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -391,8 +391,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -402,8 +402,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -511,8 +511,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -521,8 +521,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -656,8 +656,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -675,8 +675,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -690,8 +690,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -704,8 +704,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -777,8 +777,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -790,8 +790,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -922,8 +922,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -939,8 +939,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -988,8 +988,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -1004,8 +1004,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -1094,8 +1094,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -1114,8 +1114,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -1126,15 +1126,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -1153,8 +1153,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {
@@ -1840,8 +1840,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -1943,8 +1943,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -1969,8 +1969,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -1982,8 +1982,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -1993,8 +1993,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -2007,8 +2007,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -2018,8 +2018,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -2029,8 +2029,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -2043,8 +2043,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -2054,8 +2054,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -2065,8 +2065,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -2076,8 +2076,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -2185,8 +2185,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -2195,8 +2195,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -2330,8 +2330,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -2349,8 +2349,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -2364,8 +2364,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -2378,8 +2378,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -2451,8 +2451,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -2464,8 +2464,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -2596,8 +2596,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -2613,8 +2613,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -2662,8 +2662,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -2678,8 +2678,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -2770,8 +2770,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -2790,8 +2790,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -2802,15 +2802,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -2829,8 +2829,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {
@@ -3518,8 +3518,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -3621,8 +3621,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -3647,8 +3647,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -3660,8 +3660,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -3671,8 +3671,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -3685,8 +3685,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -3696,8 +3696,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -3707,8 +3707,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -3721,8 +3721,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -3732,8 +3732,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -3743,8 +3743,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -3754,8 +3754,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -3863,8 +3863,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -3873,8 +3873,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -4008,8 +4008,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -4027,8 +4027,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -4042,8 +4042,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -4056,8 +4056,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -4129,8 +4129,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -4142,8 +4142,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -4276,8 +4276,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -4293,8 +4293,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -4342,8 +4342,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -4358,8 +4358,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -4450,8 +4450,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -4470,8 +4470,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -4482,15 +4482,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -4509,8 +4509,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {
@@ -5193,8 +5193,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -5296,8 +5296,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -5322,8 +5322,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -5335,8 +5335,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -5346,8 +5346,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -5360,8 +5360,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -5371,8 +5371,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -5382,8 +5382,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -5396,8 +5396,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -5407,8 +5407,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -5418,8 +5418,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -5429,8 +5429,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -5538,8 +5538,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -5548,8 +5548,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -5683,8 +5683,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -5702,8 +5702,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -5717,8 +5717,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -5731,8 +5731,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -5804,8 +5804,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -5817,8 +5817,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -5951,8 +5951,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -5968,8 +5968,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -6017,8 +6017,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -6033,8 +6033,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -6125,8 +6125,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -6145,8 +6145,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -6157,15 +6157,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -6184,8 +6184,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {
@@ -6868,8 +6868,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -6971,8 +6971,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -6997,8 +6997,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -7010,8 +7010,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -7021,8 +7021,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -7035,8 +7035,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -7046,8 +7046,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -7057,8 +7057,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -7071,8 +7071,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -7082,8 +7082,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -7093,8 +7093,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -7104,8 +7104,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -7213,8 +7213,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -7223,8 +7223,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -7358,8 +7358,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -7377,8 +7377,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -7392,8 +7392,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -7406,8 +7406,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -7479,8 +7479,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -7492,8 +7492,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -7626,8 +7626,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -7643,8 +7643,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -7692,8 +7692,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -7708,8 +7708,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -7790,8 +7790,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -7810,8 +7810,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -7822,15 +7822,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -7849,8 +7849,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {
@@ -8537,8 +8537,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -8640,8 +8640,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -8666,8 +8666,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -8679,8 +8679,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -8690,8 +8690,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -8704,8 +8704,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -8715,8 +8715,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -8726,8 +8726,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -8740,8 +8740,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -8751,8 +8751,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -8762,8 +8762,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -8773,8 +8773,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -8882,8 +8882,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -8892,8 +8892,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -9027,8 +9027,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -9046,8 +9046,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -9061,8 +9061,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -9075,8 +9075,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -9148,8 +9148,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -9161,8 +9161,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -9293,8 +9293,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -9310,8 +9310,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -9359,8 +9359,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -9375,8 +9375,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -9488,8 +9488,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -9508,8 +9508,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -9520,15 +9520,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -9547,8 +9547,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {
@@ -10245,8 +10245,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -10348,8 +10348,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -10374,8 +10374,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -10387,8 +10387,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -10398,8 +10398,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -10412,8 +10412,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -10423,8 +10423,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -10434,8 +10434,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -10448,8 +10448,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -10459,8 +10459,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -10470,8 +10470,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -10481,8 +10481,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -10590,8 +10590,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -10600,8 +10600,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -10735,8 +10735,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -10754,8 +10754,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -10769,8 +10769,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -10783,8 +10783,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -10856,8 +10856,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -10869,8 +10869,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -11001,8 +11001,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -11018,8 +11018,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -11067,8 +11067,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -11083,8 +11083,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -11175,8 +11175,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -11195,8 +11195,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -11207,15 +11207,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -11234,8 +11234,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {
@@ -11923,8 +11923,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -12026,8 +12026,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -12052,8 +12052,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -12065,8 +12065,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -12076,8 +12076,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -12090,8 +12090,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -12101,8 +12101,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -12112,8 +12112,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -12126,8 +12126,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -12137,8 +12137,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -12148,8 +12148,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -12159,8 +12159,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -12268,8 +12268,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -12278,8 +12278,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -12413,8 +12413,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -12432,8 +12432,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -12447,8 +12447,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -12461,8 +12461,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -12534,8 +12534,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -12547,8 +12547,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -12679,8 +12679,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -12696,8 +12696,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -12745,8 +12745,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -12761,8 +12761,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -12843,8 +12843,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -12863,8 +12863,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -12875,15 +12875,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -12902,8 +12902,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {
@@ -13589,8 +13589,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -13692,8 +13692,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -13718,8 +13718,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -13731,8 +13731,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -13742,8 +13742,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -13756,8 +13756,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -13767,8 +13767,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -13778,8 +13778,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -13792,8 +13792,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -13803,8 +13803,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -13814,8 +13814,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -13825,8 +13825,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -13934,8 +13934,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -13944,8 +13944,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -14079,8 +14079,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -14098,8 +14098,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -14113,8 +14113,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -14127,8 +14127,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -14200,8 +14200,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -14213,8 +14213,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -14347,8 +14347,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -14364,8 +14364,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -14413,8 +14413,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -14429,8 +14429,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -14511,8 +14511,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -14531,8 +14531,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -14543,15 +14543,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -14570,8 +14570,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {
@@ -15258,8 +15258,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -15361,8 +15361,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -15387,8 +15387,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -15400,8 +15400,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -15411,8 +15411,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -15425,8 +15425,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -15436,8 +15436,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -15447,8 +15447,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -15461,8 +15461,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -15472,8 +15472,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -15483,8 +15483,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -15494,8 +15494,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -15603,8 +15603,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -15613,8 +15613,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -15748,8 +15748,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -15767,8 +15767,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -15782,8 +15782,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -15796,8 +15796,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -15869,8 +15869,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -15882,8 +15882,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -16014,8 +16014,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -16031,8 +16031,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -16080,8 +16080,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -16096,8 +16096,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -16199,8 +16199,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -16219,8 +16219,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -16231,15 +16231,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -16258,8 +16258,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {
@@ -16954,8 +16954,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -17057,8 +17057,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -17083,8 +17083,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -17096,8 +17096,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -17107,8 +17107,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -17121,8 +17121,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -17132,8 +17132,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -17143,8 +17143,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -17157,8 +17157,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -17168,8 +17168,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -17179,8 +17179,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -17190,8 +17190,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -17299,8 +17299,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -17309,8 +17309,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -17444,8 +17444,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -17463,8 +17463,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -17478,8 +17478,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -17492,8 +17492,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -17565,8 +17565,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -17578,8 +17578,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -17710,8 +17710,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -17727,8 +17727,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -17776,8 +17776,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -17792,8 +17792,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -17874,8 +17874,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -17894,8 +17894,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -17906,15 +17906,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -17933,8 +17933,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {
@@ -18621,8 +18621,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_compile_flags}"
         iterate_over: "legacy_compile_flags"
+        expand_if_all_available: "legacy_compile_flags"
       }
-      expand_if_all_available: "legacy_compile_flags"
     }
   }
   feature {
@@ -18724,8 +18724,8 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,--print-symbol-counts=%{symbol_counts_output}"
+        expand_if_all_available: "symbol_counts_output"
       }
-      expand_if_all_available: "symbol_counts_output"
     }
   }
   feature {
@@ -18750,8 +18750,8 @@ toolchain {
       flag_group {
         flag: "%{linkstamp_paths}"
         iterate_over: "linkstamp_paths"
+        expand_if_all_available: "linkstamp_paths"
       }
-      expand_if_all_available: "linkstamp_paths"
     }
   }
   feature {
@@ -18763,8 +18763,8 @@ toolchain {
       flag_group {
         flag: "-o"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -18774,8 +18774,8 @@ toolchain {
       flag_group {
         flag: "rcs"
         flag: "%{output_execpath}"
+        expand_if_all_available: "output_execpath"
       }
-      expand_if_all_available: "output_execpath"
     }
   }
   feature {
@@ -18788,8 +18788,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
         iterate_over: "runtime_library_search_directories"
+        expand_if_all_available: "runtime_library_search_directories"
       }
-      expand_if_all_available: "runtime_library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -18799,8 +18799,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_flags}"
         iterate_over: "runtime_root_flags"
+        expand_if_all_available: "runtime_root_flags"
       }
-      expand_if_all_available: "runtime_root_flags"
     }
     flag_set {
       action: "c++-link-executable"
@@ -18810,8 +18810,8 @@ toolchain {
       flag_group {
         flag: "%{runtime_root_entries}"
         iterate_over: "runtime_root_entries"
+        expand_if_all_available: "runtime_root_entries"
       }
-      expand_if_all_available: "runtime_root_entries"
     }
   }
   feature {
@@ -18824,8 +18824,8 @@ toolchain {
       flag_group {
         flag: "-L%{library_search_directories}"
         iterate_over: "library_search_directories"
+        expand_if_all_available: "library_search_directories"
       }
-      expand_if_all_available: "library_search_directories"
     }
     flag_set {
       action: "c++-link-executable"
@@ -18835,8 +18835,8 @@ toolchain {
       flag_group {
         flag: "%{libopts}"
         iterate_over: "libopts"
+        expand_if_all_available: "libopts"
       }
-      expand_if_all_available: "libopts"
     }
     flag_set {
       action: "c++-link-executable"
@@ -18846,8 +18846,8 @@ toolchain {
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
         iterate_over: "whole_archive_linker_params"
+        expand_if_all_available: "whole_archive_linker_params"
       }
-      expand_if_all_available: "whole_archive_linker_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -18857,8 +18857,8 @@ toolchain {
       flag_group {
         flag: "%{linker_input_params}"
         iterate_over: "linker_input_params"
+        expand_if_all_available: "linker_input_params"
       }
-      expand_if_all_available: "linker_input_params"
     }
     flag_set {
       action: "c++-link-executable"
@@ -18966,8 +18966,8 @@ toolchain {
           }
         }
         iterate_over: "libraries_to_link"
+        expand_if_all_available: "libraries_to_link"
       }
-      expand_if_all_available: "libraries_to_link"
     }
   }
   feature {
@@ -18976,8 +18976,8 @@ toolchain {
       action: "c++-link-executable"
       flag_group {
         flag: "-Wl,-pie"
+        expand_if_all_available: "force_pic"
       }
-      expand_if_all_available: "force_pic"
     }
   }
   feature {
@@ -19111,8 +19111,8 @@ toolchain {
       action: "clif-match"
       flag_group {
         flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
       }
-      expand_if_all_available: "sysroot"
     }
   }
   feature {
@@ -19130,8 +19130,8 @@ toolchain {
         flag: "-MD"
         flag: "-MF"
         flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
       }
-      expand_if_all_available: "dependency_file"
     }
   }
   feature {
@@ -19145,8 +19145,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-fPIC"
+        expand_if_all_available: "pic"
       }
-      expand_if_all_available: "pic"
     }
   }
   feature {
@@ -19159,8 +19159,8 @@ toolchain {
       action: "preprocess-assemble"
       flag_group {
         flag: "-gsplit-dwarf"
+        expand_if_all_available: "per_object_debug_info_file"
       }
-      expand_if_all_available: "per_object_debug_info_file"
     }
   }
   feature {
@@ -19232,8 +19232,8 @@ toolchain {
         flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
         flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -19245,8 +19245,8 @@ toolchain {
       flag_group {
         flag: "-fauto-profile=%{fdo_profile_path}"
         flag: "-fprofile-correction"
+        expand_if_all_available: "fdo_profile_path"
       }
-      expand_if_all_available: "fdo_profile_path"
     }
     provides: "profile"
   }
@@ -19377,8 +19377,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fobjc-arc"
+        expand_if_all_available: "objc_arc"
       }
-      expand_if_all_available: "objc_arc"
     }
   }
   feature {
@@ -19394,8 +19394,8 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-fno-objc-arc"
+        expand_if_all_available: "no_objc_arc"
       }
-      expand_if_all_available: "no_objc_arc"
     }
   }
   feature {
@@ -19443,8 +19443,8 @@ toolchain {
       flag_group {
         flag: "%{user_link_flags}"
         iterate_over: "user_link_flags"
+        expand_if_all_available: "user_link_flags"
       }
-      expand_if_all_available: "user_link_flags"
     }
     enabled: true
   }
@@ -19459,8 +19459,8 @@ toolchain {
       flag_group {
         flag: "%{legacy_link_flags}"
         iterate_over: "legacy_link_flags"
+        expand_if_all_available: "legacy_link_flags"
       }
-      expand_if_all_available: "legacy_link_flags"
     }
   }
   feature {
@@ -19541,8 +19541,8 @@ toolchain {
       flag_group {
         flag: "%{user_compile_flags}"
         iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
       }
-      expand_if_all_available: "user_compile_flags"
     }
   }
   feature {
@@ -19561,8 +19561,8 @@ toolchain {
       flag_group {
         flag: "%{unfiltered_compile_flags}"
         iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
       }
-      expand_if_all_available: "unfiltered_compile_flags"
     }
   }
   feature {
@@ -19573,15 +19573,15 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-Wl,@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
     flag_set {
       action: "c++-link-static-library"
       flag_group {
         flag: "@%{linker_param_file}"
+        expand_if_all_available: "linker_param_file"
       }
-      expand_if_all_available: "linker_param_file"
     }
   }
   feature {
@@ -19600,8 +19600,8 @@ toolchain {
       flag_group {
         flag: "-c"
         flag: "%{source_file}"
+        expand_if_all_available: "source_file"
       }
-      expand_if_all_available: "source_file"
     }
   }
   feature {

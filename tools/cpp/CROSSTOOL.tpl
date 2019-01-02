@@ -71,8 +71,8 @@ toolchain {
     flag_set {
       action: 'c-compile'
       action: 'c++-compile'
-      expand_if_all_available: 'fdo_profile_path'
       flag_group {
+        expand_if_all_available: 'fdo_profile_path'
         flag: '-fprofile-use=%{fdo_profile_path}'
         flag: '-fprofile-correction',
       }
@@ -416,7 +416,6 @@ toolchain {
   feature {
     name: 'legacy_compile_flags'
     flag_set {
-      expand_if_all_available: 'legacy_compile_flags'
       action: 'preprocess-assemble'
       action: 'c-compile'
       action: 'c++-compile'
@@ -424,6 +423,7 @@ toolchain {
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
+        expand_if_all_available: 'legacy_compile_flags'
         iterate_over: 'legacy_compile_flags'
         flag: '%{legacy_compile_flags}'
       }
@@ -575,8 +575,8 @@ toolchain {
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
-      expand_if_all_available: 'linkstamp_paths'
       flag_group {
+        expand_if_all_available: 'linkstamp_paths'
         iterate_over: 'linkstamp_paths'
         flag: '%{linkstamp_paths}'
       }
@@ -586,11 +586,11 @@ toolchain {
   feature {
     name: 'output_execpath_flags'
     flag_set {
-      expand_if_all_available: 'output_execpath'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
+        expand_if_all_available: 'output_execpath'
         flag: '/OUT:%{output_execpath}'
       }
     }
@@ -599,9 +599,9 @@ toolchain {
   feature {
     name: 'archiver_flags'
     flag_set {
-      expand_if_all_available: 'output_execpath'
       action: 'c++-link-static-library'
       flag_group {
+        expand_if_all_available: 'output_execpath'
         flag: '/OUT:%{output_execpath}'
       }
     }
@@ -610,30 +610,30 @@ toolchain {
   feature {
     name: 'input_param_flags'
     flag_set {
-      expand_if_all_available: 'interface_library_output_path'
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
+        expand_if_all_available: 'interface_library_output_path'
         flag: "/IMPLIB:%{interface_library_output_path}"
       }
     }
     flag_set {
-      expand_if_all_available: 'libopts'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
+        expand_if_all_available: 'libopts'
         iterate_over: 'libopts'
         flag: '%{libopts}'
       }
     }
     flag_set {
-      expand_if_all_available: 'libraries_to_link'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       action: 'c++-link-static-library'
       flag_group {
+        expand_if_all_available: 'libraries_to_link'
         iterate_over: 'libraries_to_link'
         flag_group {
           expand_if_equal: {
@@ -706,11 +706,11 @@ toolchain {
   feature {
     name: 'user_link_flags'
     flag_set {
-      expand_if_all_available: 'user_link_flags'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
+        expand_if_all_available: 'user_link_flags'
         iterate_over: 'user_link_flags'
         flag: '%{user_link_flags}'
       }
@@ -719,11 +719,11 @@ toolchain {
   feature {
     name: 'legacy_link_flags'
     flag_set {
-      expand_if_all_available: 'legacy_link_flags'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
+        expand_if_all_available: 'legacy_link_flags'
         iterate_over: 'legacy_link_flags'
         flag: '%{legacy_link_flags}'
       }
@@ -733,12 +733,12 @@ toolchain {
   feature {
     name: 'linker_param_file'
     flag_set {
-      expand_if_all_available: 'linker_param_file'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       action: 'c++-link-static-library'
       flag_group {
+        expand_if_all_available: 'linker_param_file'
         flag: '@%{linker_param_file}'
       }
     }
@@ -990,7 +990,6 @@ toolchain {
   feature {
     name: 'user_compile_flags'
     flag_set {
-      expand_if_all_available: 'user_compile_flags'
       action: 'preprocess-assemble'
       action: 'c-compile'
       action: 'c++-compile'
@@ -998,6 +997,7 @@ toolchain {
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
+        expand_if_all_available: 'user_compile_flags'
         iterate_over: 'user_compile_flags'
         flag: '%{user_compile_flags}'
       }
@@ -1007,7 +1007,6 @@ toolchain {
   feature {
     name: 'sysroot'
     flag_set {
-      expand_if_all_available: 'sysroot'
       action: 'assemble'
       action: 'preprocess-assemble'
       action: 'c-compile'
@@ -1019,6 +1018,7 @@ toolchain {
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
+        expand_if_all_available: 'sysroot'
         iterate_over: 'sysroot'
         flag: '--sysroot=%{sysroot}'
       }
@@ -1028,7 +1028,6 @@ toolchain {
   feature {
     name: 'unfiltered_compile_flags'
     flag_set {
-      expand_if_all_available: 'unfiltered_compile_flags'
       action: 'preprocess-assemble'
       action: 'c-compile'
       action: 'c++-compile'
@@ -1036,6 +1035,7 @@ toolchain {
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
+        expand_if_all_available: 'unfiltered_compile_flags'
         iterate_over: 'unfiltered_compile_flags'
         flag: '%{unfiltered_compile_flags}'
       }
@@ -1102,11 +1102,11 @@ toolchain {
   feature {
     name : 'def_file',
     flag_set {
-      expand_if_all_available: 'def_file_path'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
+        expand_if_all_available: 'def_file_path'
         flag: "/DEF:%{def_file_path}"
         # We can specify a different DLL name in DEF file, /ignore:4070 suppresses
         # the warning message about DLL name doesn't match the default one.

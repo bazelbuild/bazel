@@ -155,6 +155,32 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             + "migrate your CROSSTOOL");
   }
 
+  @Test
+  public void testDisablingExpandIfAllAvailable() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            "feature { ",
+            "  name: 'foo'",
+            "  flag_set { expand_if_all_available: 'bar' }",
+            "}");
+
+    scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])");
+
+    useConfiguration("--noincompatible_disable_expand_if_all_available_in_flag_set");
+    getConfiguredTarget("//a");
+    assertNoEvents();
+
+    useConfiguration("--incompatible_disable_expand_if_all_available_in_flag_set");
+    getConfiguredTarget("//a");
+
+    assertContainsEvent(
+        "defines a flag_set with expand_if_all_available set. This is disabled by "
+            + "--incompatible_disable_expand_if_all_available_in_flag_set");
+  }
+
   /*
    * Crosstools should load fine with or without 'gcov-tool'. Those that define 'gcov-tool'
    * should also add a make variable.

@@ -651,7 +651,6 @@ toolchain {
   feature {
     name: 'legacy_compile_flags'
     flag_set {
-      expand_if_all_available: 'legacy_compile_flags'
       action: 'assemble'
       action: 'preprocess-assemble'
       action: 'c-compile'
@@ -660,6 +659,7 @@ toolchain {
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
+        expand_if_all_available: 'legacy_compile_flags'
         iterate_over: 'legacy_compile_flags'
         flag: '%{legacy_compile_flags}'
       }
@@ -698,8 +698,8 @@ toolchain {
       action: 'c++-compile'
       action: 'c++-module-compile'
       action: 'c++-header-parsing'
-      expand_if_all_available: 'dependency_file'
       flag_group {
+        expand_if_all_available: 'dependency_file'
         flag: '/DEPENDENCY_FILE'
         flag: '%{dependency_file}'
       }
@@ -709,7 +709,6 @@ toolchain {
   feature {
     name: 'user_compile_flags'
     flag_set {
-      expand_if_all_available: 'user_compile_flags'
       action: 'assemble'
       action: 'preprocess-assemble'
       action: 'c-compile'
@@ -718,6 +717,7 @@ toolchain {
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
+        expand_if_all_available: 'user_compile_flags'
         iterate_over: 'user_compile_flags'
         flag: '%{user_compile_flags}'
       }
@@ -727,7 +727,6 @@ toolchain {
   feature {
     name: 'sysroot'
     flag_set {
-      expand_if_all_available: 'sysroot'
       action: 'assemble'
       action: 'preprocess-assemble'
       action: 'c-compile'
@@ -739,6 +738,7 @@ toolchain {
       action: 'c++-link-dynamic-library'
       action: 'c++-link-nodeps-dynamic-library'
       flag_group {
+        expand_if_all_available: 'sysroot'
         iterate_over: 'sysroot'
         flag: '--sysroot=%{sysroot}'
       }
@@ -748,7 +748,6 @@ toolchain {
   feature {
     name: 'unfiltered_compile_flags'
     flag_set {
-      expand_if_all_available: 'unfiltered_compile_flags'
       action: 'assemble'
       action: 'preprocess-assemble'
       action: 'c-compile'
@@ -757,6 +756,7 @@ toolchain {
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
+        expand_if_all_available: 'unfiltered_compile_flags'
         iterate_over: 'unfiltered_compile_flags'
         flag: '%{unfiltered_compile_flags}'
       }
