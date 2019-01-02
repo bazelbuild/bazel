@@ -640,6 +640,12 @@ public abstract class FileArtifactValue implements SkyValue {
       return false;
     }
 
+    @Nullable
+    @Override
+    public BigInteger getValueFingerprint() {
+      return BigInteger.TEN;
+    }
+
     @Override
     public String toString() {
       return "singleton marker artifact value (" + hashCode() + ")";
