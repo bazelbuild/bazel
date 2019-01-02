@@ -66,10 +66,8 @@ cc_toolchain_suite(
         compiler_files = ":osx_tools_" + arch,
         cpu = arch,
         dwp_files = ":empty",
-        dynamic_runtime_libs = [":empty"],
         linker_files = ":osx_tools_" + arch,
         objcopy_files = ":empty",
-        static_runtime_libs = [":empty"],
         strip_files = ":osx_tools_" + arch,
         supports_param_files = 0,
     )

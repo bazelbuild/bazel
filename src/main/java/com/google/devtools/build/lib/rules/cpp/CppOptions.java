@@ -847,6 +847,9 @@ public class CppOptions extends FragmentOptions {
     host.doNotUseCpuTransformer = doNotUseCpuTransformer;
     host.enableCcToolchainConfigInfoFromSkylark = enableCcToolchainConfigInfoFromSkylark;
     host.disableGenruleCcToolchainDependency = disableGenruleCcToolchainDependency;
+    host.disableEmittingStaticLibgcc = disableEmittingStaticLibgcc;
+    host.disableDepsetInUserFlags = disableDepsetInUserFlags;
+    host.disableRuntimesFilegroups = disableRuntimesFilegroups;
 
     return host;
   }
