@@ -29,32 +29,61 @@ function set_up() {
 genrule(
   name = "stamped",
   outs = ["stamped.txt"],
-  cmd = "grep BUILD_TIMESTAMP volatile-status.txt | cut -d 2 -f ' ' >$@",
+  cmd = "grep BUILD_TIMESTAMP bazel-out/volatile-status.txt | cut -d ' ' -f 2 >\$@",
   stamp = True,
 )
 
 genrule(
   name = "unstamped",
   outs = ["unstamped.txt"],
-  cmd = "grep BUILD_TIMESTAMP volatile-status.txt | cut -d 2 -f ' ' >$@",
+  cmd = "(grep BUILD_TIMESTAMP bazel-out/volatile-status.txt || echo 'x 0') | cut -d ' ' -f 2 >\$@",
   stamp = False,
+)
+
+genrule(
+  name = "unspecified",
+  outs = ["unspecified.txt"],
+  cmd = "(grep BUILD_TIMESTAMP bazel-out/volatile-status.txt || echo 'x 0') | cut -d ' ' -f 2 >\$@",
 )
 EOF
 }
 
+function expect_equals() {
+  [ "${1}" = "${2}" ]
+}
+
+function expect_not_equals() {
+  [ "${1}" != "${2}" ]
+}
+
 function test_source_date_epoch() {
+  # test --nostamp
   bazel clean --expunge &> $TEST_log
   bazel build --nostamp //pkg:* &> $TEST_log || fail "failed to build //pkg:*"
-  expect_equals 0 $(cat bazel-genfiles/pkg/stamped.txt)
+  expect_not_equals 0 $(cat bazel-genfiles/pkg/stamped.txt)
   expect_equals 0 $(cat bazel-genfiles/pkg/unstamped.txt)
+  expect_equals 0 $(cat bazel-genfiles/pkg/unspecified.txt)
 
+  # test --nostamp, explicit epoch=0
   bazel clean --expunge &> $TEST_log
   SOURCE_DATE_EPOCH=0 bazel build --stamp //pkg:* &> $TEST_log || fail "failed to build //pkg:*"
   expect_equals 0 $(cat bazel-genfiles/pkg/stamped.txt)
   expect_equals 0 $(cat bazel-genfiles/pkg/unstamped.txt)
+  expect_equals 0 $(cat bazel-genfiles/pkg/unspecified.txt)
 
+  # test --stamp, explicit epoch=0
   bazel clean --expunge &> $TEST_log
   SOURCE_DATE_EPOCH=10 bazel build --stamp //pkg:* &> $TEST_log || fail "failed to build //pkg:*"
   expect_equals 10 $(cat bazel-genfiles/pkg/stamped.txt)
   expect_equals 0 $(cat bazel-genfiles/pkg/unstamped.txt)
+  expect_equals 0 $(cat bazel-genfiles/pkg/unspecified.txt)
+
+  # test no stamp flag, explicit epoch=10
+  bazel clean --expunge &> $TEST_log
+  SOURCE_DATE_EPOCH=10 bazel build //pkg:* &> $TEST_log || fail "failed to build //pkg:*"
+  expect_equals 10 $(cat bazel-genfiles/pkg/stamped.txt)
+  expect_equals 0 $(cat bazel-genfiles/pkg/unstamped.txt)
+  expect_equals 0 $(cat bazel-genfiles/pkg/unspecified.txt)
 }
+
+run_suite "Tests for genrule stamping"
