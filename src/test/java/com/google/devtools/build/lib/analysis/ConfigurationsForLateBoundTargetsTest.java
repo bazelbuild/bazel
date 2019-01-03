@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -76,7 +75,6 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
   public void setupCustomLateBoundRules() throws Exception {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addRuleDefinition(LateBoundSplitUtil.RULE_WITH_LATEBOUND_SPLIT_ATTR);
     builder.addRuleDefinition(LateBoundSplitUtil.RULE_WITH_TEST_FRAGMENT);
     builder.addConfigurationFragment(new LateBoundSplitUtil.FragmentLoader());
     builder.addConfigurationOptions(LateBoundSplitUtil.TestOptions.class);
@@ -123,51 +121,6 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     assertThat(getConfiguration(dep)).isEqualTo(getHostConfiguration());
     // This is technically redundant, but slightly stronger in sanity checking that the host
     // configuration doesn't happen to match what the patch would have done.
-    assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEmpty();
-  }
-
-  @Test
-  public void lateBoundSplitAttributeInTargetConfiguration() throws Exception {
-    scratch.file("foo/BUILD",
-        "rule_with_latebound_split(",
-        "    name = 'foo')",
-        "rule_with_test_fragment(",
-        "    name = 'latebound_dep')");
-    // if the target fails to analyze, this iterable will be empty
-    assertThat(update("//foo:foo").getTargetsToBuild()).isNotEmpty();
-    Iterable<ConfiguredTarget> deps =
-        SkyframeExecutorTestUtils.getExistingConfiguredTargets(
-            skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of()));
-    assertThat(deps).hasSize(2);
-    assertThat(
-            ImmutableList.of(
-                LateBoundSplitUtil.getOptions(getConfiguration(Iterables.get(deps, 0))).fooFlag,
-                LateBoundSplitUtil.getOptions(getConfiguration(Iterables.get(deps, 1))).fooFlag))
-        .containsExactly("one", "two");
-  }
-
-  @Test
-  public void lateBoundSplitAttributeInHostConfiguration() throws Exception {
-    scratch.file("foo/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['gen.out'],",
-        "    cmd = 'echo hi > $@',",
-        "    tools = [':foo'])",
-        "rule_with_latebound_split(",
-        "    name = 'foo')",
-        "rule_with_test_fragment(",
-        "    name = 'latebound_dep')");
-    update("//foo:gen");
-    assertThat(getConfiguredTarget("//foo:foo", getHostConfiguration())).isNotNull();
-    ConfiguredTarget dep =
-        Iterables.getOnlyElement(
-            SkyframeExecutorTestUtils.getExistingConfiguredTargets(
-                skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
-    assertThat(getConfiguration(dep)).isEqualTo(getHostConfiguration());
-    // This is technically redundant, but slightly stronger in sanity checking that the host
-    // configuration doesn't happen to match what the split would have done.
     assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEmpty();
   }
 }

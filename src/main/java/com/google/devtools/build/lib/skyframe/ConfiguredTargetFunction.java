@@ -471,7 +471,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configConditions,
               toolchainLabels,
               transitiveRootCauses,
-              defaultBuildOptions,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
     } catch (EvalException e) {
       // EvalException can only be thrown by computed Skylark attributes in the current rule.
@@ -479,8 +478,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(
               e.print(), ctgValue.getLabel(), ctgValue.getConfiguration()));
-    } catch (InvalidConfigurationException e) {
-      throw new DependencyEvaluationException(e);
     } catch (InconsistentAspectOrderException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
