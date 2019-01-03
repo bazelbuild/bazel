@@ -26,9 +26,10 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
 import java.util.Set;
+import java.util.function.Function;
 
 /** A helper class that computes 'rbuildfiles(<blah>)' via BFS. */
-class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
+public class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
 
   // Each target in the full output of 'rbuildfiles' corresponds to BUILD file InputFile of a
   // unique package. So the processResultsBatchSize we choose to pass to the ParallelVisitor ctor
@@ -39,15 +40,18 @@ class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
       PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
   private final SkyQueryEnvironment env;
   private final QueryExpressionContext<Target> context;
+  private final Function<SkyKey, Boolean> rdepFilter;
 
-  RBuildFilesVisitor(
+  public RBuildFilesVisitor(
       SkyQueryEnvironment env,
       Uniquifier<SkyKey> uniquifier,
       QueryExpressionContext<Target> context,
-      Callback<Target> callback) {
+      Callback<Target> callback,
+      Function<SkyKey, Boolean> rdepFilter) {
     super(uniquifier, callback, ParallelSkyQueryUtils.VISIT_BATCH_SIZE, PROCESS_RESULTS_BATCH_SIZE);
     this.env = env;
     this.context = context;
+    this.rdepFilter = rdepFilter;
   }
 
   @Override
@@ -62,11 +66,7 @@ class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
         if (rdep.equals(EXTERNAL_PACKAGE_KEY)) {
           keysToVisitNext.add(rdep);
         }
-      } else if (!rdep.functionName().equals(SkyFunctions.PACKAGE_LOOKUP)
-          && !rdep.functionName().equals(SkyFunctions.GLOB)) {
-        // Packages may depend on the existence of subpackages, but these edges aren't relevant to
-        // rbuildfiles. They may also depend on files transitively through globs, but these cannot
-        // be included in load statements and so we don't traverse through these either.
+      } else if (rdepFilter.apply(rdep)) {
         keysToVisitNext.add(rdep);
       }
     }

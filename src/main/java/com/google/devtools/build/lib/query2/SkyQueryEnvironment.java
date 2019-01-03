@@ -584,7 +584,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         from, to, targets -> getFwdDeps(targets, context), Target::getLabel);
   }
 
-  private <R> ListenableFuture<R> safeSubmit(Callable<R> callable) {
+  protected final <R> ListenableFuture<R> safeSubmit(Callable<R> callable) {
     try {
       return executor.submit(callable);
     } catch (RejectedExecutionException e) {
@@ -1035,8 +1035,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   /**
    * Returns FileStateValue keys for which there may be relevant (from the perspective of {@link
-   * #getRBuildFiles}) FileStateValues in the graph corresponding to the given
-   * {@code pathFragments}, which are assumed to be file paths.
+   * #getRBuildFiles}) FileStateValues in the graph corresponding to the given {@code
+   * pathFragments}, which are assumed to be file paths.
    *
    * <p>To do this, we emulate the {@link ContainingPackageLookupFunction} logic: for each given
    * file path, we look for the nearest ancestor directory (starting with its parent directory), if
@@ -1045,8 +1045,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    *
    * <p>Note that there may not be nodes in the graph corresponding to the returned SkyKeys.
    */
-  Collection<SkyKey> getFileStateKeysForFileFragments(Iterable<PathFragment> pathFragments)
-      throws InterruptedException {
+  protected Collection<SkyKey> getFileStateKeysForFileFragments(
+      Iterable<PathFragment> pathFragments) throws InterruptedException {
     Set<SkyKey> result = new HashSet<>();
     Multimap<PathFragment, PathFragment> currentToOriginal = ArrayListMultimap.create();
     for (PathFragment pathFragment : pathFragments) {
