@@ -27,36 +27,28 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 
-/** Wrapper for every C++ linking provider. */
+/** Wrapper for every C++ compilation and linking provider. */
 @SkylarkModule(
     name = "cc_info",
-    documented = false,
     category = SkylarkModuleCategory.PROVIDER,
-    doc = "Wrapper for every C++ provider")
+    doc = "A provider containing information for C++ compilation and linking.")
 public interface CcInfoApi extends StructApi {
   String NAME = "CcInfo";
 
   @SkylarkCallable(
       name = "compilation_context",
-      documented = false,
-      allowReturnNones = true,
+      doc = "Returns the <code>CompilationContext</code>",
       structField = true)
   CcCompilationContextApi getCcCompilationContext();
 
   @SkylarkCallable(
       name = "linking_context",
-      documented = false,
-      allowReturnNones = true,
+      doc = "Returns the <code>LinkingContext</code>",
       structField = true)
   CcLinkingInfoApi getCcLinkingInfo();
 
-  /** The provider implementing this can construct the AndroidCcLinkParamsInfo provider. */
-  @SkylarkModule(
-      name = "Provider",
-      doc =
-          "Do not use this module. It is intended for migration purposes only. If you depend on "
-              + "it, you will be broken when it is removed.",
-      documented = false)
+  /** The provider implementing this can construct the CcInfo provider. */
+  @SkylarkModule(name = "Provider", doc = "", documented = false)
   interface Provider extends ProviderApi {
 
     @SkylarkCallable(
@@ -68,7 +60,7 @@ public interface CcInfoApi extends StructApi {
         parameters = {
           @Param(
               name = "compilation_context",
-              doc = "The CcCompilationContext.",
+              doc = "The <code>CompilationContext</code>.",
               positional = false,
               named = true,
               noneable = true,
@@ -79,7 +71,7 @@ public interface CcInfoApi extends StructApi {
               }),
           @Param(
               name = "linking_context",
-              doc = "The CcLinkingContext.",
+              doc = "The <code>LinkingContext</code>.",
               positional = false,
               named = true,
               noneable = true,

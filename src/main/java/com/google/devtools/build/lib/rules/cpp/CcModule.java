@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -517,77 +518,15 @@ public class CcModule
     return new CcSkylarkInfo();
   }
 
-  @SkylarkCallable(
-      name = "merge_cc_infos",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "cc_infos",
-            doc = "cc_infos to be merged.",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class)
-      })
-  public CcInfo mergeCcInfos(SkylarkList<CcInfo> ccInfos) {
-    return CcInfo.merge(ccInfos);
+  @Override
+  public CcInfo mergeCcInfos(SkylarkList<CcInfoApi> ccInfos) throws EvalException {
+    return CcInfo.merge(ccInfos.getContents(CcInfo.class, /* description= */ null));
   }
 
-  @SkylarkCallable(
-      name = "create_compilation_context",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "headers",
-            doc = "the set of headers needed to compile this target",
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            type = Object.class),
-        @Param(
-            name = "system_includes",
-            doc =
-                "set of search paths for header files referenced by angle brackets, i.e. "
-                    + "#include <foo/bar/header.h>. They can be either relative to the exec root "
-                    + "or absolute. Usually passed with -isystem",
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            type = Object.class),
-        @Param(
-            name = "includes",
-            doc =
-                "set of search paths for header files referenced both by angle bracket and quotes."
-                    + "Usually passed with -I",
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            type = Object.class),
-        @Param(
-            name = "quote_includes",
-            doc =
-                "set of search paths for header files referenced by quotes, i.e. "
-                    + "#include \"foo/bar/header.h\". They can be either relative to the exec "
-                    + "root or absolute. Usually passed with -iquote",
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            type = Object.class),
-        @Param(
-            name = "defines",
-            doc = "the set of defines needed to compile this target. Each define is a string",
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            type = Object.class)
-      })
+  @Override
   public CcCompilationContext createCcCompilationContext(
-      Object headers,
-      Object systemIncludes,
-      Object includes,
-      Object quoteIncludes,
-      Object defines)
-      throws EvalException, InterruptedException {
+      Object headers, Object systemIncludes, Object includes, Object quoteIncludes, Object defines)
+      throws EvalException {
     CcCompilationContext.Builder ccCompilationContext =
         new CcCompilationContext.Builder(/* ruleContext= */ null);
     ccCompilationContext.addDeclaredIncludeSrcs(
