@@ -50,7 +50,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
         "s_three = depset(transitive = [s_one, s_two])",
         "s_four = depset(direct = [('1', '3')], transitive = [s_one, s_two])",
         // Depsets with tuple-pairs and non-pair tuples are considered just tuple depsets.
-        "s_five = depset(direct = [(1, 3, 5)], transitive = [s_one, s_two])",
+        "s_five = depset(direct = [('1', '3', '5')], transitive = [s_one, s_two])",
         "s_six = depset(transitive = [s_one, s_five])",
         "s_seven = depset(direct = [('1', '3')], transitive = [s_one, s_five])",
         "s_eight = depset(direct = [(1, 3)], transitive = [s_one, s_two])");
@@ -63,6 +63,16 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     assertThat(get("s_six").getContentType()).isEqualTo(SkylarkType.TUPLE);
     assertThat(get("s_seven").getContentType()).isEqualTo(SkylarkType.TUPLE);
     assertThat(get("s_eight").getContentType()).isEqualTo(SkylarkType.TUPLE);
+
+    assertThat(get("s_four").getSet(Tuple.class))
+        .containsExactly(
+            Tuple.of("1", "3"), Tuple.of("1", "2"), Tuple.of("3", "4"), Tuple.of("5", "6"));
+    assertThat(get("s_five").getSet(Tuple.class))
+        .containsExactly(
+            Tuple.of("1", "3", "5"), Tuple.of("1", "2"), Tuple.of("3", "4"), Tuple.of("5", "6"));
+    assertThat(get("s_eight").getSet(Tuple.class))
+        .containsExactly(
+            Tuple.of(1, 3), Tuple.of("1", "2"), Tuple.of("3", "4"), Tuple.of("5", "6"));
   }
 
   @Test

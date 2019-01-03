@@ -219,15 +219,13 @@ public abstract class SkylarkType implements Serializable {
 
     @Override
     public String toString() {
-      return EvalUtils.getDataTypeNameFromClass(Tuple.class);
+      return "string-pair tuple";
     }
 
     @Override
     protected SkylarkType intersectWith(SkylarkType other) {
-      if (other.equals(this)) {
+      if (other.equals(this) || other.canBeCastTo(Tuple.class)) {
         return this;
-      } else if (other.canBeCastTo(Tuple.class)) {
-        return TUPLE;
       } else {
         return BOTTOM;
       }
