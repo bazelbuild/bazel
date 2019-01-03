@@ -574,6 +574,40 @@ EOF
       || fail "Expected srcs to contain '@b//:x.txt'"
 }
 
+function test_remapping_with_label_relative() {
+  # create foo repository
+  mkdir foo
+  touch foo/WORKSPACE
+  cat >foo/foo.bzl <<EOF
+x = Label("//blah:blah").relative("@a//:baz")
+print(x)
+EOF
+  cat >foo/BUILD <<EOF
+load(":foo.bzl", "x")
+genrule(
+  name = "bar",
+  outs = ["xyz"],
+  cmd = "touch \$(location xyz)",
+  visibility = ["//visibility:public"]
+)
+EOF
+
+  # Main repo assigns @a to @b within @foo
+  mkdir -p main
+  cat >main/WORKSPACE <<EOF
+workspace(name = "main")
+local_repository(name = "foo", path="../foo", repo_mapping = {"@a" : "@b"})
+local_repository(name = "b", path="../b")
+EOF
+  touch main/BUILD
+
+  cd main
+  bazel build --experimental_enable_repo_mapping @foo//:bar \
+      >& "$TEST_log" || fail "Expected build to succeed"
+  expect_log "@b//:baz"
+  expect_not_log "@a//:baz"
+}
+
 function test_workspace_addition_change_aspect() {
   mkdir -p repo_one
   mkdir -p repo_two

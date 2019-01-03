@@ -387,6 +387,7 @@ java_library(
     ],
     deps = [
         ":skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:RepositoryName",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
