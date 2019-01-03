@@ -62,7 +62,6 @@ public final class Bazel {
           com.google.devtools.build.lib.profiler.callcounts.CallcountsModule.class,
           com.google.devtools.build.lib.profiler.memory.AllocationTrackerModule.class,
           com.google.devtools.build.lib.metrics.MetricsModule.class,
-          com.google.devtools.build.lib.bazel.BazelServerLogModule.class,
           BazelBuiltinCommandModule.class);
 
   public static void main(String[] args) {
