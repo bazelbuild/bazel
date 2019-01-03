@@ -1358,9 +1358,9 @@ static string GetMsysBash() {
                         value,          // _Out_opt_   LPBYTE  lpData,
                         &value_length   // _Inout_opt_ LPDWORD lpcbData
                         )) {
-      BAZEL_LOG(ERROR) << "Failed to query DisplayName of HKCU\\" << key << "\\"
-                       << subkey_name;
-      continue;  // try next subkey
+      // This registry key has no DisplayName subkey, so it cannot be MSYS2, or
+      // it cannot be a version of MSYS2 that we are looking for.
+      continue;
     }
 
     if (value_type == REG_SZ &&
@@ -1378,16 +1378,17 @@ static string GetMsysBash() {
               path,               // _Out_opt_   LPBYTE  lpData,
               &path_length        // _Inout_opt_ LPDWORD lpcbData
               )) {
-        BAZEL_LOG(ERROR) << "Failed to query InstallLocation of HKCU\\" << key
-                         << "\\" << subkey_name;
+        // This version of MSYS2 does not seem to create a "InstallLocation"
+        // subkey. Let's ignore this registry key to avoid picking up an MSYS2
+        // version that may be different from what Bazel expects.
         continue;  // try next subkey
       }
 
       if (path_length == 0 || path_type != REG_SZ) {
-        BAZEL_LOG(ERROR) << "Zero-length (" << path_length
-                         << ") install location or wrong type (" << path_type
-                         << ")";
-        continue;  // try next subkey
+        // This version of MSYS2 seem to have recorded an empty installation
+        // location, or the registry key was modified. Either way, let's ignore
+        // this registry key and keep looking at the next subkey.
+        continue;
       }
 
       BAZEL_LOG(INFO) << "Install location of HKCU\\" << key << "\\"
@@ -1395,11 +1396,13 @@ static string GetMsysBash() {
       string path_as_string(path, path + path_length - 1);
       string bash_exe = path_as_string + "\\usr\\bin\\bash.exe";
       if (!blaze_util::PathExists(bash_exe)) {
-        BAZEL_LOG(INFO) << bash_exe.c_str() << " does not exist";
-        continue;  // try next subkey
+        // The supposed bash.exe does not exist. Maybe MSYS2 was deleted but not
+        // uninstalled? We can't tell, but for all we care, this MSYS2 path is
+        // not what we need, so ignore this registry key.
+        continue;
       }
 
-      BAZEL_LOG(INFO) << "Detected msys bash at " << bash_exe.c_str();
+      BAZEL_LOG(INFO) << "Detected MSYS2 Bash at " << bash_exe.c_str();
       return bash_exe;
     }
   }
