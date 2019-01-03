@@ -915,14 +915,6 @@ public class CcModule
             .map(feature -> feature.getName())
             .collect(ImmutableSet.toImmutableSet());
 
-    boolean supportsGoldLinker = featureNames.contains("supports_gold_linker");
-    boolean supportsStartEndLib = featureNames.contains("supports_start_end_lib");
-    boolean supportsInterfaceSharedLibraries =
-        featureNames.contains("supports_interface_shared_libraries");
-    boolean supportsEmbeddedRuntimes = featureNames.contains("supports_embedded_runtimes");
-    boolean supportsFission = featureNames.contains("supports_fission");
-    boolean dynamicLinkingMode = featureNames.contains("dynamic_linking_mode");
-
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (Object actionConfig : actionConfigs) {
       actionConfigBuilder.add(actionConfigFromSkylark((SkylarkInfo) actionConfig));
@@ -1009,10 +1001,8 @@ public class CcModule
               platform,
               featureNames,
               linkerToolPath,
-              // This should be toolchain-based, rather than feature based, because
-              // it controls whether or not to declare the feature at all.
-              supportsEmbeddedRuntimes,
-              supportsInterfaceSharedLibraries)) {
+              /* supportsEmbeddedRuntimes= */ false,
+              /* supportsInterfaceSharedLibraries= */ false)) {
         legacyFeaturesBuilder.add(new Feature(feature));
       }
       legacyFeaturesBuilder.addAll(
@@ -1029,7 +1019,11 @@ public class CcModule
       ImmutableList.Builder<ActionConfig> legacyActionConfigBuilder = ImmutableList.builder();
       for (CToolchain.ActionConfig actionConfig :
           CppActionConfigs.getLegacyActionConfigs(
-              platform, gccToolPath, arToolPath, stripToolPath, supportsEmbeddedRuntimes)) {
+              platform,
+              gccToolPath,
+              arToolPath,
+              stripToolPath,
+              /* supportsInterfaceSharedLibraries= */ false)) {
         legacyActionConfigBuilder.add(new ActionConfig(actionConfig));
       }
       legacyActionConfigBuilder.addAll(actionConfigList);
@@ -1078,13 +1072,13 @@ public class CcModule
         compiler,
         abiVersion,
         abiLibcVersion,
-        supportsGoldLinker,
-        supportsStartEndLib,
-        supportsInterfaceSharedLibraries,
-        supportsEmbeddedRuntimes,
+        /* supportsGoldLinker= */ false,
+        /* supportsStartEndLib= */ false,
+        /* supportsInterfaceSharedLibraries= */ false,
+        /* supportsEmbeddedRuntimes= */ false,
         /* staticRuntimesFilegroup= */ "",
         /* dynamicRuntimesFilegroup= */ "",
-        supportsFission,
+        /* supportsFission */ false,
         /* needsPic= */ false,
         toolPathList,
         /* compilerFlags= */ ImmutableList.of(),
@@ -1106,7 +1100,7 @@ public class CcModule
         convertFromNoneable(builtinSysroot, /* defaultValue= */ ""),
         /* defaultLibcTop= */ "",
         convertFromNoneable(ccTargetOs, /* defaultValue= */ ""),
-        dynamicLinkingMode,
+        /* hasDynamicLinkingModeFlags= */ false,
         cToolchain.build().toString());
   }
 

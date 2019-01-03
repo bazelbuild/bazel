@@ -4507,52 +4507,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcToolchainConfigInfooDynamicLinkingModeEnabledWithFeature() throws Exception {
-    loadCcToolchainConfigLib();
-    scratch.file(
-        "foo/crosstool.bzl",
-        "load('//tools/cpp:cc_toolchain_config_lib.bzl',",
-        "        'feature')",
-        "",
-        "def _impl(ctx):",
-        "    return cc_common.create_cc_toolchain_config_info(",
-        "                ctx = ctx,",
-        "                toolchain_identifier = 'toolchain',",
-        "                host_system_name = 'host',",
-        "                target_system_name = 'target',",
-        "                target_cpu = 'cpu',",
-        "                target_libc = 'libc',",
-        "                compiler = 'compiler',",
-        "                abi_libc_version = 'abi_libc',",
-        "                abi_version = 'abi',",
-        "                features = [feature(name = 'dynamic_linking_mode')],",
-        "        )",
-        "cc_toolchain_config_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {},",
-        "    provides = [CcToolchainConfigInfo], ",
-        ")");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
-        "cc_toolchain_alias(name='alias')",
-        "cc_toolchain_config_rule(name='r')");
-
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
-    ConfiguredTarget target = getConfiguredTarget("//foo:r");
-    assertThat(target).isNotNull();
-    CcToolchainConfigInfo ccToolchainConfigInfo =
-        (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
-    assertThat(ccToolchainConfigInfo).isNotNull();
-
-    // If a feature named 'dynamic_linking_mode' is passed to the create_cc_toolchain_config_info
-    // method, the corresponding CToolchain should have an entry in its linking_mode_flags list
-    // that has dynamic linking mode.
-    assertThat(ccToolchainConfigInfo.hasDynamicLinkingModeFlags()).isTrue();
-  }
-
-  @Test
   public void testGetLegacyCcFlagsMakeVariable() throws Exception {
     AnalysisMock.get()
         .ccSupport()
