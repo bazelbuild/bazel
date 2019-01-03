@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /** Options used to configure BuildEventStreamer and its BuildEventTransports. */
@@ -31,6 +32,15 @@ public class BuildEventStreamOptions extends OptionsBase {
       help =
           "If non-empty, write a textual representation of the build event protocol to that file")
   public String buildEventTextFile;
+
+  @Option(
+      name = "keep_backend_build_event_connections_alive",
+      defaultValue = "true",
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, keep connections to build event backend connections alive across builds.")
+  public boolean keepBackendConnections;
 
   @Option(
       name = "build_event_binary_file",

@@ -63,6 +63,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   private OutErr outErr;
   private BuildEventStreamer streamer;
+  private boolean keepClient;
 
   /** Whether an error in the Build Event Service upload causes the build to fail. */
   protected boolean errorsShouldFailTheBuild() {
@@ -95,6 +96,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       return;
     }
 
+    this.keepClient = false;
     streamer = tryCreateStreamer(commandEnvironment);
     if (streamer != null) {
       commandEnvironment.getReporter().addHandler(streamer);
@@ -137,6 +139,9 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   @Override
   public void afterCommand() {
+    if (!keepClient) {
+      clearBesClient();
+    }
     this.outErr = null;
     this.streamer = null;
   }
@@ -156,8 +161,13 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
             env.getReporter(),
             env.getBlazeModuleEnvironment(),
             new AbruptExitException(message, ExitCode.PUBLISH_ERROR, e));
+        clearBesClient();
         return null;
       }
+
+      BuildEventStreamOptions buildEventStreamOptions =
+          env.getOptions().getOptions(BuildEventStreamOptions.class);
+      this.keepClient = buildEventStreamOptions.keepBackendConnections;
 
       ImmutableSet<BuildEventTransport> bepTransports =
           BuildEventTransportFactory.createFromOptions(env, env.getBlazeModuleEnvironment()::exit);
@@ -170,8 +180,6 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
       ImmutableSet<BuildEventTransport> transports = transportsBuilder.build();
       if (!transports.isEmpty()) {
-        BuildEventStreamOptions buildEventStreamOptions =
-            env.getOptions().getOptions(BuildEventStreamOptions.class);
         return new BuildEventStreamer(transports, env.getReporter(), buildEventStreamOptions);
       }
     } catch (Exception e) {
@@ -201,6 +209,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
     if (isNullOrEmpty(besOptions.besBackend)) {
       logger.fine("BuildEventServiceTransport is disabled.");
+      clearBesClient();
       return null;
     } else {
       logger.fine(
@@ -226,7 +235,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
                         besOptions.besBackend, env.getBuildRequestId(), invocationId)));
       }
 
-      BuildEventServiceClient client = createBesClient(besOptions, authTlsOptions);
+      BuildEventServiceClient client = getBesClient(besOptions, authTlsOptions);
       BuildEventArtifactUploader artifactUploader =
           env.getRuntime()
               .getBuildEventArtifactUploaderFactoryMap()
@@ -272,9 +281,11 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   protected abstract Class<T> optionsClass();
 
-  protected abstract BuildEventServiceClient createBesClient(
+  protected abstract BuildEventServiceClient getBesClient(
       T besOptions, AuthAndTLSOptions authAndTLSOptions)
       throws IOException, OptionsParsingException;
+
+  protected abstract void clearBesClient();
 
   protected abstract Set<String> whitelistedCommands();
 

@@ -423,11 +423,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         logError(e, "BES upload failed due to a RuntimeException. This is a bug.");
         throw e;
       } finally {
-        try {
-          besClient.shutdown();
-        } finally {
-          localFileUploader.shutdown();
-        }
+        localFileUploader.shutdown();
       }
     }
 
