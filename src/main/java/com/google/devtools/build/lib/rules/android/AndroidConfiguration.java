@@ -77,6 +77,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     }
   }
 
+  /** Converter for {@link ManifestMergerOrder} */
+  public static final class ManifestMergerOrderConverter
+      extends EnumConverter<ManifestMergerOrder> {
+    public ManifestMergerOrderConverter() {
+      super(ManifestMergerOrder.class, "android manifest merger order");
+    }
+  }
+
   /** Converter for {@link AndroidAaptVersion} */
   public static final class AndroidAaptConverter extends EnumConverter<AndroidAaptVersion> {
     public AndroidAaptConverter() {
@@ -169,6 +177,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       }
       return null;
     }
+  }
+
+  /** Orders for merging android manifests. */
+  public enum ManifestMergerOrder {
+    /** Manifests are sorted alphabetically by exec path. */
+    ALPHABETICAL,
+    /** Library manifests come before the manifests of their dependencies. */
+    DEPENDENCY;
   }
 
   /** Types of android manifest mergers. */
@@ -668,6 +684,22 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public AndroidManifestMerger manifestMerger;
 
     @Option(
+        name = "android_manifest_merger_order",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.ACTION_COMMAND_LINES,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "alphabetical",
+        converter = ManifestMergerOrderConverter.class,
+        help =
+            "Sets the order of manifests passed to the manifest merger for Android binaries. "
+                + "ALPHABETICAL means manifests are sorted by path relative to the execroot. "
+                + "DEPENDENCY means manifests are ordered with each library's manifest coming "
+                + "before the manifests of its dependencies.")
+    public ManifestMergerOrder manifestMergerOrder;
+
+    @Option(
       name = "android_aapt",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -930,6 +962,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       host.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
       host.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
       host.manifestMerger = manifestMerger;
+      host.manifestMergerOrder = manifestMergerOrder;
       host.androidAaptVersion = androidAaptVersion;
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
@@ -978,6 +1011,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean useAndroidResourceShrinking;
   private final boolean useAndroidResourceCycleShrinking;
   private final AndroidManifestMerger manifestMerger;
+  private final ManifestMergerOrder manifestMergerOrder;
   private final ApkSigningMethod apkSigningMethod;
   private final boolean useSingleJarApkBuilder;
   private final boolean compressJavaResources;
@@ -1023,6 +1057,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         options.useAndroidResourceShrinking || options.useExperimentalAndroidResourceShrinking;
     this.useAndroidResourceCycleShrinking = options.useAndroidResourceCycleShrinking;
     this.manifestMerger = options.manifestMerger;
+    this.manifestMergerOrder = options.manifestMergerOrder;
     this.apkSigningMethod = options.apkSigningMethod;
     this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
@@ -1179,6 +1214,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   public AndroidManifestMerger getManifestMerger() {
     return manifestMerger;
+  }
+
+  public ManifestMergerOrder getManifestMergerOrder() {
+    return manifestMergerOrder;
   }
 
   public ApkSigningMethod getApkSigningMethod() {
