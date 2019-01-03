@@ -7,6 +7,7 @@ filegroup(
         "//src/test/shell/bazel/apple:srcs",
         "//src/test/shell/bazel/remote:srcs",
         "//src/test/shell/bazel/testdata:srcs",
+        "//tools/cmd_line_differ:srcs",
     ],
     visibility = ["//src/test/shell:__pkg__"],
 )

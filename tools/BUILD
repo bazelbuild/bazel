@@ -72,6 +72,7 @@ test_suite(
         "//tools/android:all_windows_tests",
         "//tools/bash:all_windows_tests",
         "//tools/build_defs:all_windows_tests",
+        "//tools/cmd_line_differ:cmd_line_differ_test",
         "//tools/cpp/runfiles:all_windows_tests",
         "//tools/java:all_windows_tests",
         "//tools/jdk:all_windows_tests",

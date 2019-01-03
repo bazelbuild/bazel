@@ -19,6 +19,7 @@ platforms:
     - "//src/tools/workspacelog/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "//tools/cmd_line_differ/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
@@ -42,6 +43,7 @@ platforms:
     - "//src/tools/workspacelog/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "//tools/cmd_line_differ/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
@@ -65,6 +67,7 @@ platforms:
     - "//src/tools/workspacelog/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "//tools/cmd_line_differ/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
@@ -86,6 +89,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//src/tools/workspacelog/..."
     - "//third_party/ijar/..."
+    - "//tools/cmd_line_differ/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # We can't run Android tests without an installed Android SDK / NDK.
@@ -147,6 +151,7 @@ platforms:
     - "//src/tools/workspacelog/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "//tools/cmd_line_differ/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
@@ -170,6 +175,7 @@ platforms:
     - "//src/tools/workspacelog/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "//tools/cmd_line_differ/..."
     # Disable Slow Tests
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
@@ -199,6 +205,7 @@ platforms:
     - "//src/tools/workspacelog/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    - "//tools/cmd_line_differ/..."
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
     # The below tests have been disabled because they are too slow on macOS.
