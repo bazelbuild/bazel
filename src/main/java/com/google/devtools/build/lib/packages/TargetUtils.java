@@ -80,8 +80,7 @@ public final class TargetUtils {
    * Returns true iff {@code target} is a {@code test_suite} rule.
    */
   public static boolean isTestSuiteRule(Target target) {
-    return target instanceof Rule &&
-        isTestSuiteRuleName(((Rule) target).getRuleClass());
+    return target instanceof Rule && isTestSuiteRuleName(((Rule) target).getRuleClass());
   }
 
   /**
@@ -129,8 +128,7 @@ public final class TargetUtils {
    * Wraps the above calls into one generic check safely applicable to any rule.
    */
   public static boolean isTestRuleAndRunsLocally(Rule rule) {
-    return isTestOrTestSuiteRule(rule) &&
-        (isLocalTestRule(rule) || isExclusiveTestRule(rule));
+    return isTestOrTestSuiteRule(rule) && (isLocalTestRule(rule) || isExclusiveTestRule(rule));
   }
 
   /**
@@ -270,7 +268,7 @@ public final class TargetUtils {
     return index != -1 ? ruleClass.substring(0, index) : ruleClass;
   }
 
-  private static boolean isExplicitDependency(Rule rule, Label label) throws InterruptedException {
+  private static boolean isExplicitDependency(Rule rule, Label label) {
     if (rule.getVisibility().getDependencyLabels().contains(label)) {
       return true;
     }
@@ -322,7 +320,7 @@ public final class TargetUtils {
    * Target} target did not exist, due to {@link NoSuchThingException} e.
    */
   public static String formatMissingEdge(
-      @Nullable Target target, Label label, NoSuchThingException e) throws InterruptedException {
+      @Nullable Target target, Label label, NoSuchThingException e) {
     // instanceof returns false if target is null (which is exploited here)
     if (target instanceof Rule) {
       Rule rule = (Rule) target;

@@ -62,9 +62,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
             "label '%s' does not refer to a package group", label)));
   }
 
-  @Override
-  protected void missingEdgeHook(Target from, Label to, NoSuchThingException e)
-      throws InterruptedException {
+  private void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
     if (e instanceof NoSuchTargetException) {
       NoSuchTargetException nste = (NoSuchTargetException) e;
       if (to.equals(nste.getLabel())) {

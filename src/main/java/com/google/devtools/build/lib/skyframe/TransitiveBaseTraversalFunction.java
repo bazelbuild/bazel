@@ -84,8 +84,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
       EventHandler eventHandler,
       TargetAndErrorIfAny targetAndErrorIfAny,
       Iterable<Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
-          depEntries)
-      throws InterruptedException;
+          depEntries);
 
   /**
    * Returns a {@link SkyValue} based on the target and any errors it has, and the values

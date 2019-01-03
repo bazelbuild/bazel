@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -217,13 +216,6 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
           Event.error(
               TargetUtils.getLocationMaybe(node.getTarget()),
               String.format("label '%s' does not refer to a package group", label)));
-    }
-
-    @Override
-    protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
-      eventHandler.handle(
-          Event.error(
-              "missing dependency from " + from.getLabel() + " to " + to + ": " + e.getMessage()));
     }
 
     @Override

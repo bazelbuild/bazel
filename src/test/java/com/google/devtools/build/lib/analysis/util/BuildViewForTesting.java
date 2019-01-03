@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -299,13 +298,6 @@ public class BuildViewForTesting {
       @Override
       protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
         throw new RuntimeException("bad package group on " + label + " during testing unexpected");
-      }
-
-      @Override
-      protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
-        throw new RuntimeException(
-            "missing dependency from " + from.getLabel() + " to " + to + ": " + e.getMessage(),
-            e);
       }
 
       @Override

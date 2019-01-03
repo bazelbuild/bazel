@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
@@ -871,16 +870,6 @@ public abstract class DependencyResolver {
    */
   protected abstract void invalidPackageGroupReferenceHook(TargetAndConfiguration node,
       Label label);
-
-  /**
-   * Hook for the error case where a dependency is missing.
-   *
-   * @param from the target referencing the missing target
-   * @param to the missing target
-   * @param e the exception that was thrown, e.g., by {@link #getTargets}
-   */
-  protected abstract void missingEdgeHook(Target from, Label to, NoSuchThingException e)
-      throws InterruptedException;
 
   /**
    * Returns the targets for the given labels.

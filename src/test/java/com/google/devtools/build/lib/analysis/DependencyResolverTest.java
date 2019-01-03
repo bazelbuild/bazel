@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -70,11 +69,6 @@ public class DependencyResolverTest extends AnalysisTestCase {
           protected void invalidPackageGroupReferenceHook(
               TargetAndConfiguration node, Label label) {
             throw new IllegalStateException();
-          }
-
-          @Override
-          protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
-            throw new IllegalStateException(e);
           }
 
           @Override
