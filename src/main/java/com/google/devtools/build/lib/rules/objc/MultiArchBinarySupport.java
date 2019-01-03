@@ -58,19 +58,9 @@ public class MultiArchBinarySupport {
    */
   static ImmutableMap<BuildConfiguration, CcToolchainProvider> getChildConfigurationsAndToolchains(
       RuleContext ruleContext) {
-    // This is currently a hack to obtain all child configurations regardless of the attribute
-    // values of this rule -- this rule does not currently use the actual info provided by
-    // this attribute. b/28403953 tracks cc toolchain usage.
-    // We look at two attribute names because native Java rules use implicit ($) attributes and the
-    // Skylark rules use a late-bound one. This method is called from both kinds of rules, thus, we
-    // need to be prepared for both attribute names.
-    String attributeName =
-        ruleContext.attributes().has("$" + ObjcRuleClasses.CHILD_CONFIG_ATTR)
-            ? "$" + ObjcRuleClasses.CHILD_CONFIG_ATTR
-            : ":" + ObjcRuleClasses.CHILD_CONFIG_ATTR;
     ImmutableListMultimap<BuildConfiguration, ToolchainInfo> configToProvider =
         ruleContext.getPrerequisitesByConfiguration(
-            attributeName, Mode.SPLIT, ToolchainInfo.PROVIDER);
+            ObjcRuleClasses.CHILD_CONFIG_ATTR, Mode.SPLIT, ToolchainInfo.PROVIDER);
 
     ImmutableMap.Builder<BuildConfiguration, CcToolchainProvider> result = ImmutableMap.builder();
     for (BuildConfiguration config : configToProvider.keySet()) {
