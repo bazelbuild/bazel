@@ -12,6 +12,7 @@ filegroup(
         "//tools/buildstamp:srcs",
         "//tools/build_defs:srcs",
         "//tools/build_rules:srcs",
+        "//tools/cmd_line_differ:srcs",
         "//tools/coverage:srcs",
         "//tools/java:srcs",
         "//tools/jdk:srcs",
