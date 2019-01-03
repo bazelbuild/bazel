@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * A ConfiguredTarget for <code>cc_binary</code> rules.
@@ -614,11 +613,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder =
         new CcCompilationOutputs.Builder()
             .addPicObjectFiles(ccCompilationOutputs.getObjectFiles(/* usePic= */ true))
-            .addObjectFiles(ccCompilationOutputs.getObjectFiles(/* usePic= */ false));
-    for (Map.Entry<Artifact, Artifact> entry :
-        ccCompilationOutputs.getLtoBitcodeFiles().entrySet()) {
-      ccCompilationOutputsBuilder.addLtoBitcodeFile(entry.getKey(), entry.getValue());
-    }
+            .addObjectFiles(ccCompilationOutputs.getObjectFiles(/* usePic= */ false))
+            .addLtoCompilationContext(ccCompilationOutputs.getLtoCompilationContext());
     CcCompilationOutputs ccCompilationOutputsWithOnlyObjects = ccCompilationOutputsBuilder.build();
     CcLinkingHelper ccLinkingHelper =
         new CcLinkingHelper(

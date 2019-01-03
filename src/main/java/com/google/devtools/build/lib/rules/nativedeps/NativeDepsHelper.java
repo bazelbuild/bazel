@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINK
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -46,6 +45,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LtoCompilationContext;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -247,10 +247,10 @@ public abstract class NativeDepsHelper {
           toolchain.getStaticRuntimeLinkMiddleman(ruleContext, featureConfiguration),
           toolchain.getStaticRuntimeLinkInputs(ruleContext, featureConfiguration));
     }
-    ImmutableMap.Builder<Artifact, Artifact> ltoBitcodeFilesMap = new ImmutableMap.Builder<>();
+    LtoCompilationContext.Builder ltoCompilationContext = new LtoCompilationContext.Builder();
     for (LibraryToLink lib : linkerInputs) {
-      if (!lib.getLtoBitcodeFiles().isEmpty()) {
-        ltoBitcodeFilesMap.putAll(lib.getLtoBitcodeFiles());
+      if (!lib.getLtoCompilationContext().isEmpty()) {
+        ltoCompilationContext.addAll(lib.getLtoCompilationContext());
       }
     }
 
@@ -269,7 +269,7 @@ public abstract class NativeDepsHelper {
         .addLinkopts(linkopts)
         .setNativeDeps(true)
         .addLinkstamps(linkstamps)
-        .addLtoBitcodeFiles(ltoBitcodeFilesMap.build())
+        .addLtoCompilationContext(ltoCompilationContext.build())
         .addNonCodeInputs(nonCodeInputs);
 
     if (builder.hasLtoBitcodeInputs() && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {

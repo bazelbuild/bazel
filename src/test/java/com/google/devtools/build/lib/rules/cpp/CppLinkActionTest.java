@@ -865,7 +865,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     ArtifactCategory.STATIC_LIBRARY,
                     null,
                     ImmutableList.<Artifact>of(testTreeArtifact),
-                    ImmutableMap.<Artifact, Artifact>of(),
+                    new LtoCompilationContext(ImmutableMap.of()),
                     null,
                     /* mustKeepDebug= */ false));
 
