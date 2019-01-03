@@ -19,7 +19,10 @@ java_library(
         "Order.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:crash-utils",
+        "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

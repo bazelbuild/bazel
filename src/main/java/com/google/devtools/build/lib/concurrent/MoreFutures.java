@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.concurrent;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -96,5 +97,32 @@ public class MoreFutures {
         },
         directExecutor());
     return combinedFuture;
+  }
+
+  /**
+   * Returns the result of {@code future}. If it threw an {@link InterruptedException} (wrapped in
+   * an {@link ExecutionException}), throws that underlying {@link InterruptedException}. Crashes on
+   * all other exceptions.
+   */
+  public static <R> R waitForFutureAndGet(Future<R> future) throws InterruptedException {
+    try {
+      return future.get();
+    } catch (ExecutionException e) {
+      Throwables.propagateIfPossible(e.getCause(), InterruptedException.class);
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public static <R, E1 extends Exception, E2 extends Exception>
+      R waitForFutureAndGetWithCheckedException(
+          Future<R> future, Class<E1> exceptionClass1, Class<E2> exceptionClass2)
+          throws E1, E2, InterruptedException {
+    try {
+      return future.get();
+    } catch (ExecutionException e) {
+      Throwables.propagateIfPossible(e.getCause(), exceptionClass1, exceptionClass2);
+      Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      throw new IllegalStateException(e);
+    }
   }
 }
