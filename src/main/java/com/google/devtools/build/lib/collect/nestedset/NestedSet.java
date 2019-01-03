@@ -25,7 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.CustomExitCodePublisher;
+import com.google.devtools.build.lib.util.BazelCrashUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.ByteString;
 import java.util.AbstractCollection;
@@ -199,11 +199,10 @@ public final class NestedSet<E> implements Iterable<E> {
         return MoreFutures.waitForFutureAndGet((ListenableFuture<Object[]>) children);
       } catch (InterruptedException e) {
         System.err.println(
-            "An interrupted exception occurred during nested set deserialization,"
+            "An interrupted exception occurred during nested set deserialization, "
                 + "exiting abruptly.");
-        CustomExitCodePublisher.maybeWriteExitStatusFile(ExitCode.INTERRUPTED.getNumericExitCode());
-        Runtime.getRuntime().halt(ExitCode.INTERRUPTED.getNumericExitCode());
-        throw new IllegalStateException("Server should have shutdown.", e);
+        BazelCrashUtils.halt(e, ExitCode.INTERRUPTED.getNumericExitCode());
+        throw new IllegalStateException("Server should have shut down.", e);
       }
     } else {
       return children;
