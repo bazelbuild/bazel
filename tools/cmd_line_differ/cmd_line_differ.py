@@ -30,6 +30,7 @@ bazel run //tools/cmd_line_differ:cmd_line_differ -- \
 --input_type=textproto
 """
 
+import os
 from absl import app
 from absl import flags
 from google.protobuf import text_format
@@ -104,11 +105,22 @@ def _aquery_diff(before, after):
     print("No difference")
 
 
+def to_absolute_path(path):
+  path = os.path.expanduser(path)
+  if os.path.isabs(path):
+    return path
+  else:
+    if os.environ["BUILD_WORKING_DIRECTORY"]:
+      return os.path.join(os.environ["BUILD_WORKING_DIRECTORY"], path)
+    else:
+      return path
+
+
 def main(unused_argv):
 
-  before_file = flags.FLAGS.before
-  after_file = flags.FLAGS.after
-  input_type = flags.FLAGS.input_type
+  before_file = to_absolute_path(flags.FLAGS.before)
+  after_file = to_absolute_path(flags.FLAGS.after)
+  input_type = to_absolute_path(flags.FLAGS.input_type)
 
   before_proto = analysis_pb2.ActionGraphContainer()
   after_proto = analysis_pb2.ActionGraphContainer()
