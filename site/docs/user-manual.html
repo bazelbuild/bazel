@@ -934,7 +934,7 @@ cores directly from system configuration and will assume 1.0 I/O resource.
 <p>
   When this option is enabled, Bazel will discard the analysis cache
   right before execution starts, thus freeing up additional memory
-  (around 10%) for the <a href="#execution-phase">execution phase</a>.
+  (around 10%) for the <a href="guide.html#execution-phase">execution phase</a>.
   The drawback is that further incremental builds will be slower.
 </p>
 
@@ -1613,7 +1613,7 @@ echo "STABLE_USER_NAME $USER"
 <p>
   When using Bazel for release builds, the same issues arise as for
   other scripts that perform a build, so you should read
-  the <a href='#scripting'>scripting</a> section of this manual.
+  the <a href='guide.html#scripting'>scripting</a> section of this manual.
   In particular, the following options are strongly recommended:
 </p>
 <ul>
@@ -1968,7 +1968,7 @@ Examples:
 <h4 id="other_options_for_bazel_test">Other options for <code>bazel test</code></h4>
 <p>
   The syntax and the remaining options are exactly like
-  <a href='#build'>bazel build</a>.
+  <a href='guide.html#build'>bazel build</a>.
 </p>
 
 
@@ -2085,8 +2085,8 @@ Examples:
   Bazel includes a query language for asking questions about the
   dependency graph used during the build.  The query language is used
   by two commands: query and cquery. The major difference between the
-  two commands is that query runs after the <a href='#loading-phase'>loading phase</a>
-  and cquery runs after the <a href='#analysis-phase'>analysis phase</a>. These tools are an
+  two commands is that query runs after the <a href='guide.html#loading-phase'>loading phase</a>
+  and cquery runs after the <a href='guide.html#analysis-phase'>analysis phase</a>. These tools are an
   invaluable aid to many software engineering tasks.
 </p>
 <p>
@@ -2158,7 +2158,7 @@ Examples:
 <p>
   The <code>help</code> command provides on-line help.  By default, it
   shows a summary of available commands and help topics, as shown in
-  the <a href='#overview'><i>Bazel overview</i></a> section above.
+  the <a href='guide.html#overview'><i>Bazel overview</i></a> section above.
   Specifying an argument displays detailed help for a particular
   topic.  Most topics are Bazel commands, e.g. <code>build</code>
   or <code>query</code>, but there are some additional help topics
@@ -2176,7 +2176,7 @@ Examples:
 <h3 id='shutdown'>The <code>shutdown</code> command</h3>
 
 <p>
-  Bazel server processes (see <a href='#client/server'>Client/server
+  Bazel server processes (see <a href='guide.html#client/server'>Client/server
   implementation</a>) may be stopped by using the <code>shutdown</code>
   command.  This command causes the Bazel server to exit as soon as it
   becomes idle (i.e. after the completion of any builds or other
@@ -2529,10 +2529,10 @@ adb -s deadbeef install ...
 </p>
 <ul>
   <li><code id='flag--dump'>--dump=text</code> displays all gathered data in a
-  <a href='#dump-text-format'>human-readable format</a></li>
+  <a href='guide.html#dump-text-format'>human-readable format</a></li>
   <li><code>--dump=raw</code> displays all gathered data in a
-  <a href='#dump-raw-format'>script-friendly format</a></li>
-  <li><code id='flag--html'>--html</code> generates an <a href='#dump-html-format'>HTML file</a> visualizing the
+  <a href='guide.html#dump-raw-format'>script-friendly format</a></li>
+  <li><code id='flag--html'>--html</code> generates an <a href='guide.html#dump-html-format'>HTML file</a> visualizing the
   actions and rules executed in the build, as well as summary statistics for the build
     <ul>
       <li><code id='flag--html_details'>--html_details</code> adds more fine-grained
@@ -2557,7 +2557,7 @@ adb -s deadbeef install ...
 </ul>
 
 <p>
-  See the section on <a href='#profiling'>Troubleshooting performance by profiling</a> for
+  See the section on <a href='guide.html#profiling'>Troubleshooting performance by profiling</a> for
   format details and usage help.
 
 </p>
@@ -2738,7 +2738,7 @@ adb -s deadbeef install ...
 
 <p>
   Batch mode causes Bazel to not use the standard client/server mode described
-  <a href='#client/server'>above</a>, instead running a bazel java process for a
+  <a href='guide.html#client/server'>above</a>, instead running a bazel java process for a
   single command, which has been used for more predictable semantics with respect
   to signal handling, job control, and environment variable inheritance, and is
   necessary for running bazel in a chroot jail.
