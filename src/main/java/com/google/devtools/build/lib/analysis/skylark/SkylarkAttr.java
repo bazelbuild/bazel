@@ -240,6 +240,15 @@ public final class SkylarkAttr implements SkylarkAttrApi {
 
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
       Object trans = arguments.get(CONFIGURATION_ARG);
+      boolean isSplit =
+          trans instanceof SplitTransition
+              || trans instanceof SplitTransitionProvider
+              || trans instanceof StarlarkDefinedConfigTransition;
+      if (isSplit && defaultValue instanceof SkylarkLateBoundDefault) {
+        throw new EvalException(
+            ast.getLocation(),
+            "late-bound attributes must not have a split configuration transition");
+      }
       if (trans.equals("data")) {
         // This used to apply the "disable LIPO" (a.k.a. "data") transition. But now that LIPO is
         // turned down this is a noop. Still, there are cfg = "data"' references in the depot. So

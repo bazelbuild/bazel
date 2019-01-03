@@ -2615,6 +2615,86 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testConfigurationField_SkylarkSplitTransitionProhibited() throws Exception {
+    scratch.file(
+        "tools/whitelists/function_transition_whitelist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_whitelist',",
+        "    packages = [",
+        "        '//...',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "test/rule.bzl",
+        "def _foo_impl(ctx):",
+        "  return struct()",
+        "",
+        "def _foo_transition_impl(settings):",
+        "  return {'t1': {}, 't2': {}}",
+        "foo_transition = transition(implementation=_foo_transition_impl, inputs=[], outputs=[])",
+        "",
+        "foo = rule(",
+        "  implementation = _foo_impl,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist'),",
+        "    '_attr': attr.label(",
+        "        cfg = foo_transition,",
+        "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+
+    scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
+
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:foo");
+    assertContainsEvent("late-bound attributes must not have a split configuration transition");
+  }
+
+  @Test
+  public void testConfigurationField_NativeSplitTransitionProviderProhibited() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _foo_impl(ctx):",
+        "  return struct()",
+        "",
+        "foo = rule(",
+        "  implementation = _foo_impl,",
+        "  attrs = {",
+        "    '_attr': attr.label(",
+        "        cfg = apple_common.multi_arch_split,",
+        "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+
+    scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:foo");
+    assertContainsEvent("late-bound attributes must not have a split configuration transition");
+  }
+
+  @Test
+  public void testConfigurationField_NativeSplitTransitionProhibited() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _foo_impl(ctx):",
+        "  return struct()",
+        "",
+        "foo = rule(",
+        "  implementation = _foo_impl,",
+        "  attrs = {",
+        "    '_attr': attr.label(",
+        "        cfg = android_common.multi_cpu_configuration,",
+        "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+
+    scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:foo");
+    assertContainsEvent("late-bound attributes must not have a split configuration transition");
+  }
+
+  @Test
   public void testConfigurationField_invalidFragment() throws Exception {
     scratch.file("test/main_rule.bzl",
         "def _impl(ctx):",
