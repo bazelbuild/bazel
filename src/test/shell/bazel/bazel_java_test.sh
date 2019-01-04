@@ -216,6 +216,37 @@ function test_build_hello_world_with_remote_embedded_tool_targets() {
     &> $TEST_log || fail "build failed"
 }
 
+# This test verifies that jars named by deploy_env are excluded from the final
+# deploy jar.
+function test_build_with_deploy_env() {
+  write_hello_library_files
+
+  # Overwrite java/main to add deploy_env customizations and remove the
+  # compile-time hello_library dependency.
+  cat >java/main/BUILD <<EOF
+java_binary(name = 'env', runtime_deps = ['//java/hello_library'])
+java_binary(name = 'main',
+    runtime_deps = ['//java/hello_library'],
+    srcs = ['Main.java'],
+    main_class = 'main.Main',
+    deploy_env = ['env'])
+EOF
+
+  cat >java/main/Main.java <<EOF
+package main;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello, World!");
+  }
+}
+EOF
+
+  bazel build //java/main:main_deploy.jar &> $TEST_log || fail "build failed"
+  zipinfo -1 ${PRODUCT_NAME}-bin/java/main/main_deploy.jar &> $TEST_log \
+     || fail "Failed to zipinfo ${PRODUCT_NAME}-bin/java/main/main_deploy.jar"
+  expect_not_log "hello_library/HelloLibrary.class"
+}
+
 function test_build_with_sourcepath() {
   mkdir -p g
   cat >g/A.java <<'EOF'
