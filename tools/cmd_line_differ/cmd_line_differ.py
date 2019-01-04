@@ -120,7 +120,7 @@ def main(unused_argv):
 
   before_file = to_absolute_path(flags.FLAGS.before)
   after_file = to_absolute_path(flags.FLAGS.after)
-  input_type = to_absolute_path(flags.FLAGS.input_type)
+  input_type = flags.FLAGS.input_type
 
   before_proto = analysis_pb2.ActionGraphContainer()
   after_proto = analysis_pb2.ActionGraphContainer()
