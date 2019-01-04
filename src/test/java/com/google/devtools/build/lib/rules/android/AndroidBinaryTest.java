@@ -4532,6 +4532,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void androidManifestMergerOrderAlphabetical_MergeesSortedByExecPath() throws Exception {
     // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
+    // This is necessary because the transition would change the configuration directory, causing
+    // the manifest paths in the assertion not to match.
+    // TODO(mstaib): Get the library manifests in the same configuration as the binary gets them.
     useConfiguration(
         "--fat_apk_cpu=", "--android_cpu=", "--android_manifest_merger_order=alphabetical");
     scratch.overwriteFile(
@@ -4600,6 +4603,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void androidManifestMergerOrderDependencies_MergeesSortedByDepOrder() throws Exception {
     // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
+    // This is necessary because the transition would change the configuration directory, causing
+    // the manifest paths in the assertion not to match.
+    // TODO(mstaib): Get the library manifests in the same configuration as the binary gets them.
     useConfiguration(
         "--fat_apk_cpu=", "--android_cpu=", "--android_manifest_merger_order=dependency");
     scratch.overwriteFile(
