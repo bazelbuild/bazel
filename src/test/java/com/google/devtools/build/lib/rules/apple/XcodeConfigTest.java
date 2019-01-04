@@ -682,7 +682,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
         "    version = '5.1.2',",
         ")");
 
-    useConfiguration("--apple_bitcode=embedded", "--apple_split_cpu=arm64");
+    useConfiguration("--apple_platform_type=ios", "--apple_bitcode=embedded",
+        "--apple_split_cpu=arm64");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");

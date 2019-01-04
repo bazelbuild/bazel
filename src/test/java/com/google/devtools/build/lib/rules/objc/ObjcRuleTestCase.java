@@ -1127,16 +1127,18 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     switch (codeCoverageMode) {
       case NONE:
-        useConfiguration("--compilation_mode=" + compilationModeFlag(mode));
+        useConfiguration("--apple_platform_type=ios",
+            "--compilation_mode=" + compilationModeFlag(mode));
         break;
       case GCOV:
         allExpectedCoptsBuilder.addAll(CompilationSupport.CLANG_GCOV_COVERAGE_FLAGS);
-        useConfiguration("--collect_code_coverage",
+        useConfiguration("--apple_platform_type=ios", "--collect_code_coverage",
             "--compilation_mode=" + compilationModeFlag(mode));
         break;
       case LLVMCOV:
         allExpectedCoptsBuilder.addAll(CompilationSupport.CLANG_LLVM_COVERAGE_FLAGS);
-        useConfiguration("--collect_code_coverage", "--experimental_use_llvm_covmap",
+        useConfiguration("--apple_platform_type=ios",
+            "--collect_code_coverage", "--experimental_use_llvm_covmap",
             "--compilation_mode=" + compilationModeFlag(mode));
         break;
     }
@@ -1155,7 +1157,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
         .addAll(ObjcConfiguration.DBG_COPTS);
 
-    useConfiguration("--compilation_mode=dbg", "--objc_debug_with_GLIBCXX=false");
+    useConfiguration("--apple_platform_type=ios", "--compilation_mode=dbg",
+        "--objc_debug_with_GLIBCXX=false");
     scratch.file("x/a.m");
     ruleType.scratchTarget(scratch,
         "srcs", "['a.m']");
@@ -1754,8 +1757,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   protected void checkAppleSdkIphoneosPlatformEnv(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(scratch);
-    useConfiguration(
-        "--cpu=ios_arm64");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_arm64");
 
     CommandAction action = linkAction("//x:x");
 
@@ -2113,6 +2115,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private void checkCustomModuleMap(RuleType ruleType, boolean targetUnderTestShouldPropagate)
       throws Exception {
     useConfiguration(
+        "--apple_platform_type=ios",
         "--experimental_objc_enable_module_maps",
         "--incompatible_strict_objc_module_maps");
     ruleType.scratchTarget(scratch, "deps", "['//z:a']");
