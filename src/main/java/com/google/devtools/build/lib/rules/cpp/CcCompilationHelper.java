@@ -104,7 +104,8 @@ public final class CcCompilationHelper {
 
     // FDO is disabled -> do nothing.
     if (fdoProvider.getFdoInstrument() == null
-        && fdoProvider.getFdoMode() == FdoMode.OFF) {
+        && fdoProvider.getFdoMode() == FdoMode.OFF
+        && fdoProvider.getPrefetchHintsArtifact() == null) {
       return;
     }
 
@@ -115,7 +116,7 @@ public final class CcCompilationHelper {
     }
 
     // Optimization phase
-    if (fdoProvider.getFdoMode() != FdoMode.OFF) {
+    if (fdoProvider.getFdoMode() != FdoMode.OFF || fdoProvider.getPrefetchHintsArtifact() != null) {
       Iterable<Artifact> auxiliaryInputs = getAuxiliaryFdoInputs(fdoProvider);
       builder.addMandatoryInputs(auxiliaryInputs);
       if (!Iterables.isEmpty(auxiliaryInputs)) {
