@@ -132,6 +132,25 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   }
 
   @Test
+  public void testCustomPackageMissingAttribute() throws Exception {
+    scratch.file(
+        "wrong_package_name/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
+        "android_local_test(name = 'dummyTest',",
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
+
+    boolean noCrashFlag = false;
+    try {
+      getConfiguredTarget("//wrong_package_name/test:dummyTest");
+      noCrashFlag = true;
+    } catch (AssertionError error) {
+      assertThat(error).hasMessageThat().contains("'custom_package'");
+    }
+    assertThat(noCrashFlag).isFalse();
+  }
+
+  @Test
   public void testBinaryResources() throws Exception {
     scratch.file(
         "java/test/BUILD",

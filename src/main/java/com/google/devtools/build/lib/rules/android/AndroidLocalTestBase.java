@@ -158,13 +158,12 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     String testClass =
         getAndCheckTestClass(ruleContext, ImmutableList.copyOf(attributesBuilder.getSourceFiles()));
     getAndCheckTestSupport(ruleContext);
-
     if (Whitelist.hasWhitelist(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")
         && !Whitelist.isAvailable(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")) {
       javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
-      if (ruleContext.hasErrors()) {
-        return null;
-      }
+    }
+    if (ruleContext.hasErrors()) {
+      return null;
     }
 
     JavaCompilationHelper helper =
