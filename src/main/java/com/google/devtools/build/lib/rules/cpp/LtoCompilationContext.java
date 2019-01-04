@@ -14,14 +14,16 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import java.util.Set;
 
 /**
  * Holds information collected for .o bitcode files coming from a ThinLTO C(++) compilation under
- * our control. Currently maps each bitcode file to the corresponding minimized bitcode file that
- * can be used for the LTO indexing step.
+ * our control. Specifically, maps each bitcode file to the corresponding minimized bitcode file
+ * that can be used for the LTO indexing step, as well as to compile flags applying to that
+ * compilation that should also be applied to the LTO backend compilation invocation.
  */
 public class LtoCompilationContext {
   private final ImmutableMap<Artifact, BitcodeInfo> ltoBitcodeFiles;
@@ -40,14 +42,24 @@ public class LtoCompilationContext {
    */
   public static class BitcodeInfo {
     private final Artifact minimizedBitcode;
+    private final ImmutableList<String> copts;
 
-    public BitcodeInfo(Artifact minimizedBitcode) {
+    public BitcodeInfo(Artifact minimizedBitcode, ImmutableList<String> copts) {
       this.minimizedBitcode = minimizedBitcode;
+      this.copts = copts;
     }
 
     /** The minimized bitcode file produced by the compile and used by LTO indexing. */
     public Artifact getMinimizedBitcode() {
       return minimizedBitcode;
+    }
+
+    /**
+     * The compiler flags used for the compile that should also be used when finishing compilation
+     * during the LTO backend.
+     */
+    public ImmutableList<String> getCopts() {
+      return copts;
     }
   }
 
@@ -62,9 +74,10 @@ public class LtoCompilationContext {
       return new LtoCompilationContext(ltoBitcodeFiles.build());
     }
 
-    /** Adds a bitcode file with the corresponding minimized bitcode file. */
-    public void addBitcodeFile(Artifact fullBitcode, Artifact minimizedBitcode) {
-      ltoBitcodeFiles.put(fullBitcode, new BitcodeInfo(minimizedBitcode));
+    /** Adds a bitcode file with the corresponding minimized bitcode file and compiler flags. */
+    public void addBitcodeFile(
+        Artifact fullBitcode, Artifact minimizedBitcode, ImmutableList<String> copts) {
+      ltoBitcodeFiles.put(fullBitcode, new BitcodeInfo(minimizedBitcode, copts));
     }
 
     /** Adds in all bitcode files and associated info from another LtoCompilationContext object. */
@@ -87,6 +100,17 @@ public class LtoCompilationContext {
       return fullBitcode;
     }
     return ltoBitcodeFiles.get(fullBitcode).getMinimizedBitcode();
+  }
+
+  /**
+   * Gets the compiler flags corresponding to the full bitcode file, or returns an empty list if it
+   * doesn't exist.
+   */
+  public ImmutableList<String> getCopts(Artifact fullBitcode) {
+    if (!containsBitcodeFile(fullBitcode)) {
+      return ImmutableList.of();
+    }
+    return ltoBitcodeFiles.get(fullBitcode).getCopts();
   }
 
   /** Whether the map of bitcode files is empty. */
