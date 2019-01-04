@@ -29,6 +29,7 @@ from tempfile import mkdtemp
 # pylint: disable=g-direct-third-party-import
 from third_party.py import gflags
 
+gflags.DEFINE_string('rpmbuild', '', 'Path to rpmbuild executable')
 gflags.DEFINE_string('name', '', 'The name of the software being packaged.')
 gflags.DEFINE_string('version', '',
                      'The version of the software being packaged.')
@@ -130,6 +131,10 @@ def CopyAndRewrite(input_file, output_file, replacements=None):
       output.write(line)
 
 
+def IsExe(fpath):
+  return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+
 def Which(program):
   """Search for the given program in the PATH.
 
@@ -139,9 +144,6 @@ def Which(program):
   Returns:
     The full path to the program.
   """
-
-  def IsExe(fpath):
-    return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
   for path in os.environ['PATH'].split(os.pathsep):
     filename = os.path.join(path, program)
@@ -156,6 +158,8 @@ class NoRpmbuildFound(Exception):
 
 
 def FindRpmbuild():
+  if IsExe(FLAGS.rpmbuild):
+      return FLAGS.rpmbuild
   path = Which('rpmbuild')
   if path:
     return path

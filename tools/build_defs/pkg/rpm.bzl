@@ -21,7 +21,7 @@ def _pkg_rpm_impl(ctx):
     """Implements to pkg_rpm rule."""
 
     files = []
-    args = ["--name=" + ctx.label.name]
+    args = ["--rpmbuild=" + ctx.attr.rpmbuild_path, "--name=" + ctx.label.name]
 
     # Version can be specified by a file or inlined.
     if ctx.attr.version_file:
@@ -151,6 +151,7 @@ pkg_rpm = rule(
         "debug": attr.bool(default = False),
 
         # Implicit dependencies.
+        "rpmbuild_path": attr.string(),
         "_make_rpm": attr.label(
             default = Label("//tools/build_defs/pkg:make_rpm"),
             cfg = "host",
