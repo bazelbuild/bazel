@@ -22,15 +22,12 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkParamsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -48,10 +45,7 @@ public class FakeCcModule
         CcCompilationOutputsApi,
         LinkingInfoApi,
         CcLinkingInfoApi,
-        CcToolchainVariablesApi,
-        LibraryToLinkApi,
-        CcLinkParamsApi,
-        CcSkylarkInfoApi> {
+        CcToolchainVariablesApi> {
 
   @Override
   public ProviderApi getCcToolchainProvider() {
@@ -133,28 +127,6 @@ public class FakeCcModule
       Object userLinkFlagsObject,
       Location location,
       Environment environment) {
-    return null;
-  }
-
-  @Override
-  public LibraryToLinkApi createSymlinkLibraryLinkerInput(
-      SkylarkRuleContext skylarkRuleContext, CcToolchainProviderApi ccToolchain, Artifact library) {
-    return null;
-  }
-
-  @Override
-  public CcLinkParamsApi createCcLinkParams(
-      SkylarkRuleContext skylarkRuleContext,
-      Object skylarkLibrariesToLink,
-      Object skylarkDynamicLibrariesForRuntime,
-      Object skylarkUserLinkFlags)
-      throws EvalException, InterruptedException {
-    return null;
-  }
-
-  @Override
-  public CcSkylarkInfoApi createCcSkylarkInfo(Object skylarkRuleContextObject)
-      throws EvalException, InterruptedException {
     return null;
   }
 

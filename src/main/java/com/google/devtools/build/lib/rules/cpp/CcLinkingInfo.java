@@ -59,22 +59,18 @@ public final class CcLinkingInfo implements CcLinkingInfoApi {
     this.dynamicModeParamsForDynamicLibrary = dynamicModeParamsForDynamicLibrary;
   }
 
-  @Override
   public CcLinkParams getStaticModeParamsForExecutable() {
     return staticModeParamsForExecutable;
   }
 
-  @Override
   public CcLinkParams getStaticModeParamsForDynamicLibrary() {
     return staticModeParamsForDynamicLibrary;
   }
 
-  @Override
   public CcLinkParams getDynamicModeParamsForExecutable() {
     return dynamicModeParamsForExecutable;
   }
 
-  @Override
   public CcLinkParams getDynamicModeParamsForDynamicLibrary() {
     return dynamicModeParamsForDynamicLibrary;
   }

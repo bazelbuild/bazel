@@ -29,17 +29,13 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
-import com.google.devtools.build.lib.rules.cpp.CcModule.CcSkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
@@ -55,14 +51,9 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -91,13 +82,7 @@ import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for C++ support. */
 public class CcModule
-    implements CcModuleApi<
-        CcToolchainProvider,
-        FeatureConfiguration,
-        CcToolchainVariables,
-        LibraryToLink,
-        CcLinkParams,
-        CcSkylarkInfo> {
+    implements CcModuleApi<CcToolchainProvider, FeatureConfiguration, CcToolchainVariables> {
 
   private enum RegisterActions {
     ALWAYS,
@@ -131,47 +116,6 @@ public class CcModule
                       Arrays.stream(values())
                           .map(RegisterActions::getSkylarkName)
                           .collect(ImmutableList.toImmutableList()))));
-    }
-  }
-
-  /**
-   * In the rule definition of C++ rules, the only requirement that exists now for a target to be
-   * allowed in the list of dependencies is for the target to provide CcInfo. However, there are
-   * several native rules that provide CcInfo which were never intended to be dependencies of C++
-   * rules, e.g.: Java rules. These rules must wrap the C++ provider in a different one, for now we
-   * check in analysis that these rules are not in deps. We mark them by having them provide {@link
-   * NonCcDepInfo}
-   *
-   * <p>TODO(b/77669139): Wrap C++ providers for rules that shouldn't be in deps.
-   */
-  @Immutable
-  @AutoCodec
-  public static final class NonCcDepInfo extends NativeInfo {
-    public static final ObjectCodec<CcSkylarkInfo> CODEC = new CcModule_CcSkylarkInfo_AutoCodec();
-
-    public static final NativeProvider<NonCcDepInfo> PROVIDER =
-        new NativeProvider<NonCcDepInfo>(NonCcDepInfo.class, "NonCcDepInfo") {};
-
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    public NonCcDepInfo() {
-      super(PROVIDER);
-    }
-  }
-
-  /** TODO(b/119754358): Remove this provider after all Skylark rules have stopped using it. */
-  @Immutable
-  @AutoCodec
-  public static final class CcSkylarkInfo extends NativeInfo implements CcSkylarkInfoApi {
-    public static final ObjectCodec<CcSkylarkInfo> CODEC = new CcModule_CcSkylarkInfo_AutoCodec();
-
-    public static final NativeProvider<CcSkylarkInfo> PROVIDER =
-        new NativeProvider<CcSkylarkInfo>(CcSkylarkInfo.class, "CcSkylarkInfo") {};
-
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    CcSkylarkInfo() {
-      super(PROVIDER);
     }
   }
 
@@ -461,61 +405,6 @@ public class CcModule
         location,
         "Must pass parameters: static_library, pic_static_library, dynamic_library, "
             + "interface_library and alwayslink.");
-  }
-
-  @Override
-  public LibraryToLink createSymlinkLibraryLinkerInput(
-      SkylarkRuleContext skylarkRuleContext, CcToolchainProvider ccToolchain, Artifact library) {
-    Artifact dynamicLibrarySymlink =
-        SolibSymlinkAction.getDynamicLibrarySymlink(
-            /* actionRegistry= */ skylarkRuleContext.getRuleContext(),
-            /* actionConstructionContext= */ skylarkRuleContext.getRuleContext(),
-            ccToolchain.getSolibDirectory(),
-            library,
-            /* preserveName= */ true,
-            /* prefixConsumer= */ true,
-            skylarkRuleContext.getRuleContext().getConfiguration());
-    return LinkerInputs.solibLibraryToLink(
-        dynamicLibrarySymlink, library, CcLinkingOutputs.libraryIdentifierOf(library));
-  }
-
-  @Override
-  public CcLinkParams createCcLinkParams(
-      SkylarkRuleContext skylarkRuleContext,
-      Object skylarkLibrariesToLink,
-      Object skylarkDynamicLibrariesForRuntime,
-      Object skylarkUserLinkFlags)
-      throws EvalException, InterruptedException {
-    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
-
-    SkylarkNestedSet librariesToLink = convertFromNoneable(skylarkLibrariesToLink, null);
-    SkylarkNestedSet dynamicLibrariesForRuntime =
-        convertFromNoneable(skylarkDynamicLibrariesForRuntime, null);
-    SkylarkNestedSet userLinkFlags = convertFromNoneable(skylarkUserLinkFlags, null);
-
-    CcLinkParams.Builder builder = CcLinkParams.builder();
-    if (librariesToLink != null) {
-      builder.addLibraries(librariesToLink.toCollection(LibraryToLink.class));
-    }
-    if (dynamicLibrariesForRuntime != null) {
-      builder.addDynamicLibrariesForRuntime(
-          dynamicLibrariesForRuntime.toCollection(Artifact.class));
-    }
-    if (userLinkFlags != null) {
-      builder.addLinkOpts(userLinkFlags.toCollection(String.class));
-    }
-    return builder.build();
-  }
-
-  @Override
-  public CcSkylarkInfo createCcSkylarkInfo(Object skylarkRuleContextObject)
-      throws EvalException, InterruptedException {
-    SkylarkRuleContext skylarkRuleContext =
-        convertFromNoneable(skylarkRuleContextObject, /* defaultValue= */ null);
-    if (skylarkRuleContext != null) {
-      CcCommon.checkRuleWhitelisted(skylarkRuleContext);
-    }
-    return new CcSkylarkInfo();
   }
 
   @Override

@@ -1020,7 +1020,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "      cc_infos.append(dep[CcInfo])",
         "  merged_cc_info=cc_common.merge_cc_infos(cc_infos=cc_infos)",
         "  return struct(",
-        "    providers=[merged_cc_info, cc_common.create_cc_skylark_info(ctx=ctx)],",
+        "    providers=[merged_cc_info],",
         "    merged_headers=merged_cc_info.compilation_context.headers,",
         "    merged_system_includes=merged_cc_info.compilation_context.system_includes,",
         "    merged_includes=merged_cc_info.compilation_context.includes,",
