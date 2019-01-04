@@ -110,7 +110,7 @@ def to_absolute_path(path):
   if os.path.isabs(path):
     return path
   else:
-    if os.environ["BUILD_WORKING_DIRECTORY"]:
+    if "BUILD_WORKING_DIRECTORY" in os.environ:
       return os.path.join(os.environ["BUILD_WORKING_DIRECTORY"], path)
     else:
       return path
