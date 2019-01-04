@@ -575,6 +575,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           "interface_library", dynamicLibraryForLinking.get(0).getOriginalLibraryArtifact());
     }
 
+    CcSkylarkApiProvider.maybeAdd(ruleContext, ruleBuilder);
     return ruleBuilder
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .addProvider(
@@ -582,7 +583,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             new DebugPackageProvider(ruleContext.getLabel(), strippedFile, binary, explicitDwpFile))
         .setRunfilesSupport(runfilesSupport, binary)
         .addNativeDeclaredProvider(ccLauncherInfo)
-        .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .build();
   }
 

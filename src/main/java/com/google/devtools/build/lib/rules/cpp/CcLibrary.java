@@ -437,6 +437,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .merge(runfiles)
             .addArtifacts(ccLinkingOutputsWithPrecompiledLibraries.getLibrariesForRunfiles(false));
 
+    CcSkylarkApiProvider.maybeAdd(ruleContext, targetBuilder);
     targetBuilder
         .setFilesToBuild(filesToBuild)
         .addProvider(compilationInfo.getCppDebugFileProvider())
@@ -446,7 +447,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 .setCcCompilationContext(compilationInfo.getCcCompilationContext())
                 .setCcLinkingInfo(ccLinkingInfo)
                 .build())
-        .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .addOutputGroups(
             CcCommon.mergeOutputGroups(
                 ImmutableList.of(compilationInfo.getOutputGroups(), outputGroups.build())))

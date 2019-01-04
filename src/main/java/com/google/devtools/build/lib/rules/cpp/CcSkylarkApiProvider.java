@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -32,6 +34,12 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider
     implements CcSkylarkApiProviderApi<Artifact> {
   /** The name of the field in Skylark used to access this class. */
   public static final String NAME = "cc";
+
+  public static void maybeAdd(RuleContext ruleContext, RuleConfiguredTargetBuilder builder) {
+    if (ruleContext.getFragment(CppConfiguration.class).enableLegacyCcProvider()) {
+      builder.addSkylarkTransitiveInfo(NAME, new CcSkylarkApiProvider());
+    }
+  }
 
   @Override
   public NestedSet<Artifact> getTransitiveHeaders() {

@@ -818,6 +818,19 @@ public class CppOptions extends FragmentOptions {
               + "the new cc_flags_supplier rule.")
   public boolean disableGenruleCcToolchainDependency;
 
+  @Option(
+      name = "incompatible_disable_legacy_cc_provider",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If true, the legacy provider accessible by 'dep.cc.' is removed. See #7036.")
+  // TODO(b/122328491): Document migration steps. See #7036.
+  public boolean disableLegacyCcProvider;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -865,6 +878,7 @@ public class CppOptions extends FragmentOptions {
     host.disableDepsetInUserFlags = disableDepsetInUserFlags;
     host.disableRuntimesFilegroups = disableRuntimesFilegroups;
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
+    host.disableLegacyCcProvider = disableLegacyCcProvider;
 
     return host;
   }

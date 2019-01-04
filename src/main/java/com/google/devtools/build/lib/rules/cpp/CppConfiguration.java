@@ -601,4 +601,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public boolean disableGenruleCcToolchainDependency() {
     return cppOptions.disableGenruleCcToolchainDependency;
   }
+
+  public boolean enableLegacyCcProvider() {
+    return !cppOptions.disableLegacyCcProvider;
+  }
 }
