@@ -96,7 +96,6 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       return;
     }
 
-    this.keepClient = false;
     streamer = tryCreateStreamer(commandEnvironment);
     if (streamer != null) {
       commandEnvironment.getReporter().addHandler(streamer);
@@ -150,6 +149,10 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   @Nullable
   @VisibleForTesting
   BuildEventStreamer tryCreateStreamer(CommandEnvironment env) {
+    BuildEventStreamOptions buildEventStreamOptions =
+        env.getOptions().getOptions(BuildEventStreamOptions.class);
+    this.keepClient = buildEventStreamOptions.keepBackendConnections;
+
     try {
       BuildEventTransport besTransport = null;
       try {
@@ -164,10 +167,6 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
         clearBesClient();
         return null;
       }
-
-      BuildEventStreamOptions buildEventStreamOptions =
-          env.getOptions().getOptions(BuildEventStreamOptions.class);
-      this.keepClient = buildEventStreamOptions.keepBackendConnections;
 
       ImmutableSet<BuildEventTransport> bepTransports =
           BuildEventTransportFactory.createFromOptions(env, env.getBlazeModuleEnvironment()::exit);
