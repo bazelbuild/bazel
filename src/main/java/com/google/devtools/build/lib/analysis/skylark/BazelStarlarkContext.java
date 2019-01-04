@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -24,28 +23,21 @@ import javax.annotation.Nullable;
 public class BazelStarlarkContext implements StarlarkContext {
   private final String toolsRepository;
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
-  private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
 
   /**
-   * @param toolsRepository the name of the tools repository, such as "@bazel_tools"
+   * @param toolsRepository the name of the tools repository, such as "bazel_tools"
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
    *     class, such as "apple" to AppleConfiguration.class
-   * @param repoMapping a map from RepositoryName to RepositoryName to be used for external
-   *     repository renaming
    */
   public BazelStarlarkContext(
-      String toolsRepository,
-      ImmutableMap<String, Class<?>> fragmentNameToClass,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
+      String toolsRepository, ImmutableMap<String, Class<?>> fragmentNameToClass) {
     this.toolsRepository = toolsRepository;
     this.fragmentNameToClass = fragmentNameToClass;
-    this.repoMapping = repoMapping;
   }
 
   /** @param toolsRepository the name of the tools repository, such as "bazel_tools" */
-  public BazelStarlarkContext(
-      String toolsRepository, ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
-    this(toolsRepository, null, repoMapping);
+  public BazelStarlarkContext(String toolsRepository) {
+    this(toolsRepository, null);
   }
 
   @Override
@@ -58,13 +50,12 @@ public class BazelStarlarkContext implements StarlarkContext {
     }
     BazelStarlarkContext that = (BazelStarlarkContext) obj;
     return Objects.equals(this.toolsRepository, that.toolsRepository)
-        && Objects.equals(this.fragmentNameToClass, that.fragmentNameToClass)
-        && Objects.equals(this.repoMapping, that.repoMapping);
+        && Objects.equals(this.fragmentNameToClass, that.fragmentNameToClass);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(toolsRepository, fragmentNameToClass, repoMapping);
+    return Objects.hash(toolsRepository, fragmentNameToClass);
   }
 
   /** Returns the name of the tools repository, such as "bazel_tools". */
@@ -75,13 +66,5 @@ public class BazelStarlarkContext implements StarlarkContext {
   /** Returns a map from configuration fragment name to configuration fragment class. */
   public ImmutableMap<String, Class<?>> getFragmentNameToClass() {
     return fragmentNameToClass;
-  }
-
-  /**
-   * Returns a map from {@code RepositoryName} to {@code RepositoryName} to be used for repository
-   * renaming.
-   */
-  public ImmutableMap<RepositoryName, RepositoryName> getRepoMapping() {
-    return repoMapping;
   }
 }

@@ -1618,7 +1618,7 @@ public final class PackageFactory {
 
     try (Mutability mutability = Mutability.create("package %s", packageId)) {
       BazelStarlarkContext starlarkContext =
-          new BazelStarlarkContext(ruleClassProvider.getToolsRepository(), repositoryMapping);
+          new BazelStarlarkContext(ruleClassProvider.getToolsRepository());
       Environment pkgEnv =
           Environment.builder(mutability)
               .setGlobals(BazelLibrary.GLOBALS)

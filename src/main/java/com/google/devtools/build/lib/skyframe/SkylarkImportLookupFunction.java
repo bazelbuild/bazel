@@ -266,16 +266,13 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
     // Process the load statements in the file.
     ImmutableList<SkylarkImport> unRemappedImports = ast.getImports();
-    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
-        getRepositoryMapping(workspaceChunk, workspacePath, fileLabel, env);
-
-    if (repositoryMapping == null) {
+    ImmutableList<SkylarkImport> imports =
+        remapImports(unRemappedImports, workspaceChunk, workspacePath, fileLabel, env);
+    // We do a skykey lookup in remapImports that might not be completed yet so if it returns null
+    // we need to stop the current computation
+    if (imports == null) {
       return null;
     }
-
-    ImmutableList<SkylarkImport> imports =
-        remapImports(unRemappedImports, workspaceChunk, repositoryMapping);
-
     ImmutableMap<String, Label> labelsForImports = getLabelsForLoadStatements(imports, fileLabel);
     ImmutableCollection<Label> importLabels = labelsForImports.values();
 
@@ -374,30 +371,52 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     // #createExtension does not request values from the Environment. It may post events to the
     // Environment, but events do not matter when caching SkylarkImportLookupValues.
     Extension extension =
-        createExtension(
-            ast,
-            fileLabel,
-            extensionsForImports,
-            skylarkSemantics,
-            env,
-            inWorkspace,
-            repositoryMapping);
+        createExtension(ast, fileLabel, extensionsForImports, skylarkSemantics, env, inWorkspace);
     SkylarkImportLookupValue result =
         new SkylarkImportLookupValue(
             extension, new SkylarkFileDependency(fileLabel, fileDependencies.build()));
     return result;
   }
 
-  private ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
-      int workspaceChunk, RootedPath workspacePath, Label enclosingFileLabel, Environment env)
+  /**
+   * This method takes in a list of {@link SkylarkImport}s (load statements) as they appear in the
+   * BUILD, bzl, or WORKSPACE file they originated from and optionally remaps the load statements
+   * using the repository mappings provided in the WORKSPACE file.
+   *
+   * <p>If the {@link SkylarkImport}s originated from a WORKSPACE file, then the repository mappings
+   * are pulled from the previous {@link WorkspaceFileValue}. If they didn't originate from a
+   * WORKSPACE file then the repository mappings are pulled from the fully computed {@link
+   * RepositoryMappingValue}.
+   *
+   * <p>There is a chance that SkyValues requested are not yet computed and so SkyFunction callers
+   * of this method need to check if the return value is null and then return null themselves.
+   *
+   * @param unRemappedImports the list of load statements to be remapped
+   * @param workspaceChunk the workspaceChunk we are currently evaluating that this load statement
+   *     originated from. WORKSPACE files are chunked at every non-consecutive load statement and
+   *     evaluated separately. See {@link WorkspaceFileValue} for more information.
+   * @param workspacePath the path of the project's WORKSPACE file
+   * @param enclosingFileLabel the label of the file (bzl, WORKSPACE, BUILD) that this load
+   *     statement appeared in
+   * @param env the Skyframe used to ask for additional SkyValues
+   * @return a list of remapped {@link SkylarkImport}s or null if any SkyValue requested wasn't
+   *     fully computed yet
+   * @throws InterruptedException
+   */
+  private ImmutableList<SkylarkImport> remapImports(
+      ImmutableList<SkylarkImport> unRemappedImports,
+      int workspaceChunk,
+      RootedPath workspacePath,
+      Label enclosingFileLabel,
+      Environment env)
       throws InterruptedException {
 
     // There is no previous workspace chunk
     if (workspaceChunk == 0) {
-      return ImmutableMap.of();
+      return unRemappedImports;
     }
-
     ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+
     // We are fully done with workspace evaluation so we should get the mappings from the
     // final RepositoryMappingValue
     if (workspaceChunk == -1) {
@@ -419,39 +438,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
               .getRepositoryMapping()
               .getOrDefault(
                   enclosingFileLabel.getPackageIdentifier().getRepository(), ImmutableMap.of());
-    }
-    return repositoryMapping;
-  }
-
-  /**
-   * This method takes in a list of {@link SkylarkImport}s (load statements) as they appear in the
-   * BUILD, bzl, or WORKSPACE file they originated from and optionally remaps the load statements
-   * using the repository mappings provided in the WORKSPACE file.
-   *
-   * <p>If the {@link SkylarkImport}s originated from a WORKSPACE file, then the repository mappings
-   * are pulled from the previous {@link WorkspaceFileValue}. If they didn't originate from a
-   * WORKSPACE file then the repository mappings are pulled from the fully computed {@link
-   * RepositoryMappingValue}.
-   *
-   * <p>There is a chance that SkyValues requested are not yet computed and so SkyFunction callers
-   * of this method need to check if the return value is null and then return null themselves.
-   *
-   * @param unRemappedImports the list of load statements to be remapped
-   * @param workspaceChunk the workspaceChunk we are currently evaluating that this load statement
-   *     originated from. WORKSPACE files are chunked at every non-consecutive load statement and
-   *     evaluated separately. See {@link WorkspaceFileValue} for more information.
-   * @return a list of remapped {@link SkylarkImport}s or null if any SkyValue requested wasn't
-   *     fully computed yet
-   * @throws InterruptedException
-   */
-  private ImmutableList<SkylarkImport> remapImports(
-      ImmutableList<SkylarkImport> unRemappedImports,
-      int workspaceChunk,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-
-    // There is no previous workspace chunk
-    if (workspaceChunk == 0) {
-      return unRemappedImports;
     }
 
     ImmutableList.Builder<SkylarkImport> builder = ImmutableList.builder();
@@ -489,15 +475,16 @@ public class SkylarkImportLookupFunction implements SkyFunction {
                 (oldLabel, newLabel) -> oldLabel));
   }
 
-  /** Creates the Extension to be imported. */
+  /**
+   * Creates the Extension to be imported.
+   */
   private Extension createExtension(
       BuildFileAST ast,
       Label extensionLabel,
       Map<String, Extension> importMap,
       SkylarkSemantics skylarkSemantics,
       Environment env,
-      boolean inWorkspace,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      boolean inWorkspace)
       throws SkylarkImportFailedException, InterruptedException {
     StoredEventHandler eventHandler = new StoredEventHandler();
     // TODO(bazel-team): this method overestimates the changes which can affect the
@@ -507,14 +494,10 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     PathFragment extensionFile = extensionLabel.toPathFragment();
     try (Mutability mutability = Mutability.create("importing %s", extensionFile)) {
       com.google.devtools.build.lib.syntax.Environment extensionEnv =
-          ruleClassProvider.createSkylarkRuleClassEnvironment(
-              extensionLabel,
-              mutability,
-              skylarkSemantics,
-              eventHandler,
-              ast.getContentHashCode(),
-              importMap,
-              repositoryMapping);
+          ruleClassProvider
+              .createSkylarkRuleClassEnvironment(
+                  extensionLabel, mutability, skylarkSemantics,
+                  eventHandler, ast.getContentHashCode(), importMap);
       extensionEnv.setupOverride("native", packageFactory.getNativeModule(inWorkspace));
       execAndExport(ast, extensionLabel, eventHandler, extensionEnv);
 

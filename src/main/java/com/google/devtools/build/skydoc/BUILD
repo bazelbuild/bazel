@@ -51,7 +51,6 @@ java_library(
     srcs = glob(["*.java"]),
     visibility = ["//src/test:__subpackages__"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:skylark_semantics",
         "//src/main/java/com/google/devtools/build/lib:skylark_semantics_options",

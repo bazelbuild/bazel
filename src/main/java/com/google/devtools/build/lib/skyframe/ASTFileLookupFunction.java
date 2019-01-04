@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -121,10 +120,9 @@ public class ASTFileLookupFunction implements SkyFunction {
                     mutability,
                     skylarkSemantics,
                     env.getListener(),
-                    // the three below don't matter for extracting the ValidationEnvironment:
+                    // the two below don't matter for extracting the ValidationEnvironment:
                     /*astFileContentHashCode=*/ null,
-                    /*importMap=*/ null,
-                    /*repoMapping=*/ ImmutableMap.of())
+                    /*importMap=*/ null)
                 .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)
                 .setupDynamic(Runtime.REPOSITORY_NAME, Runtime.NONE);
         byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, astFileSize);

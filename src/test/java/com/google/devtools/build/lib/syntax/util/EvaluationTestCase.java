@@ -64,9 +64,7 @@ public class EvaluationTestCase {
    * No PythonPreprocessing, mostly empty mutable Environment.
    */
   public Environment newBuildEnvironment() {
-    BazelStarlarkContext context =
-        new BazelStarlarkContext(
-            TestConstants.TOOLS_REPOSITORY, /* repoMapping= */ ImmutableMap.of());
+    BazelStarlarkContext context = new BazelStarlarkContext(TestConstants.TOOLS_REPOSITORY);
     Environment env =
         Environment.builder(mutability)
             .useDefaultSemantics()
