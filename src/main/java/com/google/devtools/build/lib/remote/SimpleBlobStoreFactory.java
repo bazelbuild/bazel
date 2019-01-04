@@ -39,18 +39,17 @@ public final class SimpleBlobStoreFactory {
   public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds) {
     try {
       URI uri = URI.create(options.remoteHttpCache);
-      int timeoutMillis = (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout);
 
       if (options.remoteCacheProxy != null) {
         if (options.remoteCacheProxy.startsWith("unix:")) {
           return HttpBlobStore.create(
             new DomainSocketAddress(options.remoteCacheProxy.replaceFirst("^unix:", "")),
-              uri, timeoutMillis, options.remoteMaxConnections, creds);
+              uri, options.remoteTimeout, options.remoteMaxConnections, creds);
         } else {
           throw new Exception("Remote cache proxy unsupported: " + options.remoteCacheProxy);
         }
       } else {
-        return HttpBlobStore.create(uri, timeoutMillis, options.remoteMaxConnections, creds);
+        return HttpBlobStore.create(uri, options.remoteTimeout, options.remoteMaxConnections, creds);
       }
     } catch (Exception e) {
       throw new RuntimeException(e);

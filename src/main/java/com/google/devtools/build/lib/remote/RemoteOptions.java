@@ -81,8 +81,8 @@ public final class RemoteOptions extends OptionsBase {
     defaultValue = "60",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The maximum number of seconds to wait for remote execution and cache calls."
-  )
+    help = "The maximum number of seconds to wait for remote execution and cache calls. For the "
+               + "REST cache, this is both the connect and the read timeout.")
   public int remoteTimeout;
 
   @Option(
