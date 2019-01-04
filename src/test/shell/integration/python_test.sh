@@ -140,7 +140,7 @@ EOF
   [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
 }
 
-# Test that Python 2 or Python 3 is actually invoked, with and without flag
+# Tests that Python 2 or Python 3 is actually invoked, with and without flag
 # overrides.
 function test_python_version() {
   use_fake_python_runtimes
@@ -192,6 +192,8 @@ function do_test_select_on_python_version() {
   expect_log "I am $result" "Expected version $result for flags \"$flags\""
 }
 
+# Tests that selecting on the Python version gives the expected results for all
+# combinations of the relevant flags.
 function test_select_on_python_version() {
   mkdir -p test
 
@@ -239,6 +241,8 @@ EOF
   do_test_select_on_python_version "$EXPFLAG --force_python=PY3 --python_version=PY3" "PY3"
 }
 
+# Tests that the user is prevented from selecting on the native Python version
+# flags, which should only be used internally.
 function test_cannot_select_on_python_version_native_flags() {
   mkdir -p test
 

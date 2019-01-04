@@ -465,4 +465,49 @@ EOF
   expect_log "common using Python 3"
 }
 
+# TODO(brandjon): Rename this file to python_test.sh or else move the below to
+# a separate suite.
+
+# Tests that a non-standard library module on the PYTHONPATH added by Bazel
+# can override the standard library. This behavior is not necessarily ideal, but
+# it is the current semantics; see #6532 about changing that.
+function test_source_file_does_not_override_standard_library() {
+  mkdir -p test
+
+  cat > test/BUILD << EOF
+py_binary(
+    name = "main",
+    srcs = ["main.py"],
+    deps = [":lib"],
+    # Pass the empty string, to include the path to this package (within
+    # runfiles) on the PYTHONPATH.
+    imports = [""],
+)
+
+py_library(
+    name = "lib",
+    # A src name that clashes with a standard library module, such that this
+    # local file can take precedence over the standard one depending on its
+    # order in PYTHONPATH. Not just any module name would work. For instance,
+    # "import sys" gets the built-in module regardless of whether there's some
+    # "sys.py" file on the PYTHONPATH. This is probably because built-in modules
+    # (i.e., those implemented in C) use a different loader than
+    # Python-implemented ones, even though they're both part of the standard
+    # distribution of the interpreter.
+    srcs = ["re.py"],
+)
+EOF
+  cat > test/main.py << EOF
+import re
+EOF
+  cat > test/re.py << EOF
+print("I am lib!")
+EOF
+
+  bazel run //test:main \
+      &> $TEST_log || fail "bazel run failed"
+  # Indicates that the local module overrode the system one.
+  expect_log "I am lib!"
+}
+
 run_suite "Tests for how the Python rules handle Python 2 vs Python 3"
