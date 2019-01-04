@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.python.PyCommon;
+import com.google.devtools.build.lib.rules.python.PyProvider;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses;
 import com.google.devtools.build.lib.rules.python.PythonVersion;
 import com.google.devtools.build.lib.util.FileType;
@@ -69,7 +70,7 @@ public final class BazelPyRuleClasses {
           .override(
               builder
                   .copy("deps")
-                  .legacyMandatoryProviders(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME)
+                  .legacyMandatoryProviders(PyProvider.PROVIDER_NAME)
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(imports) -->
           List of import directories to be added to the <code>PYTHONPATH</code>.

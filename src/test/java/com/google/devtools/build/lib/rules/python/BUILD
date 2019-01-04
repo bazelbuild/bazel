@@ -15,6 +15,7 @@ test_suite(
         ":BazelPythonConfigurationTest",
         ":PyBinaryConfiguredTargetTest",
         ":PyLibraryConfiguredTargetTest",
+        ":PyProviderTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
         ":PythonVersionTest",
@@ -131,6 +132,24 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PyProviderTest",
+    srcs = ["PyProviderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

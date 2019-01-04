@@ -41,6 +41,16 @@ public final class NestedSetBuilder<E> {
     this.order = order;
   }
 
+  /**
+   * Returns the order used by this builder.
+   *
+   * <p>This is useful for testing for incompatibilities (via {@link Order#isCompatible}) without
+   * catching an unchecked exception from {@link #addTransitive}.
+   */
+  public Order getOrder() {
+    return order;
+  }
+
   /** Returns whether the set to be built is empty. */
   public boolean isEmpty() {
     return items.isEmpty() && transitiveSets.isEmpty();
@@ -93,8 +103,8 @@ public final class NestedSetBuilder<E> {
    *
    * <p>The relative left-to-right order of transitive members is preserved from the sequence of
    * calls to {@link #addTransitive}. Since the traversal {@link Order} controls whether direct
-   * members appear before or after transitive ones, the interleaving of
-   * {@link #add}/{@link #addAll} with {@link #addTransitive} does not matter.
+   * members appear before or after transitive ones, the interleaving of {@link #add}/{@link
+   * #addAll} with {@link #addTransitive} does not matter.
    *
    * <p>The {@link Order} of the added set must be compatible with the order of this builder (see
    * {@link Order#isCompatible}). This is true even if the added set is empty. Strictly speaking, it
@@ -109,7 +119,7 @@ public final class NestedSetBuilder<E> {
    *
    * @param subset the set to add as a transitive member; must not be null
    * @return the builder
-   * @throws IllegalStateException if the order of {@code subset} is not compatible with the
+   * @throws IllegalArgumentException if the order of {@code subset} is not compatible with the
    *     order of this builder
    */
   public NestedSetBuilder<E> addTransitive(NestedSet<? extends E> subset) {

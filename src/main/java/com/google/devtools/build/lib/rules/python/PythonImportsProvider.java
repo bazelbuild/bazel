@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** A {@link TransitiveInfoProvider} that supplies import directories for Python dependencies. */
+// TODO(brandjon): Merge this provider into PyProvider.
 @Immutable
 @AutoCodec
 public final class PythonImportsProvider implements TransitiveInfoProvider {

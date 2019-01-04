@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.python.PyCommon;
+import com.google.devtools.build.lib.rules.python.PyProvider;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -492,7 +492,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     TransitiveInfoCollection tic1 = (TransitiveInfoCollection) ((SkylarkList) result).get(0);
     assertThat(JavaInfo.getProvider(JavaSourceJarsProvider.class, tic1)).isNotNull();
     // Check an unimplemented provider too
-    assertThat(tic1.get(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME)).isNull();
+    assertThat(PyProvider.hasProvider(tic1)).isFalse();
   }
 
   @Test

@@ -20,15 +20,15 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyA
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.packages.SkylarkInfo;
-import com.google.devtools.build.lib.rules.python.PyCommon;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.python.PyProvider;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Python Starlark APi test */
+/** Python Starlark API test */
 @RunWith(JUnit4.class)
 public class BazelPythonStarlarkApiTest extends BuildViewTestCase {
   @Test
@@ -37,11 +37,11 @@ public class BazelPythonStarlarkApiTest extends BuildViewTestCase {
     assertNoEvents();
 
     ConfiguredTarget helloTarget = getConfiguredTarget("//py:hello");
-    SkylarkInfo provider = getPythonSkylarkProvider(helloTarget);
+    StructImpl provider = PyProvider.getProvider(helloTarget);
 
-    assertThat(provider.hasField(PyCommon.TRANSITIVE_PYTHON_SRCS)).isTrue();
-    assertThat(provider.hasField(PyCommon.IS_USING_SHARED_LIBRARY)).isTrue();
-    assertThat(provider.hasField(PyCommon.IMPORTS)).isTrue();
+    assertThat(provider.hasField(PyProvider.TRANSITIVE_SOURCES)).isTrue();
+    assertThat(provider.hasField(PyProvider.USES_SHARED_LIBRARIES)).isTrue();
+    assertThat(provider.hasField(PyProvider.IMPORTS)).isTrue();
     assertThat(provider.hasField("srcs")).isFalse();
   }
 
@@ -51,15 +51,14 @@ public class BazelPythonStarlarkApiTest extends BuildViewTestCase {
     assertNoEvents();
 
     ConfiguredTarget helloTarget = getConfiguredTarget("//py:hello");
-    SkylarkInfo provider = getPythonSkylarkProvider(helloTarget);
+    StructImpl provider = PyProvider.getProvider(helloTarget);
 
-    SkylarkNestedSet sources =
-        provider.getValue(PyCommon.TRANSITIVE_PYTHON_SRCS, SkylarkNestedSet.class);
+    SkylarkNestedSet sources = (SkylarkNestedSet) provider.getValue(PyProvider.TRANSITIVE_SOURCES);
     assertThat(prettyArtifactNames(sources.getSet(Artifact.class))).containsExactly("py/hello.py");
 
-    assertThat(provider.getValue(PyCommon.IS_USING_SHARED_LIBRARY, Boolean.class)).isFalse();
+    assertThat((Boolean) provider.getValue(PyProvider.USES_SHARED_LIBRARIES)).isFalse();
 
-    SkylarkNestedSet imports = provider.getValue(PyCommon.IMPORTS, SkylarkNestedSet.class);
+    SkylarkNestedSet imports = (SkylarkNestedSet) provider.getValue(PyProvider.IMPORTS);
     assertThat(imports.getSet(String.class)).containsExactly("__main__/py");
   }
 
@@ -69,16 +68,15 @@ public class BazelPythonStarlarkApiTest extends BuildViewTestCase {
     assertNoEvents();
 
     ConfiguredTarget helloTarget = getConfiguredTarget("//py:sayHello");
-    SkylarkInfo provider = getPythonSkylarkProvider(helloTarget);
+    StructImpl provider = PyProvider.getProvider(helloTarget);
 
-    SkylarkNestedSet sources =
-        provider.getValue(PyCommon.TRANSITIVE_PYTHON_SRCS, SkylarkNestedSet.class);
+    SkylarkNestedSet sources = (SkylarkNestedSet) provider.getValue(PyProvider.TRANSITIVE_SOURCES);
     assertThat(prettyArtifactNames(sources.getSet(Artifact.class)))
         .containsExactly("py/hello.py", "py/sayHello.py");
 
-    assertThat(provider.getValue(PyCommon.IS_USING_SHARED_LIBRARY, Boolean.class)).isFalse();
+    assertThat((Boolean) provider.getValue(PyProvider.USES_SHARED_LIBRARIES)).isFalse();
 
-    SkylarkNestedSet imports = provider.getValue(PyCommon.IMPORTS, SkylarkNestedSet.class);
+    SkylarkNestedSet imports = (SkylarkNestedSet) provider.getValue(PyProvider.IMPORTS);
     assertThat(imports.getSet(String.class)).containsExactly("__main__/py");
   }
 
@@ -94,14 +92,5 @@ public class BazelPythonStarlarkApiTest extends BuildViewTestCase {
         "py/BUILD",
         "py_binary(name=\"sayHello\", srcs=[\"sayHello.py\"], deps=[\":hello\"])",
         "py_library(name=\"hello\", srcs=[\"hello.py\"], imports= [\".\"])");
-  }
-
-  private SkylarkInfo getPythonSkylarkProvider(ConfiguredTarget target) {
-    Object object = target.get(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME);
-    assertThat(object).isInstanceOf(SkylarkInfo.class);
-    SkylarkInfo provider = (SkylarkInfo) object;
-
-    assertThat(provider).isNotNull();
-    return provider;
   }
 }
