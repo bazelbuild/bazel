@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 
 /**
  * Interface for a global Skylark library containing rule-related helper and registration functions.
@@ -328,6 +329,18 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "See the <a href='config.html'><code>config</code></a> module. If this is "
                     + "set, a mandatory attribute named \"build_setting_default\" is automatically"
                     + "added to this rule, with a type corresponding to the value passed in here."),
+        @Param(
+            name = "cfg",
+            type = Object.class,
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_STARLARK_CONFIG_TRANSITION,
+            valueWhenDisabled = "None",
+            doc =
+                "If set, points to the configuration transition the rule will "
+                    + "apply to its own configuration before analysis.")
       },
       useAst = true,
       useEnvironment = true,
@@ -349,6 +362,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
+      Object cfg,
       FuncallExpression ast,
       Environment funcallEnv,
       StarlarkContext context)
