@@ -171,6 +171,11 @@ public class BaseRuleClasses {
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:test_wrapper")))
           .add(
+              attr("$xml_writer", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/test:xml_writer")))
+          .add(
               attr("$test_runtime", LABEL_LIST)
                   .cfg(HostTransition.INSTANCE)
                   .value(ImmutableList.of(env.getToolsLabel("//tools/test:runtime"))))

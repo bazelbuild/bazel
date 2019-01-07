@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Test wrapper implementation for Windows.
-// Design:
-// https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
+// Test XML writer implementation for Windows.
 
 #include "tools/test/windows/tw.h"
 
 int wmain(int argc, wchar_t** argv) {
-  return bazel::tools::test_wrapper::TestWrapperMain(argc, argv);
+  return bazel::tools::test_wrapper::XmlWriterMain(argc, argv);
 }
+

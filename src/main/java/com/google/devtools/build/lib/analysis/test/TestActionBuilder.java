@@ -241,9 +241,11 @@ public final class TestActionBuilder {
             : ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
 
     inputsBuilder.add(testActionExecutable);
-    Artifact testXmlGeneratorScript =
-        ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
-    inputsBuilder.add(testXmlGeneratorScript);
+    Artifact testXmlGeneratorExecutable =
+        isUsingTestWrapperInsteadOfTestSetupScript
+            ? ruleContext.getHostPrerequisiteArtifact("$xml_writer")
+            : ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
+    inputsBuilder.add(testXmlGeneratorExecutable);
 
     Artifact collectCoverageScript = null;
     TreeMap<String, String> extraTestEnv = new TreeMap<>();
@@ -378,7 +380,7 @@ public final class TestActionBuilder {
                 inputs,
                 testActionExecutable,
                 isUsingTestWrapperInsteadOfTestSetupScript,
-                testXmlGeneratorScript,
+                testXmlGeneratorExecutable,
                 collectCoverageScript,
                 testLog,
                 cacheStatus,
