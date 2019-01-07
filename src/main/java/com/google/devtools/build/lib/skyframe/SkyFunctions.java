@@ -38,7 +38,7 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS");
   public static final SkyFunctionName DIRECTORY_LISTING =
       SkyFunctionName.createHermetic("DIRECTORY_LISTING");
-  // Hermetic even though package lookups secretly access the set of deleted packages, becaused
+  // Hermetic even though package lookups secretly access the set of deleted packages, because
   // SequencedSkyframeExecutor deletes any affected PACKAGE_LOOKUP nodes when that set changes.
   public static final SkyFunctionName PACKAGE_LOOKUP =
       SkyFunctionName.createHermetic("PACKAGE_LOOKUP");
