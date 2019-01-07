@@ -469,8 +469,8 @@ EOF
 # a separate suite.
 
 # Tests that a non-standard library module on the PYTHONPATH added by Bazel
-# can override the standard library. This behavior is not necessarily ideal, but
-# it is the current semantics; see #6532 about changing that.
+# cannot override the standard library. (See #6532 for discussion on this
+# behavior.)
 function test_source_file_does_not_override_standard_library() {
   mkdir -p test
 
@@ -506,8 +506,8 @@ EOF
 
   bazel run //test:main \
       &> $TEST_log || fail "bazel run failed"
-  # Indicates that the local module overrode the system one.
-  expect_log "I am lib!"
+  # Presence would indicate that the local module overrode the system one.
+  expect_not_log "I am lib!"
 }
 
 run_suite "Tests for how the Python rules handle Python 2 vs Python 3"
