@@ -1,0 +1,99 @@
+Baseline: deb028e3fb30b4e2953df16f35ab1f55a08ea8fa
+
+* Breaking changes
+
+- [`--incompatible_disallow_data_transition`](https://github.com/bazelbuild/bazel/issues/6153)
+
+* Upcoming changes
+
+This release is a [migration window for the following changes](https://github.com/bazelbuild/bazel/labels/migration-0.22).
+
+- [`--incompatible_string_is_not_iterable`](https://github.com/bazelbuild/bazel/issues/5830)
+- [`--incompatible_dont_emit_static_libgcc`](https://github.com/bazelbuild/bazel/issues/6825)
+- [`--incompatible_linkopts_in_user_link_flags`](https://github.com/bazelbuild/bazel/issues/6826)
+- [`--incompatible_disable_legacy_crosstool_fields`](https://github.com/bazelbuild/bazel/issues/6861)
+- [`--incompatible_disable_runtimes_filegroups`](https://github.com/bazelbuild/bazel/issues/6942)
+- [`--incompatible_disable_legacy_cc_provider`](https://github.com/bazelbuild/bazel/issues/7036)
+- [`--incomaptible_require_feature_configuration_for_pic`](https://github.com/bazelbuild/bazel/issues/7007)
+- [`--incompatible_disable_expand_if_all_available_in_flag_set`](https://github.com/bazelbuild/bazel/issues/7008)
+
+** General Changes
+
+- https://docs.bazel.build now supports versioned
+  documentation. Use the selector at the top of the navigation bar
+  to switch between documentation for different Bazel releases.
+
+- set `projectId` in all `PublishBuildToolEventStreamRequest`
+
+** Android
+
+- mobile-install now works with aapt2. Try it out with `bazel
+  mobile-install --android_aapt=aapt2 //my:target`
+
+- Fixed issues with mobile-install v1 when deploying to Android 9 Pie
+  devices. https://github.com/bazelbuild/bazel/issues/6814
+
+- Fixed issue where error messages from Android manifest merging
+  actions were not fully propagated.
+
+- New incompatible change flag `--incompatible_use_aapt2_by_default`
+  for defaulting to aapt2 in Android builds has been added. To build with
+  aapt2 today, pass the flag
+  `--incompatible_use_aapt2_by_default=true` or
+  `--android_aapt=aapt2`, or set the `aapt_version`  to `aapt2` on
+  your `android_binary` or `android_local_test` target.
+
+- Fixed mobile-install v1 error when installing an app with native
+  libraries onto an Android 9 (Pie) device. See
+  https://github.com/bazelbuild/examples/issues/77
+
+- Fixed a mobile-install bug where `arm64-v8a` libraries were not
+  deployed correctly on `arm64` devices. This was done by enabling
+  incremental native lib deployment by default. A previously
+  undocumented `--android_incremental_native_libs` flag is removed,
+  and is now the regular behavior. See
+  https://github.com/bazelbuild/bazel/issues/2239
+
+** Apple
+
+- The `objc_bundle` rule has been removed. Please migrate to rules_apple's
+  [apple_bundle_import](https://github.com/bazelbuild/rules_apple/bl
+  ob/master/doc/rules-resources.md*apple_bundle_import).
+
+- The `apple_stub_binary` rule has been deleted.
+
+- The `--xbinary_fdo` option that passes xbinary profiles has been added.
+
+** C++
+
+- `cc_toolchain.(static|dynamic)_runtime_libs` attributes are now optional
+
+** Packaging
+
+- `build_tar.py` in `tools/build_defs/pkg` now supports a JSON manifest
+  that can be used to add paths that have symbols that can't be
+  specified via the command line
+
+** Query
+
+- Filtering of inputs, outputs, and mnemonic filtering have been added to
+  aquery.
+
+- The aquery and cquery query2 tests have been open-sourced.
+
+- In the Query HowTo, recommend ":*" instead of ":all". "all" might
+  be the name of a target.
+
+** Testing
+
+- The `--runs_per_test` has been placed in the TESTING documentation category.
+
+- A a clarifying message has been added to test case summary output when all
+  test cases pass but the target fails.
+
+** Contributors
+
+This release contains contributions from many people at Google, as well as
+Benjamin Peterson, Dave Lee, George Gensure, Gert van Dijk, Gustavo Storti
+Salibi, Keith Smiley, Loo Rong Jie, Lukasz Tekieli, Mikhail Mazurskiy, Thi,
+Travis Cline, Vladimir Chebotarev, and Yannic.
