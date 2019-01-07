@@ -226,6 +226,23 @@ public class BlazeCommandDispatcher {
     }
   }
 
+  /**
+   * For testing ONLY. Same as {@link #exec(InvocationPolicy, List, OutErr, LockingMode, String,
+   * long, Optional<List<Pair<String, String>>>)}, but automatically uses the current time.
+   */
+  @VisibleForTesting
+  public BlazeCommandResult exec(List<String> args, String clientDescription, OutErr originalOutErr)
+      throws InterruptedException {
+    return exec(
+        InvocationPolicy.getDefaultInstance(),
+        args,
+        originalOutErr,
+        LockingMode.ERROR_OUT,
+        clientDescription,
+        runtime.getClock().currentTimeMillis(),
+        Optional.empty() /* startupOptionBundles */);
+  }
+
   private BlazeCommandResult execExclusively(
       OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent,
       InvocationPolicy invocationPolicy,
@@ -524,23 +541,6 @@ public class BlazeCommandDispatcher {
       env.getEventBus().post(post);
     }
     return BlazeCommandResult.exitCode(earlyExitCode);
-  }
-
-  /**
-   * For testing ONLY. Same as {@link #exec(InvocationPolicy, List, OutErr, LockingMode, String,
-   * long, Optional<List<Pair<String, String>>>)}, but automatically uses the current time.
-   */
-  @VisibleForTesting
-  public BlazeCommandResult exec(List<String> args, String clientDescription, OutErr originalOutErr)
-      throws InterruptedException {
-    return exec(
-        InvocationPolicy.getDefaultInstance(),
-        args,
-        originalOutErr,
-        LockingMode.ERROR_OUT,
-        clientDescription,
-        runtime.getClock().currentTimeMillis(),
-        Optional.empty() /* startupOptionBundles */);
   }
 
   private OutErr bufferOut(OutErr outErr, boolean fully) {

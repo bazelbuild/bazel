@@ -45,6 +45,10 @@ public final class BlazeCommandResult {
     return shutdown;
   }
 
+  public static BlazeCommandResult shutdown(ExitCode exitCode) {
+    return new BlazeCommandResult(exitCode, null, true);
+  }
+
   @Nullable public ExecRequest getExecRequest() {
     return execDescription;
   }
@@ -53,9 +57,6 @@ public final class BlazeCommandResult {
     return new BlazeCommandResult(exitCode, null, false);
   }
 
-  public static BlazeCommandResult shutdown(ExitCode exitCode) {
-    return new BlazeCommandResult(exitCode, null, true);
-  }
   public static BlazeCommandResult execute(ExecRequest execDescription) {
     return new BlazeCommandResult(
         ExitCode.SUCCESS, Preconditions.checkNotNull(execDescription), false);
