@@ -110,3 +110,8 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
+# Target that can provide the CC_FLAGS variable based on the current
+# cc_toolchain.
+load("@bazel_tools//tools/cpp:cc_flags_supplier.bzl", "cc_flags_supplier")
+
+cc_flags_supplier(name = "cc_flags")

@@ -785,3 +785,13 @@ sh_test(
     ],
     tags = ["no_windows"],
 )
+
+sh_test(
+    name = "cc_flags_supplier_test",
+    size = "small",
+    srcs = ["cc_flags_supplier_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+    tags = ["no_windows"],
+)
