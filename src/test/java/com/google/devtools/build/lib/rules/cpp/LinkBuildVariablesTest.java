@@ -126,7 +126,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   @Test
-  public void testInterfaceLibraryBuildingVariablesWhenGenerationPossible() throws Exception {
+  public void testInterfaceLibraryBuildingVariablesWhenLegacyGenerationPossible() throws Exception {
     // Make sure the interface shared object generation is enabled in the configuration
     // (which it is not by default for some windows toolchains)
     AnalysisMock.get()
@@ -134,6 +134,22 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         .setupCrosstool(mockToolsConfig, "supports_interface_shared_objects: true");
     useConfiguration();
 
+    verifyIfsoVariables();
+  }
+
+  @Test
+  public void testInterfaceLibraryBuildingVariablesWhenGenerationPossible() throws Exception {
+    // Make sure the interface shared object generation is enabled in the configuration
+    // (which it is not by default for some windows toolchains)
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
+    useConfiguration();
+
+    verifyIfsoVariables();
+  }
+
+  private void verifyIfsoVariables() throws Exception {
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 

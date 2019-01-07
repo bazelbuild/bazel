@@ -65,6 +65,9 @@ public abstract class MockCcSupport {
   public static final String SUPPORTS_DYNAMIC_LINKER_FEATURE =
       "feature { name: '" + CppRuleClasses.SUPPORTS_DYNAMIC_LINKER + " enabled: true'}";
 
+  public static final String SUPPORTS_INTERFACE_SHARED_LIBRARIES =
+      "feature { name: '" + CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES + "' enabled: true}";
+
   /** Feature expected by the C++ rules when pic build is requested */
   public static final String PIC_FEATURE =
       ""

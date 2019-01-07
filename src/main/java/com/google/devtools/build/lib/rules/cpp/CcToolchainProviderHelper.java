@@ -657,9 +657,7 @@ public class CcToolchainProviderHelper {
             attributes.getAdditionalBuildVariables()),
         getBuiltinIncludes(attributes.getLibc()),
         coverageEnvironment.build(),
-        toolchainInfo.supportsInterfaceSharedLibraries()
-            ? attributes.getLinkDynamicLibraryTool()
-            : null,
+        attributes.getLinkDynamicLibraryTool(),
         builtInIncludeDirectories,
         sysroot,
         fdoMode,
