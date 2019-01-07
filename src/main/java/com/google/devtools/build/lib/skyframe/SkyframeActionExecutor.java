@@ -488,6 +488,9 @@ public final class SkyframeActionExecutor {
   }
 
   private boolean actionReallyExecuted(Action action, ActionLookupData actionLookupData) {
+    // TODO(b/19539699): This method is used only when the action cache is enabled. It is
+    // incompatible with action rewinding, which removes entries from buildActionMap. Action
+    // rewinding is used only with a disabled action cache.
     Pair<ActionLookupData, ?> cachedRun =
         Preconditions.checkNotNull(
             buildActionMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput())),
@@ -665,12 +668,15 @@ public final class SkyframeActionExecutor {
     return token;
   }
 
-  void afterExecution(
+  void updateActionCacheIfReallyExecuted(
       Action action,
       MetadataHandler metadataHandler,
       Token token,
       Map<String, String> clientEnv,
       ActionLookupData actionLookupData) {
+    if (!actionCacheChecker.enabled()) {
+      return;
+    }
     if (!actionReallyExecuted(action, actionLookupData)) {
       // If an action shared with this one executed, then we need not update the action cache, since
       // the other action will do it. Moreover, this action is not aware of metadata acquired
@@ -678,7 +684,7 @@ public final class SkyframeActionExecutor {
       return;
     }
     try {
-      actionCacheChecker.afterExecution(action, token, metadataHandler, clientEnv);
+      actionCacheChecker.updateActionCache(action, token, metadataHandler, clientEnv);
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.

@@ -738,7 +738,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       }
     }
     Preconditions.checkState(!env.valuesMissing(), action);
-    skyframeActionExecutor.afterExecution(
+    skyframeActionExecutor.updateActionCacheIfReallyExecuted(
         action, metadataHandler, state.token, clientEnv, actionLookupData);
     return state.value;
   }

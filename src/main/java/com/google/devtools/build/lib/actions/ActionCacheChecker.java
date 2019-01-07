@@ -101,6 +101,11 @@ public class ActionCacheChecker {
     return !executionFilter.apply(action);
   }
 
+  /** Whether the action cache is enabled. */
+  public boolean enabled() {
+    return cacheConfig.enabled();
+  }
+
   /**
    * Checks whether one of existing output paths is already used as a key.
    * If yes, returns it - otherwise uses first output file as a key
@@ -326,14 +331,12 @@ public class ActionCacheChecker {
     }
   }
 
-  public void afterExecution(
+  public void updateActionCache(
       Action action, Token token, MetadataHandler metadataHandler, Map<String, String> clientEnv)
       throws IOException {
-    if (!cacheConfig.enabled()) {
-      // Action cache is disabled, don't generate digests.
-      return;
-    }
-    Preconditions.checkArgument(token != null);
+    Preconditions.checkState(
+        cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
+    Preconditions.checkArgument(token != null, "token unexpectedly null, action: %s", action);
     String key = token.cacheKey;
     if (actionCache.get(key) != null) {
       // This cache entry has already been updated by a shared action. We don't need to do it again.
