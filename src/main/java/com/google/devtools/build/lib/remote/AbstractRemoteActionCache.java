@@ -426,12 +426,13 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
           @Override
           public void onFailure(Throwable t) {
-            outerF.setException(t);
             try {
               out.close();
             } catch (IOException e) {
               // Intentionally left empty. The download already failed, so we can ignore
               // the error on close().
+            } finally {
+              outerF.setException(t);
             }
           }
         },
