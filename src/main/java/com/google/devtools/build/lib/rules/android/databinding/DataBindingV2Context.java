@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android.databinding;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2Provid
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -79,6 +81,7 @@ class DataBindingV2Context implements DataBindingContext {
     // Unused.
     args.exportClassListTo("/tmp/exported_classes");
     args.modulePackage(AndroidCommon.getJavaPackage(ruleContext));
+    args.directDependencyPkgs(getJavaPackagesOfDirectDependencies(ruleContext));
 
     // The minimum Android SDK compatible with this rule.
     // TODO(bazel-team): This probably should be based on the actual min-sdk from the manifest,
@@ -95,6 +98,23 @@ class DataBindingV2Context implements DataBindingContext {
       args.layoutInfoDir("/tmp/no_resources");
     }
     consumer.accept(args.build());
+  }
+
+  private static Set<String> getJavaPackagesOfDirectDependencies(RuleContext ruleContext) {
+
+    ImmutableSet.Builder<String> javaPackagesOfDirectDependencies = ImmutableSet.builder();
+    if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
+      Iterable<DataBindingV2Provider> providers = ruleContext.getPrerequisites(
+          "deps", RuleConfiguredTarget.Mode.TARGET, DataBindingV2Provider.PROVIDER);
+
+      for (DataBindingV2Provider provider : providers) {
+        for (LabelJavaPackagePair labelJavaPackagePair : provider.getLabelAndJavaPackages()) {
+          javaPackagesOfDirectDependencies.add(labelJavaPackagePair.javaPackage());
+        }
+      }
+    }
+
+    return javaPackagesOfDirectDependencies.build();
   }
 
   @Override

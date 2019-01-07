@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import javax.annotation.Nullable;
 
 /**
  * A provider that exposes this enables <a
@@ -39,17 +40,25 @@ public final class DataBindingV2Provider extends NativeInfo
 
   private final NestedSet<Artifact> transitiveBRFiles;
 
+  /**
+   * The label and java package of this rule and any rules that this rule exports.
+   */
+  @Nullable
+  private final ImmutableList<LabelJavaPackagePair> labelAndJavaPackages;
+
   private final NestedSet<LabelJavaPackagePair> transitiveLabelAndJavaPackages;
 
   public DataBindingV2Provider(
       ImmutableList<Artifact> classInfos,
       ImmutableList<Artifact> setterStores,
       NestedSet<Artifact> transitiveBRFiles,
+      ImmutableList<LabelJavaPackagePair> labelAndJavaPackages,
       NestedSet<LabelJavaPackagePair> transitiveLabelAndJavaPackages) {
     super(PROVIDER);
     this.classInfos = classInfos;
     this.setterStores = setterStores;
     this.transitiveBRFiles = transitiveBRFiles;
+    this.labelAndJavaPackages = labelAndJavaPackages;
     this.transitiveLabelAndJavaPackages = transitiveLabelAndJavaPackages;
   }
 
@@ -66,6 +75,12 @@ public final class DataBindingV2Provider extends NativeInfo
   @Override
   public NestedSet<Artifact> getTransitiveBRFiles() {
     return transitiveBRFiles;
+  }
+
+  @Override
+  @Nullable
+  public ImmutableList<LabelJavaPackagePair> getLabelAndJavaPackages() {
+    return labelAndJavaPackages;
   }
 
   @Override
@@ -97,24 +112,31 @@ public final class DataBindingV2Provider extends NativeInfo
       brFiles.add(brFile);
     }
 
-    NestedSetBuilder<LabelJavaPackagePair> labelAndJavaPackages = NestedSetBuilder.stableOrder();
-    labelAndJavaPackages.add(LabelJavaPackagePair.create(label, javaPackage));
+    NestedSetBuilder<LabelJavaPackagePair> transitiveLabelAndJavaPackages =
+        NestedSetBuilder.stableOrder();
+    ImmutableList.Builder<LabelJavaPackagePair> labelAndJavaPackages = ImmutableList.builder();
+    LabelJavaPackagePair labelAndJavaPackage = LabelJavaPackagePair.create(label, javaPackage);
+    labelAndJavaPackages.add(labelAndJavaPackage);
+    transitiveLabelAndJavaPackages.add(labelAndJavaPackage);
 
     if (databindingV2ProvidersInDeps != null) {
 
       for (DataBindingV2ProviderApi<Artifact> provider : databindingV2ProvidersInDeps) {
         brFiles.addTransitive(provider.getTransitiveBRFiles());
-        labelAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
+        transitiveLabelAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
       }
     }
 
     if (databindingV2ProvidersInExports != null) {
 
+      // Add all of the information from providers from exported targets, so that targets which
+      // depend on this target appear to depend on the exported targets.
       for (DataBindingV2ProviderApi<Artifact> provider : databindingV2ProvidersInExports) {
         setterStoreFiles.addAll(provider.getSetterStores());
         classInfoFiles.addAll(provider.getClassInfos());
         brFiles.addTransitive(provider.getTransitiveBRFiles());
-        labelAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
+        labelAndJavaPackages.addAll(provider.getLabelAndJavaPackages());
+        transitiveLabelAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
       }
     }
 
@@ -122,7 +144,8 @@ public final class DataBindingV2Provider extends NativeInfo
         classInfoFiles.build(),
         setterStoreFiles.build(),
         brFiles.build(),
-        labelAndJavaPackages.build());
+        labelAndJavaPackages.build(),
+        transitiveLabelAndJavaPackages.build());
   }
 
   /** The provider can construct the DataBindingV2Provider provider. */

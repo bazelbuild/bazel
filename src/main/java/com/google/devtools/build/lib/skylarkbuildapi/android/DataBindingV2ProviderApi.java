@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import javax.annotation.Nullable;
 
 /**
  * An interface for a provider that exposes the use of <a
@@ -78,13 +79,27 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
   @SkylarkCallable(name = "transitive_br_files", structField = true, doc = "", documented = false)
   NestedSet<T> getTransitiveBRFiles();
 
-  /** Returns the java package for this rule. */
+  /**
+   * Returns a NestedSet containing the label and java package for this rule and its transitive
+   * dependencies.
+   * */
   @SkylarkCallable(
       name = "transitive_label_and_java_packages",
       structField = true,
       doc = "",
       documented = false)
   NestedSet<LabelJavaPackagePair> getTransitiveLabelAndJavaPackages();
+
+  /**
+   * Returns the label and java package for this rule and any rules that this rule exports.
+   */
+  @SkylarkCallable(
+      name = "label_and_java_packages",
+      structField = true,
+      doc = "",
+      documented = false)
+  @Nullable
+  ImmutableList<LabelJavaPackagePair> getLabelAndJavaPackages();
 
   /** The provider implementing this can construct the DataBindingV2Info provider. */
   @SkylarkModule(

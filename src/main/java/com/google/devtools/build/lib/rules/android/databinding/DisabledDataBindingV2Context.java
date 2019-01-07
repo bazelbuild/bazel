@@ -53,6 +53,7 @@ class DisabledDataBindingV2Context implements DataBindingContext {
     ImmutableList.Builder<Artifact> setterStores = ImmutableList.builder();
     ImmutableList.Builder<Artifact> classInfos = ImmutableList.builder();
     NestedSetBuilder<Artifact> brFiles = NestedSetBuilder.stableOrder();
+    ImmutableList.Builder<LabelJavaPackagePair> exportedLabelJavaPackages = ImmutableList.builder();
     NestedSetBuilder<LabelJavaPackagePair> targetNameAndJavaPackages =
         NestedSetBuilder.stableOrder();
 
@@ -65,6 +66,7 @@ class DisabledDataBindingV2Context implements DataBindingContext {
         setterStores.addAll(provider.getSetterStores());
         classInfos.addAll(provider.getClassInfos());
         brFiles.addTransitive(provider.getTransitiveBRFiles());
+        exportedLabelJavaPackages.addAll(provider.getLabelAndJavaPackages());
         targetNameAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());
       }
     }
@@ -82,6 +84,7 @@ class DisabledDataBindingV2Context implements DataBindingContext {
             classInfos.build(),
             setterStores.build(),
             brFiles.build(),
+            exportedLabelJavaPackages.build(),
             targetNameAndJavaPackages.build()));
   }
 

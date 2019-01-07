@@ -13,10 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android.databinding;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import java.util.Set;
 
-/** Builder for annotation processor arguments that can be passed down to data binding. */
+/**
+ * Builder for annotation processor arguments that can be passed down to data binding.
+ *
+ * TODO: Refactor the names of the setter methods in this class to include "set".
+ */
 public class DataBindingProcessorArgsBuilder {
   private final boolean useUpdatedArgs;
   private final ImmutableList.Builder<String> flags = ImmutableList.builder();
@@ -132,6 +138,15 @@ public class DataBindingProcessorArgsBuilder {
    */
   public DataBindingProcessorArgsBuilder layoutInfoDir(Artifact layoutInfoDir) {
     flags.add(createProcessorFlag("layoutInfoDir", layoutInfoDir));
+    return this;
+  }
+
+  /**
+   * Sets the Java packages of the direct dependencies.
+   */
+  public DataBindingProcessorArgsBuilder directDependencyPkgs(Set<String> packages) {
+    String value = String.format("[%s]", Joiner.on(",").join(packages));
+    flags.add(createProcessorFlag("directDependencyPkgs", value));
     return this;
   }
 
