@@ -1038,7 +1038,6 @@ static void ActuallyExtractData(const string &argv0,
 // it is in place. Concurrency during extraction is handled by
 // extracting in a tmp dir and then renaming it into place where it
 // becomes visible automically at the new path.
-// Populates globals->extracted_binaries with their extracted locations.
 static void ExtractData(const string &self_path) {
   // If the install dir doesn't exist, create it, if it does, we know it's good.
   if (!blaze_util::PathExists(globals->options->install_base)) {
