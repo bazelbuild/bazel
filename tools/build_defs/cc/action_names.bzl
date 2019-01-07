@@ -23,7 +23,7 @@ CPP_COMPILE_ACTION_NAME = "c++-compile"
 LINKSTAMP_COMPILE_ACTION_NAME = "linkstamp-compile"
 
 # Name of the action used to compute CC_FLAGS make variable.
-CC_FLAGS_MAKE_VARIABLE_ACTION_NAME_ACTION_NAME = "cc-flags-make-variable"
+CC_FLAGS_MAKE_VARIABLE_ACTION_NAME = "cc-flags-make-variable"
 
 # Name of the C++ module codegen action.
 CPP_MODULE_CODEGEN_ACTION_NAME = "c++-module-codegen"
