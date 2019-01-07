@@ -593,13 +593,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     return cppConfiguration == null ? null : cppConfiguration.getCompilationMode();
   }
 
-  /**
-   * Returns whether the toolchain supports the gold linker.
-   */
-  public boolean supportsGoldLinker() {
-    return toolchainInfo.supportsGoldLinker();
-  }
-
   /** Returns whether the toolchain supports dynamic linking. */
   public boolean supportsDynamicLinker(FeatureConfiguration featureConfiguration) {
     return toolchainInfo.supportsDynamicLinker()

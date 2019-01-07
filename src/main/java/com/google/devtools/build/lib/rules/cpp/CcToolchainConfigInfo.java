@@ -64,7 +64,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final String compiler;
   private final String abiVersion;
   private final String abiLibcVersion;
-  private final boolean supportsGoldLinker;
   private final boolean supportsStartEndLib;
   private final boolean supportsInterfaceSharedLibraries;
   private final boolean supportsEmbeddedRuntimes;
@@ -109,7 +108,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       String compiler,
       String abiVersion,
       String abiLibcVersion,
-      boolean supportsGoldLinker,
       boolean supportsStartEndLib,
       boolean supportsInterfaceSharedLibraries,
       boolean supportsEmbeddedRuntimes,
@@ -152,7 +150,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.compiler = compiler;
     this.abiVersion = abiVersion;
     this.abiLibcVersion = abiLibcVersion;
-    this.supportsGoldLinker = supportsGoldLinker;
     this.supportsStartEndLib = supportsStartEndLib;
     this.supportsInterfaceSharedLibraries = supportsInterfaceSharedLibraries;
     this.supportsEmbeddedRuntimes = supportsEmbeddedRuntimes;
@@ -413,7 +410,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         toolchain.getCompiler(),
         toolchain.getAbiVersion(),
         toolchain.getAbiLibcVersion(),
-        toolchain.getSupportsGoldLinker(),
         toolchain.getSupportsStartEndLib(),
         toolchain.getSupportsInterfaceSharedObjects(),
         toolchain.getSupportsEmbeddedRuntimes(),
@@ -511,12 +507,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   @Deprecated
   public String getAbiLibcVersion() {
     return abiLibcVersion;
-  }
-
-  // TODO(b/65151735): Remove once this field is migrated to features.
-  @Deprecated
-  public boolean supportsGoldLinker() {
-    return supportsGoldLinker;
   }
 
   // TODO(b/65151735): Remove once this field is migrated to features.

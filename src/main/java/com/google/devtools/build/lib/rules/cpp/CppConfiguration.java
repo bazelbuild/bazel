@@ -396,10 +396,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.legacyWholeArchive;
   }
 
-  public boolean getSymbolCounts() {
-    return cppOptions.symbolCounts;
-  }
-
   public boolean getInmemoryDotdFiles() {
     return cppOptions.inmemoryDotdFiles;
   }

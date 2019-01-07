@@ -352,6 +352,7 @@ message CToolchain {
 
   // Feature flags.
   // TODO(bazel-team): Sink those into 'Feature' instances.
+  // Legacy field, ignored by Bazel.
   optional bool supports_gold_linker = 10 [default = false];
   // Legacy field, ignored by Bazel.
   optional bool supports_thin_archives = 11 [default = false];

@@ -100,7 +100,6 @@ public class CppLinkActionBuilder {
   @Nullable private final CcToolchainProvider toolchain;
   private final FdoProvider fdoProvider;
   private Artifact interfaceOutput;
-  private Artifact symbolCounts;
   /** Directory where toolchain stores language-runtime libraries (libstdc++, libc++ ...) */
   private PathFragment toolchainLibrariesSolibDir;
 
@@ -765,8 +764,7 @@ public class CppLinkActionBuilder {
           constructOutputs(
               output,
               linkActionOutputs.build(),
-              interfaceOutputLibrary == null ? null : interfaceOutputLibrary.getArtifact(),
-              symbolCounts);
+              interfaceOutputLibrary == null ? null : interfaceOutputLibrary.getArtifact());
     }
 
     // Linker inputs without any start/end lib expansions.
@@ -856,7 +854,6 @@ public class CppLinkActionBuilder {
               thinltoParamFile != null ? thinltoParamFile.getExecPathString() : null,
               thinltoMergedObjectFile != null ? thinltoMergedObjectFile.getExecPathString() : null,
               mustKeepDebug,
-              symbolCounts,
               toolchain,
               featureConfiguration,
               useTestOnlyFlags,
@@ -898,8 +895,6 @@ public class CppLinkActionBuilder {
 
       Preconditions.checkArgument(
           linkingMode == Link.LinkingMode.STATIC, "static library link must be static");
-      Preconditions.checkArgument(
-          symbolCounts == null, "the symbol counts output must be null for static links");
       Preconditions.checkArgument(
           !isNativeDeps, "the native deps flag must be false for static links");
       Preconditions.checkArgument(
@@ -1212,11 +1207,6 @@ public class CppLinkActionBuilder {
    */
   public CppLinkActionBuilder setInterfaceOutput(Artifact interfaceOutput) {
     this.interfaceOutput = interfaceOutput;
-    return this;
-  }
-
-  public CppLinkActionBuilder setSymbolCountsOutput(Artifact symbolCounts) {
-    this.symbolCounts = symbolCounts;
     return this;
   }
 

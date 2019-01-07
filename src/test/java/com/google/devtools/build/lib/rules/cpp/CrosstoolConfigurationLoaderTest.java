@@ -82,7 +82,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             + "  tool_path { name: \"strip\" path: \"path-to-strip\" }"
             + "  tool_path { name: \"dwp\" path: \"path-to-dwp\" }"
             + optionalTool
-            + "  supports_gold_linker: true"
             + "  supports_normalizing_ar: true"
             + "  supports_incremental_linker: true"
             + "  supports_fission: true"
@@ -175,7 +174,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProvider.getAbi()).isEqualTo("abi-version");
     assertThat(ccProvider.getAbiGlibcVersion()).isEqualTo("abi-libc-version");
 
-    assertThat(ccProvider.supportsGoldLinker()).isTrue();
     assertThat(ccProvider.supportsStartEndLib(FeatureConfiguration.EMPTY)).isFalse();
     assertThat(ccProvider.supportsInterfaceSharedLibraries(FeatureConfiguration.EMPTY)).isFalse();
     assertThat(ccProvider.supportsEmbeddedRuntimes()).isFalse();
@@ -251,7 +249,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  tool_path { name: \"objdump\" path: \"path/to/objdump-A\" }\n"
                 + "  tool_path { name: \"strip\" path: \"path/to/strip-A\" }\n"
                 + "  tool_path { name: \"dwp\" path: \"path/to/dwp\" }\n"
-                + "  supports_gold_linker: true\n"
                 + "  supports_start_end_lib: true\n"
                 + "  supports_normalizing_ar: true\n"
                 + "  supports_embedded_runtimes: true\n"
@@ -337,7 +334,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  tool_path { name: \"objdump\" path: \"path/to/objdump-B\" }\n"
                 + "  tool_path { name: \"strip\" path: \"path/to/strip-B\" }\n"
                 + "  tool_path { name: \"dwp\" path: \"path/to/dwp\" }\n"
-                + "  supports_gold_linker: true\n"
                 + "  supports_start_end_lib: true\n"
                 + "  supports_normalizing_ar: true\n"
                 + "  supports_embedded_runtimes: true\n"
@@ -458,7 +454,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         .isEqualTo(getToolPath("path/to/objdump-A"));
     assertThat(ccProviderA.getToolPathFragment(Tool.STRIP))
         .isEqualTo(getToolPath("path/to/strip-A"));
-    assertThat(ccProviderA.supportsGoldLinker()).isTrue();
     assertThat(ccProviderA.supportsStartEndLib(FeatureConfiguration.EMPTY)).isTrue();
     assertThat(ccProviderA.supportsEmbeddedRuntimes()).isTrue();
     assertThat(ccProviderA.toolchainNeedsPic()).isTrue();
@@ -559,7 +554,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(ccProviderC.getAbi()).isEqualTo("abi-version-C");
     assertThat(ccProviderC.getAbiGlibcVersion()).isEqualTo("abi-libc-version-C");
     // Don't bother with testing the list of tools again.
-    assertThat(ccProviderC.supportsGoldLinker()).isFalse();
     assertThat(ccProviderC.supportsStartEndLib(FeatureConfiguration.EMPTY)).isFalse();
     assertThat(ccProviderC.supportsInterfaceSharedLibraries(FeatureConfiguration.EMPTY)).isFalse();
     assertThat(ccProviderC.supportsEmbeddedRuntimes()).isFalse();

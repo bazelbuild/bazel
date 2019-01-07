@@ -657,14 +657,6 @@ public final class CcLinkingHelper {
           ccToolchain.getStaticRuntimeLinkInputs(ruleContext, featureConfiguration));
     }
 
-    if (CppLinkAction.enableSymbolsCounts(
-        cppConfiguration, ccToolchain.supportsGoldLinker(), fake, staticLinkType)) {
-      dynamicLinkActionBuilder.setSymbolCountsOutput(
-          ruleContext.getBinArtifact(
-              CppLinkAction.symbolCountsFileName(
-                  PathFragment.create(ruleContext.getTarget().getName()))));
-    }
-
     // On Windows, we cannot build a shared library with symbols unresolved, so here we
     // dynamically link to all its dependencies, even for LinkTargetType.NODEPS_DYNAMIC_LIBRARY.
     boolean shouldLinkTransitively =

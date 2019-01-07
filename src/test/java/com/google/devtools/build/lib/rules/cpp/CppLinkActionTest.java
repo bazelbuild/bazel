@@ -730,19 +730,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStaticLinkWithSymbolsCountOutputIsError() throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
-
-    CppLinkActionBuilder builder =
-        createLinkBuilder(ruleContext, LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(LinkingMode.STATIC)
-            .setLibraryIdentifier("foo")
-            .setSymbolCountsOutput(scratchArtifact("dummySymbolCounts"));
-
-    assertError("the symbol counts output must be null for static links", builder);
-  }
-
-  @Test
   public void testStaticLinkWithNativeDepsIsError() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
 

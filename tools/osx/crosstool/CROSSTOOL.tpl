@@ -18518,7 +18518,6 @@ toolchain {
     name: "strip"
     path: "/bin/false"
   }
-  supports_gold_linker: false
   needsPic: true
   compiler_flag: "-D_FORTIFY_SOURCE=1"
   compiler_flag: "-fstack-protector"

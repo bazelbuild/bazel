@@ -23,7 +23,6 @@ toolchain {
   compiler: "compiler"
   host_system_name: "armeabi-v7a"
   needsPic: true
-  supports_gold_linker: false
   supports_incremental_linker: false
   supports_fission: false
   supports_interface_shared_objects: false
@@ -157,7 +156,6 @@ toolchain {
     name: "strip"
     path: "wrapper/bin/msvc_nop.bat"
   }
-  supports_gold_linker: false
   supports_start_end_lib: false
   supports_interface_shared_objects: true
   supports_incremental_linker: false

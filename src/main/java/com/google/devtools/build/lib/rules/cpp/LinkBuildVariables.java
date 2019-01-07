@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -66,8 +65,6 @@ public enum LinkBuildVariables {
   LEGACY_LINK_FLAGS("legacy_link_flags"),
   /** Linker flags coming from the --linkopt or linkopts attribute. */
   USER_LINK_FLAGS("user_link_flags"),
-  /** Path to which to write symbol counts. */
-  SYMBOL_COUNTS_OUTPUT("symbol_counts_output"),
   /** A build variable giving linkstamp paths. */
   LINKSTAMP_PATHS("linkstamp_paths"),
   /** Presence of this variable indicates that PIC code should be generated. */
@@ -101,7 +98,6 @@ public enum LinkBuildVariables {
       String thinltoParamFile,
       String thinltoMergedObjectFile,
       boolean mustKeepDebug,
-      Artifact symbolCounts,
       CcToolchainProvider ccToolchainProvider,
       FeatureConfiguration featureConfiguration,
       boolean useTestOnlyFlags,
@@ -121,12 +117,6 @@ public enum LinkBuildVariables {
       throws EvalException {
     CcToolchainVariables.Builder buildVariables =
         new CcToolchainVariables.Builder(ccToolchainProvider.getBuildVariables());
-
-    // symbol counting
-    if (symbolCounts != null) {
-      buildVariables.addStringVariable(
-          SYMBOL_COUNTS_OUTPUT.getVariableName(), symbolCounts.getExecPathString());
-    }
 
     // pic
     if (ccToolchainProvider.getForcePic()) {

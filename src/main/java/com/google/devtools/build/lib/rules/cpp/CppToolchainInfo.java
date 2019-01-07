@@ -105,7 +105,6 @@ public final class CppToolchainInfo {
   private final boolean supportsEmbeddedRuntimes;
   private final boolean supportsDynamicLinker;
   private final boolean supportsInterfaceSharedLibraries;
-  private final boolean supportsGoldLinker;
   private final boolean toolchainNeedsPic;
 
   /**
@@ -255,7 +254,6 @@ public final class CppToolchainInfo {
           disableLegacyCrosstoolFields
               ? false
               : ccToolchainConfigInfo.supportsInterfaceSharedLibraries(),
-          disableLegacyCrosstoolFields ? false : ccToolchainConfigInfo.supportsGoldLinker(),
           disableLegacyCrosstoolFields ? false : ccToolchainConfigInfo.needsPic());
     } catch (LabelSyntaxException e) {
       // All of the above label.getRelativeWithRemapping() calls are valid labels, and the
@@ -303,7 +301,6 @@ public final class CppToolchainInfo {
       boolean supportsEmbeddedRuntimes,
       boolean supportsDynamicLinker,
       boolean supportsInterfaceSharedLibraries,
-      boolean supportsGoldLinker,
       boolean toolchainNeedsPic)
       throws EvalException {
     this.toolchainIdentifier = toolchainIdentifier;
@@ -344,7 +341,6 @@ public final class CppToolchainInfo {
     this.supportsEmbeddedRuntimes = supportsEmbeddedRuntimes;
     this.supportsDynamicLinker = supportsDynamicLinker;
     this.supportsInterfaceSharedLibraries = supportsInterfaceSharedLibraries;
-    this.supportsGoldLinker = supportsGoldLinker;
     this.toolchainNeedsPic = toolchainNeedsPic;
   }
 
@@ -584,11 +580,6 @@ public final class CppToolchainInfo {
    */
   public CcToolchainFeatures getFeatures() {
     return toolchainFeatures;
-  }
-
-  /** Returns whether the toolchain supports the gold linker. */
-  public boolean supportsGoldLinker() {
-    return supportsGoldLinker;
   }
 
   /** Returns whether the toolchain supports the --start-lib/--end-lib options. */

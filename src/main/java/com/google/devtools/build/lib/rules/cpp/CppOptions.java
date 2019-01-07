@@ -597,17 +597,6 @@ public class CppOptions extends FragmentOptions {
   public Label hostLibcTopLabel;
 
   @Option(
-    name = "output_symbol_counts",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "If enabled, for every C++ binary linked with gold, the number of defined symbols "
-            + "and the number of used symbols per input file is stored in a .sc file."
-  )
-  public boolean symbolCounts;
-
-  @Option(
     name = "experimental_inmemory_dotd_files",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
