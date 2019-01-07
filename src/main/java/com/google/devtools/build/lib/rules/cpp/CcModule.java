@@ -147,6 +147,11 @@ public class CcModule
   }
 
   @Override
+  public boolean actionIsEnabled(FeatureConfiguration featureConfiguration, String actionName) {
+    return featureConfiguration.actionIsConfigured(actionName);
+  }
+
+  @Override
   public SkylarkList<String> getCommandLine(
       FeatureConfiguration featureConfiguration,
       String actionName,

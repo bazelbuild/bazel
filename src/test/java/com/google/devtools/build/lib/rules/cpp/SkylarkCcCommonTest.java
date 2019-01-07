@@ -272,6 +272,43 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testActionIsEnabled() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(cc_toolchain = toolchain)",
+        "  return struct(",
+        "    enabled_action = cc_common.action_is_enabled(",
+        "        feature_configuration = feature_configuration,",
+        "        action_name = 'c-compile'),",
+        "    disabled_action = cc_common.action_is_enabled(",
+        "        feature_configuration = feature_configuration,",
+        "        action_name = 'wololoo'))",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked")
+    boolean enabledActionIsEnabled = (boolean) r.get("enabled_action");
+    @SuppressWarnings("unchecked")
+    boolean disabledActionIsDisabled = (boolean) r.get("disabled_action");
+    assertThat(enabledActionIsEnabled).isTrue();
+    assertThat(disabledActionIsDisabled).isFalse();
+  }
+
+  @Test
   public void testIsEnabled() throws Exception {
     scratch.file(
         "a/BUILD",

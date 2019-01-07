@@ -126,6 +126,24 @@ public interface CcModuleApi<
   boolean isEnabled(FeatureConfigurationT featureConfiguration, String featureName);
 
   @SkylarkCallable(
+      name = "action_is_enabled",
+      doc = "Returns True if given action_config is enabled in the feature configuration.",
+      parameters = {
+        @Param(
+            name = "feature_configuration",
+            doc = "Feature configuration to be queried.",
+            positional = false,
+            named = true,
+            type = FeatureConfigurationApi.class),
+        @Param(
+            name = "action_name",
+            doc = "Name of the action_config.",
+            named = true,
+            positional = false),
+      })
+  boolean actionIsEnabled(FeatureConfigurationT featureConfiguration, String actionName);
+
+  @SkylarkCallable(
       name = "get_memory_inefficient_command_line",
       doc =
           "Returns flattened command line flags for given action, using given variables for "

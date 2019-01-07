@@ -70,6 +70,11 @@ public class FakeCcModule
   }
 
   @Override
+  public boolean actionIsEnabled(FeatureConfigurationApi featureConfiguration, String actionName) {
+    return false;
+  }
+
+  @Override
   public SkylarkList<String> getCommandLine(FeatureConfigurationApi featureConfiguration,
       String actionName, CcToolchainVariablesApi variables) {
     return null;
