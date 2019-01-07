@@ -31,4 +31,20 @@ public class SwiftCommandLineOptions extends FragmentOptions {
     help = "Additional options to pass to Swift compilation."
   )
   public List<String> copts;
+
+  @Option(
+      name = "host_swiftcopt",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Additional options to pass to swiftc for host tools.")
+  public List<String> hostSwiftcoptList;
+
+  @Override
+  public FragmentOptions getHost() {
+    SwiftCommandLineOptions host = (SwiftCommandLineOptions) super.getHost();
+    host.copts = this.hostSwiftcoptList;
+    return host;
+  }
 }
