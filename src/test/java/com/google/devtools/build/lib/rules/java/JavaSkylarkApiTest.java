@@ -1839,12 +1839,43 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     checkError(
         "java/test",
         "custom",
-        "create_provider is deprecated and cannot be used when "
-            + "--incompatible_disallow_legacy_javainfo is set. ",
+        "java_common.create_provider is deprecated and cannot be used when "
+            + "--incompatible_disallow_legacy_javainfo is set.",
         "load(':custom_rule.bzl', 'java_custom_library')",
         "java_custom_library(",
         "  name = 'custom',",
         ")");
+  }
+
+  @Test
+  public void testIncompatibleDisallowLegacyJavaInfoWithFlag() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_legacy_javainfo");
+    setSkylarkSemanticsOptions(
+        "--experimental_java_common_create_provider_enabled_packages=java/test");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  jar = ctx.file.jar",
+        "  java_common.create_provider(",
+        "      compile_time_jars = [jar],",
+        "      transitive_compile_time_jars = [jar],",
+        "      runtime_jars = [jar],",
+        "      use_ijar = False,",
+        "  )",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "  }",
+        ")");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  jar = 'lib.jar'",
+        ")");
+    assertThat(getConfiguredTarget("//java/test:custom")).isNotNull();
   }
 
   private static boolean javaCompilationArgsHaveTheSameParent(

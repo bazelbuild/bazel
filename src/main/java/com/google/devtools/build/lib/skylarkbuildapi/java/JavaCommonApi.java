@@ -44,7 +44,11 @@ public interface JavaCommonApi<
   @SkylarkCallable(
       name = "create_provider",
       doc =
-          "Creates a JavaInfo from jars. compile_time/runtime_jars represent the outputs of the "
+          "This API is deprecated. It will be disabled by default in Bazel 0.23. Please use "
+              + "<a href ="
+              + "'https://docs.bazel.build/versions/master/skylark/lib/JavaInfo.html#JavaInfo'>"
+              + "JavaInfo()</a> instead."
+              + "Creates a JavaInfo from jars. compile_time/runtime_jars are the outputs of the "
               + "target providing a JavaInfo, while transitive_*_jars represent their dependencies."
               + "<p>Note: compile_time_jars and runtime_jars are not automatically merged into the "
               + "transitive jars (unless the given transitive_*_jars are empty) - if this is the "

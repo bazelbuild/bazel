@@ -124,6 +124,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean experimentalEnableRepoMapping();
 
+  public abstract ImmutableList<String> experimentalJavaCommonCreateProviderEnabledPackages();
+
   public abstract boolean experimentalRemapMainRepo();
 
   public abstract boolean experimentalPlatformsApi();
@@ -207,6 +209,7 @@ public abstract class SkylarkSemantics {
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalEnableRepoMapping(false)
+          .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
           .experimentalRemapMainRepo(false)
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(false)
@@ -255,6 +258,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder experimentalEnableRepoMapping(boolean value);
 
     public abstract Builder experimentalRemapMainRepo(boolean value);
+
+    public abstract Builder experimentalJavaCommonCreateProviderEnabledPackages(List<String> value);
 
     public abstract Builder experimentalPlatformsApi(boolean value);
 

@@ -31,7 +31,9 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for Java support. */
@@ -54,11 +56,10 @@ public class JavaSkylarkCommon
       Environment environment)
       throws EvalException {
     if (environment.getSemantics().incompatibleDisallowLegacyJavaInfo()) {
-      throw new EvalException(
+      checkCallPathInWhitelistedPackages(
+          environment.getSemantics(),
           location,
-          "create_provider is deprecated and cannot be used when "
-              + "--incompatible_disallow_legacy_javainfo is set. "
-              + "Please migrate to the JavaInfo constructor.");
+          environment.getCallerLabel().getPackageFragment().toString());
     }
     return JavaInfoBuildHelper.getInstance()
         .create(
@@ -220,5 +221,22 @@ public class JavaSkylarkCommon
         : NestedSetBuilder.<Artifact>naiveLinkOrder()
             .addAll(((SkylarkList<?>) o).getContents(Artifact.class, /*description=*/ null))
             .build();
+  }
+
+  /**
+   * Throws an {@link EvalException} if the given {@code callPath} is not listed under the {@code
+   * --experimental_java_common_create_provider_enabled_packages} flag.
+   */
+  private static void checkCallPathInWhitelistedPackages(
+      SkylarkSemantics semantics, Location location, String callPath) throws EvalException {
+    List<String> whitelistedPackagesList =
+        semantics.experimentalJavaCommonCreateProviderEnabledPackages();
+    if (whitelistedPackagesList.stream().noneMatch(path -> callPath.startsWith(path))) {
+      throw new EvalException(
+          location,
+          "java_common.create_provider is deprecated and cannot be used when "
+              + "--incompatible_disallow_legacy_javainfo is set. "
+              + "Please migrate to the JavaInfo constructor.");
+    }
   }
 }

@@ -100,6 +100,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       help = "If set to true, enables the use of the `repo_mapping` attribute in WORKSPACE files.")
   public boolean experimentalEnableRepoMapping;
 
+  // This flag is declared in SkylarkSemanticsOptions instead of JavaOptions because there is no
+  // way to retrieve the java configuration from the Java implementation of
+  // java_common.create_provider.
+  @Option(
+      name = "experimental_java_common_create_provider_enabled_packages",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Passes list of packages that can use the java_common.create_provider Starlark API.")
+  public List<String> experimentalJavaCommonCreateProviderEnabledPackages;
+
   @Option(
       name = "experimental_remap_main_repo",
       defaultValue = "false",
@@ -536,6 +549,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
         .experimentalEnableRepoMapping(experimentalEnableRepoMapping)
         .experimentalRemapMainRepo(experimentalRemapMainRepo)
+        .experimentalJavaCommonCreateProviderEnabledPackages(
+            experimentalJavaCommonCreateProviderEnabledPackages)
         .experimentalPlatformsApi(experimentalPlatformsApi)
         .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
