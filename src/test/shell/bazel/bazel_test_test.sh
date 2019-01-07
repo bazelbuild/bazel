@@ -546,10 +546,10 @@ EOF
   expect_log_once "PASS: //:flaky"
   expect_log_once "FLAKY"
   cat bazel-testlogs/flaky/test_attempts/attempt_1.log &> $TEST_log
-  assert_equals "fail" "$(tail -1 bazel-testlogs/flaky/test_attempts/attempt_1.log)"
+  assert_equals "fail" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
   assert_equals 1 $(ls bazel-testlogs/flaky/test_attempts/*.log | wc -l)
   cat bazel-testlogs/flaky/test.log &> $TEST_log
-  assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
+  assert_equals "pass" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
 
   # TODO(b/37617303): make test UI-independent
   bazel --nomaster_bazelrc test --noexperimental_ui //:pass &> $TEST_log \
@@ -569,10 +569,10 @@ EOF
   expect_log_once "FAIL: //:fail (.*/fail/test.log)"
   expect_log_once "FAILED"
   cat bazel-testlogs/fail/test_attempts/attempt_1.log &> $TEST_log
-  assert_equals "fail" "$(sed -n '4p' < bazel-testlogs/fail/test_attempts/attempt_1.log)"
+  assert_equals "fail" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
   assert_equals 2 $(ls bazel-testlogs/fail/test_attempts/*.log | wc -l)
   cat bazel-testlogs/fail/test.log &> $TEST_log
-  assert_equals "fail" "$(sed -n '4p' < bazel-testlogs/fail/test.log)"
+  assert_equals "fail" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
 }
 
 function test_undeclared_outputs_are_zipped_and_manifest_exists() {
