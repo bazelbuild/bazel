@@ -44,9 +44,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("PACKAGE_LOOKUP");
   public static final SkyFunctionName CONTAINING_PACKAGE_LOOKUP =
       SkyFunctionName.createHermetic("CONTAINING_PACKAGE_LOOKUP");
-  // Non-hermetic because accesses the package locator. Also does disk access.
   public static final SkyFunctionName AST_FILE_LOOKUP =
-      SkyFunctionName.createNonHermetic("AST_FILE_LOOKUP");
+      SkyFunctionName.createHermetic("AST_FILE_LOOKUP");
   public static final SkyFunctionName SKYLARK_IMPORTS_LOOKUP =
       SkyFunctionName.createHermetic("SKYLARK_IMPORTS_LOOKUP");
   public static final SkyFunctionName GLOB = SkyFunctionName.createHermetic("GLOB");
@@ -126,9 +125,8 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("REPOSITORY_DIRECTORY");
   public static final SkyFunctionName WORKSPACE_AST =
       SkyFunctionName.createHermetic("WORKSPACE_AST");
-  // Non-hermetic because accesses package locator
   public static final SkyFunctionName EXTERNAL_PACKAGE =
-      SkyFunctionName.createNonHermetic("EXTERNAL_PACKAGE");
+      SkyFunctionName.createHermetic("EXTERNAL_PACKAGE");
   public static final SkyFunctionName ACTION_TEMPLATE_EXPANSION =
       SkyFunctionName.createHermetic("ACTION_TEMPLATE_EXPANSION");
   public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =
