@@ -218,7 +218,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
           useIjar
               ? JavaCompilationHelper.createIjarAction(
                   ruleContext,
-                  JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+                  JavaToolchainProvider.from(ruleContext),
                   jar,
                   ruleContext.getLabel(),
                   /* injectingRuleKind */ null,

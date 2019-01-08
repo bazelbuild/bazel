@@ -40,11 +40,8 @@ public class JavaToolchainProvider extends ToolchainInfo {
 
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
-    return from(ruleContext, ":java_toolchain");
-  }
-
-  public static JavaToolchainProvider from(RuleContext ruleContext, String attributeName) {
-    TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite(attributeName, Mode.TARGET);
+    TransitiveInfoCollection prerequisite =
+        ruleContext.getPrerequisite(":java_toolchain", Mode.TARGET);
     return from(prerequisite, ruleContext);
   }
 

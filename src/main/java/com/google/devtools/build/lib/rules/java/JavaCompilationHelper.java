@@ -74,7 +74,6 @@ public final class JavaCompilationHelper {
   // TODO(twerth): Remove after java_proto_library.strict_deps migration is done.
   private final boolean javaProtoLibraryStrictDeps;
 
-  private static final String DEFAULT_ATTRIBUTES_SUFFIX = "";
   private static final PathFragment JAVAC = PathFragment.create("_javac");
 
   private JavaCompilationHelper(
@@ -132,7 +131,7 @@ public final class JavaCompilationHelper {
         semantics,
         javacOpts,
         attributes,
-        getJavaToolchainProvider(ruleContext),
+        JavaToolchainProvider.from(ruleContext),
         JavaRuntimeInfo.forHost(ruleContext),
         getInstrumentationJars(ruleContext));
   }
@@ -149,7 +148,7 @@ public final class JavaCompilationHelper {
         semantics,
         javacOpts,
         attributes,
-        getJavaToolchainProvider(ruleContext),
+        JavaToolchainProvider.from(ruleContext),
         JavaRuntimeInfo.forHost(ruleContext),
         getInstrumentationJars(ruleContext),
         additionalJavaBaseInputs,
@@ -841,30 +840,15 @@ public final class JavaCompilationHelper {
     return ImmutableList.copyOf(translations);
   }
 
-  public static JavaToolchainProvider getJavaToolchainProvider(
-      RuleContext ruleContext, String implicitAttributesSuffix) {
-    return JavaToolchainProvider.from(ruleContext, ":java_toolchain" + implicitAttributesSuffix);
-  }
-
-  public static JavaToolchainProvider getJavaToolchainProvider(RuleContext ruleContext) {
-    return getJavaToolchainProvider(ruleContext, DEFAULT_ATTRIBUTES_SUFFIX);
-  }
-
   /** Returns the instrumentation jar in the given semantics. */
-  public static Iterable<Artifact> getInstrumentationJars(
-      RuleContext ruleContext, String implicitAttributesSuffix) {
+  public static Iterable<Artifact> getInstrumentationJars(RuleContext ruleContext) {
     TransitiveInfoCollection instrumentationTarget =
-        ruleContext.getPrerequisite(
-            "$jacoco_instrumentation" + implicitAttributesSuffix, Mode.HOST);
+        ruleContext.getPrerequisite("$jacoco_instrumentation", Mode.HOST);
     if (instrumentationTarget == null) {
       return ImmutableList.<Artifact>of();
     }
     return FileType.filter(
         instrumentationTarget.getProvider(FileProvider.class).getFilesToBuild(), JavaSemantics.JAR);
-  }
-
-  public static Iterable<Artifact> getInstrumentationJars(RuleContext ruleContext) {
-    return getInstrumentationJars(ruleContext, DEFAULT_ATTRIBUTES_SUFFIX);
   }
 
   /**
