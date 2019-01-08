@@ -178,7 +178,7 @@ public class RuleDocumentationAttribute
       return prefix + ((Boolean) value ? "True" : "False");
     } else if (value instanceof Integer) {
       return prefix + String.valueOf(value);
-    } else if (value instanceof String && !(((String) value).isEmpty())) {
+    } else if (value instanceof String && !((String) value).isEmpty()) {
       return prefix + "\"" + value + "\"";
     } else if (value instanceof TriState) {
       switch((TriState) value) {
