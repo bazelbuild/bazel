@@ -86,6 +86,10 @@ py_test(
     deps = [
         ":make_rpm",
     ],
+    # rpmbuild is not available in windows
+    tags = [
+        "no_windows"
+    ]
 )
 
 # tests
