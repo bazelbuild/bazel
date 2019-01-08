@@ -196,7 +196,7 @@ public abstract class OptionValueDescription {
         Object newValue = parsedOption.getConvertedValue();
         // Output warnings if there is conflicting options set different values in a way that might
         // not have been obvious to the user, such as through expansions and implicit requirements.
-        if (!effectiveValue.equals(newValue)) {
+        if (effectiveValue != null && !effectiveValue.equals(newValue)) {
           boolean samePriorityCategory =
               parsedOption
                   .getPriority()
