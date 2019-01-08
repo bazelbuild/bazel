@@ -4379,7 +4379,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "                                                           not_features=['b', 'c']),",
         "                                          with_feature_set(features=['b'])],",
         "                                      execution_requirements = ['a', 'b', 'c'])],",
-        "                        implies = ['compiler_input_flags', 'compiler_output_flags'])],",
+        "                        implies = ['compiler_input_flags', 'compiler_output_flags'],",
+        "                        flag_sets = [flag_set(flag_groups = [flag_group(flags = ['a'])]",
+        "                                             )])],",
         "                artifact_name_patterns = [artifact_name_pattern(",
         "                   category_name = 'static_library',",
         "                   prefix = 'prefix',",
@@ -4491,7 +4493,20 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(tool.getExecutionRequirementList()).containsExactly("a", "b", "c");
     assertThat(tool.getWithFeature(0).getFeatureList()).containsExactly("a");
     assertThat(tool.getWithFeature(0).getNotFeatureList()).containsExactly("b", "c");
-
+    // When we create an ActionConfig from a proto we put the action name as the only element of its
+    // FlagSet.action lists. So when we convert back to proto, we need to remove it.
+    assertThat(
+            ccToolchainConfigInfo.getActionConfigs().stream()
+                .filter(config -> config.getName().equals("action_two"))
+                .findFirst()
+                .get()
+                .getFlagSets()
+                .get(0)
+                .getActions())
+        .containsExactly("action_two");
+    CToolchain.FlagSet actionConfigFlagSet =
+        Iterables.getOnlyElement(actionConfig.getFlagSetList());
+    assertThat(actionConfigFlagSet.getActionCount()).isEqualTo(0);
     assertThat(Iterables.getOnlyElement(toolchain.getArtifactNamePatternList()))
         .isEqualTo(
             CToolchain.ArtifactNamePattern.newBuilder()

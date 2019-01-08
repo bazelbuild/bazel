@@ -806,7 +806,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         .setEnabled(feature.isEnabled())
         .addAllFlagSet(
             feature.getFlagSets().stream()
-                .map(flagSet -> flagSetToProto(flagSet))
+                .map(flagSet -> flagSetToProto(flagSet, /* forActionConfig= */ false))
                 .collect(ImmutableList.toImmutableList()))
         .addAllEnvSet(
             feature.getEnvSets().stream()
@@ -821,19 +821,22 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         .build();
   }
 
-  private static CToolchain.FlagSet flagSetToProto(FlagSet flagSet) {
-    return CToolchain.FlagSet.newBuilder()
-        .addAllAction(flagSet.getActions())
-        .addAllFlagGroup(
-            flagSet.getFlagGroups().stream()
-                .map(flagGroup -> flagGroupToProto(flagGroup))
-                .collect(ImmutableList.toImmutableList()))
-        .addAllWithFeature(
-            flagSet.getWithFeatureSets().stream()
-                .map(withFeatureSet -> withFeatureSetToProto(withFeatureSet))
-                .collect(ImmutableList.toImmutableList()))
-        .addAllExpandIfAllAvailable(flagSet.getExpandIfAllAvailable())
-        .build();
+  private static CToolchain.FlagSet flagSetToProto(FlagSet flagSet, boolean forActionConfig) {
+    CToolchain.FlagSet.Builder flagSetBuilder =
+        CToolchain.FlagSet.newBuilder()
+            .addAllFlagGroup(
+                flagSet.getFlagGroups().stream()
+                    .map(flagGroup -> flagGroupToProto(flagGroup))
+                    .collect(ImmutableList.toImmutableList()))
+            .addAllWithFeature(
+                flagSet.getWithFeatureSets().stream()
+                    .map(withFeatureSet -> withFeatureSetToProto(withFeatureSet))
+                    .collect(ImmutableList.toImmutableList()))
+            .addAllExpandIfAllAvailable(flagSet.getExpandIfAllAvailable());
+    if (!forActionConfig) {
+      flagSetBuilder.addAllAction(flagSet.getActions());
+    }
+    return flagSetBuilder.build();
   }
 
   private static CToolchain.FeatureSet featureSetToProto(ImmutableSet<String> features) {
@@ -862,7 +865,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
                 .collect(ImmutableList.toImmutableList()))
         .addAllFlagSet(
             actionConfig.getFlagSets().stream()
-                .map(flagSet -> flagSetToProto(flagSet))
+                .map(flagSet -> flagSetToProto(flagSet, /* forActionConfig= */ true))
                 .collect(ImmutableList.toImmutableList()))
         .addAllImplies(actionConfig.getImplies())
         .build();
