@@ -132,17 +132,25 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   @Override
   public void blazeShutdownOnCrash() {
     if (streamer != null) {
+      logger.warning("Attempting to close BES streamer on crash");
       streamer.close(AbortReason.INTERNAL);
     }
   }
 
   @Override
   public void afterCommand() {
+    if (streamer != null) {
+      // This should not occur, but close with an internal error if a {@link BuildEventStreamer} bug
+      // manifests as an unclosed streamer.
+      logger.warning("Attempting to close BES streamer after command");
+      streamer.close(AbortReason.INTERNAL);
+      this.streamer = null;
+    }
+
     if (!keepClient) {
       clearBesClient();
     }
     this.outErr = null;
-    this.streamer = null;
   }
 
   /** Returns {@code null} if no stream could be created. */

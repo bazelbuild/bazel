@@ -527,6 +527,10 @@ public class BuildEventStreamer implements EventHandler {
       buildEvent(freedEvent);
     }
 
+    if (event instanceof BuildCompleteEvent && isCrash((BuildCompleteEvent) event)) {
+      abortReason = AbortReason.INTERNAL;
+    }
+
     if (event instanceof BuildCompletingEvent) {
       buildComplete(event);
     }
@@ -540,6 +544,10 @@ public class BuildEventStreamer implements EventHandler {
     if (finalEventsToCome != null && finalEventsToCome.isEmpty()) {
       close();
     }
+  }
+
+  private static boolean isCrash(BuildCompleteEvent event) {
+    return event.getResult().getUnhandledThrowable() != null;
   }
 
   private synchronized BuildEvent flushStdoutStderrEvent(String out, String err) {
@@ -617,7 +625,7 @@ public class BuildEventStreamer implements EventHandler {
     if (isTestCommand && event instanceof BuildCompleteEvent) {
       // In case of "bazel test" ignore the BuildCompleteEvent, as it will be followed by a
       // TestingCompleteEvent that contains the correct exit code.
-      return true;
+      return !isCrash((BuildCompleteEvent) event);
     }
 
     if (event instanceof TargetParsingCompleteEvent) {
