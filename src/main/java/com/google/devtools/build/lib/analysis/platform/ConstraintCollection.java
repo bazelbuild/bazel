@@ -84,8 +84,8 @@ public final class ConstraintCollection
     }
 
     // Then, check the parent, directly to ignore defaults.
-    if (parent != null && parent.constraints.containsKey(constraint)) {
-      return true;
+    if (parent != null) {
+      return parent.has(constraint);
     }
 
     return constraint.hasDefaultConstraintValue();
@@ -104,8 +104,8 @@ public final class ConstraintCollection
     }
 
     // Then, check the parent, directly to ignore defaults.
-    if (parent != null && parent.constraints.containsKey(constraint)) {
-      return parent.constraints.get(constraint);
+    if (parent != null) {
+      return parent.get(constraint);
     }
 
     // Finally, Since this constraint isn't set, fall back to the default.
@@ -126,7 +126,7 @@ public final class ConstraintCollection
   @Override
   public boolean containsKey(Object key, Location loc) throws EvalException {
     ConstraintSettingInfo constraint = convertKey(key, loc);
-    return constraints.containsKey(constraint);
+    return has(constraint);
   }
 
   @Override
