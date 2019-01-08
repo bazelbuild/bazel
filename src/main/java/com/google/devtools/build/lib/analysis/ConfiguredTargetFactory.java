@@ -305,12 +305,14 @@ public final class ConfiguredTargetFactory {
       }
       if (rule.getRuleClassObject().isSkylark()) {
         // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-        ConfiguredTarget target = SkylarkRuleConfiguredTargetUtil.buildRule(
-            ruleContext,
-            rule.getRuleClassObject().getAdvertisedProviders(),
-            rule.getRuleClassObject().getConfiguredTargetFunction(),
-            rule.getLocation(),
-            env.getSkylarkSemantics());
+        ConfiguredTarget target =
+            SkylarkRuleConfiguredTargetUtil.buildRule(
+                ruleContext,
+                rule.getRuleClassObject().getAdvertisedProviders(),
+                rule.getRuleClassObject().getConfiguredTargetFunction(),
+                rule.getLocation(),
+                env.getSkylarkSemantics(),
+                ruleClassProvider.getToolsRepository());
 
         return target != null ? target : erroredConfiguredTarget(ruleContext);
       } else {

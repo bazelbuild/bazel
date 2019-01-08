@@ -82,8 +82,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
       ImmutableSet.of("files", "runfiles", "data_runfiles", "default_runfiles", "executable");
 
   /**
-   * Create a Rule Configured Target from the ruleContext and the ruleImplementation.
-   * Returns null if there were errors during target creation.
+   * Create a Rule Configured Target from the ruleContext and the ruleImplementation. Returns null
+   * if there were errors during target creation.
    */
   @Nullable
   public static ConfiguredTarget buildRule(
@@ -91,7 +91,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
       AdvertisedProviderSet advertisedProviders,
       BaseFunction ruleImplementation,
       Location location,
-      SkylarkSemantics skylarkSemantics)
+      SkylarkSemantics skylarkSemantics,
+      String toolsRepository)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     SkylarkRuleContext skylarkRuleContext = null;
@@ -102,6 +103,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
               .setCallerLabel(ruleContext.getLabel())
               .setSemantics(skylarkSemantics)
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
+              .setStarlarkContext(new BazelStarlarkContext(toolsRepository))
               .build(); // NB: loading phase functions are not available: this is analysis already,
       // so we do *not* setLoadingPhase().
 
