@@ -349,14 +349,14 @@ filegroup(
     "_nojdk",
 ]]
 
-[genrule(
-    name = "bazel-bin" + suffix,
-    srcs = [":bazel-bin" + jdk],
-    outs = ["bazel" + suffix],
+genrule(
+    name = "bazel-bin",
+    srcs = [":bazel-bin_jdk_allmodules"],
+    outs = ["bazel"],
     # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
     # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
     # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@; cp $(location :bazel-bin" + jdk + ") $@",
+    cmd = "rm -f $@; cp $(location :bazel-bin_jdk_allmodules) $@",
     executable = 1,
     output_to_bindir = 1,
     visibility = [
@@ -365,10 +365,7 @@ filegroup(
         "//src/java:__subpackages__",  # For command line reference generation
         "//src/test:__subpackages__",  # For integration tests
     ],
-) for suffix, jdk in [
-    ("-dev", "_jdk_allmodules"),
-    ("", "_jdk_minimal"),
-]]
+)
 
 # Build an executable named `bazel.exe`.
 # Works on all platforms but only makes sense on Windows.
