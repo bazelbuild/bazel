@@ -51,14 +51,13 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -217,24 +216,8 @@ public abstract class DependencyResolver {
             trimmingTransitionFactory);
 
     visitTargetVisibility(node, rootCauses, outgoingEdges.get(null));
-    resolveEarlyBoundAttributes(depResolver);
-    resolveLateBoundAttributes(depResolver, ruleConfig, hostConfig);
-
-    Attribute toolchainsAttribute =
-        attributeMap.getAttributeDefinition(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR);
-    resolveToolchainDependencies(outgoingEdges.get(toolchainsAttribute), toolchainLabels);
-  }
-
-  /**
-   * Resolves the dependencies for all attributes in this rule except late-bound attributes (which
-   * require special processing: see {@link #resolveLateBoundAttributes}).
-   */
-  private void resolveEarlyBoundAttributes(RuleResolver depResolver)
-      throws InterruptedException, InconsistentAspectOrderException {
-    Rule rule = depResolver.rule;
-
     resolveExplicitAttributes(depResolver);
-    resolveImplicitAttributes(depResolver);
+    resolveNonExplicitAttributes(depResolver, ruleConfig, hostConfig);
 
     // Add the rule's visibility labels (which may come from the rule or from package defaults).
     addExplicitDeps(depResolver, "visibility", rule.getVisibility().getDependencyLabels());
@@ -270,6 +253,10 @@ public abstract class DependencyResolver {
       addExplicitDeps(depResolver, RuleClass.RESTRICTED_ENVIRONMENT_ATTR,
           rule.getPackage().getDefaultRestrictedTo());
     }
+
+    Attribute toolchainsAttribute =
+        attributeMap.getAttributeDefinition(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR);
+    resolveToolchainDependencies(outgoingEdges.get(toolchainsAttribute), toolchainLabels);
   }
 
   private void resolveExplicitAttributes(final RuleResolver depResolver)
@@ -282,9 +269,7 @@ public abstract class DependencyResolver {
         Iterables.filter(
             depEdges,
             depEdge ->
-                depEdge.getAttribute().getType() != BuildType.NODEP_LABEL
-                    && !depEdge.getAttribute().isImplicit()
-                    && !depEdge.getAttribute().isLateBound());
+                !depEdge.getAttribute().isImplicit() && !depEdge.getAttribute().isLateBound());
     Map<Label, Target> result =
         getTargets(
             Iterables.transform(filteredEdges, AttributeMap.DepEdge::getLabel),
@@ -303,131 +288,70 @@ public abstract class DependencyResolver {
     }
   }
 
-  /** Resolves the dependencies for all implicit attributes in this rule. */
-  private void resolveImplicitAttributes(RuleResolver depResolver)
+  private void resolveNonExplicitAttributes(
+      RuleResolver depResolver, BuildConfiguration ruleConfig, BuildConfiguration hostConfig)
       throws InterruptedException, InconsistentAspectOrderException {
-    // Since the attributes that come from aspects do not appear in attributeMap, we have to get
-    // their values from somewhere else. This incidentally means that aspects attributes are not
-    // configurable. It would be nice if that wasn't the case, but we'd have to revamp how
-    // attribute mapping works, which is a large chunk of work.
     Rule rule = depResolver.rule;
     Label ruleLabel = rule.getLabel();
     ConfiguredAttributeMapper attributeMap = depResolver.attributeMap;
-    ImmutableSet<String> mappedAttributes = ImmutableSet.copyOf(attributeMap.getAttributeNames());
+    ImmutableSet<String> mappedAttributes =
+        ImmutableSet.copyOf(depResolver.attributeMap.getAttributeNames());
     Set<Label> labelsToFetch = new HashSet<>();
     Map<Label, Target> targetLookupResult = null;
     for (boolean collectingLabels : ImmutableList.of(Boolean.TRUE, Boolean.FALSE)) {
       for (AttributeAndOwner attributeAndOwner : depResolver.attributes) {
         Attribute attribute = attributeAndOwner.attribute;
-        if (!attribute.isImplicit() || !attribute.getCondition().apply(attributeMap)) {
+        if (!attribute.getCondition().apply(attributeMap)) {
           continue;
         }
 
-        if (attribute.getType() == BuildType.LABEL) {
-          Label label =
+        if (attribute.getType() == BuildType.OUTPUT
+            || attribute.getType() == BuildType.OUTPUT_LIST
+            || attribute.getType() == BuildType.NODEP_LABEL
+            || attribute.getType() == BuildType.NODEP_LABEL_LIST) {
+          // These types invoke visitLabels() so that they are reported in "bazel query" but do not
+          // create a dependency. Maybe it's better to remove that, but then the labels() query
+          // function would need to be rethought.
+          continue;
+        }
+
+        Object attributeValue;
+        if (attribute.isImplicit()) {
+          // Since the attributes that come from aspects do not appear in attributeMap, we have to
+          // get their values from somewhere else. This incidentally means that aspects attributes
+          // are not configurable. It would be nice if that wasn't the case, but we'd have to revamp
+          // how attribute mapping works, which is a large chunk of work.
+          attributeValue =
               mappedAttributes.contains(attribute.getName())
-                  ? attributeMap.get(attribute.getName(), BuildType.LABEL)
-                  : BuildType.LABEL.cast(attribute.getDefaultValue(rule));
-
-          if (label != null) {
-            label = ruleLabel.resolveRepositoryRelative(label);
-            if (collectingLabels) {
-              labelsToFetch.add(label);
-            } else {
-              Target target = targetLookupResult.get(label);
-              if (target != null) {
-                depResolver.registerEdge(attributeAndOwner, target);
-              }
-            }
-          }
-        } else if (attribute.getType() == BuildType.LABEL_LIST) {
-          List<Label> labelList;
-          if (mappedAttributes.contains(attribute.getName())) {
-            labelList = attributeMap.get(attribute.getName(), BuildType.LABEL_LIST);
-          } else {
-            labelList = BuildType.LABEL_LIST.cast(attribute.getDefaultValue(rule));
-          }
-          Stream<Label> labelStream = labelList.stream().map(ruleLabel::resolveRepositoryRelative);
-          if (collectingLabels) {
-            labelStream.forEach(labelsToFetch::add);
-          } else {
-            for (Label label : (Iterable<Label>) labelStream::iterator) {
-              Target target = targetLookupResult.get(label);
-              if (target != null) {
-                depResolver.registerEdge(attributeAndOwner, target);
-              }
-            }
-          }
-        }
-      }
-      if (collectingLabels) {
-        targetLookupResult =
-            getTargets(labelsToFetch, rule, depResolver.rootCauses, labelsToFetch.size());
-        if (targetLookupResult == null) {
-          return;
-        }
-      }
-    }
-  }
-
-  /**
-   * Resolves the dependencies for all late-bound attributes in this rule.
-   *
-   * <p>Late-bound attributes need special handling because they require configuration transitions
-   * to determine their values.
-   *
-   * <p>In other words, the normal process of dependency resolution is:
-   *
-   * <ol>
-   *   <li>Find every label value in the rule's attributes
-   *   <li>Apply configuration transitions over each value to get its dep configuration
-   *   <li>Return each value with its dep configuration
-   * </ol>
-   *
-   * This doesn't work for late-bound attributes because you can't get their values without knowing
-   * the configuration first. And that configuration may not be the owning rule's configuration.
-   * Specifically, {@link LateBoundDefault#useHostConfiguration()} switches to the host config and
-   * late-bound split attributes branch into multiple split configs.
-   *
-   * <p>This method implements that logic and makes sure the normal configuration transition logic
-   * mixes with it cleanly.
-   *
-   * @param depResolver the resolver for this rule's deps
-   * @param ruleConfig the rule's configuration
-   * @param hostConfig the equivalent host configuration
-   */
-  private void resolveLateBoundAttributes(
-      RuleResolver depResolver, BuildConfiguration ruleConfig, BuildConfiguration hostConfig)
-      throws EvalException, InconsistentAspectOrderException, InterruptedException {
-    ConfiguredAttributeMapper attributeMap = depResolver.attributeMap;
-    Set<Label> labelsToFetch = new HashSet<>();
-    Map<Label, Target> targetLookupResult = null;
-    for (boolean collectingLabels : ImmutableList.of(Boolean.TRUE, Boolean.FALSE)) {
-      for (AttributeAndOwner attributeAndOwner : depResolver.attributes) {
-        Attribute attribute = attributeAndOwner.attribute;
-        if (!attribute.isLateBound() || !attribute.getCondition().apply(attributeMap)) {
+                  ? depResolver.attributeMap.get(attribute.getName(), attribute.getType())
+                  : attribute.getDefaultValue(rule);
+        } else if (attribute.isLateBound()) {
+          attributeValue =
+              resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig, hostConfig);
+        } else {
           continue;
         }
 
-        LateBoundDefault<?, ?> lateBoundDefault = attribute.getLateBoundDefault();
-        // This is also verified as an assertion in ImmutableAttributeFactory#build() and signaled
-        // as a regular error instead of an assertion in SkylarkAttr#createAttribute() but better
-        // have two precondition checks than zero
-        Preconditions.checkState(!attribute.hasSplitConfigurationTransition());
+        if (attributeValue == null) {
+          continue;
+        }
 
-        List<Label> deps =
-            resolveLateBoundAttribute(
-                depResolver.rule,
-                attribute,
-                lateBoundDefault.useHostConfiguration() ? hostConfig : ruleConfig,
-                attributeMap);
+        List<Label> labels = new ArrayList<>();
+        attribute
+            .getType()
+            .visitLabels(
+                (depLabel, ctx) -> {
+                  labels.add(ruleLabel.resolveRepositoryRelative(depLabel));
+                },
+                attributeValue,
+                null);
+
         if (collectingLabels) {
-          labelsToFetch.addAll(deps);
+          labelsToFetch.addAll(labels);
         } else {
-          for (Label dep : deps) {
-            Target target = targetLookupResult.get(dep);
+          for (Label label : labels) {
+            Target target = targetLookupResult.get(label);
             if (target != null) {
-              // Process this dep like a normal attribute.
               depResolver.registerEdge(attributeAndOwner, target);
             }
           }
@@ -435,8 +359,7 @@ public abstract class DependencyResolver {
       }
       if (collectingLabels) {
         targetLookupResult =
-            getTargets(
-                labelsToFetch, depResolver.rule, depResolver.rootCauses, labelsToFetch.size());
+            getTargets(labelsToFetch, rule, depResolver.rootCauses, labelsToFetch.size());
         if (targetLookupResult == null) {
           return;
         }
@@ -454,67 +377,34 @@ public abstract class DependencyResolver {
     }
   }
 
-  /**
-   * Returns the label dependencies for the given late-bound attribute in this rule.
-   *
-   * @param rule the rule being evaluated
-   * @param attribute the attribute to evaluate
-   * @param config the configuration to evaluate the attribute in
-   * @param attributeMap mapper to attribute values
-   */
-  private List<Label> resolveLateBoundAttribute(
-      Rule rule, Attribute attribute, BuildConfiguration config, AttributeMap attributeMap)
-      throws EvalException {
-    Preconditions.checkArgument(attribute.isLateBound());
-
-    Object actualValue =
-        resolveLateBoundDefault(attribute.getLateBoundDefault(), rule, attributeMap, config);
-    if (EvalUtils.isNullOrNone(actualValue)) {
-      return ImmutableList.<Label>of();
-    }
-    try {
-      ImmutableList.Builder<Label> deps = ImmutableList.builder();
-      if (attribute.getType() == BuildType.LABEL) {
-        deps.add(rule.getLabel().resolveRepositoryRelative(BuildType.LABEL.cast(actualValue)));
-      } else if (attribute.getType() == BuildType.LABEL_LIST) {
-        for (Label label : BuildType.LABEL_LIST.cast(actualValue)) {
-          deps.add(rule.getLabel().resolveRepositoryRelative(label));
-        }
-      } else {
-        throw new IllegalStateException(
-            String.format(
-                "Late bound attribute '%s' is not a label or a label list",
-                attribute.getName()));
-      }
-      return deps.build();
-    } catch (ClassCastException e) { // From either of the cast calls above.
-      throw new EvalException(
-          rule.getLocation(),
-          String.format(
-              "When computing the default value of %s, expected '%s', got '%s'",
-              attribute.getName(),
-              attribute.getType(),
-              EvalUtils.getDataTypeName(actualValue, true)));
-    }
-  }
-
   @VisibleForTesting(/* used to test LateBoundDefaults' default values */ )
-  public static <FragmentT, ValueT> ValueT resolveLateBoundDefault(
-      LateBoundDefault<FragmentT, ValueT> lateBoundDefault,
+  public static <FragmentT> Object resolveLateBoundDefault(
       Rule rule,
       AttributeMap attributeMap,
-      BuildConfiguration config) throws EvalException {
+      Attribute attribute,
+      BuildConfiguration ruleConfig,
+      BuildConfiguration hostConfig) {
+    Preconditions.checkState(!attribute.hasSplitConfigurationTransition());
+    @SuppressWarnings("unchecked")
+    LateBoundDefault<FragmentT, ?> lateBoundDefault =
+        (LateBoundDefault<FragmentT, ?>) attribute.getLateBoundDefault();
+    BuildConfiguration attributeConfig =
+        lateBoundDefault.useHostConfiguration() ? hostConfig : ruleConfig;
+
     Class<FragmentT> fragmentClass = lateBoundDefault.getFragmentClass();
     // TODO(b/65746853): remove this when nothing uses it anymore
     if (BuildConfiguration.class.equals(fragmentClass)) {
-      return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(config));
+      return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(attributeConfig));
     }
     if (Void.class.equals(fragmentClass)) {
       return lateBoundDefault.resolve(rule, attributeMap, null);
+
     }
+    @SuppressWarnings("unchecked")
     FragmentT fragment =
         fragmentClass.cast(
-            config.getFragment((Class<? extends BuildConfiguration.Fragment>) fragmentClass));
+            attributeConfig.getFragment(
+                (Class<? extends BuildConfiguration.Fragment>) fragmentClass));
     if (fragment == null) {
       return null;
     }
