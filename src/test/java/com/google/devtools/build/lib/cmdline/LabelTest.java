@@ -481,4 +481,12 @@ public class LabelTest {
     assertThat(Label.getContainingDirectory(Label.parseAbsoluteUnchecked("//a/b/c")))
         .isEqualTo(PathFragment.create("a/b/c"));
   }
+
+  @Test
+  public void testWorkspaceName() throws Exception {
+    assertThat(Label.parseAbsolute("@foo//bar:baz", ImmutableMap.of()).getWorkspaceName())
+        .isEqualTo("foo");
+    assertThat(Label.parseAbsolute("//bar:baz", ImmutableMap.of()).getWorkspaceName()).isEmpty();
+    assertThat(Label.parseAbsolute("@//bar:baz", ImmutableMap.of()).getWorkspaceName()).isEmpty();
+  }
 }
