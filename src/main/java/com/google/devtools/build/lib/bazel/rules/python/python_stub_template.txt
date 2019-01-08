@@ -30,7 +30,7 @@ def GetWindowsPathWithUNCPrefix(path):
     return path
 
   # Lets start the unicode fun
-  unicode_prefix = "\\\\?\\"
+  unicode_prefix = "\\\\?"
   if path.startswith(unicode_prefix):
     return path
 

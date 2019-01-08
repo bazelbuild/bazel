@@ -457,6 +457,9 @@ def Fib(n):
 EOF
 
  cat > module2/bez.py <<EOF
+# import sys
+# raise Exception("PACKAGE PATH: %s", sys.path)
+
 from remote.module_a import foo
 from remote.module_b import bar
 from module1 import fib
