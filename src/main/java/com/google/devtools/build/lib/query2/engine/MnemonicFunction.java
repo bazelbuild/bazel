@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType
  *
  * <pre>expr ::= MNEMONIC '(' WORD ',' expr ')'</pre>
  *
- * Example patterns: TODO(leba) example patterns
+ * Example patterns:
  *
  * <pre>
  * 'CppCompile'   Match all actions whose mnemonic is CppComile

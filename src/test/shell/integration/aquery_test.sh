@@ -554,4 +554,108 @@ ${QUERY}"
   expect_log "${EXPECTED_LOG}"
 }
 
+function test_aquery_filters_chain_inputs_only_match_one() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name='foo',
+    srcs=['foo_matching_in.java'],
+    outs=['foo_matching_out'],
+    cmd='cat $(SRCS) > $(OUTS)'
+)
+
+java_library(
+    name='bar',
+    srcs=['in_bar.java']
+)
+
+genrule(
+    name='foo2',
+    srcs=['foo_matching_in.java_not'],
+    outs=['foo_matching_out2'],
+    cmd='cat $(SRCS) > $(OUTS)'
+)
+EOF
+
+  QUERY="inputs('.*java', inputs('.*foo.*', //$pkg:all))"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_filters_chain_outputs_only_match_one() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name='foo',
+    srcs=['foo_matching_in.java'],
+    outs=['foo_matching_out'],
+    cmd='cat $(SRCS) > $(OUTS)'
+)
+
+genrule(
+    name='foo2',
+    srcs=['foo_matching_in.java'],
+    outs=['foo_matching_out_not'],
+    cmd='cat $(SRCS) > $(OUTS)'
+)
+
+genrule(
+    name='foo3',
+    srcs=['foo_matching_in.java'],
+    outs=['not_matching_out'],
+    cmd='cat $(SRCS) > $(OUTS)'
+)
+EOF
+
+  QUERY="outputs('.*out', outputs('.*foo.*', //$pkg:all))"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_filters_chain_mnemonic_only_match_one() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+java_library(
+    name='foo',
+    srcs=['Foo.java']
+)
+EOF
+
+  # java_library targets generate actions of the following mnemonics:
+  # - Javac
+  # - JavaSourceJar
+  # - Turbine
+  QUERY="mnemonic('Java.*', mnemonic('.*e.*', //$pkg:all))"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  expect_log_n "^action '" 1 "Expected exactly one action."
+  assert_contains "action.*foo" output
+  assert_contains "Inputs: \[.*Foo.java.*\]" output
+  assert_contains "Outputs: \[.*jar\]" output
+  assert_contains "Mnemonic: JavaSourceJar" output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
 run_suite "${PRODUCT_NAME} action graph query tests"

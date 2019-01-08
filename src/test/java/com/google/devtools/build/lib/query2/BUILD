@@ -68,6 +68,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/query2",
+        "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
         "//src/main/java/com/google/devtools/build/lib/query2:aspect-resolver",
         "//src/main/java/com/google/devtools/build/lib/query2:query-engine",
         "//src/main/java/com/google/devtools/build/lib/query2:query-output",
@@ -85,20 +86,5 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "Query2Tests",
-    size = "large",
-    shard_count = 20,
-    tags = [
-        "no_windows",
-        "query2",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    runtime_deps = [
-        ":Query2Tests_lib",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
 )

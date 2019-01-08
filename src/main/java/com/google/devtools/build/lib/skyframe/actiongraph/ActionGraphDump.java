@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
@@ -37,13 +36,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.query2.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.AqueryUtils;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * Encapsulates necessary functionality to dump the current skyframe state of the action graph to
@@ -62,21 +61,23 @@ public class ActionGraphDump {
   private final KnownAspectDescriptors knownAspectDescriptors;
   private final KnownRuleConfiguredTargets knownRuleConfiguredTargets;
   private final boolean includeActionCmdLine;
-  private final ImmutableMap<String, Pattern> actionFilters;
+  private final AqueryActionFilter actionFilters;
 
-  public ActionGraphDump(
-      boolean includeActionCmdLine, ImmutableMap<String, Pattern> actionFilters) {
+  public ActionGraphDump(boolean includeActionCmdLine, AqueryActionFilter actionFilters) {
     this(/* actionGraphTargets= */ ImmutableList.of("..."), includeActionCmdLine, actionFilters);
   }
 
   public ActionGraphDump(List<String> actionGraphTargets, boolean includeActionCmdLine) {
-    this(actionGraphTargets, includeActionCmdLine, /* actionFilters= */ ImmutableMap.of());
+    this(
+        actionGraphTargets,
+        includeActionCmdLine,
+        /* actionFilters= */ AqueryActionFilter.emptyInstance());
   }
 
   public ActionGraphDump(
       List<String> actionGraphTargets,
       boolean includeActionCmdLine,
-      ImmutableMap<String, Pattern> actionFilters) {
+      AqueryActionFilter actionFilters) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
     this.actionFilters = actionFilters;

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.regex.Pattern;
 
 /** Default output callback for aquery, prints proto output. */
 public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCallback {
@@ -52,7 +50,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
 
   private final OutputType outputType;
   private final ActionGraphDump actionGraphDump;
-  private final ImmutableMap<String, Pattern> actionFilters;
+  private final AqueryActionFilter actionFilters;
 
   ActionGraphProtoOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -61,7 +59,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTargetValue> accessor,
       OutputType outputType,
-      ImmutableMap<String, Pattern> actionFilters) {
+      AqueryActionFilter actionFilters) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.actionFilters = actionFilters;

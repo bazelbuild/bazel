@@ -14,6 +14,7 @@ java_library(
             "AbstractBlazeQueryEnvironment.java",
             "FakeLoadTarget.java",
             "AqueryUtils.java",
+            "AqueryActionFilter.java",
         ],
     ),
     deps = [
@@ -149,6 +150,7 @@ java_library(
 java_library(
     name = "aquery-utils",
     srcs = [
+        "AqueryActionFilter.java",
         "AqueryUtils.java",
     ],
     deps = [

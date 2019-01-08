@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -46,14 +45,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /** Output callback for aquery, prints human readable output. */
 public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
-  private final ImmutableMap<String, Pattern> actionFilters;
+  private final AqueryActionFilter actionFilters;
 
   ActionGraphTextOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -61,7 +59,7 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTargetValue> accessor,
-      ImmutableMap<String, Pattern> actionFilters) {
+      AqueryActionFilter actionFilters) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.actionFilters = actionFilters;
   }

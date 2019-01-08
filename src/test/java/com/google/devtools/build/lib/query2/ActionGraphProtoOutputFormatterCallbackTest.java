@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
@@ -98,7 +99,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
     String inputs = ".*\\.java";
     String outputs = ".*matching_out";
     String mnemonic = "Genrule";
-    ImmutableMap<String, Pattern> actionFilters =
+    AqueryActionFilter actionFilters =
         constructActionFilter(
             ImmutableMap.of("inputs", inputs, "outputs", outputs, "mnemonic", mnemonic));
 
@@ -109,7 +110,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
                 inputs, outputs, mnemonic),
             actionFilters);
 
-    assertMatchingOnlyFoo(actionGraphContainer);
+    assertMatchingOnlyActionFromFoo(actionGraphContainer);
   }
 
   @Test
@@ -121,13 +122,12 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "java_library(name='bar', srcs=['in_bar.java'])");
 
     String inputs = ".*matching_in.java";
-    ImmutableMap<String, Pattern> actionFilters =
-        constructActionFilter(ImmutableMap.of("inputs", inputs));
+    AqueryActionFilter actionFilters = constructActionFilter(ImmutableMap.of("inputs", inputs));
 
     ActionGraphContainer actionGraphContainer =
         getOutput(String.format("inputs('%s', deps(//test:all))", inputs), actionFilters);
 
-    assertMatchingOnlyFoo(actionGraphContainer);
+    assertMatchingOnlyActionFromFoo(actionGraphContainer);
   }
 
   @Test
@@ -140,13 +140,12 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "        cmd='cat $(SRCS) > $(OUTS)')");
 
     String outputs = ".*matching_out";
-    ImmutableMap<String, Pattern> actionFilters =
-        constructActionFilter(ImmutableMap.of("outputs", outputs));
+    AqueryActionFilter actionFilters = constructActionFilter(ImmutableMap.of("outputs", outputs));
 
     ActionGraphContainer actionGraphContainer =
         getOutput(String.format("outputs('%s', deps(//test:all))", outputs), actionFilters);
 
-    assertMatchingOnlyFoo(actionGraphContainer);
+    assertMatchingOnlyActionFromFoo(actionGraphContainer);
   }
 
   @Test
@@ -158,13 +157,12 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "java_library(name='bar', srcs=['in_bar.java'])");
 
     String mnemonic = ".*rule";
-    ImmutableMap<String, Pattern> actionFilters =
-        constructActionFilter(ImmutableMap.of("mnemonic", mnemonic));
+    AqueryActionFilter actionFilters = constructActionFilter(ImmutableMap.of("mnemonic", mnemonic));
 
     ActionGraphContainer actionGraphContainer =
         getOutput(String.format("mnemonic('%s', deps(//test:all))", mnemonic), actionFilters);
 
-    assertMatchingOnlyFoo(actionGraphContainer);
+    assertMatchingOnlyActionFromFoo(actionGraphContainer);
   }
 
   @Test
@@ -176,13 +174,12 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "java_library(name='bar', srcs=['in_bar.java'])");
 
     String inputs = "test/foo_matching_in.java";
-    ImmutableMap<String, Pattern> actionFilters =
-        constructActionFilter(ImmutableMap.of("inputs", inputs));
+    AqueryActionFilter actionFilters = constructActionFilter(ImmutableMap.of("inputs", inputs));
 
     ActionGraphContainer actionGraphContainer =
         getOutput(String.format("inputs('%s', deps(//test:all))", inputs), actionFilters);
 
-    assertMatchingOnlyFoo(actionGraphContainer);
+    assertMatchingOnlyActionFromFoo(actionGraphContainer);
   }
 
   @Test
@@ -195,13 +192,12 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "        cmd='cat $(SRCS) > $(OUTS)')");
 
     String outputs = ".*/genfiles/test/foo_matching_out";
-    ImmutableMap<String, Pattern> actionFilters =
-        constructActionFilter(ImmutableMap.of("outputs", outputs));
+    AqueryActionFilter actionFilters = constructActionFilter(ImmutableMap.of("outputs", outputs));
 
     ActionGraphContainer actionGraphContainer =
         getOutput(String.format("outputs('%s', deps(//test:all))", outputs), actionFilters);
 
-    assertMatchingOnlyFoo(actionGraphContainer);
+    assertMatchingOnlyActionFromFoo(actionGraphContainer);
   }
 
   @Test
@@ -213,13 +209,109 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "java_library(name='bar', srcs=['in_bar.java'])");
 
     String mnemonic = "Genrule";
-    ImmutableMap<String, Pattern> actionFilters =
-        constructActionFilter(ImmutableMap.of("mnemonic", mnemonic));
+    AqueryActionFilter actionFilters = constructActionFilter(ImmutableMap.of("mnemonic", mnemonic));
 
     ActionGraphContainer actionGraphContainer =
         getOutput(String.format("mnemonic('%s', deps(//test:all))", mnemonic), actionFilters);
 
-    assertMatchingOnlyFoo(actionGraphContainer);
+    assertMatchingOnlyActionFromFoo(actionGraphContainer);
+  }
+
+  @Test
+  public void testInputsFilter_chainInputs_noMatchingAction() throws Exception {
+    writeFile(
+        "test/BUILD",
+        "genrule(name='foo', srcs=['in'], outs=['out'], tags=['requires-x'], ",
+        "        cmd='cat $(SRCS) > $(OUTS)')");
+    AqueryActionFilter actionFilters =
+        constructActionFilterChainSameFunction("inputs", ImmutableList.of("in", "something"));
+    ActionGraphContainer actionGraphContainer =
+        getOutput("inputs('in', inputs('something', //test:foo))", actionFilters);
+    assertThat(actionGraphContainer.getActionsCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void testOutputsFilter_chainOutputs_noMatchingAction() throws Exception {
+    writeFile(
+        "test/BUILD",
+        "genrule(name='foo', srcs=['in'], outs=['out'], tags=['requires-x'], ",
+        "        cmd='cat $(SRCS) > $(OUTS)')");
+    AqueryActionFilter actionFilters =
+        constructActionFilterChainSameFunction("outputs", ImmutableList.of("out", "something"));
+    ActionGraphContainer actionGraphContainer =
+        getOutput("outputs('out', outputs('something', //test:foo))", actionFilters);
+    assertThat(actionGraphContainer.getActionsCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void testMnemonicFilter_chainMnemonics_noMatchingAction() throws Exception {
+    writeFile(
+        "test/BUILD",
+        "genrule(name='foo', srcs=['in'], outs=['out'], tags=['requires-x'], ",
+        "        cmd='cat $(SRCS) > $(OUTS)')");
+    AqueryActionFilter actionFilters =
+        constructActionFilterChainSameFunction("mnemonic", ImmutableList.of(".*rule", "something"));
+    ActionGraphContainer actionGraphContainer =
+        getOutput("mnemonic('.*rule', mnemonic('something', //test:foo))", actionFilters);
+    assertThat(actionGraphContainer.getActionsCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void testInputsFilter_chainInputs_matchingOnlyFooAction() throws Exception {
+    writeFile(
+        "test/BUILD",
+        "genrule(name='foo', srcs=['foo_matching_in.java'], outs=['foo_matching_out'],",
+        "        cmd='cat $(SRCS) > $(OUTS)')",
+        "java_library(name='bar', srcs=['in_bar.java'])",
+        "genrule(name='foo2', srcs=['foo_matching_in.java_not'], outs=['foo_matching_out2'],",
+        "        cmd='cat $(SRCS) > $(OUTS)')");
+
+    AqueryActionFilter actionFilters =
+        constructActionFilterChainSameFunction("inputs", ImmutableList.of(".*java", ".*foo.*"));
+
+    ActionGraphContainer actionGraphContainer =
+        getOutput("inputs('.*java', inputs('.*foo.*', deps(//test:all)))", actionFilters);
+
+    assertMatchingOnlyActionFromFoo(actionGraphContainer);
+  }
+
+  @Test
+  public void testOutputsFilter_chainOutputs_matchingOnlyFooAction() throws Exception {
+    writeFile(
+        "test/BUILD",
+        "genrule(name='foo', srcs=['foo_matching_in.java'], outs=['foo_matching_out'],",
+        "        cmd='cat $(SRCS) > $(OUTS)')",
+        "genrule(name='foo2', srcs=['foo_matching_in.java'], outs=['foo_matching_out_not'],",
+        "        cmd='cat $(SRCS) > $(OUTS)')",
+        "genrule(name='foo3', srcs=['foo_matching_in.java'], outs=['not_matching_out'],",
+        "        cmd='cat $(SRCS) > $(OUTS)')");
+
+    AqueryActionFilter actionFilters =
+        constructActionFilterChainSameFunction("outputs", ImmutableList.of(".*out", ".*foo.*"));
+
+    ActionGraphContainer actionGraphContainer =
+        getOutput("outputs('.*out', outputs('.*foo.*', deps(//test:all)))", actionFilters);
+
+    assertMatchingOnlyActionFromFoo(actionGraphContainer);
+  }
+
+  @Test
+  public void testMnemonicFilter_chainMnemonic_matchingOnlyFooAction() throws Exception {
+    // java_library targets generate actions of the following mnemonics:
+    // - Javac
+    // - JavaSourceJar
+    // - Turbine
+    writeFile("test/BUILD", "java_library(", "    name = 'foo',", "    srcs = ['Foo.java'],", ")");
+
+    AqueryActionFilter actionFilters =
+        constructActionFilterChainSameFunction("mnemonic", ImmutableList.of("Java.*", ".*e.*"));
+
+    ActionGraphContainer actionGraphContainer =
+        getOutput("mnemonic('Java.*', mnemonic('.*e.*', deps(//test:all)))", actionFilters);
+
+    assertThat(actionGraphContainer.getActionsCount()).isEqualTo(1);
+    Action action = Iterables.getOnlyElement(actionGraphContainer.getActionsList());
+    assertThat(action.getMnemonic()).isEqualTo("JavaSourceJar");
   }
 
   @Test
@@ -228,7 +320,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "test/BUILD",
         "genrule(name='foo', srcs=['in'], outs=['out'], tags=['requires-x'], ",
         "        cmd='cat $(SRCS) > $(OUTS)')");
-    ImmutableMap<String, Pattern> actionFilters =
+    AqueryActionFilter actionFilters =
         constructActionFilter(ImmutableMap.of("inputs", "something"));
     ActionGraphContainer actionGraphContainer =
         getOutput("inputs('something', //test:foo)", actionFilters);
@@ -241,7 +333,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "test/BUILD",
         "genrule(name='foo', srcs=['in'], outs=['out'], tags=['requires-x'], ",
         "        cmd='cat $(SRCS) > $(OUTS)')");
-    ImmutableMap<String, Pattern> actionFilters =
+    AqueryActionFilter actionFilters =
         constructActionFilter(ImmutableMap.of("outputs", "something"));
     ActionGraphContainer actionGraphContainer =
         getOutput("outputs('something', //test:foo)", actionFilters);
@@ -254,7 +346,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "test/BUILD",
         "genrule(name='foo', srcs=['in'], outs=['out'], tags=['requires-x'], ",
         "        cmd='cat $(SRCS) > $(OUTS)')");
-    ImmutableMap<String, Pattern> actionFilters =
+    AqueryActionFilter actionFilters =
         constructActionFilter(ImmutableMap.of("mnemonic", "something"));
     ActionGraphContainer actionGraphContainer =
         getOutput("mnemonic('something', //test:foo)", actionFilters);
@@ -262,11 +354,11 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
   }
 
   private AnalysisProtos.ActionGraphContainer getOutput(String queryExpression) throws Exception {
-    return getOutput(queryExpression, /* actionFilters= */ ImmutableMap.of());
+    return getOutput(queryExpression, /* actionFilters= */ AqueryActionFilter.emptyInstance());
   }
 
   private AnalysisProtos.ActionGraphContainer getOutput(
-      String queryExpression, ImmutableMap<String, Pattern> actionFilters) throws Exception {
+      String queryExpression, AqueryActionFilter actionFilters) throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
@@ -287,17 +379,29 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
     return callback.getProtoResult();
   }
 
-  private void assertMatchingOnlyFoo(ActionGraphContainer actionGraphContainer) {
+  private void assertMatchingOnlyActionFromFoo(ActionGraphContainer actionGraphContainer) {
+    assertMatchingOnlyAction(
+        actionGraphContainer,
+        "Genrule",
+        "test/foo_matching_in.java",
+        "/genfiles/test/foo_matching_out");
+  }
+
+  private void assertMatchingOnlyAction(
+      ActionGraphContainer actionGraphContainer,
+      String mnemonic,
+      String onlyInput,
+      String onlyOutput) {
     assertThat(actionGraphContainer.getActionsCount()).isEqualTo(1);
     Action action = Iterables.getOnlyElement(actionGraphContainer.getActionsList());
 
     // Verify mnemonic
-    assertThat(action.getMnemonic()).isEqualTo("Genrule");
+    assertThat(action.getMnemonic()).isEqualTo(mnemonic);
 
     // Verify input
     String inputId = null;
     for (Artifact artifact : actionGraphContainer.getArtifactsList()) {
-      if (artifact.getExecPath().equals("test/foo_matching_in.java")) {
+      if (artifact.getExecPath().endsWith(onlyInput)) {
         inputId = artifact.getId();
         break;
       }
@@ -307,7 +411,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
     // Verify output
     String outputId = null;
     for (Artifact artifact : actionGraphContainer.getArtifactsList()) {
-      if (artifact.getExecPath().endsWith("/genfiles/test/foo_matching_out")) {
+      if (artifact.getExecPath().endsWith(onlyOutput)) {
         outputId = artifact.getId();
         break;
       }
@@ -315,11 +419,19 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
     assertThat(action.getOutputIdsList()).contains(outputId);
   }
 
-  private ImmutableMap<String, Pattern> constructActionFilter(
-      ImmutableMap<String, String> patternStrings) {
-    ImmutableMap.Builder<String, Pattern> builder = ImmutableMap.builder();
+  private AqueryActionFilter constructActionFilter(ImmutableMap<String, String> patternStrings) {
+    AqueryActionFilter.Builder builder = AqueryActionFilter.builder();
     for (Entry<String, String> e : patternStrings.entrySet()) {
       builder.put(e.getKey(), Pattern.compile(e.getValue()));
+    }
+    return builder.build();
+  }
+
+  private AqueryActionFilter constructActionFilterChainSameFunction(
+      String function, List<String> patternStrings) {
+    AqueryActionFilter.Builder builder = AqueryActionFilter.builder();
+    for (String s : patternStrings) {
+      builder.put(function, Pattern.compile(s));
     }
     return builder.build();
   }

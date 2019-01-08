@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.query2.ActionGraphQueryEnvironment;
+import com.google.devtools.build.lib.query2.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.ActionFilterFunction;
@@ -34,12 +34,12 @@ import java.util.regex.Pattern;
 
 /** A version of {@link BuildTool} that handles all aquery work. */
 public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTargetValue> {
-  private final ImmutableMap<String, Pattern> actionFilters;
+  private final AqueryActionFilter actionFilters;
 
   public AqueryBuildTool(CommandEnvironment env, QueryExpression queryExpression)
       throws AqueryActionFilterException {
     super(env, queryExpression);
-    actionFilters = getActionFilters(queryExpression);
+    actionFilters = buildActionFilters(queryExpression);
   }
 
   @Override
@@ -79,9 +79,9 @@ public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTarget
    * @throws AqueryActionFilterException if an aquery filter function is preceded by any other
    *     function types
    */
-  private ImmutableMap<String, Pattern> getActionFilters(QueryExpression queryExpression)
+  private AqueryActionFilter buildActionFilters(QueryExpression queryExpression)
       throws AqueryActionFilterException {
-    ImmutableMap.Builder<String, Pattern> actionFiltersBuilder = ImmutableMap.builder();
+    AqueryActionFilter.Builder actionFiltersBuilder = AqueryActionFilter.builder();
 
     if (!(queryExpression instanceof FunctionExpression)) {
       return actionFiltersBuilder.build();
@@ -108,7 +108,6 @@ public class AqueryBuildTool extends PostAnalysisQueryBuildTool<ConfiguredTarget
         ActionFilterFunction actionFilterFunction =
             (ActionFilterFunction) functionExpression.getFunction();
 
-        // TODO(leba) support multiple patterns for 1 function type
         String patternString = functionExpression.getArgs().get(0).getWord();
         actionFiltersBuilder.put(actionFilterFunction.getName(), Pattern.compile(patternString));
       } else {

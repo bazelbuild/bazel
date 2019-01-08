@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
@@ -53,7 +52,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -67,7 +65,7 @@ public class ActionGraphQueryEnvironment
   public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
   AqueryOptions aqueryOptions;
 
-  private ImmutableMap<String, Pattern> actionFilters;
+  private AqueryActionFilter actionFilters;
   private final KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
       configuredTargetKeyExtractor;
   private final ConfiguredTargetValueAccessor accessor;
@@ -336,7 +334,7 @@ public class ActionGraphQueryEnvironment
         SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 
-  public void setActionFilters(ImmutableMap<String, Pattern> actionFilters) {
+  public void setActionFilters(AqueryActionFilter actionFilters) {
     this.actionFilters = actionFilters;
   }
 }

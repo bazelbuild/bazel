@@ -17,11 +17,9 @@ import static com.google.devtools.build.lib.query2.engine.InputsFunction.INPUTS;
 import static com.google.devtools.build.lib.query2.engine.MnemonicFunction.MNEMONIC;
 import static com.google.devtools.build.lib.query2.engine.OutputsFunction.OUTPUTS;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import java.util.regex.Pattern;
 
 /** Utility class for Aquery */
 public class AqueryUtils {
@@ -34,22 +32,24 @@ public class AqueryUtils {
    * @return whether the action matches the filtering patterns
    */
   public static boolean matchesAqueryFilters(
-      ActionAnalysisMetadata action, ImmutableMap<String, Pattern> actionFilters) {
+      ActionAnalysisMetadata action, AqueryActionFilter actionFilters) {
     Iterable<Artifact> inputs = action.getInputs();
     Iterable<Artifact> outputs = action.getOutputs();
     String mnemonic = action.getMnemonic();
 
-    if (actionFilters.containsKey(MNEMONIC)) {
-      if (!actionFilters.get(MNEMONIC).matcher(mnemonic).matches()) {
+    if (actionFilters.hasFilterForFunction(MNEMONIC)) {
+      if (!actionFilters.matchesAllPatternsForFunction(MNEMONIC, mnemonic)) {
         return false;
       }
     }
 
-    if (actionFilters.containsKey(INPUTS)) {
-      Pattern inputsPattern = actionFilters.get(INPUTS);
+    if (actionFilters.hasFilterForFunction(INPUTS)) {
       Boolean containsFile =
           Streams.stream(inputs)
-              .map(artifact -> inputsPattern.matcher(artifact.getExecPathString()).matches())
+              .map(
+                  artifact ->
+                      actionFilters.matchesAllPatternsForFunction(
+                          INPUTS, artifact.getExecPathString()))
               .reduce(false, Boolean::logicalOr);
 
       if (!containsFile) {
@@ -57,11 +57,13 @@ public class AqueryUtils {
       }
     }
 
-    if (actionFilters.containsKey(OUTPUTS)) {
-      Pattern outputsPattern = actionFilters.get(OUTPUTS);
+    if (actionFilters.hasFilterForFunction(OUTPUTS)) {
       Boolean containsFile =
           Streams.stream(outputs)
-              .map(artifact -> outputsPattern.matcher(artifact.getExecPathString()).matches())
+              .map(
+                  artifact ->
+                      actionFilters.matchesAllPatternsForFunction(
+                          OUTPUTS, artifact.getExecPathString()))
               .reduce(false, Boolean::logicalOr);
 
       return containsFile;
