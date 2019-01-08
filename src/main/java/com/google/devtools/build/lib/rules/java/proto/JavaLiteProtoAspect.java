@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -76,13 +77,12 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       JavaSemantics javaSemantics,
       @Nullable String jacocoLabel,
       String defaultProtoToolchainLabel,
-      LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute,
-      LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute) {
+      RuleDefinitionEnvironment env) {
     this.javaSemantics = javaSemantics;
     this.jacocoLabel = jacocoLabel;
     this.defaultProtoToolchainLabel = defaultProtoToolchainLabel;
-    this.hostJdkAttribute = hostJdkAttribute;
-    this.javaToolchainAttribute = javaToolchainAttribute;
+    this.hostJdkAttribute = JavaSemantics.hostJdkAttribute(env);
+    this.javaToolchainAttribute = JavaSemantics.javaToolchainAttribute(env);
   }
 
   @Override
