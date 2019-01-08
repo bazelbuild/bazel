@@ -30,11 +30,15 @@ public class AutoCpuConverter implements Converter<String> {
   @Override
   public String convert(String input) throws OptionsParsingException {
     if (input.isEmpty()) {
-      // TODO(philwo) - replace these deprecated names with more logical ones (e.g. k8 becomes
-      // linux-x86_64, darwin includes the CPU architecture, ...).
+      // TODO(philwo) - replace these deprecated names with more logical ones (e.g. k8 becomes linux-x86_64, ...).
       switch (OS.getCurrent()) {
         case DARWIN:
-          return "darwin";
+          switch (CPU.getCurrent()) {
+            case X86_64:
+              return "darwin_x86_64";
+            default:
+              return "darwin";
+          }
         case FREEBSD:
           return "freebsd";
         case WINDOWS:
