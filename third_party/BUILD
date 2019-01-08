@@ -444,11 +444,6 @@ java_import(
 )
 
 java_import(
-    name = "jgit",
-    jars = ["jgit/org.eclipse.jgit-4.10.0.201712302008-r.jar"],
-)
-
-java_import(
     name = "jimfs",
     jars = ["jimfs/jimfs-1.1.jar"],
 )
