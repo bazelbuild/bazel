@@ -65,9 +65,9 @@ emulator state also speeds up test runs.
 
 # Prerequisites
 
-Ensure your enivornment satisfies the following prerequisites:
+Ensure your environment satisfies the following prerequisites:
 
-- **Linux**. Tested on Ubuntu 14.04 and 16.04.
+- **Linux**. Tested on Ubuntu 14.04, 16.04, and 18.04.
 
 - **Bazel 0.12.0** or later. Verify the version by running `bazel info release`.
 
@@ -364,15 +364,15 @@ we also recommend using `QEMU2` `android_device` targets instead of `QEMU` ones.
 
 # Running tests
 
-To run tests, add these lines to your project's `tools/bazel.rc` file.
+To run tests, add these lines to your project's `<project root>/.bazelrc` file.
 
 ```
 # Configurations for testing with Bazel
 # Select a configuration by running
-# `bazel test //my:target --config={headless, gui, local_device}`
+# `bazel test //my:target --config={no_gui, gui, local_device}`
 
-# Headless instrumentation tests
-test:headless --test_arg=--enable_display=false
+# Headless instrumentation tests (No GUI)
+test:no_gui --test_arg=--enable_display=false
 
 # Graphical instrumentation tests. Ensure that $DISPLAY is set.
 test:gui --test_env=DISPLAY
@@ -390,8 +390,8 @@ test:local_device --test_arg=--device_broker_type=LOCAL_ADB_SERVER
 
 Then, use one of the configurations to run tests:
 
-- `bazel test //my/test:target --config=headless`
 - `bazel test //my/test:target --config=gui`
+- `bazel test //my/test:target --config=no_gui`
 - `bazel test //my/test:target --config=local_device`
 
 Use __only one configuration__ or tests will fail.
@@ -435,7 +435,7 @@ for projects using Espresso and UIAutomator.
 ```
 $ git clone https://github.com/googlesamples/android-testing && cd android-testing
 # Set path to Android SDK in WORKSPACE
-$ bazel test //ui/... --config=headless
+$ bazel test //ui/... --config=no_gui
 INFO: Analysed 45 targets (1 packages loaded).
 INFO: Found 36 targets and 9 test targets...
 
@@ -674,6 +674,7 @@ API_LEVELS = [
 - Improved external dependency management
 - Remote test caching and execution
 
-We are planning to rewrite the Android rules in [Starlark](skylark/concepts.html).
-The `android_instrumentation_test` rule will be part of the rewrite, however,
-its usage will remain unchanged from the end-user perspective.
+We are currently rewriting the Android rules in
+[Starlark](skylark/concepts.html). The `android_instrumentation_test` rule will
+be part of the rewrite, however, its usage will remain unchanged from the
+end-user perspective.
