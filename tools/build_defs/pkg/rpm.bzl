@@ -21,7 +21,9 @@ def _pkg_rpm_impl(ctx):
     """Implements to pkg_rpm rule."""
 
     files = []
-    args = ["--rpmbuild=" + ctx.attr.rpmbuild_path, "--name=" + ctx.label.name]
+    args = ["--name=" + ctx.label.name]
+    if ctx.attr.rpmbuild_path:
+        args += ["--rpmbuild=" + ctx.attr.rpmbuild_path]
 
     # Version can be specified by a file or inlined.
     if ctx.attr.version_file:

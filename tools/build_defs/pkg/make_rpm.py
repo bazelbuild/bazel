@@ -157,8 +157,15 @@ class NoRpmbuildFound(Exception):
   pass
 
 
+class InvalidRpmbuild(Exception):
+  pass
+
+
 def FindRpmbuild():
-  if IsExe(FLAGS.rpmbuild):
+  if FLAGS.rpmbuild:
+    if not IsExe(FLAGS.rpmbuild):
+      raise InvalidRpmbuild('{} is not executable'.format(FLAGS.rpmbuild))
+  else:
       return FLAGS.rpmbuild
   path = Which('rpmbuild')
   if path:
