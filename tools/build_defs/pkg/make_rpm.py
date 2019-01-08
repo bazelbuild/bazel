@@ -236,7 +236,11 @@ class RpmBuilder(object):
         os.path.join(dirname, 'BUILDROOT'),
         self.spec_file,
     ]
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    p = subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env={'LANG': 'C'})
     output = p.communicate()[0]
 
     if p.returncode == 0:
