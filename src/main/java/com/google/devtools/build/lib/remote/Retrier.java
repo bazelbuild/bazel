@@ -273,6 +273,7 @@ public class Retrier {
         throw e;
       } catch (Exception e) {
         circuitBreaker.recordFailure();
+        Exception orig = e;
         if (e instanceof RetryException) {
           // Support nested retry calls.
           e = (Exception) e.getCause();
@@ -283,12 +284,15 @@ public class Retrier {
         }
         int attempts = backoff.getRetryAttempts();
         if (!shouldRetry.test(e)) {
-          throw new RetryException("Call failed with not retriable error: " + e, attempts, e);
+          throw new RetryException(
+              "Call failed with not retriable error: " + orig.getMessage(), attempts, e);
         }
         final long delayMillis = backoff.nextDelayMillis();
         if (delayMillis < 0) {
           throw new RetryException(
-              "Call failed after " + attempts + " retry attempts: " + e, attempts, e);
+              "Call failed after " + attempts + " retry attempts: " + orig.getMessage(),
+              attempts,
+              e);
         }
         sleeper.sleep(delayMillis);
       }

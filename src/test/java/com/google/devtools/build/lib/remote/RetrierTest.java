@@ -146,19 +146,30 @@ public class RetrierTest {
     AtomicInteger attemptsLvl1 = new AtomicInteger();
     AtomicInteger attemptsLvl2 = new AtomicInteger();
     try {
-      r.execute(() -> {
-        attemptsLvl0.incrementAndGet();
-        return r.execute(() -> {
-          attemptsLvl1.incrementAndGet();
-          return r.execute(() -> {
-            attemptsLvl2.incrementAndGet();
-            throw new Exception("call failed");
+      r.execute(
+          () -> {
+            attemptsLvl0.incrementAndGet();
+            return r.execute(
+                () -> {
+                  attemptsLvl1.incrementAndGet();
+                  return r.execute(
+                      () -> {
+                        attemptsLvl2.incrementAndGet();
+                        throw new Exception("failure message");
+                      });
+                });
           });
-        });
-      });
     } catch (RetryException outer) {
       assertThat(outer.getAttempts()).isEqualTo(2);
-      assertThat(outer).hasCauseThat().hasMessageThat().isEqualTo("call failed");
+      // Propagate original cause.
+      assertThat(outer).hasCauseThat().hasMessageThat().isEqualTo("failure message");
+      // Compose the overall error message.
+      assertThat(outer)
+          .hasMessageThat()
+          .isEqualTo(
+              "Call failed after 1 retry attempts: "
+                  + "Call failed after 1 retry attempts: "
+                  + "Call failed after 1 retry attempts: failure message");
       assertThat(attemptsLvl0.get()).isEqualTo(2);
       assertThat(attemptsLvl1.get()).isEqualTo(4);
       assertThat(attemptsLvl2.get()).isEqualTo(8);
