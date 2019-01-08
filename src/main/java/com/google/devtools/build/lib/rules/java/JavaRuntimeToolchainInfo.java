@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -32,7 +34,7 @@ public final class JavaRuntimeToolchainInfo extends ToolchainInfo {
   @AutoCodec.Instantiator
   public JavaRuntimeToolchainInfo(JavaRuntimeInfo javaRuntime) {
     super(ImmutableMap.of(), Location.BUILTIN);
-    this.javaRuntime = javaRuntime;
+    this.javaRuntime = requireNonNull(javaRuntime);
   }
 
   public JavaRuntimeInfo javaRuntime() {
