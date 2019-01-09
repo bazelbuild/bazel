@@ -77,10 +77,10 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   @Test
   public void testAppleBuildVariablesIos() throws Exception {
     MockObjcSupport.setup(mockToolsConfig);
-     useConfiguration(
-         "--crosstool_top=//tools/osx/crosstool", "--xcode_version=5.8",
-         "--ios_minimum_os=12.345", "--watchos_minimum_os=11.111",
-         "--cpu=ios_x86_64");
+    useConfiguration(
+        "--crosstool_top=//tools/osx/crosstool", "--xcode_version=5.8",
+        "--ios_minimum_os=12.345", "--watchos_minimum_os=11.111",
+        "--cpu=ios_x86_64", "--apple_platform_type=ios");
      scratch.file(
         "x/BUILD",
         "cc_binary(",
@@ -201,8 +201,8 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   @Test
   public void testDefaultBuildVariablesIos() throws Exception {
      MockObjcSupport.setup(mockToolsConfig);
-     useConfiguration(
-         "--crosstool_top=//tools/osx/crosstool", "--cpu=ios_x86_64");
+    useConfiguration(
+        "--apple_platform_type=ios", "--crosstool_top=//tools/osx/crosstool", "--cpu=ios_x86_64");
      scratch.file(
         "x/BUILD",
         "cc_binary(",

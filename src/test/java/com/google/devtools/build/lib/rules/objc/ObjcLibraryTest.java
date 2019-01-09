@@ -100,6 +100,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration(
+        "--apple_platform_type=ios",
         "--cpu=ios_x86_64",
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
 
@@ -176,6 +177,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testObjcPlusPlusCompile() throws Exception {
     useConfiguration(
+        "--apple_platform_type=ios",
         "--cpu=ios_i386",
         "--ios_cpu=i386",
         "--ios_minimum_os=9.10.11");
@@ -405,9 +407,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActions_simulator() throws Exception {
-    useConfiguration(
-        "--cpu=ios_i386",
-        "--ios_cpu=i386");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_cpu=i386");
 
     scratch.file("objc/a.m");
     scratch.file("objc/non_arc.m");
@@ -457,9 +457,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActions_device() throws Exception {
-    useConfiguration(
-        "--cpu=ios_armv7",
-        "--ios_cpu=armv7");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7", "--ios_cpu=armv7");
 
     scratch.file("objc/a.m");
     scratch.file("objc/non_arc.m");
@@ -552,7 +550,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithCopts() throws Exception {
-    useConfiguration("--cpu=ios_i386", "--ios_cpu=i386");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_cpu=i386");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -619,8 +617,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationActionsWithEmbeddedBitcode() throws Exception {
     useConfiguration(
-        "--ios_multi_cpus=arm64",
-        "--apple_bitcode=embedded");
+        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=embedded");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -634,8 +631,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationActionsWithEmbeddedBitcodeMarkers() throws Exception {
     useConfiguration(
-        "--ios_multi_cpus=arm64",
-        "--apple_bitcode=embedded_markers");
+        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=embedded_markers");
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -749,9 +745,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testArchiveAction_simulator() throws Exception {
-    useConfiguration(
-        "--cpu=ios_i386",
-        "--ios_cpu=i386");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_cpu=i386");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -780,9 +774,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testArchiveAction_device() throws Exception {
-    useConfiguration(
-        "--cpu=ios_armv7",
-        "--ios_cpu=armv7");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7", "--ios_cpu=armv7");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -811,9 +803,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testFullyLinkArchiveAction_simulator() throws Exception {
-    useConfiguration(
-        "--cpu=ios_i386",
-        "--ios_cpu=i386");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_cpu=i386");
     createLibraryTargetWriter("//objc:lib_dep")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "a.h", "b.h")
@@ -850,9 +840,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testFullyLinkArchiveAction_device() throws Exception {
-    useConfiguration(
-        "--cpu=ios_armv7",
-        "--ios_cpu=armv7");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7", "--ios_cpu=armv7");
     createLibraryTargetWriter("//objc:lib_dep")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "a.h", "b.h")
@@ -920,9 +908,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testPropagatesDefinesToDependersTransitively() throws Exception {
-    useConfiguration(
-        "--cpu=ios_x86_64",
-        "--ios_cpu=x86_64");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64", "--ios_cpu=x86_64");
     createLibraryTargetWriter("//lib1:lib1")
         .setAndCreateFiles("srcs", "a.m")
         .setAndCreateFiles("non_arc_srcs", "b.m")
@@ -1241,6 +1227,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkVersionEnv() throws Exception {
+    useConfiguration("--apple_platform_type=ios");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -1252,7 +1239,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testNonDefaultAppleSdkVersionEnv() throws Exception {
-    useConfiguration("--ios_sdk_version=8.1");
+    useConfiguration("--apple_platform_type=ios", "--ios_sdk_version=8.1");
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1403,6 +1390,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithPch() throws Exception {
+    useConfiguration("--apple_platform_type=ios");
     ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
     scratch.file("objc/foo.pch");
     createLibraryTargetWriter("//objc:lib")
@@ -1720,6 +1708,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkDefaultPlatformEnv() throws Exception {
+    useConfiguration("--apple_platform_type=ios");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -1731,7 +1720,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkDevicePlatformEnv() throws Exception {
-    useConfiguration("--cpu=ios_arm64");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_arm64");
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
