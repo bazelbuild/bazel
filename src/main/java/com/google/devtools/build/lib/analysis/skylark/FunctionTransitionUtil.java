@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -80,9 +81,9 @@ public class FunctionTransitionUtil {
       validateFunctionOutputs(transitions, starlarkTransition);
 
       for (Map<String, Object> transition : transitions) {
-        BuildOptions options = buildOptions.clone();
-        applyTransition(options, transition, optionInfoMap, starlarkTransition);
-        splitBuildOptions.add(options);
+        BuildOptions transitionedOptions =
+            applyTransition(buildOptions, transition, optionInfoMap, starlarkTransition);
+        splitBuildOptions.add(transitionedOptions);
       }
       return splitBuildOptions.build();
 
@@ -114,29 +115,6 @@ public class FunctionTransitionUtil {
                 "transition outputs [%s] were not defined by transition function",
                 Joiner.on(", ").join(remainingOutputs)));
       }
-    }
-  }
-
-  /**
-   * Given a label-like string representing a command line option, returns the command line option
-   * string that it represents. This is a temporary measure to support command line options with
-   * strings that look "label-like", so that migrating users using this experimental syntax is
-   * easier later.
-   *
-   * @throws EvalException if the given string is not a valid format to represent to a command line
-   *     option
-   */
-  private static String commandLineOptionLabelToOption(
-      String label, StarlarkDefinedConfigTransition starlarkTransition) throws EvalException {
-    if (label.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-      return label.substring(COMMAND_LINE_OPTION_PREFIX.length());
-    } else {
-      throw new EvalException(
-          starlarkTransition.getLocationForErrorReporting(),
-          String.format(
-              "Option key '%s' is of invalid form. "
-                  + "Expected command line option to begin with %s",
-              label, COMMAND_LINE_OPTION_PREFIX));
     }
   }
 
@@ -220,62 +198,70 @@ public class FunctionTransitionUtil {
    * Apply the transition dictionary to the build option, using optionInfoMap to look up the option
    * info.
    *
-   * @param buildOptions the pre-transition build options
-   * @param newValues a map of option name: option value entries to override current option
-   * values in the buildOptions param
-   * @param optionInfoMap a map of option name: option info for all native options that may
-   * be accessed in this transition
-   * @param starlarkTransition transition object that is being applied. Used for error reporting
-   * and checking for analysis testing
+   * @param buildOptionsToTransition the pre-transition build options
+   * @param newValues a map of option name: option value entries to override current option values
+   *     in the buildOptions param
+   * @param optionInfoMap a map of option name: option info for all native options that may be
+   *     accessed in this transition
+   * @param starlarkTransition transition object that is being applied. Used for error reporting and
+   *     checking for analysis testing
+   * @return the post-transition build options
    * @throws EvalException If a requested option field is inaccessible
    */
-  static void applyTransition(
-      BuildOptions buildOptions,
+  private static BuildOptions applyTransition(
+      BuildOptions buildOptionsToTransition,
       Map<String, Object> newValues,
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
       throws EvalException {
+    BuildOptions buildOptions = buildOptionsToTransition.clone();
     for (Map.Entry<String, Object> entry : newValues.entrySet()) {
-      String optionKey = entry.getKey();
-
-      // TODO(juliexxia): Handle keys which correspond to build_setting target labels instead
-      // of assuming every key is for a command line option.
-      String optionName = commandLineOptionLabelToOption(optionKey, starlarkTransition);
+      String optionName = entry.getKey();
       Object optionValue = entry.getValue();
 
-      // Convert NoneType to null.
-      if (optionValue instanceof NoneType) {
-        optionValue = null;
-      }
+      if (!optionName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+        buildOptions =
+            BuildOptions.builder()
+                .merge(buildOptions)
+                .addStarlarkOption(Label.parseAbsoluteUnchecked(optionName), optionValue)
+                .build();
+      } else {
+        optionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
 
-      try {
-        if (!optionInfoMap.containsKey(optionName)) {
+        // Convert NoneType to null.
+        if (optionValue instanceof NoneType) {
+          optionValue = null;
+        }
+        try {
+          if (!optionInfoMap.containsKey(optionName)) {
+            throw new EvalException(
+                starlarkTransition.getLocationForErrorReporting(),
+                String.format(
+                    "transition output '%s' does not correspond to a valid setting",
+                    entry.getKey()));
+          }
+
+          OptionInfo optionInfo = optionInfoMap.get(optionName);
+          OptionDefinition def = optionInfo.getDefinition();
+          Field field = def.getField();
+          FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
+          if (optionValue == null || def.getType().isInstance(optionValue)) {
+            field.set(options, optionValue);
+          } else if (optionValue instanceof String) {
+            field.set(options, def.getConverter().convert((String) optionValue));
+          } else {
+            throw new EvalException(
+                starlarkTransition.getLocationForErrorReporting(),
+                "Invalid value type for option '" + optionName + "'");
+          }
+        } catch (IllegalAccessException e) {
+          throw new RuntimeException(
+              "IllegalAccess for option " + optionName + ": " + e.getMessage());
+        } catch (OptionsParsingException e) {
           throw new EvalException(
               starlarkTransition.getLocationForErrorReporting(),
-              String.format(
-                  "transition output '%s' does not correspond to a valid setting", optionKey));
+              "OptionsParsingError for option '" + optionName + "': " + e.getMessage());
         }
-
-        OptionInfo optionInfo = optionInfoMap.get(optionName);
-        OptionDefinition def = optionInfo.getDefinition();
-        Field field = def.getField();
-        FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
-        if (optionValue == null || def.getType().isInstance(optionValue)) {
-          field.set(options, optionValue);
-        } else if (optionValue instanceof String) {
-          field.set(options, def.getConverter().convert((String) optionValue));
-        } else {
-          throw new EvalException(
-              starlarkTransition.getLocationForErrorReporting(),
-              "Invalid value type for option '" + optionName + "'");
-        }
-      } catch (IllegalAccessException e) {
-        throw new RuntimeException(
-            "IllegalAccess for option " + optionName + ": " + e.getMessage());
-      } catch (OptionsParsingException e) {
-        throw new EvalException(
-            starlarkTransition.getLocationForErrorReporting(),
-            "OptionsParsingError for option '" + optionName + "': " + e.getMessage());
       }
     }
 
@@ -286,6 +272,8 @@ public class FunctionTransitionUtil {
       buildConfigOptions.evaluatingForAnalysisTest = true;
     }
     updateOutputDirectoryNameFragment(buildConfigOptions, newValues);
+
+    return buildOptions;
   }
 
   /**

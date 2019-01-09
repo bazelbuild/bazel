@@ -18,8 +18,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import java.util.List;
 import java.util.Map;
@@ -700,6 +704,76 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     assertContainsEvent(
         "invalid transition output 'cpu'. If this is intended as a native option, "
             + "it must begin with //command_line_option:");
+  }
+
+  @Test
+  public void testTransitionOnBuildSetting() throws Exception {
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    writeWhitelistFile();
+
+    scratch.file(
+        "test/skylark/build_settings.bzl",
+        "BuildSettingInfo = provider(fields = ['value'])",
+        "def _impl(ctx):",
+        "  return [BuildSettingInfo(value = ctx.build_setting_value)]",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag=True))");
+
+    scratch.file(
+        "test/skylark/rules.bzl",
+        "load('//test/skylark:build_settings.bzl', 'BuildSettingInfo')",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:cute-animal-fact': 'puffins mate for life'}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test:cute-animal-fact']",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return struct(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = my_transition),",
+        "    '_whitelist_function_transition': attr.label(",
+        "      default = '//tools/whitelists/function_transition_whitelist'),",
+        "  }",
+        ")",
+        "def _dep_rule_impl(ctx):",
+        "  return [BuildSettingInfo(value = ctx.attr.fact[BuildSettingInfo].value)]",
+        "dep_rule_impl = rule(",
+        "  implementation = _dep_rule_impl,",
+        "  attrs = {",
+        "    'fact': attr.label(default = '//test/skylark:cute-animal-fact'),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:rules.bzl', 'my_rule')",
+        "load('//test/skylark:build_settings.bzl', 'string_flag')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "my_rule(name = 'dep')",
+        "string_flag(",
+        "  name = 'cute-animal-fact',",
+        "  build_setting_default = 'cows produce more milk when they listen to soothing music',",
+        ")");
+
+    useConfiguration(ImmutableMap.of("//test:cute-animal-fact", "cats can't taste sugar"));
+    getConfiguredTarget("//test/skylark:test");
+
+    @SuppressWarnings("unchecked")
+    BuildConfiguration depConfiguration =
+        getConfiguration(
+            Iterables.getOnlyElement(
+                (List<ConfiguredTarget>) getConfiguredTarget("//test/skylark:test").get("dep")));
+
+    assertThat(
+            depConfiguration
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+        .isEqualTo("puffins mate for life");
   }
 
   @Test
