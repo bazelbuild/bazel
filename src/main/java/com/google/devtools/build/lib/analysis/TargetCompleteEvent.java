@@ -248,10 +248,7 @@ public final class TargetCompleteEvent
     }
     return Iterables.filter(
         builder.build(),
-        (artifact) ->
-            !artifact.isSourceArtifact()
-                && !artifact.isMiddlemanArtifact()
-                && !artifact.isFileset());
+        (artifact) -> !artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact());
   }
 
   @Override
@@ -312,17 +309,13 @@ public final class TargetCompleteEvent
     for (ArtifactsInOutputGroup group : outputs) {
       if (group.areImportant()) {
         for (Artifact artifact : group.getArtifacts()) {
-          if (!artifact.isFileset()) {
-            builder.add(new LocalFile(pathResolver.toPath(artifact), LocalFileType.OUTPUT));
-          }
+          builder.add(new LocalFile(pathResolver.toPath(artifact), LocalFileType.OUTPUT));
         }
       }
     }
     if (baselineCoverageArtifacts != null) {
       for (Artifact artifact : baselineCoverageArtifacts) {
-        if (!artifact.isFileset()) {
-          builder.add(new LocalFile(pathResolver.toPath(artifact), LocalFileType.OUTPUT));
-        }
+        builder.add(new LocalFile(pathResolver.toPath(artifact), LocalFileType.OUTPUT));
       }
     }
     return builder.build();
