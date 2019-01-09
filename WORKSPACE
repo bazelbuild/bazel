@@ -136,6 +136,15 @@ http_file(
     downloaded_file_path="zulu-linux-vanilla.tar.gz",
 )
 
+http_file(
+    name = "openjdk_linux_minimal",
+    sha256 = "c78a38f9b92fff2c4db52e959509c1a25d03c6ec301ed3a533c5d446f2f9b128",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-minimal-8bc0fe99e064668b0ed4fd728a70407b6906046b-1547036504.tar.gz",
+    ],
+    downloaded_file_path="zulu-linux-minimal.tar.gz",
+)
+
 # Used by CI to test Bazel on platforms without an installed system JDK.
 # TODO(twerth): Migrate to @remotejdk when https://github.com/bazelbuild/bazel/pull/6216 is merged.
 http_archive(
@@ -167,6 +176,15 @@ http_file(
 )
 
 http_file(
+    name = "openjdk_macos_minimal",
+    sha256 = "2ceef108af2a48faf094d2f7177d4b59b915531005d0c06b71e38ff96475e103",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64-minimal-8bc0fe99e064668b0ed4fd728a70407b6906046b-1547036196.tar.gz",
+    ],
+    downloaded_file_path="zulu-macos-minimal.tar.gz",
+)
+
+http_file(
     name = "openjdk_win",
     sha256 = "e738829017f107e7a7cd5069db979398ec3c3f03ef56122f89ba38e7374f63ed",
     urls = [
@@ -182,6 +200,15 @@ http_file(
         "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64.zip",
     ],
     downloaded_file_path="zulu-win-vanilla.zip",
+)
+
+http_file(
+    name = "openjdk_win_minimal",
+    sha256 = "9b420e52019bac516b59698569f5dab4fae2ba81639584cb0b0e7ade13d043ef",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64-minimal-8bc0fe99e064668b0ed4fd728a70407b6906046b-1547036513.zip",
+    ],
+    downloaded_file_path="zulu-win-minimal.zip",
 )
 
 # The source-code for this OpenJDK can be found at:
