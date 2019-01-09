@@ -450,7 +450,9 @@ public class CcToolchainProviderHelper {
       return null;
     }
 
-    if (fdoMode != FdoMode.XBINARY_FDO && cppConfiguration.getXFdoProfileLabel() != null) {
+    if (fdoMode != FdoMode.OFF
+        && fdoMode != FdoMode.XBINARY_FDO
+        && cppConfiguration.getXFdoProfileLabel() != null) {
       ruleContext.throwWithRuleError("--xbinary_fdo cannot accept profile input other than *.xfdo");
     }
 
