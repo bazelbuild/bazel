@@ -132,6 +132,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--experimental_platforms_api=" + rand.nextBoolean(),
         "--experimental_remap_main_repo=" + rand.nextBoolean(),
         "--experimental_starlark_config_transitions=" + rand.nextBoolean(),
+        "--experimental_use_toolchain_resolution_for_java_rules=" + rand.nextBoolean(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
@@ -178,6 +179,7 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalPlatformsApi(rand.nextBoolean())
         .experimentalRemapMainRepo(rand.nextBoolean())
         .experimentalStarlarkConfigTransitions(rand.nextBoolean())
+        .experimentalUseToolchainResolutionForJavaRules(rand.nextBoolean())
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())

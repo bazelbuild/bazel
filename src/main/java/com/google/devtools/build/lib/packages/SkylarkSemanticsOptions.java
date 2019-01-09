@@ -512,6 +512,16 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   )
   public boolean internalSkylarkFlagTestCanary;
 
+  @Option(
+      name = "experimental_use_toolchain_resolution_for_java_rules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.UNKNOWN,
+      help =
+          "If set to true, toolchain resolution will be used to resolve java_toolchain and"
+              + " java_runtime.")
+  public boolean useToolchainResolutionForJavaRules;
+
   /** Constructs a {@link SkylarkSemantics} object corresponding to this set of option values. */
   public SkylarkSemantics toSkylarkSemantics() {
     return SkylarkSemantics.builder()
@@ -525,6 +535,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
             experimentalJavaCommonCreateProviderEnabledPackages)
         .experimentalPlatformsApi(experimentalPlatformsApi)
         .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
+        .experimentalUseToolchainResolutionForJavaRules(useToolchainResolutionForJavaRules)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
