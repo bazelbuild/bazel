@@ -243,11 +243,3 @@ platforms:
     test_targets:
     - "--"
     - "//src:all_windows_tests"
-  rbe_ubuntu1604:
-    shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-      android_ndk_repository/android_ndk_repository/' WORKSPACE
-    - rm -f WORKSPACE.bak
-    build_targets:
-    - "//src:bazel"
-    - "//src:bazel_jdk_minimal"
