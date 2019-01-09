@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.MavenDownloader.JarPaths;
@@ -23,25 +22,28 @@ import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.util.Map;
 
-/**
- * Implementation of maven_jar.
- */
-public class MavenJarFunction extends HttpArchiveFunction {
+/** Implementation of maven_jar. */
+public class MavenJarFunction extends RepositoryFunction {
+
+  protected final MavenDownloader downloader;
 
   public MavenJarFunction(MavenDownloader mavenDownloader) {
-    super(mavenDownloader);
+    super();
+    this.downloader = mavenDownloader;
   }
 
   private static final String DEFAULT_SERVER = "default";
@@ -125,14 +127,21 @@ public class MavenJarFunction extends HttpArchiveFunction {
     return createOutputTree(rule, outputDir, serverValue, env.getListener());
   }
 
+  private void createDirectory(Path path) throws RepositoryFunctionException {
+    try {
+      FileSystemUtils.createDirectoryAndParents(path);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
   private RepositoryDirectoryValue.Builder createOutputTree(
       Rule rule,
       Path outputDirectory,
       MavenServerValue serverValue,
       ExtendedEventHandler eventHandler)
       throws RepositoryFunctionException {
-    Preconditions.checkState(downloader instanceof MavenDownloader);
-    MavenDownloader mavenDownloader = (MavenDownloader) downloader;
+    MavenDownloader mavenDownloader = downloader;
 
     createDirectory(outputDirectory);
     String name = rule.getName();

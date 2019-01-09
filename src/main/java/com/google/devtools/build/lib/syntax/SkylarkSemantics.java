@@ -176,10 +176,6 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleRangeType();
 
-  public abstract boolean incompatibleRemoveNativeGitRepository();
-
-  public abstract boolean incompatibleRemoveNativeHttpArchive();
-
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
   public abstract boolean incompatibleRequireFeatureConfigurationForPic();
@@ -235,8 +231,6 @@ public abstract class SkylarkSemantics {
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(false)
           .incompatibleRangeType(true)
-          .incompatibleRemoveNativeGitRepository(true)
-          .incompatibleRemoveNativeHttpArchive(true)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRequireFeatureConfigurationForPic(false)
           .incompatibleStricArgumentOrdering(false)
@@ -310,10 +304,6 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleNoTransitiveLoads(boolean value);
 
     public abstract Builder incompatibleRangeType(boolean value);
-
-    public abstract Builder incompatibleRemoveNativeGitRepository(boolean value);
-
-    public abstract Builder incompatibleRemoveNativeHttpArchive(boolean value);
 
     public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
 
