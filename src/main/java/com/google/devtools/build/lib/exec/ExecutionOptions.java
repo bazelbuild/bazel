@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
+import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.util.OptionsUtils;
@@ -263,7 +265,7 @@ public class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "ram_utilization_factor",
-      defaultValue = "67",
+      defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -271,11 +273,12 @@ public class ExecutionOptions extends OptionsBase {
               + "subprocesses. This option affects how many processes Bazel will try to run in "
               + "parallel. If you run several Bazel builds in parallel, using a lower value for "
               + "this option may avoid thrashing and thus improve overall throughput. "
-              + "Using a value higher than the default is NOT recommended. "
+              + "Using a value higher than 67 is NOT recommended. "
               + "Note that Blaze's estimates are very coarse, so the actual RAM usage may be much "
               + "higher or much lower than specified. "
               + "Note also that this option does not affect the amount of memory that the Bazel "
-              + "server itself will use. ")
+              + "server itself will use. "
+              + "Setting this value overrides --local_ram_resources")
   public int ramUtilizationPercentage;
 
   @Option(
@@ -289,9 +292,41 @@ public class ExecutionOptions extends OptionsBase {
               + "and number of CPU cores available for the locally executed build actions. It "
               + "would also assume default I/O capabilities of the local workstation (1.0). This "
               + "options allows to explicitly set all 3 values. Note, that if this option is used, "
-              + "Bazel will ignore --ram_utilization_factor.",
+              + "Bazel will ignore --ram_utilization_factor, --local_cpu_resources, and "
+              + "--local_ram_resources.",
       converter = ResourceSet.ResourceSetConverter.class)
   public ResourceSet availableResources;
+
+  @Option(
+      name = "local_cpu_resources",
+      defaultValue = "HOST_CPUS",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Explicitly set the number of local CPU threads available to Bazel. Takes "
+              + "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float> "
+              + "(eg. HOST_CPUS*.5 to use half the available CPU cores)."
+              + "By default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate "
+              + "number of CPU cores available for the locally executed build actions. "
+              + "Note: This is a no-op if --local_resources is set.",
+      converter = CpuResourceConverter.class)
+  public float localCpuResources;
+
+  @Option(
+      name = "local_ram_resources",
+      defaultValue = "HOST_RAM*.67",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Explicitly set the amount of local host RAM (in MB) available to Bazel. Takes "
+              + "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float> "
+              + "(eg. HOST_RAM*.5 to use half the available RAM)."
+              + "By default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate "
+              + "amount of RAM available for the locally executed build actions and will use 67% "
+              + "of available RAM. "
+              + "Note: This is a no-op if --ram_utilization_factor or --local_resources is set.",
+      converter = RamResourceConverter.class)
+  public float localRamResources;
 
   @Option(
     name = "experimental_local_memory_estimate",
@@ -464,4 +499,47 @@ public class ExecutionOptions extends OptionsBase {
     }
   }
 
+  /**
+   * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
+   * "HOST_CPUS", optionally followed by [-|*]<float>.
+   */
+  public static class CpuResourceConverter extends ResourceConverter {
+    public CpuResourceConverter() {
+      super(
+          ImmutableMap.of(
+              "HOST_CPUS",
+              () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage())),
+          1,
+          Integer.MAX_VALUE);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float>.";
+    }
+  }
+
+  /**
+   * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
+   * "HOST_RAM", optionally followed by [-|*]<float>.
+   */
+  public static class RamResourceConverter extends ResourceConverter {
+    public RamResourceConverter() {
+      super(
+          ImmutableMap.of(
+              "HOST_RAM",
+              // Some tests seem to set local host RAM to 0, so we adjust host RAM to 1 here
+              // to make sure the default is valid.
+              () ->
+                  Math.max(
+                      1, (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb()))),
+          1,
+          Integer.MAX_VALUE);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float>.";
+    }
+  }
 }

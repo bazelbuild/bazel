@@ -67,7 +67,7 @@ public class ResourceConverter extends Converters.IntegerConverter {
    * @param maxValue the maximum allowed value
    */
   public ResourceConverter(Supplier<Integer> autoSupplier, int minValue, int maxValue) {
-    this.keywords =
+    this(
         ImmutableMap.<String, Supplier<Integer>>builder()
             .put("auto", autoSupplier)
             .put(
@@ -76,15 +76,9 @@ public class ResourceConverter extends Converters.IntegerConverter {
             .put(
                 "HOST_RAM",
                 () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb()))
-            .build();
-
-    this.validInputPattern =
-        Pattern.compile(
-            String.format(
-                "(?<keyword>%s)(?<expression>[%s][0-9]?(?:.[0-9]+)?)?",
-                String.join("|", this.keywords.keySet()), String.join("", OPERATORS.keySet())));
-    this.minValue = minValue;
-    this.maxValue = maxValue;
+            .build(),
+        minValue,
+        maxValue);
   }
 
   /**
@@ -95,6 +89,23 @@ public class ResourceConverter extends Converters.IntegerConverter {
    */
   public ResourceConverter(Supplier<Integer> autoSupplier) {
     this(autoSupplier, 1, Integer.MAX_VALUE);
+  }
+
+  /**
+   * Constructs a ResourceConverter for options that take keywords other than the default set.
+   *
+   * @param keywords a map of keyword to the suppliers of their values
+   */
+  public ResourceConverter(
+      ImmutableMap<String, Supplier<Integer>> keywords, int minValue, int maxValue) {
+    this.keywords = keywords;
+    this.validInputPattern =
+        Pattern.compile(
+            String.format(
+                "(?<keyword>%s)(?<expression>[%s][0-9]?(?:.[0-9]+)?)?",
+                String.join("|", this.keywords.keySet()), String.join("", OPERATORS.keySet())));
+    this.minValue = minValue;
+    this.maxValue = maxValue;
   }
 
   @Override
