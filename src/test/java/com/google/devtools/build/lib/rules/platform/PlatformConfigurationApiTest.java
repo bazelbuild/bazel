@@ -54,11 +54,6 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testHostPlatform_unset() {
-    assertThrows(InvalidConfigurationException.class, () -> useConfiguration("--host_platform="));
-  }
-
-  @Test
   public void testTargetPlatform_single() throws Exception {
     scratch.file("platforms/BUILD", "platform(name = 'test_platform')");
 
@@ -78,11 +73,6 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:test_platform"));
     assertThat(platformConfiguration.getTargetPlatforms())
         .containsExactly(Label.parseAbsoluteUnchecked("//platforms:test_platform"));
-  }
-
-  @Test
-  public void testTargetPlatform_unset() {
-    assertThrows(InvalidConfigurationException.class, () -> useConfiguration("--platforms="));
   }
 
   @Test
