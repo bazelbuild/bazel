@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkCommon;
@@ -66,6 +68,8 @@ public class JavaRules implements RuleSet {
 
     builder.addRuleDefinition(new BazelJavaRuleClasses.BaseJavaBinaryRule());
     builder.addRuleDefinition(new IjarBaseRule());
+    builder.addRuleDefinition(new JavaToolchainBaseRule());
+    builder.addRuleDefinition(new JavaRuntimeBaseRule());
     builder.addRuleDefinition(new BazelJavaRuleClasses.JavaBaseRule());
     builder.addRuleDefinition(new ProguardLibraryRule());
     builder.addRuleDefinition(new JavaImportBaseRule());
@@ -95,6 +99,10 @@ public class JavaRules implements RuleSet {
     try {
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
+      builder.addWorkspaceFileSuffix(
+          "register_toolchains('@bazel_tools//tools/jdk:dummy_java_toolchain')\n");
+      builder.addWorkspaceFileSuffix(
+          "register_toolchains('@bazel_tools//tools/jdk:dummy_java_runtime_toolchain')\n");
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }

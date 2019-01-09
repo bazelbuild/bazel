@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Before;
@@ -1119,6 +1121,19 @@ public class CcCommonTest extends BuildViewTestCase {
         @Override
         public boolean isThisBazel() {
           return true;
+        }
+
+        @Override
+        public List<String> getWorkspaceContents(MockToolsConfig config) {
+          String bazelToolWorkspace = config.getPath("/bazel_tools_workspace").getPathString();
+          return new ArrayList<>(
+              ImmutableList.of(
+                  "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
+                  "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
+                  "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
+                  "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
+                  "bind(name = 'tools/python', actual='//tools/python')",
+                  "register_toolchains('@bazel_tools//tools/cpp:all')"));
         }
       };
     }

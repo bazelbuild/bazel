@@ -89,7 +89,13 @@ public abstract class AnalysisMock extends LoadingMock {
    * This is called from test setup to create the mock directory layout needed to create the
    * configuration.
    */
-  public abstract void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException;
+  public void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException {
+    List<String> workspaceContents = getWorkspaceContents(mockToolsConfig);
+    setupMockClient(mockToolsConfig, workspaceContents);
+  }
+
+  public abstract void setupMockClient(
+      MockToolsConfig mockToolsConfig, List<String> getWorkspaceContents) throws IOException;
 
   /**
    * Returns the contents of WORKSPACE.
@@ -159,8 +165,9 @@ public abstract class AnalysisMock extends LoadingMock {
     }
 
     @Override
-    public void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException {
-      delegate.setupMockClient(mockToolsConfig);
+    public void setupMockClient(MockToolsConfig mockToolsConfig, List<String> workspaceContents)
+        throws IOException {
+      delegate.setupMockClient(mockToolsConfig, workspaceContents);
     }
 
     @Override

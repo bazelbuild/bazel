@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
@@ -8,11 +6,38 @@ load(
     "bootclasspath",
 )
 
+package(default_visibility = ["//visibility:public"])
+
 # Used to distinguish toolchains used for Java development, ie the JavaToolchainProvider.
 toolchain_type(name = "toolchain_type")
 
 # Used to distinguish toolchains used for Java execution, ie the JavaRuntimeInfo.
 toolchain_type(name = "runtime_toolchain_type")
+
+toolchain(
+    name = "dummy_java_toolchain",
+    toolchain = ":dummy_toolchain",
+    toolchain_type = ":toolchain_type",
+)
+
+cc_binary(name = "dummy_binary")
+
+java_toolchain(
+    name = "dummy_toolchain",
+    genclass = [":dummy_binary"],
+    ijar = [":dummy_binary"],
+    javabuilder = [":dummy_binary"],
+    javac = [":dummy_binary"],
+    singlejar = [":dummy_binary"],
+)
+
+toolchain(
+    name = "dummy_java_runtime_toolchain",
+    toolchain = ":dummy_java_runtime",
+    toolchain_type = ":runtime_toolchain_type",
+)
+
+java_runtime(name = "dummy_java_runtime")
 
 java_runtime_alias(name = "current_java_runtime")
 

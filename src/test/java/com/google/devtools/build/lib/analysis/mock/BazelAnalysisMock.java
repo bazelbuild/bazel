@@ -67,14 +67,21 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
             "bind(name = 'tools/python', actual='//tools/python')",
-            "register_toolchains('@bazel_tools//tools/cpp:all')"));
+            "register_toolchains('@bazel_tools//tools/cpp:all')",
+            "register_toolchains('@bazel_tools//tools/jdk:dummy_java_toolchain')",
+            "register_toolchains('@bazel_tools//tools/jdk:dummy_java_runtime_toolchain')"));
   }
 
   @Override
   public void setupMockClient(MockToolsConfig config) throws IOException {
     List<String> workspaceContents = getWorkspaceContents(config);
-    config.create(
-        "/local_config_xcode/BUILD", "xcode_config(name = 'host_xcodes')");
+    setupMockClient(config, workspaceContents);
+  }
+
+  @Override
+  public void setupMockClient(MockToolsConfig config, List<String> workspaceContents)
+      throws IOException {
+    config.create("/local_config_xcode/BUILD", "xcode_config(name = 'host_xcodes')");
     config.create(
         "/protobuf/BUILD", "licenses(['notice'])", "exports_files(['protoc', 'cc_toolchain'])");
     config.create("/local_config_xcode/WORKSPACE");
@@ -114,7 +121,19 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",
         "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar',",
         "               'turbine_deploy.jar','ExperimentalTestRunner_deploy.jar'])",
-        "sh_binary(name = 'proguard_whitelister', srcs = ['empty.sh'])");
+        "sh_binary(name = 'proguard_whitelister', srcs = ['empty.sh'])",
+        "toolchain_type(name = 'toolchain_type')",
+        "toolchain_type(name = 'runtime_toolchain_type')",
+        "toolchain(",
+        "   name = 'dummy_java_toolchain',",
+        "   toolchain_type = ':toolchain_type',",
+        "   toolchain = ':toolchain',",
+        ")",
+        "toolchain(",
+        "   name = 'dummy_java_runtime_toolchain',",
+        "   toolchain_type = ':runtime_toolchain_type',",
+        "   toolchain = ':jdk',",
+        ")");
 
     ImmutableList<String> androidBuildContents = createAndroidBuildContents();
     config.create(
