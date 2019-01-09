@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
@@ -46,7 +44,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
@@ -88,12 +85,9 @@ public final class ConfiguredTargetFactory {
   // in order to be accessible from the .view.skyframe package.
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
-  private final BuildOptions defaultBuildOptions;
 
-  public ConfiguredTargetFactory(
-      ConfiguredRuleClassProvider ruleClassProvider, BuildOptions defaultBuildOptions) {
+  public ConfiguredTargetFactory(ConfiguredRuleClassProvider ruleClassProvider) {
     this.ruleClassProvider = ruleClassProvider;
-    this.defaultBuildOptions = defaultBuildOptions;
   }
 
   /**
@@ -161,11 +155,12 @@ public final class ConfiguredTargetFactory {
     return null;
   }
 
-  /**
-   * Returns the output artifact for the given file, or null if Skyframe deps are missing.
-   */
-  private Artifact getOutputArtifact(AnalysisEnvironment analysisEnvironment, OutputFile outputFile,
-      BuildConfiguration configuration, boolean isFileset, ArtifactFactory artifactFactory) {
+  /** Returns the output artifact for the given file, or null if Skyframe deps are missing. */
+  private Artifact getOutputArtifact(
+      OutputFile outputFile,
+      BuildConfiguration configuration,
+      boolean isFileset,
+      ArtifactFactory artifactFactory) {
     Rule rule = outputFile.getAssociatedRule();
     ArtifactRoot root =
         rule.hasBinaryOutput()
@@ -225,8 +220,7 @@ public final class ConfiguredTargetFactory {
     if (target instanceof OutputFile) {
       OutputFile outputFile = (OutputFile) target;
       boolean isFileset = outputFile.getGeneratingRule().getRuleClass().equals("Fileset");
-      Artifact artifact =
-          getOutputArtifact(analysisEnvironment, outputFile, config, isFileset, artifactFactory);
+      Artifact artifact = getOutputArtifact(outputFile, config, isFileset, artifactFactory);
       if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
         return null;
       }
@@ -386,14 +380,6 @@ public final class ConfiguredTargetFactory {
     result.append("], but these were all disabled");
     return result.toString();
   }
-
-  private static final Function<Aspect, AspectDescriptor> ASPECT_TO_DESCRIPTOR =
-      new Function<Aspect, AspectDescriptor>() {
-        @Override
-        public AspectDescriptor apply(Aspect aspect) {
-          return aspect.getDescriptor();
-        }
-      };
 
   /**
    * Constructs an {@link ConfiguredAspect}. Returns null if an error occurs; in that case, {@code
