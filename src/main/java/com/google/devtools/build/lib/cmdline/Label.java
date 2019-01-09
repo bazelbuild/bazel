@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -506,33 +508,40 @@ public final class Label
    * @param relName the relative label name; must be non-empty.
    */
   @SkylarkCallable(
-    name = "relative",
-    doc =
-        "Resolves a label that is either absolute (starts with <code>//</code>) or relative to the"
-            + " current package. If this label is in a remote repository, the argument will be "
-            + " resolved relative to that repository. If the argument contains a repository, it"
-            + " will be returned as-is. Reserved labels will also be returned as-is.<br>"
-            + "For example:<br>"
-            + "<pre class=language-python>\n"
-            + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
-            + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
-            + "Label(\"@repo//foo/bar:baz\").relative(\"//wiz:quux\") == "
-            + "Label(\"@repo//wiz:quux\")\n"
-            + "Label(\"@repo//foo/bar:baz\").relative(\"//visibility:public\") == "
-            + "Label(\"//visibility:public\")\n"
-            + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
-            + "Label(\"@other//wiz:quux\")\n"
-            + "</pre>",
-    parameters = {
-      @Param(
-        name = "relName",
-        type = String.class,
-        doc = "The label that will be resolved relative to this one."
-      )
-    }
-  )
-  public Label getRelative(String relName) throws LabelSyntaxException {
-    return getRelativeWithRemapping(relName, /* repositoryMapping= */ ImmutableMap.of());
+      name = "relative",
+      doc =
+          "Resolves a label that is either absolute (starts with <code>//</code>) or relative to "
+              + "the current package. If this label is in a remote repository, the argument will "
+              + "be resolved relative to that repository. If the argument contains a repository "
+              + "name, the current label is ignored and the argument is returned as-is, except "
+              + "that the repository name is rewritten if it is in the current repository mapping. "
+              + "Reserved labels will also be returned as-is.<br>"
+              + "For example:<br>"
+              + "<pre class=language-python>\n"
+              + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
+              + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"//wiz:quux\") == "
+              + "Label(\"@repo//wiz:quux\")\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"//visibility:public\") == "
+              + "Label(\"//visibility:public\")\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
+              + "Label(\"@other//wiz:quux\")\n"
+              + "</pre>"
+              + "<p>If the repository mapping passed in is <code>{'@other' : '@remapped'}</code>, "
+              + "then the following remapping will take place:<br>"
+              + "<pre class=language-python>\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
+              + "Label(\"@remapped//wiz:quux\")",
+      parameters = {
+        @Param(
+            name = "relName",
+            type = String.class,
+            doc = "The label that will be resolved relative to this one.")
+      },
+      useContext = true)
+  public Label getRelative(String relName, StarlarkContext context) throws LabelSyntaxException {
+    BazelStarlarkContext bazelStarlarkContext = (BazelStarlarkContext) context;
+    return getRelativeWithRemapping(relName, bazelStarlarkContext.getRepoMapping());
   }
 
   /**

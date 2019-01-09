@@ -68,7 +68,9 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     return new EvaluationTestCase() {
       @Override
       public Environment newEnvironment() throws Exception {
-        BazelStarlarkContext context = new BazelStarlarkContext(TestConstants.TOOLS_REPOSITORY);
+        BazelStarlarkContext context =
+            new BazelStarlarkContext(
+                TestConstants.TOOLS_REPOSITORY, /*repoMapping=*/ ImmutableMap.of());
         Environment env =
             Environment.builder(mutability)
                 .setSemantics(semantics)

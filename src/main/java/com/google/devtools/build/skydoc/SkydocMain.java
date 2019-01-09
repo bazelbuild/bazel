@@ -19,6 +19,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -384,7 +385,9 @@ public class SkydocMain {
 
     Map<String, Extension> imports = new HashMap<>();
     for (SkylarkImport anImport : buildFileAST.getImports()) {
-      Label relativeLabel = label.getRelative(anImport.getImportString());
+      BazelStarlarkContext context =
+          new BazelStarlarkContext("", ImmutableMap.of(), ImmutableMap.of());
+      Label relativeLabel = label.getRelative(anImport.getImportString(), context);
 
       try {
         Environment importEnv =
