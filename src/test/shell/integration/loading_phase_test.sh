@@ -153,7 +153,7 @@ function test_bazelrc_option() {
     local -r pkg="${FUNCNAME}"
     mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-    if [[ "$(realpath "${bazelrc}")" != "$(realpath ".${PRODUCT_NAME}rc")" ]]; then
+    if [[ "$(get_real_path "${bazelrc}")" != "$(get_real_path ".${PRODUCT_NAME}rc")" ]]; then
       cp "${bazelrc}" ".${PRODUCT_NAME}rc"
     fi
 
