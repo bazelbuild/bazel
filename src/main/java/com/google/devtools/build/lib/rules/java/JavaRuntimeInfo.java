@@ -65,10 +65,6 @@ public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
     return from(ruleContext, ":host_jdk", RuleConfiguredTarget.Mode.HOST);
   }
 
-  public static JavaRuntimeInfo forHost(RuleContext ruleContext, String attributeSuffix) {
-    return from(ruleContext, ":host_jdk" + attributeSuffix, RuleConfiguredTarget.Mode.HOST);
-  }
-
   @Nullable
   private static JavaRuntimeInfo from(
       RuleContext ruleContext, String attributeName, RuleConfiguredTarget.Mode mode) {
