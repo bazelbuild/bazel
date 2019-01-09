@@ -1736,6 +1736,23 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToString("kind(rule, same_pkg_direct_rdeps(//foo:a + //bar:a))")).isEmpty();
   }
 
+  @Test
+  public void testVisibleWithNonPackageGroupVisibility() throws Exception {
+    writeFile("foo/BUILD", "sh_library(name = 'foo', visibility = ['//bar:bar'])");
+    writeFile("bar/BUILD", "sh_library(name = 'bar')");
+    assertThat(evalToString("visible(//bar:bar, //foo:foo)")).isEmpty();
+  }
+
+  @Test
+  public void testVisibleWithPackageGroupWithNonPackageGroupIncludes() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "sh_library(name = 'foo', visibility = [':pg'])",
+        "package_group(name = 'pg', includes = ['//bar:bar'])");
+    writeFile("bar/BUILD", "sh_library(name = 'bar')");
+    assertThat(evalToString("visible(//bar:bar, //foo:foo)")).isEmpty();
+  }
+
   /**
    * A helper interface that allows creating a bunch of BUILD files and running queries against
    * them. We use this rather than the existing FoundationTestCase / BuildTestCase infrastructure to

@@ -548,4 +548,16 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   @Override
   @Test
   public void testGraphOrderOfWildcards() {}
+
+  // Visibility is checked in the analysis phase, so the post-analysis query done in this unit test
+  // would never occur because the visibility error would occur first.
+  @Override
+  @Test
+  public void testVisibleWithNonPackageGroupVisibility() throws Exception {}
+
+  // Visibility is checked in the analysis phase, so the post-analysis query done in this unit test
+  // would never occur because the visibility error would occur first.
+  @Override
+  @Test
+  public void testVisibleWithPackageGroupWithNonPackageGroupIncludes() throws Exception {}
 }
