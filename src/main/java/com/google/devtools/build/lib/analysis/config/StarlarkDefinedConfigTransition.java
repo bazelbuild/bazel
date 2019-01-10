@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -100,8 +101,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       List<String> inputs,
       List<String> outputs,
       SkylarkSemantics semantics,
-      EventHandler eventHandler) {
-    return new RegularTransition(impl, inputs, outputs, semantics, eventHandler);
+      EventHandler eventHandler,
+      StarlarkContext context) {
+    return new RegularTransition(impl, inputs, outputs, semantics, eventHandler, context);
   }
 
   public static StarlarkDefinedConfigTransition newAnalysisTestTransition(
@@ -138,17 +140,20 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     private final BaseFunction impl;
     private final SkylarkSemantics semantics;
     private final EventHandler eventHandler;
+    private final StarlarkContext starlarkContext;
 
     public RegularTransition(
         BaseFunction impl,
         List<String> inputs,
         List<String> outputs,
         SkylarkSemantics semantics,
-        EventHandler eventHandler) {
+        EventHandler eventHandler,
+        StarlarkContext context) {
       super(inputs, outputs, impl.getLocation());
       this.impl = impl;
       this.semantics = semantics;
       this.eventHandler = eventHandler;
+      this.starlarkContext = context;
     }
 
     @Override
@@ -229,6 +234,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
             Environment.builder(mutability)
                 .setSemantics(semantics)
                 .setEventHandler(eventHandler)
+                .setStarlarkContext(starlarkContext)
                 .build();
 
         return function.call(args, ImmutableMap.of(), null, env);
