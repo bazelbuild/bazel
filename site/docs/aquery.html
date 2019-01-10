@@ -1,0 +1,169 @@
+---
+layout: documentation
+title: Aquery (Action Graph Query)
+---
+<h1>Aquery (Action Graph Query)</h1>
+
+
+<ul class="toc">
+  <li><a href="#overview">Overview</a></li>
+  <li><a href="#basic-syntax">Basic Syntax</a></li>
+  <li><a href="#functions">Aquery Functions</a></li>
+  <li><a href="#options">Options</a></li>
+  <li><a href="#known-issues">Known Issues</a></li>
+  <li><a href="#updates">Updates</a></li>
+</ul>
+
+<h2 id='overview'>Overview</h2>
+
+<b>Caution</b>: The aquery command is still experimental and its API will change.
+
+<p>
+  The <code>aquery</code> command allows you to query for actions in your build graph.
+  It operates on the post-analysis Configured Target Graph and exposes
+  information about <b>Actions, Artifacts and their relationships.</b>
+</p>
+
+<p>
+  <code>aquery</code> is useful when we are interested in the properties of the Actions/Artifacts
+  generated from the Configutered Target Graph. For example, the actual commands run
+  and their inputs/outputs/mnemonics.
+</p>
+
+<p>
+  The tool accepts several command-line <a href="#aquery-options">options</a>.
+  Notably, the aquery command runs on top of a regular Bazel build and inherits
+  the set of options available during a build.
+</p>
+
+<p>
+  It supports the same set of functions that is also available to traditional
+  <code>query</code> but <code>siblings</code>, <code>buildfiles</code> and
+  <code>tests</code>.
+</p>
+
+<p>An example <code>aquery</code> output (without specific details):</p>
+
+<pre>
+$ bazel aquery 'deps(//some:label)'
+action 'Writing file some_file_name'
+  Mnemonic: ...
+  Owner: ...
+  Configuration: ...
+  ActionKey: ...
+  Inputs: [...]
+  Outputs: [...]
+</pre>
+
+<h2 id='basic-syntax'>Basic Syntax</h2>
+
+<p>A simple example of the syntax for <code>aquery</code> is as follows:</p>
+
+<p><code>bazel aquery "aquery_function(function(//target))"</code></p>
+
+<p>The query expression (in quotes) consists of the following:
+
+<ul>
+  <li>
+    <code>aquery_function(...)</code>: functions specific to <code>aquery</code>.
+    More details <a href="#functions">below</a>.
+  </li>
+  <li>
+    <code>function(...)</code>: the standard <a href="query.html#functions">functions</a>
+    as traditional <code>query</code>.
+  </li>
+  <li>
+    <code>//target</code> is the label to the interested target.
+   </li>
+</ul>
+
+<pre>
+# aquery examples:
+# Get the action graph generated while building //src/target_a
+$ bazel aquery '//src/target_a'
+
+# Get the action graph generated while building all dependencies of //src/target_a
+$ bazel aquery 'deps(//src/target_a)'
+
+# Get the action graph generated while building all dependencies of //src/target_a
+# whose inputs filenames match the regex ".*cpp".
+$ bazel aquery 'inputs(".*cpp, deps(//src/target_a))'
+</pre>
+
+<h2 id='functions'>Aquery Functions</h2>
+
+<p>There are currently 3 <code>aquery</code> functions:</p>
+<ul>
+  <li><code>inputs</code>: filter actions by inputs.</li>
+  <li><code>outputs</code>: filter actions by outputs</li>
+  <li><code>mnemonic</code>: filter actions by mnemonic</li>
+</ul>
+
+<p><code>expr ::= inputs(word, expr)</code></p>
+
+<p>
+  The <code>inputs</code> operator returns the actions generated from building <code>expr</code>,
+  whose input filenames match the regex provided by <code>word</code>.
+</p>
+
+<p><code>$ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'</code></p>
+
+<p><code>outputs</code> and <code>mnemonic</code> functions share a similar syntax.</p>
+
+<p>You can also combine functions to achieve the AND operation. For example:</p>
+<pre>
+  $ bazel aquery 'mnemonic("Cpp.*", (inputs(".*cpp", inputs("foo.*", //src/target_a))))'
+</pre>
+<p>
+  The above command would find all actions involved in building <code>//src/target_a</code>,
+  whose mnemonics match <code>"Cpp.*"</code> and inputs match the patterns
+  <code>".*cpp"</code> and <code>"foo.*"</code>.
+</p>
+
+<h3>Important: aquery functions can't be nested inside non-aquery functions</h3>
+<ul>
+  <li>Conceptually this makes sense since the output of aquery functions is Actions,
+    not Configured Targets.</li>
+  <li>
+    An example of the syntax error produced:
+    <pre>
+        $ bazel aquery 'deps(inputs(".*cpp", //src/target_a))'
+        ERROR: aquery filter functions (inputs, outputs, mnemonic) produce actions,
+        and therefore can't be the input of other function types: deps
+        deps(inputs(".*cpp", //src/target_a))
+      </pre>
+  </li>
+</ul>
+
+<h2 id='options'>Options</h2>
+
+<h3>Build Options</h3>
+
+<p>
+  <code>aquery</code> runs on top of a regular Bazel build and thus inherits the set of
+  <a href="command-line-reference.html#build-options">options</a>
+  available during a build.
+</p>
+
+<h3 id="aquery-options">Aquery options</h3>
+
+<h4><code class='flag'>--output=(text|proto), default=text</code></h4>
+
+<p>
+  The default output format (<code>text</code>) is human-readable,
+  use <code>proto</code> or <code>textproto</code> for machine-readable format.
+</p>
+
+<h2 id='known-issues'>Known Issues</h2>
+
+<p>
+  The list of aquery issues/planned features can be found on
+  <a href="https://github.com/bazelbuild/bazel/labels/team-Performance">GitHub</a>.
+</p>
+
+<h2 id='updates'>Updates</h2>
+
+<p>
+  Aquery is a work in progress, and its API might change in the future.
+  Please contact twerth@google.com and leba@google.com for any issue/feature request.
+</p>
