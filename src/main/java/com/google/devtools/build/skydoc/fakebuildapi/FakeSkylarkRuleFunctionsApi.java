@@ -149,8 +149,13 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   }
 
   @Override
-  public Label label(String labelString, Boolean relativeToCallerRepository, Location loc,
-      Environment env) throws EvalException {
+  public Label label(
+      String labelString,
+      Boolean relativeToCallerRepository,
+      Location loc,
+      Environment env,
+      StarlarkContext context)
+      throws EvalException {
     try {
       return Label.parseAbsolute(
           labelString,

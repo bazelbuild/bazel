@@ -496,34 +496,42 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
 
   @SkylarkCallable(
       name = "Label",
-      doc = "Creates a Label referring to a BUILD target. Use "
-          + "this function only when you want to give a default value for the label attributes. "
-          + "The argument must refer to an absolute label. "
-          + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
+      doc =
+          "Creates a Label referring to a BUILD target. Use "
+              + "this function only when you want to give a default value for the label "
+              + "attributes. The argument must refer to an absolute label. "
+              + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
       parameters = {
-          @Param(name = "label_string", type = String.class, legacyNamed = true,
-              doc = "the label string."),
-          @Param(
-              name = "relative_to_caller_repository",
-              type = Boolean.class,
-              defaultValue = "False",
-              named = true,
-              positional = false,
-              doc = "Deprecated. Do not use. "
-                  + "When relative_to_caller_repository is True and the calling thread is a rule's "
-                  + "implementation function, then a repo-relative label //foo:bar is resolved "
-                  + "relative to the rule's repository.  For calls to Label from any other "
-                  + "thread, or calls in which the relative_to_caller_repository flag is False, "
-                  + "a repo-relative label is resolved relative to the file in which the "
-                  + "Label() call appears."
-          )
+        @Param(
+            name = "label_string",
+            type = String.class,
+            legacyNamed = true,
+            doc = "the label string."),
+        @Param(
+            name = "relative_to_caller_repository",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc =
+                "Deprecated. Do not use. "
+                    + "When relative_to_caller_repository is True and the calling thread is a "
+                    + "rule's implementation function, then a repo-relative label //foo:bar is "
+                    + "resolved relative to the rule's repository.  For calls to Label from any "
+                    + "other thread, or calls in which the relative_to_caller_repository flag is "
+                    + "False, a repo-relative label is resolved relative to the file in which the "
+                    + "Label() call appears.")
       },
       useLocation = true,
-      useEnvironment = true
-  )
+      useEnvironment = true,
+      useContext = true)
   @SkylarkConstructor(objectType = Label.class)
   public Label label(
-      String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
+      String labelString,
+      Boolean relativeToCallerRepository,
+      Location loc,
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
