@@ -164,7 +164,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     if (!analysisMock.isThisBazel()) {
       return;
     }
-    scratch.overwriteFile("WORKSPACE", "http_archive(name = 'foo', url = 'http://foo')");
+    scratch.overwriteFile("WORKSPACE", "local_repository(name = 'foo', path = 'path/to/repo')");
 
     SkyKey key = getRuleByNameKey("foo");
     EvaluationResult<GetRuleByNameValue> result = getRuleByName(key);
@@ -185,7 +185,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
     if (!analysisMock.isThisBazel()) {
       return;
     }
-    scratch.overwriteFile("WORKSPACE", "http_archive(name = 'foo', url = 'http://foo')");
+    scratch.overwriteFile("WORKSPACE", "local_repository(name = 'foo', path = 'path/to/repo')");
 
     SkyKey key = getRuleByNameKey("bar");
     EvaluationResult<GetRuleByNameValue> result = getRuleByName(key);

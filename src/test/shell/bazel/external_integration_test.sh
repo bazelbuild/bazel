@@ -504,16 +504,6 @@ EOF
   diff bazel-genfiles/timestamp first_timestamp || fail "Output was built again"
 }
 
-function test_invalid_rule() {
-  # http_jar with missing URL field.
-  cat > WORKSPACE <<EOF
-http_jar(name = 'endangered', sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
-EOF
-
-  bazel fetch //external:endangered >& $TEST_log && fail "Expected fetch to fail"
-  expect_log "missing value for mandatory attribute 'url' in 'http_jar' rule"
-}
-
 function test_new_remote_repo_with_build_file() {
   do_new_remote_repo_test "build_file"
 }
