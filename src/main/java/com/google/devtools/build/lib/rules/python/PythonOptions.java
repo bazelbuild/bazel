@@ -73,6 +73,8 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_better_python_version_mixing",
+      // TODO(brandjon): Do not flip until we have an answer for how to guard the "python_version"
+      // attribute without hacking up native.existing_rules(). See b/122596733.
       defaultValue = "false",
       // TODO(brandjon): Change to OptionDocumentationCategory.SKYLARK_SEMANTICS when this is
       // sufficiently implemented/documented. Also fill in the ref in the help text below.

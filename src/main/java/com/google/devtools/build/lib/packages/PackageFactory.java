@@ -897,6 +897,14 @@ public final class PackageFactory {
         continue;
       }
 
+      // TODO(brandjon): Remove this hack before flipping
+      // --experimental_better_python_version_mixing. Issue #7071.
+      if (attr.getName().equals("python_version")) {
+        // python_version is guarded by experimental flags, which breaks the use case of copying
+        // targets around using native.existing_rules. See #7071 and (Google-internal) b/122596733.
+        continue;
+      }
+
       try {
         Object val = skylarkifyValue(cont.getAttr(attr.getName()), target.getPackage());
         if (val == null) {
