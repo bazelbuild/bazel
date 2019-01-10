@@ -60,6 +60,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public List<String> getWorkspaceContents(MockToolsConfig config) {
     String bazelToolWorkspace = config.getPath("/bazel_tools_workspace").getPathString();
+    String localConfigPlatformWorkspace =
+        config.getPath("/local_config_platform_workspace").getPathString();
     return new ArrayList<>(
         ImmutableList.of(
             "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
@@ -69,7 +71,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "bind(name = 'tools/python', actual='//tools/python')",
             "register_toolchains('@bazel_tools//tools/cpp:all')",
             "register_toolchains('@bazel_tools//tools/jdk:dummy_java_toolchain')",
-            "register_toolchains('@bazel_tools//tools/jdk:dummy_java_runtime_toolchain')"));
+            "register_toolchains('@bazel_tools//tools/jdk:dummy_java_runtime_toolchain')",
+            "local_repository(name = 'local_config_platform', path = '"
+                + localConfigPlatformWorkspace
+                + "')"));
   }
 
   @Override

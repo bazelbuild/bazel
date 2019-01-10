@@ -23,23 +23,33 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
 /** Command-line options for platform-related configuration. */
 public class PlatformOptions extends FragmentOptions {
+
+  // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
+  // directly.
+  public static final Label LEGACY_DEFAULT_HOST_PLATFORM =
+      Label.parseAbsoluteUnchecked("@bazel_tools//platforms:host_platform");
+  public static final Label DEFAULT_HOST_PLATFORM =
+      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+  public static final Label LEGACY_DEFAULT_TARGET_PLATFORM =
+      Label.parseAbsoluteUnchecked("@bazel_tools//platforms:target_platform");
+
   @Option(
-    name = "host_platform",
-    oldName = "experimental_host_platform",
-    converter = BuildConfiguration.EmptyToNullLabelConverter.class,
-    defaultValue = "@bazel_tools//platforms:host_platform",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {
-      OptionEffectTag.AFFECTS_OUTPUTS,
-      OptionEffectTag.CHANGES_INPUTS,
-      OptionEffectTag.LOADING_AND_ANALYSIS
-    },
-    help = "The label of a platform rule that describes the host system."
-  )
+      name = "host_platform",
+      oldName = "experimental_host_platform",
+      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help = "The label of a platform rule that describes the host system.")
   public Label hostPlatform;
 
   @Option(
@@ -69,19 +79,19 @@ public class PlatformOptions extends FragmentOptions {
   public List<String> extraExecutionPlatforms;
 
   @Option(
-    name = "platforms",
-    oldName = "experimental_platforms",
-    converter = LabelListConverter.class,
-    defaultValue = "@bazel_tools//platforms:target_platform",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {
-      OptionEffectTag.AFFECTS_OUTPUTS,
-      OptionEffectTag.CHANGES_INPUTS,
-      OptionEffectTag.LOADING_AND_ANALYSIS
-    },
-    help =
-        "The labels of the platform rules describing the target platforms for the current command."
-  )
+      name = "platforms",
+      oldName = "experimental_platforms",
+      converter = LabelListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help =
+          "The labels of the platform rules describing the target platforms for the current "
+              + "command.")
   public List<Label> platforms;
 
   @Option(
@@ -145,6 +155,20 @@ public class PlatformOptions extends FragmentOptions {
   )
   public List<Label> enabledToolchainTypes;
 
+  @Option(
+      name = "incompatible_auto_configure_host_platform",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, the host platform will be inherited from @local_config_platforms//:host, "
+              + "instead of being based on the --cpu (and --host_cpu) flags.")
+  public boolean autoConfigureHostPlatform;
+
   @Override
   public PlatformOptions getHost() {
     PlatformOptions host = (PlatformOptions) getDefault();
@@ -157,6 +181,7 @@ public class PlatformOptions extends FragmentOptions {
     host.hostPlatformRemotePropertiesOverride = this.hostPlatformRemotePropertiesOverride;
     host.toolchainResolutionDebug = this.toolchainResolutionDebug;
     host.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
+    host.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
     return host;
   }
 }

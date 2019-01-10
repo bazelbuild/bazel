@@ -349,10 +349,11 @@ EOF
 
   bazel build \
     --toolchain_resolution_debug \
+    --incompatible_auto_configure_host_platform \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'ToolchainResolution: Looking for toolchain of type //toolchain:test_toolchain'
-  expect_log 'ToolchainResolution:   For toolchain type //toolchain:test_toolchain, possible execution platforms and toolchains: {@bazel_tools//platforms:host_platform -> //:test_toolchain_impl_1}'
-  expect_log 'ToolchainResolver: Selected execution platform @bazel_tools//platforms:host_platform, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
+  expect_log 'ToolchainResolution:   For toolchain type //toolchain:test_toolchain, possible execution platforms and toolchains: {@local_config_platform//:host -> //:test_toolchain_impl_1}'
+  expect_log 'ToolchainResolver: Selected execution platform @local_config_platform//:host, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
