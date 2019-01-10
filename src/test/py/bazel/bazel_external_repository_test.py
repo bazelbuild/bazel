@@ -131,5 +131,50 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ])
     self.assertEqual(exit_code, 0, os.linesep.join(stderr))
 
+  def _CreatePyWritingStarlarkRule(self, print_string):
+    self.ScratchFile('repo/foo.bzl', [
+        "def _impl(ctx):",
+        "  ctx.actions.write(",
+        "      output = ctx.outputs.out,",
+        "      content = \"\"\"from __future__ import print_function",
+        "print('%s')\"\"\"," % print_string,
+        "  )",
+        "  return [DefaultInfo(files = depset(direct = [ctx.outputs.out]))]",
+        "",
+        "gen_py = rule(",
+        "    implementation = _impl,",
+        "    outputs = {'out': '%{name}.py'},",
+        ")",
+    ])
+
+  def testNewLocalRepositoryNoticesFileChangeInRepoRoot(self):
+    """Regression test for https://github.com/bazelbuild/bazel/issues/7063."""
+    self.ScratchFile('WORKSPACE', [
+        'new_local_repository(',
+        '    name = "r",',
+        '    path = "./repo",',
+        '    build_file_content = "exports_files([\'foo.bzl\'])",',
+        ')',
+    ])
+    self.ScratchFile('repo/WORKSPACE')
+    self._CreatePyWritingStarlarkRule('hello!')
+    self.ScratchFile('BUILD', [
+        'load("@r//:foo.bzl", "gen_py")',
+        'gen_py(name = "gen")',
+        'py_binary(name = "bin", srcs = [":gen"], main = "gen.py")',
+    ])
+
+    exit_code, stdout, stderr = self.RunBazel(['run', '//:bin'])
+    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
+    self.assertIn('hello!', os.linesep.join(stdout))
+
+    # Modify the definition of the Starlark rule in the external repository.
+    # The py_binary rule should notice this and rebuild.
+    self._CreatePyWritingStarlarkRule('world')
+    exit_code, stdout, stderr = self.RunBazel(['run', '//:bin'])
+    self.assertEqual(exit_code, 0, os.linesep.join(stderr))
+    self.assertNotIn('hello!', os.linesep.join(stdout))
+    self.assertIn('world', os.linesep.join(stdout))
+
 if __name__ == '__main__':
   unittest.main()
