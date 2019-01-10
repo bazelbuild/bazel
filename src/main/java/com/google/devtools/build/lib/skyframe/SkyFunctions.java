@@ -116,9 +116,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName BUILD_INFO = SkyFunctionName.createHermetic("BUILD_INFO");
   public static final SkyFunctionName WORKSPACE_NAME =
       SkyFunctionName.createHermetic("WORKSPACE_NAME");
-  // Non-hermetic because accesses package locator
   public static final SkyFunctionName WORKSPACE_FILE =
-      SkyFunctionName.createNonHermetic("WORKSPACE_FILE");
+      SkyFunctionName.createHermetic("WORKSPACE_FILE");
   static final SkyFunctionName COVERAGE_REPORT = SkyFunctionName.createHermetic("COVERAGE_REPORT");
   public static final SkyFunctionName REPOSITORY = SkyFunctionName.createHermetic("REPOSITORY");
   public static final SkyFunctionName REPOSITORY_DIRECTORY =
