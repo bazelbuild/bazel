@@ -2105,4 +2105,29 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(output.getClassJar().getFilename()).isEqualTo("libc.jar");
     assertThat(output.getIJar()).isNull();
   }
+
+  @Test
+  public void testDisallowLegacyJavaProvider() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_legacy_java_provider");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.attr.java_lib.java.source_jars",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'java_lib': attr.label(),",
+        "   },",
+        ")");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_library(name = 'java_lib', srcs = ['java/A.java'])",
+        "java_custom_library(name = 'custom_lib', java_lib = ':java_lib')");
+    checkError(
+        "//foo:custom_lib",
+        "The .java provider is deprecated and cannot be used "
+            + "when --incompatible_disallow_legacy_java_provider is set.");
+  }
 }

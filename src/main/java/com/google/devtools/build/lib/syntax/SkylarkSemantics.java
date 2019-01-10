@@ -152,6 +152,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisallowFileType();
 
+  public abstract boolean incompatibleDisallowLegacyJavaProvider();
+
   public abstract boolean incompatibleDisallowLegacyJavaInfo();
 
   public abstract boolean incompatibleDisallowLoadLabelsToCrossPackageBoundaries();
@@ -221,6 +223,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowDataTransition(false)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowFileType(false)
+          .incompatibleDisallowLegacyJavaProvider(false)
           .incompatibleDisallowLegacyJavaInfo(false)
           .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(false)
           .incompatibleDisallowOldStyleArgsAdd(false)
@@ -283,6 +286,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
 
     public abstract Builder incompatibleDisallowFileType(boolean value);
+
+    public abstract Builder incompatibleDisallowLegacyJavaProvider(boolean value);
 
     public abstract Builder incompatibleDisallowLegacyJavaInfo(boolean value);
 
