@@ -689,6 +689,21 @@ public class CppOptions extends FragmentOptions {
   public boolean disableLegacyCrosstoolFields;
 
   @Option(
+      name = "incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Bazel will complain when cc_toolchain.cpu and cc_toolchain.compiler attribtues "
+              + "are set "
+              + "(see https://github.com/bazelbuild/bazel/issues/7075 for migration instructions).")
+  public boolean removeCpuCompilerCcToolchainAttributes;
+
+  @Option(
       name = "incompatible_disable_expand_if_all_available_in_flag_set",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -868,6 +883,7 @@ public class CppOptions extends FragmentOptions {
     host.disableRuntimesFilegroups = disableRuntimesFilegroups;
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
+    host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
 
     return host;
   }

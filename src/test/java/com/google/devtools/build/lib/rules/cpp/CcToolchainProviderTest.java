@@ -81,6 +81,115 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRemoveCpuAndCompiler() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(name = 'empty')",
+        "cc_toolchain_suite(",
+        "    name = 'a_suite',",
+        "    toolchains = { 'k8': ':a' },",
+        ")",
+        "cc_toolchain_suite(",
+        "    name = 'b_suite',",
+        "    toolchains = { 'k9': ':b', },",
+        ")",
+        "cc_toolchain_suite(",
+        "    name = 'c_suite',",
+        "    toolchains = { 'k10': ':c', },",
+        ")",
+        "cc_toolchain(",
+        "    name = 'a',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    proto = \"\"\"",
+        "      toolchain_identifier: \"a\"",
+        "      host_system_name: \"a\"",
+        "      target_system_name: \"a\"",
+        "      target_cpu: \"a\"",
+        "      target_libc: \"a\"",
+        "      compiler: \"a\"",
+        "      abi_version: \"a\"",
+        "      abi_libc_version: \"a\"",
+        "\"\"\")",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    compiler = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    proto = \"\"\"",
+        "      toolchain_identifier: \"a\"",
+        "      host_system_name: \"a\"",
+        "      target_system_name: \"a\"",
+        "      target_cpu: \"a\"",
+        "      target_libc: \"a\"",
+        "      compiler: \"a\"",
+        "      abi_version: \"a\"",
+        "      abi_libc_version: \"a\"",
+        "\"\"\")",
+        "cc_toolchain(",
+        "    name = 'c',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    proto = \"\"\"",
+        "      toolchain_identifier: \"a\"",
+        "      host_system_name: \"a\"",
+        "      target_system_name: \"a\"",
+        "      target_cpu: \"a\"",
+        "      target_libc: \"a\"",
+        "      compiler: \"a\"",
+        "      abi_version: \"a\"",
+        "      abi_libc_version: \"a\"",
+        "\"\"\")");
+    reporter.removeHandler(failFastHandler);
+    useConfiguration(
+        "--crosstool_top=//a:a_suite",
+        "--cpu=k8",
+        "--host_cpu=k8",
+        "--incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain");
+    assertThat(getConfiguredTarget("//a:a_suite")).isNull();
+    assertContainsEvent(
+        "attributes 'cpu' and 'compiler' have been deprecated, please remove them.");
+    eventCollector.clear();
+
+    useConfiguration(
+        "--crosstool_top=//a:b_suite",
+        "--cpu=k9",
+        "--host_cpu=k9",
+        "--incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain");
+    assertThat(getConfiguredTarget("//a:b_suite")).isNull();
+    assertContainsEvent(
+        "attributes 'cpu' and 'compiler' have been deprecated, please remove them.");
+    eventCollector.clear();
+
+    useConfiguration(
+        "--crosstool_top=//a:c_suite",
+        "--cpu=k10",
+        "--host_cpu=k10",
+        "--incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain");
+    getConfiguredTarget("//a:c_suite");
+    assertNoEvents();
+  }
+
+  @Test
   public void testDisablingCompilationModeFlags() throws Exception {
     reporter.removeHandler(failFastHandler);
     AnalysisMock.get()

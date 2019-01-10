@@ -568,6 +568,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableDepsetInUserFlags;
   }
 
+  public boolean removeCpuCompilerCcToolchainAttributes() {
+    return cppOptions.removeCpuCompilerCcToolchainAttributes;
+  }
+
   public static PathFragment computeDefaultSysroot(String builtInSysroot) {
     if (builtInSysroot.isEmpty()) {
       return null;

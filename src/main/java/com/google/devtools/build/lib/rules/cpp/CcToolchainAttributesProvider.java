@@ -103,6 +103,14 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     super(ImmutableMap.of(), Location.BUILTIN);
     this.ccToolchainLabel = ruleContext.getLabel();
     this.toolchainIdentifier = ruleContext.attributes().get("toolchain_identifier", Type.STRING);
+    if (ruleContext.getFragment(CppConfiguration.class).removeCpuCompilerCcToolchainAttributes()
+        && (ruleContext.attributes().isAttributeValueExplicitlySpecified("cpu")
+            || ruleContext.attributes().isAttributeValueExplicitlySpecified("compiler"))) {
+      ruleContext.ruleError(
+          "attributes 'cpu' and 'compiler' have been deprecated, please remove them. See "
+              + "https://github.com/bazelbuild/bazel/issues/7075 for details.");
+    }
+
     this.cpu = ruleContext.attributes().get("cpu", Type.STRING);
     this.compiler = ruleContext.attributes().get("compiler", Type.STRING);
     this.proto = ruleContext.attributes().get("proto", Type.STRING);

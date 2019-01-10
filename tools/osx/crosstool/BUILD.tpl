@@ -64,7 +64,6 @@ cc_toolchain_suite(
         ar_files = ":empty",
         as_files = ":empty",
         compiler_files = ":osx_tools_" + arch,
-        cpu = arch,
         dwp_files = ":empty",
         linker_files = ":osx_tools_" + arch,
         objcopy_files = ":empty",

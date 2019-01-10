@@ -120,7 +120,7 @@ public final class CcToolchainRule implements RuleDefinition {
          <p>When set, it will be used to perform crosstool_config.toolchain selection. It will take
          precedence over --cpu Bazel option.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("cpu", STRING).nonconfigurable("Used in configuration creation").mandatory())
+        .add(attr("cpu", STRING).nonconfigurable("Used in configuration creation"))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(compiler) -->
          Deprecated. Use toolchain_identifier attribute instead. It will be a noop after
          <a href="https://github.com/bazelbuild/bazel/issues/5380">CROSSTOOL migration to Starlark
