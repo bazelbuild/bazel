@@ -2323,9 +2323,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_build_setting");
     assertContainsEvent(
-        "build_setting parameter is experimental and not "
-            + "available for general use. It is subject to change at any time. It may be enabled "
-            + "by specifying --experimental_build_setting_api");
+        "parameter 'build_setting' is experimental and thus unavailable with the "
+            + "current flags. It may be enabled by setting --experimental_build_setting_api");
   }
 
   @Test

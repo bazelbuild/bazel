@@ -85,7 +85,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testBuildSettingCannotTransition() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setSkylarkSemanticsOptions(
+        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api=true");
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",

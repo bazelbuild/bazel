@@ -362,17 +362,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           ast.getLocation(),
           "Build setting rules cannot use the `cfg` param to apply transitions to themselves.");
     }
-    // TODO(juliexxia): use @Param.enableOnlyWithFlag for this.
     if (!buildSetting.equals(Runtime.NONE)) {
-      if (funcallEnv.getSemantics().experimentalBuildSettingApi()) {
-        builder.setBuildSetting((BuildSetting) buildSetting);
-      } else {
-        throw new EvalException(
-            ast.getLocation(),
-            "build_setting parameter is experimental and not available for "
-                + "general use. It is subject to change at any time. It may be enabled by "
-                + "specifying --experimental_build_setting_api");
-      }
+      builder.setBuildSetting((BuildSetting) buildSetting);
     }
     if (!cfg.equals(Runtime.NONE)) {
       if (!(cfg instanceof StarlarkDefinedConfigTransition)) {
