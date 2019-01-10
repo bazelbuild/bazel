@@ -369,6 +369,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         },
     )
 
+    cxx_opts = split_escaped(get_env_var(repository_ctx, "BAZEL_CXXOPTS", "-std=c++0x", False), ":")
+    link_opts = split_escaped(get_env_var(repository_ctx, "BAZEL_LINKOPTS", "-lstdc++:-lm", False), ":")
     supports_gold_linker = _is_gold_supported(repository_ctx, cc)
     cc_path = repository_ctx.path(cc)
     if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
@@ -399,7 +401,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                         "cxx_builtin_include_directory",
                         _uniq(
                             get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc") +
-                            get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++") +
+                            get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++", cxx_opts) +
                             get_escaped_cxx_inc_directories(
                                 repository_ctx,
                                 cc,
@@ -410,7 +412,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                                 repository_ctx,
                                 cc,
                                 "-xc++",
-                                _get_no_canonical_prefixes_opt(repository_ctx, cc),
+                                cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc),
                             ),
                         ),
                     ),
@@ -444,11 +446,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     "-fno-omit-frame-pointer",
                 ],
             ),
-            "%{cxx_content}": build_flags(
-                [
-                    "-std=c++0x",
-                ] + _escaped_cplus_include_paths(repository_ctx),
-            ),
+            "%{cxx_content}": build_flags(cxx_opts + _escaped_cplus_include_paths(repository_ctx)),
             "%{link_content}": build_flags((
                 ["-fuse-ld=gold"] if supports_gold_linker else []
             ) + _add_linker_option_if_supported(
@@ -476,10 +474,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     cc,
                     "-pass-exit-codes",
                 )
-            ) + split_escaped(
-                get_env_var(repository_ctx, "BAZEL_LINKOPTS", "-lstdc++:-lm", False),
-                ":",
-            )),
+            ) + link_opts),
             "%{opt_compile_content}": build_flags(
                 [
                     # No debug symbols.
