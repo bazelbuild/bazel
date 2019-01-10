@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 
 /** Wrapper for every C++ compilation and linking provider. */
 @SkylarkModule(
-    name = "cc_info",
+    name = "CcInfo",
     category = SkylarkModuleCategory.PROVIDER,
     doc = "A provider containing information for C++ compilation and linking.")
 public interface CcInfoApi extends StructApi {
@@ -48,13 +48,18 @@ public interface CcInfoApi extends StructApi {
   CcLinkingInfoApi getCcLinkingInfo();
 
   /** The provider implementing this can construct the CcInfo provider. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @SkylarkModule(
+      name = "CcProvider",
+      doc =
+          "A provider for compilation and linking of C++. This "
+              + "is also a marking provider telling C++ rules that they can depend on the rule "
+              + "with this provider. If it is not intended for the rule to be depended on by C++, "
+              + "the rule should wrap the CcInfo in some other provider.")
   interface Provider extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
         doc = "The <code>CcInfo</code> constructor.",
-        documented = false,
         useLocation = true,
         useEnvironment = true,
         parameters = {

@@ -327,6 +327,7 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
     return interfaceLibrary;
   }
 
+  @Override
   public boolean getAlwayslink() {
     return alwayslink;
   }

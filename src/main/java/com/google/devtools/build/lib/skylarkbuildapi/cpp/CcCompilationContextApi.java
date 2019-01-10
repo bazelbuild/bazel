@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
  */
 @SkylarkModule(
     name = "CompilationContext",
-    documented = false,
     category = SkylarkModuleCategory.PROVIDER,
     doc =
         "Immutable store of information needed for C++ compilation that is aggregated across "
