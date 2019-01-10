@@ -154,6 +154,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "/bazel_tools_workspace/tools/test/BUILD",
         "filegroup(name = 'runtime', srcs = ['test-setup.sh', 'test-xml-generator.sh'])",
         "filegroup(name = 'test_wrapper', srcs = ['test_wrapper_bin'])",
+        "filegroup(name = 'xml_writer', srcs = ['xml_writer_bin'])",
         "filegroup(name = 'test_setup', srcs = ['test-setup.sh'])",
         "filegroup(name = 'test_xml_generator', srcs = ['test-xml-generator.sh'])",
         "filegroup(name = 'collect_coverage', srcs = ['collect_coverage.sh'])",

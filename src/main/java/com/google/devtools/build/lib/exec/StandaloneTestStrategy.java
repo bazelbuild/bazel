@@ -451,7 +451,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     // TODO(ulfjack): This is incorrect for remote execution, where we need to consider the target
     // configuration, not the machine Bazel happens to run on. Change this to something like:
     // testAction.getConfiguration().getExecOS() == OS.WINDOWS
-    if (OS.getCurrent() == OS.WINDOWS) {
+    if (OS.getCurrent() == OS.WINDOWS && !action.isUsingTestWrapperInsteadOfTestSetupScript()) {
       args.add(action.getShExecutable().getPathString());
       args.add("-c");
       args.add("$0 $*");

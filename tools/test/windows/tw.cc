@@ -622,8 +622,8 @@ bool OpenFileForWriting(const Path& path, bazel::windows::AutoHandle* result) {
 bool OpenExistingFileForRead(const Path& abs_path,
                              bazel::windows::AutoHandle* result) {
   HANDLE h = CreateFileW(AddUncPrefixMaybe(abs_path).c_str(), GENERIC_READ,
-                         FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
-                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
   if (h == INVALID_HANDLE_VALUE) {
     DWORD err = GetLastError();
     LogErrorWithArgAndValue(__LINE__, "Failed to open file", abs_path.Get(),
@@ -634,7 +634,7 @@ bool OpenExistingFileForRead(const Path& abs_path,
   return true;
 }
 
-bool TouchFile(const Path& path) {
+bool CreateEmptyFile(const Path& path) {
   bazel::windows::AutoHandle handle;
   return OpenFileForWriting(path, &handle);
 }
@@ -826,7 +826,7 @@ bool ExportXmlPath(const Path& cwd, Path* test_outerr, Path* xml_log) {
          // TODO(ulfjack): Update Gunit to accept XML_OUTPUT_FILE and drop the
          // GUNIT_OUTPUT env variable.
          SetEnv(L"GUNIT_OUTPUT", L"xml:" + unix_result) &&
-         CreateDirectories(xml_log->Dirname()) && TouchFile(*test_outerr);
+         CreateDirectories(xml_log->Dirname()) && CreateEmptyFile(*test_outerr);
 }
 
 devtools_ijar::u4 GetZipAttr(const FileInfo& info) {
@@ -1206,8 +1206,9 @@ bool StartSubprocess(const Path& path, const std::vector<const wchar_t*>& args,
   }
 }
 
-int WaitForSubprocess(HANDLE process) {
+int WaitForSubprocess(HANDLE process, LARGE_INTEGER* end_time) {
   DWORD result = WaitForSingleObject(process, INFINITE);
+  QueryPerformanceCounter(end_time);
   switch (result) {
     case WAIT_OBJECT_0: {
       DWORD exit_code;
@@ -1313,6 +1314,44 @@ bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
   return true;
 }
 
+bool ParseXmlWriterArgs(int argc, wchar_t** argv, const Path& cwd,
+                        Path* out_test_log, Path* out_xml_log,
+                        Duration* out_duration, int* out_exit_code) {
+  if (argc < 5) {
+    LogError(__LINE__,
+             "Usage: $0 <test_output_path> <xml_log_path>"
+             " <duration_in_seconds> <exit_code>");
+    return false;
+  }
+  if (!out_test_log->Set(argv[1]) || out_test_log->Get().empty()) {
+    LogError(__LINE__, (std::wstring(L"Failed to parse test log path from \"") +
+                        argv[1] + L"\"")
+                           .c_str());
+    return false;
+  }
+  out_test_log->Absolutize(cwd);
+  if (!out_xml_log->Set(argv[2]) || out_xml_log->Get().empty()) {
+    LogError(__LINE__, (std::wstring(L"Failed to parse XML log path from \"") +
+                        argv[2] + L"\"")
+                           .c_str());
+    return false;
+  }
+  out_xml_log->Absolutize(cwd);
+  if (!out_duration->FromString(argv[3])) {
+    LogError(__LINE__, (std::wstring(L"Failed to parse test duration from \"") +
+                        argv[3] + L"\"")
+                           .c_str());
+    return false;
+  }
+  if (!ToInt(argv[4], out_exit_code)) {
+    LogError(__LINE__, (std::wstring(L"Failed to parse exit code from \"") +
+                        argv[4] + L"\"")
+                           .c_str());
+    return false;
+  }
+  return true;
+}
+
 bool TeeImpl::Create(bazel::windows::AutoHandle* input,
                      bazel::windows::AutoHandle* output1,
                      bazel::windows::AutoHandle* output2,
@@ -1356,8 +1395,7 @@ int RunSubprocess(const Path& test_path,
                            test_path.Get() + L"\"");
     return 1;
   }
-  int result = WaitForSubprocess(process);
-  QueryPerformanceCounter(&end);
+  int result = WaitForSubprocess(process, &end);
 
   QueryPerformanceFrequency(&freq);
   end.QuadPart -= start.QuadPart;
@@ -1539,15 +1577,40 @@ std::string CreateErrorTag(int exit_code) {
   }
 }
 
-bool CreateXmlLog(const Path& output, const Path& test_outerr,
-                  const Duration duration, const int exit_code) {
+bool ShouldCreateXml(const Path& xml_log, bool* result) {
+  *result = true;
+
+  DWORD attr = GetFileAttributesW(AddUncPrefixMaybe(xml_log).c_str());
+  if (attr != INVALID_FILE_ATTRIBUTES) {
+    // The XML file already exists, maybe the test framework wrote it.
+    // Leave the file alone.
+    *result = false;
+    return true;
+  }
+
   std::wstring split_xml_generation;
   if (!GetEnv(L"EXPERIMENTAL_SPLIT_XML_GENERATION", &split_xml_generation)) {
     LogError(__LINE__, "Failed to get %EXPERIMENTAL_SPLIT_XML_GENERATION%");
     return false;
   }
   if (split_xml_generation == L"1") {
-    // Bazel generates the test xml as a separate action.
+    // Bazel generates the test xml as a separate action, so we don't have to
+    // create it.
+    *result = false;
+  }
+
+  return true;
+}
+
+bool CreateXmlLog(const Path& output, const Path& test_outerr,
+                  const Duration duration, const int exit_code) {
+  bool should_create_xml;
+  if (!ShouldCreateXml(output, &should_create_xml)) {
+    LogError(__LINE__,
+             (std::wstring(L"CreateXmlLog(") + output.Get() + L")").c_str());
+    return false;
+  }
+  if (!should_create_xml) {
     return true;
   }
 
@@ -1557,13 +1620,6 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     // declared output.
     DeleteFileW(test_outerr.Get().c_str());
   });
-
-  DWORD attr = GetFileAttributesW(AddUncPrefixMaybe(output).c_str());
-  if (attr != INVALID_FILE_ATTRIBUTES) {
-    // The XML file already exists, maybe the test framework wrote it.
-    // Leave the file alone.
-    return true;
-  }
 
   std::wstring test_name;
   int errors = (exit_code == 0) ? 0 : 1;
@@ -1589,10 +1645,10 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
   std::stringstream stm;
   stm << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
          "<testsuites>\n"
-         "    <testsuite name=\""
+         "<testsuite name=\""
       << acp_test_name << "\" tests=\"1\" failures=\"0\" errors=\"" << errors
       << "\">\n"
-         "    <testcase name=\""
+         "<testcase name=\""
       << acp_test_name << "\" status=\"run\" duration=\"" << duration.seconds
       << "\" time=\"" << duration.seconds << "\">" << error_msg
       << "</testcase>\n"
@@ -1716,7 +1772,7 @@ void ZipEntryPaths::Create(const std::string& root,
   entry_path_ptrs_.get()[relative_paths.size()] = nullptr;
 }
 
-int Main(int argc, wchar_t** argv) {
+int TestWrapperMain(int argc, wchar_t** argv) {
   Path argv0;
   std::wstring test_path_arg;
   Path test_path, exec_root, srcdir, tmpdir, test_outerr, xml_log;
@@ -1744,6 +1800,21 @@ int Main(int argc, wchar_t** argv) {
     return 1;
   }
   return result;
+}
+
+int XmlWriterMain(int argc, wchar_t** argv) {
+  Path cwd, test_outerr, test_xml_log;
+  Duration duration;
+  int exit_code = 0;
+
+  if (!GetCwd(&cwd) ||
+      !ParseXmlWriterArgs(argc, argv, cwd, &test_outerr, &test_xml_log,
+                          &duration, &exit_code) ||
+      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code)) {
+    return 1;
+  }
+
+  return 0;
 }
 
 namespace testing {

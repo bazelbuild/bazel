@@ -112,7 +112,10 @@ class Tee {
 };
 
 // The main function of the test wrapper.
-int Main(int argc, wchar_t** argv);
+int TestWrapperMain(int argc, wchar_t** argv);
+
+// The main function of the test XML writer.
+int XmlWriterMain(int argc, wchar_t** argv);
 
 // The "testing" namespace contains functions that should only be used by tests.
 namespace testing {

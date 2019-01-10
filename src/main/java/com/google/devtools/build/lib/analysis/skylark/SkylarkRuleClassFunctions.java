@@ -176,6 +176,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                 .singleArtifact()
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_wrapper")))
         .add(
+            attr("$xml_writer", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .singleArtifact()
+                .value(labelCache.getUnchecked(toolsRepository + "//tools/test:xml_writer")))
+        .add(
             attr("$test_runtime", LABEL_LIST)
                 .cfg(HostTransition.INSTANCE)
                 .value(
