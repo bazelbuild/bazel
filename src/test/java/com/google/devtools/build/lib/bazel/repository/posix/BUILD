@@ -11,7 +11,7 @@ filegroup(
 )
 
 java_test(
-    name = "RepositoryTests",
+    name = "PosixRepositoryTests",
     srcs = glob([
         "**/*.java",
     ]),

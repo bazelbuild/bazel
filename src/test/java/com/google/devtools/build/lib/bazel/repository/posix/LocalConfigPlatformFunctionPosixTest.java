@@ -58,7 +58,6 @@ public class LocalConfigPlatformFunctionPosixTest {
       CPU.setForTesting(CPU.X86_64);
       OS.setForTesting(OS.LINUX);
 
-      //    rewriteWorkspace("local_config_platform(name='local_config_platform_test')");
       scratch.appendFile("WORKSPACE", "local_config_platform(name='local_config_platform_test')");
       invalidatePackages();
 
