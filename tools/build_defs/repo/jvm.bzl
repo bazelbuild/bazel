@@ -44,7 +44,7 @@ _PASS_PROPS = (
     "tags",
 )
 
-_FETCH_SOURCES_ENV_VAR_NAME = "BAZEL_JVM_FETCH_SOURCES"
+_FETCH_SOURCES_ENV_VAR = "BAZEL_JVM_FETCH_SOURCES"
 
 def _jvm_import_external(repository_ctx):
     """Implementation of `java_import_external` rule."""
@@ -126,7 +126,7 @@ def _jvm_import_external(repository_ctx):
     ]))
 
 def _should_fetch_sources_in_current_env(repository_ctx):
-    env_bazel_jvm_fetch_sources = repository_ctx.os.environ.get(_FETCH_SOURCES_ENV_VAR_NAME, "true")
+    env_bazel_jvm_fetch_sources = repository_ctx.os.environ.get(_FETCH_SOURCES_ENV_VAR, "true")
     return env_bazel_jvm_fetch_sources.lower() == "true"
 
 def _decode_maven_coordinates(artifact, default_packaging):
@@ -233,7 +233,7 @@ jvm_import_external = repository_rule(
         "default_visibility": attr.string_list(default = ["//visibility:public"]),
         "extra_build_file_content": attr.string(),
     },
-    environ = [_FETCH_SOURCES_ENV_VAR_NAME],
+    environ = [_FETCH_SOURCES_ENV_VAR],
     implementation = _jvm_import_external,
 )
 
