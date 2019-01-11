@@ -21,13 +21,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -48,8 +46,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
@@ -661,7 +657,6 @@ public abstract class DependencyResolver {
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
               ruleConfig,
-              rule,
               attributeAndOwner.attribute,
               toTarget,
               attributeMap,
@@ -696,22 +691,6 @@ public abstract class DependencyResolver {
       } catch (AspectCycleOnPathException e) {
         throw new InconsistentAspectOrderException(rule, attributeAndOwner.attribute, target, e);
       }
-    }
-  }
-
-  /** A patch transition that returns a fixed set of options regardless of the input. */
-  @AutoCodec
-  @VisibleForSerialization
-  static class FixedTransition implements PatchTransition {
-    private final BuildOptions toOptions;
-
-    FixedTransition(BuildOptions toOptions) {
-      this.toOptions = toOptions;
-    }
-
-    @Override
-    public BuildOptions patch(BuildOptions options) {
-      return toOptions;
     }
   }
 
