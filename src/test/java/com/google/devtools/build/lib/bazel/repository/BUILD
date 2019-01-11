@@ -9,18 +9,9 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/posix:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
-)
-
-genrule(
-    name = "empty-tarball",
-    outs = ["empty.tar.gz"],
-    cmd = """
-mkdir -p bar-1.2.3
-touch bar-1.2.3/whatever
-tar czf $@ bar-1.2.3
-""",
 )
 
 java_test(
@@ -28,9 +19,7 @@ java_test(
     srcs = glob([
         "**/*.java",
     ]),
-    data = [":empty-tarball"],
     tags = [
-        "no_windows",  # Runfiles aren't supported.
         "rules",
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
@@ -85,6 +74,7 @@ test_suite(
         ":windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/posix:all_windows_tests",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )
