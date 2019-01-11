@@ -95,21 +95,24 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
   }
 
   @SkylarkCallable(
-    name = "pop",
-    doc =
-        "Removes a <code>key</code> from the dict, and returns the associated value. "
-            + "If entry with that key was found, return the specified <code>default</code> value;"
-            + "if no default value was specified, fail instead.",
-    parameters = {
+      name = "pop",
+      doc =
+          "Removes a <code>key</code> from the dict, and returns the associated value. "
+              + "If no entry with that key was found, remove nothing and return the specified "
+              + "<code>default</code> value; if no default value was specified, fail instead.",
+      parameters = {
         @Param(name = "key", type = Object.class, doc = "The key.", noneable = true),
-        @Param(name = "default", type = Object.class, defaultValue = "unbound", named = true,
-            noneable = true, doc = "a default value if the key is absent."),
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
-  public Object pop(Object key, Object defaultValue,
-      Location loc, Environment env)
+        @Param(
+            name = "default",
+            type = Object.class,
+            defaultValue = "unbound",
+            named = true,
+            noneable = true,
+            doc = "a default value if the key is absent."),
+      },
+      useLocation = true,
+      useEnvironment = true)
+  public Object pop(Object key, Object defaultValue, Location loc, Environment env)
       throws EvalException {
     Object value = get(key);
     if (value != null) {
