@@ -53,5 +53,6 @@ class Constants {
   // Please keep in sync with the extensions in CppFileTypes.
   static final ImmutableList<String> CC_EXTENSIONS =
       ImmutableList.of(
-          ".cc", ".cpp", ".cxx", ".c++", ".C", ".c", ".h", ".hh", ".hpp", ".ipp", ".hxx", ".inc");
+          ".cc", ".cpp", ".cxx", ".c++", ".C", ".c", ".h", ".hh", ".hpp", ".ipp", ".hxx", ".inc",
+          ".H");
 }
