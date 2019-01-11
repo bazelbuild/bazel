@@ -37,7 +37,7 @@ users to update their code. We do this by means of _migration windows_ and
 _migration recipes_.
 
 Migration window is one or more release of Bazel during which a migration from
-old funcitonality to new functionality is possible, according to a migration
+old functionality to new functionality is possible, according to a migration
 recipe.
 
 During the migration window, both the old functionality and the new functionality
