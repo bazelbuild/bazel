@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.FetchRemoteOutputsStrategy;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -117,6 +119,7 @@ public final class RemoteModule extends BlazeModule {
       // Quit if no supported command is being used. See getCommandOptions for details.
       return;
     }
+
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
@@ -227,19 +230,19 @@ public final class RemoteModule extends BlazeModule {
             new GrpcRemoteCache(
                 cacheChannel.retain(),
                 credentials,
+                uploader.retain(),
                 remoteOptions,
-                rpcRetrier,
                 digestUtil,
-                uploader.retain());
+                rpcRetrier);
         uploader.release();
-        Context requestContext =
-            TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
-        buildEventArtifactUploaderFactoryDelegate.init(
-            new ByteStreamBuildEventArtifactUploaderFactory(
-                uploader,
-                cacheChannel.authority(),
-                requestContext,
-                remoteOptions.remoteInstanceName));
+        // Context requestContext =
+        //     TracingMetadataUtils.contextWithMetadata(buildRequestId, invocationId, "bes-upload");
+        // buildEventArtifactUploaderFactoryDelegate.init(
+        //     new ByteStreamBuildEventArtifactUploaderFactory(
+        //         uploader,
+        //         cacheChannel.authority(),
+        //         requestContext,
+        //         remoteOptions.remoteInstanceName));
       }
 
       if (enableBlobStoreCache) {
@@ -252,11 +255,11 @@ public final class RemoteModule extends BlazeModule {
         executeRetrier = null;
         cache =
             new SimpleBlobStoreActionCache(
-                remoteOptions,
                 SimpleBlobStoreFactory.create(
                     remoteOptions,
                     GoogleAuthUtils.newCredentials(authAndTlsOptions),
                     env.getWorkingDirectory()),
+                remoteOptions,
                 retrier,
                 digestUtil);
       }
@@ -344,10 +347,35 @@ public final class RemoteModule extends BlazeModule {
     }
   }
 
+  private boolean remoteEnabled(RemoteOptions options) {
+    return options != null && (!Strings.isNullOrEmpty(options.remoteHttpCache) ||
+        !Strings.isNullOrEmpty(options.remoteCache) ||
+        !Strings.isNullOrEmpty(options.remoteExecutor));
+  }
+
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    if (actionContextProvider != null) {
-      builder.addActionContextProvider(actionContextProvider);
+    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+    if (!remoteEnabled(remoteOptions)) {
+      return;
+    }
+
+    RemoteActionContextProvider actionContextProvider = this.actionContextProvider;
+    if (actionContextProvider == null) {
+      return;
+    }
+    builder.addActionContextProvider(actionContextProvider);
+
+    FetchRemoteOutputsStrategy remoteOutputsStrategy = remoteOptions.experimentalRemoteFetchOutputs;
+    switch (remoteOutputsStrategy) {
+      case ALL:
+        break;
+      case MINIMAL:
+        Context ctx = TracingMetadataUtils.contextWithMetadata(env.getBuildRequestId(),
+            env.getCommandId().toString(), "prefetch-inputs");
+        builder.setActionInputPrefetcher(
+            new RemoteActionInputFetcher(actionContextProvider.getRemoteCache(), env.getExecRoot(), ctx));
+        break;
     }
   }
 

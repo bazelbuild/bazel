@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -83,10 +84,10 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   public GrpcRemoteCache(
       ReferenceCountedChannel channel,
       CallCredentials credentials,
+      ByteStreamUploader uploader,
       RemoteOptions options,
-      RemoteRetrier retrier,
       DigestUtil digestUtil,
-      ByteStreamUploader uploader) {
+      RemoteRetrier retrier) {
     super(options, digestUtil, retrier);
     this.credentials = credentials;
     this.channel = channel;

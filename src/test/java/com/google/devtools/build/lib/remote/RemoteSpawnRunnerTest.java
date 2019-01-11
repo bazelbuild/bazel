@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -116,7 +117,8 @@ public class RemoteSpawnRunnerTest {
   private RemoteOptions options;
   private RemoteRetrier retrier;
 
-  @Mock private GrpcRemoteCache cache;
+  @Mock
+  private GrpcRemoteCache cache;
 
   @Mock
   private GrpcRemoteExecutor executor;

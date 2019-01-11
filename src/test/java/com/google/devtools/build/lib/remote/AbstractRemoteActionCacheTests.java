@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -24,33 +28,45 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.protobuf.Message;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -666,6 +682,100 @@ public class AbstractRemoteActionCacheTests {
     }
   }
 
+  @Test
+  public void testInjectRemoteFileMetadata() throws Exception {
+    // Test that injecting the metadata for a remote output file works.
+
+    DefaultRemoteActionCache c = newTestCache();
+    Digest d1 = c.addContents("content1");
+    Digest d2 = c.addContents("content2");
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file1").setDigest(d1))
+            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file2").setDigest(d2))
+            .build();
+
+    ArtifactRoot ar = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getChild("outputs"));
+    Artifact a1 = new Artifact(PathFragment.create("file1"), ar);
+    Artifact a2 = new Artifact(PathFragment.create("file2"), ar);
+
+    MetadataInjector injector = mock(MetadataInjector.class);
+    c.injectRemoteMetadata(r, ImmutableList.of(a1, a2), ImmutableList.of(), new FileOutErr(),
+        execRoot, injector);
+
+    verify(injector).injectRemoteFile(eq(a1), eq(hexToBytes(d1)), eq(d1.getSizeBytes()), anyInt());
+    verify(injector).injectRemoteFile(eq(a2), eq(hexToBytes(d2)), eq(d2.getSizeBytes()), anyInt());
+  }
+
+  @Test
+  public void testInjectRemoteDirectoryMetadata() throws Exception {
+    // Test that injecting the metadata for a tree artifact / remote output directory works.
+
+    DefaultRemoteActionCache c = newTestCache();
+    // Output Directory:
+    // dir/file1
+    // dir/a/file2
+    Digest d1 = c.addContents("content1");
+    Digest d2 = c.addContents("content2");
+    FileNode file1 = FileNode.newBuilder().setName("file1").setDigest(d1).build();
+    FileNode file2 = FileNode.newBuilder().setName("file2").setDigest(d2).build();
+    Directory a = Directory.newBuilder().addFiles(file2).build();
+    Digest da = c.addContents(a);
+    Directory root = Directory.newBuilder()
+        .addFiles(file1)
+        .addDirectories(DirectoryNode.newBuilder().setName("a").setDigest(da))
+        .build();
+    Tree t = Tree.newBuilder().setRoot(root).addChildren(a).build();
+    Digest dt = c.addContents(t);
+    ActionResult r = ActionResult.newBuilder()
+        .setExitCode(0)
+        .addOutputDirectories(OutputDirectory.newBuilder().setPath("outputs/dir")
+            .setTreeDigest(dt))
+        .build();
+
+    ArtifactRoot ar = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getChild("outputs"));
+    SpecialArtifact dir = new SpecialArtifact(ar, PathFragment.create("outputs/dir"),
+        ArtifactOwner.NullArtifactOwner.INSTANCE, SpecialArtifactType.TREE);
+
+    MetadataInjector injector = mock(MetadataInjector.class);
+    c.injectRemoteMetadata(r, ImmutableList.of(dir), ImmutableList.of(), new FileOutErr(),
+        execRoot, injector);
+
+    Map<PathFragment, RemoteFileArtifactValue> m =
+        ImmutableMap.<PathFragment, RemoteFileArtifactValue>builder()
+            .put(PathFragment.create("file1"), new RemoteFileArtifactValue(hexToBytes(d1), d1.getSizeBytes(), 1))
+            .put(PathFragment.create("a/file2"), new RemoteFileArtifactValue(hexToBytes(d2), d2.getSizeBytes(), 1))
+        .build();
+
+    verify(injector).injectRemoteDirectory(eq(dir), eq(m));
+  }
+
+  @Test
+  public void testInjectRemoteFileWithStdoutStderr() throws Exception {
+    // Test that downloading of non-embedded stdout and stderr works.
+
+    DefaultRemoteActionCache c = newTestCache();
+    Digest dOut = c.addContents("stdout");
+    Digest dErr = c.addContents("stderr");
+    ActionResult r = ActionResult.newBuilder().setExitCode(0)
+        .setStdoutDigest(dOut)
+        .setStderrDigest(dErr)
+        .build();
+
+    RecordingOutErr outErr = new RecordingOutErr();
+    MetadataInjector injector = mock(MetadataInjector.class);
+    c.injectRemoteMetadata(r, ImmutableList.of(), ImmutableList.of(), outErr, execRoot,
+        injector);
+
+    assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
+    assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
+  }
+
+  private byte[] hexToBytes(Digest digest) {
+    return HashCode.fromString(digest.getHash()).asBytes();
+  }
+
   private DefaultRemoteActionCache newTestCache() {
     RemoteOptions options = new RemoteOptions();
     RemoteRetrier retrier =
@@ -684,17 +794,21 @@ public class AbstractRemoteActionCacheTests {
       super(options, digestUtil, retrier);
     }
 
-    public Digest addContents(String txt) throws UnsupportedEncodingException {
+    public Digest addContents(String txt) {
       return addContents(txt.getBytes(UTF_8));
     }
 
-    public Digest addContents(byte[] bytes) throws UnsupportedEncodingException {
+    public Digest addContents(byte[] bytes) {
       Digest digest = digestUtil.compute(bytes);
       downloadResults.put(digest, Futures.immediateFuture(bytes));
       return digest;
     }
 
-    public Digest addException(String txt, Exception e) throws UnsupportedEncodingException {
+    public Digest addContents(Message m) {
+      return addContents(m.toByteArray());
+    }
+
+    public Digest addException(String txt, Exception e) {
       Digest digest = digestUtil.compute(txt.getBytes(UTF_8));
       downloadResults.put(digest, Futures.immediateFailedFuture(e));
       return digest;
@@ -740,8 +854,11 @@ public class AbstractRemoteActionCacheTests {
     @Override
     protected ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
       SettableFuture<Void> result = SettableFuture.create();
+      ListenableFuture<byte[]> downloadResult = downloadResults.get(digest);
       Futures.addCallback(
-          downloadResults.get(digest),
+          downloadResult != null
+              ? downloadResult
+              : Futures.immediateFailedFuture(new CacheNotFoundException(digest, digestUtil)),
           new FutureCallback<byte[]>() {
             @Override
             public void onSuccess(byte[] bytes) {

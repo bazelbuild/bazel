@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.FetchRemoteOutputsStrategy;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -116,7 +118,11 @@ final class RemoteSpawnCache implements SpawnCache {
 
     Command command =
         RemoteSpawnRunner.buildCommand(
-            spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
+            spawn.getOutputFiles(),
+            spawn.getArguments(),
+            spawn.getEnvironment(),
+            platform);
+    FetchRemoteOutputsStrategy remoteOutputsStrategy = options.experimentalRemoteFetchOutputs;
     Action action;
     final ActionKey actionKey;
     try (SilentCloseable c = Profiler.instance().profile("RemoteCache.buildAction")) {
@@ -143,19 +149,24 @@ final class RemoteSpawnCache implements SpawnCache {
           result = remoteCache.getCachedActionResult(actionKey);
         }
         if (result != null) {
-          // We don't cache failed actions, so we know the outputs exist.
-          // For now, download all outputs locally; in the future, we can reuse the digests to
-          // just update the TreeNodeRepository and continue the build.
-          try (SilentCloseable c = Profiler.instance().profile("RemoteCache.download")) {
-            remoteCache.download(result, execRoot, context.getFileOutErr());
+          switch (remoteOutputsStrategy) {
+            case MINIMAL:
+              remoteCache.injectRemoteMetadata(result, spawn.getOutputFiles(),
+                  context.getRequiredLocalOutputs(), context.getFileOutErr(), execRoot,
+                  context.getMetadataInjector());
+              break;
+            case ALL:
+              try (SilentCloseable c = Profiler.instance().profile("RemoteCache.download")) {
+                remoteCache.download(result, execRoot, context.getFileOutErr());
+              }
+              break;
           }
-          SpawnResult spawnResult =
-              new SpawnResult.Builder()
-                  .setStatus(Status.SUCCESS)
-                  .setExitCode(result.getExitCode())
-                  .setCacheHit(true)
-                  .setRunnerName("remote cache hit")
-                  .build();
+          SpawnResult spawnResult = new SpawnResult.Builder()
+              .setStatus(Status.SUCCESS)
+              .setExitCode(result.getExitCode())
+              .setCacheHit(true)
+              .setRunnerName("remote cache hit")
+              .build();
           return SpawnCache.success(spawnResult);
         }
       } catch (CacheNotFoundException e) {
@@ -171,6 +182,9 @@ final class RemoteSpawnCache implements SpawnCache {
         withMetadata.detach(previous);
       }
     }
+
+    context.prefetchInputs();
+
     if (options.remoteUploadLocalResults) {
       return new CacheHandle() {
         @Override

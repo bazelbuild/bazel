@@ -124,6 +124,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       PrecomputedValue.BUILD_ID.get(env);
     }
 
+    PrecomputedValue.FETCH_REMOTE_OUTPUTS.get(env);
+
     // Look up the parts of the environment that influence the action.
     Map<SkyKey, SkyValue> clientEnvLookup =
         env.getValues(

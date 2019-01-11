@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -126,8 +127,8 @@ public class SimpleBlobStoreActionCacheTest {
 
   private SimpleBlobStoreActionCache newClient(ConcurrentMap<String, byte[]> map) {
     return new SimpleBlobStoreActionCache(
-        Options.getDefaults(RemoteOptions.class),
         new ConcurrentMapBlobStore(map),
+        Options.getDefaults(RemoteOptions.class),
         retrier,
         DIGEST_UTIL);
   }
