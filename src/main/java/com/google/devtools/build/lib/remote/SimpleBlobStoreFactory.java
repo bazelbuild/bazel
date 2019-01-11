@@ -20,6 +20,7 @@ import com.google.auth.Credentials;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStore;
+import com.google.devtools.build.lib.remote.metrics.RemoteMetrics;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.netty.channel.unix.DomainSocketAddress;
@@ -35,24 +36,22 @@ public final class SimpleBlobStoreFactory {
 
   private SimpleBlobStoreFactory() {}
 
-  public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds) {
+  public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds,
+      @Nullable RemoteMetrics metrics) {
     try {
       URI uri = URI.create(options.remoteHttpCache);
 
       if (options.remoteCacheProxy != null) {
         if (options.remoteCacheProxy.startsWith("unix:")) {
           return HttpBlobStore.create(
-              new DomainSocketAddress(options.remoteCacheProxy.replaceFirst("^unix:", "")),
-              uri,
-              options.remoteTimeout,
-              options.remoteMaxConnections,
-              creds);
+            new DomainSocketAddress(options.remoteCacheProxy.replaceFirst("^unix:", "")),
+              uri, options.remoteTimeout, options.remoteMaxConnections, creds, metrics);
         } else {
           throw new Exception("Remote cache proxy unsupported: " + options.remoteCacheProxy);
         }
       } else {
         return HttpBlobStore.create(
-            uri, options.remoteTimeout, options.remoteMaxConnections, creds);
+            uri, options.remoteTimeout, options.remoteMaxConnections, creds, metrics);
       }
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -69,10 +68,11 @@ public final class SimpleBlobStoreFactory {
   }
 
   public static SimpleBlobStore create(
-      RemoteOptions options, @Nullable Credentials creds, @Nullable Path workingDirectory)
+      RemoteOptions options, @Nullable Credentials creds, @Nullable Path workingDirectory,
+      @Nullable RemoteMetrics metrics)
       throws IOException {
     if (isRestUrlOptions(options)) {
-      return createRest(options, creds);
+      return createRest(options, creds, metrics);
     }
     if (workingDirectory != null && isDiskCache(options)) {
       return createDiskCache(workingDirectory, options.diskCache);

@@ -19,6 +19,7 @@ import com.google.auth.Credentials;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.metrics.RemoteMetrics;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -122,8 +123,12 @@ public final class HttpBlobStore implements SimpleBlobStore {
   @GuardedBy("credentialsLock")
   private long lastRefreshTime;
 
-  public static HttpBlobStore create(
-      URI uri, int timeoutSeconds, int remoteMaxConnections, @Nullable final Credentials creds)
+  @Nullable
+  private final RemoteMetrics metrics;
+
+  public static HttpBlobStore create(URI uri, int timeoutSeconds,
+      int remoteMaxConnections, @Nullable final Credentials creds,
+      @Nullable RemoteMetrics metrics)
       throws Exception {
     return new HttpBlobStore(
         NioEventLoopGroup::new,
@@ -132,7 +137,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
         timeoutSeconds,
         remoteMaxConnections,
         creds,
-        null);
+        null,
+        metrics);
   }
 
   public static HttpBlobStore create(
@@ -140,7 +146,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
       URI uri,
       int timeoutSeconds,
       int remoteMaxConnections,
-      @Nullable final Credentials creds)
+      @Nullable final Credentials creds,
+      @Nullable RemoteMetrics metrics)
       throws Exception {
 
       if (KQueue.isAvailable()) {
@@ -151,7 +158,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
           timeoutSeconds,
           remoteMaxConnections,
           creds,
-          domainSocketAddress);
+          domainSocketAddress,
+          metrics);
       } else if (Epoll.isAvailable()) {
       return new HttpBlobStore(
           EpollEventLoopGroup::new,
@@ -160,7 +168,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
           timeoutSeconds,
           remoteMaxConnections,
           creds,
-          domainSocketAddress);
+          domainSocketAddress,
+          metrics);
       } else {
         throw new Exception("Unix domain sockets are unsupported on this platform");
       }
@@ -173,7 +182,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
       int timeoutSeconds,
       int remoteMaxConnections,
       @Nullable final Credentials creds,
-      @Nullable SocketAddress socketAddress)
+      @Nullable SocketAddress socketAddress,
+      @Nullable RemoteMetrics metrics)
       throws Exception {
     useTls = uri.getScheme().equals("https");
     if (uri.getPort() == -1) {
@@ -237,6 +247,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
     }
     this.creds = creds;
     this.timeoutSeconds = timeoutSeconds;
+    this.metrics = metrics;
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -261,6 +272,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
                   return;
                 }
 
+                if (metrics != null) {
+                  p.addLast(new MetricsHandler(metrics));
+                }
                 p.addLast(new HttpResponseDecoder());
                 // The 10KiB limit was chosen at random. We only expect HTTP servers to respond with
                 // an error message in the body and that should always be less than 10KiB.
@@ -289,6 +303,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private void releaseUploadChannel(Channel ch) {
     if (ch.isOpen()) {
       try {
+        ch.pipeline().remove(MetricsHandler.class);
         ch.pipeline().remove(HttpResponseDecoder.class);
         ch.pipeline().remove(HttpObjectAggregator.class);
         ch.pipeline().remove(HttpRequestEncoder.class);
@@ -327,6 +342,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
                 }
 
                 p.addFirst("read-timeout-handler", new ReadTimeoutHandler(timeoutSeconds));
+                if (metrics != null) {
+                  p.addLast(new MetricsHandler(metrics));
+                }
                 p.addLast(new HttpClientCodec());
                 synchronized (credentialsLock) {
                   p.addLast(new HttpDownloadHandler(creds));
@@ -347,6 +365,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
       // The channel might have been closed due to an error, in which case its pipeline
       // has already been cleared. Closed channels can't be reused.
       try {
+        ch.pipeline().remove(MetricsHandler.class);
         ch.pipeline().remove(ReadTimeoutHandler.class);
         ch.pipeline().remove(HttpClientCodec.class);
         ch.pipeline().remove(HttpDownloadHandler.class);

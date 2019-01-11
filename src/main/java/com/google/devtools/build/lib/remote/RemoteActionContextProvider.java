@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.remote.metrics.RemoteMetrics;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -46,6 +47,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
   private final AtomicReference<SpawnRunner> fallbackRunner = new AtomicReference<>();
+  private final RemoteMetrics metrics;
 
   private RemoteActionContextProvider(
       CommandEnvironment env,
@@ -53,22 +55,25 @@ final class RemoteActionContextProvider extends ActionContextProvider {
       @Nullable GrpcRemoteExecutor executor,
       RemoteRetrier retrier,
       DigestUtil digestUtil,
-      @Nullable Path logDir) {
-    this.env = Preconditions.checkNotNull(env, "env");
-    this.cache = Preconditions.checkNotNull(cache, "cache");
+      @Nullable Path logDir,
+      RemoteMetrics metrics) {
+      this.env = Preconditions.checkNotNull(env, "env");
+      this.cache = Preconditions.checkNotNull(cache, "cache");
     this.executor = executor;
     this.retrier = retrier;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
+    this.metrics = Preconditions.checkNotNull(metrics);
   }
 
   public static RemoteActionContextProvider createForRemoteCaching(
       CommandEnvironment env,
       AbstractRemoteActionCache cache,
       RemoteRetrier retrier,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      RemoteMetrics metrics) {
     return new RemoteActionContextProvider(
-        env, cache, /*executor=*/ null, retrier, digestUtil, /*logDir=*/ null);
+        env, cache, /*executor=*/ null, retrier, digestUtil, /*logDir=*/ null, metrics);
   }
 
   public static RemoteActionContextProvider createForRemoteExecution(
@@ -77,8 +82,10 @@ final class RemoteActionContextProvider extends ActionContextProvider {
       GrpcRemoteExecutor executor,
       RemoteRetrier retrier,
       DigestUtil digestUtil,
-      Path logDir) {
-    return new RemoteActionContextProvider(env, cache, executor, retrier, digestUtil, logDir);
+      Path logDir,
+      RemoteMetrics metrics) {
+    return new RemoteActionContextProvider(env, cache, executor, retrier, digestUtil, logDir,
+        metrics);
   }
 
   @Override
@@ -161,6 +168,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   @Override
   public void executionPhaseEnding() {
+    env.getReporter().post(metrics);
     if (cache != null) {
       cache.close();
     }

@@ -250,7 +250,7 @@ public final class RemoteWorker {
     // 2. Finally use a ConcurrentMap to back the blob store.
     final SimpleBlobStore blobStore;
     if (usingRemoteCache) {
-      blobStore = SimpleBlobStoreFactory.create(remoteOptions, null, null);
+      blobStore = SimpleBlobStoreFactory.create(remoteOptions, null, null, null);
     } else if (remoteWorkerOptions.casPath != null) {
       blobStore = new OnDiskBlobStore(fs.getPath(remoteWorkerOptions.casPath));
     } else {
