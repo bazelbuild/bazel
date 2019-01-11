@@ -284,7 +284,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
               cppSemantics,
               featureConfiguration,
               toolchain,
-              toolchain.getFdoProvider());
+              toolchain.getFdoContext());
       TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
       if (runtime != null) {
         helper.addDeps(ImmutableList.of(runtime));
@@ -306,7 +306,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
               cppSemantics,
               featureConfiguration,
               toolchain,
-              toolchain.getFdoProvider(),
+              toolchain.getFdoContext(),
               ruleContext.getConfiguration());
       helper.addDeps(deps);
       // TODO(dougk): Configure output artifact with action_config

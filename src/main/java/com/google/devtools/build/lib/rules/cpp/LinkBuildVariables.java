@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -107,7 +108,7 @@ public enum LinkBuildVariables {
       String interfaceLibraryOutput,
       PathFragment ltoOutputRootPrefix,
       String defFile,
-      FdoProvider fdoProvider,
+      FdoContext fdoContext,
       Iterable<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
       Iterable<String> librarySearchDirectories,
@@ -220,7 +221,10 @@ public enum LinkBuildVariables {
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      buildVariables.addStringVariable("fdo_instrument_path", fdoProvider.getFdoInstrument());
+      Preconditions.checkArgument(fdoContext.getBranchFdoProfile() == null);
+      String fdoInstrument = ccToolchainProvider.getCppConfiguration().getFdoInstrument();
+      Preconditions.checkNotNull(fdoInstrument);
+      buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument);
     }
 
     Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;

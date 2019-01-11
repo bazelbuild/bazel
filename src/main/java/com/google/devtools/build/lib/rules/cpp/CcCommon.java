@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategor
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -161,14 +160,14 @@ public final class CcCommon {
 
   private final CcToolchainProvider ccToolchain;
 
-  private final FdoProvider fdoProvider;
+  private final FdoContext fdoContext;
 
   public CcCommon(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.ccToolchain =
         Preconditions.checkNotNull(
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
-    this.fdoProvider = ccToolchain.getFdoProvider();
+    this.fdoContext = ccToolchain.getFdoContext();
   }
 
   /**
@@ -403,11 +402,9 @@ public final class CcCommon {
     return ccToolchain;
   }
 
-  /**
-   * Returns the C++ FDO optimization support provider.
-   */
-  public FdoProvider getFdoProvider() {
-    return fdoProvider;
+  /** Returns the C++ FDO optimization support provider. */
+  public FdoContext getFdoContext() {
+    return fdoContext;
   }
 
   /**
@@ -884,34 +881,35 @@ public final class CcCommon {
 
     allFeatures.addAll(getCoverageFeatures(toolchain));
 
-    if (cppConfiguration.getFdoInstrument() != null
-        && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
+    String fdoInstrument = cppConfiguration.getFdoInstrument();
+    if (fdoInstrument != null && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
       allFeatures.add(CppRuleClasses.FDO_INSTRUMENT);
     }
 
-    FdoMode fdoMode = toolchain.getFdoMode();
-    boolean isFdo = fdoMode != FdoMode.OFF && toolchain.getCompilationMode() == CompilationMode.OPT;
-    if (isFdo
-        && fdoMode != FdoMode.AUTO_FDO
-        && fdoMode != FdoMode.XBINARY_FDO
-        && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
-      allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
-      // For LLVM, support implicit enabling of ThinLTO for FDO unless it has been
-      // explicitly disabled.
-      if (toolchain.isLLVMCompiler() && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
-        allFeatures.add(CppRuleClasses.ENABLE_FDO_THINLTO);
+    FdoContext.BranchFdoProfile branchFdoProvider = toolchain.getFdoContext().getBranchFdoProfile();
+    if (branchFdoProvider != null && toolchain.getCompilationMode() == CompilationMode.OPT) {
+      if (branchFdoProvider.isLlvmFdo()
+          && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
+        allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
+        // For LLVM, support implicit enabling of ThinLTO for FDO unless it has been
+        // explicitly disabled.
+        if (toolchain.isLLVMCompiler()
+            && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+          allFeatures.add(CppRuleClasses.ENABLE_FDO_THINLTO);
+        }
       }
-    }
-    if (isFdo && fdoMode == FdoMode.AUTO_FDO) {
-      allFeatures.add(CppRuleClasses.AUTOFDO);
-      // For LLVM, support implicit enabling of ThinLTO for AFDO unless it has been
-      // explicitly disabled.
-      if (toolchain.isLLVMCompiler() && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
-        allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
+      if (branchFdoProvider.isAutoFdo()) {
+        allFeatures.add(CppRuleClasses.AUTOFDO);
+        // For LLVM, support implicit enabling of ThinLTO for AFDO unless it has been
+        // explicitly disabled.
+        if (toolchain.isLLVMCompiler()
+            && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+          allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
+        }
       }
-    }
-    if (isFdo && fdoMode == FdoMode.XBINARY_FDO) {
-      allFeatures.add(CppRuleClasses.XBINARYFDO);
+      if (branchFdoProvider.isAutoXBinaryFdo()) {
+        allFeatures.add(CppRuleClasses.XBINARYFDO);
+      }
     }
     if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_PREFETCH_HINTS);

@@ -59,7 +59,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.FdoProvider;
+import com.google.devtools.build.lib.rules.cpp.FdoContext;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -260,7 +260,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       try {
         CcToolchainProvider ccToolchain =
             CppHelper.getToolchain(ruleContext, ":j2objc_cc_toolchain");
-        FdoProvider fdoProvider = ccToolchain.getFdoProvider();
+        FdoContext fdoContext = ccToolchain.getFdoContext();
         CompilationSupport compilationSupport =
             new CompilationSupport.Builder()
                 .setRuleContext(ruleContext)
@@ -276,12 +276,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 EXTRA_COMPILE_ARGS,
                 ImmutableList.<PathFragment>of(),
                 ccToolchain,
-                fdoProvider)
+                fdoContext)
             .registerFullyLinkAction(
                 common.getObjcProvider(),
                 ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB),
                 ccToolchain,
-                fdoProvider);
+                fdoContext);
       } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
       }

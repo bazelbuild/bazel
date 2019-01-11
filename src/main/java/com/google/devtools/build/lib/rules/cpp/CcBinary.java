@@ -296,7 +296,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       requestedFeaturesBuilder.add(CppRuleClasses.IS_CC_FAKE_BINARY);
     }
 
-    FdoProvider fdoProvider = common.getFdoProvider();
+    FdoContext fdoContext = common.getFdoContext();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,
@@ -306,7 +306,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
-                ruleContext, semantics, featureConfiguration, ccToolchain, fdoProvider)
+                ruleContext, semantics, featureConfiguration, ccToolchain, fdoContext)
             .fromCommon(common, /* additionalCopts= */ ImmutableList.of())
             .addPrivateHeaders(common.getPrivateHeaders())
             .addSources(common.getSources())
@@ -348,7 +348,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                   semantics,
                   featureConfiguration,
                   ccToolchain,
-                  fdoProvider,
+                  fdoContext,
                   ruleContext.getConfiguration())
               .fromCommon(common)
               .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
@@ -417,7 +417,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             ccToolchain,
             featureConfiguration,
-            fdoProvider,
+            fdoContext,
             common,
             precompiledFiles,
             ccCompilationOutputs,
@@ -590,7 +590,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
       FeatureConfiguration featureConfiguration,
-      FdoProvider fdoProvider,
+      FdoContext fdoContext,
       CcCommon common,
       PrecompiledFiles precompiledFiles,
       CcCompilationOutputs ccCompilationOutputs,
@@ -621,7 +621,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             cppSemantics,
             featureConfiguration,
             ccToolchain,
-            fdoProvider,
+            fdoContext,
             ruleContext.getConfiguration());
 
     CcLinkParams.Builder ccLinkParamsBuilder = CcLinkParams.builder();

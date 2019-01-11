@@ -88,7 +88,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
                 semantics,
                 featureConfiguration,
                 ccToolchain,
-                ccToolchain.getFdoProvider())
+                ccToolchain.getFdoContext())
             .addPublicHeaders(common.getHeaders())
             .setHeadersCheckingMode(HeadersCheckingMode.STRICT)
             .compile();

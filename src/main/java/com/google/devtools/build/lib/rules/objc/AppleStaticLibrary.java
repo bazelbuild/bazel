@@ -174,7 +174,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               objcProvider,
               intermediateArtifacts.strippedSingleArchitectureLibrary(),
               childToolchain,
-              childToolchain.getFdoProvider())
+              childToolchain.getFdoContext())
           .validateAttributes();
       ruleContext.assertNoErrors();
 

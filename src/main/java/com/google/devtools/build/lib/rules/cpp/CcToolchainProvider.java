@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
@@ -85,8 +84,7 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* linkDynamicLibraryTool= */ null,
           /* builtInIncludeDirectories= */ ImmutableList.of(),
           /* sysroot= */ null,
-          FdoMode.OFF,
-          /* fdoProvider= */ null,
+          /* fdoContext= */ null,
           /* useLLVMCoverageMapFormat= */ false,
           /* codeCoverageEnabled= */ false,
           /* isHostConfiguration= */ false,
@@ -122,18 +120,17 @@ public final class CcToolchainProvider extends ToolchainInfo
   @Nullable private final Artifact linkDynamicLibraryTool;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
-  private final FdoMode fdoMode;
   private final boolean useLLVMCoverageMapFormat;
   private final boolean codeCoverageEnabled;
   private final boolean isHostConfiguration;
   private final boolean forcePic;
   private final boolean shouldStripBinaries;
   /**
-   * WARNING: We don't like {@link FdoProvider}. Its {@link FdoProvider#fdoProfilePath} is pure
-   * path and that is horrible as it breaks many Bazel assumptions! Don't do bad stuff with it,
-   * don't take inspiration from it.
+   * WARNING: We don't like {@link FdoContext}. Its {@link FdoContext#fdoProfilePath} is pure path
+   * and that is horrible as it breaks many Bazel assumptions! Don't do bad stuff with it, don't
+   * take inspiration from it.
    */
-  private final FdoProvider fdoProvider;
+  private final FdoContext fdoContext;
 
   private final LicensesProvider licensesProvider;
 
@@ -169,8 +166,7 @@ public final class CcToolchainProvider extends ToolchainInfo
       Artifact linkDynamicLibraryTool,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot,
-      FdoMode fdoMode,
-      FdoProvider fdoProvider,
+      FdoContext fdoContext,
       boolean useLLVMCoverageMapFormat,
       boolean codeCoverageEnabled,
       boolean isHostConfiguration,
@@ -210,8 +206,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
-    this.fdoMode = fdoMode;
-    this.fdoProvider = fdoProvider;
+    this.fdoContext = fdoContext == null ? FdoContext.getDisabledContext() : fdoContext;
     this.useLLVMCoverageMapFormat = useLLVMCoverageMapFormat;
     this.codeCoverageEnabled = codeCoverageEnabled;
     this.isHostConfiguration = isHostConfiguration;
@@ -766,8 +761,8 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainInfo.getLegacyCcFlagsMakeVariable();
   }
 
-  public FdoProvider getFdoProvider() {
-    return fdoProvider;
+  public FdoContext getFdoContext() {
+    return fdoContext;
   }
 
   /**
@@ -931,10 +926,6 @@ public final class CcToolchainProvider extends ToolchainInfo
 
   public final boolean isLLVMCompiler() {
     return toolchainInfo.isLLVMCompiler();
-  }
-
-  public FdoMode getFdoMode() {
-    return fdoMode;
   }
 
   public ImmutableList<String> getLegacyCxxOptions() {

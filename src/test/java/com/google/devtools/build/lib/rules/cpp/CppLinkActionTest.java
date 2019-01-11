@@ -405,7 +405,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                         ? dynamicOutputFile
                         : staticOutputFile,
                     toolchain,
-                    toolchain.getFdoProvider(),
+                    toolchain.getFdoContext(),
                     featureConfiguration,
                     MockCppSemantics.INSTANCE) {};
             if (attributesToFlip.contains(NonStaticAttributes.OUTPUT_FILE)) {
@@ -463,7 +463,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                         ? staticOutputFile
                         : dynamicOutputFile,
                     toolchain,
-                    toolchain.getFdoProvider(),
+                    toolchain.getFdoContext(),
                     featureConfiguration,
                     MockCppSemantics.INSTANCE) {};
             builder.setLinkType(
@@ -495,7 +495,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             ruleContext,
             output,
             toolchain,
-            toolchain.getFdoProvider(),
+            toolchain.getFdoContext(),
             FeatureConfiguration.EMPTY,
             MockCppSemantics.INSTANCE);
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
@@ -589,7 +589,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                         .getBinDirectory(ruleContext.getRule().getRepository())),
                 ruleContext.getConfiguration(),
                 toolchain,
-                toolchain.getFdoProvider(),
+                toolchain.getFdoContext(),
                 featureConfiguration,
                 MockCppSemantics.INSTANCE)
             .addObjectFiles(nonLibraryInputs)

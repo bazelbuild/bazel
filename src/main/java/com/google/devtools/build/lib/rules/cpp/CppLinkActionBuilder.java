@@ -98,7 +98,7 @@ public class CppLinkActionBuilder {
 
   // can be null for CppLinkAction.createTestBuilder()
   @Nullable private final CcToolchainProvider toolchain;
-  private final FdoProvider fdoProvider;
+  private final FdoContext fdoContext;
   private Artifact interfaceOutput;
   /** Directory where toolchain stores language-runtime libraries (libstdc++, libc++ ...) */
   private PathFragment toolchainLibrariesSolibDir;
@@ -147,14 +147,14 @@ public class CppLinkActionBuilder {
    * @param ruleContext the rule that owns the action
    * @param output the output artifact
    * @param toolchain the C++ toolchain provider
-   * @param fdoProvider the C++ FDO optimization support
+   * @param fdoContext the C++ FDO optimization support
    * @param cppSemantics to be used for linkstamp compiles
    */
   public CppLinkActionBuilder(
       RuleContext ruleContext,
       Artifact output,
       CcToolchainProvider toolchain,
-      FdoProvider fdoProvider,
+      FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       CppSemantics cppSemantics) {
     this(
@@ -163,7 +163,7 @@ public class CppLinkActionBuilder {
         ruleContext.getConfiguration(),
         ruleContext.getAnalysisEnvironment(),
         toolchain,
-        fdoProvider,
+        fdoContext,
         featureConfiguration,
         cppSemantics);
   }
@@ -175,7 +175,7 @@ public class CppLinkActionBuilder {
    * @param output the output artifact
    * @param configuration build configuration
    * @param toolchain C++ toolchain provider
-   * @param fdoProvider the C++ FDO optimization support
+   * @param fdoContext the C++ FDO optimization support
    * @param cppSemantics to be used for linkstamp compiles
    */
   public CppLinkActionBuilder(
@@ -183,7 +183,7 @@ public class CppLinkActionBuilder {
       Artifact output,
       BuildConfiguration configuration,
       CcToolchainProvider toolchain,
-      FdoProvider fdoProvider,
+      FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       CppSemantics cppSemantics) {
     this(
@@ -192,7 +192,7 @@ public class CppLinkActionBuilder {
         configuration,
         ruleContext.getAnalysisEnvironment(),
         toolchain,
-        fdoProvider,
+        fdoContext,
         featureConfiguration,
         cppSemantics);
   }
@@ -205,7 +205,7 @@ public class CppLinkActionBuilder {
    * @param configuration the configuration used to determine the tool chain and the default link
    *     options
    * @param toolchain the C++ toolchain provider
-   * @param fdoProvider the C++ FDO optimization support
+   * @param fdoContext the C++ FDO optimization support
    * @param cppSemantics to be used for linkstamp compiles
    */
   private CppLinkActionBuilder(
@@ -214,7 +214,7 @@ public class CppLinkActionBuilder {
       BuildConfiguration configuration,
       AnalysisEnvironment analysisEnvironment,
       CcToolchainProvider toolchain,
-      FdoProvider fdoProvider,
+      FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       CppSemantics cppSemantics) {
     this.ruleContext = ruleContext;
@@ -223,7 +223,7 @@ public class CppLinkActionBuilder {
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.toolchain = toolchain;
-    this.fdoProvider = fdoProvider;
+    this.fdoContext = fdoContext;
     if (featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)) {
       toolchainLibrariesSolibDir = toolchain.getDynamicRuntimeSolibDir();
     }
@@ -386,7 +386,7 @@ public class CppLinkActionBuilder {
                 SHAREABLE_LINK_ARTIFACT_FACTORY,
                 featureConfiguration,
                 toolchain,
-            fdoProvider,
+                fdoContext,
                 usePicForLtoBackendActions,
                 toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration),
                 argv)
@@ -399,7 +399,7 @@ public class CppLinkActionBuilder {
                 linkArtifactFactory,
                 featureConfiguration,
                 toolchain,
-                fdoProvider,
+                fdoContext,
                 usePicForLtoBackendActions,
                 toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration),
                 argv);
@@ -863,7 +863,7 @@ public class CppLinkActionBuilder {
               interfaceOutput != null ? interfaceOutput.getExecPathString() : null,
               ltoOutputRootPrefix,
               defFile != null ? defFile.getExecPathString() : null,
-              fdoProvider,
+              fdoContext,
               collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
               collectedLibrariesToLink.getLibrariesToLink(),
               collectedLibrariesToLink.getLibrarySearchDirectories(),
@@ -1006,7 +1006,7 @@ public class CppLinkActionBuilder {
                 toolchain,
                 configuration.isCodeCoverageEnabled(),
                 cppConfiguration,
-                CppHelper.getFdoBuildStamp(ruleContext, fdoProvider, featureConfiguration),
+                CppHelper.getFdoBuildStamp(ruleContext, fdoContext, featureConfiguration),
                 featureConfiguration,
                 cppConfiguration.forcePic()
                     || (linkType.isDynamicLibrary()

@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -636,13 +635,17 @@ public class CppHelper {
 
   /** Returns the FDO build subtype. */
   public static String getFdoBuildStamp(
-      RuleContext ruleContext, FdoProvider fdoProvider, FeatureConfiguration featureConfiguration) {
+      RuleContext ruleContext, FdoContext fdoContext, FeatureConfiguration featureConfiguration) {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    if (fdoProvider.getFdoMode() == FdoMode.AUTO_FDO) {
-      return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "AFDO" : null;
-    }
-    if (fdoProvider.getFdoMode() == FdoMode.XBINARY_FDO) {
-      return featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO) ? "XFDO" : null;
+    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
+    if (branchFdoProfile != null) {
+
+      if (branchFdoProfile.isAutoFdo()) {
+        return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "AFDO" : null;
+      }
+      if (branchFdoProfile.isAutoXBinaryFdo()) {
+        return featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO) ? "XFDO" : null;
+      }
     }
     if (cppConfiguration.isFdo()) {
       return "FDO";

@@ -126,7 +126,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
           new MapBackedMakeVariableSupplier(toolchainMakeVariables.build()),
           new CcFlagsSupplier(ruleContext));
 
-    FdoProvider fdoProvider = common.getFdoProvider();
+    FdoContext fdoContext = common.getFdoContext();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
@@ -138,7 +138,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
-                ruleContext, semantics, featureConfiguration, ccToolchain, fdoProvider)
+                ruleContext, semantics, featureConfiguration, ccToolchain, fdoContext)
             .fromCommon(common, additionalCopts)
             .addSources(common.getSources())
             .addPrivateHeaders(common.getPrivateHeaders())
@@ -152,7 +152,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 semantics,
                 featureConfiguration,
                 ccToolchain,
-                fdoProvider,
+                fdoContext,
                 ruleContext.getConfiguration())
             .fromCommon(common)
             .addLinkopts(common.getLinkopts())
