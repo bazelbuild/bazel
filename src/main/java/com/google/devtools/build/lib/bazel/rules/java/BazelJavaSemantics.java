@@ -267,8 +267,15 @@ public class BazelJavaSemantics implements JavaSemantics {
       String javaStartClass,
       String javaExecutable) {
     return createStubAction(
-        ruleContext, javaCommon, jvmFlags, executable, javaStartClass, "",
-        NestedSetBuilder.<Artifact>stableOrder(), javaExecutable);
+        ruleContext,
+        javaCommon,
+        jvmFlags,
+        executable,
+        javaStartClass,
+        "",
+        NestedSetBuilder.<Artifact>stableOrder(),
+        javaExecutable,
+        /* createCoverageMetadataJar= */ true);
   }
 
   @Override
@@ -280,7 +287,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       String javaStartClass,
       String coverageStartClass,
       NestedSetBuilder<Artifact> filesBuilder,
-      String javaExecutable) {
+      String javaExecutable,
+      boolean createCoverageMetadataJar) {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(JavaConfiguration.class));
 
     Preconditions.checkNotNull(jvmFlags);
@@ -343,21 +351,30 @@ public class BazelJavaSemantics implements JavaSemantics {
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()
         && ruleContext.getConfiguration().isExperimentalJavaCoverage()) {
-      Artifact runtimeClassPathArtifact = ruleContext.getUniqueDirectoryArtifact(
-          "coverage_runtime_classpath",
-          "runtime-classpath.txt",
-          ruleContext.getBinOrGenfilesDirectory());
-      ruleContext.registerAction(new LazyWritePathsFileAction(
-          ruleContext.getActionOwner(),
-          runtimeClassPathArtifact,
-          javaCommon.getRuntimeClasspath(),
-          true));
-      filesBuilder.add(runtimeClassPathArtifact);
-      arguments.add(Substitution.of(
-          JavaSemantics.JACOCO_METADATA_PLACEHOLDER,
-          "export JACOCO_METADATA_JAR=${JAVA_RUNFILES}/" + workspacePrefix + "/"
-              + runtimeClassPathArtifact.getRootRelativePathString()
-      ));
+      if (createCoverageMetadataJar) {
+        Artifact runtimeClassPathArtifact =
+            ruleContext.getUniqueDirectoryArtifact(
+                "coverage_runtime_classpath",
+                "runtime-classpath.txt",
+                ruleContext.getBinOrGenfilesDirectory());
+        ruleContext.registerAction(
+            new LazyWritePathsFileAction(
+                ruleContext.getActionOwner(),
+                runtimeClassPathArtifact,
+                javaCommon.getRuntimeClasspath(),
+                true));
+        filesBuilder.add(runtimeClassPathArtifact);
+        arguments.add(
+            Substitution.of(
+                JavaSemantics.JACOCO_METADATA_PLACEHOLDER,
+                "export JACOCO_METADATA_JAR=${JAVA_RUNFILES}/"
+                    + workspacePrefix
+                    + "/"
+                    + runtimeClassPathArtifact.getRootRelativePathString()));
+      } else {
+        // Remove the placeholder in the stub otherwise bazel coverage fails.
+        arguments.add(Substitution.of(JavaSemantics.JACOCO_METADATA_PLACEHOLDER, ""));
+      }
       arguments.add(Substitution.of(
           JavaSemantics.JACOCO_MAIN_CLASS_PLACEHOLDER,
           "export JACOCO_MAIN_CLASS=" + coverageStartClass));

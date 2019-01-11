@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -293,7 +294,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
               mainClass,
               originalMainClass,
               filesBuilder,
-              javaExecutable);
+              javaExecutable,
+              /* createCoverageMetadataJar= */ false);
       if (!executableToRun.equals(executableForRunfiles)) {
         filesBuilder.add(executableToRun);
         runfilesBuilder.addArtifact(executableToRun);
@@ -462,7 +464,51 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
 
-    common.addTransitiveInfoProviders(builder, javaInfoBuilder, filesToBuild, classJar);
+    NestedSetBuilder<Pair<String, String>> coverageEnvironment = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> coverageSupportFiles = NestedSetBuilder.stableOrder();
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()
+        && ruleContext.getConfiguration().isExperimentalJavaCoverage()) {
+
+      // Create an artifact that contains the root relative paths of the jars on the runtime
+      // classpath.
+      Artifact runtimeClasspathArtifact =
+          ruleContext.getUniqueDirectoryArtifact(
+              "runtime_classpath_for_coverage",
+              "runtime_classpath.txt",
+              ruleContext.getBinOrGenfilesDirectory());
+      ruleContext.registerAction(
+          new LazyWritePathsFileAction(
+              ruleContext.getActionOwner(),
+              runtimeClasspathArtifact,
+              common.getRuntimeClasspath(),
+              true));
+      filesBuilder.add(runtimeClasspathArtifact);
+
+      // Pass the artifact through an environment variable in the coverage environment so it
+      // can be read by the coverage collection script.
+      coverageEnvironment.add(
+          new Pair<>(
+              "JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE", runtimeClasspathArtifact.getExecPathString()));
+      // Add the file to coverageSupportFiles so it ends up as an input for the test action
+      // when coverage is enabled.
+      coverageSupportFiles.add(runtimeClasspathArtifact);
+
+      // Make single jar reachable from the coverage environment because it needs to be executed
+      // by the coverage collection script.
+      Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+      coverageEnvironment.add(new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecPathString()));
+      coverageSupportFiles.add(singleJar);
+      runfilesBuilder.addArtifact(singleJar);
+      runfilesBuilder.addArtifact(runtimeClasspathArtifact);
+    }
+
+    common.addTransitiveInfoProviders(
+        builder,
+        javaInfoBuilder,
+        filesToBuild,
+        classJar,
+        coverageEnvironment.build(),
+        coverageSupportFiles.build());
     common.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
     JavaInfo javaInfo =

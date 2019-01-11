@@ -313,6 +313,8 @@ public interface JavaSemantics {
    * JacocoCoverageRunner} will use it to retrieve the name of the jars considered for collecting
    * coverage. {@code JacocoCoverageRunner} will *not* collect coverage implicitly for all the
    * runtime jars, only for those that pack a file ending in "-paths-for-coverage.txt".
+   *
+   * @param createCoverageMetadataJar is false for Java rules and true otherwise (e.g. android)
    */
   public Artifact createStubAction(
       RuleContext ruleContext,
@@ -322,7 +324,8 @@ public interface JavaSemantics {
       String javaStartClass,
       String coverageStartClass,
       NestedSetBuilder<Artifact> filesBuilder,
-      String javaExecutable)
+      String javaExecutable,
+      boolean createCoverageMetadataJar)
       throws InterruptedException;
 
   /**
