@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Collections;
 
 /**
  * Abstract Action to write to a file.
@@ -59,6 +61,15 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   @Override
   public final ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    Actions.prefetchInputs(getInputs(), actionExecutionContext, this);
+    try {
+      actionExecutionContext
+          .getActionInputPrefetcher()
+          .prefetchFiles(getInputs(), actionExecutionContext.getMetadataProvider());
+    } catch (IOException e) {
+      throw new ActionExecutionException("Failed to fetch remote input file.", e, this, false);
+    }
+
     ActionResult actionResult;
     try {
       DeterministicWriter deterministicWriter;

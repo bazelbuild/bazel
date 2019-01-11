@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.Collections;
 
 /**
  * Creates mangled symlinks in the solib directory for all shared libraries. Libraries that have a
@@ -62,7 +63,9 @@ public final class SolibSymlinkAction extends AbstractAction {
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
+    Actions.prefetchInputs(Collections.singletonList(getPrimaryInput()), actionExecutionContext, this);
+    
     Path mangledPath = actionExecutionContext.getInputPath(symlink);
     try {
       mangledPath.createSymbolicLink(actionExecutionContext.getInputPath(getPrimaryInput()));
