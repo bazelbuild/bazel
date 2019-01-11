@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -32,6 +33,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 
@@ -90,10 +92,19 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     }
 
-    // fetch() creates symlinks to each child under 'path' and DiffAwareness handles checking all
-    // of these files and directories for changes. However, if a new file/directory is added
-    // directly under 'path', Bazel doesn't know that this has to be symlinked in. Thus, this
-    // creates a dependency on the contents of the 'path' directory.
+    // fetch() creates symlinks to each child under 'path'.
+    //
+    // On Linux/macOS (i.e. where file symlinks are supported), DiffAwareness handles checking all
+    // of these files and directories for changes.
+    //
+    // On Windows (when file symlinks are disabled), the supposed symlinks are actually copies and
+    // DiffAwareness doesn't pick up changes of the "symlink" targets. To rectify that, we request
+    // FileValues for each child of 'path'.
+    // See https://github.com/bazelbuild/bazel/issues/7063
+    //
+    // Furthermore, if a new file/directory is added directly under 'path', Bazel doesn't know that
+    // this has to be symlinked in. So we also create a dependency on the contents of the 'path'
+    // directory.
     SkyKey dirKey = DirectoryListingValue.key(dirPath);
     DirectoryListingValue directoryValue;
     try {
@@ -106,6 +117,20 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
+    Map<SkyKey, SkyValue> fileValues =
+        env.getValues(
+            Iterables.transform(
+                directoryValue.getDirents(),
+                e ->
+                    (SkyKey)
+                        FileValue.key(
+                            RootedPath.toRootedPath(
+                                dirPath.getRoot(),
+                                dirPath.getRootRelativePath().getRelative(e.getName())))));
+    if (env.valuesMissing()) {
+      return null;
+    }
+
     // Link x/y/z to /some/path/to/y/z.
     if (!symlinkLocalRepositoryContents(outputDirectory, path)) {
       return null;
@@ -114,7 +139,10 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     fileHandler.finishFile(rule, outputDirectory, markerData);
     env.getListener().post(resolve(rule, directories));
 
-    return RepositoryDirectoryValue.builder().setPath(outputDirectory).setSourceDir(directoryValue);
+    return RepositoryDirectoryValue.builder()
+        .setPath(outputDirectory)
+        .setSourceDir(directoryValue)
+        .setFileValues(fileValues);
   }
 
   @Override
