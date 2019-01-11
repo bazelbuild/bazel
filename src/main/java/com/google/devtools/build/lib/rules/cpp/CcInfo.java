@@ -55,6 +55,10 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
     return ccLinkingInfo;
   }
 
+  public CcLinkingContext getCcLinkingContext() {
+    return LibraryToLinkWrapper.fromCcLinkingInfo(ccLinkingInfo);
+  }
+
   public static CcInfo merge(Collection<CcInfo> ccInfos) {
     ImmutableList.Builder<CcCompilationContext> ccCompilationContexts = ImmutableList.builder();
     ImmutableList.Builder<CcLinkingInfo> ccLinkingInfos = ImmutableList.builder();

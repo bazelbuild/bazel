@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.ListIterator;
 import javax.annotation.Nullable;
 
@@ -117,6 +118,13 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
     return libraryToLinkWrapperBuilder.build();
   }
 
+  public Artifact getDynamicLibraryForRuntimeOrNull() {
+    if (staticLibrary == null && picStaticLibrary == null && dynamicLibrary != null) {
+      return dynamicLibrary;
+    }
+    return null;
+  }
+
   /** Structure of the new CcLinkingContext. This will replace {@link CcLinkingInfo}. */
   public static class CcLinkingContext implements CcLinkingContextApi {
     private final NestedSet<LibraryToLinkWrapper> libraries;
@@ -138,6 +146,32 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
       this.extraLinkTimeLibraries = extraLinkTimeLibraries;
     }
 
+    private static List<Artifact> getStaticModeParamsForExecutableLibraries(
+        CcLinkingContext ccLinkingContext) {
+      ImmutableList.Builder<Artifact> libraryListBuilder = ImmutableList.builder();
+      for (LibraryToLinkWrapper libraryToLinkWrapper : ccLinkingContext.getLibraries()) {
+        if (libraryToLinkWrapper.getStaticLibrary() != null) {
+          libraryListBuilder.add(libraryToLinkWrapper.getStaticLibrary());
+        } else if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
+          libraryListBuilder.add(libraryToLinkWrapper.getPicStaticLibrary());
+        } else if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
+          libraryListBuilder.add(libraryToLinkWrapper.getInterfaceLibrary());
+        } else {
+          libraryListBuilder.add(libraryToLinkWrapper.getDynamicLibrary());
+        }
+      }
+      return libraryListBuilder.build();
+    }
+
+    public static List<Artifact> getStaticModeParamsForExecutableLibraries(CcInfo ccInfo) {
+      return getStaticModeParamsForExecutableLibraries(ccInfo.getCcLinkingContext());
+    }
+
+    public static List<Artifact> getStaticModeParamsForExecutableLibraries(
+        CcLinkingInfo ccLinkingInfo) {
+      return getStaticModeParamsForExecutableLibraries(fromCcLinkingInfo(ccLinkingInfo));
+    }
+
     public NestedSet<LibraryToLinkWrapper> getLibraries() {
       return libraries;
     }
@@ -156,7 +190,7 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
       return userLinkFlags;
     }
 
-    protected ImmutableList<String> getFlattenedUserLinkFlags() {
+    public ImmutableList<String> getFlattenedUserLinkFlags() {
       return Streams.stream(userLinkFlags)
           .map(LinkOptions::get)
           .flatMap(Collection::stream)
@@ -312,9 +346,29 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
     return objectFiles;
   }
 
+  public ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends() {
+    return sharedNonLtoBackends;
+  }
+
+  public LtoCompilationContext getLtoCompilationContext() {
+    return ltoCompilationContext;
+  }
+
   @Override
   public Artifact getPicStaticLibrary() {
     return picStaticLibrary;
+  }
+
+  public Iterable<Artifact> getPicObjectFiles() {
+    return picObjectFiles;
+  }
+
+  public ImmutableMap<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackends() {
+    return picSharedNonLtoBackends;
+  }
+
+  public LtoCompilationContext getPicLtoCompilationContext() {
+    return picLtoCompilationContext;
   }
 
   @Override
