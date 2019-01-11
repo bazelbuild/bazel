@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoLibrary;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -72,7 +74,8 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("java_lite_proto_library")
         .factoryClass(JavaLiteProtoLibrary.class)
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(
+            BaseRuleClasses.RuleBase.class, JavaToolchainBaseRule.class, JavaRuntimeBaseRule.class)
         .build();
   }
 }

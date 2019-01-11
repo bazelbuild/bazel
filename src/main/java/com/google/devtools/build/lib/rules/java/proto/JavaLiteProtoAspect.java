@@ -103,7 +103,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
     ProtoInfo protoInfo = ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER);
 
     JavaProtoAspectCommon aspectCommon =
-        JavaProtoAspectCommon.getLiteInstance(ruleContext, javaSemantics);
+        JavaProtoAspectCommon.getLiteInstance(
+            ruleContext, javaSemantics, javaToolchainType, javaRuntimeToolchainType);
     Impl impl = new Impl(ruleContext, protoInfo, aspectCommon);
     impl.addProviders(aspect);
 

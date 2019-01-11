@@ -169,6 +169,16 @@ public class PlatformOptions extends FragmentOptions {
               + "instead of being based on the --cpu (and --host_cpu) flags.")
   public boolean autoConfigureHostPlatform;
 
+  @Option(
+      name = "experimental_use_toolchain_resolution_for_java_rules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.UNKNOWN,
+      help =
+          "If set to true, toolchain resolution will be used to resolve java_toolchain and"
+              + " java_runtime.")
+  public boolean useToolchainResolutionForJavaRules;
+
   @Override
   public PlatformOptions getHost() {
     PlatformOptions host = (PlatformOptions) getDefault();

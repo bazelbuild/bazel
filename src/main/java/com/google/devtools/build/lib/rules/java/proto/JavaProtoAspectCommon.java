@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
@@ -51,15 +52,27 @@ public class JavaProtoAspectCommon {
   private final String protoToolchainAttr;
   private final String jarSuffix;
   private final RpcSupport rpcSupport;
+  private final Label toolchainType;
+  private final Label runtimeToolchainType;
 
   /**
    * Returns a {@link JavaProtoAspectCommon} instance that handles logic for {@code
    * java_proto_library}.
    */
   static JavaProtoAspectCommon getSpeedInstance(
-      RuleContext ruleContext, JavaSemantics javaSemantics, RpcSupport rpcSupport) {
+      RuleContext ruleContext,
+      JavaSemantics javaSemantics,
+      RpcSupport rpcSupport,
+      Label toolchainType,
+      Label runtimeToolchainType) {
     return new JavaProtoAspectCommon(
-        ruleContext, javaSemantics, rpcSupport, SPEED_PROTO_TOOLCHAIN_ATTR, SPEED_JAR_SUFFIX);
+        ruleContext,
+        javaSemantics,
+        rpcSupport,
+        SPEED_PROTO_TOOLCHAIN_ATTR,
+        SPEED_JAR_SUFFIX,
+        toolchainType,
+        runtimeToolchainType);
   }
 
   /**
@@ -67,9 +80,18 @@ public class JavaProtoAspectCommon {
    * java_lite_proto_library}.
    */
   static JavaProtoAspectCommon getLiteInstance(
-      RuleContext ruleContext, JavaSemantics javaSemantics) {
+      RuleContext ruleContext,
+      JavaSemantics javaSemantics,
+      Label toolchainType,
+      Label runtimeToolchainType) {
     return new JavaProtoAspectCommon(
-        ruleContext, javaSemantics, null, LITE_PROTO_TOOLCHAIN_ATTR, LITE_JAR_SUFFIX);
+        ruleContext,
+        javaSemantics,
+        null,
+        LITE_PROTO_TOOLCHAIN_ATTR,
+        LITE_JAR_SUFFIX,
+        toolchainType,
+        runtimeToolchainType);
   }
 
   /**
@@ -80,9 +102,17 @@ public class JavaProtoAspectCommon {
       RuleContext ruleContext,
       JavaSemantics javaSemantics,
       RpcSupport rpcSupport,
-      String protoToolchainAttr) {
+      String protoToolchainAttr,
+      Label toolchainType,
+      Label runtimeToolchainType) {
     return new JavaProtoAspectCommon(
-        ruleContext, javaSemantics, rpcSupport, protoToolchainAttr, MUTABLE_JAR_SUFFIX);
+        ruleContext,
+        javaSemantics,
+        rpcSupport,
+        protoToolchainAttr,
+        MUTABLE_JAR_SUFFIX,
+        toolchainType,
+        runtimeToolchainType);
   }
 
   private JavaProtoAspectCommon(
@@ -90,12 +120,16 @@ public class JavaProtoAspectCommon {
       JavaSemantics javaSemantics,
       RpcSupport rpcSupport,
       String protoToolchainAttr,
-      String jarSuffix) {
+      String jarSuffix,
+      Label toolchainType,
+      Label runtimeToolchainType) {
     this.ruleContext = ruleContext;
     this.javaSemantics = javaSemantics;
     this.protoToolchainAttr = protoToolchainAttr;
     this.jarSuffix = jarSuffix;
     this.rpcSupport = rpcSupport;
+    this.toolchainType = toolchainType;
+    this.runtimeToolchainType = runtimeToolchainType;
   }
 
   /**
@@ -115,7 +149,7 @@ public class JavaProtoAspectCommon {
             .setInjectingRuleKind(injectingRuleKind)
             .setOutput(outputJar)
             .addSourceJars(sourceJar)
-            .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext))
+            .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext, toolchainType))
             .addDep(dep)
             .setCompilationStrictDepsMode(StrictDepsMode.ERROR);
     for (TransitiveInfoCollection t : getProtoRuntimeDeps()) {
@@ -129,8 +163,8 @@ public class JavaProtoAspectCommon {
     JavaCompilationArtifacts artifacts =
         helper.build(
             javaSemantics,
-            JavaToolchainProvider.from(ruleContext),
-            JavaRuntimeInfo.forHost(ruleContext),
+            JavaToolchainProvider.from(ruleContext, toolchainType),
+            JavaRuntimeInfo.forHost(ruleContext, runtimeToolchainType),
             JavaCompilationHelper.getInstrumentationJars(ruleContext),
             JavaRuleOutputJarsProvider.builder(),
             /*createOutputSourceJar*/ false,

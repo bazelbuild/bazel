@@ -112,7 +112,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     ProtoInfo protoInfo = ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER);
 
     JavaProtoAspectCommon aspectCommon =
-        JavaProtoAspectCommon.getSpeedInstance(ruleContext, javaSemantics, rpcSupport);
+        JavaProtoAspectCommon.getSpeedInstance(
+            ruleContext, javaSemantics, rpcSupport, javaToolchainType, javaRuntimeToolchainType);
     Impl impl = new Impl(ruleContext, protoInfo, aspectCommon, rpcSupport);
     impl.addProviders(aspect);
     return aspect.build();
