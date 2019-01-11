@@ -64,12 +64,12 @@ public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
 
   // Helper methods to access an instance of JavaRuntimeInfo.
 
-  public static JavaRuntimeInfo from(RuleContext ruleContext) {
-    return from(ruleContext, ":jvm", RuleConfiguredTarget.Mode.TARGET);
-  }
-
   public static JavaRuntimeInfo forHost(RuleContext ruleContext) {
     return from(ruleContext, ":host_jdk", RuleConfiguredTarget.Mode.HOST);
+  }
+
+  public static JavaRuntimeInfo from(RuleContext ruleContext) {
+    return from(ruleContext, ":jvm", RuleConfiguredTarget.Mode.TARGET);
   }
 
   public static JavaRuntimeInfo forHost(RuleContext ruleContext, Label toolchainType) {
@@ -116,7 +116,6 @@ public class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
   @Nullable
   protected static JavaRuntimeInfo from(
       TransitiveInfoCollection collection, RuleErrorConsumer errorConsumer) {
-
     return collection.get(JavaRuntimeInfo.PROVIDER);
   }
 
