@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRIN
 import static com.google.devtools.build.lib.rules.android.AndroidRuleClasses.getAndroidSdkLabel;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -153,6 +154,10 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
             attr("aapt_version", STRING)
                 .allowedValues(new AllowedValueSet(AndroidAaptVersion.getAttributeValues()))
                 .value(AndroidAaptVersion.getRuleAttributeDefault()))
+        /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(nocompress_extensions) -->
+        A list of file extensions to leave uncompressed in the resource apk.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("nocompress_extensions", STRING_LIST))
         .build();
   }
 
