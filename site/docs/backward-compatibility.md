@@ -33,14 +33,14 @@ This includes:
 ## Incompatible changes and migration recipes
 
 When we introduce an incompatible change, we try to make it easier for Bazel
-users to updatre their code. We do this by means of _migration windows_ and
+users to update their code. We do this by means of _migration windows_ and
 _migration recipes_.
 
 Migration window is one or more release of Bazel during which a migration from
 old funcitonality to new functionality is possible, according to a migration
 recipe.
 
-During the migration window, both the old funcitonality and the new functionality
+During the migration window, both the old functionality and the new functionality
 are available in the Bazel release. For every incompatible change, we provide
 a _migration recipe_ that allows updating the user code (`BUILD` and `.bzl` files,
 as well as any Bazel usage in scripts, usage of Bazel API and so on) in such a
