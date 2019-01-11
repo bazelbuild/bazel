@@ -132,6 +132,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean experimentalStarlarkConfigTransitions();
 
+  public abstract String experimentalTransitionWhitelistLocation();
+
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
   public abstract boolean incompatibleDepsetIsNotIterable();
@@ -205,6 +207,7 @@ public abstract class SkylarkSemantics {
           .experimentalRemapMainRepo(false)
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(false)
+          .experimentalTransitionWhitelistLocation("")
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
@@ -252,6 +255,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder experimentalPlatformsApi(boolean value);
 
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
+
+    public abstract Builder experimentalTransitionWhitelistLocation(String value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
@@ -306,3 +311,4 @@ public abstract class SkylarkSemantics {
     public abstract SkylarkSemantics build();
   }
 }
+
