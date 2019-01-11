@@ -348,10 +348,9 @@ public final class SkylarkRuleConfiguredTargetUtil {
                     "The value of 'providers' should be a sequence of declared providers");
             Provider.Key providerKey = declaredProvider.getProvider().getKey();
             if (declaredProviders.put(providerKey, declaredProvider) != null) {
-              if (context.getSkylarkSemantics().incompatibleDisallowConflictingProviders()) {
-                context.getRuleContext()
-                    .ruleError("Multiple conflicting returned providers with key " + providerKey);
-              }
+              context
+                  .getRuleContext()
+                  .ruleError("Multiple conflicting returned providers with key " + providerKey);
             }
           }
         }
@@ -372,10 +371,9 @@ public final class SkylarkRuleConfiguredTargetUtil {
                     + "a sequence of declared providers");
         Provider.Key providerKey = declaredProvider.getProvider().getKey();
         if (declaredProviders.put(providerKey, declaredProvider)  != null) {
-          if (context.getSkylarkSemantics().incompatibleDisallowConflictingProviders()) {
-            context.getRuleContext()
-                .ruleError("Multiple conflicting returned providers with key " + providerKey);
-          }
+          context
+              .getRuleContext()
+              .ruleError("Multiple conflicting returned providers with key " + providerKey);
         }
       }
     }

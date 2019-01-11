@@ -232,21 +232,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisableObjcProviderResources;
 
   @Option(
-      name = "incompatible_disallow_conflicting_providers",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If set to true, disallow rule implementation functions from returning multiple "
-          + "instances of the same type of provider. (If false, only the last in the list will be "
-          + "used.)"
-  )
-  public boolean incompatibleDisallowConflictingProviders;
-
-  @Option(
       name = "incompatible_disallow_data_transition",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -499,6 +484,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   )
   public boolean internalSkylarkFlagTestCanary;
 
+
   /** Constructs a {@link SkylarkSemantics} object corresponding to this set of option values. */
   public SkylarkSemantics toSkylarkSemantics() {
     return SkylarkSemantics.builder()
@@ -517,7 +503,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
         .incompatibleDisableDeprecatedAttrParams(incompatibleDisableDeprecatedAttrParams)
         .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
-        .incompatibleDisallowConflictingProviders(incompatibleDisallowConflictingProviders)
         .incompatibleDisallowDataTransition(incompatibleDisallowDataTransition)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowFileType(incompatibleDisallowFileType)
