@@ -82,7 +82,13 @@ import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for C++ support. */
 public class CcModule
-    implements CcModuleApi<CcToolchainProvider, FeatureConfiguration, CcToolchainVariables> {
+    implements CcModuleApi<
+        CcToolchainProvider,
+        FeatureConfiguration,
+        CcCompilationContext,
+        CcLinkingContext,
+        LibraryToLinkWrapper,
+        CcToolchainVariables> {
 
   private enum RegisterActions {
     ALWAYS,
@@ -326,7 +332,7 @@ public class CcModule
    * @throws InterruptedException
    */
   @Override
-  public Object createLibraryLinkerInput(
+  public LibraryToLinkWrapper createLibraryLinkerInput(
       Object actionsObject,
       Object featureConfigurationObject,
       Object ccToolchainProviderObject,
@@ -472,7 +478,7 @@ public class CcModule
   }
 
   @Override
-  public Object createCcLinkingInfo(
+  public CcLinkingContext createCcLinkingInfo(
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Location location,

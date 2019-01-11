@@ -36,6 +36,9 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public interface CcModuleApi<
     CcToolchainProviderT extends CcToolchainProviderApi,
     FeatureConfigurationT extends FeatureConfigurationApi,
+    CompilationContextT extends CcCompilationContextApi,
+    LinkingContextT extends CcLinkingContextApi,
+    LibraryToLinkWrapperT extends LibraryToLinkWrapperApi,
     CcToolchainVariablesT extends CcToolchainVariablesApi> {
 
   @SkylarkCallable(
@@ -543,7 +546,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "False"),
       })
-  Object createLibraryLinkerInput(
+  LibraryToLinkWrapperT createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,
@@ -579,7 +582,7 @@ public interface CcModuleApi<
             defaultValue = "None",
             type = SkylarkList.class)
       })
-  Object createCcLinkingInfo(
+  LinkingContextT createCcLinkingInfo(
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Location location,
@@ -648,7 +651,7 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             type = Object.class)
       })
-  CcCompilationContextApi createCcCompilationContext(
+  CompilationContextT createCcCompilationContext(
       Object headers, Object systemIncludes, Object includes, Object quoteIncludes, Object defines)
       throws EvalException;
 
