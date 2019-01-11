@@ -120,6 +120,7 @@ load(":self_extract_binary.bzl", "self_extract_binary")
         ":%s/bazel-real" % kind,
         ":%s/bazel" % kind,
         "//scripts:bash_completion",
+        "//scripts/zsh_completion:_bazel",
     ],
     launcher = ":launcher_bin.sh",
 ) for kind in ("with-jdk", "without-jdk")]
