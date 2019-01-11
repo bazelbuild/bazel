@@ -1,15 +1,12 @@
 ---
 layout: documentation
-title: Backward Compatibility
+title: Starlark Incompatible CHnages
 ---
+
 
 # Backward Compatibility
 
-Bazel is still in Beta and new releases may include backward incompatible
-changes. As we make changes and polish the extension mechanism, old features
-may be removed and new features that are not backward compatible may be added.
-
-Backward incompatible changes are introduced gradually:
+Backward incompatible changes in Starlark are introduced gradually:
 
 1.  The backward incompatible change is introduced behind a flag with its
     default value set to `false`.
