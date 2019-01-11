@@ -161,12 +161,11 @@ class InvalidRpmbuild(Exception):
   pass
 
 
-def FindRpmbuild():
-  if FLAGS.rpmbuild:
-    if not IsExe(FLAGS.rpmbuild):
-      raise InvalidRpmbuild('{} is not executable'.format(FLAGS.rpmbuild))
-  else:
-      return FLAGS.rpmbuild
+def FindRpmbuild(rpmbuild_path):
+  if rpmbuild_path:
+    if not IsExe(rpmbuild_path):
+      raise InvalidRpmbuild('{} is not executable'.format(rpmbuild_path))
+    return FLAGS.rpmbuild
   path = Which('rpmbuild')
   if path:
     return path
@@ -182,14 +181,14 @@ class RpmBuilder(object):
   TEMP_DIR = 'TMP'
   DIRS = [SOURCE_DIR, BUILD_DIR, TEMP_DIR]
 
-  def __init__(self, name, version, release, arch, debug):
+  def __init__(self, name, version, release, arch, debug, rpmbuild_path):
     self.name = name
     self.version = GetFlagValue(version)
     self.release = GetFlagValue(release)
     self.arch = arch
     self.debug = debug
     self.files = []
-    self.rpmbuild_path = FindRpmbuild()
+    self.rpmbuild_path = FindRpmbuild(rpmbuild_path)
     self.rpm_path = None
 
   def AddFiles(self, paths, root=''):
@@ -290,7 +289,7 @@ class RpmBuilder(object):
 def main(argv=()):
   try:
     builder = RpmBuilder(FLAGS.name, FLAGS.version, FLAGS.release, FLAGS.arch,
-                         FLAGS.debug)
+                         FLAGS.debug, FLAGS.rpmbuild)
     builder.AddFiles(argv[1:])
     return builder.Build(FLAGS.spec_file, FLAGS.out_file)
   except NoRpmbuildFound:
