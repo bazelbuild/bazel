@@ -154,7 +154,6 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_no_support_tools_in_action_inputs=" + rand.nextBoolean(),
         "--incompatible_no_target_output_group=" + rand.nextBoolean(),
         "--incompatible_no_transitive_loads=" + rand.nextBoolean(),
-        "--incompatible_range_type=" + rand.nextBoolean(),
         "--incompatible_remove_native_maven_jar=" + rand.nextBoolean(),
         "--incompatible_require_feature_configuration_for_pic=" + rand.nextBoolean(),
         "--incompatible_strict_argument_ordering=" + rand.nextBoolean(),
@@ -201,7 +200,6 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleNoSupportToolsInActionInputs(rand.nextBoolean())
         .incompatibleNoTargetOutputGroup(rand.nextBoolean())
         .incompatibleNoTransitiveLoads(rand.nextBoolean())
-        .incompatibleRangeType(rand.nextBoolean())
         .incompatibleRemoveNativeMavenJar(rand.nextBoolean())
         .incompatibleRequireFeatureConfigurationForPic(rand.nextBoolean())
         .incompatibleStricArgumentOrdering(rand.nextBoolean())

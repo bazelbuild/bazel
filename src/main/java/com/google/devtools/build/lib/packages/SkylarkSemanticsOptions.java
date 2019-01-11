@@ -461,19 +461,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleNoTransitiveLoads;
 
   @Option(
-      name = "incompatible_range_type",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If set to true, range() will use the 'range' type instead of 'list'."
-  )
-  public boolean incompatibleRangeType;
-
-  @Option(
       name = "incompatible_remove_native_maven_jar",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -560,7 +547,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
         .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
         .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
-        .incompatibleRangeType(incompatibleRangeType)
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
         .incompatibleRequireFeatureConfigurationForPic(requireFeatureConfigurationForPic)
         .incompatibleStricArgumentOrdering(incompatibleStricArgumentOrdering)
