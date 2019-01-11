@@ -5,7 +5,7 @@ title: Skylint
 
 # Skylint
 
-[Style guide](../skylark/bzl-style.html)
+[Style guide](../skylark/bzl-style.md)
 
 This document explains how to use Skylint, the Starlark linter.
 
