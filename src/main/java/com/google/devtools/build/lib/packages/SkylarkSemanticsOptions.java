@@ -336,18 +336,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   )
   public boolean incompatibleGenerateJavaCommonSourceJar;
 
-  @Option(
-      name = "incompatible_disallow_slash_operator",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If set to true, the `/` operator is disabled. Use `//` for integer division.")
-  public boolean incompatibleDisallowSlashOperator;
-
   /** Controls legacy arguments to ctx.actions.Args#add. */
   @Option(
       name = "incompatible_disallow_old_style_args_add",
@@ -538,7 +526,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(
             incompatibleDisallowLoadLabelsToCrossPackageBoundaries)
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
-        .incompatibleDisallowSlashOperator(incompatibleDisallowSlashOperator)
         .incompatibleExpandDirectories(incompatibleExpandDirectories)
         .incompatibleGenerateJavaCommonSourceJar(incompatibleGenerateJavaCommonSourceJar)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)

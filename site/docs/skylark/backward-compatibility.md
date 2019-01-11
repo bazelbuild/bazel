@@ -189,22 +189,6 @@ for i in range(len(my_string)):
 *   Tracking issue: [#5830](https://github.com/bazelbuild/bazel/issues/5830)
 
 
-### Integer division operator is `//`
-
-Integer division operator is now `//` instead of `/`. This aligns with
-Python 3 and it highlights the fact it is a floor division.
-
-```python
-x = 7 / 2  # deprecated
-
-x = 7 // 2  # x is 3
-```
-
-*   Flag: `--incompatible_disallow_slash_operator`
-*   Default: `true`
-*   Tracking issue: [#5823](https://github.com/bazelbuild/bazel/issues/5823)
-
-
 ### Package name is a function
 
 The current package name should be retrieved by calling `package_name()` in

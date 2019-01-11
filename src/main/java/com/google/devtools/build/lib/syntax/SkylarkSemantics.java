@@ -158,8 +158,6 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
 
-  public abstract boolean incompatibleDisallowSlashOperator();
-
   public abstract boolean incompatibleExpandDirectories();
 
   public abstract boolean incompatibleGenerateJavaCommonSourceJar();
@@ -222,7 +220,6 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowLegacyJavaInfo(false)
           .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(false)
           .incompatibleDisallowOldStyleArgsAdd(false)
-          .incompatibleDisallowSlashOperator(true)
           .incompatibleExpandDirectories(false)
           .incompatibleGenerateJavaCommonSourceJar(false)
           .incompatibleNewActionsApi(false)
@@ -286,8 +283,6 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisallowLoadLabelsToCrossPackageBoundaries(boolean value);
 
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
-
-    public abstract Builder incompatibleDisallowSlashOperator(boolean value);
 
     public abstract Builder incompatibleExpandDirectories(boolean value);
 

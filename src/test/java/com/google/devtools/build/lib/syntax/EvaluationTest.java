@@ -196,22 +196,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testSlashOperatorIsForbidden() throws Exception {
-    newTest("--incompatible_disallow_slash_operator=true")
-        .testIfErrorContains("The `/` operator has been removed.", "5 / 2");
-  }
-
-  @Test
-  public void testDivision() throws Exception {
-    newTest("--incompatible_disallow_slash_operator=false")
-        .testStatement("6 / 2", 3)
-        .testStatement("6 / 4", 1)
-        .testStatement("3 / 6", 0)
-        .testStatement("7 / -2", -4)
-        .testStatement("-7 / 2", -4)
-        .testStatement("-7 / -2", 3)
-        .testStatement("2147483647 / 2", 1073741823)
-        .testIfErrorContains("unsupported operand type(s) for //: 'string' and 'int'", "'str' / 2")
-        .testIfExactError("integer division by zero", "5 / 0");
+    newTest().testIfErrorContains("The `/` operator is not allowed.", "5 / 2");
   }
 
   @Test
