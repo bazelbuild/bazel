@@ -19,6 +19,8 @@ import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINK
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -52,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Helper class to create a dynamic library for rules which support integration with native code.
@@ -367,6 +370,19 @@ public abstract class NativeDepsHelper {
       fp.addString(input.getExecPathString());
       linkstampsSize++;
     }
+    // TODO(b/120206809): remove debugging info here (and in this whole filename construction).
+    String linkstampsString = Integer.toString(linkstampsSize);
+    if (linkstampsSize > 1) {
+      Set<Artifact> identitySet = Sets.newIdentityHashSet();
+      Iterables.addAll(identitySet, linkstamps);
+      if (identitySet.size() < linkstampsSize) {
+        linkstampsString += "_" + identitySet.size();
+      }
+      ImmutableSet<Artifact> uniqueLinkStamps = ImmutableSet.copyOf(linkstamps);
+      if (uniqueLinkStamps.size() < linkstampsSize) {
+        linkstampsString += "__" + uniqueLinkStamps.size();
+      }
+    }
     int buildInfoSize = 0;
     for (Artifact input : buildInfoArtifacts) {
       fp.addString(input.getExecPathString());
@@ -381,7 +397,7 @@ public abstract class NativeDepsHelper {
             + "_"
             + linkopts.size()
             + "_"
-            + linkstampsSize
+            + linkstampsString
             + "_"
             + buildInfoSize
             + "_"
