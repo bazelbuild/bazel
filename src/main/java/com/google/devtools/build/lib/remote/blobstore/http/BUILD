@@ -16,6 +16,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
+        "//src/main/java/com/google/devtools/build/lib/remote/metrics",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auth",

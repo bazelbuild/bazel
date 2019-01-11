@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
+import com.google.devtools.build.lib.remote.metrics.RemoteMetrics;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.FetchRemoteOutputsStrategy;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -64,6 +65,8 @@ import java.util.function.Predicate;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
+
+  private RemoteMetrics metrics;
 
   private AsynchronousFileOutputStream rpcLogFile;
 
@@ -154,8 +157,11 @@ public final class RemoteModule extends BlazeModule {
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-remote-logs");
     cleanAndCreateRemoteLogsDir(logDir);
 
+    metrics = new RemoteMetrics();
+
     try {
       List<ClientInterceptor> interceptors = new ArrayList<>();
+      interceptors.add(new GrpcMetricsInterceptor(metrics));
       if (!remoteOptions.experimentalRemoteGrpcLog.isEmpty()) {
         rpcLogFile = new AsynchronousFileOutputStream(remoteOptions.experimentalRemoteGrpcLog);
         interceptors.add(new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock()));
@@ -258,7 +264,8 @@ public final class RemoteModule extends BlazeModule {
                 SimpleBlobStoreFactory.create(
                     remoteOptions,
                     GoogleAuthUtils.newCredentials(authAndTlsOptions),
-                    env.getWorkingDirectory()),
+                    env.getWorkingDirectory(),
+                    metrics),
                 remoteOptions,
                 retrier,
                 digestUtil);
@@ -281,13 +288,12 @@ public final class RemoteModule extends BlazeModule {
         Preconditions.checkState(
             cache instanceof GrpcRemoteCache,
             "Only the gRPC cache is support for remote execution");
-        actionContextProvider =
-            RemoteActionContextProvider.createForRemoteExecution(
-                env, (GrpcRemoteCache) cache, executor, executeRetrier, digestUtil, logDir);
+        actionContextProvider = RemoteActionContextProvider.createForRemoteExecution(env,
+            (GrpcRemoteCache) cache, executor, executeRetrier, digestUtil, logDir, metrics);
       } else if (cache != null) {
         actionContextProvider =
             RemoteActionContextProvider.createForRemoteCaching(
-                env, cache, executeRetrier, digestUtil);
+                env, cache, executeRetrier, digestUtil, metrics);
       }
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));

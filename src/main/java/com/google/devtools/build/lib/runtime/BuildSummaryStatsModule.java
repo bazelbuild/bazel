@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
+import com.google.devtools.build.lib.remote.metrics.RemoteMetrics;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +55,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private long executionStartMillis;
   private long executionEndMillis;
   private SpawnStats spawnStats;
+  private RemoteMetrics remoteMetrics;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -97,6 +99,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
+  }
+
+  @Subscribe
+  public void remoteMetrics(RemoteMetrics metrics) {
+    this.remoteMetrics = metrics;
   }
 
   @Subscribe
@@ -161,6 +168,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
       } else {
         reporter.handle(Event.info(Joiner.on(", ").join(items)));
         reporter.handle(Event.info(spawnSummary));
+        if (remoteMetrics != null) {
+          reporter.handle(Event.info(String.format("Network: %s remote upload, %s remote download",
+              bytesToHumanReadable(remoteMetrics.totalBytesSent()), bytesToHumanReadable(remoteMetrics.totalBytesReceived()))));
+        }
       }
 
       event.getResult().getBuildToolLogCollection()
@@ -168,5 +179,16 @@ public class BuildSummaryStatsModule extends BlazeModule {
     } finally {
       criticalPathComputer = null;
     }
+  }
+
+  private String bytesToHumanReadable(long bytes) {
+    String[] units = new String[]{"bytes", "KiB", "MiB", "GiB", "TiB"};
+    double num = bytes;
+    int unit = 0;
+    while (num >= 1024 && unit < units.length) {
+      num /= 1024;
+      unit++;
+    }
+    return String.format("%.1f %s", num, units[unit]);
   }
 }

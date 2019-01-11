@@ -245,11 +245,13 @@ public class HttpBlobStoreTest {
       DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
       URI uri = new URI("http://localhost");
       return HttpBlobStore.create(
-          domainSocketAddress, uri, timeoutSeconds, /* remoteMaxConnections= */ 0, creds);
+          domainSocketAddress, uri, timeoutSeconds, /* remoteMaxConnections= */ 0, creds,
+          /* metrics= */ null);
     } else if (socketAddress instanceof InetSocketAddress) {
       InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
       URI uri = new URI("http://localhost:" + inetSocketAddress.getPort());
-      return HttpBlobStore.create(uri, timeoutSeconds, /* remoteMaxConnections= */ 0, creds);
+      return HttpBlobStore.create(uri, timeoutSeconds, /* remoteMaxConnections= */ 0, creds,
+          /* metrics= */ null);
     } else {
       throw new IllegalStateException(
           "unsupported socket address class " + socketAddress.getClass());
