@@ -15,7 +15,6 @@ package com.google.devtools.build.importdeps;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.ResultCollector.MissingMember;
 import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
@@ -31,11 +30,9 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
-import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassReader;
@@ -49,8 +46,6 @@ public final class ImportDepsChecker implements Closeable {
   private final ClassCache classCache;
   private final ResultCollector resultCollector;
   private final ImmutableList<Path> inputJars;
-  private final ImmutableMap<Path, String> pathToTargetMap;
-  private final Function<ClassInfo, String> classInfoLabelFunc;
 
   public ImportDepsChecker(
       ImmutableList<Path> bootclasspath,
@@ -62,23 +57,6 @@ public final class ImportDepsChecker implements Closeable {
     this.classCache = new ClassCache(bootclasspath, directClasspath, classpath, inputJars);
     this.resultCollector = new ResultCollector(checkMissingMembers);
     this.inputJars = inputJars;
-    this.pathToTargetMap = buildPathToTargetMap(bootclasspath, classpath, inputJars);
-    this.classInfoLabelFunc =
-        klass -> {
-          String klassName = klass.internalName().replace('/', '.');
-          String targetName = pathToTargetMap.get(klass.jarPath());
-          if (targetName != null) {
-            int index = targetName.lastIndexOf('/');
-            if (index >= 0) {
-              // Just print the target name without the full path, as the Bazel tests have
-              // different full paths of targets.
-              targetName = targetName.substring(index + 1);
-            }
-            return klassName + " (in " + targetName + ")";
-          } else {
-            return klassName;
-          }
-        };
   }
 
   /**
@@ -213,20 +191,19 @@ public final class ImportDepsChecker implements Closeable {
     if (!classesWithMissingMembers.isEmpty()) {
       builder.append("The class hierarchies of the classes with missing members:").append("\n");
       classesWithMissingMembers.forEach(
-          missingClass -> printClassHierarchy(missingClass, builder, classInfoLabelFunc, "    "));
+          missingClass -> printClassHierarchy(missingClass, builder, "    "));
     }
   }
 
   private static void printClassHierarchy(
       ClassInfo klass,
       StringBuilder builder,
-      Function<ClassInfo, String> labelFunction,
       String indent) {
-    builder.append(indent).append(labelFunction.apply(klass)).append('\n');
+    builder.append(indent).append(toLabeledClassName(klass)).append('\n');
     String superIndent = indent + "    ";
 
     for (ClassInfo superClass : klass.superClasses()) {
-      printClassHierarchy(superClass, builder, labelFunction, superIndent);
+      printClassHierarchy(superClass, builder, superIndent);
     }
   }
 
@@ -238,9 +215,7 @@ public final class ImportDepsChecker implements Closeable {
       ResolutionFailureChain chain = incomplete.resolutionFailureChain();
       map.putAll(chain.getMissingClassesWithSubclasses());
     }
-    map.asMap()
-        .entrySet()
-        .stream()
+    map.asMap().entrySet().stream()
         .sorted(Map.Entry.comparingByKey())
         .forEach(
             entry -> {
@@ -249,17 +224,12 @@ public final class ImportDepsChecker implements Closeable {
                   .append(entry.getKey().replace('/', '.'))
                   .append(". Referenced by:")
                   .append('\n');
-              entry
-                  .getValue()
-                  .stream()
+              entry.getValue().stream()
                   .distinct()
                   .sorted()
                   .forEach(
                       reference -> {
-                        builder
-                            .append(INDENT)
-                            .append(classInfoLabelFunc.apply(reference))
-                            .append('\n');
+                        builder.append(INDENT).append(toLabeledClassName(reference)).append('\n');
                       });
             });
   }
@@ -270,24 +240,25 @@ public final class ImportDepsChecker implements Closeable {
     }
   }
 
-  private static ImmutableMap<Path, String> buildPathToTargetMap(ImmutableList<Path>... pathList) {
-    ImmutableMap.Builder<Path, String> labels = ImmutableMap.builder();
-    Stream.of(pathList)
-        .flatMap(ImmutableList::stream)
-        .distinct()
-        .forEach(
-            path -> {
-              String label = extractLabel(path);
-              if (label != null) {
-                labels.put(path, label);
-              }
-            });
-    return labels.build();
+  private static final String toLabeledClassName(ClassInfo klass) {
+    String klassName = klass.internalName().replace('/', '.');
+    String targetName = extractLabel(klass.jarPath());
+    if (targetName != null) {
+      int index = targetName.lastIndexOf('/');
+      if (index >= 0) {
+        // Just print the target name without the full path, as the Bazel tests have
+        // different full paths of targets.
+        targetName = targetName.substring(index + 1);
+      }
+      return klassName + " (in " + targetName + ")";
+    } else {
+      return klassName;
+    }
   }
 
-  private ImmutableList<String> extractLabels(ImmutableList<Path> jars) {
-    return jars.parallelStream()
-        .map(pathToTargetMap::get)
+  private static ImmutableList<String> extractLabels(ImmutableList<Path> jars) {
+    return jars.stream()
+        .map(ImportDepsChecker::extractLabel)
         .filter(Objects::nonNull)
         .distinct()
         .sorted()
