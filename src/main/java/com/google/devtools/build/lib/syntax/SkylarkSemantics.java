@@ -118,7 +118,7 @@ public abstract class SkylarkSemantics {
   // <== Add new options here in alphabetic order ==>
   public abstract boolean experimentalBuildSettingApi();
 
-  public abstract List<String> experimentalCcSkylarkApiEnabledPackages();
+  public abstract ImmutableList<String> experimentalCcSkylarkApiEnabledPackages();
 
   public abstract boolean experimentalEnableAndroidMigrationApis();
 
