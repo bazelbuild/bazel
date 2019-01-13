@@ -227,6 +227,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   @VisibleForTesting
+  public ResourceSet getResourceSet() { return resourceSet; }
+
+  @VisibleForTesting
   public CommandLines getCommandLines() {
     return commandLines;
   }

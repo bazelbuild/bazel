@@ -55,7 +55,9 @@ public final class TargetUtils {
           || tag.startsWith("supports-")
           || tag.startsWith("disable-")
           || tag.equals("local")
-          || tag.startsWith("cpu:");
+          || tag.startsWith("cpu:")
+          || tag.equals("cpu")
+          || tag.equals("memory");
     }
   };
 

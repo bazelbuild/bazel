@@ -28,8 +28,10 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -401,6 +403,39 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   }
 
   /**
+   * Helper for {@link #registerSpawnAction}.
+   *
+   * @param location see {@link #registerSpawnAction}
+   * @param value input string
+   * @param requirement requirement which parses {@code value}
+   * @return the parsed requirement
+   * @throws EvalException if the user's string cannot be parsed
+   */
+  private double parseRequirement(
+      Location location,
+      String value,
+      ExecutionRequirements.TaggedRequirement<Integer> requirement)
+      throws EvalException {
+    double result;
+
+    try {
+      result = requirement.parse(value);
+    } catch (ExecutionRequirements.TaggedRequirement.ValidationException e) {
+      throw new EvalException(
+          location,
+          String.format(
+              "%s has a '%s' tag, but its value '%s' did not pass validation: %s",
+              ruleContext.getLabel(),
+              requirement.tagName(),
+              e.getTagValue(),
+              e.getMessage()
+          ));
+    }
+
+    return result;
+  }
+
+  /**
    * Setup for spawn actions common between {@link #run} and {@link #runShell}.
    *
    * <p>{@code builder} should have either executable or a command set.
@@ -516,13 +551,32 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       builder.useDefaultShellEnvironment();
     }
     if (executionRequirementsUnchecked != Runtime.NONE) {
-      builder.setExecutionInfo(
-          TargetUtils.filter(
-              SkylarkDict.castSkylarkDictOrNoneToDict(
-                  executionRequirementsUnchecked,
-                  String.class,
-                  String.class,
-                  "execution_requirements")));
+      Map<String, String> executionInfo = TargetUtils.filter(
+          SkylarkDict.castSkylarkDictOrNoneToDict(
+              executionRequirementsUnchecked,
+              String.class,
+              String.class,
+              "execution_requirements"));
+      builder.setExecutionInfo(executionInfo);
+
+      String cpuAsString = executionInfo.get(ExecutionRequirements.TAGGED_CPU.tagName());
+      String memoryAsString = executionInfo.get(ExecutionRequirements.TAGGED_MEM_MB.tagName());
+
+      if (cpuAsString != null || memoryAsString != null) {
+        ResourceSet defaultResources = SpawnAction.DEFAULT_RESOURCE_SET;
+        double cpu = defaultResources.getCpuUsage();
+        double memMb = defaultResources.getMemoryMb();
+
+        if (cpuAsString != null) {
+          cpu = parseRequirement(location, cpuAsString, ExecutionRequirements.TAGGED_CPU);
+        }
+
+        if (memoryAsString != null) {
+          memMb = parseRequirement(location, memoryAsString, ExecutionRequirements.TAGGED_MEM_MB);
+        }
+
+        builder.setResources(ResourceSet.createWithRamCpu(memMb, cpu));
+      }
     }
     if (inputManifestsUnchecked != Runtime.NONE) {
       for (RunfilesSupplier supplier : SkylarkList.castSkylarkListOrNoneToList(

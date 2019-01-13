@@ -105,6 +105,96 @@ public class ExecutionRequirements {
     }
   }
 
+  /** An execution requirement that is split into a key and a parseable value. */
+  @AutoValue
+  public abstract static class TaggedRequirement<ValueType> {
+    /**
+     * Thrown when the {@link #validator()} method returns an error.
+     */
+    public static class ValidationException extends Exception {
+      private final String tagValue;
+
+      /**
+       * Creates a new {@link ValidationException}.
+       *
+       * @param tagValue the erroneous value that was parsed from the tag
+       * @param errorMsg an error message that tells the user what's wrong with the value
+       */
+      public ValidationException(String tagValue, String errorMsg) {
+        super(errorMsg);
+        this.tagValue = tagValue;
+      }
+
+      /**
+       * Returns the erroneous value of the parsed tag.
+       *
+       * <p>Useful to put in error messages shown to the user.
+       */
+      public String getTagValue() {
+        return tagValue;
+      }
+    }
+
+    /**
+     * Create a new parseable execution requirement definition.
+     *
+     * @param tagName a human readable name of the tag
+     * @param validator a Function that will be used to validate the value of the tag. It should
+     *     return null if the value is fine to use or a human-friendly error message describing why
+     *     the value is not valid.
+     * @param parser a Function that will transform the value of the tag to {@link ValueType}.
+     */
+    static <ValueType> TaggedRequirement<ValueType> create(
+        String tagName,
+        Function<String, String> validator,
+        Function<String, ValueType> parser) {
+      return new AutoValue_ExecutionRequirements_TaggedRequirement<ValueType>(
+          tagName, validator, parser);
+    }
+
+    public abstract String tagName();
+
+    public abstract Function<String, String> validator();
+
+    public abstract Function<String, ValueType> parser();
+
+    /**
+     * Returns the parsed value from a tag's value.
+     *
+     * @throws ValidationException if the value parsed out of the tag doesn't pass the validator.
+     */
+    public ValueType parse(String value) throws ValidationException {
+      String errorMsg = validator().apply(value);
+      if (errorMsg != null) {
+        throw new ValidationException(value, errorMsg);
+      }
+      return parser().apply(value);
+    }
+  }
+
+  /** Integer validator to use with {@link ParseableRequirement} and {@link TaggedRequirement}. */
+  private static String IntegerValidator(String s) {
+    Preconditions.checkNotNull(s);
+
+    int value;
+    try {
+      value = Integer.parseInt(s);
+    } catch (NumberFormatException e) {
+      return "can't be parsed as an integer";
+    }
+
+    // De-and-reserialize & compare to only allow canonical integer formats.
+    if (!Integer.toString(value).equals(s)) {
+      return "must be in canonical format (e.g. '4' instead of '+04')";
+    }
+
+    if (value < 1) {
+      return "can't be zero or negative";
+    }
+
+    return null;
+  }
+
   /** If specified, the timeout of this action in seconds. Must be decimal integer. */
   public static final String TIMEOUT = "timeout";
 
@@ -119,26 +209,47 @@ public class ExecutionRequirements {
       ParseableRequirement.create(
           "cpu:<int>",
           Pattern.compile("cpu:(.+)"),
+          ExecutionRequirements::IntegerValidator);
+
+  /** How many hardware threads an action requires for execution. */
+  public static final TaggedRequirement<Integer> TAGGED_CPU =
+      TaggedRequirement.create(
+          "cpu",
+          ExecutionRequirements::IntegerValidator,
+          Integer::parseInt);
+
+  private static final Pattern MEMORY_PATTERN = Pattern.compile("^(\\d+(\\.\\d+)?)([GM])$");
+
+  /**
+   * How much real memory (resident set size) this action requires for execution.
+   *
+   * Input must be an integer or trivial floating point (no sign or exponent)
+   * followed by an "M" or "G" suffix to indicate megabytes or gigabytes,
+   * respectively.
+   */
+  public static final TaggedRequirement<Integer> TAGGED_MEM_MB =
+      TaggedRequirement.create(
+          "memory",
           s -> {
-            Preconditions.checkNotNull(s);
-
-            int value;
+            Matcher m = MEMORY_PATTERN.matcher(s);
+            if (!m.matches()) {
+              return String.format("must match pattern '%s'", MEMORY_PATTERN.pattern());
+            }
             try {
-              value = Integer.parseInt(s);
+              float value = Float.parseFloat(m.group(1));
             } catch (NumberFormatException e) {
-              return "can't be parsed as an integer";
+              return "can't be parsed as a float";
             }
-
-            // De-and-reserialize & compare to only allow canonical integer formats.
-            if (!Integer.toString(value).equals(s)) {
-              return "must be in canonical format (e.g. '4' instead of '+04')";
-            }
-
-            if (value < 1) {
-              return "can't be zero or negative";
-            }
-
             return null;
+          },
+          s -> {
+            Matcher m = MEMORY_PATTERN.matcher(s);
+            m.matches();  // Required before m.group; guaranteed per validator above.
+            float memoryMb = Float.parseFloat(m.group(1));
+            if (m.group(3).equals("G")) {
+              memoryMb *= 1024;
+            }
+            return (int)memoryMb;
           });
 
   /** If an action supports running in persistent worker mode. */

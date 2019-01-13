@@ -378,6 +378,27 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testCreateSpawnActionResourceSet() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "ruleContext.actions.run_shell(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  env = {'a' : 'b'},",
+        "  execution_requirements = {'cpu': '4', 'memory': '1.5G'},",
+        "  mnemonic = 'DummyMnemonic',",
+        "  command = 'dummy_command',",
+        "  progress_message = 'dummy_message')");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getResourceSet().getCpuUsage()).isEqualTo(4.0);
+    assertThat(action.getResourceSet().getMemoryMb()).isEqualTo(1536.0);
+  }
+
+  @Test
   public void testCreateSpawnActionUnknownParam() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
