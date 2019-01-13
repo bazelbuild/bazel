@@ -160,6 +160,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
                             Label.parseAbsoluteUnchecked(
                                 toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
             .requiresConfigurationFragments(AndroidConfiguration.class)
+            .requireAspectsWithProviders(
+                ImmutableList.of(
+                    ImmutableSet.of(forKey(JavaInfo.PROVIDER.getKey()))))
             .requireAspectsWithNativeProviders(JavaProtoLibraryAspectProvider.class);
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
@@ -280,7 +283,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   private static Iterable<Artifact> getProducedRuntimeJars(
       ConfiguredTarget base, RuleContext ruleContext) {
-    if (isProtoLibrary(ruleContext)) {
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
+    if (javaInfo != null) {
+      return javaInfo.getDirectRuntimeJars();
+    } else if (isProtoLibrary(ruleContext)) {
       if (!ruleContext.getPrerequisites("srcs", Mode.TARGET).isEmpty()) {
         JavaRuleOutputJarsProvider outputJarsProvider =
             base.getProvider(JavaRuleOutputJarsProvider.class);
@@ -291,11 +297,6 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
               .map(OutputJar::getClassJar)
               .collect(toImmutableList());
         }
-      }
-    } else {
-      JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
-      if (javaInfo != null) {
-        return javaInfo.getDirectRuntimeJars();
       }
     }
     return null;
