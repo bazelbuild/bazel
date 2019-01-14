@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -212,8 +211,7 @@ public abstract class DependencyResolver {
             trimmingTransitionFactory);
 
     visitTargetVisibility(node, rootCauses, outgoingEdges.get(null));
-    resolveExplicitAttributes(depResolver);
-    resolveNonExplicitAttributes(depResolver, ruleConfig, hostConfig);
+    resolveAttributes(depResolver, ruleConfig, hostConfig);
 
     // Add the rule's visibility labels (which may come from the rule or from package defaults).
     addExplicitDeps(depResolver, "visibility", rule.getVisibility().getDependencyLabels());
@@ -255,36 +253,7 @@ public abstract class DependencyResolver {
     resolveToolchainDependencies(outgoingEdges.get(toolchainsAttribute), toolchainLabels);
   }
 
-  private void resolveExplicitAttributes(final RuleResolver depResolver)
-      throws InterruptedException, InconsistentAspectOrderException {
-
-    // Track size of filtered iterable by having an always-true clause that only gets checked after
-    // all relevant clauses are checked.
-    Collection<AttributeMap.DepEdge> depEdges = depResolver.attributeMap.visitLabels();
-    Iterable<AttributeMap.DepEdge> filteredEdges =
-        Iterables.filter(
-            depEdges,
-            depEdge ->
-                !depEdge.getAttribute().isImplicit() && !depEdge.getAttribute().isLateBound());
-    Map<Label, Target> result =
-        getTargets(
-            Iterables.transform(filteredEdges, AttributeMap.DepEdge::getLabel),
-            depResolver.rule,
-            depResolver.rootCauses,
-            depEdges.size());
-    if (result == null) {
-      return;
-    }
-
-    for (AttributeMap.DepEdge depEdge : filteredEdges) {
-      Target target = result.get(depEdge.getLabel());
-      if (target != null) {
-        depResolver.registerEdge(new AttributeAndOwner(depEdge.getAttribute()), target);
-      }
-    }
-  }
-
-  private void resolveNonExplicitAttributes(
+  private void resolveAttributes(
       RuleResolver depResolver, BuildConfiguration ruleConfig, BuildConfiguration hostConfig)
       throws InterruptedException, InconsistentAspectOrderException {
     Rule rule = depResolver.rule;
@@ -324,6 +293,11 @@ public abstract class DependencyResolver {
         } else if (attribute.isLateBound()) {
           attributeValue =
               resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig, hostConfig);
+        } else if (attributeMap.has(attribute.getName())) {
+          // This condition is false for aspect attributes that do not give rise to dependencies
+          // because attributes that come from aspects do not appear in attributeMap (see the
+          // comment in the case that handles implicit attributes)
+          attributeValue = attributeMap.get(attribute.getName(), attribute.getType());
         } else {
           continue;
         }
