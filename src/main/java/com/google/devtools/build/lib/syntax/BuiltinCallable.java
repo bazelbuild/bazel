@@ -57,6 +57,6 @@ public class BuiltinCallable implements StarlarkFunction {
 
   @Override
   public void repr(SkylarkPrinter printer) {
-    printer.append("<function " + methodName + ">");
+    printer.append("<built-in function " + methodName + ">");
   }
 }
