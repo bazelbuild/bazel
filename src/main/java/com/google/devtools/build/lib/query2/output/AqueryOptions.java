@@ -45,4 +45,15 @@ public class AqueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Whether to include aspect generated actions in the output.")
   public boolean useAspects;
+
+  @Option(
+      name = "include_param_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Include the content of the param files used in the command (potentially large). "
+              + "Note: Enabling this flag will automatically enable the "
+              + "--include_commandline flag.")
+  public boolean includeParamFiles;
 }

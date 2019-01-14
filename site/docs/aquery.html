@@ -147,12 +147,32 @@ $ bazel aquery 'inputs(".*cpp, deps(//src/target_a))'
 
 <h3 id="aquery-options">Aquery options</h3>
 
-<h4><code class='flag'>--output=(text|proto), default=text</code></h4>
+<h4><code class='flag'>--output=(text|proto|textproto), default=text</code></h4>
 
 <p>
   The default output format (<code>text</code>) is human-readable,
   use <code>proto</code> or <code>textproto</code> for machine-readable format.
 </p>
+
+<h4><code class='flag'>--include_commandline, default=true</code></h4>
+
+<p>
+  Includes the content of the action command lines in the output (potentially large).
+</p>
+
+<h4><code class='flag'>--include_aspects, default=false</code></h4>
+
+<p>
+  Whether to include aspect generated actions in the output.
+</p>
+
+<h4><code class='flag'>--include_param_files, default=false</code></h4>
+
+<p>
+  Include the content of the param files used in the command (potentially large).
+  Warning: Enabling this flag will automatically enable the <code>--include_commandline</code> flag.
+</p>
+
 
 <h2 id='known-issues'>Known Issues</h2>
 

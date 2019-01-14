@@ -63,7 +63,9 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.actionFilters = actionFilters;
-    this.actionGraphDump = new ActionGraphDump(options.includeCommandline, this.actionFilters);
+    this.actionGraphDump =
+        new ActionGraphDump(
+            options.includeCommandline, this.actionFilters, options.includeParamFiles);
   }
 
   @Override
@@ -75,6 +77,9 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     try {
+      // Enabling includeParamFiles should enable includeCommandline by default.
+      options.includeCommandline |= options.includeParamFiles;
+
       for (ConfiguredTargetValue configuredTargetValue : partialResult) {
         actionGraphDump.dumpConfiguredTarget(configuredTargetValue);
         if (options.useAspects) {

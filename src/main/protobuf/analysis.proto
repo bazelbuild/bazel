@@ -89,6 +89,9 @@ message Action {
   // information to modify the execution environment, but actions will
   // generally not be aware of it.
   repeated KeyValuePair execution_info = 11;
+
+  // The list of param files. This will be only set if explicitly requested.
+  repeated ParamFile param_files = 12;
 }
 
 // Represents a single target (without configuration information) that is
@@ -181,4 +184,14 @@ message ConfiguredTarget {
 message CqueryResult {
   // All the configuredtargets returns by cquery
   repeated ConfiguredTarget results = 1;
+}
+
+// Content of a param file.
+message ParamFile {
+  // The exec path of the param file artifact.
+  string exec_path = 1;
+
+  // The arguments in the param file.
+  // Each argument corresponds to a line in the param file.
+  repeated string arguments = 2;
 }

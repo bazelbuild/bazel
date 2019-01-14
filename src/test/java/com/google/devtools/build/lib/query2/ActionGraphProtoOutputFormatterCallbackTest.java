@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContaine
 import com.google.devtools.build.lib.analysis.AnalysisProtos.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.DepSetOfFiles;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.KeyValuePair;
+import com.google.devtools.build.lib.analysis.AnalysisProtos.ParamFile;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.ActionGraphProtoOutputFormatterCallback.OutputType;
@@ -36,12 +37,15 @@ import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.output.AqueryOptions;
 import com.google.devtools.build.lib.query2.output.AspectResolver.Mode;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import com.google.devtools.build.lib.util.OS;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -52,7 +56,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
   private final List<Event> events = new ArrayList<>();
 
   @Before
-  public final void setUpCqueryOptions() {
+  public final void setUpAqueryOptions() {
     this.options = new AqueryOptions();
     options.aspectDeps = Mode.OFF;
     this.reporter = new Reporter(new EventBus(), events::add);
@@ -351,6 +355,103 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
     ActionGraphContainer actionGraphContainer =
         getOutput("mnemonic('something', //test:foo)", actionFilters);
     assertThat(actionGraphContainer.getActionsCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void test_includeParamFile_subsetOfCmdlineArgs() throws Exception {
+    if (OS.getCurrent() == OS.DARWIN) {
+      return;
+    }
+    options.includeParamFiles = true;
+    options.includeCommandline = true;
+
+    writeFile("test/BUILD", "cc_binary(name='foo', srcs=['foo.cc'])");
+    ActionGraphContainer actionGraphContainer =
+        getOutput("deps(//test:foo)", AqueryActionFilter.emptyInstance());
+    Action cppLinkAction =
+        Iterables.getOnlyElement(
+            actionGraphContainer.getActionsList().stream()
+                .filter(x -> x.getMnemonic().equals("CppLink"))
+                .collect(Collectors.toList()));
+
+    // Verify that there's exactly 1 param file.
+    assertThat(cppLinkAction.getParamFilesCount()).isEqualTo(1);
+
+    // Verify that the set of arguments in the param file
+    // is a subset of the set of arguments in the command line.
+    ParamFile paramFile = Iterables.getOnlyElement(cppLinkAction.getParamFilesList());
+    Set<String> cmdlineArgs = new HashSet<>(cppLinkAction.getArgumentsList());
+    Set<String> paramFileArgs = new HashSet<>(paramFile.getArgumentsList());
+    assertThat(cmdlineArgs).containsAllIn(paramFileArgs);
+  }
+
+  @Test
+  public void test_flagTurnedOff_excludeParamFile() throws Exception {
+    if (OS.getCurrent() == OS.DARWIN) {
+      return;
+    }
+    writeFile("test/BUILD", "cc_binary(name='foo', srcs=['foo.cc'])");
+    ActionGraphContainer actionGraphContainer =
+        getOutput("deps(//test:foo)", AqueryActionFilter.emptyInstance());
+    Action cppLinkAction =
+        Iterables.getOnlyElement(
+            actionGraphContainer.getActionsList().stream()
+                .filter(x -> x.getMnemonic().equals("CppLink"))
+                .collect(Collectors.toList()));
+
+    // Verify that there's no param file field.
+    assertThat(cppLinkAction.getParamFilesCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void test_includeParamFileSpawnActionStarlarkRule_noParamFileExplicitlyWritten()
+      throws Exception {
+    if (OS.getCurrent() == OS.DARWIN) {
+      return;
+    }
+    options.includeParamFiles = true;
+    options.includeCommandline = true;
+
+    writeFile(
+        "test/test_rule.bzl",
+        "def _impl(ctx):",
+        "  args = ctx.actions.args()",
+        "  args.add('--param_file_arg')",
+        "  args.set_param_file_format('multiline')",
+        "  args.use_param_file('--param_file=%s', use_always = True)",
+        "  ctx.actions.run(",
+        "    inputs = ctx.files.srcs,",
+        "    outputs = [ctx.outputs.outfile],",
+        "    executable = 'dummy',",
+        "    arguments = ['--non-param-file-flag', args],",
+        "    mnemonic = 'SkylarkAction'",
+        "  )",
+        "test_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True)",
+        "  },",
+        "  outputs = {",
+        "    'outfile': '{name}.out'",
+        "  },",
+        ")");
+
+    writeFile(
+        "test/BUILD",
+        "load('//test:test_rule.bzl', 'test_rule')",
+        "test_rule(name='foo', srcs=['foo.java'])");
+
+    ActionGraphContainer actionGraphContainer =
+        getOutput("deps(//test:all)", AqueryActionFilter.emptyInstance());
+
+    Action spawnAction = Iterables.getOnlyElement(actionGraphContainer.getActionsList());
+
+    // Verify that there's no param file field.
+    assertThat(spawnAction.getParamFilesCount()).isEqualTo(0);
+
+    // Verify that the argument list contains both arguments from param file and otherwise.
+    assertThat(spawnAction.getArgumentsList())
+        .containsExactly("dummy", "--non-param-file-flag", "--param_file_arg");
   }
 
   private AnalysisProtos.ActionGraphContainer getOutput(String queryExpression) throws Exception {

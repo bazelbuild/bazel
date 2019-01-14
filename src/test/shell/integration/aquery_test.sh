@@ -658,4 +658,113 @@ EOF
     2> "$TEST_log" || fail "Expected success"
 }
 
+function test_aquery_include_param_file_cc_binary() {
+  if [ is_darwin ]; then
+    return 0
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+cc_binary(
+    name='foo',
+    srcs=['foo.cc']
+)
+EOF
+
+  # cc_binary targets write param files and use them in CppLinkActions.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text --include_param_files ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Command Line: " output
+  assert_contains "Params File Content (.*-2.params):" output
+
+  bazel aquery --output=textproto --include_param_files ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_include_param_file_starlark_rule() {
+  if [ is_darwin ]; then
+    return 0
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/test_rule.bzl" <<'EOF'
+def _impl(ctx):
+  args = ctx.actions.args()
+  args.add('--param_file_arg')
+  args.set_param_file_format('multiline')
+  args.use_param_file('--param_file=%s', use_always = True)
+  ctx.actions.run(
+    inputs = ctx.files.srcs,
+    outputs = [ctx.outputs.outfile],
+    executable = 'dummy',
+    arguments = ['--non-param-file-flag', args],
+    mnemonic = 'SkylarkAction'
+  )
+
+test_rule = rule(
+  implementation = _impl,
+  attrs = {
+    'srcs': attr.label_list(allow_files=True)
+  },
+  outputs = {
+    'outfile': '{name}.out'
+  },
+)
+EOF
+
+cat > "$pkg/BUILD" <<'EOF'
+load(':test_rule.bzl', 'test_rule')
+test_rule(
+    name='foo',
+    srcs=['foo.java']
+)
+EOF
+
+  # Actions from Starlark rules don't explicitly write out param file,
+  # but includes all arguments (including those in the param file) in the command line.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text --include_param_files ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_not_contains "Params File Content" output
+
+  bazel aquery --output=textproto --include_param_files ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_include_param_file_not_enabled_by_default() {
+  if [ is_darwin ]; then
+    return 0
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+cc_binary(
+    name='foo',
+    srcs=['foo.cc']
+)
+EOF
+
+  # cc_binary targets write param files and use them in CppLinkActions.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_not_contains "Params File Content" output
+
+  bazel aquery --output=textproto ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
 run_suite "${PRODUCT_NAME} action graph query tests"
