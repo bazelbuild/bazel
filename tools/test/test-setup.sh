@@ -246,10 +246,12 @@ if [ ! -z "$TEST_SHORT_EXEC_PATH" ]; then
 fi
 
 exitCode=0
-signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
-for signal in $signals; do
-  trap "write_xml_output_file ${signal}" ${signal}
-done
+if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" != "1" ]]; then
+  signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
+  for signal in $signals; do
+    trap "write_xml_output_file ${signal}" ${signal}
+  done
+fi
 start=$(date +%s)
 
 # Check if we have tail --pid option
@@ -284,10 +286,10 @@ else
   fi
 fi
 
-for signal in $signals; do
-  trap - ${signal}
-done
 if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" != "1" ]]; then
+  for signal in $signals; do
+    trap - ${signal}
+  done
   write_xml_output_file
 fi
 
