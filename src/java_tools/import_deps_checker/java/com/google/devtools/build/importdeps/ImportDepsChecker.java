@@ -15,6 +15,7 @@ package com.google.devtools.build.importdeps;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.ResultCollector.MissingMember;
 import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
@@ -45,13 +46,13 @@ public final class ImportDepsChecker implements Closeable {
 
   private final ClassCache classCache;
   private final ResultCollector resultCollector;
-  private final ImmutableList<Path> inputJars;
+  private final ImmutableSet<Path> inputJars;
 
   public ImportDepsChecker(
-      ImmutableList<Path> bootclasspath,
-      ImmutableList<Path> directClasspath,
-      ImmutableList<Path> classpath,
-      ImmutableList<Path> inputJars,
+      ImmutableSet<Path> bootclasspath,
+      ImmutableSet<Path> directClasspath,
+      ImmutableSet<Path> classpath,
+      ImmutableSet<Path> inputJars,
       boolean checkMissingMembers)
       throws IOException {
     this.classCache = new ClassCache(bootclasspath, directClasspath, classpath, inputJars);

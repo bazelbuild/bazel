@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.importdeps;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -55,10 +54,10 @@ public final class ClassCache implements Closeable {
   private boolean isClosed;
 
   public ClassCache(
-      ImmutableList<Path> bootclasspath,
-      ImmutableList<Path> directClasspath,
-      ImmutableList<Path> regularClasspath,
-      ImmutableList<Path> inputJars)
+      ImmutableSet<Path> bootclasspath,
+      ImmutableSet<Path> directClasspath,
+      ImmutableSet<Path> regularClasspath,
+      ImmutableSet<Path> inputJars)
       throws IOException {
     lazyClasspath = new LazyClasspath(bootclasspath, directClasspath, regularClasspath, inputJars);
   }
@@ -224,16 +223,11 @@ public final class ClassCache implements Closeable {
     private final Closer closer = Closer.create();
 
     public LazyClasspath(
-        ImmutableList<Path> bootclasspath,
-        ImmutableList<Path> directClasspath,
-        ImmutableList<Path> regularClasspath,
-        ImmutableList<Path> inputJars)
+        ImmutableSet<Path> bootclasspath,
+        ImmutableSet<Path> directClasspath,
+        ImmutableSet<Path> regularClasspath,
+        ImmutableSet<Path> inputJars)
         throws IOException {
-      checkArgument(
-          regularClasspath.containsAll(directClasspath),
-          "Some direct deps %s missing from transitive deps %s",
-          directClasspath,
-          regularClasspath);
       this.bootclasspath = new ClassIndex("boot classpath", bootclasspath, Predicates.alwaysTrue());
       this.inputJars = new ClassIndex("input jars", inputJars, Predicates.alwaysTrue());
       this.regularClasspath =
@@ -283,7 +277,7 @@ public final class ClassCache implements Closeable {
     private final ImmutableMap<String, LazyClassEntry> classIndex;
     private final Closer closer;
 
-    public ClassIndex(String name, ImmutableList<Path> jarFiles, Predicate<Path> isDirect)
+    public ClassIndex(String name, ImmutableSet<Path> jarFiles, Predicate<Path> isDirect)
         throws IOException {
       this.name = name;
       this.closer = Closer.create();
@@ -319,7 +313,7 @@ public final class ClassCache implements Closeable {
     }
 
     private static ImmutableMap<String, LazyClassEntry> buildClassIndex(
-        ImmutableList<Path> jars, Closer closer, Predicate<Path> isDirect) throws IOException {
+        ImmutableSet<Path> jars, Closer closer, Predicate<Path> isDirect) throws IOException {
       HashMap<String, LazyClassEntry> result = new HashMap<>();
       for (Path jarPath : jars) {
         boolean jarIsDirect = isDirect.test(jarPath);

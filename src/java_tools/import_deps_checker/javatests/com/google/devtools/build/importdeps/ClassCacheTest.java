@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.ExistingState;
 import com.google.devtools.build.importdeps.ClassCache.LazyClassEntry;
 import com.google.devtools.build.importdeps.ClassCache.LazyClasspath;
@@ -37,10 +38,10 @@ public class ClassCacheTest extends AbstractClassCacheTest {
   public void testLibraryJar() throws Exception {
     try (ClassCache cache =
         new ClassCache(
-            ImmutableList.of(bootclasspath),
-            ImmutableList.of(),
-            ImmutableList.of(libraryJar, libraryInterfaceJar),
-            ImmutableList.of())) {
+            ImmutableSet.of(bootclasspath),
+            ImmutableSet.of(),
+            ImmutableSet.of(libraryJar, libraryInterfaceJar),
+            ImmutableSet.of())) {
       assertCache(
           cache,
           libraryJarPositives,
@@ -52,10 +53,10 @@ public class ClassCacheTest extends AbstractClassCacheTest {
   public void testClientJarWithSuperClasses() throws IOException {
     try (ClassCache cache =
         new ClassCache(
-            ImmutableList.of(bootclasspath),
-            ImmutableList.of(libraryJar, libraryInterfaceJar),
-            ImmutableList.of(libraryJar, libraryInterfaceJar),
-            ImmutableList.of(clientJar))) {
+            ImmutableSet.of(bootclasspath),
+            ImmutableSet.of(libraryJar, libraryInterfaceJar),
+            ImmutableSet.of(libraryJar, libraryInterfaceJar),
+            ImmutableSet.of(clientJar))) {
       assertCache(
           cache,
           clientJarPositives,
@@ -67,27 +68,23 @@ public class ClassCacheTest extends AbstractClassCacheTest {
   public void testClientJarWithoutSuperClasses() throws IOException {
     try (ClassCache cache =
         new ClassCache(
-            ImmutableList.of(bootclasspath),
-            ImmutableList.of(),
-            ImmutableList.of(),
-            ImmutableList.of(clientJar))) {
+            ImmutableSet.of(bootclasspath),
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            ImmutableSet.of(clientJar))) {
       // Client should be incomplete, as its parent class and interfaces are not available on the
       // classpath. The following is the resolution path.
       {
         AbstractClassEntryState state = cache.getClassState(PACKAGE_NAME + "Client");
         assertThat(state.isIncompleteState()).isTrue();
 
-        ImmutableList<String> successPart =
-            state
-                .asIncompleteState()
-                .resolutionFailureChain()
-                .getMissingClassesWithSubclasses()
-                .values()
-                .stream()
+        ImmutableSet<String> successPart =
+            state.asIncompleteState().resolutionFailureChain().getMissingClassesWithSubclasses()
+                .values().stream()
                 .distinct()
                 .sorted()
                 .map(ClassInfo::internalName)
-                .collect(ImmutableList.toImmutableList());
+                .collect(ImmutableSet.toImmutableSet());
         assertThat(successPart).containsExactly(PACKAGE_NAME + "Client").inOrder();
         assertThat(state.asIncompleteState().missingAncestors())
             .containsExactly(
@@ -110,10 +107,10 @@ public class ClassCacheTest extends AbstractClassCacheTest {
   public void testLibraryException() throws IOException {
     try (ClassCache cache =
         new ClassCache(
-            ImmutableList.of(bootclasspath),
-            ImmutableList.of(),
-            ImmutableList.of(),
-            ImmutableList.of(libraryExceptionJar))) {
+            ImmutableSet.of(bootclasspath),
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            ImmutableSet.of(libraryExceptionJar))) {
       assertCache(
           cache,
           libraryExceptionJarPositives,
@@ -125,10 +122,10 @@ public class ClassCacheTest extends AbstractClassCacheTest {
   public void testLibraryAnnotations() throws IOException {
     try (ClassCache cache =
         new ClassCache(
-            ImmutableList.of(bootclasspath),
-            ImmutableList.of(),
-            ImmutableList.of(),
-            ImmutableList.of(libraryAnnotationsJar))) {
+            ImmutableSet.of(bootclasspath),
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            ImmutableSet.of(libraryAnnotationsJar))) {
       assertCache(
           cache,
           libraryAnnotationsJarPositives,
@@ -139,8 +136,7 @@ public class ClassCacheTest extends AbstractClassCacheTest {
   @Test
   public void testCannotAccessClosedCache() throws IOException {
     ClassCache cache =
-        new ClassCache(
-            ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+        new ClassCache(ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of());
     cache.close();
     cache.close(); // Can close multiple times.
     assertThrows(IllegalStateException.class, () -> cache.getClassState("empty"));
@@ -154,10 +150,10 @@ public class ClassCacheTest extends AbstractClassCacheTest {
   public void testSuperNotExistThenSubclassNotExist() throws IOException {
     try (ClassCache cache =
         new ClassCache(
-            ImmutableList.of(),
-            ImmutableList.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
-            ImmutableList.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
-            ImmutableList.of(clientJar))) {
+            ImmutableSet.of(),
+            ImmutableSet.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
+            ImmutableSet.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
+            ImmutableSet.of(clientJar))) {
       assertThat(
               cache
                   .getClassState("com/google/devtools/build/importdeps/testdata/Library$Class9")
@@ -175,10 +171,10 @@ public class ClassCacheTest extends AbstractClassCacheTest {
   public void testJdepsOutput() throws IOException {
     try (ClassCache cache =
         new ClassCache(
-            ImmutableList.of(),
-            ImmutableList.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
-            ImmutableList.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
-            ImmutableList.of(clientJar))) {
+            ImmutableSet.of(),
+            ImmutableSet.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
+            ImmutableSet.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
+            ImmutableSet.of(clientJar))) {
       assertThat(
               cache
                   .getClassState("com/google/devtools/build/importdeps/testdata/Library$Class9")
@@ -209,10 +205,10 @@ public class ClassCacheTest extends AbstractClassCacheTest {
     {
       LazyClasspath classpath =
           new LazyClasspath(
-              ImmutableList.of(libraryJar),
-              ImmutableList.of(libraryWoMembersJar),
-              ImmutableList.of(libraryWoMembersJar),
-              ImmutableList.of());
+              ImmutableSet.of(libraryJar),
+              ImmutableSet.of(libraryWoMembersJar),
+              ImmutableSet.of(libraryWoMembersJar),
+              ImmutableSet.of());
       LazyClassEntry entry =
           classpath.getLazyEntry("com/google/devtools/build/importdeps/testdata/Library$Class4");
       AbstractClassEntryState state = entry.getState(classpath);
@@ -231,10 +227,10 @@ public class ClassCacheTest extends AbstractClassCacheTest {
     {
       LazyClasspath classpath =
           new LazyClasspath(
-              ImmutableList.of(libraryWoMembersJar),
-              ImmutableList.of(libraryJar),
-              ImmutableList.of(libraryJar),
-              ImmutableList.of());
+              ImmutableSet.of(libraryWoMembersJar),
+              ImmutableSet.of(libraryJar),
+              ImmutableSet.of(libraryJar),
+              ImmutableSet.of());
       LazyClassEntry entry =
           classpath.getLazyEntry("com/google/devtools/build/importdeps/testdata/Library$Class4");
       AbstractClassEntryState state = entry.getState(classpath);
@@ -251,10 +247,10 @@ public class ClassCacheTest extends AbstractClassCacheTest {
   public void testOriginInformation() throws IOException {
     try (ClassCache cache =
         new ClassCache(
-            ImmutableList.of(bootclasspath),
-            ImmutableList.of(libraryJar),
-            ImmutableList.of(libraryJar, libraryInterfaceJar),
-            ImmutableList.of(clientJar))) {
+            ImmutableSet.of(bootclasspath),
+            ImmutableSet.of(libraryJar),
+            ImmutableSet.of(libraryJar, libraryInterfaceJar),
+            ImmutableSet.of(clientJar))) {
       assertCache(
           cache,
           clientJarPositives,
