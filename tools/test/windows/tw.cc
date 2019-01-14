@@ -1201,7 +1201,11 @@ bool StartSubprocess(const Path& path, const std::vector<const wchar_t*>& args,
     return true;
   } else {
     DWORD err = GetLastError();
-    LogErrorWithValue(__LINE__, "CreateProcessW failed", err);
+    LogErrorWithValue(
+        __LINE__,
+        (std::wstring(L"CreateProcessW failed (") + cmdline.get() + L")")
+            .c_str(),
+        err);
     return false;
   }
 }
