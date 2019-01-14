@@ -1048,7 +1048,7 @@ When `--incompatible_disallow_data_transition=true`, builds using this syntax
 fail with an error.
 
 *   Flag: `--incompatible_disallow_data_transition`
-*   Default: `false`
+*   Default: `true`
 *   Introduced in: `0.16.0`
 *   Tracking issue: [#6153](https://github.com/bazelbuild/bazel/issues/6153)
 

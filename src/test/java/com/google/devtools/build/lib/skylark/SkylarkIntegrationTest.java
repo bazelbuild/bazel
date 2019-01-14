@@ -559,7 +559,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  return struct(runfiles = rf)",
         "",
         "custom_rule = rule(implementation = custom_rule_impl, executable = True,",
-        "  attrs = {'data': attr.label_list(cfg='data', allow_files=True)})");
+        "  attrs = {'data': attr.label_list(allow_files=True)})");
 
     scratch.file(
         "test/skylark/BUILD",

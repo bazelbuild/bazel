@@ -213,7 +213,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDepsetUnion(false)
           .incompatibleDisableDeprecatedAttrParams(false)
           .incompatibleDisableObjcProviderResources(false)
-          .incompatibleDisallowDataTransition(false)
+          .incompatibleDisallowDataTransition(true)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowFileType(false)
           .incompatibleDisallowLegacyJavaProvider(false)
