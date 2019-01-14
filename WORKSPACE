@@ -244,14 +244,6 @@ http_archive(
     ],
 )
 
-# For src/test/shell/bazel:bazel_sandboxing_test
-http_file(
-    name = "mount_path_toolchain",
-    sha256 = "dd8088d3543a86fd91a9ccde6e40102aff6eaf3d048aa73cc18eff05cc2053d5",
-    urls = ["https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz"],
-    downloaded_file_path="mount_path_toolchain.tar.gz",
-)
-
 http_archive(
     name = "bazel_skylib",
     # Commit f83cb8dd6f5658bc574ccd873e25197055265d1c of 2018-11-26

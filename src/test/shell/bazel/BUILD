@@ -570,7 +570,6 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell:sandboxing_test_utils.sh",
-        "@mount_path_toolchain//file",
     ],
     tags = [
         "local",
