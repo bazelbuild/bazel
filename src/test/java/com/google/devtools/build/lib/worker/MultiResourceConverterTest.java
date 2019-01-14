@@ -45,8 +45,8 @@ public class MultiResourceConverterTest {
   @Test
   public void convert_mnemonicEqualsKeyword_equalsResourceConverterConvertKeyword()
       throws OptionsParsingException {
-    assertThat(multiResourceConverter.convert("someMnemonic=HOST_CPUS-2").getValue())
-        .isEqualTo(resourceConverter.convert("HOST_CPUS-2"));
+    assertThat(multiResourceConverter.convert("someMnemonic=HOST_CPUS-1").getValue())
+        .isEqualTo(resourceConverter.convert("HOST_CPUS-1"));
   }
 
   @Test
@@ -58,8 +58,8 @@ public class MultiResourceConverterTest {
   @Test
   public void convert_keyword_equalsResourceConverterConvertKeyword()
       throws OptionsParsingException {
-    assertThat(multiResourceConverter.convert("HOST_CPUS-2").getValue())
-        .isEqualTo(resourceConverter.convert("HOST_CPUS-2"));
+    assertThat(multiResourceConverter.convert("HOST_CPUS-1").getValue())
+        .isEqualTo(resourceConverter.convert("HOST_CPUS-1"));
   }
 
   @Test
