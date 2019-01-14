@@ -58,4 +58,4 @@ class JartoolCreator {
 const char *JartoolCreator::jar_path_ = nullptr;
 
 typedef testing::Types<JartoolCreator> Creators;
-INSTANTIATE_TYPED_TEST_CASE_P(Jartool, InputJarScanEntries, Creators);
+INSTANTIATE_TYPED_TEST_SUITE_P(Jartool, InputJarScanEntries, Creators);
