@@ -824,15 +824,18 @@ public final class CcCommon {
     if (toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
-    // If we're not using legacy crosstool fields, we assume 'static_link_cpp_runtimes' feature
-    // is enabled by default for toolchains that support it, and can be disabled by the user
-    // when needed using --feature=-static_link_cpp_runtimes option or
-    // features = [ '-static_link_cpp_runtimes' ] rule attribute.
-    if (!cppConfiguration.disableLegacyCrosstoolFields()) {
-      if (enableStaticLinkCppRuntimesFeature(requestedFeatures, unsupportedFeatures, toolchain)) {
-        allRequestedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
-      } else {
-        unsupportedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
+
+    if (toolchain.supportsEmbeddedRuntimes()) {
+      if (!cppConfiguration.disableLegacyCrosstoolFields()) {
+        // If we're not using legacy crosstool fields, we assume 'static_link_cpp_runtimes' feature
+        // is enabled by default for toolchains that support it, and can be disabled by the user
+        // when needed using --feature=-static_link_cpp_runtimes option or
+        // features = [ '-static_link_cpp_runtimes' ] rule attribute.
+        if (enableStaticLinkCppRuntimesFeature(requestedFeatures, unsupportedFeatures, toolchain)) {
+          allRequestedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
+        } else {
+          unsupportedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
+        }
       }
     }
 
