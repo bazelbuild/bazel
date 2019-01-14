@@ -473,7 +473,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     ])
 
     repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
-    darwin = cpu_value == "darwin"
+    darwin = cpu_value == "darwin_x86_64"
 
     cc = _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
     overriden_tools = dict(overriden_tools)

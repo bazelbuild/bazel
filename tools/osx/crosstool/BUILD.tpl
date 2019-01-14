@@ -10,9 +10,9 @@ CC_TOOLCHAINS = [(
     ":cc-compiler-" + cpu,
 ) for cpu in OSX_TOOLS_ARCHS] + [
     ("k8|compiler", ":cc-compiler-darwin_x86_64", ),
-    ("darwin|compiler", ":cc-compiler-darwin_x86_64", ),
+    ("darwin_x86_64|compiler", ":cc-compiler-darwin_x86_64", ),
     ("k8", ":cc-compiler-darwin_x86_64", ),
-    ("darwin", ":cc-compiler-darwin_x86_64", ),
+    ("darwin_x86_64", ":cc-compiler-darwin_x86_64", ),
 ]
 
 cc_library(

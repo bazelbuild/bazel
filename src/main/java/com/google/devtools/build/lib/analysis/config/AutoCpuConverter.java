@@ -33,12 +33,7 @@ public class AutoCpuConverter implements Converter<String> {
       // TODO(philwo) - replace these deprecated names with more logical ones (e.g. k8 becomes linux-x86_64, ...).
       switch (OS.getCurrent()) {
         case DARWIN:
-          switch (CPU.getCurrent()) {
-            case X86_64:
-              return "darwin_x86_64";
-            default:
-              return "darwin";
-          }
+          return "darwin_x86_64";
         case FREEBSD:
           return "freebsd";
         case WINDOWS:

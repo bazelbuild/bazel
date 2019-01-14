@@ -367,7 +367,7 @@ toolchain {
 
   host_system_name: "local"
   target_system_name: "local"
-  target_cpu: "darwin"
+  target_cpu: "darwin_x86_64"
   target_libc: "macosx"
   compiler: "compiler"
   linking_mode_flags { mode: DYNAMIC }
@@ -407,7 +407,7 @@ toolchain {
   toolchain_identifier: "darwin-no-dyn-linker"
   host_system_name: "local"
   target_system_name: "local"
-  target_cpu: "darwin"
+  target_cpu: "darwin_x86_64"
   target_libc: "macosx"
   compiler: "compiler_no_dyn_linker"
   # No linking_mode_flags here

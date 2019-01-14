@@ -159,9 +159,9 @@ toolchain {
   host_system_name: "local"
   needsPic: true
   target_libc: "macosx"
-  target_cpu: "darwin"
+  target_cpu: "darwin_x86_64"
   target_system_name: "local"
-  toolchain_identifier: "local_darwin"
+  toolchain_identifier: "local_darwin_x86_64"
 
   tool_path { name: "ar" path: "/usr/bin/libtool" }
   tool_path { name: "compat-ld" path: "/usr/bin/ld" }

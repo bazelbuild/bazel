@@ -49,7 +49,7 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
         # TODO(ibiryukov): overriden_tools are only supported in configure_unix_toolchain.
         # We might want to add that to Windows too(at least for msys toolchain).
         configure_windows_toolchain(repository_ctx)
-    elif (cpu_value == "darwin" and
+    elif (cpu_value == "darwin_x86_64" and
           ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
         configure_osx_toolchain(repository_ctx, overriden_tools)
     else:

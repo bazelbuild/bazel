@@ -89,7 +89,7 @@ cc_toolchain_suite(
     name = "default-toolchain",
     toolchains = {
         "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
-        "darwin|compiler": ":cc-compiler-darwin",
+        "darwin_x86_64|compiler": ":cc-compiler-darwin",
         "freebsd|compiler": ":cc-compiler-freebsd",
         "local|compiler": ":cc-compiler-local",
         "x64_windows|compiler": ":cc-compiler-x64_windows",
@@ -102,7 +102,7 @@ cc_toolchain_suite(
         "s390x": ":cc-compiler-local",
         "ppc": ":cc-compiler-local",
         "ppc64": ":cc-compiler-local",
-        "darwin": ":cc-compiler-darwin",
+        "darwin_x86_64": ":cc-compiler-darwin",
         "freebsd": ":cc-compiler-freebsd",
         "armeabi-v7a": ":cc-compiler-armeabi-v7a",
         "x64_windows": ":cc-compiler-x64_windows",
@@ -227,12 +227,12 @@ toolchain(
 )
 
 cc_toolchain(
-    name = "cc-compiler-darwin",
+    name = "cc-compiler-darwin_x86_64",
     all_files = ":osx_wrapper",
     ar_files = ":empty",
     as_files = ":empty",
     compiler_files = ":osx_wrapper",
-    cpu = "darwin",
+    cpu = "darwin_x86_64",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
     linker_files = ":osx_wrapper",
@@ -240,11 +240,11 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
-    toolchain_identifier = "local_darwin",
+    toolchain_identifier = "local_darwin_x86_64",
 )
 
 toolchain(
-    name = "cc-toolchain-darwin",
+    name = "cc-toolchain-darwin_x86_64",
     exec_compatible_with = [
         "@bazel_tools//platforms:x86_64",
         "@bazel_tools//platforms:osx",
@@ -253,7 +253,7 @@ toolchain(
         "@bazel_tools//platforms:x86_64",
         "@bazel_tools//platforms:osx",
     ],
-    toolchain = ":cc-compiler-darwin",
+    toolchain = ":cc-compiler-darwin_x86_64",
     toolchain_type = ":toolchain_type",
 )
 

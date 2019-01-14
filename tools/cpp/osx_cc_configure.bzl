@@ -157,4 +157,4 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             {"%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories)},
         )
     else:
-        configure_unix_toolchain(repository_ctx, cpu_value = "darwin", overriden_tools = overriden_tools)
+        configure_unix_toolchain(repository_ctx, cpu_value = "darwin_x86_64", overriden_tools = overriden_tools)

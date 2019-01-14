@@ -284,7 +284,7 @@ def _is_linux(platform):
     return platform == "k8"
 
 def _is_darwin(platform):
-    return platform == "darwin"
+    return platform.startswith("darwin")
 
 def _is_msvc(platform):
     return platform == "msvc"

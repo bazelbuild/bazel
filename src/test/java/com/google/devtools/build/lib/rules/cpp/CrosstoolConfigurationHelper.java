@@ -74,7 +74,7 @@ public class CrosstoolConfigurationHelper {
           return "unknown";
       }
     }
-    return OS.getCurrent() == OS.DARWIN ? "darwin" : "k8";
+    return OS.getCurrent() == OS.DARWIN ? "darwin_x86_64" : "k8";
   }
 
   public static CrosstoolConfig.CrosstoolRelease simpleCompleteToolchainProto() {
