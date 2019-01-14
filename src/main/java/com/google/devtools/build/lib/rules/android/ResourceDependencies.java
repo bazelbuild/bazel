@@ -250,8 +250,8 @@ public final class ResourceDependencies {
         newDirectResource.getProcessedManifest().toProvider(),
         newDirectResource.getRTxt(),
         NestedSetBuilder.<ValidatedAndroidResources>naiveLinkOrder()
-            .addTransitive(directResourceContainers)
             .addTransitive(transitiveResourceContainers)
+            .addTransitive(directResourceContainers)
             .build(),
         NestedSetBuilder.<ValidatedAndroidResources>naiveLinkOrder()
             .add(newDirectResource.export())

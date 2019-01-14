@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -221,10 +220,7 @@ public class AndroidManifest {
       ResourceDependencies resourceDeps,
       Map<String, String> manifestValues,
       @Nullable String manifestMerger) {
-    Map<Artifact, Label> mergeeManifests =
-        getMergeeManifests(
-            resourceDeps.getResourceContainers(),
-            dataContext.getAndroidConfig().getManifestMergerOrder());
+    Map<Artifact, Label> mergeeManifests = getMergeeManifests(resourceDeps.getResourceContainers());
 
     Artifact newManifest;
     if (useLegacyMerging(errorConsumer, dataContext.getAndroidConfig(), manifestMerger)) {
@@ -276,16 +272,13 @@ public class AndroidManifest {
   }
 
   private static Map<Artifact, Label> getMergeeManifests(
-      Iterable<ValidatedAndroidResources> transitiveData,
-      AndroidConfiguration.ManifestMergerOrder manifestMergerOrder) {
-    ImmutableMap.Builder<Artifact, Label> builder = new ImmutableMap.Builder<>();
+      Iterable<ValidatedAndroidResources> transitiveData) {
+    ImmutableSortedMap.Builder<Artifact, Label> builder =
+        ImmutableSortedMap.orderedBy(Artifact.EXEC_PATH_COMPARATOR);
     for (ValidatedAndroidResources d : transitiveData) {
       if (d.isManifestExported()) {
         builder.put(d.getManifest(), d.getLabel());
       }
-    }
-    if (AndroidConfiguration.ManifestMergerOrder.ALPHABETICAL.equals(manifestMergerOrder)) {
-      return ImmutableSortedMap.copyOf(builder.build(), Artifact.EXEC_PATH_COMPARATOR);
     }
     return builder.build();
   }
