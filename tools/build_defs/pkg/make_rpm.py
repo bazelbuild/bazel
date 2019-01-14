@@ -24,7 +24,7 @@ import re
 import shutil
 import subprocess
 import sys
-from tempfile import mkdtemp
+import tempfile
 
 # pylint: disable=g-direct-third-party-import
 from third_party.py import gflags
@@ -80,7 +80,7 @@ def Tempdir():
     The full path of the temporary directory.
   """
 
-  dirpath = mkdtemp()
+  dirpath = tempfile.mkdtemp()
 
   def Cleanup():
     shutil.rmtree(dirpath)
@@ -153,23 +153,23 @@ def Which(program):
   return None
 
 
-class NoRpmbuildFound(Exception):
+class NoRpmbuildFoundError(Exception):
   pass
 
 
-class InvalidRpmbuild(Exception):
+class InvalidRpmbuildError(Exception):
   pass
 
 
 def FindRpmbuild(rpmbuild_path):
   if rpmbuild_path:
     if not IsExe(rpmbuild_path):
-      raise InvalidRpmbuild('{} is not executable'.format(rpmbuild_path))
+      raise InvalidRpmbuildError('{} is not executable'.format(rpmbuild_path))
     return rpmbuild_path
   path = Which('rpmbuild')
   if path:
     return path
-  raise NoRpmbuildFound()
+  raise NoRpmbuildFoundError()
 
 
 class RpmBuilder(object):
@@ -295,7 +295,7 @@ def main(argv=()):
                          FLAGS.debug, FLAGS.rpmbuild)
     builder.AddFiles(argv[1:])
     return builder.Build(FLAGS.spec_file, FLAGS.out_file)
-  except NoRpmbuildFound:
+  except NoRpmbuildFoundError:
     print('ERROR: rpmbuild is required but is not present in PATH')
     return 1
 

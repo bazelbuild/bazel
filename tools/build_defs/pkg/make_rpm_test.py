@@ -63,8 +63,9 @@ class MakeRpmTest(unittest.TestCase):
   # Python 2 alias
   if not hasattr(unittest.TestCase, 'assertCountEqual'):
 
-    def assertCountEqual(self, *args):
-      return self.assertItemsEqual(*args)
+    def assertCountEqual(self, a, b):
+      # pylint: disable=g-deprecated-assert
+      return self.assertItemsEqual(a, b)
 
   def testFindOutputFile(self):
     log = """
@@ -109,7 +110,7 @@ class MakeRpmTest(unittest.TestCase):
   def testFindRpmbuild_missing(self):
     with make_rpm.Tempdir() as outer:
       with ReplacePath([outer]):
-        with self.assertRaises(make_rpm.NoRpmbuildFound) as context:
+        with self.assertRaises(make_rpm.NoRpmbuildFoundError) as context:
           make_rpm.FindRpmbuild('')
         self.assertIsNotNone(context)
 
