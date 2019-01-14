@@ -17,6 +17,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNamesOf;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -689,12 +691,28 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCcLibraryWithDashStatic() throws Exception {
+    assumeTrue(OS.getCurrent() != OS.DARWIN);
     checkWarning(
         "badlib",
         "lib_with_dash_static",
         // message:
         "in linkopts attribute of cc_library rule //badlib:lib_with_dash_static: "
             + "Using '-static' here won't work. Did you mean to use 'linkstatic=1' instead?",
+        // build file:
+        "cc_library(name = 'lib_with_dash_static',",
+        "   srcs = [ 'ok.cc' ],",
+        "   linkopts = [ '-static' ])");
+  }
+
+  @Test
+  public void testCcLibraryWithDashStaticOnDarwin() throws Exception {
+    assumeTrue(OS.getCurrent() == OS.DARWIN);
+    checkError(
+        "badlib",
+        "lib_with_dash_static",
+        // message:
+        "in linkopts attribute of cc_library rule //badlib:lib_with_dash_static: "
+            + "Apple builds do not support statically linked binaries",
         // build file:
         "cc_library(name = 'lib_with_dash_static',",
         "   srcs = [ 'ok.cc' ],",
