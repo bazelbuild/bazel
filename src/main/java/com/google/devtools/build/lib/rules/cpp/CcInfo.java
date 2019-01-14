@@ -116,6 +116,12 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
       return this;
     }
 
+    public CcInfo.Builder setCcLinkingContext(CcLinkingContext ccLinkingContext) {
+      Preconditions.checkState(this.ccLinkingInfo == null);
+      this.ccLinkingInfo = ccLinkingContext.toCcLinkingInfo();
+      return this;
+    }
+
     public CcInfo build() {
       if (ccCompilationContext == null) {
         ccCompilationContext = CcCompilationContext.EMPTY;
