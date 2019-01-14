@@ -128,6 +128,12 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
 
     CcLinkingContext ccLinkingContext = CcLinkingContext.EMPTY;
 
+    boolean alwaysLink = ruleContext.attributes().get("alwayslink", Type.BOOLEAN);
+
+    if (staticLibrary == null && alwaysLink) {
+      ruleContext.ruleWarning("'alwayslink' only makes sense when passing a static library.");
+    }
+
     if (notNullArtifactToLink != null) {
       LibraryToLinkWrapper libraryToLinkWrapper =
           LibraryToLinkWrapper.builder()
@@ -137,7 +143,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
               .setResolvedSymlinkDynamicLibrary(resolvedSymlinkDynamicLibrary)
               .setInterfaceLibrary(interfaceLibrary)
               .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
-              .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
+              .setAlwayslink(alwaysLink)
               .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(notNullArtifactToLink))
               .build();
       ccLinkingContext =

@@ -1236,7 +1236,6 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
               || picStaticLibrary != null);
       Preconditions.checkState(resolvedSymlinkDynamicLibrary == null || dynamicLibrary != null);
       Preconditions.checkState(resolvedSymlinkInterfaceLibrary == null || interfaceLibrary != null);
-      Preconditions.checkState(!alwayslink || staticLibrary != null || picStaticLibrary != null);
       Preconditions.checkState(
           staticLibrary != null
               || picStaticLibrary != null
