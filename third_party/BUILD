@@ -428,6 +428,11 @@ java_import(
     ],
 )
 
+filegroup(
+    name = "java_tools",
+    srcs = ["java/java_tools/JavaBuilder_deploy.jar"],
+)
+
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
