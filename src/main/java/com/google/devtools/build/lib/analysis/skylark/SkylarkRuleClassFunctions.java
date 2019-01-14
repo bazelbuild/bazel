@@ -753,16 +753,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
   @Override
   public Label label(
-      String labelString,
-      Boolean relativeToCallerRepository,
-      Location loc,
-      Environment env,
-      StarlarkContext context)
+      String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
       throws EvalException {
-
-    BazelStarlarkContext bazelStarlarkContext = (BazelStarlarkContext) context;
-
-    Label parentLabel;
+    Label parentLabel = null;
     if (relativeToCallerRepository) {
       parentLabel = env.getCallerLabel();
     } else {
@@ -771,9 +764,10 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     try {
       if (parentLabel != null) {
         LabelValidator.parseAbsoluteLabel(labelString);
+        // TODO(dannark): pass the environment here
         labelString =
             parentLabel
-                .getRelativeWithRemapping(labelString, bazelStarlarkContext.getRepoMapping())
+                .getRelativeWithRemapping(labelString, ImmutableMap.of())
                 .getUnambiguousCanonicalForm();
       }
       return labelCache.get(labelString);

@@ -608,40 +608,6 @@ EOF
   expect_not_log "@a//:baz"
 }
 
-function test_remapping_label_constructor() {
-  # create foo repository
-  mkdir foo
-  touch foo/WORKSPACE
-  cat >foo/foo.bzl <<EOF
-x = Label("@a//blah:blah")
-print(x)
-EOF
-  cat >foo/BUILD <<EOF
-load(":foo.bzl", "x")
-genrule(
-  name = "bar",
-  outs = ["xyz"],
-  cmd = "touch \$(location xyz)",
-  visibility = ["//visibility:public"]
-)
-EOF
-
-  # Main repo assigns @a to @b within @foo
-  mkdir -p main
-  cat >main/WORKSPACE <<EOF
-workspace(name = "main")
-local_repository(name = "foo", path="../foo", repo_mapping = {"@a" : "@b"})
-local_repository(name = "b", path="../b")
-EOF
-  touch main/BUILD
-
-  cd main
-  bazel build --experimental_enable_repo_mapping @foo//:bar \
-      >& "$TEST_log" || fail "Expected build to succeed"
-  expect_log "@b//blah:blah"
-  expect_not_log "@a//blah:blah"
-}
-
 function test_workspace_addition_change_aspect() {
   mkdir -p repo_one
   mkdir -p repo_two
