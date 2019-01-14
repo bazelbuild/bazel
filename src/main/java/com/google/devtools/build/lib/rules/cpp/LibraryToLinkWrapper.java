@@ -118,11 +118,14 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
     return libraryToLinkWrapperBuilder.build();
   }
 
-  public Artifact getDynamicLibraryForRuntimeOrNull() {
-    if (staticLibrary == null && picStaticLibrary == null && dynamicLibrary != null) {
-      return dynamicLibrary;
+  public Artifact getDynamicLibraryForRuntimeOrNull(boolean linkingStatically) {
+    if (dynamicLibrary == null) {
+      return null;
     }
-    return null;
+    if (linkingStatically && (staticLibrary != null || picStaticLibrary != null)) {
+      return null;
+    }
+    return dynamicLibrary;
   }
 
   /** Structure of the new CcLinkingContext. This will replace {@link CcLinkingInfo}. */
@@ -636,11 +639,12 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
 
   @Nullable
   @SuppressWarnings("ReferenceEquality")
-  private static String setDynamicArtifactsAndReturnIdentifier(
+  public static String setDynamicArtifactsAndReturnIdentifier(
       LibraryToLinkWrapper.Builder libraryToLinkWrapperBuilder,
       LibraryToLink dynamicModeParamsForExecutableEntry,
       LibraryToLink dynamicModeParamsForDynamicLibraryEntry,
       ListIterator<Artifact> runtimeLibraryIterator) {
+    Preconditions.checkNotNull(runtimeLibraryIterator);
     Artifact artifact = dynamicModeParamsForExecutableEntry.getArtifact();
     String libraryIdentifier = null;
     Artifact runtimeArtifact = null;
