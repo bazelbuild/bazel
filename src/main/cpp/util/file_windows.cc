@@ -727,7 +727,7 @@ bool IsDirectoryW(const wstring& path) {
   // Attempt opening the path, which may be anything -- a file, a directory, a
   // symlink, even a dangling symlink is fine.
   // Follow reparse points in order to return false for dangling ones.
-  AutoHandle h(CreateFileW(path, 0, kAllShare, NULL, OPEN_EXISTING,
+  AutoHandle h(CreateFileW(path.c_str(), 0, kAllShare, NULL, OPEN_EXISTING,
                            FILE_FLAG_BACKUP_SEMANTICS, NULL));
   BY_HANDLE_FILE_INFORMATION info;
   return h.IsValid() && GetFileInformationByHandle(h, &info) &&
