@@ -104,12 +104,6 @@ int IsJunctionOrDirectorySymlink(const WCHAR* path);
 // not (fully) exist.
 wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result);
 
-// Opens a directory using CreateFileW.
-// `path` must be a valid Windows path, with "\\?\" prefix if it's long.
-// If `read_write` is true then the directory is opened for reading and writing,
-// otherwise only for reading.
-HANDLE OpenDirectory(const WCHAR* path, bool read_write);
-
 // Creates a junction at `name`, pointing to `target`.
 // Returns CreateJunctionResult::kSuccess if it could create the junction, or if
 // the junction already exists with the same target.
