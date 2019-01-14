@@ -179,22 +179,19 @@ public final class PyCommon {
   }
 
   /**
-   * If the {@code python_version} attribute is defined for {@code ruleContext}, this method reports
-   * an attribute error if the attribute is set explicitly without the new API being enabled (via
-   * {@code --experimental_better_python_version_mixing}).
+   * Reports an attribute error if the {@code default_python_version} attribute is set but
+   * disallowed by the configuration.
    */
   private static void validatePythonVersionAttr(RuleContext ruleContext) {
     AttributeMap attrs = ruleContext.attributes();
-    if (!attrs.has(PYTHON_VERSION_ATTRIBUTE, Type.STRING)) {
-      return;
-    }
-    boolean newApiEnabled =
-        ruleContext.getFragment(PythonConfiguration.class).newPyVersionApiEnabled();
-    if (attrs.isAttributeValueExplicitlySpecified(PYTHON_VERSION_ATTRIBUTE) && !newApiEnabled) {
+    PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
+    if (attrs.has(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING)
+        && attrs.isAttributeValueExplicitlySpecified(DEFAULT_PYTHON_VERSION_ATTRIBUTE)
+        && !config.oldPyVersionApiAllowed()) {
       ruleContext.attributeError(
-          PYTHON_VERSION_ATTRIBUTE,
-          "using the 'python_version' attribute requires the "
-              + "'--experimental_better_python_version_mixing' flag");
+          DEFAULT_PYTHON_VERSION_ATTRIBUTE,
+          "the 'default_python_version' attribute is disabled by the "
+              + "'--experimental_remove_old_python_version_api' flag");
     }
   }
 

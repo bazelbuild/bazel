@@ -896,6 +896,7 @@ java_library(
     resources = [
         "packages/util/MOCK_ANDROID_CROSSTOOL",
         "packages/util/MOCK_OSX_CROSSTOOL",
+        "//tools/python:python_version_srcs",
     ],
     deps = [
         ":default_test_build_rules",

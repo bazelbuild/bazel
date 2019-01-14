@@ -68,7 +68,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
             "local_repository(name = 'com_google_protobuf', path = '/protobuf')",
             "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
-            "bind(name = 'tools/python', actual='//tools/python')",
             "register_toolchains('@bazel_tools//tools/cpp:all')",
             "register_toolchains('@bazel_tools//tools/jdk:dummy_java_toolchain')",
             "register_toolchains('@bazel_tools//tools/jdk:dummy_java_runtime_toolchain')",
@@ -171,12 +170,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "/bazel_tools_workspace/tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/BUILD",
         "filegroup(name='srcs', srcs = glob(['**']))",
         "filegroup(name='Main', srcs = ['Main.java'])");
-
-    config.create(
-        "/bazel_tools_workspace/tools/python/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "exports_files(['precompile.py'])",
-        "sh_binary(name='2to3', srcs=['2to3.sh'])");
 
     // Use an alias package group to allow for modification at the simpler path
     config.create(
@@ -330,7 +323,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
   @Override
   public List<ConfigurationFragmentFactory> getDefaultConfigurationFragmentFactories() {
-    return ImmutableList.<ConfigurationFragmentFactory>of(
+    return ImmutableList.of(
         new CppConfigurationLoader(CpuTransformer.IDENTITY),
         new ShellConfiguration.Loader(
             BazelRuleClassProvider.SHELL_EXECUTABLE,

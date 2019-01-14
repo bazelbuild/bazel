@@ -52,116 +52,86 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void newVersionFlagRequiresExperimentalFlag() throws Exception {
-    // Try both Python versions.
+  public void oldVersionFlagGatedByExperimentalFlag() throws Exception {
+    create("--experimental_remove_old_python_version_api=false", "--force_python=PY2");
     checkError(
-        "only allowed with `--experimental_better_python_version_mixing`",
-        "--experimental_better_python_version_mixing=false",
-        "--python_version=PY2");
-    checkError(
-        "only allowed with `--experimental_better_python_version_mixing`",
-        "--experimental_better_python_version_mixing=false",
-        "--python_version=PY3");
+        "`--force_python` is disabled by `--experimental_remove_old_python_version_api`",
+        "--experimental_remove_old_python_version_api=true",
+        "--force_python=PY2");
   }
 
   @Test
-  public void getPythonVersion_OldApi_NewFlagIgnored() throws Exception {
+  public void getPythonVersion_HardcodedDefaultWhenOmitted() throws Exception {
     ensureDefaultIsPY2();
-    PythonOptions opts =
-        parsePythonOptions(
-            "--experimental_better_python_version_mixing=false", "--force_python=PY3");
-    // --python_version should be ignored by getPythonVersion(). (Set manually since parsing would
-    // fail reportInvalidOptions().)
-    opts.pythonVersion = PythonVersion.PY2;
-    assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-  }
-
-  @Test
-  public void getPythonVersion_OldApi_HardcodedDefaultWhenOmitted() throws Exception {
-    ensureDefaultIsPY2();
-    PythonOptions opts = parsePythonOptions("--experimental_better_python_version_mixing=false");
+    PythonOptions opts = parsePythonOptions();
     assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY2);
   }
 
   @Test
-  public void getPythonVersion_NewApi_NewFlagTakesPrecedence() throws Exception {
+  public void getPythonVersion_NewFlagTakesPrecedence() throws Exception {
     ensureDefaultIsPY2();
     // --force_python is superseded by --python_version.
-    PythonOptions opts =
-        parsePythonOptions(
-            "--experimental_better_python_version_mixing=true",
-            "--force_python=PY2",
-            "--python_version=PY3");
+    PythonOptions opts = parsePythonOptions("--force_python=PY2", "--python_version=PY3");
     assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
-  public void getPythonVersion_NewApi_FallBackOnOldFlag() throws Exception {
+  public void getPythonVersion_FallBackOnOldFlag() throws Exception {
     ensureDefaultIsPY2();
     // --force_python is used because --python_version is absent.
-    PythonOptions opts =
-        parsePythonOptions(
-            "--experimental_better_python_version_mixing=true", "--force_python=PY3");
+    PythonOptions opts = parsePythonOptions("--force_python=PY3");
     assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
-  public void getPythonVersion_NewApi_HardcodedDefaultWhenOmitted() throws Exception {
-    ensureDefaultIsPY2();
-    PythonOptions opts = parsePythonOptions("--experimental_better_python_version_mixing=true");
-    assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY2);
-  }
-
-  @Test
-  public void canTransitionPythonVersion_OldApi_Yes() throws Exception {
+  public void canTransitionPythonVersion_OldSemantics_Yes() throws Exception {
     ensureDefaultIsPY2();
     PythonOptions opts = parsePythonOptions("--experimental_better_python_version_mixing=false");
-    // Also test that --python_version should be ignored. (Set manually since parsing would fail
-    // reportInvalidOptions().)
-    opts.pythonVersion = PythonVersion.PY2;
-    boolean result = opts.canTransitionPythonVersion(PythonVersion.PY3);
-    assertThat(result).isTrue();
+    assertThat(opts.canTransitionPythonVersion(PythonVersion.PY3)).isTrue();
   }
 
   @Test
-  public void canTransitionPythonVersion_OldApi_NoBecauseAlreadySet() throws Exception {
+  public void canTransitionPythonVersion_OldSemantics_NoBecauseAlreadySet() throws Exception {
     ensureDefaultIsPY2();
-    // --force_python can't be changed once explicitly set.
-    PythonOptions opts =
+    PythonOptions optsWithOldFlag =
         parsePythonOptions(
-            "--experimental_better_python_version_mixing=false", "--force_python=PY2");
-    boolean result = opts.canTransitionPythonVersion(PythonVersion.PY3);
-    assertThat(result).isFalse();
+            "--experimental_better_python_version_mixing=false",
+            "--experimental_remove_old_python_version_api=false",
+            "--force_python=PY2");
+    PythonOptions optsWithNewFlag =
+        parsePythonOptions(
+            "--experimental_better_python_version_mixing=false", "--python_version=PY2");
+    assertThat(optsWithOldFlag.canTransitionPythonVersion(PythonVersion.PY3)).isFalse();
+    assertThat(optsWithNewFlag.canTransitionPythonVersion(PythonVersion.PY3)).isFalse();
   }
 
   @Test
-  public void canTransitionPythonVersion_OldApi_NoBecauseNewValueSameAsDefault() throws Exception {
+  public void canTransitionPythonVersion_OldSemantics_NoBecauseNewValueSameAsDefault()
+      throws Exception {
     ensureDefaultIsPY2();
-    // --force_python can't be changed to the hard-coded default value.
     PythonOptions opts = parsePythonOptions("--experimental_better_python_version_mixing=false");
-    boolean result = opts.canTransitionPythonVersion(PythonVersion.PY2);
-    assertThat(result).isFalse();
+    assertThat(opts.canTransitionPythonVersion(PythonVersion.PY2)).isFalse();
   }
 
   @Test
-  public void canTransitionPythonVersion_NewApi_Yes() throws Exception {
+  public void canTransitionPythonVersion_NewSemantics_Yes() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
             "--experimental_better_python_version_mixing=true", "--python_version=PY3");
-    boolean result = opts.canTransitionPythonVersion(PythonVersion.PY2);
-    assertThat(result).isTrue();
+    assertThat(opts.canTransitionPythonVersion(PythonVersion.PY2)).isTrue();
   }
 
   @Test
-  public void canTransitionPythonVersion_NewApi_No() throws Exception {
+  public void canTransitionPythonVersion_NewSemantics_NoBecauseSameAsCurrent() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
             "--experimental_better_python_version_mixing=true",
-            // Omit --python_version to confirm that we're still seen as already in PY3 mode due to
-            // --force_python.
-            "--force_python=PY3");
-    boolean result = opts.canTransitionPythonVersion(PythonVersion.PY3);
-    assertThat(result).isFalse();
+            // Set --force_python too, or else we fall into the "make --force_python consistent"
+            // case.
+            "--experimental_remove_old_python_version_api=false",
+            "--force_python=PY3",
+            "--python_version=PY3");
+    assertThat(opts.canTransitionPythonVersion(PythonVersion.PY3)).isFalse();
   }
 
   @Test
@@ -169,74 +139,49 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
     PythonOptions opts =
         parsePythonOptions(
             "--experimental_better_python_version_mixing=true",
-            // Even though getPythonVersion() would be PY3 due to the value of --python_version,
-            // test that we should still transition in order to flip --force_python to PY3. This is
-            // needed for compatibility with old-style select()s that depend on config_settings that
-            // read "force_python".
+            "--experimental_remove_old_python_version_api=false",
+            // Test that even though getPythonVersion() would not be affected by a transition (it is
+            // PY3 before and after), the transition is still considered necessary because
+            // --force_python's value needs to be brought in sync.
             "--force_python=PY2",
             "--python_version=PY3");
-    boolean result = opts.canTransitionPythonVersion(PythonVersion.PY3);
-    assertThat(result).isTrue();
+    assertThat(opts.canTransitionPythonVersion(PythonVersion.PY3)).isTrue();
   }
 
   @Test
-  public void setPythonVersion_OldApi() throws Exception {
-    PythonOptions opts =
-        parsePythonOptions(
-            "--experimental_better_python_version_mixing=false", "--force_python=PY2");
-    // Also test that --python_version should be ignored. (Set manually since parsing would fail
-    // reportInvalidOptions().)
-    opts.pythonVersion = PythonVersion.PY2;
+  public void setPythonVersion() throws Exception {
+    PythonOptions opts = parsePythonOptions("--force_python=PY2", "--python_version=PY2");
     opts.setPythonVersion(PythonVersion.PY3);
-    assertThat(opts.experimentalBetterPythonVersionMixing).isFalse();
-    assertThat(opts.forcePython).isEqualTo(PythonVersion.PY3);
-    assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY2);
-  }
-
-  @Test
-  public void setPythonVersion_NewApi() throws Exception {
-    PythonOptions opts =
-        parsePythonOptions(
-            "--experimental_better_python_version_mixing=true",
-            // --force_python should be updated too, for improved compatibility with old-style
-            // select()s that depend on config_settings that read "force_python".
-            "--force_python=PY2",
-            "--python_version=PY2");
-    opts.setPythonVersion(PythonVersion.PY3);
-    assertThat(opts.experimentalBetterPythonVersionMixing).isTrue();
     assertThat(opts.forcePython).isEqualTo(PythonVersion.PY3);
     assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
-  public void getHost_OldSemantics() throws Exception {
-    ensureDefaultIsPY2();
-    PythonOptions opts =
-        parsePythonOptions(
-            "--experimental_better_python_version_mixing=false",
-            "--force_python=PY2",
-            "--host_force_python=PY3",
-            "--build_python_zip=true");
-    PythonOptions newOpts = (PythonOptions) opts.getHost();
-    assertThat(newOpts.experimentalBetterPythonVersionMixing).isFalse();
-    assertThat(newOpts.forcePython).isEqualTo(PythonVersion.PY3);
-    assertThat(newOpts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-    assertThat(newOpts.buildPythonZip).isEqualTo(TriState.YES);
-  }
-
-  @Test
-  public void getHost_NewSemantics() throws Exception {
-    ensureDefaultIsPY2();
+  public void getHost_CopiesMostValues() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
             "--experimental_better_python_version_mixing=true",
-            "--python_version=PY2",
-            "--host_force_python=PY3",
+            "--experimental_remove_old_python_version_api=true",
             "--build_python_zip=true");
-    PythonOptions newOpts = (PythonOptions) opts.getHost();
-    assertThat(newOpts.experimentalBetterPythonVersionMixing).isTrue();
-    assertThat(newOpts.pythonVersion).isEqualTo(PythonVersion.PY3);
-    assertThat(newOpts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-    assertThat(newOpts.buildPythonZip).isEqualTo(TriState.YES);
+    PythonOptions hostOpts = (PythonOptions) opts.getHost();
+    assertThat(hostOpts.experimentalBetterPythonVersionMixing).isTrue();
+    assertThat(hostOpts.experimentalRemoveOldPythonVersionApi).isTrue();
+    assertThat(hostOpts.buildPythonZip).isEqualTo(TriState.YES);
+  }
+
+  @Test
+  public void getHost_AppliesHostForcePython() throws Exception {
+    ensureDefaultIsPY2();
+    PythonOptions optsWithOldFlag =
+        parsePythonOptions(
+            "--experimental_remove_old_python_version_api=false",
+            "--force_python=PY2",
+            "--host_force_python=PY3");
+    PythonOptions optsWithNewFlag =
+        parsePythonOptions("--python_version=PY2", "--host_force_python=PY3");
+    PythonOptions hostOptsWithOldFlag = (PythonOptions) optsWithOldFlag.getHost();
+    PythonOptions hostOptsWithNewFlag = (PythonOptions) optsWithNewFlag.getHost();
+    assertThat(hostOptsWithOldFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(hostOptsWithNewFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 }

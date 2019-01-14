@@ -41,18 +41,22 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   private final PythonVersion version;
   private final TriState buildPythonZip;
   private final boolean buildTransitiveRunfilesTrees;
-  // TODO(brandjon): Remove once migration to the new API is complete (#6583).
-  private final boolean newPyVersionApiEnabled;
+
+  // TODO(brandjon): Remove these once migration to the new API is complete (#6583).
+  private final boolean oldPyVersionApiAllowed;
+  private final boolean useNewPyVersionSemantics;
 
   PythonConfiguration(
       PythonVersion defaultPythonVersion,
       TriState buildPythonZip,
       boolean buildTransitiveRunfilesTrees,
-      boolean newPyVersionApiEnabled) {
+      boolean oldPyVersionApiAllowed,
+      boolean useNewPyVersionSemantics) {
     this.version = defaultPythonVersion;
     this.buildPythonZip = buildPythonZip;
     this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
-    this.newPyVersionApiEnabled = newPyVersionApiEnabled;
+    this.oldPyVersionApiAllowed = oldPyVersionApiAllowed;
+    this.useNewPyVersionSemantics = useNewPyVersionSemantics;
   }
 
   /**
@@ -88,13 +92,11 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
 
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
-    if (pythonOptions.pythonVersion != null
-        && !pythonOptions.experimentalBetterPythonVersionMixing) {
+    PythonOptions opts = buildOptions.get(PythonOptions.class);
+    if (opts.forcePython != null && opts.experimentalRemoveOldPythonVersionApi) {
       reporter.handle(
           Event.error(
-              "`--python_version` is only allowed with "
-                  + "`--experimental_better_python_version_mixing`"));
+              "`--force_python` is disabled by `--experimental_remove_old_python_version_api`"));
     }
   }
 
@@ -119,10 +121,15 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns whether use of {@code --python_version} flag and {@code python_version} attribute is
-   * allowed.
+   * Returns whether use of {@code --force_python} flag and {@code default_python_version} attribute
+   * is allowed.
    */
-  public boolean newPyVersionApiEnabled() {
-    return newPyVersionApiEnabled;
+  public boolean oldPyVersionApiAllowed() {
+    return oldPyVersionApiAllowed;
+  }
+
+  /** Returns true if the new semantics should be used for transitions on the Python version. */
+  public boolean useNewPyVersionSemantics() {
+    return useNewPyVersionSemantics;
   }
 }

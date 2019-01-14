@@ -83,6 +83,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void oldVersionAttr_UnknownValue() throws Exception {
+    useConfiguration("--experimental_remove_old_python_version_api=false");
     checkError(
         "pkg",
         "foo",
@@ -95,7 +96,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void newVersionAttr_UnknownValue() throws Exception {
-    useConfiguration("--experimental_better_python_version_mixing=true");
     checkError(
         "pkg",
         "foo",
@@ -108,6 +108,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void oldVersionAttr_BadValue() throws Exception {
+    useConfiguration("--experimental_remove_old_python_version_api=false");
     checkError(
         "pkg",
         "foo",
@@ -120,7 +121,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void newVersionAttr_BadValue() throws Exception {
-    useConfiguration("--experimental_better_python_version_mixing=true");
     checkError(
         "pkg",
         "foo",
@@ -133,6 +133,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void oldVersionAttr_GoodValue() throws Exception {
+    useConfiguration("--experimental_remove_old_python_version_api=false");
     scratch.file("pkg/BUILD", ruleDeclWithDefaultPyVersionAttr("foo", "PY2"));
     getConfiguredTarget("//pkg:foo");
     assertNoEvents();
@@ -140,23 +141,22 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void newVersionAttr_GoodValue() throws Exception {
-    useConfiguration("--experimental_better_python_version_mixing=true");
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
     getConfiguredTarget("//pkg:foo");
     assertNoEvents();
   }
 
   @Test
-  public void cannotUseNewVersionAttrWithoutFlag() throws Exception {
-    useConfiguration("--experimental_better_python_version_mixing=false");
+  public void cannotUseOldVersionAttrWithRemovalFlag() throws Exception {
+    useConfiguration("--experimental_remove_old_python_version_api=true");
     checkError(
         "pkg",
         "foo",
         // error:
-        "using the 'python_version' attribute requires the "
-            + "'--experimental_better_python_version_mixing' flag",
+        "the 'default_python_version' attribute is disabled by the "
+            + "'--experimental_remove_old_python_version_api' flag",
         // build file:
-        ruleDeclWithPyVersionAttr("foo", "PY2"));
+        ruleDeclWithDefaultPyVersionAttr("foo", "PY2"));
   }
 
   @Test
@@ -170,7 +170,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "    python_version = 'PY3',",
         ")");
     assertPythonVersionIs_UnderNewConfig(
-        "//pkg:foo", PythonVersion.PY3, "--experimental_better_python_version_mixing=true");
+        "//pkg:foo", PythonVersion.PY3, "--experimental_remove_old_python_version_api=false");
   }
 
   @Test
@@ -228,7 +228,11 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfigs(
         "//pkg:foo",
         PythonVersion.PY3,
-        new String[] {"--experimental_better_python_version_mixing=true", "--force_python=PY2"},
+        new String[] {
+          "--experimental_better_python_version_mixing=true",
+          "--experimental_remove_old_python_version_api=false",
+          "--force_python=PY2"
+        },
         new String[] {"--experimental_better_python_version_mixing=true", "--python_version=PY2"});
   }
 
@@ -241,7 +245,11 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfigs(
         "//pkg:foo",
         PythonVersion.PY2,
-        new String[] {"--experimental_better_python_version_mixing=true", "--force_python=PY3"},
+        new String[] {
+          "--experimental_better_python_version_mixing=true",
+          "--experimental_remove_old_python_version_api=false",
+          "--force_python=PY3"
+        },
         new String[] {"--experimental_better_python_version_mixing=true", "--python_version=PY3"});
   }
 

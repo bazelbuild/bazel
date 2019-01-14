@@ -20,27 +20,16 @@ _TRUE = "TRUE"
 _PY2 = "PY2"
 _PY3 = "PY3"
 
-# Keep in sync with default value of --experimental_better_python_version_mixing.
-_DEFAULT_EXPERIMENTAL_FLAG = False
-
 # Keep in sync with PythonVersion.DEFAULT_TARGET_VALUE.
 _DEFAULT_PYTHON_VERSION = "PY2"
 
 def _python_version_flag_impl(ctx):
-    # Convert the string-encoded tri-value to a boolean, where unset yields the
-    # default value.
-    experimental = {
-        _TRUE: True,
-        _FALSE: False,
-        _UNSET: _DEFAULT_EXPERIMENTAL_FLAG,
-    }[ctx.attr.experimental_flag]
-
     # Version is determined using the same logic as in PythonOptions#getPythonVersion:
-    #   1. Under the experimental flag, consult --python_version first,
-    #      otherwise ignore it.
-    #   2. Next fall back on --force_python.
+    #
+    #   1. Consult --python_version first, if present.
+    #   2. Next fall back on --force_python, if present.
     #   3. Final fallback is on the hardcoded default.
-    if experimental and ctx.attr.python_version_flag != _UNSET:
+    if ctx.attr.python_version_flag != _UNSET:
         version = ctx.attr.python_version_flag
     elif ctx.attr.force_python_flag != _UNSET:
         version = ctx.attr.force_python_flag
@@ -55,7 +44,6 @@ def _python_version_flag_impl(ctx):
 _python_version_flag = rule(
     implementation = _python_version_flag_impl,
     attrs = {
-        "experimental_flag": attr.string(mandatory = True, values = [_TRUE, _FALSE, _UNSET]),
         "force_python_flag": attr.string(mandatory = True, values = [_PY2, _PY3, _UNSET]),
         "python_version_flag": attr.string(mandatory = True, values = [_PY2, _PY3, _UNSET]),
     },
@@ -72,18 +60,7 @@ def define_python_version_flag(name):
     """
 
     # Config settings for the underlying native flags we depend on:
-    # --experimental_better_python_version_mixing, --force_python, and
-    # --python_version.
-    native.config_setting(
-        name = "_experimental_false",
-        values = {"experimental_better_python_version_mixing": "false"},
-        visibility = ["//visibility:private"],
-    )
-    native.config_setting(
-        name = "_experimental_true",
-        values = {"experimental_better_python_version_mixing": "true"},
-        visibility = ["//visibility:private"],
-    )
+    # --force_python and --python_version.
     native.config_setting(
         name = "_force_python_setting_PY2",
         values = {"force_python": "PY2"},
@@ -107,11 +84,6 @@ def define_python_version_flag(name):
 
     _python_version_flag(
         name = name,
-        experimental_flag = select({
-            ":_experimental_false": _FALSE,
-            ":_experimental_true": _TRUE,
-            "//conditions:default": _UNSET,
-        }),
         force_python_flag = select({
             ":_force_python_setting_PY2": _PY2,
             ":_force_python_setting_PY3": _PY3,

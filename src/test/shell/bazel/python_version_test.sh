@@ -250,7 +250,7 @@ EOF
   bazel build $EXPFLAG //test:py2bin_calling_py3bin //test:py3bin_calling_py2bin \
       || fail "bazel build failed"
   PY2_OUTER_BIN=$(bazel info bazel-bin $EXPFLAG)/test/py2bin_calling_py3bin
-  PY3_OUTER_BIN=$(bazel info bazel-bin $EXPFLAG --python_version=py3)/test/py3bin_calling_py2bin
+  PY3_OUTER_BIN=$(bazel info bazel-bin $EXPFLAG --force_python=PY3)/test/py3bin_calling_py2bin
 
   RUNFILES_MANIFEST_FILE= RUNFILES_DIR= $PY2_OUTER_BIN &> $TEST_log
   expect_log "Outer bin uses Python 2"

@@ -18,6 +18,7 @@ test_suite(
         ":PyProviderTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
+        ":PythonVersionSelectTest",
         ":PythonVersionTest",
     ],
 )
@@ -131,6 +132,21 @@ java_test(
     srcs = ["PythonVersionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PythonVersionSelectTest",
+    srcs = ["PythonVersionSelectTest.java"],
+    deps = [
+        ":PythonTestUtils",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",
         "//third_party:truth",

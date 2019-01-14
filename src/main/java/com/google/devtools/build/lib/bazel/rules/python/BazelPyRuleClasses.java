@@ -176,8 +176,7 @@ public final class BazelPyRuleClasses {
                       "read by PyRuleClasses.PYTHON_VERSION_TRANSITION, which doesn't have access"
                           + " to the configuration"))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(python_version) -->
-          An experimental replacement for <code>default_python_version</code>. Only available when
-          <code>--experimental_better_python_version_mixing</code> is enabled. If both this and
+          A replacement for <code>default_python_version</code>. If both this and
           <code>default_python_version</code> are supplied, the latter will be ignored.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
