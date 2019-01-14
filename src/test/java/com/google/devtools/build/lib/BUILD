@@ -1164,7 +1164,6 @@ java_library(
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:optionsparser",
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//third_party:guava",
     ],
 )

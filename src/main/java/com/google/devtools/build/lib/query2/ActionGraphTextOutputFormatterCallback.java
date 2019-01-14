@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -197,19 +196,19 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
                     .collect(Collectors.joining(", ")))
             .append("]\n");
       }
-    }
 
-    if (options.includeCommandline && action instanceof CommandAction) {
-      stringBuilder
-          .append("  Command Line: ")
-          .append(
-              CommandFailureUtils.describeCommand(
-                  CommandDescriptionForm.COMPLETE,
-                  /* prettyPrintArgs= */ true,
-                  ((CommandAction) action).getArguments(),
-                  /* environment= */ null,
-                  /* cwd= */ null))
-          .append("\n");
+      if (options.includeCommandline) {
+        stringBuilder
+            .append("  Command Line: ")
+            .append(
+                CommandFailureUtils.describeCommand(
+                    CommandDescriptionForm.COMPLETE,
+                    /* prettyPrintArgs= */ true,
+                    spawnAction.getArguments(),
+                    /* environment= */ null,
+                    /* cwd= */ null))
+            .append("\n");
+      }
     }
 
     if (action instanceof ExecutionInfoSpecifier) {

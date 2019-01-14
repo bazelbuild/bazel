@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
@@ -139,10 +138,10 @@ public class ActionGraphDump {
             .setValue(environmentVariable.getValue());
         actionBuilder.addEnvironmentVariables(keyValuePairBuilder.build());
       }
-    }
 
-    if (includeActionCmdLine && action instanceof CommandAction) {
-      actionBuilder.addAllArguments(((CommandAction) action).getArguments());
+      if (includeActionCmdLine) {
+        actionBuilder.addAllArguments(spawnAction.getArguments());
+      }
     }
 
     if (action instanceof ExecutionInfoSpecifier) {

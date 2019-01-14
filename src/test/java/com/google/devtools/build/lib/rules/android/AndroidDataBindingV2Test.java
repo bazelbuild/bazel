@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
-import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -25,10 +24,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
-import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -152,8 +151,8 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     // Java compilation includes the data binding annotation processor, the resource processor's
     // output, and the auto-generated DataBindingInfo.java the annotation processor uses to figure
     // out what to do:
-    JavaCompileAction libCompileAction =
-        (JavaCompileAction)
+    SpawnAction libCompileAction =
+        (SpawnAction)
             getGeneratingAction(
                 getFirstArtifactEndingWith(allArtifacts, "lib_with_databinding.jar"));
     assertThat(getProcessorNames(libCompileAction))
@@ -163,9 +162,8 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "java/android/library/databinding/lib_with_databinding/layout-info.zip",
             "java/android/library/databinding/lib_with_databinding/DataBindingInfo.java");
 
-    JavaCompileAction binCompileAction =
-        (JavaCompileAction)
-            getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
+    SpawnAction binCompileAction =
+        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     assertThat(getProcessorNames(binCompileAction))
         .contains("android.databinding.annotationprocessor.ProcessDataBinding");
     assertThat(prettyArtifactNames(binCompileAction.getInputs()))
@@ -185,8 +183,8 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     // The library's compilation doesn't include any of the -setter_store.bin, layoutinfo.bin, etc.
     // files that store a dependency's data binding results (since the library has no deps).
     // We check that they don't appear as compilation inputs.
-    JavaCompileAction libCompileAction =
-        (JavaCompileAction)
+    SpawnAction libCompileAction =
+        (SpawnAction)
             getGeneratingAction(
                 getFirstArtifactEndingWith(allArtifacts, "lib2_with_databinding.jar"));
     assertThat(
@@ -195,9 +193,8 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         .isEmpty();
 
     // The binary's compilation includes the library's data binding results.
-    JavaCompileAction binCompileAction =
-        (JavaCompileAction)
-            getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
+    SpawnAction binCompileAction =
+        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     Iterable<Artifact> depMetadataInputs =
         Iterables.filter(
             binCompileAction.getInputs(), ActionsTestUtil.getArtifactSuffixMatcher(".bin"));
@@ -225,9 +222,8 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
-    JavaCompileAction binCompileAction =
-        (JavaCompileAction)
-            getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
+    SpawnAction binCompileAction =
+        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     String dataBindingFilesDir =
         targetConfig
             .getBinDirectory(RepositoryName.MAIN)
@@ -246,7 +242,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "-Aandroid.databinding.enableV2=1",
             // Note that this includes only android.library and not android.library2
             "-Aandroid.databinding.directDependencyPkgs=[android.library]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(paramFileArgsForAction(binCompileAction)).containsAllIn(expectedJavacopts);
 
     // Regression test for b/63134122
     JavaCompileInfo javaCompileInfo =
@@ -264,9 +260,8 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     ConfiguredTarget ctapp = getConfiguredTarget("//java/android/binary:app");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
-    JavaCompileAction binCompileAction =
-        (JavaCompileAction)
-            getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
+    SpawnAction binCompileAction =
+        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
     String dataBindingFilesDir =
         targetConfig
             .getBinDirectory(RepositoryName.MAIN)
@@ -287,7 +282,7 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
             "-Aandroid.databinding.enableV2=1",
             // Note that this includes only android.library and not android.library2
             "-Aandroid.databinding.directDependencyPkgs=[android.library]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(paramFileArgsForAction(binCompileAction)).containsAllIn(expectedJavacopts);
 
     JavaCompileInfo javaCompileInfo =
         binCompileAction
@@ -314,9 +309,8 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
 
     // Compiling the app's Java source includes data binding metadata from the resource-equipped
     // lib, but not the resource-empty one.
-    JavaCompileAction binCompileAction =
-        (JavaCompileAction)
-            getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
+    SpawnAction binCompileAction =
+        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
 
     List<String> appJarInputs = prettyArtifactNames(binCompileAction.getInputs());
 
@@ -351,12 +345,12 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(libArtifacts, "_resources.jar")).isNull();
     assertThat(getFirstArtifactEndingWith(libArtifacts, "layout-info.zip")).isNull();
 
-    JavaCompileAction libCompileAction =
-        (JavaCompileAction)
+    SpawnAction libCompileAction =
+        (SpawnAction)
             getGeneratingAction(
                 getFirstArtifactEndingWith(libArtifacts, "lib_no_resource_files.jar"));
     // The annotation processor is attached to the Java compilation:
-    assertThat(getJavacArguments(libCompileAction))
+    assertThat(paramFileArgsForAction(libCompileAction))
         .containsAllOf(
             "--processors", "android.databinding.annotationprocessor.ProcessDataBinding");
     // The dummy .java file with annotations that trigger the annotation process is present:
@@ -1007,15 +1001,15 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     ConfiguredTarget ctapp =
         getConfiguredTarget("//java/android/binary:app_dep_on_exports_no_databinding");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
-    JavaCompileAction binCompileAction =
-        (JavaCompileAction)
-            getGeneratingAction(
-                getFirstArtifactEndingWith(allArtifacts, "app_dep_on_exports_no_databinding.jar"));
+    SpawnAction binCompileAction =
+        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(
+            allArtifacts, "app_dep_on_exports_no_databinding.jar"));
 
     ImmutableList<String> expectedJavacopts =
         ImmutableList.of(
             "-Aandroid.databinding.directDependencyPkgs=[android.library1,android.library2]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(paramFileArgsForAction(binCompileAction)).containsAllIn(expectedJavacopts);
+
   }
 
   @Test
@@ -1027,15 +1021,15 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     ConfiguredTarget ctapp =
         getConfiguredTarget("//java/android/binary:app_dep_on_exports_and_databinding");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
-    JavaCompileAction binCompileAction =
-        (JavaCompileAction)
-            getGeneratingAction(
-                getFirstArtifactEndingWith(allArtifacts, "app_dep_on_exports_and_databinding.jar"));
+    SpawnAction binCompileAction =
+        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(
+            allArtifacts, "app_dep_on_exports_and_databinding.jar"));
 
     ImmutableList<String> expectedJavacopts =
         ImmutableList.of("-Aandroid.databinding.directDependencyPkgs="
             + "[android.lib_with_exports,android.library1,android.library2]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(paramFileArgsForAction(binCompileAction)).containsAllIn(expectedJavacopts);
+
   }
 
   @Test
@@ -1055,14 +1049,14 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     ConfiguredTarget ctapp =
         getConfiguredTarget("//java/android/binary:app_databinding_no_deps");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ctapp));
-    JavaCompileAction binCompileAction =
-        (JavaCompileAction)
-            getGeneratingAction(
-                getFirstArtifactEndingWith(allArtifacts, "app_databinding_no_deps.jar"));
+    SpawnAction binCompileAction =
+        (SpawnAction) getGeneratingAction(getFirstArtifactEndingWith(
+            allArtifacts, "app_databinding_no_deps.jar"));
 
     ImmutableList<String> expectedJavacopts =
         ImmutableList.of("-Aandroid.databinding.directDependencyPkgs=[]");
-    assertThat(getJavacArguments(binCompileAction)).containsAllIn(expectedJavacopts);
+    assertThat(paramFileArgsForAction(binCompileAction)).containsAllIn(expectedJavacopts);
+
   }
 
 }
