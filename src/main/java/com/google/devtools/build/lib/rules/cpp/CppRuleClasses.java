@@ -224,6 +224,13 @@ public class CppRuleClasses {
   public static final String LEGACY_COMPILE_FLAGS = "legacy_compile_flags";
 
   /**
+   * A string constant for the default_compile_flags feature. If this feature is present in the
+   * toolchain, and the toolchain doesn't specify no_legacy_features, bazel will move
+   * default_compile_flags before other features from {@link CppActionConfigs}.
+   */
+  public static final String DEFAULT_COMPILE_FLAGS = "default_compile_flags";
+
+  /**
    * A string constant for the feature that makes us build per-object debug info files.
    */
   public static final String PER_OBJECT_DEBUG_INFO = "per_object_debug_info";

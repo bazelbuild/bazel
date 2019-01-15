@@ -4267,6 +4267,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "                    feature(name = 'custom_feature'),",
         "                    feature(name = 'legacy_compile_flags'),",
         "                    feature(name = 'fdo_optimize'),",
+        "                    feature(name = 'default_compile_flags'),",
         "                ],",
         "                action_configs = [action_config(action_name = 'custom-action')],",
         "                artifact_name_patterns = [artifact_name_pattern(",
@@ -4307,10 +4308,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             .collect(ImmutableSet.toImmutableSet());
     // fdo_optimize should not be re-added to the list of features by legacy behavior
     assertThat(featureNames).containsNoDuplicates();
-    // legacy_compile_flags should appear first in the list of features
-    assertThat(featureNames.get(0)).isEqualTo("legacy_compile_flags");
+    // legacy_compile_flags should appear first in the list of features, followed by
+    // default_compile_flags.
     assertThat(featureNames)
-        .containsAllOf("legacy_compile_flags", "custom_feature", "fdo_optimize")
+        .containsAllOf(
+            "legacy_compile_flags", "default_compile_flags", "custom_feature", "fdo_optimize")
         .inOrder();
     // assemble is one of the action_configs added as a legacy behavior, therefore it needs to be
     // prepended to the action configs defined by the user.

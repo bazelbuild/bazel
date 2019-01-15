@@ -405,22 +405,32 @@ public final class CppToolchainInfo {
           }
         }
 
-        // TODO(b/30109612): Remove fragile legacyCompileFlags shuffle once there are no legacy
-        // crosstools.
-        // Existing projects depend on flags from legacy toolchain fields appearing first on the
-        // compile command line. 'legacy_compile_flags' feature contains all these flags, and so it
-        // needs to appear before other features from {@link CppActionConfigs}.
-        CToolchain.Feature legacyCompileFlagsFeature =
-            toolchain
-                .getFeatureList()
-                .stream()
+      // TODO(b/30109612): Remove fragile legacyCompileFlags shuffle once there are no legacy
+      // crosstools.
+      // Existing projects depend on flags from legacy toolchain fields appearing first on the
+      // compile command line. 'legacy_compile_flags' feature contains all these flags, and so it
+      // needs to appear before other features from {@link CppActionConfigs}.
+      if (featureNames.contains(CppRuleClasses.LEGACY_COMPILE_FLAGS)) {
+        CToolchain.Feature legacyCompileFlags =
+            toolchain.getFeatureList().stream()
                 .filter(feature -> feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
                 .findFirst()
-                .orElse(null);
-        if (legacyCompileFlagsFeature != null) {
-          toolchainBuilder.addFeature(legacyCompileFlagsFeature);
-          toolchain = removeLegacyCompileFlagsFeatureFromToolchain(toolchain);
+                .get();
+        if (legacyCompileFlags != null) {
+          toolchainBuilder.addFeature(legacyCompileFlags);
         }
+      }
+      if (featureNames.contains(CppRuleClasses.DEFAULT_COMPILE_FLAGS)) {
+        CToolchain.Feature defaultCompileFlags =
+            toolchain.getFeatureList().stream()
+                .filter(feature -> feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
+                .findFirst()
+                .get();
+        if (defaultCompileFlags != null) {
+          toolchainBuilder.addFeature(defaultCompileFlags);
+        }
+      }
+      toolchain = removeSpecialFeatureFromToolchain(toolchain);
 
       CppPlatform platform =
           toolchain.getTargetLibc().equals("macosx") ? CppPlatform.MAC : CppPlatform.LINUX;
@@ -452,16 +462,15 @@ public final class CppToolchainInfo {
     return toolchainBuilder.build();
   }
 
-  private static CToolchain removeLegacyCompileFlagsFeatureFromToolchain(CToolchain toolchain) {
+  private static CToolchain removeSpecialFeatureFromToolchain(CToolchain toolchain) {
     FieldDescriptor featuresFieldDescriptor = CToolchain.getDescriptor().findFieldByName("feature");
     return toolchain
         .toBuilder()
         .setField(
             featuresFieldDescriptor,
-            toolchain
-                .getFeatureList()
-                .stream()
+            toolchain.getFeatureList().stream()
                 .filter(feature -> !feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
+                .filter(feature -> !feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
                 .collect(ImmutableList.toImmutableList()))
         .build();
   }

@@ -1043,4 +1043,75 @@ conditions.
       be enabled, `--force_pic` cannot be used.
    </td>
   </tr>
+  <tr>
+    <td>
+      <strong><code>static_linking_mode | dynamic_linking_mode</code></strong>
+    </td>
+    <td>Enabled by default based on linking mode.</td>
+  </tr>
+  <tr>
+     <td><strong><code>no_legacy_features</code></strong>
+     </td>
+     <td>
+       Prevents Bazel from adding legacy features to
+       the CROSSTOOL configuration when present. See the complete list of
+       features below.
+     </td>
+    </tr>
 </table>
+
+#### Legacy features patching logic
+
+<p>
+  Bazel does following changes to the features and their order to stay backwards
+  compatible:
+
+  <ul>
+    <li>Moves <code>legacy_compile_flags</code> feature to the top of the toolchain</li>
+    <li>Moves <code>default_compile_flags</code> feature to the top of the toolchain</li>
+    <li>Adds <code>dependency_file</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>pic</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>per_object_debug_info</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>preprocessor_defines</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>includes</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>include_paths</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>fdo_instrument</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>fdo_optimize</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>fdo_prefetch_hints</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>autofdo</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>build_interface_libraries</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>dynamic_library_linker_tool</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>symbol_counts</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>shared_flag</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>linkstamps</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>output_execpath_flags</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>runtime_library_search_directories</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>library_search_directories</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>archiver_flags</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>libraries_to_link</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>force_pic_flags</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>user_link_flags</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>legacy_link_flags</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>static_libgcc</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>fission_support</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>strip_debug_symbols</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>coverage</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>llvm_coverage_map_format</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>gcc_coverage_map_format</code> (if not present) feature to the top of the toolchain</li>
+    <li>Adds <code>fully_static_link</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>user_compile_flags</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>sysroot</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>unfiltered_compile_flags</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>linker_param_file</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>compiler_input_flags</code> (if not present) feature to the bottom of the toolchain</li>
+    <li>Adds <code>compiler_output_flags</code> (if not present) feature to the bottom of the toolchain</li>
+  </ul>
+</p>
+
+This is a long list of features. The plan is to get rid of them once
+[Crosstool in Starlark](https://github.com/bazelbuild/bazel/issues/5380) is
+done. For the curious reader see the implementation in
+[CppActionConfigs](https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/rules/cpp/CppActionConfigs.java?q=cppactionconfigs&ss=bazel),
+and for production toolchains consider adding `no_legacy_features` to make
+the toolchain more standalone.
+

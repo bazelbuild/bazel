@@ -887,11 +887,24 @@ public class CcModule
       // compile command line. 'legacy_compile_flags' feature contains all these flags, and so it
       // needs to appear before other features from {@link CppActionConfigs}.
       if (featureNames.contains(CppRuleClasses.LEGACY_COMPILE_FLAGS)) {
-        legacyFeaturesBuilder.add(
+        Feature legacyCompileFlags =
             featureList.stream()
                 .filter(feature -> feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
                 .findFirst()
-                .get());
+                .get();
+        if (legacyCompileFlags != null) {
+          legacyFeaturesBuilder.add(legacyCompileFlags);
+        }
+      }
+      if (featureNames.contains(CppRuleClasses.DEFAULT_COMPILE_FLAGS)) {
+        Feature defaultCompileFlags =
+            featureList.stream()
+                .filter(feature -> feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
+                .findFirst()
+                .get();
+        if (defaultCompileFlags != null) {
+          legacyFeaturesBuilder.add(defaultCompileFlags);
+        }
       }
 
       CppPlatform platform = targetLibc.equals("macos") ? CppPlatform.MAC : CppPlatform.LINUX;
@@ -907,6 +920,7 @@ public class CcModule
       legacyFeaturesBuilder.addAll(
           featureList.stream()
               .filter(feature -> !feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
+              .filter(feature -> !feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
               .collect(ImmutableList.toImmutableList()));
       for (CToolchain.Feature feature :
           CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames)) {
