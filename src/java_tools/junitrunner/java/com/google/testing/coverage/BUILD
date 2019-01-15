@@ -7,6 +7,14 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "JacocoCoverage_jarjar_deploy.jar",
+    ],
+    tags = ["manual"],
+)
+
 # Bazel custom Jacoco runner used to provide proper initialization and lcov
 # report generation when using offline Jacoco instrumentation.
 # This target should not be used as a dependency (except when writing tests for

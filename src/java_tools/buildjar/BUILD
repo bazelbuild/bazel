@@ -38,6 +38,16 @@ java_binary(
 )
 
 filegroup(
+    name = "JavaBuilderDeploy",
+    srcs = [":JavaBuilder_deploy.jar"],
+    tags = ["manual"],
+    visibility = [
+        ":buildjar_package_group",
+        "//src:__pkg__",
+    ],
+)
+
+filegroup(
     name = "bootstrap_VanillaJavaBuilder_deploy.jar",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_VanillaJavaBuilder_deploy.jar"],
     tags = ["manual"],

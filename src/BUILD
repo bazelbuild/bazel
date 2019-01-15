@@ -115,47 +115,43 @@ py_binary(
     deps = [":create_embedded_tools_lib"],
 )
 
-# The tools Bazel uses to compile Java.
-# TODO(iirina): Gradually remove the targets here.
-JAVA_TOOLS = [
-    "//third_party/jarjar:embedded_tools_srcs",
-    "//third_party/java/jdk/langtools:test-srcs",
-    "//third_party/java/proguard:embedded_tools",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
-    "//src/tools/singlejar:embedded_tools",
-    "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-    "//third_party/ijar",
-    "//third_party/ijar:zipper",
-    "//third_party/ijar:embedded_tools",
-    "//third_party/java/jacoco:srcs",
-]  + select({
-     "//src/conditions:arm": [],
-     "//conditions:default": [
-         "//src/tools/singlejar:singlejar_local",
-     ],
- })
-
-
 # TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
 # in Skylark rules on Windows has been released.
 [filegroup(
     name = "embedded_tools" + suffix + "_srcs",
-    srcs = JAVA_TOOLS + [
+    srcs = [
                "BUILD.tools",
                "//tools:embedded_tools_srcs",
                "//third_party:gpl-srcs",
-               "//third_party/java/java_tools:java_tools",
                "//third_party/java/j2objc:embedded_tools_srcs",
+               "//third_party/jarjar:embedded_tools_srcs",
+               "//third_party/java/jdk/langtools:test-srcs",
+               "//third_party/java/proguard:embedded_tools",
                "//third_party/py/concurrent:srcs",
                "//third_party/py/gflags:srcs",
                "//third_party/py/six:srcs",
                "//src/conditions:embedded_tools",
+               "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
                "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
                "//src/tools/launcher:srcs",
+               "//src/tools/singlejar:embedded_tools",
                "//src/main/cpp/util:embedded_tools",
                "//src/main/native:embedded_tools",
                "//src/main/protobuf:srcs",
+               "//src/java_tools/buildjar:JavaBuilderDeploy",
+               "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
+               "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
+               "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
+               "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
+               "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:ExperimentalRunner_deploy.jar",
+               "//src/java_tools/junitrunner/java/com/google/testing/coverage:embedded_tools",
                "//third_party/def_parser:srcs",
+               "//third_party/ijar",
+               "//third_party/ijar:zipper",
+               "//third_party/ijar:embedded_tools",
+               "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct",
+               "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:turbine_deploy.jar",
+               "//third_party/java/jacoco:srcs",
                "//third_party/zlib:embedded_tools",
            ] + select({
                "//src/conditions:darwin": [
@@ -173,6 +169,13 @@ JAVA_TOOLS = [
                    "//third_party/def_parser:def_parser",
                ],
                "//conditions:default": [],
+           }) + select({
+               "//src/conditions:arm": [
+                   "//src/java_tools/singlejar:SingleJar_deploy.jar",
+               ],
+               "//conditions:default": [
+                   "//src/tools/singlejar:singlejar_local",
+               ],
            }) +
            jdk,
     visibility = [

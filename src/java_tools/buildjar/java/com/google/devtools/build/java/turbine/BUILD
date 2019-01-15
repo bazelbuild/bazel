@@ -12,6 +12,14 @@ java_binary(
 )
 
 filegroup(
+    name = "turbine_direct",
+    srcs = ["turbine_direct_binary_deploy.jar"],
+    visibility = [
+        "//:__subpackages__",
+    ],
+)
+
+filegroup(
     name = "srcs",
     srcs = glob(["**/*.java"]) + [
         "BUILD",
