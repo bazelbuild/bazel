@@ -49,7 +49,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testSimpleMapping() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     scratch.overwriteFile(
         "WORKSPACE",
         "workspace(name = 'good')",
@@ -72,7 +71,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMultipleRepositoriesWithMapping() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     scratch.overwriteFile(
         "WORKSPACE",
         "workspace(name = 'good')",
@@ -105,7 +103,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testRepositoryWithMultipleMappings() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     scratch.overwriteFile(
         "WORKSPACE",
         "workspace(name = 'good')",
@@ -128,7 +125,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testErrorWithMapping() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile(
         "WORKSPACE",
@@ -151,7 +147,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   @Test
   public void testDefaultMainRepoNameInMapping() throws Exception {
     setSkylarkSemanticsOptions(
-        "--experimental_remap_main_repo", "--experimental_enable_repo_mapping");
+        "--experimental_remap_main_repo");
     scratch.overwriteFile(
         "WORKSPACE",
         "local_repository(",
