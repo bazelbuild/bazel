@@ -127,13 +127,9 @@ JAVA_TOOLS = [
     "//third_party/ijar",
     "//third_party/ijar:zipper",
     "//third_party/ijar:embedded_tools",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:turbine_deploy.jar",
     "//third_party/java/jacoco:srcs",
 ]  + select({
-     "//src/conditions:arm": [
-         "//src/java_tools/singlejar:SingleJar_deploy.jar",
-     ],
+     "//src/conditions:arm": [],
      "//conditions:default": [
          "//src/tools/singlejar:singlejar_local",
      ],
