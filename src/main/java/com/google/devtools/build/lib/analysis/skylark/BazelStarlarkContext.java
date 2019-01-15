@@ -42,7 +42,11 @@ public class BazelStarlarkContext implements StarlarkContext {
     this.repoMapping = repoMapping;
   }
 
-  /** @param toolsRepository the name of the tools repository, such as "bazel_tools" */
+  /**
+   * @param toolsRepository the name of the tools repository, such as "@bazel_tools"
+   * @param repoMapping a map from RepositoryName to RepositoryName to be used for external
+   *     repository renaming
+   */
   public BazelStarlarkContext(
       String toolsRepository, ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
     this(toolsRepository, null, repoMapping);

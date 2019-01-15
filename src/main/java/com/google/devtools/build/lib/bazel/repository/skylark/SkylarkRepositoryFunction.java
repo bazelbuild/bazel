@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -88,6 +89,13 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           com.google.devtools.build.lib.syntax.Environment.builder(mutability)
               .setSemantics(skylarkSemantics)
               .setEventHandler(env.getListener())
+              // The fetch phase does not need the tools repository or the fragment map because
+              // it happens before analysis.
+              .setStarlarkContext(
+                  new BazelStarlarkContext(
+                      /* toolsRepository = */ null,
+                      /* fragmentNameToClass = */ null,
+                      rule.getPackage().getRepositoryMapping()))
               .build();
       SkylarkRepositoryContext skylarkRepositoryContext =
           new SkylarkRepositoryContext(
