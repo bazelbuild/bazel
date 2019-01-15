@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -195,6 +196,15 @@ public class WorkspaceFactory {
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(localReporter)
             .setImportedExtensions(importMap)
+            // The workspace environment doesn't need the tools repository or the fragment map
+            // because executing workspace rules happens before analysis and it doesn't need a
+            // repository mapping because calls to the Label constructor in the WORKSPACE file
+            // are, by definition, not in an external repository and so they don't need the mapping
+            .setStarlarkContext(
+                new BazelStarlarkContext(
+                    /* toolsRepository= */ null,
+                    /* fragmentNameToClass= */ null,
+                    ImmutableMap.of()))
             .build();
     SkylarkUtils.setPhase(workspaceEnv, Phase.WORKSPACE);
     addWorkspaceFunctions(workspaceEnv, localReporter);
