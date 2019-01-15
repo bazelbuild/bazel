@@ -6,7 +6,8 @@
 # For usage please run
 # ~/third_party/java/java_tools/update_java_tools.sh help
 
-declare -a all_tools=("JavaBuilder" "VanillaJavaBuilder" "GenClass" "Runner" "ExperimentalRunner" "JacocoCoverage" "Turbine" "TurbineDirect" "SingleJar")
+declare -a all_tools=("JavaBuilder" "VanillaJavaBuilder" "GenClass" "Runner" \
+"ExperimentalRunner" "JacocoCoverage" "Turbine" "TurbineDirect" "SingleJar")
 
 declare -A tool_name_to_target=( ["JavaBuilder"]="src/java_tools/buildjar:JavaBuilder_deploy.jar" \
 ["VanillaJavaBuilder"]="src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar" \
@@ -45,14 +46,15 @@ tools_to_update=()
 
 if [[ ! -z "$@" ]]
 then
+   # Update only the tools specified on the command line.
    tools_to_update=("$@")
 else
-#  tools_to_update=("${JAVA_TOOLS_TARGETS[@]}")
+  # If no tools were specified update all of them.
   tools_to_update=("${all_tools[@]}")
 fi
 
 
-tools=()
+updated_tools=()
 
 function update_tool() {
   local bazel_target="${1}"; shift
@@ -63,7 +65,7 @@ function update_tool() {
   local tool_basename=$(basename $binary)
   cp -f "$binary" "third_party/java/java_tools/$tool_basename"
   echo "Updated third_party/java/java_tools/$tool_basename"
-  tools+=("third_party/java/java_tools/$tool_basename")
+  updated_tools+=("third_party/java/java_tools/$tool_basename")
 }
 
 for tool in "${tools_to_update[@]}"
@@ -75,7 +77,7 @@ done
 bazel_version=$(bazel version | grep "Build label" | cut -d " " -f 3)
 git_head=$(git rev-parse HEAD)
 echo "......"
+echo "Please copy/paste the following into third_party/java/java_tools/README.md:"
 echo ""
-
 echo "The following tools were built with bazel $bazel_version at commit $git_head"
-( IFS=$'\n'; echo "${tools[*]}" )
+( IFS=$'\n'; echo "${updated_tools[*]}" )
