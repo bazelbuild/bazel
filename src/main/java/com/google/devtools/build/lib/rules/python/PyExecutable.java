@@ -42,10 +42,12 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    PyCommon common = new PyCommon(ruleContext);
-    PythonSemantics semantics = createSemantics();
-
+    // Init the make variable context first. Otherwise it may be incorrectly initialized by default
+    // inside semantics/common via {@link RuleContext#getExpander}.
     ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
+
+    PythonSemantics semantics = createSemantics();
+    PyCommon common = new PyCommon(ruleContext, semantics);
 
     List<Artifact> srcs = common.validateSrcs();
     List<Artifact> allOutputs =
@@ -60,10 +62,7 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    NestedSet<String> imports = common.collectImports(ruleContext, semantics);
-    if (ruleContext.hasErrors()) {
-      return null;
-    }
+    NestedSet<String> imports = common.getImports();
 
     CcInfo ccInfo =
         semantics.buildCcInfoProvider(ruleContext.getPrerequisites("deps", Mode.TARGET));
@@ -110,7 +109,7 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext);
-    common.addCommonTransitiveInfoProviders(builder, semantics, common.getFilesToBuild(), imports);
+    common.addCommonTransitiveInfoProviders(builder, common.getFilesToBuild(), imports);
 
     semantics.postInitExecutable(ruleContext, runfilesSupport, common);
 

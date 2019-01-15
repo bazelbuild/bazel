@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -70,7 +69,11 @@ public final class PyCommon {
     }
   };
 
+  /** The context for the target this {@code PyCommon} is helping to analyze. */
   private final RuleContext ruleContext;
+
+  /** The pluggable semantics object with hooks that customizes how analysis is done. */
+  private final PythonSemantics semantics;
 
   /**
    * The Python major version for which this target is being built, as per the {@code
@@ -101,6 +104,9 @@ public final class PyCommon {
   /** Whether this target or any of its {@code deps} or {@code data} deps has a shared library. */
   private final boolean usesSharedLibraries;
 
+  /** Extra Python module import paths propagated or used by this target. */
+  private final NestedSet<String> imports;
+
   /**
    * Symlink map from root-relative paths to 2to3 converted source artifacts.
    *
@@ -112,20 +118,239 @@ public final class PyCommon {
 
   private NestedSet<Artifact> filesToBuild = null;
 
-  public PyCommon(RuleContext ruleContext) {
+  private static String getOrderErrorMessage(String fieldName, Order expected, Order actual) {
+    return String.format(
+        "Incompatible order for %s: expected 'default' or '%s', got '%s'",
+        fieldName, expected.getSkylarkName(), actual.getSkylarkName());
+  }
+
+  public PyCommon(RuleContext ruleContext, PythonSemantics semantics) {
     this.ruleContext = ruleContext;
-    this.sourcesVersion = getSrcsVersionAttr(ruleContext);
+    this.semantics = semantics;
+    this.sourcesVersion = initSrcsVersionAttr(ruleContext);
     this.version = ruleContext.getFragment(PythonConfiguration.class).getPythonVersion();
-    this.dependencyTransitivePythonSources = collectDependencyTransitivePythonSources();
-    this.transitivePythonSources = collectTransitivePythonSources();
-    this.usesSharedLibraries = checkForSharedLibraries();
-    this.convertedFiles = maybeMakeConvertedFiles();
-    checkSourceIsCompatible(this.version, this.sourcesVersion, ruleContext.getLabel());
-    validatePythonVersionAttr(ruleContext);
+    this.dependencyTransitivePythonSources = initDependencyTransitivePythonSources(ruleContext);
+    this.transitivePythonSources = initTransitivePythonSources(ruleContext);
+    this.usesSharedLibraries = initUsesSharedLibraries(ruleContext);
+    this.imports = initImports(ruleContext, semantics);
+    this.convertedFiles = makeAndInitConvertedFiles(ruleContext, version, this.sourcesVersion);
+    validateSourceIsCompatible();
+    validatePythonVersionAttr();
+  }
+
+  /** Returns the parsed value of the "srcs_version" attribute. */
+  private static PythonVersion initSrcsVersionAttr(RuleContext ruleContext) {
+    String attrValue = ruleContext.attributes().get("srcs_version", Type.STRING);
+    try {
+      return PythonVersion.parseSrcsValue(attrValue);
+    } catch (IllegalArgumentException ex) {
+      // Should already have been disallowed in the rule.
+      ruleContext.attributeError(
+          "srcs_version",
+          String.format(
+              "'%s' is not a valid value. Expected one of: %s",
+              attrValue, Joiner.on(", ").join(PythonVersion.ALL_STRINGS)));
+      return PythonVersion.DEFAULT_SRCS_VALUE;
+    }
+  }
+
+  private static NestedSet<Artifact> initDependencyTransitivePythonSources(
+      RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.compileOrder();
+    collectTransitivePythonSourcesFromDeps(ruleContext, builder);
+    return builder.build();
+  }
+
+  private static NestedSet<Artifact> initTransitivePythonSources(RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.compileOrder();
+    collectTransitivePythonSourcesFromDeps(ruleContext, builder);
+    builder.addAll(
+        ruleContext
+            .getPrerequisiteArtifacts("srcs", Mode.TARGET)
+            .filter(PyRuleClasses.PYTHON_SOURCE)
+            .list());
+    return builder.build();
+  }
+
+  /**
+   * Gathers transitive .py files from {@code deps} (not including this target's {@code srcs} and
+   * adds them to {@code builder}.
+   */
+  private static void collectTransitivePythonSourcesFromDeps(
+      RuleContext ruleContext, NestedSetBuilder<Artifact> builder) {
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+      if (PyProvider.hasProvider(dep)) {
+        try {
+          StructImpl info = PyProvider.getProvider(dep);
+          NestedSet<Artifact> sources = PyProvider.getTransitiveSources(info);
+          if (!builder.getOrder().isCompatible(sources.getOrder())) {
+            ruleContext.ruleError(
+                getOrderErrorMessage(
+                    PyProvider.TRANSITIVE_SOURCES, builder.getOrder(), sources.getOrder()));
+          } else {
+            builder.addTransitive(sources);
+          }
+        } catch (EvalException e) {
+          // Either the provider type or field type is bad.
+          ruleContext.ruleError(e.getMessage());
+        }
+      } else {
+        // TODO(bazel-team): We also collect .py source files from deps (e.g. for proto_library
+        // rules). We should have rules implement a "PythonSourcesProvider" instead.
+        FileProvider provider = dep.getProvider(FileProvider.class);
+        builder.addAll(FileType.filter(provider.getFilesToBuild(), PyRuleClasses.PYTHON_SOURCE));
+      }
+    }
+  }
+
+  /**
+   * Returns true if any of this target's {@code deps} or {@code data} deps has a shared library
+   * file (e.g. a {@code .so}) in its transitive dependency closure.
+   *
+   * <p>For targets with the py provider, we consult the {@code uses_shared_libraries} field. For
+   * targets without this provider, we look for {@link CppFileTypes#SHARED_LIBRARY}-type files in
+   * the filesToBuild.
+   */
+  private static boolean initUsesSharedLibraries(RuleContext ruleContext) {
+    Iterable<? extends TransitiveInfoCollection> targets;
+    // The deps attribute must exist for all rule types that use PyCommon, but not necessarily the
+    // data attribute.
+    if (ruleContext.attributes().has("data")) {
+      targets =
+          Iterables.concat(
+              ruleContext.getPrerequisites("deps", Mode.TARGET),
+              ruleContext.getPrerequisites("data", Mode.DONT_CHECK));
+    } else {
+      targets = ruleContext.getPrerequisites("deps", Mode.TARGET);
+    }
+    try {
+      for (TransitiveInfoCollection target : targets) {
+        if (checkForSharedLibraries(target)) {
+          return true;
+        }
+      }
+      return false;
+    } catch (EvalException e) {
+      ruleContext.ruleError(e.getMessage());
+      return false;
+    }
+  }
+
+  private static boolean checkForSharedLibraries(TransitiveInfoCollection target)
+      throws EvalException {
+    if (PyProvider.hasProvider(target)) {
+      return PyProvider.getUsesSharedLibraries(PyProvider.getProvider(target));
+    } else {
+      NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
+      return FileType.contains(files, CppFileTypes.SHARED_LIBRARY);
+    }
+  }
+
+  private static NestedSet<String> initImports(RuleContext ruleContext, PythonSemantics semantics) {
+    NestedSetBuilder<String> builder = NestedSetBuilder.compileOrder();
+    builder.addAll(semantics.getImports(ruleContext));
+
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+      if (dep.getProvider(PythonImportsProvider.class) != null) {
+        PythonImportsProvider provider = dep.getProvider(PythonImportsProvider.class);
+        NestedSet<String> imports = provider.getTransitivePythonImports();
+        if (!builder.getOrder().isCompatible(imports.getOrder())) {
+          // TODO(brandjon): Add test case for this error, once we replace PythonImportsProvider
+          // with the normal Python provider and once we clean up our provider merge logic.
+          ruleContext.ruleError(
+              getOrderErrorMessage(PyProvider.IMPORTS, builder.getOrder(), imports.getOrder()));
+        } else {
+          builder.addTransitive(imports);
+        }
+      }
+    }
+
+    return builder.build();
+  }
+
+  /**
+   * If 2to3 conversion is to be done, creates the 2to3 actions and returns the map of converted
+   * files; otherwise returns null.
+   */
+  // TODO(#1393): 2to3 conversion doesn't work in Bazel and the attempt to invoke it for Bazel
+  // should be removed / factored away into PythonSemantics.
+  private static Map<PathFragment, Artifact> makeAndInitConvertedFiles(
+      RuleContext ruleContext, PythonVersion version, PythonVersion sourcesVersion) {
+    if (sourcesVersion == PythonVersion.PY2 && version == PythonVersion.PY3) {
+      Iterable<Artifact> artifacts =
+          ruleContext
+              .getPrerequisiteArtifacts("srcs", Mode.TARGET)
+              .filter(PyRuleClasses.PYTHON_SOURCE)
+              .list();
+      return PythonUtils.generate2to3Actions(ruleContext, artifacts);
+    } else {
+      return null;
+    }
+  }
+
+  /** Checks that the source file version is compatible with the Python interpreter. */
+  private void validateSourceIsCompatible() {
+    // Treat PY3 as PY3ONLY: we'll never implement 3to2.
+    if ((version == PythonVersion.PY2 || version == PythonVersion.PY2AND3)
+        && (sourcesVersion == PythonVersion.PY3 || sourcesVersion == PythonVersion.PY3ONLY)) {
+      ruleContext.ruleError(
+          "Rule '"
+              + ruleContext.getLabel()
+              + "' can only be used with Python 3, and cannot be converted to Python 2");
+    }
+    if ((version == PythonVersion.PY3 || version == PythonVersion.PY2AND3)
+        && sourcesVersion == PythonVersion.PY2ONLY) {
+      ruleContext.ruleError(
+          "Rule '"
+              + ruleContext.getLabel()
+              + "' can only be used with Python 2, and cannot be converted to Python 3");
+    }
+  }
+
+  /**
+   * Reports an attribute error if the {@code default_python_version} attribute is set but
+   * disallowed by the configuration.
+   */
+  private void validatePythonVersionAttr() {
+    AttributeMap attrs = ruleContext.attributes();
+    PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
+    if (attrs.has(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING)
+        && attrs.isAttributeValueExplicitlySpecified(DEFAULT_PYTHON_VERSION_ATTRIBUTE)
+        && !config.oldPyVersionApiAllowed()) {
+      ruleContext.attributeError(
+          DEFAULT_PYTHON_VERSION_ATTRIBUTE,
+          "the 'default_python_version' attribute is disabled by the "
+              + "'--experimental_remove_old_python_version_api' flag");
+    }
   }
 
   public PythonVersion getVersion() {
     return version;
+  }
+
+  /**
+   * Returns the transitive Python sources collected from the deps attribute, not including sources
+   * from the srcs attribute (unless they were separately reached via deps).
+   */
+  public NestedSet<Artifact> getDependencyTransitivePythonSources() {
+    return dependencyTransitivePythonSources;
+  }
+
+  /** Returns the transitive Python sources collected from the deps and srcs attributes. */
+  public NestedSet<Artifact> getTransitivePythonSources() {
+    return transitivePythonSources;
+  }
+
+  public boolean usesSharedLibraries() {
+    return usesSharedLibraries;
+  }
+
+  public NestedSet<String> getImports() {
+    return imports;
+  }
+
+  public Map<PathFragment, Artifact> getConvertedFiles() {
+    return convertedFiles;
   }
 
   public void initBinary(List<Artifact> srcs) {
@@ -171,7 +396,6 @@ public final class PyCommon {
 
   public void addCommonTransitiveInfoProviders(
       RuleConfiguredTargetBuilder builder,
-      PythonSemantics semantics,
       NestedSet<Artifact> filesToBuild,
       NestedSet<String> imports) {
 
@@ -194,39 +418,6 @@ public final class PyCommon {
         // generated source files are ready.
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, transitivePythonSources)
         .addOutputGroup(OutputGroupInfo.COMPILATION_PREREQUISITES, transitivePythonSources);
-  }
-
-  /** Returns the parsed value of the "srcs_version" attribute. */
-  private static PythonVersion getSrcsVersionAttr(RuleContext ruleContext) {
-    String attrValue = ruleContext.attributes().get("srcs_version", Type.STRING);
-    try {
-      return PythonVersion.parseSrcsValue(attrValue);
-    } catch (IllegalArgumentException ex) {
-      // Should already have been disallowed in the rule.
-      ruleContext.attributeError(
-          "srcs_version",
-          String.format(
-              "'%s' is not a valid value. Expected one of: %s",
-              attrValue, Joiner.on(", ").join(PythonVersion.ALL_STRINGS)));
-      return PythonVersion.DEFAULT_SRCS_VALUE;
-    }
-  }
-
-  /**
-   * Reports an attribute error if the {@code default_python_version} attribute is set but
-   * disallowed by the configuration.
-   */
-  private static void validatePythonVersionAttr(RuleContext ruleContext) {
-    AttributeMap attrs = ruleContext.attributes();
-    PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
-    if (attrs.has(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING)
-        && attrs.isAttributeValueExplicitlySpecified(DEFAULT_PYTHON_VERSION_ATTRIBUTE)
-        && !config.oldPyVersionApiAllowed()) {
-      ruleContext.attributeError(
-          DEFAULT_PYTHON_VERSION_ATTRIBUTE,
-          "the 'default_python_version' attribute is disabled by the "
-              + "'--experimental_remove_old_python_version_api' flag");
-    }
   }
 
   /**
@@ -314,132 +505,6 @@ public final class PyCommon {
   @AutoCodec @AutoCodec.VisibleForSerialization
   static final GeneratedExtension<ExtraActionInfo, PythonInfo> PYTHON_INFO = PythonInfo.pythonInfo;
 
-  /**
-   * If 2to3 conversion is to be done, creates the 2to3 actions and returns the map of converted
-   * files; otherwise returns null.
-   */
-  // TODO(#1393): 2to3 conversion doesn't work in Bazel and the attempt to invoke it for Bazel
-  // should be removed / factored away into PythonSemantics.
-  private Map<PathFragment, Artifact> maybeMakeConvertedFiles() {
-    if (sourcesVersion == PythonVersion.PY2 && version == PythonVersion.PY3) {
-      Iterable<Artifact> artifacts =
-          ruleContext
-              .getPrerequisiteArtifacts("srcs", Mode.TARGET)
-              .filter(PyRuleClasses.PYTHON_SOURCE)
-              .list();
-      return PythonUtils.generate2to3Actions(ruleContext, artifacts);
-    } else {
-      return null;
-    }
-  }
-
-  private static String getOrderErrorMessage(String fieldName, Order expected, Order actual) {
-    return String.format(
-        "Incompatible order for %s: expected 'default' or '%s', got '%s'",
-        fieldName, expected.getSkylarkName(), actual.getSkylarkName());
-  }
-
-  private void collectTransitivePythonSourcesFrom(
-      Iterable<? extends TransitiveInfoCollection> deps, NestedSetBuilder<Artifact> builder) {
-    for (TransitiveInfoCollection dep : deps) {
-      if (PyProvider.hasProvider(dep)) {
-        try {
-          StructImpl info = PyProvider.getProvider(dep);
-          NestedSet<Artifact> sources = PyProvider.getTransitiveSources(info);
-          if (!builder.getOrder().isCompatible(sources.getOrder())) {
-            ruleContext.ruleError(
-                getOrderErrorMessage(
-                    PyProvider.TRANSITIVE_SOURCES, builder.getOrder(), sources.getOrder()));
-          } else {
-            builder.addTransitive(sources);
-          }
-        } catch (EvalException e) {
-          // Either the provider type or field type is bad.
-          ruleContext.ruleError(e.getMessage());
-        }
-      } else {
-        // TODO(bazel-team): We also collect .py source files from deps (e.g. for proto_library
-        // rules). We should have rules implement a "PythonSourcesProvider" instead.
-        FileProvider provider = dep.getProvider(FileProvider.class);
-        builder.addAll(FileType.filter(provider.getFilesToBuild(), PyRuleClasses.PYTHON_SOURCE));
-      }
-    }
-  }
-
-  private NestedSet<Artifact> collectTransitivePythonSources() {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.compileOrder();
-    collectTransitivePythonSourcesFrom(ruleContext.getPrerequisites("deps", Mode.TARGET), builder);
-    builder.addAll(
-        ruleContext
-            .getPrerequisiteArtifacts("srcs", Mode.TARGET)
-            .filter(PyRuleClasses.PYTHON_SOURCE)
-            .list());
-    return builder.build();
-  }
-
-  private NestedSet<Artifact> collectDependencyTransitivePythonSources() {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.compileOrder();
-    collectTransitivePythonSourcesFrom(ruleContext.getPrerequisites("deps", Mode.TARGET), builder);
-    return builder.build();
-  }
-
-  /** Returns the transitive Python sources collected from the deps and srcs attributes. */
-  public NestedSet<Artifact> getTransitivePythonSources() {
-    return transitivePythonSources;
-  }
-
-  /**
-   * Returns the transitive Python sources collected from the deps attribute, not including sources
-   * from the srcs attribute (unless they were separately reached via deps).
-   */
-  public NestedSet<Artifact> getDependencyTransitivePythonSources() {
-    return dependencyTransitivePythonSources;
-  }
-
-  public NestedSet<String> collectImports(RuleContext ruleContext, PythonSemantics semantics) {
-    NestedSetBuilder<String> builder = NestedSetBuilder.compileOrder();
-    builder.addAll(semantics.getImports(ruleContext));
-    collectTransitivePythonImports(builder);
-    return builder.build();
-  }
-
-  private void collectTransitivePythonImports(NestedSetBuilder<String> builder) {
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
-      if (dep.getProvider(PythonImportsProvider.class) != null) {
-        PythonImportsProvider provider = dep.getProvider(PythonImportsProvider.class);
-        NestedSet<String> imports = provider.getTransitivePythonImports();
-        if (!builder.getOrder().isCompatible(imports.getOrder())) {
-          // TODO(brandjon): Add test case for this error, once we replace PythonImportsProvider
-          // with the normal Python provider and once we clean up our provider merge logic.
-          ruleContext.ruleError(
-              getOrderErrorMessage(PyProvider.IMPORTS, builder.getOrder(), imports.getOrder()));
-        } else {
-          builder.addTransitive(imports);
-        }
-      }
-    }
-  }
-
-  /**
-   * Checks that the source file version is compatible with the Python interpreter.
-   */
-  private void checkSourceIsCompatible(PythonVersion targetVersion, PythonVersion sourceVersion,
-                                          Label source) {
-    // Treat PY3 as PY3ONLY: we'll never implement 3to2.
-    if ((targetVersion == PythonVersion.PY2 || targetVersion == PythonVersion.PY2AND3)
-        && (sourceVersion == PythonVersion.PY3 || sourceVersion == PythonVersion.PY3ONLY)) {
-      ruleContext.ruleError("Rule '" + source
-          + "' can only be used with Python 3, and cannot be converted to Python 2");
-    }
-    if ((targetVersion == PythonVersion.PY3 || targetVersion == PythonVersion.PY2AND3)
-        && sourceVersion == PythonVersion.PY2ONLY) {
-      ruleContext.ruleError(
-          "Rule '"
-              + source
-              + "' can only be used with Python 2, and cannot be converted to Python 3");
-    }
-  }
-
   /** @return A String that is the full path to the main python entry point. */
   public String determineMainExecutableSource(boolean withWorkspaceName) {
     String mainSourceName;
@@ -493,58 +558,8 @@ public final class PyCommon {
     return executable;
   }
 
-  public Map<PathFragment, Artifact> getConvertedFiles() {
-    return convertedFiles;
-  }
-
   public NestedSet<Artifact> getFilesToBuild() {
     return filesToBuild;
-  }
-
-  /**
-   * Returns true if any of this target's {@code deps} or {@code data} deps has a shared library
-   * file (e.g. a {@code .so}) in its transitive dependency closure.
-   *
-   * <p>For targets with the py provider, we consult the {@code uses_shared_libraries} field. For
-   * targets without this provider, we look for {@link CppFileTypes#SHARED_LIBRARY}-type files in
-   * the filesToBuild.
-   */
-  private boolean checkForSharedLibraries() {
-    Iterable<? extends TransitiveInfoCollection> targets;
-    // For all rule types that use PyCommon, deps is a required attribute but not data.
-    if (ruleContext.attributes().has("data")) {
-      targets =
-          Iterables.concat(
-              ruleContext.getPrerequisites("deps", Mode.TARGET),
-              ruleContext.getPrerequisites("data", Mode.DONT_CHECK));
-    } else {
-      targets = ruleContext.getPrerequisites("deps", Mode.TARGET);
-    }
-    try {
-      for (TransitiveInfoCollection target : targets) {
-        if (checkForSharedLibraries(target)) {
-          return true;
-        }
-      }
-      return false;
-    } catch (EvalException e) {
-      ruleContext.ruleError(e.getMessage());
-      return false;
-    }
-  }
-
-  private static boolean checkForSharedLibraries(TransitiveInfoCollection target)
-      throws EvalException {
-    if (PyProvider.hasProvider(target)) {
-      return PyProvider.getUsesSharedLibraries(PyProvider.getProvider(target));
-    } else {
-      NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
-      return FileType.contains(files, CppFileTypes.SHARED_LIBRARY);
-    }
-  }
-
-  public boolean usesSharedLibraries() {
-    return usesSharedLibraries;
   }
 
   private static String buildMultipleMainMatchesErrorText(boolean explicit, String proposedMainName,

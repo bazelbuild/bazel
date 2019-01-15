@@ -41,7 +41,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     PythonSemantics semantics = createSemantics();
-    PyCommon common = new PyCommon(ruleContext);
+    PyCommon common = new PyCommon(ruleContext, semantics);
     common.validatePackageName();
     semantics.validate(ruleContext, common);
 
@@ -56,10 +56,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
         NestedSetBuilder.wrap(Order.STABLE_ORDER, allOutputs);
     common.addPyExtraActionPseudoAction();
 
-    NestedSet<String> imports = common.collectImports(ruleContext, semantics);
-    if (ruleContext.hasErrors()) {
-      return null;
-    }
+    NestedSet<String> imports = common.getImports();
 
     Runfiles.Builder runfilesBuilder = new Runfiles.Builder(
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles());
@@ -72,7 +69,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
     runfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
-    common.addCommonTransitiveInfoProviders(builder, semantics, filesToBuild, imports);
+    common.addCommonTransitiveInfoProviders(builder, filesToBuild, imports);
 
     return builder
         .setFilesToBuild(filesToBuild)
