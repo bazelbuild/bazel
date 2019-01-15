@@ -316,12 +316,15 @@ public final class SandboxModule extends BlazeModule {
   }
 
   private void unmountSandboxfs() {
-    if (sandboxfsProcess != null && shouldCleanupSandboxBase) {
-      sandboxfsProcess.destroy();
-      sandboxfsProcess = null;
-    } else {
-      checkNotNull(env, "env not initialized; was beforeCommand called?");
-      env.getReporter().handle(Event.info("Leaving sandboxfs mounted because of --sandbox_debug"));
+    if (sandboxfsProcess != null) {
+      if (shouldCleanupSandboxBase) {
+        sandboxfsProcess.destroy();
+        sandboxfsProcess = null;
+      } else {
+        checkNotNull(env, "env not initialized; was beforeCommand called?");
+        env.getReporter()
+            .handle(Event.info("Leaving sandboxfs mounted because of --sandbox_debug"));
+      }
     }
   }
 
