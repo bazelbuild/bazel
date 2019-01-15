@@ -498,7 +498,7 @@ public class WorkspaceFactory {
           // repository has a repo_mapping entry from <mainRepoName> to something.
           WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName, env.getSemantics());
           WorkspaceFactoryHelper.addRepoMappings(
-              builder, kwargs, externalRepoName, ast.getLocation(), env.getSemantics());
+              builder, kwargs, externalRepoName, ast.getLocation());
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           Rule rule =
@@ -506,7 +506,7 @@ public class WorkspaceFactory {
                   builder,
                   ruleClass,
                   bindRuleClass,
-                  WorkspaceFactoryHelper.getFinalKwargs(kwargs, env.getSemantics()),
+                  WorkspaceFactoryHelper.getFinalKwargs(kwargs),
                   ast);
           if (!isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
