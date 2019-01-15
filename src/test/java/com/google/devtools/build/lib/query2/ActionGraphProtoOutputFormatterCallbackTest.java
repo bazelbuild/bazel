@@ -454,6 +454,56 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         .containsExactly("dummy", "--non-param-file-flag", "--param_file_arg");
   }
 
+  @Test
+  public void testCppActionTemplate_includesActionTemplateMnemonic() throws Exception {
+    writeFile(
+        "test/a.bzl",
+        "def _impl(ctx):",
+        "  directory = ctx.actions.declare_directory(ctx.attr.name + \"_artifact.cc\")",
+        "  ctx.action(",
+        "    inputs = ctx.files.srcs,",
+        "    outputs = [directory],",
+        "    mnemonic = 'MoveTreeArtifact',",
+        "    command = 'echo abc'",
+        "  )",
+        "  return [DefaultInfo(files = depset([directory]))]",
+        "cc_tree_artifact_files = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "  },",
+        ")");
+
+    writeFile(
+        "test/BUILD",
+        "load(':a.bzl', 'cc_tree_artifact_files')",
+        "cc_tree_artifact_files(",
+        "    name = 'tree_artifact',",
+        "    srcs = ['a1.cc', 'a2.cc'],",
+        ")",
+        "",
+        "cc_binary(",
+        "    name = 'bin',",
+        "    srcs = ['b1.h', 'b2.cc', ':tree_artifact'],",
+        ")");
+
+    ActionGraphContainer actionGraphContainer =
+        getOutput("deps(//test:all)", AqueryActionFilter.emptyInstance());
+
+    List<Action> cppCompileActionTemplates =
+        actionGraphContainer.getActionsList().stream()
+            .filter(action -> action.getMnemonic().equals("CppCompileActionTemplate"))
+            .collect(Collectors.toList());
+
+    // Darwin and Windows only produce 1 CppCompileActionTemplate with PIC,
+    // while Linux has both PIC and non-PIC CppCompileActionTemplates
+    int expectedActionsCount =
+        (OS.getCurrent() == OS.DARWIN || OS.getCurrent() == OS.WINDOWS) ? 1 : 2;
+
+    // Verify that we have the appropriate number of CppCompileActionTemplates.
+    assertThat(cppCompileActionTemplates).hasSize(expectedActionsCount);
+  }
+
   private AnalysisProtos.ActionGraphContainer getOutput(String queryExpression) throws Exception {
     return getOutput(queryExpression, /* actionFilters= */ AqueryActionFilter.emptyInstance());
   }

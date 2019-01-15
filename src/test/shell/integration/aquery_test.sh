@@ -659,7 +659,7 @@ EOF
 }
 
 function test_aquery_include_param_file_cc_binary() {
-  if [ is_darwin ]; then
+  if is_darwin; then
     return 0
   fi
 
@@ -687,7 +687,7 @@ EOF
 }
 
 function test_aquery_include_param_file_starlark_rule() {
-  if [ is_darwin ]; then
+  if is_darwin; then
     return 0
   fi
 
@@ -741,7 +741,7 @@ EOF
 }
 
 function test_aquery_include_param_file_not_enabled_by_default() {
-  if [ is_darwin ]; then
+  if is_darwin; then
     return 0
   fi
 
@@ -764,6 +764,61 @@ EOF
   assert_not_contains "Params File Content" output
 
   bazel aquery --output=textproto ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_cpp_action_template() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/a.bzl" <<'EOF'
+def _impl(ctx):
+  directory = ctx.actions.declare_directory(ctx.attr.name + "_artifact.cc")
+  ctx.action(
+    inputs = ctx.files.srcs,
+    outputs = [directory],
+    mnemonic = 'MoveTreeArtifact',
+    command = "echo abc",
+  )
+  return [DefaultInfo(files = depset([directory]))]
+
+cc_tree_artifact_files = rule(
+  implementation = _impl,
+  attrs = {
+    'srcs': attr.label_list(allow_files=True),
+  },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load(':a.bzl', 'cc_tree_artifact_files')
+cc_tree_artifact_files(
+    name = 'tree_artifact',
+    srcs = ['a1.cc', 'a2.cc'],
+)
+
+cc_binary(
+    name = 'bin',
+    srcs = ['b1.h', 'b2.cc', ':tree_artifact'],
+)
+EOF
+
+  QUERY="//$pkg:all"
+
+  # Darwin and Windows only produce 1 CppCompileActionTemplate with PIC,
+  # while Linux has both PIC and non-PIC CppCompileActionTemplates
+  if (is_darwin || is_windows); then
+    expected_num_actions=1
+  else
+    expected_num_actions=2
+  fi
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  expect_log_n "CppCompileActionTemplate compiling .*.cc" $expected_num_actions "Expected exactly $expected_num_actions CppCompileActionTemplates."
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
     2> "$TEST_log" || fail "Expected success"
 }
 
