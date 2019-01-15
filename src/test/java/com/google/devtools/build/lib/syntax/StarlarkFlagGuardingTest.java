@@ -141,7 +141,7 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
         .update("mock", new Mock())
         .testIfErrorContains(
             "expected value of type 'bool' for parameter 'b', "
-                + "in method call positionals_only_method(int, int) of 'Mock'",
+                + "for call to method positionals_only_method(a, b, c) of 'Mock'",
             "mock.positionals_only_method(1, 3)");
 
     new SkylarkTest("--experimental_build_setting_api=false")
@@ -151,8 +151,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
     new SkylarkTest("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testIfErrorContains(
-            "expected value of type 'int' for parameter 'c', "
-                + "in method call positionals_only_method(int, bool, int) of 'Mock'",
+            "expected value of type 'int' for parameter 'c', for call to method "
+                + "positionals_only_method(a, c) of 'Mock'",
             "mock.positionals_only_method(1, True, 3)");
   }
 
@@ -166,8 +166,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
     new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testIfErrorContains(
-            "parameter 'b' has no default value, in method call "
-                + "keywords_only_method(int a, int c) of 'Mock'",
+            "parameter 'b' has no default value, "
+                + "for call to method keywords_only_method(a, b, c) of 'Mock'",
             "mock.keywords_only_method(a=1, c=3)");
 
     new SkylarkTest("--experimental_build_setting_api=false")
@@ -194,8 +194,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
     new SkylarkTest("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testIfErrorContains(
-            "parameter 'b' has no default value, in method call "
-                + "mixed_params_method(int, int c) of 'Mock'",
+            "parameter 'b' has no default value, "
+                + "for call to method mixed_params_method(a, b, c, d) of 'Mock'",
             "mock.mixed_params_method(1, c=3)");
 
     new SkylarkTest("--experimental_build_setting_api=false")
@@ -207,7 +207,7 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
         .update("mock", new Mock())
         .testIfErrorContains(
             "expected no more than 1 positional arguments, but got 2, "
-                + "in method call mixed_params_method(int, bool, int c, bool d) of 'Mock'",
+                + "for call to method mixed_params_method(a, d) of 'Mock'",
             "mock.mixed_params_method(1, True, c=3, d=True)");
   }
 
@@ -222,8 +222,8 @@ public class StarlarkFlagGuardingTest extends EvaluationTestCase {
     new SkylarkTest("--experimental_build_setting_api=true", "--incompatible_no_attr_license=false")
         .update("mock", new Mock())
         .testIfErrorContains(
-            "parameter 'b' has no default value, in method call "
-                + "keywords_multiple_flags(int a) of 'Mock'",
+            "parameter 'b' has no default value, "
+                + "for call to method keywords_multiple_flags(a, b, c) of 'Mock'",
             "mock.keywords_multiple_flags(a=42)");
 
     new SkylarkTest("--experimental_build_setting_api=false", "--incompatible_no_attr_license=true")

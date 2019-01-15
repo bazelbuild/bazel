@@ -1072,16 +1072,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testJavaCallsNoMethodErrorMsg() throws Exception {
     new SkylarkTest()
-        .testIfExactError(
-            "type 'int' has no method bad(string, string, string)", "s = 3.bad('a', 'b', 'c')");
+        .testIfExactError("type 'int' has no method bad()", "s = 3.bad('a', 'b', 'c')");
   }
 
   @Test
   public void testJavaCallWithKwargs() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError(
-            "type 'Mock' has no method isEmpty(string str)", "mock.isEmpty(str='abc')");
+        .testIfExactError("type 'Mock' has no method isEmpty()", "mock.isEmpty(str='abc')");
   }
 
   @Test
@@ -1193,14 +1191,18 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'named' has no default value, in method call "
-                + "with_params(int, bool) of 'Mock'",
+            "parameter 'named' has no default value, for call to "
+                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
+                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
+                + "of 'Mock'",
             "mock.with_params(1, True)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'named' has no default value, in method call with_params(int, bool, bool) "
+            "parameter 'named' has no default value, for call to "
+                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
+                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
                 + "of 'Mock'",
             "mock.with_params(1, True, True)");
     new SkylarkTest()
@@ -1219,15 +1221,19 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "unexpected keyword 'n', in method call with_params(int, bool, bool named, "
-                + "bool posOrNamed, int n) of 'Mock'",
+            "unexpected keyword 'n', for call to "
+                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
+                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
+                + "of 'Mock'",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'nonNoneable' cannot be None, in method call with_params(int, bool, bool, "
-                + "bool named, bool optionalNamed, NoneType nonNoneable) of 'Mock'",
+            "parameter 'nonNoneable' cannot be None, for call to method "
+                + "with_params(pos1, pos2 = False, posOrNamed = False, named, "
+                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
+                + "of 'Mock'",
             "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
 
     new SkylarkTest()
@@ -1235,8 +1241,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .setUp("")
         .testIfExactError(
             "expected value of type 'string or int or sequence of ints or NoneType' for parameter"
-                + " 'multi', in method call with_params(int, bool, bool named, bool multi)"
-                + " of 'Mock'",
+                + " 'multi', for call to method "
+                + "with_params(pos1, pos2 = False, posOrNamed = False, named, "
+                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
+                + "of 'Mock'",
             "mock.with_params(1, True, named=True, multi=False)");
 
     // We do not enforce list item parameter type constraints.
@@ -1282,7 +1290,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfErrorContains(
-            "expected value of type 'string' for parameter 'pos', in call to MockFn(int)",
+            "expected value of type 'string' for parameter 'pos', for call to function MockFn(pos)",
             "v = mock(1)");
   }
 

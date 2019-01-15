@@ -385,9 +385,11 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testUnionWrongNumArgs() throws Exception {
-    new BothModesTest().testIfErrorContains(
-        "parameter 'new_elements' has no default value, in method call union() of 'depset'",
-        "depset(['a']).union()");
+    new BothModesTest()
+        .testIfErrorContains(
+            "parameter 'new_elements' has no default value, "
+                + "for call to method union(new_elements) of 'depset'",
+            "depset(['a']).union()");
   }
 
   @Test

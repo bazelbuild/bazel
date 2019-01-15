@@ -310,8 +310,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionArgumentsBadExecutable() throws Exception {
     checkErrorContains(
         createRuleContext("//foo:foo"),
-        "expected value of type 'File or string' for parameter 'executable', in method call "
-            + "run(list inputs, list outputs, list arguments, int executable) of 'actions'",
+        "expected value of type 'File or string' for parameter 'executable', "
+            + "for call to method run(",
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
@@ -366,8 +366,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "unexpected keyword 'bad_param', in method call run("
-            + "list outputs, string bad_param, File executable) of 'actions'",
+        "unexpected keyword 'bad_param', for call to method run(",
         "f = ruleContext.actions.declare_file('foo.sh')",
         "ruleContext.actions.run(outputs=[], bad_param = 'some text', executable = f)");
   }
@@ -539,8 +538,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     checkErrorContains(
         ruleContext,
-        "parameter 'mnemonic' has no default value, "
-        + "in method call do_nothing(list inputs) of 'actions'",
+        "parameter 'mnemonic' has no default value, for call to method "
+            + "do_nothing(mnemonic, inputs = []) of 'actions'",
         "ruleContext.actions.do_nothing(inputs = ruleContext.files.srcs)");
   }
 
@@ -824,7 +823,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesBadSetGenericType() throws Exception {
     checkErrorContains(
         "expected value of type 'depset of Files or NoneType' for parameter 'transitive_files', "
-            + "in method call runfiles(depset transitive_files) of 'ctx'",
+            + "for call to method runfiles(",
         "ruleContext.runfiles(transitive_files=depset([1, 2, 3]))");
   }
 
@@ -939,7 +938,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "unexpected keyword 'bad_keyword', in method call runfiles(string bad_keyword) of 'ctx'",
+        "unexpected keyword 'bad_keyword', for call to method runfiles(",
         "ruleContext.runfiles(bad_keyword = '')");
   }
 
@@ -1292,7 +1291,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
         .hasMessageThat()
-        .contains("unexpected keyword 'foo', in call to DefaultInfo");
+        .contains("unexpected keyword 'foo', for call to function DefaultInfo(");
   }
 
   @Test
@@ -2816,9 +2815,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
-    assertThat(expected).hasMessageThat()
-        .contains("expected value of type 'int or function' for parameter 'default', "
-            + "in method call int(LateBoundDefault default)");
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "expected value of type 'int or function' for parameter 'default', "
+                + "for call to method int(");
   }
 
   @Test

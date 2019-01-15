@@ -110,7 +110,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfExactError(
             "expected value of type 'string' for parameter 'sub', "
-                + "in method call index(int) of 'string'",
+                + "for call to method index(sub, start = 0, end = None) of 'string'",
             "'test'.index(1)");
   }
 
@@ -135,7 +135,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + "\t\t\"test\".index(x)"
                 + LINE_SEPARATOR
                 + "expected value of type 'string' for parameter 'sub', "
-                + "in method call index(int) of 'string'",
+                + "for call to method index(sub, start = 0, end = None) of 'string'",
             "def foo():",
             "  bar(1)",
             "def bar(x):",
@@ -150,7 +150,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains("substring \"z\" not found in \"abc\"", "'abc'.index('z')")
         .testIfErrorContains(
             "expected value of type 'string or tuple of strings' for parameter 'sub', "
-                + "in method call startswith(int) of 'string'",
+                + "for call to method startswith(sub, start = 0, end = None) of 'string'",
             "'test'.startswith(1)")
         .testIfErrorContains(
             "expected value of type 'list(object)' for parameter args in dict(), "
@@ -480,7 +480,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("repr(range(1,2,3))", "range(1, 2, 3)")
         .testStatement("type(a)", "range")
         .testIfErrorContains("unsupported operand type(s) for +: 'range' and 'range'", "a + a")
-        .testIfErrorContains("type 'range' has no method append(int)", "a.append(3)")
+        .testIfErrorContains("type 'range' has no method append()", "a.append(3)")
         .testStatement("str(list(range(5)))", "[0, 1, 2, 3, 4]")
         .testStatement("str(list(range(0)))", "[]")
         .testStatement("str(list(range(1)))", "[0]")

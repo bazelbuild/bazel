@@ -368,15 +368,15 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "str",
         "\t\tstr.index(1)"
             + System.lineSeparator()
-            + "expected value of type 'string' for parameter 'sub', "
-            + "in method call index(int) of 'string'");
+            + "expected value of type 'string' for parameter 'sub', for call to method "
+            + "index(sub, start = 0, end = None) of 'string'");
   }
 
   @Test
   public void testStackTraceMissingMethod() throws Exception {
     runStackTraceTest(
         "None",
-        "\t\tNone.index(1)" + System.lineSeparator() + "type 'NoneType' has no method index(int)");
+        "\t\tNone.index(1)" + System.lineSeparator() + "type 'NoneType' has no method index()");
   }
 
   protected void runStackTraceTest(String object, String errorMessage) throws Exception {

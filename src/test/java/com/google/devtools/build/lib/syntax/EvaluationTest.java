@@ -656,16 +656,19 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictKeysTooManyArgs() throws Exception {
-    newTest().testIfExactError(
-        "expected no more than 0 positional arguments, but got 1, "
-            + "in method call keys(string) of 'dict'", "{'a': 1}.keys('abc')");
+    newTest()
+        .testIfExactError(
+            "expected no more than 0 positional arguments, but got 1, "
+                + "for call to method keys() of 'dict'",
+            "{'a': 1}.keys('abc')");
   }
 
   @Test
   public void testDictKeysTooManyKeyArgs() throws Exception {
-    newTest().testIfExactError(
-        "unexpected keyword 'arg', in method call keys(string arg) of 'dict'",
-        "{'a': 1}.keys(arg='abc')");
+    newTest()
+        .testIfExactError(
+            "unexpected keyword 'arg', for call to method keys() of 'dict'",
+            "{'a': 1}.keys(arg='abc')");
   }
 
   @Test
@@ -676,9 +679,10 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testArgBothPosKey() throws Exception {
-    newTest().testIfErrorContains(
-        "got multiple values for keyword argument 'old', "
-            + "in method call replace(string, string, int, string old) of 'string'",
-        "'banana'.replace('a', 'o', 3, old='a')");
+    newTest()
+        .testIfErrorContains(
+            "got multiple values for keyword argument 'old', for call to method "
+                + "replace(old, new, maxsplit = None) of 'string'",
+            "'banana'.replace('a', 'o', 3, old='a')");
   }
 }
