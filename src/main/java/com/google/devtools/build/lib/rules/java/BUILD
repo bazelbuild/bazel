@@ -88,6 +88,7 @@ java_library(
         "JavaCompilationArtifacts.java",
         "JavaCompilationHelper.java",
         "JavaCompilationInfoProvider.java",
+        "JavaCompileAction.java",
         "JavaCompileActionBuilder.java",
         "JavaConfiguration.java",
         "JavaExportsProvider.java",

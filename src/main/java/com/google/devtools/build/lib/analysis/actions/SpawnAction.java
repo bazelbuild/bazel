@@ -334,8 +334,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    * function must not modify any state.
    *
    * <p>This method is final, as it is merely a shorthand use of the generic way to obtain a spawn,
-   * which also depends on the client environment. Subclasses that which to override the way to get
-   * a spawn should override the other GetSpawn() methods instead.
+   * which also depends on the client environment. Subclasses that wish to override the way to get a
+   * spawn should override the other getSpawn() methods instead.
    */
   @VisibleForTesting
   public final Spawn getSpawn() throws CommandLineExpansionException {

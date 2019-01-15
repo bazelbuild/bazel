@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfig
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -216,14 +217,14 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return null;
   }
 
-  protected List<String> getProcessorNames(SpawnAction compileAction) throws Exception {
+  protected List<String> getProcessorNames(JavaCompileAction compileAction) throws Exception {
     return JavaCompileActionTestHelper.getProcessorNames(compileAction);
   }
 
   protected List<String> getProcessorNames(String outputTarget) throws Exception {
     OutputFileConfiguredTarget out = (OutputFileConfiguredTarget)
         getFileConfiguredTarget(outputTarget);
-    SpawnAction compileAction = (SpawnAction) getGeneratingAction(out.getArtifact());
+    JavaCompileAction compileAction = (JavaCompileAction) getGeneratingAction(out.getArtifact());
     return getProcessorNames(compileAction);
   }
 
