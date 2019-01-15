@@ -600,7 +600,13 @@ filegroup(
 
 filegroup(
     name = "java_tools",
-    srcs = glob(["java/java_tools/*.jar"]),
+    srcs = glob(
+        ["java/java_tools/*.jar"],
+        exclude = ["java/java_tools/SingleJar_deploy.jar"]
+    ) + select({
+     "//src/conditions:arm": ["java/java_tools/SingleJar_deploy.jar"],
+     "//conditions:default": []
+     })
 )
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")
