@@ -15,7 +15,7 @@ incompatible and require some changes from Bazel users.
 1. For every `--incompatible_*` flag we have a GitHub issue explaining
    the change in behavior and giving a migration recipe.
 1. The migration window is at least one release long and is set by the author of the incompatible change.
-1. We announce what set of flags we flip with the next release one release in advance.
+1. We announce what set of flags we indend to flip with the next release one release in advance.
 1. APIs and behavior guarded by an `--experimental_*` flag can change at any time.
 1. Users should never run their production builds with `--experimental_*`  or `--incompatible_*` flags.
 
