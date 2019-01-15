@@ -17,7 +17,7 @@ declare -A tool_name_to_target=( ["JavaBuilder"]="src/java_tools/buildjar:JavaBu
 ["JacocoCoverage"]="src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar" \
 ["Turbine"]="src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:turbine_deploy.jar" \
 ["TurbineDirect"]="src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar" \
-["SingleJar"]="src/java_tools/singlejar:SingleJar_deploy.jar")
+["SingleJar"]="src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar")
 
 usage="This script updates the checked-in jars corresponding to the tools "\
 "used by the Java rules in Bazel.
@@ -55,17 +55,29 @@ fi
 
 
 updated_tools=()
+not_updated_tools=()
 
 function update_tool() {
   local bazel_target="${1}"; shift
-  local binary=$(echo "bazel-bin/$bazel_target" | sed 's@:@/@')
-
   bazel build "$bazel_target"
 
+  local binary=$(echo "bazel-bin/$bazel_target" | sed 's@:@/@')
+
+  if [[ ! -f "$binary" ]]; then
+    binary=$(echo "bazel-genfiles/$bazel_target" | sed 's@:@/@')
+  fi
+
   local tool_basename=$(basename $binary)
-  cp -f "$binary" "third_party/java/java_tools/$tool_basename"
-  echo "Updated third_party/java/java_tools/$tool_basename"
-  updated_tools+=("third_party/java/java_tools/$tool_basename")
+  if [[ -f "$binary" ]]; then
+    cp -f "$binary" "third_party/java/java_tools/$tool_basename"
+    echo "Updated third_party/java/java_tools/$tool_basename"
+    updated_tools+=("third_party/java/java_tools/$tool_basename")
+  else
+    echo "Could not build $bazel_target"
+    not_updated_tools+=("third_party/java/java_tools/$tool_basename")
+  fi
+
+
 }
 
 for tool in "${tools_to_update[@]}"
@@ -77,7 +89,18 @@ done
 bazel_version=$(bazel version | grep "Build label" | cut -d " " -f 3)
 git_head=$(git rev-parse HEAD)
 echo "......"
-echo "Please copy/paste the following into third_party/java/java_tools/README.md:"
-echo ""
-echo "The following tools were built with bazel $bazel_version at commit $git_head"
-( IFS=$'\n'; echo "${updated_tools[*]}" )
+
+if [[ ${#not_updated_tools[@]} -gt 0 ]]; then
+  echo "ERROR: THE FOLLOWING TOOLS WERE NOT UPDATED! Please check the above logs."
+  ( IFS=$'\n'; echo "${not_updated_tools[*]}" )
+fi
+if [[ ${#updated_tools[@]} -gt 0 ]]; then
+  echo ""
+  echo "Please copy/paste the following into third_party/java/java_tools/README.md:"
+  echo ""
+  echo "The following tools were built with bazel $bazel_version at commit $git_head \
+by running:
+$ ~/third_party/java/java_tools/update_java_tools.sh $@
+"
+  ( IFS=$'\n'; echo "${updated_tools[*]}" )
+fi
