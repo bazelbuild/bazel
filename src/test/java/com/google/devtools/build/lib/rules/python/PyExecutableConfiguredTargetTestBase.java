@@ -181,8 +181,8 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfigs(
         "//pkg:foo",
         PythonVersion.PY3,
-        new String[] {"--experimental_better_python_version_mixing=false"},
-        new String[] {"--experimental_better_python_version_mixing=true"});
+        new String[] {"--experimental_allow_python_version_transitions=false"},
+        new String[] {"--experimental_allow_python_version_transitions=true"});
   }
 
   @Test
@@ -193,8 +193,8 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfigs(
         "//pkg:foo",
         PythonVersion.PY2,
-        new String[] {"--experimental_better_python_version_mixing=false"},
-        new String[] {"--experimental_better_python_version_mixing=true"});
+        new String[] {"--experimental_allow_python_version_transitions=false"},
+        new String[] {"--experimental_allow_python_version_transitions=true"});
   }
 
   @Test
@@ -204,7 +204,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
         PythonVersion.PY3,
-        "--experimental_better_python_version_mixing=false",
+        "--experimental_allow_python_version_transitions=false",
         "--force_python=PY3");
   }
 
@@ -215,7 +215,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
         PythonVersion.PY2,
-        "--experimental_better_python_version_mixing=false",
+        "--experimental_allow_python_version_transitions=false",
         "--force_python=PY2");
   }
 
@@ -229,11 +229,13 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "//pkg:foo",
         PythonVersion.PY3,
         new String[] {
-          "--experimental_better_python_version_mixing=true",
+          "--experimental_allow_python_version_transitions=true",
           "--experimental_remove_old_python_version_api=false",
           "--force_python=PY2"
         },
-        new String[] {"--experimental_better_python_version_mixing=true", "--python_version=PY2"});
+        new String[] {
+          "--experimental_allow_python_version_transitions=true", "--python_version=PY2"
+        });
   }
 
   @Test
@@ -246,11 +248,13 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "//pkg:foo",
         PythonVersion.PY2,
         new String[] {
-          "--experimental_better_python_version_mixing=true",
+          "--experimental_allow_python_version_transitions=true",
           "--experimental_remove_old_python_version_api=false",
           "--force_python=PY3"
         },
-        new String[] {"--experimental_better_python_version_mixing=true", "--python_version=PY3"});
+        new String[] {
+          "--experimental_allow_python_version_transitions=true", "--python_version=PY3"
+        });
   }
 
   @Test
@@ -263,13 +267,13 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     assertPythonVersionIs_UnderNewConfigs(
         "//pkg:foo_v2",
         PythonVersion.PY2,
-        new String[] {"--experimental_better_python_version_mixing=false"},
-        new String[] {"--experimental_better_python_version_mixing=true"});
+        new String[] {"--experimental_allow_python_version_transitions=false"},
+        new String[] {"--experimental_allow_python_version_transitions=true"});
     assertPythonVersionIs_UnderNewConfigs(
         "//pkg:foo_v3",
         PythonVersion.PY3,
-        new String[] {"--experimental_better_python_version_mixing=false"},
-        new String[] {"--experimental_better_python_version_mixing=true"});
+        new String[] {"--experimental_allow_python_version_transitions=false"},
+        new String[] {"--experimental_allow_python_version_transitions=true"});
   }
 
   @Test

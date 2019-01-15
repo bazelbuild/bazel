@@ -97,7 +97,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
     // would only make sense for py_library; see PyLibraryConfiguredTargetTest for the analogous
     // test.
     ensureDefaultIsPY2();
-    useConfiguration("--experimental_better_python_version_mixing=false", "--force_python=PY3");
+    useConfiguration("--experimental_allow_python_version_transitions=false", "--force_python=PY3");
     scratch.file("pkg/BUILD",
         ruleName + "(",
         "    name = 'foo',",

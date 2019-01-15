@@ -39,7 +39,7 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
         pythonOptions.buildPythonZip,
         pythonOptions.buildTransitiveRunfilesTrees,
         /*oldPyVersionApiAllowed=*/ !pythonOptions.experimentalRemoveOldPythonVersionApi,
-        /*useNewPyVersionSemantics=*/ pythonOptions.experimentalBetterPythonVersionMixing);
+        /*useNewPyVersionSemantics=*/ pythonOptions.experimentalAllowPythonVersionTransitions);
   }
 
   @Override

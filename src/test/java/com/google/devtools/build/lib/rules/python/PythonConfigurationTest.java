@@ -86,7 +86,8 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   @Test
   public void canTransitionPythonVersion_OldSemantics_Yes() throws Exception {
     ensureDefaultIsPY2();
-    PythonOptions opts = parsePythonOptions("--experimental_better_python_version_mixing=false");
+    PythonOptions opts =
+        parsePythonOptions("--experimental_allow_python_version_transitions=false");
     assertThat(opts.canTransitionPythonVersion(PythonVersion.PY3)).isTrue();
   }
 
@@ -95,12 +96,12 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
     ensureDefaultIsPY2();
     PythonOptions optsWithOldFlag =
         parsePythonOptions(
-            "--experimental_better_python_version_mixing=false",
+            "--experimental_allow_python_version_transitions=false",
             "--experimental_remove_old_python_version_api=false",
             "--force_python=PY2");
     PythonOptions optsWithNewFlag =
         parsePythonOptions(
-            "--experimental_better_python_version_mixing=false", "--python_version=PY2");
+            "--experimental_allow_python_version_transitions=false", "--python_version=PY2");
     assertThat(optsWithOldFlag.canTransitionPythonVersion(PythonVersion.PY3)).isFalse();
     assertThat(optsWithNewFlag.canTransitionPythonVersion(PythonVersion.PY3)).isFalse();
   }
@@ -109,7 +110,8 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   public void canTransitionPythonVersion_OldSemantics_NoBecauseNewValueSameAsDefault()
       throws Exception {
     ensureDefaultIsPY2();
-    PythonOptions opts = parsePythonOptions("--experimental_better_python_version_mixing=false");
+    PythonOptions opts =
+        parsePythonOptions("--experimental_allow_python_version_transitions=false");
     assertThat(opts.canTransitionPythonVersion(PythonVersion.PY2)).isFalse();
   }
 
@@ -117,7 +119,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   public void canTransitionPythonVersion_NewSemantics_Yes() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
-            "--experimental_better_python_version_mixing=true", "--python_version=PY3");
+            "--experimental_allow_python_version_transitions=true", "--python_version=PY3");
     assertThat(opts.canTransitionPythonVersion(PythonVersion.PY2)).isTrue();
   }
 
@@ -125,7 +127,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   public void canTransitionPythonVersion_NewSemantics_NoBecauseSameAsCurrent() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
-            "--experimental_better_python_version_mixing=true",
+            "--experimental_allow_python_version_transitions=true",
             // Set --force_python too, or else we fall into the "make --force_python consistent"
             // case.
             "--experimental_remove_old_python_version_api=false",
@@ -138,7 +140,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   public void canTransitionPythonVersion_NewApi_YesBecauseForcePythonDisagrees() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
-            "--experimental_better_python_version_mixing=true",
+            "--experimental_allow_python_version_transitions=true",
             "--experimental_remove_old_python_version_api=false",
             // Test that even though getPythonVersion() would not be affected by a transition (it is
             // PY3 before and after), the transition is still considered necessary because
@@ -160,11 +162,11 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   public void getHost_CopiesMostValues() throws Exception {
     PythonOptions opts =
         parsePythonOptions(
-            "--experimental_better_python_version_mixing=true",
+            "--experimental_allow_python_version_transitions=true",
             "--experimental_remove_old_python_version_api=true",
             "--build_python_zip=true");
     PythonOptions hostOpts = (PythonOptions) opts.getHost();
-    assertThat(hostOpts.experimentalBetterPythonVersionMixing).isTrue();
+    assertThat(hostOpts.experimentalAllowPythonVersionTransitions).isTrue();
     assertThat(hostOpts.experimentalRemoveOldPythonVersionApi).isTrue();
     assertThat(hostOpts.buildPythonZip).isEqualTo(TriState.YES);
   }

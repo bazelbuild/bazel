@@ -87,13 +87,13 @@ public class PythonOptions extends FragmentOptions {
   public boolean experimentalRemoveOldPythonVersionApi;
 
   @Option(
-      name = "experimental_better_python_version_mixing",
+      name = "experimental_allow_python_version_transitions",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, Python rules use the new PY2/PY3 version semantics.")
-  public boolean experimentalBetterPythonVersionMixing;
+  public boolean experimentalAllowPythonVersionTransitions;
 
   /**
    * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
@@ -207,16 +207,16 @@ public class PythonOptions extends FragmentOptions {
   /**
    * Returns whether a Python version transition to {@code version} is allowed and not a no-op.
    *
-   * <p>Under the new semantics ({@link #experimentalBetterPythonVersionMixing} is true), version
-   * transitions are always allowed, so this essentially returns whether the new version is
+   * <p>Under the new semantics ({@link #experimentalAllowPythonVersionTransitions} is true),
+   * version transitions are always allowed, so this essentially returns whether the new version is
    * different from the existing one. However, to improve compatibility for unmigrated {@code
    * select()}s that depend on {@code "force_python"}, if the old API is still enabled then
    * transitioning is still done whenever {@link #forcePython} is not in agreement with the
    * requested version, even if {@link #getPythonVersion}'s value would be unaffected.
    *
-   * <p>Under the old semantics ({@link #experimentalBetterPythonVersionMixing} is false), version
-   * transitions are not allowed once the version has already been set ({@link #forcePython} or
-   * {@link #pythonVersion} is non-null). Due to a historical bug, it is also not allowed to
+   * <p>Under the old semantics ({@link #experimentalAllowPythonVersionTransitions} is false),
+   * version transitions are not allowed once the version has already been set ({@link #forcePython}
+   * or {@link #pythonVersion} is non-null). Due to a historical bug, it is also not allowed to
    * transition the version to the hard-coded default value. Under these constraints, there is only
    * one transition possible, from null to the non-default value, and it is never a no-op.
    *
@@ -224,7 +224,7 @@ public class PythonOptions extends FragmentOptions {
    */
   public boolean canTransitionPythonVersion(PythonVersion version) {
     Preconditions.checkArgument(version.isTargetValue());
-    if (experimentalBetterPythonVersionMixing) {
+    if (experimentalAllowPythonVersionTransitions) {
       boolean currentVersionNeedsUpdating = !version.equals(getPythonVersion());
       boolean forcePythonNeedsUpdating =
           !experimentalRemoveOldPythonVersionApi && !version.equals(forcePython);
@@ -244,7 +244,7 @@ public class PythonOptions extends FragmentOptions {
    * constructed instance. The mutation does not depend on whether or not {@link
    * #canTransitionPythonVersion} would return true.
    *
-   * <p>If the old semantics are in effect ({@link #experimentalBetterPythonVersionMixing} is
+   * <p>If the old semantics are in effect ({@link #experimentalAllowPythonVersionTransitions} is
    * false), after this method is called {@link #canTransitionPythonVersion} will return false.
    *
    * <p>To help avoid breaking old-API {@code select()} expressions that check the value of {@code
@@ -265,7 +265,8 @@ public class PythonOptions extends FragmentOptions {
   public FragmentOptions getHost() {
     PythonOptions hostPythonOptions = (PythonOptions) getDefault();
     hostPythonOptions.experimentalRemoveOldPythonVersionApi = experimentalRemoveOldPythonVersionApi;
-    hostPythonOptions.experimentalBetterPythonVersionMixing = experimentalBetterPythonVersionMixing;
+    hostPythonOptions.experimentalAllowPythonVersionTransitions =
+        experimentalAllowPythonVersionTransitions;
     PythonVersion hostVersion =
         (hostForcePython != null) ? hostForcePython : PythonVersion.DEFAULT_TARGET_VALUE;
     hostPythonOptions.setPythonVersion(hostVersion);
