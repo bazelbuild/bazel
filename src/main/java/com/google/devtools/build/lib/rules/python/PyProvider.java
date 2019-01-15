@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.rules.python;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -28,7 +30,7 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 /**
  * Static helper class for managing the "py" struct provider returned and consumed by Python rules.
  */
-// TODO(brandjon): Replace this with a real provider.
+// TODO(#7010): Replace this with a real provider.
 public class PyProvider {
 
   // Disable construction.
@@ -38,8 +40,8 @@ public class PyProvider {
   public static final String PROVIDER_NAME = "py";
 
   /**
-   * Name of field holding a depset of transitive sources (i.e., .py files in srcs and in srcs of
-   * transitive deps).
+   * Name of field holding a postorder depset of transitive sources (i.e., .py files in srcs and in
+   * srcs of transitive deps).
    */
   public static final String TRANSITIVE_SOURCES = "transitive_sources";
 
@@ -52,22 +54,22 @@ public class PyProvider {
    * Name of field holding a depset of import paths added by the transitive deps (including this
    * target).
    */
+  // TODO(brandjon): Make this a pre-order depset, since higher-level targets should get precedence
+  // on PYTHONPATH.
+  // TODO(brandjon): Add assertions that this depset and transitive_sources have an order compatible
+  // with the one expected by the rules.
   public static final String IMPORTS = "imports";
 
-  /** Constructs a provider instance with the given field values. */
-  public static StructImpl create(
-      NestedSet<Artifact> transitiveSources,
-      boolean usesSharedLibraries,
-      NestedSet<String> imports) {
-    return StructProvider.STRUCT.create(
-        ImmutableMap.of(
-            PyProvider.TRANSITIVE_SOURCES,
-            SkylarkNestedSet.of(Artifact.class, transitiveSources),
-            PyProvider.USES_SHARED_LIBRARIES,
-            usesSharedLibraries,
-            PyProvider.IMPORTS,
-            SkylarkNestedSet.of(String.class, imports)),
-        "No such attribute '%s'");
+  private static final ImmutableMap<String, Object> DEFAULTS;
+
+  static {
+    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+    // TRANSITIVE_SOURCES is mandatory
+    builder.put(USES_SHARED_LIBRARIES, false);
+    builder.put(
+        IMPORTS,
+        SkylarkNestedSet.of(String.class, NestedSetBuilder.<String>compileOrder().build()));
+    DEFAULTS = builder.build();
   }
 
   /** Returns whether a given dependency has the py provider. */
@@ -92,8 +94,11 @@ public class PyProvider {
   private static Object getValue(StructImpl info, String fieldName) throws EvalException {
     Object fieldValue = info.getValue(fieldName);
     if (fieldValue == null) {
-      throw new EvalException(
-          /*location=*/ null, String.format("'py' provider missing '%s' field", fieldName));
+      fieldValue = DEFAULTS.get(fieldName);
+      if (fieldValue == null) {
+        throw new EvalException(
+            /*location=*/ null, String.format("'py' provider missing '%s' field", fieldName));
+      }
     }
     return fieldValue;
   }
@@ -119,9 +124,9 @@ public class PyProvider {
   }
 
   /**
-   * Casts and returns the uses-shared-libraries field.
+   * Casts and returns the uses-shared-libraries field (or its default value).
    *
-   * @throws EvalException if the field does not exist or is not a boolean
+   * @throws EvalException if the field exists and is not a boolean
    */
   public static boolean getUsesSharedLibraries(StructImpl info) throws EvalException {
     Object fieldValue = getValue(info, USES_SHARED_LIBRARIES);
@@ -136,9 +141,9 @@ public class PyProvider {
   }
 
   /**
-   * Casts and returns the imports field.
+   * Casts and returns the imports field (or its default value).
    *
-   * @throws EvalException if the field does not exist or is not a depset of strings
+   * @throws EvalException if the field exists and is not a depset of strings
    */
   public static NestedSet<String> getImports(StructImpl info) throws EvalException {
     Object fieldValue = getValue(info, IMPORTS);
@@ -153,5 +158,48 @@ public class PyProvider {
             IMPORTS,
             EvalUtils.getDataTypeNameFromClass(fieldValue.getClass()));
     return castValue.getSet(String.class);
+  }
+
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /** Builder for a py provider struct. */
+  public static class Builder {
+    SkylarkNestedSet transitiveSources = null;
+    Boolean usesSharedLibraries = null;
+    SkylarkNestedSet imports = null;
+
+    // Use the static builder() method instead.
+    private Builder() {}
+
+    public Builder setTransitiveSources(NestedSet<Artifact> transitiveSources) {
+      this.transitiveSources = SkylarkNestedSet.of(Artifact.class, transitiveSources);
+      return this;
+    }
+
+    public Builder setUsesSharedLibraries(boolean usesSharedLibraries) {
+      this.usesSharedLibraries = usesSharedLibraries;
+      return this;
+    }
+
+    public Builder setImports(NestedSet<String> imports) {
+      this.imports = SkylarkNestedSet.of(String.class, imports);
+      return this;
+    }
+
+    private static void put(
+        ImmutableMap.Builder<String, Object> fields, String fieldName, Object value) {
+      fields.put(fieldName, value != null ? value : DEFAULTS.get(fieldName));
+    }
+
+    public StructImpl build() {
+      ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
+      Preconditions.checkNotNull(transitiveSources, "setTransitiveSources is required");
+      put(fields, TRANSITIVE_SOURCES, transitiveSources);
+      put(fields, USES_SHARED_LIBRARIES, usesSharedLibraries);
+      put(fields, IMPORTS, imports);
+      return StructProvider.STRUCT.create(fields.build(), "No such attribute '%s'");
+    }
   }
 }

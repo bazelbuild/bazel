@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
@@ -79,8 +78,22 @@ public final class PyCommon {
 
   private final NestedSet<Artifact> transitivePythonSources;
 
-  private final PythonVersion sourcesVersion;
+  private final boolean usesSharedLibraries;
+
+  /**
+   * The Python major version for which this target is being built, as per the {@code
+   * python_version} attribute or the configuration.
+   *
+   * <p>This is always either {@code PY2} or {@code PY3}.
+   */
   private final PythonVersion version;
+
+  /**
+   * The level of compatibility with Python major versions, as per the {@code srcs_version}
+   * attribute.
+   */
+  private final PythonVersion sourcesVersion;
+
   private Map<PathFragment, Artifact> convertedFiles;
 
   private NestedSet<Artifact> filesToBuild = null;
@@ -90,6 +103,7 @@ public final class PyCommon {
     this.sourcesVersion = getSrcsVersionAttr(ruleContext);
     this.version = ruleContext.getFragment(PythonConfiguration.class).getPythonVersion();
     this.transitivePythonSources = collectTransitivePythonSources();
+    this.usesSharedLibraries = checkForSharedLibraries();
     checkSourceIsCompatible(this.version, this.sourcesVersion, ruleContext.getLabel());
     validatePythonVersionAttr(ruleContext);
   }
@@ -155,7 +169,11 @@ public final class PyCommon {
                 /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER)))
         .addSkylarkTransitiveInfo(
             PyProvider.PROVIDER_NAME,
-            PyProvider.create(this.transitivePythonSources, usesSharedLibraries(), imports))
+            PyProvider.builder()
+                .setTransitiveSources(transitivePythonSources)
+                .setUsesSharedLibraries(usesSharedLibraries)
+                .setImports(imports)
+                .build())
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, transitivePythonSources)
@@ -454,40 +472,50 @@ public final class PyCommon {
     return filesToBuild;
   }
 
-  public boolean usesSharedLibraries() {
-    try {
-      return checkForSharedLibraries(Iterables.concat(
+  /**
+   * Returns true if any of this target's {@code deps} or {@code data} deps has a shared library
+   * file (e.g. a {@code .so}) in its transitive dependency closure.
+   *
+   * <p>For targets with the py provider, we consult the {@code uses_shared_libraries} field. For
+   * targets without this provider, we look for {@link CppFileTypes#SHARED_LIBRARY}-type files in
+   * the filesToBuild.
+   */
+  private boolean checkForSharedLibraries() {
+    Iterable<? extends TransitiveInfoCollection> targets;
+    // For all rule types that use PyCommon, deps is a required attribute but not data.
+    if (ruleContext.attributes().has("data")) {
+      targets =
+          Iterables.concat(
               ruleContext.getPrerequisites("deps", Mode.TARGET),
-              ruleContext.getPrerequisites("data", Mode.DONT_CHECK)));
+              ruleContext.getPrerequisites("data", Mode.DONT_CHECK));
+    } else {
+      targets = ruleContext.getPrerequisites("deps", Mode.TARGET);
+    }
+    try {
+      for (TransitiveInfoCollection target : targets) {
+        if (checkForSharedLibraries(target)) {
+          return true;
+        }
+      }
+      return false;
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       return false;
     }
   }
 
-
-  /**
-   * Returns true if this target has an .so file in its transitive dependency closure.
-   */
-  public static boolean checkForSharedLibraries(Iterable<TransitiveInfoCollection> deps)
-          throws EvalException{
-    for (TransitiveInfoCollection dep : deps) {
-      Object providerObject = dep.get(PyProvider.PROVIDER_NAME);
-      if (providerObject != null) {
-        SkylarkType.checkType(providerObject, StructImpl.class, null);
-        StructImpl provider = (StructImpl) providerObject;
-        Boolean isUsingSharedLibrary =
-            provider.getValue(PyProvider.USES_SHARED_LIBRARIES, Boolean.class);
-        if (Boolean.TRUE.equals(isUsingSharedLibrary)) {
-          return true;
-        }
-      } else if (FileType.contains(
-          dep.getProvider(FileProvider.class).getFilesToBuild(), CppFileTypes.SHARED_LIBRARY)) {
-        return true;
-      }
+  private static boolean checkForSharedLibraries(TransitiveInfoCollection target)
+      throws EvalException {
+    if (PyProvider.hasProvider(target)) {
+      return PyProvider.getUsesSharedLibraries(PyProvider.getProvider(target));
+    } else {
+      NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
+      return FileType.contains(files, CppFileTypes.SHARED_LIBRARY);
     }
+  }
 
-    return false;
+  public boolean usesSharedLibraries() {
+    return usesSharedLibraries;
   }
 
   private static String buildMultipleMainMatchesErrorText(boolean explicit, String proposedMainName,
