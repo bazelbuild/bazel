@@ -448,6 +448,16 @@ public class JavaOptions extends FragmentOptions {
   public boolean strictDepsJavaProtos;
 
   @Option(
+      name = "disallow_strict_deps_for_jpl",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If set, any java_proto_library or java_mutable_proto_library which sets the "
+              + "strict_deps attribute explicitly will fail to build.")
+  public boolean isDisallowStrictDepsForJpl;
+
+  @Option(
       name = "experimental_java_header_compilation_disable_javac_fallback",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
