@@ -600,7 +600,7 @@ filegroup(
 
 filegroup(
     name = "java_tools",
-    srcs = ["java/java_tools/JavaBuilder_deploy.jar"],
+    srcs = glob(["java/java_tools/*.jar"]),
 )
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")
