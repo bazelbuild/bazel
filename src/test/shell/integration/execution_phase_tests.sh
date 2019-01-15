@@ -64,7 +64,7 @@ function set_up() {
 }
 
 function tear_down() {
-    bazel shutdown
+  try_with_timeout bazel shutdown
 }
 
 # Looks for the last occurrence of a log message in a log file.

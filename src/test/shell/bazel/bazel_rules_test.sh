@@ -42,8 +42,27 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-export MSYS_NO_PATHCONV=1
-export MSYS2_ARG_CONV_EXCL="*"
+# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
+# `tr` converts all upper case letters to lower case.
+# `case` matches the result if the `uname | tr` expression to string prefixes
+# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
+# starting with "msys", and "*" matches everything (it's the default case).
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*)
+  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  # Disable MSYS path conversion that converts path-looking command arguments to
+  # Windows paths (even if they arguments are not in fact paths).
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
 
 function test_sh_test() {
   mkdir -p a
@@ -290,7 +309,7 @@ EOF
   local new_tmpdir="$(mktemp -d "${TEST_TMPDIR}/newfancytmpdirXXXXXX")"
   [ -d "${new_tmpdir}" ] || \
     fail "Could not create new temporary directory ${new_tmpdir}"
-  if is_windows; then
+  if $is_windows; then
     export PATH="$PATH_TO_BAZEL_WRAPPER;/bin;/usr/bin;/random/path;${old_path}"
     local old_tmpdir="${TMP:-}"
     export TMP="${new_tmpdir}"
@@ -301,7 +320,7 @@ EOF
   fi
   bazel build //pkg:test --spawn_strategy=standalone --action_env=PATH \
     || fail "Failed to build //pkg:test"
-  if is_windows; then
+  if $is_windows; then
     local -r EXPECTED_PATH="$PATH_TO_BAZEL_WRAPPER:.*/random/path"
     # new_tmpdir is based on $TEST_TMPDIR which is not Unix-style -- convert it.
     local -r EXPECTED_TMP="$(cygpath -u "$new_tmpdir")"
@@ -312,7 +331,7 @@ EOF
   assert_contains "PATH=$EXPECTED_PATH" bazel-genfiles/pkg/test.out
   # Bazel respects the client environment's TMPDIR.
   assert_contains "TMPDIR=${EXPECTED_TMP}$" bazel-genfiles/pkg/test.out
-  if is_windows; then
+  if $is_windows; then
     export TMP="${old_tmpdir}"
   else
     export TMPDIR="${old_tmpdir}"

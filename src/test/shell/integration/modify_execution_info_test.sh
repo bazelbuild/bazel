@@ -63,7 +63,7 @@ function set_up() {
 }
 
 function tear_down() {
-    bazel shutdown
+  try_with_timeout bazel shutdown
 }
 
 #### TESTS #############################################################

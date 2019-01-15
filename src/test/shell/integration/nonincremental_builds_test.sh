@@ -66,7 +66,7 @@ fi
 
 
 function tear_down() {
-    bazel shutdown || fail "Failed to shut down bazel"
+  try_with_timeout bazel shutdown || fail "Failed to shut down bazel"
 }
 
 #### TESTS #############################################################

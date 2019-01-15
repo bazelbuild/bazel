@@ -91,6 +91,7 @@ sh_test(
     srcs = ["bazel_windows_example_test.sh"],
     data = [
         ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -351,7 +352,10 @@ sh_test(
     name = "external_path_test",
     size = "medium",
     srcs = ["external_path_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     shard_count = 6,
     tags = ["no_windows"],
 )
@@ -630,6 +634,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src:bazel",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["no_windows"],
 )
@@ -654,6 +659,7 @@ sh_test(
         ":test-deps",
         "//:bazel-distfile",
         "//src:embedded_jdk_allmodules",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["block-network"],
 )

@@ -145,7 +145,7 @@ EOF
 
   bazel build -s //$pkg:a >& $TEST_log || fail "build failed"
   expect_log "Compiling $pkg/a.cc"
-  bazel shutdown >& /dev/null || fail "query failed"
+  try_with_timeout bazel shutdown || fail "shutdown failed"
   bazel build -s //$pkg:a >& $TEST_log || fail "build failed"
   expect_not_log "Compiling $pkg/a.cc"
 }
