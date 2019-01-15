@@ -180,6 +180,35 @@ platforms:
     - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
+  ubuntu1804_java11:
+    shell_commands:
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+      android_ndk_repository/android_ndk_repository/' WORKSPACE
+    - rm -f WORKSPACE.bak
+    build_targets:
+    - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
+    test_flags:
+    - "--test_timeout=1200"
+    test_targets:
+    - "--"
+    - "//scripts/..."
+    - "//src/test/..."
+    - "//src/tools/execlog/..."
+    - "//src/tools/singlejar/..."
+    - "//src/tools/workspacelog/..."
+    - "//third_party/ijar/..."
+    - "//tools/android/..."
+    - "//tools/cmd_line_differ/..."
+    # Disable Slow Tests
+    - "-//src/test/shell/bazel:bazel_determinism_test"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
+    - "-//src/test/shell/bazel/android:android_ndk_integration_test"
+    # Some prebuilt jars doesn't run with Java 11
+    - "-//src/test/shell/bazel:external_integration_test"
+    - "-//src/test/shell/bazel:maven_test"
+    # Re-enable once bootstrap works with Java 11
+    - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
   macos:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#

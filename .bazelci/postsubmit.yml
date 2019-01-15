@@ -146,6 +146,29 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
     - "//tools/cmd_line_differ/..."
+  ubuntu1804_java11:
+    shell_commands:
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+      android_ndk_repository/android_ndk_repository/' WORKSPACE
+    - rm -f WORKSPACE.bak
+    build_targets:
+    - "//src:bazel"
+    - "//src:bazel_jdk_minimal"
+    test_flags:
+    - "--test_timeout=1200"
+    test_targets:
+    - "--"
+    - "//scripts/..."
+    - "//src/test/..."
+    - "//src/tools/singlejar/..."
+    - "//third_party/ijar/..."
+    - "//tools/android/..."
+    - "//tools/cmd_line_differ/..."
+    # Some prebuilt jars doesn't run with Java 11
+    - "-//src/test/shell/bazel:external_integration_test"
+    - "-//src/test/shell/bazel:maven_test"
+    # Re-enable once bootstrap works with Java 11
+    - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
   macos:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
