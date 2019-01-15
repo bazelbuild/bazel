@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 #
 # A script to update the checked-in jars corresponding to Java tools used
 # by the Java rules in Bazel.
@@ -6,6 +6,7 @@
 # For usage please run
 # ~/third_party/java/java_tools/update_java_tools.sh help
 
+# Maps the java tool names to their associated bazel target.
 declare -A tool_name_to_target=(["JavaBuilder"]="src/java_tools/buildjar:JavaBuilder_deploy.jar" \
 ["VanillaJavaBuilder"]="src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar" \
 ["GenClass"]="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar" \
@@ -39,8 +40,8 @@ if [[ ! -z "$1" && $1 = "help" ]]; then
   exit
 fi
 
+# Stores the names of the tools required for update.
 tools_to_update=()
-
 if [[ ! -z "$@" ]]
 then
    # Update only the tools specified on the command line.
@@ -50,12 +51,26 @@ else
   tools_to_update=(${!tool_name_to_target[*]})
 fi
 
+# Stores the workspace relative path of all the tools that were updated
+# (e.g. third_party/java/java_tools/JavaBuilder_deploy.jar)
 updated_tools=()
-not_updated_tools=()
 
+# Updates the tool with the given bazel target.
+#
+# Builds the given bazel target and copies the generated binary
+# (which can be either under bazel-bin/ or bazel-genfiles/) under
+# third_party/java/java_tools.
+#
+# Fails if the bazel build fails.
+#
+# bazel_target   The target to be built with bazel.
+# tool_name      The name of the tool associated with the given bazel
+#                target. Used only for printing error messages.
 function update_tool() {
   local bazel_target="${1}"; shift
-  bazel build "$bazel_target"
+  local tool_name="${1}"; shift
+  bazel build "$bazel_target" || (echo "Could not build $tool_name.
+  Please see the Bazel error logs above." && exit 1)
 
   local binary=$(echo "bazel-bin/$bazel_target" | sed 's@:@/@')
 
@@ -66,26 +81,20 @@ function update_tool() {
   local tool_basename=$(basename $binary)
   if [[ -f "$binary" ]]; then
     cp -f "$binary" "third_party/java/java_tools/$tool_basename"
-    echo "Updated third_party/java/java_tools/$tool_basename"
     updated_tools+=("third_party/java/java_tools/$tool_basename")
-  else
-    echo "Could not build $bazel_target"
-    not_updated_tools+=("third_party/java/java_tools/$tool_basename")
   fi
 }
 
+# Updating the specified tools.
 for tool in "${tools_to_update[@]}"
 do
+  # Get the bazel target associated with the current tool name.
   tool_bazel_target=${tool_name_to_target[$tool]}
-  update_tool "$tool_bazel_target"
+  [[ -z "$tool_bazel_target" ]] && echo "Tool $tool is not supported.
+  Please specify one or more of: ${!tool_name_to_target[*]}." && exit 1
+  update_tool "$tool_bazel_target" "$tool"
 done
 
-echo "......"
-
-if [[ ${#not_updated_tools[@]} -gt 0 ]]; then
-  echo "ERROR: THE FOLLOWING TOOLS WERE NOT UPDATED! Please check the above logs."
-  ( IFS=$'\n'; echo "${not_updated_tools[*]}" )
-fi
 if [[ ${#updated_tools[@]} -gt 0 ]]; then
   bazel_version=$(bazel version | grep "Build label" | cut -d " " -f 3)
   git_head=$(git rev-parse HEAD)
