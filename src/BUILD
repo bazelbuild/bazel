@@ -116,14 +116,13 @@ py_binary(
 )
 
 # The tools Bazel uses to compile Java.
-# TODO(6316): Gradually remove the targets here.
+# TODO(iirina): Gradually remove the targets here.
 JAVA_TOOLS = [
     "//third_party/jarjar:embedded_tools_srcs",
     "//third_party/java/jdk/langtools:test-srcs",
     "//third_party/java/proguard:embedded_tools",
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     "//src/tools/singlejar:embedded_tools",
-    "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
     "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
     "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
