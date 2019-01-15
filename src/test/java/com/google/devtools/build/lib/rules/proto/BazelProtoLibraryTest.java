@@ -419,39 +419,34 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testProtoSourceRootWithStripImportPrefix() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
     scratch.file(
-        "a/BUILD",
+        "third_party/a/BUILD",
+        "licenses(['unencumbered'])",
         "proto_library(",
         "    name = 'a',",
         "    srcs = ['a.proto'],",
-        "    proto_source_root = 'a',",
-        "    strip_import_prefix = 'a')");
+        "    proto_source_root = 'third_party/a',",
+        "    strip_import_prefix = 'third_party/a')");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a");
+    getConfiguredTarget("//third_party/a");
     assertContainsEvent("the 'proto_source_root' attribute is incompatible");
   }
 
   @Test
   public void testIllegalStripImportPrefix() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
     scratch.file(
-        "a/BUILD",
+        "third_party/a/BUILD",
+        "licenses(['unencumbered'])",
         "proto_library(",
         "    name = 'a',",
         "    srcs = ['a.proto'],",
         "    strip_import_prefix = 'foo')");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a");
-    assertContainsEvent(".proto file 'a/a.proto' is not under the specified strip prefix");
+    getConfiguredTarget("//third_party/a");
+    assertContainsEvent(
+        ".proto file 'third_party/a/a.proto' is not under the specified strip prefix");
   }
 
   @Test
@@ -474,39 +469,36 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testRelativeStripImportPrefix() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
     scratch.file(
-        "a/b/BUILD",
+        "third_party/a/b/BUILD",
+        "licenses(['unencumbered'])",
         "proto_library(",
         "    name = 'd',",
         "    srcs = ['c/d.proto'],",
         "    strip_import_prefix = 'c')");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    Iterable<String> commandLine =
+        paramFileArgsForAction(getDescriptorWriteAction("//third_party/a/b:d"));
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
-    assertThat(commandLine).contains("-Id.proto=" + genfiles + "/a/b/_virtual_imports/d/d.proto");
+    assertThat(commandLine)
+        .contains("-Id.proto=" + genfiles + "/third_party/a/b/_virtual_imports/d/d.proto");
   }
 
   @Test
   public void testAbsoluteStripImportPrefix() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
     scratch.file(
-        "a/b/BUILD",
+        "third_party/a/b/BUILD",
+        "licenses(['unencumbered'])",
         "proto_library(",
         "    name = 'd',",
         "    srcs = ['c/d.proto'],",
-        "    strip_import_prefix = '/a')");
+        "    strip_import_prefix = '/third_party/a')");
 
-    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    Iterable<String> commandLine =
+        paramFileArgsForAction(getDescriptorWriteAction("//third_party/a/b:d"));
     String genfiles = getTargetConfiguration().getGenfilesFragment().toString();
     assertThat(commandLine)
-        .contains("-Ib/c/d.proto=" + genfiles + "/a/b/_virtual_imports/d/b/c/d.proto");
+        .contains("-Ib/c/d.proto=" + genfiles + "/third_party/a/b/_virtual_imports/d/b/c/d.proto");
   }
 
   @Test
@@ -550,37 +542,31 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testDotInStripImportPrefix() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
     scratch.file(
-        "a/b/BUILD",
+        "third_party/a/b/BUILD",
+        "licenses(['unencumbered'])",
         "proto_library(",
         "    name = 'd',",
         "    srcs = ['c/d.proto'],",
         "    strip_import_prefix = './c')");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a/b:d");
+    getConfiguredTarget("//third_party/a/b:d");
     assertContainsEvent("should be normalized");
   }
 
   @Test
   public void testDotDotInStripImportPrefix() throws Exception {
-    if (!isThisBazel()) {
-      return;
-    }
-
     scratch.file(
-        "a/b/BUILD",
+        "third_party/a/b/BUILD",
+        "licenses(['unencumbered'])",
         "proto_library(",
         "    name = 'd',",
         "    srcs = ['c/d.proto'],",
         "    strip_import_prefix = '../b/c')");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a/b:d");
+    getConfiguredTarget("//third_party/a/b:d");
     assertContainsEvent("should be normalized");
   }
 
