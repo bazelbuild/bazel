@@ -201,7 +201,7 @@ public class WindowsSubprocess implements Subprocess {
 
   @Override
   public boolean finished() {
-    return !processFuture.isCancelled() && !processFuture.isDone();
+    return processFuture.isDone();
   }
 
   @Override
