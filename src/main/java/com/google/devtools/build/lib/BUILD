@@ -4,6 +4,8 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+load(":merge_licenses.bzl", "merge_licenses")
+
 # Generate list of all srcs via:
 # bazel query 'filter("srcs", kind("filegroup rule", //src/main/java/com/google/devtools/build/lib/...))' | sort | sed -e "s/^/\"/" | sed -e "s/$/\",/" | fgrep -v "build/lib:srcs"
 filegroup(
@@ -1289,17 +1291,13 @@ java_library(
     ],
 )
 
-genrule(
+merge_licenses(
     name = "merge_licenses",
     srcs = [
         "//:LICENSE",
         "//third_party:srcs",
     ],
-    outs = ["runtime/commands/LICENSE"],
-    # Use xargs to avoid the shell script complaining that is has been passed too many arguments.
-    # xargs calls the script multiple times with at most 1000 arguments per call.
-    cmd = "echo \"$(SRCS)\" | xargs -n1000 $(location merge_licenses.sh) > \"$@\"",
-    tools = ["merge_licenses.sh"],
+    out = "runtime/commands/LICENSE",
 )
 
 java_library(
