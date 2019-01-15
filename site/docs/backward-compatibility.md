@@ -61,7 +61,7 @@ In other words, during a migration window for an incompatible change `foo`:
 ## Communicating incompatible changes
 
 The primary source of information about incompatible changes are GitHub issues
-marked with an ["incompatible-change" label](https://github.com/bazelbuild/bazel/issues?q=label%3Aincompatible-change+).
+marked with an ["incompatible-change" label](https://github.com/bazelbuild/bazel/issues?q=label%3Aincompatible-change).
 
 For every incompatible change, the issue specifies:
 * the name of the flag controlling the incompatible change
