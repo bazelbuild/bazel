@@ -12,7 +12,7 @@ incompatible and require some changes from Bazel users.
 
 1. Every breaking change is guarded with an `--incompatible_*` flag.
 1. Newly introduced incompatible flags default to off.
-1. For every `--incompatible_*` flag we have a github issue explaining
+1. For every `--incompatible_*` flag we have a GitHub issue explaining
    the change in behavior and giving a migration recipe.
 1. The migration window is at least one release long and is set by the author of the incompatible change.
 1. We announce what set of flags we flip with the next release one release in advance.
