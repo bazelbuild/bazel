@@ -1220,13 +1220,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     public void processOutput(Iterable<Target> partialResult)
         throws IOException, InterruptedException {
       ImmutableList<Target> uniquifiedTargets = uniquifier.unique(partialResult);
+      Iterable<Target> toProcess = null;
       synchronized (pendingLock) {
         Preconditions.checkNotNull(pending, "Reuse of the callback is not allowed");
         pending.addAll(uniquifiedTargets);
         if (pending.size() >= batchThreshold) {
-          callback.processOutput(pending);
+          toProcess = pending;
           pending = new ArrayList<>();
         }
+      }
+      if (toProcess != null) {
+        callback.processOutput(toProcess);
       }
     }
 
