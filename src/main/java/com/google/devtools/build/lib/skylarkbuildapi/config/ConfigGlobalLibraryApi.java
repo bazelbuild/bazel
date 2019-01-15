@@ -91,7 +91,7 @@ public interface ConfigGlobalLibraryApi {
       useEnvironment = true,
       useContext = true)
   @SkylarkConstructor(objectType = ConfigurationTransitionApi.class)
-  public ConfigurationTransitionApi transition(
+  ConfigurationTransitionApi transition(
       BaseFunction implementation,
       List<String> inputs,
       List<String> outputs,

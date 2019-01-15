@@ -27,8 +27,10 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
@@ -217,6 +219,8 @@ public final class ConfigurationResolver {
         transitionsMap.put(transitionKey, toOptions);
       }
 
+      postProcessStarlarkTransitions(env, transition);
+
       // If the transition doesn't change the configuration, trivially re-use the original
       // configuration.
       if (sameFragments && toOptions.size() == 1
@@ -296,6 +300,16 @@ public final class ConfigurationResolver {
     return sortResolvedDeps(originalDeps, resolvedDeps, attributesAndLabels);
   }
 
+  private static void postProcessStarlarkTransitions(
+      SkyFunction.Environment env, ConfigurationTransition transition) {
+    ImmutableList<ConfigurationTransition> transitions =
+        ComposingTransition.decomposeTransition(transition);
+    ExtendedEventHandler eventHandler = env.getListener();
+    transitions.stream()
+        .filter(t -> t instanceof StarlarkTransition)
+        .forEach(t -> ((StarlarkTransition) t).replayOn(eventHandler));
+  }
+
   /**
    * Encapsulates a set of config fragments and a config transition. This can be used to determine
    * the exact build options needed to set a configuration.
@@ -322,6 +336,9 @@ public final class ConfigurationResolver {
       } else if (o == null) {
         return false;
       } else {
+        if (!(o instanceof FragmentsAndTransition)) {
+          return false;
+        }
         FragmentsAndTransition other = (FragmentsAndTransition) o;
         return other.transition.equals(transition) && other.fragments.equals(fragments);
       }

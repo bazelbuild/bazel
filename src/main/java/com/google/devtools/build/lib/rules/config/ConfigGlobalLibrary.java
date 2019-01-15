@@ -59,7 +59,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     validateBuildSettingKeys(inputs, "input", location);
     validateBuildSettingKeys(outputs, "output", location);
     return StarlarkDefinedConfigTransition.newRegularTransition(
-        implementation, inputs, outputs, semantics, env.getEventHandler(), context);
+        implementation, inputs, outputs, semantics, context);
   }
 
   @Override

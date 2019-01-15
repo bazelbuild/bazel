@@ -28,8 +28,11 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleTransitionProvider;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
@@ -2508,6 +2511,119 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
     assertContainsEvent("Use of function-based split transition without whitelist");
+  }
+
+  @Test
+  public void testPrintFromTransitionImpl() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions");
+    scratch.file(
+        "tools/whitelists/function_transition_whitelist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_whitelist',",
+        "    packages = [",
+        "        '//test/...',",
+        "    ],",
+        ")");
+    scratch.file(
+        "test/rules.bzl",
+        "def _transition_impl(settings, attr):",
+        "  print('printing from transition impl', settings['//command_line_option:test_arg'])",
+        "  return {'//command_line_option:test_arg': "
+            + "settings['//command_line_option:test_arg']+['meow']}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = ['//command_line_option:test_arg'],",
+        "  outputs = ['//command_line_option:test_arg'],",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = my_transition),",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "my_rule(name = 'dep')");
+
+    useConfiguration("--test_arg=meow");
+
+    getConfiguredTarget("//test");
+    // Test print from top level transition
+    assertContainsEventWithFrequency("printing from transition impl [\"meow\"]", 1);
+    // Test print from dep transition
+    assertContainsEventWithFrequency("printing from transition impl [\"meow\", \"meow\"]", 1);
+    // Test print from (non-top level) rule class transition
+    assertContainsEventWithFrequency(
+        "printing from transition impl [\"meow\", \"meow\", \"meow\"]", 1);
+  }
+
+  @Test
+  public void testTransitionEquality() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions");
+    scratch.file(
+        "tools/whitelists/function_transition_whitelist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_whitelist',",
+        "    packages = [",
+        "        '//test/...',",
+        "    ],",
+        ")");
+    scratch.file(
+        "test/rules.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//command_line_option:test_arg': ['meow']}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:test_arg'],",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = my_transition),",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "my_rule(name = 'dep')");
+
+    useConfiguration("--test_arg=meow");
+
+    StarlarkDefinedConfigTransition ruleTransition =
+        ((StarlarkAttributeTransitionProvider)
+                getTarget("//test")
+                    .getAssociatedRule()
+                    .getRuleClassObject()
+                    .getAttributeByName("dep")
+                    .getSplitTransitionProviderForTesting())
+            .getStarlarkDefinedConfigTransitionForTesting();
+
+    StarlarkDefinedConfigTransition attrTransition =
+        ((StarlarkRuleTransitionProvider)
+                getTarget("//test").getAssociatedRule().getRuleClassObject().getTransitionFactory())
+            .getStarlarkDefinedConfigTransitionForTesting();
+
+    assertThat(ruleTransition).isEqualTo(attrTransition);
+    assertThat(attrTransition).isEqualTo(ruleTransition);
+    assertThat(ruleTransition.hashCode()).isEqualTo(attrTransition.hashCode());
   }
 
   @Test

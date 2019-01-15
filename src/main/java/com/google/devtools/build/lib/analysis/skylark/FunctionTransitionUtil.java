@@ -55,7 +55,7 @@ public class FunctionTransitionUtil {
    * incoming {@link BuildOptions}. For native options, this involves a preprocess step of
    * converting options to their "command line form".
    *
-   * Also Validate that transitions output sensical results.
+   * <p>Also validate that transitions output sensical results.
    *
    * @param buildOptions the pre-transition build options
    * @param starlarkTransition the transition to apply

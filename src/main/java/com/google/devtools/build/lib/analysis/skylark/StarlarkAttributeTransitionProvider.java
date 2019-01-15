@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.skylark;
 import static com.google.devtools.build.lib.analysis.skylark.FunctionTransitionUtil.applyAndValidate;
 import static com.google.devtools.build.lib.analysis.skylark.SkylarkAttributesCollection.ERROR_MESSAGE_FOR_NO_ATTR;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
@@ -52,6 +53,11 @@ public class StarlarkAttributeTransitionProvider implements SplitTransitionProvi
     this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
   }
 
+  @VisibleForTesting
+  public StarlarkDefinedConfigTransition getStarlarkDefinedConfigTransitionForTesting() {
+    return starlarkDefinedConfigTransition;
+  }
+
   @Override
   public SplitTransition apply(AttributeMap attributeMap) {
     Preconditions.checkArgument(attributeMap instanceof ConfiguredAttributeMapper);
@@ -59,14 +65,13 @@ public class StarlarkAttributeTransitionProvider implements SplitTransitionProvi
         starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap);
   }
 
-  private static class FunctionSplitTransition implements SplitTransition {
-    private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
+  class FunctionSplitTransition extends StarlarkTransition implements SplitTransition {
     private final StructImpl attrObject;
 
     FunctionSplitTransition(
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition,
         ConfiguredAttributeMapper attributeMap) {
-      this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
+      super(starlarkDefinedConfigTransition);
 
       LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
       for (String attribute : attributeMap.getAttributeNames()) {

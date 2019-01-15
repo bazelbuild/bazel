@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.skylark;
 
 import static com.google.devtools.build.lib.analysis.skylark.FunctionTransitionUtil.applyAndValidate;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
@@ -53,19 +54,22 @@ public class StarlarkRuleTransitionProvider implements RuleTransitionFactory {
     this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
   }
 
+  @VisibleForTesting
+  public StarlarkDefinedConfigTransition getStarlarkDefinedConfigTransitionForTesting() {
+    return starlarkDefinedConfigTransition;
+  }
+
   @Override
   public PatchTransition buildTransitionFor(Rule rule) {
     return new FunctionPatchTransition(starlarkDefinedConfigTransition, rule);
   }
 
-  private static class FunctionPatchTransition implements PatchTransition {
-
-    private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
+  class FunctionPatchTransition extends StarlarkTransition implements PatchTransition {
     private final StructImpl attrObject;
 
     FunctionPatchTransition(
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition, Rule rule) {
-      this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
+      super(starlarkDefinedConfigTransition);
 
       LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
       RawAttributeMapper attributeMapper = RawAttributeMapper.of(rule);

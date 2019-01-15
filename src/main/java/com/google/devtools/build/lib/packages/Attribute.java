@@ -2150,6 +2150,11 @@ public final class Attribute implements Comparable<Attribute> {
     return splitTransitionProvider.apply(attributeMapper);
   }
 
+  @VisibleForTesting
+  public SplitTransitionProvider getSplitTransitionProviderForTesting() {
+    return splitTransitionProvider;
+  }
+
   /**
    * Returns true if this attribute transitions on a split transition.
    * See {@link SplitTransition}.
