@@ -19,6 +19,7 @@ filegroup(
         "//third_party/java/j2objc:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
+        "//third_party/java/java_tools:srcs",
         "//third_party/java/jcommander:srcs",
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/proguard:srcs",
@@ -596,17 +597,6 @@ filegroup(
         "hamcrest/hamcrest-core-1.3.jar",
         "junit/junit-4.12.jar",
     ],
-)
-
-filegroup(
-    name = "java_tools",
-    srcs = glob(
-        ["java/java_tools/*.jar"],
-        exclude = ["java/java_tools/SingleJar_deploy.jar"]
-    ) + select({
-     "//src/conditions:arm": ["java/java_tools/SingleJar_deploy.jar"],
-     "//conditions:default": []
-     })
 )
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")
