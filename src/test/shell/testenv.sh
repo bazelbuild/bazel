@@ -21,21 +21,6 @@
 
 PLATFORM="$(uname -s | tr [:upper:] [:lower:])"
 
-# # `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
-# # `tr` converts all upper case letters to lower case.
-# # `case` matches the result if the `uname | tr` expression to string prefixes
-# # that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
-# # starting with "msys", and "*" matches everything (it's the default case).
-# case "$PLATFORM" in
-# msys*)
-#   # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
-#   declare -r is_windows=true
-#   ;;
-# *)
-#   declare -r is_windows=false
-#   ;;
-# esac
-
 function is_darwin() {
   [[ "${PLATFORM}" =~ darwin ]]
 }
