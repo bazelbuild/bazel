@@ -104,11 +104,6 @@ public final class ExtraAction extends SpawnAction {
   }
 
   @Override
-  public boolean isShareable() {
-    return !discoversInputs();
-  }
-
-  @Override
   public boolean discoversInputs() {
     return shadowedAction.discoversInputs();
   }
