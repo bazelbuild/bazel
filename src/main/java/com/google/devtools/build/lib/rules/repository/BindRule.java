@@ -64,6 +64,9 @@ public final class BindRule implements RuleDefinition {
 <em><p>Warning: use of <code>bind()</code> is not recommended. See "<a
 href="https://github.com/bazelbuild/bazel/issues/1952">Consider removing bind</a>" for a long
 discussion of its issues and alternatives.</p></em>
+<em><p>Warning: <code>select()</code> cannot be used in <code>bind()</code>. See the <a
+href="../configurable-attributes.html#bind-select">Configurable Attributes FAQ</a> for
+details.</p></em>
 
 <p>Gives a target an alias in the <code>//external</code> package.</p>
 

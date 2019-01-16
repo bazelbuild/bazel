@@ -18,9 +18,10 @@ title: Configurable Build Attributes
 * [Rules Compatibility](#rules)
 * [Bazel Query and Cquery](#query)
 * [FAQ](#faq)
-  * [Why doesn't select() work in macros](#macros-select)
+  * [Why doesn't select() work in macros?](#macros-select)
   * [Why does select() always return true?](#boolean-select)
   * [Can I read select() like a dict?](#inspectable-select)
+  * [Why doesn't select() work with bind()?](#bind-select)
 
 &nbsp;
 
@@ -870,3 +871,46 @@ def selecty_genrule(name, select_cmd):
         cmd = "echo " + cmd_suffix + "> $@",
     )
 ```
+
+## <a name="bind-select"></a>Why doesn't select() work with bind()?
+
+Because [`bind()`](be/workspace.html#bind) is a WORKSPACE rule, not a BUILD rule.
+
+Workspace rules do not have a specific configuration, and aren't evaluated in
+the same way as BUILD rules. Therefore, a `select()` in a `bind()` can't
+actually evaluate to any specific branch.
+
+Instead, you should use [`alias()`](be/general.html#alias), with a `select()` in
+the `actual` attribute, to perform this type of run-time determination. This
+works correctly, since `alias()` is a BUILD rule, and is evaluated with a
+specific configuration.
+
+You can even have a `bind()` target point to an `alias()`, if needed.
+
+```sh
+$ cat WORKSPACE
+workspace(name = "myproject")
+bind(name = "openssl", actual = "//:ssl")
+http_archive(name = "alternative", ...)
+http_archive(name = "boringssl", ...)
+
+$ cat BUILD
+config_setting(
+    name = "alt_ssl",
+    define_values = {
+        "ssl_library": "alternative",
+    },
+)
+
+alias(
+    name = "ssl",
+    actual = select({
+        "//:alt_ssl": "@alternative//:ssl",
+        "//conditions:default": "@boringssl//:ssl",
+    }),
+)
+```
+
+With this setup, you can pass `--define ssl_library=alternative`, and any target
+that depends on either `//:ssl` or `//external:ssl` will see the alternative
+located at `@alternative//:ssl`.
