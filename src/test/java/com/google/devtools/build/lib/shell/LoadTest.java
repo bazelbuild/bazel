@@ -19,6 +19,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
@@ -66,8 +68,14 @@ public class LoadTest {
 
   @Test
   public void testLoad() throws Throwable {
-    final Command command = new Command(new String[] {"/bin/cat",
-                                        tempFile.getAbsolutePath()});
+    Runfiles runfiles = Runfiles.create();
+    String catBin =
+        runfiles.rlocation(
+            (OS.getCurrent() == OS.WINDOWS)
+                ? "io_bazel/src/test/java/com/google/devtools/build/lib/shell/cat_file.exe"
+                : "io_bazel/src/test/java/com/google/devtools/build/lib/shell/cat_file");
+
+    final Command command = new Command(new String[] {catBin, tempFile.getAbsolutePath()});
     Thread[] threads = new Thread[10];
     List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<Throwable>());
     for (int i = 0; i < threads.length; i++) {
