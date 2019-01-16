@@ -52,6 +52,7 @@ public final class OptionsParser {
   private final Set<String> depsArtifacts = new LinkedHashSet<>();
 
   private boolean strictClasspathMode;
+  private boolean noClasspathFallback;
 
   private String sourceGenDir;
   private String generatedSourcesOutputJar;
@@ -122,6 +123,9 @@ public final class OptionsParser {
           break;
         case "--reduce_classpath":
           strictClasspathMode = true;
+          break;
+        case "--noclasspathfallback":
+          noClasspathFallback = true;
           break;
         case "--sourcegendir":
           sourceGenDir = getArgument(argQueue, arg);
@@ -348,6 +352,10 @@ public final class OptionsParser {
 
   public boolean reduceClasspath() {
     return strictClasspathMode;
+  }
+
+  public boolean noClasspathFallback() {
+    return noClasspathFallback;
   }
 
   public String getSourceGenDir() {

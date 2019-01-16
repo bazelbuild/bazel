@@ -43,9 +43,11 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
   BlazeJavacResult compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner)
       throws IOException {
     // Minimize classpath, but only if we're actually compiling some sources (some invocations of
-    // JavaBuilder are only building resource jars).
+    // JavaBuilder are only building resource jars). If the build system is responsible for doing
+    // the classpath reduction, then in the fallback case, we --reduce_classpath should not be set
+    // and a regular SimpleJavaLibraryBuilder should do the compilation.
     ImmutableList<Path> compressedClasspath = build.getClassPath();
-    if (!build.getSourceFiles().isEmpty()) {
+    if (!build.getSourceFiles().isEmpty() && !build.noClasspathFallback()) {
       compressedClasspath =
           build.getDependencyModule().computeStrictClasspath(build.getClassPath());
     }
@@ -58,6 +60,9 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     // TODO(b/119712048): check performance impact of additional retries.
     boolean fallback = shouldFallBack(result);
     if (fallback) {
+      if (build.noClasspathFallback()) {
+        return BlazeJavacResult.fallback();
+      }
       result = fallback(build, javacRunner);
     }
 
