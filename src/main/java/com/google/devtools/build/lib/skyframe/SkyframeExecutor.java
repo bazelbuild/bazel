@@ -1647,11 +1647,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       aliasPackageValues = evaluateSkyKeys(eventHandler, aliasPackagesToFetch);
       keysToProcess = aliasKeysToRedo;
     }
+    Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier =
+        () ->
+            configs.values().stream()
+                .collect(
+                    Collectors.toMap(
+                        BuildConfigurationValue::key, java.util.function.Function.identity()));
     // We ignore the return value here because tests effectively run with --keep_going, and the
     // loading-phase-error bit is only needed if we're constructing a SkyframeAnalysisResult.
     SkyframeBuildView.processErrors(
-        result, this, eventHandler, /*keepGoing=*/ true, /*eventBus=*/ null);
-
+        result,
+        configurationLookupSupplier,
+        this,
+        eventHandler,
+        /*keepGoing=*/ true,
+        /*eventBus=*/ null);
     return cts.build();
   }
 

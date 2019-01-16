@@ -18,6 +18,8 @@ import static java.util.stream.Collectors.toSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -63,6 +65,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.PrepareAnalysisPhaseValue;
@@ -79,9 +82,11 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -225,7 +230,7 @@ public class BuildView {
       try (SilentCloseable c = Profiler.instance().profile("Prepare analysis phase")) {
         prepareAnalysisPhaseValue = skyframeExecutor.prepareAnalysisPhase(
             eventHandler, targetOptions, multiCpu, loadingResult.getTargetLabels());
-  
+
         // Determine the configurations
         configurations =
             prepareAnalysisPhaseValue.getConfigurations(eventHandler, skyframeExecutor);
@@ -368,9 +373,26 @@ public class BuildView {
     getArtifactFactory().noteAnalysisStarting();
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {
+      Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier =
+          () -> {
+            Map<BuildConfigurationValue.Key, BuildConfiguration> result = new HashMap<>();
+            for (TargetAndConfiguration node : topLevelTargetsWithConfigs) {
+              if (node.getConfiguration() != null) {
+                result.put(
+                    BuildConfigurationValue.key(node.getConfiguration()), node.getConfiguration());
+              }
+            }
+            return result;
+          };
       skyframeAnalysisResult =
           skyframeBuildView.configureTargets(
-              eventHandler, topLevelCtKeys, aspectKeys, eventBus, keepGoing, loadingPhaseThreads);
+              eventHandler,
+              topLevelCtKeys,
+              aspectKeys,
+              Suppliers.memoize(configurationLookupSupplier),
+              eventBus,
+              keepGoing,
+              loadingPhaseThreads);
       setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
     } finally {
       skyframeBuildView.clearInvalidatedConfiguredTargets();

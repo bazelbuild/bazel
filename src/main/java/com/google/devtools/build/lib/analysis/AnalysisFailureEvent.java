@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -50,6 +51,11 @@ public class AnalysisFailureEvent implements BuildEvent {
 
   public ConfiguredTargetKey getFailedTarget() {
     return failedTarget;
+  }
+
+  @VisibleForTesting
+  BuildEventId getConfigurationId() {
+    return configuration;
   }
 
   /**
