@@ -34,6 +34,8 @@ output_paths = [
     ('*tools/cpp/runfiles/generated_*',
      lambda x: 'tools/cpp/runfiles/' + os.path.basename(x)[len('generated_'):]),
     ('*JavaBuilder*_deploy.jar', lambda x: 'tools/jdk/' + os.path.basename(x)),
+    ('*jarjar_command_deploy.jar',
+     lambda x: 'tools/jdk/jarjar_command_deploy.jar'),
     ('*JacocoCoverage*_deploy.jar',
      lambda x: 'tools/jdk/JacocoCoverage_deploy.jar'),
     ('*turbine_deploy.jar', lambda x: 'tools/jdk/turbine_deploy.jar'),

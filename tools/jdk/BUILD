@@ -311,6 +311,11 @@ java_import(
     jars = [":JacocoCoverage_deploy.jar"],
 )
 
+java_import(
+    name = "JarJar",
+    jars = [":jarjar_command_deploy.jar"]
+)
+
 test_suite(
     name = "windows_tests",
     tags = [
