@@ -169,19 +169,6 @@ public final class TestActionBuilder {
       }
     },
 
-    EXPERIMENTAL_HEURISTIC {
-      @Override public int getNumberOfShards(boolean isLocal, int shardCountFromAttr,
-          boolean testShardingCompliant, TestSize testSize) {
-        if (shardCountFromAttr >= 0) {
-          return shardCountFromAttr;
-        }
-        if (isLocal || !testShardingCompliant) {
-          return 0;
-        }
-        return testSize.getDefaultShards();
-      }
-    },
-
     DISABLED {
       @Override public int getNumberOfShards(boolean isLocal, int shardCountFromAttr,
           boolean testShardingCompliant, TestSize testSize) {

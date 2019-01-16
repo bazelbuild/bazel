@@ -450,12 +450,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testConfigurationCachingWithWarningReplay() throws Exception {
-    useConfiguration("--test_sharding_strategy=experimental_heuristic");
+    useConfiguration("--strip=always", "--copt=-g");
     update();
-    assertContainsEvent("Heuristic sharding is intended as a one-off experimentation tool");
+    assertContainsEvent("Debug information will be generated and then stripped away");
     eventCollector.clear();
     update();
-    assertContainsEvent("Heuristic sharding is intended as a one-off experimentation tool");
+    assertContainsEvent("Debug information will be generated and then stripped away");
   }
 
   @Test
