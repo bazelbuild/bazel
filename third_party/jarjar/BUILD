@@ -7,15 +7,6 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-filegroup(
-    name = "embedded_tools_srcs",
-    srcs = [
-        "BUILD.tools",
-        "LICENSE",
-        ":jarjar_command_deploy.jar",
-    ],
-)
-
 # jarjar_bin
 java_binary(
     name = "jarjar_command",
