@@ -195,6 +195,11 @@ java_import(
     neverlink = 1,
 )
 
+java_import(
+    name = "ImportDepsChecker",
+    jars = ["//tools/jdk:ImportDepsChecker_deploy.jar"]
+)
+
 alias(
     name = "jre",
     actual = "@local_jdk//:jre",

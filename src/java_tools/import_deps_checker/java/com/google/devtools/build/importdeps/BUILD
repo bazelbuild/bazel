@@ -10,14 +10,6 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-filegroup(
-    name = "embedded_tools",
-    srcs = [
-        "BUILD.tools",
-        ":ImportDepsChecker_deploy.jar",
-    ],
-)
-
 java_library(
     name = "import_deps_checker",
     srcs = glob(

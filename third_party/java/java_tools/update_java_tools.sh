@@ -4,7 +4,7 @@
 # by the Java rules in Bazel.
 #
 # For usage please run
-# ~/third_party/java/java_tools/update_java_tools.sh help
+# third_party/java/java_tools/update_java_tools.sh help
 
 # Maps the java tool names to their associated bazel target.
 declare -A tool_name_to_target=(["JavaBuilder"]="src/java_tools/buildjar:JavaBuilder_deploy.jar" \
@@ -15,13 +15,14 @@ declare -A tool_name_to_target=(["JavaBuilder"]="src/java_tools/buildjar:JavaBui
 ["JacocoCoverage"]="src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar" \
 ["Turbine"]="src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:turbine_deploy.jar" \
 ["TurbineDirect"]="src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar" \
-["SingleJar"]="src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar")
+["SingleJar"]="src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar" \
+["ImportDepsChecker"]="src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar")
 
 usage="This script updates the checked-in jars corresponding to the tools "\
 "used by the Java rules in Bazel.
 
 To update all the tools simultaneously run from your bazel workspace root:
-~/third_party/java/java_tools/update_java_tools.sh
+third_party/java/java_tools/update_java_tools.sh
 
 To update only one or one subset of the tools run
 third_party/java/java_tools/update_java_tools.sh tool_1 tool_2 ... tool_n

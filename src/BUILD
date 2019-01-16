@@ -123,7 +123,6 @@ JAVA_TOOLS = [
     "//third_party/java/proguard:embedded_tools",
     "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
     "//src/tools/singlejar:embedded_tools",
-    "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
     "//third_party/ijar",
     "//third_party/ijar:zipper",
     "//third_party/ijar:embedded_tools",
