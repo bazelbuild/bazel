@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -546,7 +547,9 @@ class Desugar {
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector)
       throws IOException {
     for (String inputFilename : inputFiles) {
-      if ("module-info.class".equals(inputFilename)) {
+      if ("module-info.class".equals(inputFilename)
+          || (inputFilename.endsWith("/module-info.class")
+              && Pattern.matches("META-INF/versions/[0-9]+/module-info.class", inputFilename))) {
         continue;  // Drop module-info.class since it has no meaning on Android
       }
       if (OutputFileProvider.DESUGAR_DEPS_FILENAME.equals(inputFilename)) {
