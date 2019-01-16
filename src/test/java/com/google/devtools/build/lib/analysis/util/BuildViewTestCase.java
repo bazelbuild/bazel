@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -890,7 +891,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns a ConfiguredTargetAndData for the specified label, using the given build configuration.
    */
   protected ConfiguredTargetAndData getConfiguredTargetAndData(
-      Label label, BuildConfiguration config) {
+      Label label, BuildConfiguration config) throws TransitionException {
     return view.getConfiguredTargetAndDataForTesting(reporter, label, config);
   }
 
@@ -898,9 +899,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns the ConfiguredTargetAndData for the specified label. If the label corresponds to a
    * target with a top-level configuration transition, that transition is applied to the given
    * config in the ConfiguredTargetAndData's ConfiguredTarget.
+   *
+   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
+   *     transitions.
    */
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
-      throws LabelSyntaxException {
+      throws LabelSyntaxException, TransitionException {
     return getConfiguredTargetAndData(Label.parseAbsolute(label, ImmutableMap.of()), targetConfig);
   }
 
@@ -1757,10 +1761,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.getConfiguration(reporter, ct.getConfigurationKey());
   }
 
-  /**
-   * Returns an attribute value retriever for the given rule for the target configuration.
-   */
-  protected AttributeMap attributes(RuleConfiguredTarget ct) {
+  /** Returns an attribute value retriever for the given rule for the target configuration. */
+  protected AttributeMap attributes(RuleConfiguredTarget ct) throws TransitionException {
     ConfiguredTargetAndData ctad;
     try {
       ctad = getConfiguredTargetAndData(ct.getLabel().toString());
@@ -1770,7 +1772,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getMapperFromConfiguredTargetAndTarget(ctad);
   }
 
-  protected AttributeMap attributes(ConfiguredTarget rule) {
+  protected AttributeMap attributes(ConfiguredTarget rule) throws TransitionException {
     return attributes((RuleConfiguredTarget) rule);
   }
 

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -84,6 +85,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
@@ -116,6 +118,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     public DependencyEvaluationException(InconsistentAspectOrderException cause) {
+      super(cause);
+    }
+
+    public DependencyEvaluationException(TransitionException cause) {
       super(cause);
     }
 
@@ -263,7 +269,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // more root causes during computeDependencies.
       // Note that this doesn't apply to AspectFunction, because aspects can't have configurable
       // attributes.
-      if (!transitiveRootCauses.isEmpty() && configConditions != NO_CONFIG_CONDITIONS) {
+      if (!transitiveRootCauses.isEmpty()
+          && !Objects.equals(configConditions, NO_CONFIG_CONDITIONS)) {
         throw new ConfiguredTargetFunctionException(
             new ConfiguredValueCreationException(
                 "Cannot compute config conditions", configuration, transitiveRootCauses.build()));

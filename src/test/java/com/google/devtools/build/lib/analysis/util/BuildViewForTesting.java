@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -184,10 +185,14 @@ public class BuildViewForTesting {
    * <p>If {@link BuildConfiguration.Options#trimConfigurations()} is true, the configuration only
    * includes the fragments needed by the fragment and its transitive closure. Else unconditionally
    * includes all fragments.
+   *
+   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
+   *     transitions.
    */
   @VisibleForTesting
   public BuildConfiguration getConfigurationForTesting(
-      Target target, BuildConfiguration config, ExtendedEventHandler eventHandler) {
+      Target target, BuildConfiguration config, ExtendedEventHandler eventHandler)
+      throws TransitionException {
     List<TargetAndConfiguration> node =
         ImmutableList.<TargetAndConfiguration>of(new TargetAndConfiguration(target, config));
     LinkedHashSet<TargetAndConfiguration> configs =
@@ -256,13 +261,20 @@ public class BuildViewForTesting {
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
       InconsistentAspectOrderException {
-    return skyframeExecutor.getConfiguredTargetsForTesting(
-        eventHandler,
-        configuration,
-        ImmutableSet.copyOf(
-            getDirectPrerequisiteDependenciesForTesting(
-                eventHandler, ct, configurations, /*toolchainLabels=*/ ImmutableSet.of())
-                .values()));
+    ImmutableList<ConfiguredTargetAndData> configuredTargetsForTesting;
+    try {
+      configuredTargetsForTesting =
+          skyframeExecutor.getConfiguredTargetsForTesting(
+              eventHandler,
+              configuration,
+              ImmutableSet.copyOf(
+                  getDirectPrerequisiteDependenciesForTesting(
+                          eventHandler, ct, configurations, /*toolchainLabels=*/ ImmutableSet.of())
+                      .values()));
+    } catch (TransitionException e) {
+      throw new InvalidConfigurationException(e);
+    }
+    return configuredTargetsForTesting;
   }
 
   @VisibleForTesting
@@ -327,13 +339,22 @@ public class BuildViewForTesting {
     TargetAndConfiguration ctgNode =
         new TargetAndConfiguration(
             target, skyframeExecutor.getConfiguration(eventHandler, ct.getConfigurationKey()));
-    return dependencyResolver.dependentNodeMap(
-        ctgNode,
-        configurations.getHostConfiguration(),
-        /*aspect=*/ null,
-        getConfigurableAttributeKeysForTesting(eventHandler, ctgNode),
-        toolchainLabels,
-        ruleClassProvider.getTrimmingTransitionFactory());
+    OrderedSetMultimap<Attribute, Dependency> dependentNodeMap;
+    try {
+      dependentNodeMap =
+          dependencyResolver.dependentNodeMap(
+              ctgNode,
+              configurations.getHostConfiguration(),
+              /*aspect=*/ null,
+              getConfigurableAttributeKeysForTesting(eventHandler, ctgNode),
+              toolchainLabels,
+              ruleClassProvider.getTrimmingTransitionFactory());
+    } catch (TransitionException e) {
+      eventHandler.handle(
+          Event.error("Encountered errors while applying Starlark-defined transition: " + e));
+      return OrderedSetMultimap.create();
+    }
+    return dependentNodeMap;
   }
 
   /**
@@ -341,7 +362,7 @@ public class BuildViewForTesting {
    * present in this rule's attributes.
    */
   private ImmutableMap<Label, ConfigMatchingProvider> getConfigurableAttributeKeysForTesting(
-      ExtendedEventHandler eventHandler, TargetAndConfiguration ctg) {
+      ExtendedEventHandler eventHandler, TargetAndConfiguration ctg) throws TransitionException {
     if (!(ctg.getTarget() instanceof Rule)) {
       return ImmutableMap.of();
     }
@@ -372,9 +393,16 @@ public class BuildViewForTesting {
         getDirectPrerequisiteDependenciesForTesting(
             eventHandler, target, configurations, toolchainLabels);
 
-    ImmutableMultimap<Dependency, ConfiguredTargetAndData> cts =
-        skyframeExecutor.getConfiguredTargetMapForTesting(
-            eventHandler, target.getConfigurationKey(), ImmutableSet.copyOf(depNodeNames.values()));
+    ImmutableMultimap<Dependency, ConfiguredTargetAndData> cts;
+    try {
+      cts =
+          skyframeExecutor.getConfiguredTargetMapForTesting(
+              eventHandler,
+              target.getConfigurationKey(),
+              ImmutableSet.copyOf(depNodeNames.values()));
+    } catch (TransitionException e) {
+      throw new InvalidConfigurationException(e);
+    }
 
     OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
     for (Map.Entry<Attribute, Dependency> entry : depNodeNames.entries()) {
@@ -419,8 +447,12 @@ public class BuildViewForTesting {
     if (transition == null) {
       return null;
     }
-    return skyframeExecutor.getConfiguredTargetForTesting(
-        eventHandler, label, config, transition);
+    try {
+      return skyframeExecutor.getConfiguredTargetForTesting(
+          eventHandler, label, config, transition);
+    } catch (TransitionException e) {
+      return null;
+    }
   }
 
   @VisibleForTesting
@@ -431,8 +463,12 @@ public class BuildViewForTesting {
     if (transition == null) {
       return null;
     }
-    return skyframeExecutor.getConfiguredTargetAndDataForTesting(
-        eventHandler, label, config, transition);
+    try {
+      return skyframeExecutor.getConfiguredTargetAndDataForTesting(
+          eventHandler, label, config, transition);
+    } catch (TransitionException e) {
+      return null;
+    }
   }
 
   /**

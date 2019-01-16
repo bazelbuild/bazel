@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -248,6 +249,8 @@ public class BuildView {
         topLevelTargetsWithConfigs =
             AnalysisUtils.getTargetsWithConfigs(
                 configurations, targets, eventHandler, ruleClassProvider, skyframeExecutor);
+      } catch (TransitionException e) {
+        throw new InvalidConfigurationException(e);
       }
     }
 

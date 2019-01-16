@@ -60,15 +60,15 @@ public class FunctionTransitionUtil {
    * @param buildOptions the pre-transition build options
    * @param starlarkTransition the transition to apply
    * @param attrObject the attributes of the rule to which this transition is attached
-   * @return the post-transition build options
+   * @return the post-transition build options.
    */
   static List<BuildOptions> applyAndValidate(
       BuildOptions buildOptions,
       StarlarkDefinedConfigTransition starlarkTransition,
-      StructImpl attrObject) {
+      StructImpl attrObject)
+      throws EvalException, InterruptedException {
     // TODO(waltl): consider building this once and use it across different split
     // transitions.
-    try {
       Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
       SkylarkDict<String, Object> settings =
           buildSettings(buildOptions, optionInfoMap, starlarkTransition);
@@ -86,11 +86,6 @@ public class FunctionTransitionUtil {
         splitBuildOptions.add(transitionedOptions);
       }
       return splitBuildOptions.build();
-
-    } catch (InterruptedException | EvalException e) {
-      // TODO(juliexxia): Throw an exception better than RuntimeException.
-      throw new RuntimeException(e);
-    }
   }
 
   private static void validateFunctionOutputs(

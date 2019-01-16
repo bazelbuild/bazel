@@ -19,9 +19,11 @@ import static com.google.devtools.build.lib.analysis.skylark.SkylarkAttributesCo
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.LinkedHashMap;
@@ -89,9 +92,25 @@ public class StarlarkAttributeTransitionProvider implements SplitTransitionProvi
       attrObject = StructProvider.STRUCT.create(attributes, ERROR_MESSAGE_FOR_NO_ATTR);
     }
 
+    /**
+     * @return the post-transition build options or a clone of the original build options if an
+     *     error was encountered during transition application/validation.
+     */
     @Override
     public final List<BuildOptions> split(BuildOptions buildOptions) {
-      return applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject);
+      List<BuildOptions> toReturn;
+      try {
+        toReturn = applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject);
+      } catch (InterruptedException | EvalException e) {
+        starlarkDefinedConfigTransition
+            .getEventHandler()
+            .handle(
+                Event.error(
+                    starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                    e.getMessage()));
+        return ImmutableList.of(buildOptions.clone());
+      }
+      return toReturn;
     }
   }
 }

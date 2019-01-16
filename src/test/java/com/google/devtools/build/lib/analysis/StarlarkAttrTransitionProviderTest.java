@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -143,8 +142,10 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     assertThat(splitDeps.get("armeabi-v7a")).hasSize(2);
     assertThat(getConfiguration(splitDeps.get("k8").get(0)).getCpu()).isEqualTo("k8");
     assertThat(getConfiguration(splitDeps.get("k8").get(1)).getCpu()).isEqualTo("k8");
-    assertThat(getConfiguration(splitDeps.get("armeabi-v7a").get(0)).getCpu()).isEqualTo("armeabi-v7a");
-    assertThat(getConfiguration(splitDeps.get("armeabi-v7a").get(1)).getCpu()).isEqualTo("armeabi-v7a");
+    assertThat(getConfiguration(splitDeps.get("armeabi-v7a").get(0)).getCpu())
+        .isEqualTo("armeabi-v7a");
+    assertThat(getConfiguration(splitDeps.get("armeabi-v7a").get(1)).getCpu())
+        .isEqualTo("armeabi-v7a");
   }
 
   private void testSplitTransitionCheckSplitAttrDep(ConfiguredTarget target) throws Exception {
@@ -329,14 +330,10 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
-    try {
-      getConfiguredTarget("//test/skylark:test");
-      fail("Expected failure");
-    } catch (IllegalStateException expected) {
-      // TODO(bazel-team): Register a failure event instead of throwing a RuntimeException.
-      assertThat(expected).hasCauseThat().hasCauseThat().hasMessageThat()
-          .contains("transition function returned undeclared output '//command_line_option:cpu'");
-    }
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:test");
+    assertContainsEvent(
+        "transition function returned undeclared output '//command_line_option:cpu'");
   }
 
   @Test
@@ -369,19 +366,11 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
-    try {
-      getConfiguredTarget("//test/skylark:test");
-      fail("Expected failure");
-    } catch (IllegalStateException expected) {
-      // TODO(bazel-team): Register a failure event instead of throwing a RuntimeException.
-      assertThat(expected)
-          .hasCauseThat()
-          .hasCauseThat()
-          .hasMessageThat()
-          .contains(
-              "transition outputs [//command_line_option:experimental_strict_java_deps] were not "
-                  + "defined by transition function");
-    }
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:test");
+    assertContainsEvent(
+        "transition outputs [//command_line_option:experimental_strict_java_deps] were not "
+            + "defined by transition function");
   }
 
   @Test
@@ -451,8 +440,9 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/skylark:test");
-    assertContainsEvent("invalid transition input 'cpu'. If this is intended as a native option, "
-        + "it must begin with //command_line_option:");
+    assertContainsEvent(
+        "invalid transition input 'cpu'. If this is intended as a native option, "
+            + "it must begin with //command_line_option:");
   }
 
   @Test
@@ -484,15 +474,11 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
-    try {
-      getConfiguredTarget("//test/skylark:test");
-      fail("Expected failure");
-    } catch (IllegalStateException expected) {
-      // TODO(bazel-team): Register a failure event instead of throwing a RuntimeException.
-      assertThat(expected).hasCauseThat().hasCauseThat().hasMessageThat()
-          .contains("transition inputs [//command_line_option:foo, //command_line_option:bar] "
-              + "do not correspond to valid settings");
-    }
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:test");
+    assertContainsEvent(
+        "transition inputs [//command_line_option:foo, //command_line_option:bar] "
+            + "do not correspond to valid settings");
   }
 
   @Test
@@ -523,15 +509,11 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
-    try {
-      getConfiguredTarget("//test/skylark:test");
-      fail("Expected failure");
-    } catch (IllegalStateException expected) {
-      // TODO(bazel-team): Register a failure event instead of throwing a RuntimeException.
-      assertThat(expected).hasCauseThat().hasCauseThat().hasMessageThat()
-          .contains("transition output '//command_line_option:foobarbaz' "
-              + "does not correspond to a valid setting");
-    }
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:test");
+    assertContainsEvent(
+        "transition output '//command_line_option:foobarbaz' "
+            + "does not correspond to a valid setting");
   }
 
   @Test
@@ -564,8 +546,9 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/skylark:test");
-    assertContainsEvent("invalid transition output 'cpu'. If this is intended as a native option, "
-        + "it must begin with //command_line_option:");
+    assertContainsEvent(
+        "invalid transition output 'cpu'. If this is intended as a native option, "
+            + "it must begin with //command_line_option:");
   }
 
   @Test
@@ -596,14 +579,9 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
-    try {
-      getConfiguredTarget("//test/skylark:test");
-      fail("Expected failure");
-    } catch (IllegalStateException expected) {
-      // TODO(bazel-team): Register a failure event instead of throwing a RuntimeException.
-      assertThat(expected).hasCauseThat().hasCauseThat().hasMessageThat()
-          .contains("Invalid value type for option 'cpu'");
-    }
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:test");
+    assertContainsEvent("Invalid value type for option 'cpu'");
   }
 
   @Test
@@ -663,19 +641,11 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "my_rule_test(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
-    try {
-      getConfiguredTarget("//test/skylark:test");
-      fail("Expected failure");
-    } catch (IllegalStateException expected) {
-      // TODO(bazel-team): Register a failure event instead of throwing a RuntimeException.
-      assertThat(expected)
-          .hasCauseThat()
-          .hasCauseThat()
-          .hasMessageThat()
-          .contains(
-              "transition output '//command_line_option:foobarbaz' "
-                  + "does not correspond to a valid setting");
-    }
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:test");
+    assertContainsEvent(
+        "transition output '//command_line_option:foobarbaz' "
+            + "does not correspond to a valid setting");
   }
 
   @Test

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static junit.framework.TestCase.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -150,14 +149,10 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "my_rule = rule(implementation = _impl, cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
-    try {
-      getConfiguredTarget("//test");
-      fail("Should have failed");
-    } catch (RuntimeException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Rule transition only allowed to return a single transitioned configuration.");
-    }
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "Rule transition only allowed to return a single transitioned configuration.");
   }
 
   @Test
@@ -197,17 +192,12 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  values = {'test_arg': 'true'},",
         ")");
 
-    try {
-      getConfiguredTarget("//test");
-      fail("Should have failed");
-    } catch (RuntimeException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "No attribute 'my_configurable_attr'. "
-                  + "Either this attribute does not exist for this rule or is set by a select. "
-                  + "Starlark rule transitions currently cannot read attributes behind selects.");
-    }
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "No attribute 'my_configurable_attr'. "
+            + "Either this attribute does not exist for this rule or is set by a select. "
+            + "Starlark rule transitions currently cannot read attributes behind selects.");
   }
 
   @Test
@@ -397,14 +387,9 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         ")");
     writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
 
-    try {
-      getConfiguredTarget("//test");
-      fail("Should have failed");
-    } catch (RuntimeException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "transition inputs [//test:cute-animal-fact] do not correspond to valid settings");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        "transition inputs [//test:cute-animal-fact] do not correspond to valid settings");
     }
-  }
 }
