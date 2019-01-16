@@ -124,7 +124,7 @@ EOF
   # their actual contents since that would be too much.
   assert_contains "Inputs: \[" output
   assert_contains "Outputs: \[" output
-  if is_windows; then
+  if $is_windows; then
     assert_contains "Command Line: .*bash\.exe" output
   else
     assert_contains "Command Line: (" output
@@ -806,7 +806,7 @@ EOF
 
   # Darwin and Windows only produce 1 CppCompileActionTemplate with PIC,
   # while Linux has both PIC and non-PIC CppCompileActionTemplates
-  if (is_darwin || is_windows); then
+  if (is_darwin || $is_windows); then
     expected_num_actions=1
   else
     expected_num_actions=2

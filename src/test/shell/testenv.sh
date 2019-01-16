@@ -19,12 +19,7 @@
 # TODO(bazel-team): This file is currently an append of the old testenv.sh and
 # test-setup.sh files. This must be cleaned up eventually.
 
-PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
-
-function is_windows() {
-  # On windows, the shell test is actually running on msys
-  [[ "${PLATFORM}" =~ msys_nt* ]]
-}
+PLATFORM="$(uname -s | tr [:upper:] [:lower:])"
 
 function is_darwin() {
   [[ "${PLATFORM}" =~ darwin ]]
@@ -50,7 +45,7 @@ if ! type rlocation &> /dev/null; then
 fi
 
 # Set some environment variables needed on Windows.
-if is_windows; then
+if [[ $PLATFORM =~ msys ]]; then
   # TODO(philwo) remove this once we have a Bazel release that includes the CL
   # moving the Windows-specific TEST_TMPDIR into TestStrategy.
   TEST_TMPDIR_BASENAME="$(basename "$TEST_TMPDIR")"
@@ -73,7 +68,7 @@ fi
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
 # added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,
 # because ':' is used as both path separator and in C:/msys64/...
-if is_windows; then
+if [[ $PLATFORM =~ msys ]]; then
   PATH_TO_BAZEL_WRAPPER="$(cygpath -u "$PATH_TO_BAZEL_WRAPPER")"
 fi
 [ ! -f "${PATH_TO_BAZEL_WRAPPER}/bazel" ] \
@@ -91,7 +86,7 @@ workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
 distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 
 # Java
-if is_windows; then
+if [[ $PLATFORM =~ msys ]]; then
   jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
 else
   jdk_dir="${TEST_SRCDIR}/local_jdk"
@@ -424,7 +419,7 @@ function setup_clean_workspace() {
   [ "${new_workspace_dir}" = "${WORKSPACE_DIR}" ] \
     || log_fatal "Failed to create workspace"
 
-  if is_windows; then
+  if [[ $PLATFORM =~ msys ]]; then
     export BAZEL_SH="$(cygpath --windows /bin/bash)"
   fi
 }
@@ -462,7 +457,7 @@ function cleanup() {
     # Try to shutdown Bazel at the end to prevent a "Cannot delete path" error
     # on Windows when the outer Bazel tries to delete $TEST_TMPDIR.
     cd "${WORKSPACE_DIR}"
-    bazel shutdown || true
+    try_with_timeout bazel shutdown || true
   fi
 }
 
@@ -554,7 +549,7 @@ create_and_cd_client
 function use_fake_python_runtimes() {
   # The stub script template automatically appends ".exe" to the Python binary
   # name if it doesn't already end in ".exe", ".com", or ".bat".
-  if is_windows; then
+  if [[ $PLATFORM =~ msys ]]; then
     PYTHON2_FILENAME="python2.bat"
     PYTHON3_FILENAME="python3.bat"
   else
@@ -595,7 +590,7 @@ py_runtime(
 EOF
 
   # Windows .bat has uppercase ECHO and no shebang.
-  if is_windows; then
+  if [[ $PLATFORM =~ msys ]]; then
     cat > tools/python/$PYTHON2_FILENAME << EOF
 @ECHO I am Python 2
 EOF
