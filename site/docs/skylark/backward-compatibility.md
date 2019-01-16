@@ -1,14 +1,14 @@
 ---
 layout: documentation
-title: Starlark Incompatible Chnages
+title: Legacy Incompatible Changes List
 ---
 
 
-# Backward Compatibility
+# Legacy Incompatible Changes List
 
 Legacy, partial list of [backward-incompatible changes](../backward-compatibility.md).
 
-Full, authorative list of incompatibvle changes is [GitHub issues with
+Full, authorative list of incompatible changes is [GitHub issues with
 "incompatible-change" label](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+label%3Aincompatible-change)
 
 
