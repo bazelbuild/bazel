@@ -279,27 +279,24 @@ public class ToolchainResolver {
 
   /** Returns {@code true} if the given platform has all of the constraints. */
   private boolean filterPlatform(PlatformInfo platformInfo, List<ConstraintValueInfo> constraints) {
-    for (ConstraintValueInfo filterConstraint : constraints) {
-      ConstraintValueInfo platformInfoConstraint =
-          platformInfo.constraints().get(filterConstraint.constraint());
-      if (platformInfoConstraint == null || !platformInfoConstraint.equals(filterConstraint)) {
+    ImmutableList<ConstraintValueInfo> missingConstraints =
+        platformInfo.constraints().findMissing(constraints);
+    if (debug) {
+      for (ConstraintValueInfo constraint : missingConstraints) {
         // The value for this setting is not present in the platform, or doesn't match the expected
         // value.
-        if (debug) {
-          environment
-              .getListener()
-              .handle(
-                  Event.info(
-                      String.format(
-                          "ToolchainResolver: Removed execution platform %s from"
-                              + " available execution platforms, it is missing constraint %s",
-                          platformInfo.label(), filterConstraint.label())));
+        environment
+            .getListener()
+            .handle(
+                Event.info(
+                    String.format(
+                        "ToolchainResolver: Removed execution platform %s from"
+                            + " available execution platforms, it is missing constraint %s",
+                        platformInfo.label(), constraint.label())));
         }
-        return false;
-      }
     }
 
-    return true;
+    return missingConstraints.isEmpty();
   }
 
   private void determineToolchainImplementations(

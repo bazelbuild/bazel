@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
@@ -207,31 +206,24 @@ public class ToolchainResolutionFunction implements SkyFunction {
       PlatformInfo platform) {
 
     // Check every constraint_setting in either the toolchain or the platform.
-    ImmutableSet<ConstraintSettingInfo> constraints =
-        new ImmutableSet.Builder<ConstraintSettingInfo>()
-            .addAll(toolchainConstraints.constraintSettings())
-            .addAll(platform.constraints().constraintSettings())
-            .build();
-    for (ConstraintSettingInfo constraintSetting : constraints) {
-      ConstraintValueInfo toolchainConstraint = toolchainConstraints.get(constraintSetting);
-      ConstraintValueInfo found = platform.constraints().get(constraintSetting);
-
-      // Does the toolchain care about this constraint (possibly due to a default), and is it
-      // different?
-      if (toolchainConstraint != null && !toolchainConstraint.equals(found)) {
-        debugMessage(
-            eventHandler,
-            "    Toolchain constraint %s has value %s, "
-                + "which does not match value %s from the %s platform %s",
-            constraintSetting.label(),
-            toolchainConstraint != null ? toolchainConstraint.label() : "<missing>",
-            found != null ? found.label() : "<missing>",
-            platformType,
-            platform.label());
-        return false;
-      }
+    ImmutableSet<ConstraintSettingInfo> mismatchSettings =
+        toolchainConstraints.diff(platform.constraints());
+    for (ConstraintSettingInfo mismatchSetting : mismatchSettings) {
+      debugMessage(
+          eventHandler,
+          "    Toolchain constraint %s has value %s, "
+              + "which does not match value %s from the %s platform %s",
+          mismatchSetting.label(),
+          toolchainConstraints.has(mismatchSetting)
+              ? toolchainConstraints.get(mismatchSetting).label()
+              : "<missing>",
+          platform.constraints().has(mismatchSetting)
+              ? platform.constraints().get(mismatchSetting).label()
+              : "<missing>",
+          platformType,
+          platform.label());
     }
-    return true;
+    return mismatchSettings.isEmpty();
   }
 
   @Nullable

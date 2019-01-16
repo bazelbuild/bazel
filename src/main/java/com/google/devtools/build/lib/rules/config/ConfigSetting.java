@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
 import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -130,7 +129,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         ConfigFeatureFlagMatch.fromAttributeValueAndPrerequisites(
             userDefinedFlagSettings, flagValues, ruleContext);
 
-    boolean constraintValuesMatch = matchesConstraints(constraintValues, targetPlatform);
+    boolean constraintValuesMatch = targetPlatform.constraints().containsAll(constraintValues);
 
     if (ruleContext.hasErrors()) {
       return null;
@@ -357,25 +356,6 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
     // Multi-value list:
     return actualList.contains(expectedSingleValue);
-  }
-
-  private boolean matchesConstraints(
-      Iterable<ConstraintValueInfo> expected, PlatformInfo targetPlatform) {
-    // config_setting didn't specify any constraint values
-    if (Iterables.isEmpty(expected)) {
-      return true;
-    }
-
-    // For every constraint in the attr check if it is (1)set aka non-null and
-    // (2)set correctly in the platform.
-    for (ConstraintValueInfo constraint : expected) {
-      ConstraintSettingInfo setting = constraint.constraint();
-      ConstraintValueInfo targetValue = targetPlatform.constraints().get(setting);
-      if (targetValue == null || !constraint.equals(targetValue)) {
-        return false;
-      }
-    }
-    return true;
   }
 
   private static final class ConfigFeatureFlagMatch {

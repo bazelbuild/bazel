@@ -20,6 +20,7 @@ import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -42,11 +43,18 @@ public final class ConstraintCollection
   @Nullable private final ConstraintCollection parent;
   private final ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints;
 
-  ConstraintCollection(ImmutableList<ConstraintValueInfo> constraints) {
+  /** Creates a new {@link ConstraintCollection} with the given constraint values. */
+  public ConstraintCollection(ImmutableList<ConstraintValueInfo> constraints) {
     this(null, constraints);
   }
 
-  ConstraintCollection(
+  /**
+   * Creates a new {@link ConstraintCollection} which inherits constraint values from {@code
+   * parent}.
+   *
+   * <p>Any constraints passed in {@code constraints} will override values from {@code parent}.
+   */
+  public ConstraintCollection(
       @Nullable ConstraintCollection parent, ImmutableList<ConstraintValueInfo> constraints) {
     this(
         parent,
@@ -62,6 +70,56 @@ public final class ConstraintCollection
       ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints) {
     this.parent = parent;
     this.constraints = constraints;
+  }
+
+  /**
+   * Returns {@code true} if this {@link ConstraintCollection} contains every {@link
+   * ConstraintValueInfo} in {@code expected}, or if the expected constraint value is the default
+   * for its setting.
+   */
+  public boolean containsAll(Iterable<ConstraintValueInfo> expected) {
+    return findMissing(expected).isEmpty();
+  }
+
+  /**
+   * Returns the set of {@link ConstraintValueInfo constraints} from {@code expected} that are not
+   * present in this {@link ConstraintCollection}, either directly, or by being the default for
+   * their {@link ConstraintSettingInfo}.
+   */
+  public ImmutableList<ConstraintValueInfo> findMissing(Iterable<ConstraintValueInfo> expected) {
+    ImmutableList.Builder<ConstraintValueInfo> missing = new ImmutableList.Builder<>();
+    // For every constraint check if it is (1) non-null and (2) set correctly.
+    for (ConstraintValueInfo constraint : expected) {
+      ConstraintSettingInfo setting = constraint.constraint();
+      ConstraintValueInfo targetValue = get(setting);
+      if (targetValue == null || !constraint.equals(targetValue)) {
+        missing.add(constraint);
+      }
+    }
+    return missing.build();
+  }
+
+  /**
+   * Returns the set of {@link ConstraintSettingInfo settings} where this {@link
+   * ConstraintCollection} and {@code other} have different {@link ConstraintValueInfo values}.
+   */
+  public ImmutableSet<ConstraintSettingInfo> diff(ConstraintCollection other) {
+    ImmutableSet<ConstraintSettingInfo> constraintsToCheck =
+        new ImmutableSet.Builder<ConstraintSettingInfo>()
+            .addAll(this.constraintSettings())
+            .addAll(other.constraintSettings())
+            .build();
+    ImmutableSet.Builder<ConstraintSettingInfo> mismatchSettings = new ImmutableSet.Builder<>();
+    for (ConstraintSettingInfo constraintSetting : constraintsToCheck) {
+      ConstraintValueInfo thisConstraint = this.get(constraintSetting);
+      ConstraintValueInfo otherConstraint = other.get(constraintSetting);
+
+      if (thisConstraint != null && !thisConstraint.equals(otherConstraint)) {
+        mismatchSettings.add(constraintSetting);
+      }
+    }
+
+    return mismatchSettings.build();
   }
 
   private ConstraintSettingInfo convertKey(Object key, Location loc) throws EvalException {
