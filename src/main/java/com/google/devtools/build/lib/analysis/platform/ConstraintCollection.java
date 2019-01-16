@@ -43,10 +43,17 @@ public final class ConstraintCollection
   @Nullable private final ConstraintCollection parent;
   private final ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints;
 
+  /**
+   * Create a new {@link ConstraintCollection} with the given constraint values.
+   */
   public ConstraintCollection(ImmutableList<ConstraintValueInfo> constraints) {
     this(null, constraints);
   }
 
+  /**
+   * Create a new {@link ConstraintCollection} which inherits constraint values from {@code parent}.
+   * Any constraints passed in {@code constraints} will override values from {@code parent}.
+   */
   public ConstraintCollection(
       @Nullable ConstraintCollection parent, ImmutableList<ConstraintValueInfo> constraints) {
     this(

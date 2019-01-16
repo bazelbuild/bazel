@@ -13,7 +13,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ConstraintCollectionTest extends BuildViewTestCase {
   @Test
-  public void testFindMissing() {
+  public void testSetArithmetic() {
     ConstraintSettingInfo setting1 =
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s1"));
     ConstraintValueInfo value1 =
@@ -39,7 +39,7 @@ public class ConstraintCollectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testFindMissing_withDefaultValues() {
+  public void testSetArithmetic_withDefaultValues() {
     ConstraintSettingInfo setting =
         ConstraintSettingInfo.create(
             Label.parseAbsoluteUnchecked("//foo:s"), Label.parseAbsoluteUnchecked("//foo:value1"));

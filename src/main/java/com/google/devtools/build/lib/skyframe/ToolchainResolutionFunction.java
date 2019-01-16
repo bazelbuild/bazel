@@ -223,24 +223,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
           platformType,
           platform.label());
     }
-    /*
-    ImmutableSet<ConstraintSettingInfo> constraints =
-        new ImmutableSet.Builder<ConstraintSettingInfo>()
-            .addAll(toolchainConstraints.constraintSettings())
-            .addAll(platform.constraints().constraintSettings())
-            .build();
-    // TODO(katre): Also handle ConstraintCollection.findMissing(ConstraintCollection)
-    for (ConstraintSettingInfo constraintSetting : constraints) {
-      ConstraintValueInfo toolchainConstraint = toolchainConstraints.get(constraintSetting);
-      ConstraintValueInfo found = platform.constraints().get(constraintSetting);
-
-      // Does the toolchain care about this constraint (possibly due to a default), and is it
-      // different?
-      if (toolchainConstraint != null && !toolchainConstraint.equals(found)) {
-        return false;
-      }
-    }
-    */
     return mismatchSettings.isEmpty();
   }
 
