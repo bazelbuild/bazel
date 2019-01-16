@@ -200,6 +200,21 @@ java_import(
     jars = ["//tools/jdk:ImportDepsChecker_deploy.jar"]
 )
 
+java_binary(
+    name = "ImportDepsChecker_bin",
+    main_class = "com.google.devtools.build.importdeps.Main",
+    jvm_flags = [
+        # quiet warnings from com.google.protobuf.UnsafeUtil,
+        # see: https://github.com/google/protobuf/issues/3781
+        "-XX:+IgnoreUnrecognizedVMOptions",
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    ],
+    runtime_deps = [
+        "//tools/jdk:ImportDepsChecker_deploy.jar"
+    ],
+)
+
 alias(
     name = "jre",
     actual = "@local_jdk//:jre",

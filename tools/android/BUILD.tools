@@ -60,7 +60,7 @@ sh_binary(
 
 alias(
     name = "aar_import_deps_checker",
-    actual = "//tools/jdk:ImportDepsChecker",
+    actual = "//tools/jdk:ImportDepsChecker_bin",
     visibility = ["//visibility:public"]
 )
 
