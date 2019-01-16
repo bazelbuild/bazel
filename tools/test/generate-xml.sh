@@ -14,13 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -euo pipefail
+
 TEST_LOG="$1"
 XML_OUTPUT_FILE="$2"
 DURATION_IN_SECONDS="$3"
 EXIT_CODE="$4"
 
 # Keep this in sync with test-setup.sh!
-function encode_output_file {
+function encode_as_xml {
   if [[ -f "$1" ]]; then
     # Replace invalid XML characters and invalid sequence in CDATA
     # cf. https://stackoverflow.com/a/7774512/4717701
@@ -43,13 +45,15 @@ if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
   test_name="${test_name}"_shard_"${shard_num}"/"${TEST_TOTAL_SHARDS}"
 fi
 
+FAILED=0
+ENCODED_LOG="$(encode_as_xml "${TEST_LOG}")" || FAILED=1
 cat <<EOF >${XML_OUTPUT_FILE}
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
 <testsuite name="${test_name}" tests="1" failures="0" errors="${errors}">
   <testcase name="${test_name}" status="run" duration="${DURATION_IN_SECONDS}" time="${DURATION_IN_SECONDS}">${error_msg}</testcase>
-  <system-out><![CDATA[$(encode_output_file "${TEST_LOG}")]]></system-out>
+  <system-out><![CDATA[${ENCODED_LOG}]]></system-out>
 </testsuite>
 </testsuites>
 EOF
-
+exit "$FAILED"
