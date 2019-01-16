@@ -476,17 +476,25 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected ConfiguredTarget addLibWithDepOnFrameworkImport() throws Exception {
+    scratch.file(
+        "fx/defs.bzl",
+        "def _custom_static_framework_import_impl(ctx):",
+        "  return [apple_common.new_objc_provider(",
+        "      static_framework_file=depset(ctx.files.link_inputs))]",
+        "custom_static_framework_import = rule(",
+        "    _custom_static_framework_import_impl,",
+        "    attrs={'link_inputs': attr.label_list(allow_files=True)},",
+        ")");
     scratch.file("fx/fx1.framework/a");
     scratch.file("fx/fx1.framework/b");
     scratch.file("fx/fx2.framework/c");
     scratch.file("fx/fx2.framework/d");
-    scratch.file("fx/BUILD",
-        "objc_framework(",
+    scratch.file(
+        "fx/BUILD",
+        "load(':defs.bzl', 'custom_static_framework_import')",
+        "custom_static_framework_import(",
         "    name = 'fx',",
-        "    framework_imports = glob(['fx1.framework/*', 'fx2.framework/*']),",
-        "    sdk_frameworks = ['CoreLocation'],",
-        "    weak_sdk_frameworks = ['MediaAccessibility'],",
-        "    sdk_dylibs = ['libdy1'],",
+        "    link_inputs = glob(['fx1.framework/*', 'fx2.framework/*']),",
         ")");
     return createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -808,9 +816,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    srcs = ['a.m'],",
         "    deps = ['//protos:objc_protos_a', ':no_deps_target'],",
         ")",
-        "objc_framework(",
+        "objc_library(",
         "    name = 'no_deps_target',",
-        "    framework_imports = ['x.framework'],",
+        "    srcs = ['b.m'],",
         ")");
 
     ruleType.scratchTarget(scratch, "deps", "['//libs:objc_lib']");
@@ -828,15 +836,26 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected void checkFrameworkDepLinkFlags(RuleType ruleType,
       ExtraLinkArgs extraLinkArgs) throws Exception {
     scratch.file(
+        "libs/defs.bzl",
+        "def _custom_static_framework_import_impl(ctx):",
+        "  return [apple_common.new_objc_provider(",
+        "      static_framework_file=depset(ctx.files.link_inputs))]",
+        "custom_static_framework_import = rule(",
+        "    _custom_static_framework_import_impl,",
+        "    attrs={'link_inputs': attr.label_list(allow_files=True)},",
+        ")");
+    scratch.file("libs/buzzbuzz.framework/buzzbuzz");
+    scratch.file(
         "libs/BUILD",
+        "load(':defs.bzl', 'custom_static_framework_import')",
         "objc_library(",
         "    name = 'objc_lib',",
         "    srcs = ['a.m'],",
         "    deps = [':my_framework'],",
         ")",
-        "objc_framework(",
+        "custom_static_framework_import(",
         "    name = 'my_framework',",
-        "    framework_imports = ['buzzbuzz.framework'],",
+        "    link_inputs = glob(['buzzbuzz.framework/*']),",
         ")");
 
     ruleType.scratchTarget(scratch, "deps", "['//libs:objc_lib']");
@@ -1541,12 +1560,26 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch,
         "dylibs", "['//fx:framework_import']");
 
+    scratch.file(
+        "fx/defs.bzl",
+        "def _custom_dynamic_framework_import_impl(ctx):",
+        "  return [",
+        "    apple_common.new_objc_provider(",
+        "      dynamic_framework_file=depset(ctx.files.link_inputs),",
+        "      dynamic_framework_dir=depset(['fx/MyFramework.framework'])),",
+        "    apple_common.new_dynamic_framework_provider(objc=apple_common.new_objc_provider()),",
+        "  ]",
+        "custom_dynamic_framework_import = rule(",
+        "    _custom_dynamic_framework_import_impl,",
+        "    attrs={'link_inputs': attr.label_list(allow_files=True)},",
+        ")");
     scratch.file("fx/MyFramework.framework/MyFramework");
-    scratch.file("fx/BUILD",
-        "objc_framework(",
+    scratch.file(
+        "fx/BUILD",
+        "load(':defs.bzl', 'custom_dynamic_framework_import')",
+        "custom_dynamic_framework_import(",
         "    name = 'framework_import',",
-        "    framework_imports = glob(['MyFramework.framework/*']),",
-        "    is_dynamic = 1,",
+        "    link_inputs = glob(['MyFramework.framework/*']),",
         ")");
     useConfiguration("--ios_multi_cpus=i386,x86_64");
 
