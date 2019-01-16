@@ -8,6 +8,12 @@ title: Backward Compatibility
 Bazel is evolving, and we will make changes to Bazel that at times will be
 incompatible and require some changes from Bazel users.
 
+## GitHub labels
+
+* All incompatible changes: label [**incompatible-change**](https://github.com/bazelbuild/bazel/issues?q=label%3Aincompatible-change)
+* Expected breaking change in release X.Y: label **breaking-change-X.Y** (e.g. [**breaking-change-0.21**](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Abreaking-change-0.21))
+* Release X.Y is in a migration window: label **migration-X.Y** (e.g. [**migration-0.21**](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Amigration-0.21))
+
 ## At a glance
 
 1. Every breaking change is guarded with an `--incompatible_*` flag.
