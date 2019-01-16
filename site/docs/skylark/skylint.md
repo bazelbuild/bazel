@@ -5,9 +5,10 @@ title: Skylint
 
 # Skylint
 
-[Style guide](../skylark/bzl-style.md)
+This document explains how to use Skylint, a Starlark linter.
 
-This document explains how to use Skylint, the Starlark linter.
+Skylint is no longer maintained. It will be replaced soon with [Buildifier](
+https://github.com/bazelbuild/buildtools/blob/master/buildifier/README.md#linter).
 
 <!-- [TOC] -->
 
