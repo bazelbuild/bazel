@@ -1017,4 +1017,28 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
       Location loc,
       Environment env)
       throws EvalException;
+
+  @SkylarkCallable(
+    name = "resolve_tools",
+    doc = "Returns a tuple <code>(inputs, input_manifests)</code> of the depset of resolved inputs"
+            + " and the runfiles metadata required to run the tools, both of them suitable for"
+            + " passing as the same-named arguments of the <code>ctx.actions.run</code> method."
+            + "<br/><br/>In contrast to <code>ctx.resolve_command</code>, this method does not"
+            + " require that Bash be installed on the machine, so it's suitable for rules built on"
+            + " Windows.",
+    parameters = {
+      @Param(
+        name = "tools",
+        defaultValue = "[]",
+        type = SkylarkList.class,
+        generic1 = TransitiveInfoCollectionApi.class,
+        named = true,
+        positional = false,
+        doc = "List of tools (list of targets)."
+      ),
+    },
+    useLocation = false,
+    useEnvironment = false
+  )
+  public Tuple<Object> resolveTools(SkylarkList tools) throws EvalException;
 }

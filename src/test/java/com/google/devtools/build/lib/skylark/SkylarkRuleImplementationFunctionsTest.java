@@ -135,11 +135,12 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  outs = [ 'gl.a', 'gl.gcgox', ],",
         "  output_to_bindir = 1,",
         ")",
-        // The two below are used by testResolveCommand
+        // The taraget below is used by testResolveCommand and testResolveTools
         "sh_binary(name = 'mytool',",
         "  srcs = ['mytool.sh'],",
         "  data = ['file1.dat', 'file2.dat'],",
         ")",
+        // The taraget below is used by testResolveCommand and testResolveTools
         "genrule(name = 'resolve_me',",
         "  cmd = 'aa',",
         "  tools = [':mytool', 't.exe'],",
@@ -735,6 +736,24 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(argv).hasSize(2);
     assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
     assertMatches("argv[1]", "^.*/resolve_me[.][a-z0-9]+[.]script[.]sh$", argv.get(1));
+  }
+
+  @Test
+  public void testResolveTools() throws Exception {
+    evalRuleContextCode(
+        createRuleContext("//foo:resolve_me"),
+        "inputs, input_manifests = ruleContext.resolve_tools(",
+        "   tools=ruleContext.attr.tools)");
+    assertArtifactFilenames(
+        ((SkylarkNestedSet) lookup("inputs")).getSet(Artifact.class),
+        "mytool.sh",
+        "mytool",
+        "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
+        "t.exe");
+    @SuppressWarnings("unchecked")
+    CompositeRunfilesSupplier runfilesSupplier =
+        new CompositeRunfilesSupplier((List<RunfilesSupplier>) lookup("input_manifests"));
+    assertThat(runfilesSupplier.getMappings(ArtifactPathResolver.IDENTITY)).hasSize(1);
   }
 
   @Test

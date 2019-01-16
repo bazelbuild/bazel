@@ -2150,7 +2150,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       "empty_action(mnemonic = 'foo', inputs = [file])",
       "template_action(template = file, output = file, substitutions = {})",
       "runfiles()",
-      "resolve_command(command = 'foo')");
+      "resolve_command(command = 'foo')",
+      "resolve_tools()");
 
   @Test
   public void testFrozenRuleContextHasInaccessibleAttributes() throws Exception {
