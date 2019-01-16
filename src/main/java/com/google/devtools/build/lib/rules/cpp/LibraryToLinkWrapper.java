@@ -168,36 +168,6 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
       return libraryListBuilder.build();
     }
 
-    public static CcLinkingContext merge(List<CcLinkingContext> ccLinkingContexts) {
-      CcLinkingContext.Builder mergedCcLinkingContext = CcLinkingContext.builder();
-      ExtraLinkTimeLibraries.Builder mergedExtraLinkTimeLibraries =
-          ExtraLinkTimeLibraries.builder();
-      for (CcLinkingContext ccLinkingContext : ccLinkingContexts) {
-        mergedCcLinkingContext
-            .addLibraries(ccLinkingContext.getLibraries())
-            .addUserLinkFlags(ccLinkingContext.getUserLinkFlags())
-            .addLinkstamps(ccLinkingContext.getLinkstamps())
-            .addNonCodeInputs(ccLinkingContext.getNonCodeInputs());
-        if (ccLinkingContext.getExtraLinkTimeLibraries() != null) {
-          mergedExtraLinkTimeLibraries.addTransitive(ccLinkingContext.getExtraLinkTimeLibraries());
-        }
-      }
-      mergedCcLinkingContext.setExtraLinkTimeLibraries(mergedExtraLinkTimeLibraries.build());
-      return mergedCcLinkingContext.build();
-    }
-
-    public List<Artifact> getDynamicLibrariesForRuntime(boolean linkingStatically) {
-      ImmutableList.Builder<Artifact> dynamicLibrariesForRuntimeBuilder = ImmutableList.builder();
-      for (LibraryToLinkWrapper libraryToLinkWrapper : libraries) {
-        Artifact artifact =
-            libraryToLinkWrapper.getDynamicLibraryForRuntimeOrNull(linkingStatically);
-        if (artifact != null) {
-          dynamicLibrariesForRuntimeBuilder.add(artifact);
-        }
-      }
-      return dynamicLibrariesForRuntimeBuilder.build();
-    }
-
     public static List<Artifact> getStaticModeParamsForExecutableLibraries(CcInfo ccInfo) {
       return getStaticModeParamsForExecutableLibraries(ccInfo.getCcLinkingContext());
     }

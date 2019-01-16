@@ -399,10 +399,11 @@ public class CppHelper {
             // Cannot add libraries directly because the nested set has link order.
             NestedSet<Artifact> dynamicLibrariesForRuntime =
                 NestedSetBuilder.<Artifact>stableOrder()
-                    .addAll(
+                    .addTransitive(
                         provider
-                            .getCcLinkingContext()
-                            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false))
+                            .getCcLinkingInfo()
+                            .getDynamicModeParamsForExecutable()
+                            .getDynamicLibrariesForRuntime())
                     .build();
             return new Runfiles.Builder(ruleContext.getWorkspaceName())
                 .addTransitiveArtifacts(dynamicLibrariesForRuntime)
@@ -419,10 +420,11 @@ public class CppHelper {
             // Cannot add libraries directly because the nested set has link order.
             NestedSet<Artifact> dynamicLibrariesForRuntime =
                 NestedSetBuilder.<Artifact>stableOrder()
-                    .addAll(
+                    .addTransitive(
                         provider
-                            .getCcLinkingContext()
-                            .getDynamicLibrariesForRuntime(/* linkingStatically= */ true))
+                            .getCcLinkingInfo()
+                            .getStaticModeParamsForExecutable()
+                            .getDynamicLibrariesForRuntime())
                     .build();
             return new Runfiles.Builder(ruleContext.getWorkspaceName())
                 .addTransitiveArtifacts(dynamicLibrariesForRuntime)
