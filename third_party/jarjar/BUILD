@@ -16,6 +16,7 @@ filegroup(
     ],
 )
 
+# jarjar_bin
 java_binary(
     name = "jarjar_command",
     srcs = glob(

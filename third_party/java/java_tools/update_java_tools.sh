@@ -15,7 +15,8 @@ declare -A tool_name_to_target=(["JavaBuilder"]="src/java_tools/buildjar:JavaBui
 ["JacocoCoverage"]="src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar" \
 ["Turbine"]="src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:turbine_deploy.jar" \
 ["TurbineDirect"]="src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar" \
-["SingleJar"]="src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar")
+["SingleJar"]="src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar"
+["JarJar"]="third_party/jarjar:jarjar_command_deploy.jar")
 
 usage="This script updates the checked-in jars corresponding to the tools "\
 "used by the Java rules in Bazel.

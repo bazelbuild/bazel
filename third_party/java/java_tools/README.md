@@ -17,3 +17,8 @@ third_party/java/java_tools/JacocoCoverage_jarjar_deploy.jar
 third_party/java/java_tools/turbine_deploy.jar
 third_party/java/java_tools/turbine_direct_binary_deploy.jar
 third_party/java/java_tools/SingleJar_deploy.jar
+
+The following tools were built with bazel 0.21.0 at commit 019f13b64630ea7e7837a2ed8b664c4262322b1c by running:
+$ third_party/java/java_tools/update_java_tools.sh
+
+third_party/java/java_tools/jarjar_command_deploy.jar
