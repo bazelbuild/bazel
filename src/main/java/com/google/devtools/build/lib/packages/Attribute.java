@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePre
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -314,6 +315,11 @@ public final class Attribute implements Comparable<Attribute> {
     @Override
     public SplitTransition apply(AttributeMap attributeMap) {
       return splitTransition;
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("<transition object>");
     }
   }
 

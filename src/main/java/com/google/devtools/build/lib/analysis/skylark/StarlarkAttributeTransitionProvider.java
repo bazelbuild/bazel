@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -63,6 +64,11 @@ public class StarlarkAttributeTransitionProvider implements SplitTransitionProvi
     Preconditions.checkArgument(attributeMap instanceof ConfiguredAttributeMapper);
     return new FunctionSplitTransition(
         starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap);
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<transition object>");
   }
 
   class FunctionSplitTransition extends StarlarkTransition implements SplitTransition {
