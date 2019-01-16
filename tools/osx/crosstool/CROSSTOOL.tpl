@@ -317,7 +317,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -1414,6 +1414,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -1659,6 +1660,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "x86_64"
@@ -1991,7 +1993,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -3092,6 +3094,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -3337,6 +3340,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "x86_64"
@@ -3669,7 +3673,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -4772,6 +4776,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -5017,6 +5022,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "i386"
@@ -5344,7 +5350,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -6447,6 +6453,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -6692,6 +6699,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "x86_64"
@@ -7019,7 +7027,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -8110,6 +8118,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -8355,6 +8364,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "<architecture>"
@@ -8688,7 +8698,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -9816,6 +9826,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -10064,6 +10075,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "x86_64"
@@ -10396,7 +10408,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -11497,6 +11509,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -11742,6 +11755,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "i386"
@@ -12074,7 +12088,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -13163,6 +13177,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -13408,6 +13423,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "armv7"
@@ -13740,7 +13756,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -14831,6 +14847,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -15076,6 +15093,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "armv7k"
@@ -15409,7 +15427,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -16525,6 +16543,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -16773,6 +16792,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "arm64"
@@ -17105,7 +17125,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -18194,6 +18214,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -18439,6 +18460,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "arm64"
@@ -18771,7 +18793,7 @@ toolchain {
     flag_set {
       action: "c++-link-static-library"
       flag_group {
-        flag: "rcs"
+        flag: "rcS"
         flag: "%{output_execpath}"
         expand_if_all_available: "output_execpath"
       }
@@ -19860,6 +19882,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-filelist"
         flag: "%{obj_list_path}"
@@ -20105,6 +20128,7 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
         flag: "<architecture>"
