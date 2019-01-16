@@ -41,7 +41,8 @@ public class ClassCacheTest extends AbstractClassCacheTest {
             ImmutableSet.of(bootclasspath),
             ImmutableSet.of(),
             ImmutableSet.of(libraryJar, libraryInterfaceJar),
-            ImmutableSet.of())) {
+            ImmutableSet.of(),
+            /*populateMembers=*/ true)) {
       assertCache(
           cache,
           libraryJarPositives,
@@ -56,7 +57,8 @@ public class ClassCacheTest extends AbstractClassCacheTest {
             ImmutableSet.of(bootclasspath),
             ImmutableSet.of(libraryJar, libraryInterfaceJar),
             ImmutableSet.of(libraryJar, libraryInterfaceJar),
-            ImmutableSet.of(clientJar))) {
+            ImmutableSet.of(clientJar),
+            /*populateMembers=*/ true)) {
       assertCache(
           cache,
           clientJarPositives,
@@ -71,7 +73,8 @@ public class ClassCacheTest extends AbstractClassCacheTest {
             ImmutableSet.of(bootclasspath),
             ImmutableSet.of(),
             ImmutableSet.of(),
-            ImmutableSet.of(clientJar))) {
+            ImmutableSet.of(clientJar),
+            /*populateMembers=*/ true)) {
       // Client should be incomplete, as its parent class and interfaces are not available on the
       // classpath. The following is the resolution path.
       {
@@ -110,7 +113,8 @@ public class ClassCacheTest extends AbstractClassCacheTest {
             ImmutableSet.of(bootclasspath),
             ImmutableSet.of(),
             ImmutableSet.of(),
-            ImmutableSet.of(libraryExceptionJar))) {
+            ImmutableSet.of(libraryExceptionJar),
+            /*populateMembers=*/ true)) {
       assertCache(
           cache,
           libraryExceptionJarPositives,
@@ -125,7 +129,8 @@ public class ClassCacheTest extends AbstractClassCacheTest {
             ImmutableSet.of(bootclasspath),
             ImmutableSet.of(),
             ImmutableSet.of(),
-            ImmutableSet.of(libraryAnnotationsJar))) {
+            ImmutableSet.of(libraryAnnotationsJar),
+            /*populateMembers=*/ true)) {
       assertCache(
           cache,
           libraryAnnotationsJarPositives,
@@ -136,7 +141,12 @@ public class ClassCacheTest extends AbstractClassCacheTest {
   @Test
   public void testCannotAccessClosedCache() throws IOException {
     ClassCache cache =
-        new ClassCache(ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of());
+        new ClassCache(
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            /*populateMembers=*/ true);
     cache.close();
     cache.close(); // Can close multiple times.
     assertThrows(IllegalStateException.class, () -> cache.getClassState("empty"));
@@ -153,7 +163,8 @@ public class ClassCacheTest extends AbstractClassCacheTest {
             ImmutableSet.of(),
             ImmutableSet.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
             ImmutableSet.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
-            ImmutableSet.of(clientJar))) {
+            ImmutableSet.of(clientJar),
+            /*populateMembers=*/ true)) {
       assertThat(
               cache
                   .getClassState("com/google/devtools/build/importdeps/testdata/Library$Class9")
@@ -174,7 +185,8 @@ public class ClassCacheTest extends AbstractClassCacheTest {
             ImmutableSet.of(),
             ImmutableSet.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
             ImmutableSet.of(libraryJar, libraryJar, libraryAnnotationsJar, libraryInterfaceJar),
-            ImmutableSet.of(clientJar))) {
+            ImmutableSet.of(clientJar),
+            /*populateMembers=*/ true)) {
       assertThat(
               cache
                   .getClassState("com/google/devtools/build/importdeps/testdata/Library$Class9")
@@ -208,7 +220,8 @@ public class ClassCacheTest extends AbstractClassCacheTest {
               ImmutableSet.of(libraryJar),
               ImmutableSet.of(libraryWoMembersJar),
               ImmutableSet.of(libraryWoMembersJar),
-              ImmutableSet.of());
+              ImmutableSet.of(),
+              /*populateMembers=*/ true);
       LazyClassEntry entry =
           classpath.getLazyEntry("com/google/devtools/build/importdeps/testdata/Library$Class4");
       AbstractClassEntryState state = entry.getState(classpath);
@@ -230,7 +243,8 @@ public class ClassCacheTest extends AbstractClassCacheTest {
               ImmutableSet.of(libraryWoMembersJar),
               ImmutableSet.of(libraryJar),
               ImmutableSet.of(libraryJar),
-              ImmutableSet.of());
+              ImmutableSet.of(),
+              /*populateMembers=*/ true);
       LazyClassEntry entry =
           classpath.getLazyEntry("com/google/devtools/build/importdeps/testdata/Library$Class4");
       AbstractClassEntryState state = entry.getState(classpath);
@@ -244,13 +258,31 @@ public class ClassCacheTest extends AbstractClassCacheTest {
   }
 
   @Test
+  public void testLazyClasspath_skipMembers() throws IOException {
+    LazyClasspath classpath =
+        new LazyClasspath(
+            ImmutableSet.of(libraryJar),
+            ImmutableSet.of(libraryWoMembersJar),
+            ImmutableSet.of(libraryWoMembersJar),
+            ImmutableSet.of(),
+            /*populateMembers=*/ false);
+    LazyClassEntry entry =
+        classpath.getLazyEntry("com/google/devtools/build/importdeps/testdata/Library$Class4");
+    AbstractClassEntryState state = entry.getState(classpath);
+    Optional<ClassInfo> classInfo = state.classInfo();
+    assertThat(classInfo.isPresent()).isTrue();
+    assertThat(classInfo.get().declaredMembers()).isEmpty();
+  }
+
+  @Test
   public void testOriginInformation() throws IOException {
     try (ClassCache cache =
         new ClassCache(
             ImmutableSet.of(bootclasspath),
             ImmutableSet.of(libraryJar),
             ImmutableSet.of(libraryJar, libraryInterfaceJar),
-            ImmutableSet.of(clientJar))) {
+            ImmutableSet.of(clientJar),
+            /*populateMembers=*/ true)) {
       assertCache(
           cache,
           clientJarPositives,

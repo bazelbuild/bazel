@@ -149,7 +149,8 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
                 ImmutableSet.copyOf(classpath),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                checkMissingMembers);
         ZipFile zipFile = new ZipFile(clientJar.toFile())) {
       assertThat(cache.getClassState("java/lang/invoke/LambdaMetafactory").isExistingState())
           .isTrue();

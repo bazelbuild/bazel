@@ -57,9 +57,12 @@ public final class ClassCache implements Closeable {
       ImmutableSet<Path> bootclasspath,
       ImmutableSet<Path> directClasspath,
       ImmutableSet<Path> regularClasspath,
-      ImmutableSet<Path> inputJars)
+      ImmutableSet<Path> inputJars,
+      boolean populateMembers)
       throws IOException {
-    lazyClasspath = new LazyClasspath(bootclasspath, directClasspath, regularClasspath, inputJars);
+    lazyClasspath =
+        new LazyClasspath(
+            bootclasspath, directClasspath, regularClasspath, inputJars, populateMembers);
   }
 
   public AbstractClassEntryState getClassState(String internalName) {
@@ -155,7 +158,16 @@ public final class ClassCache implements Closeable {
         }
         ClassInfoBuilder classInfoBuilder =
             new ClassInfoBuilder().setJarPath(classEntry.jarPath).setDirect(classEntry.direct);
-        classReader.accept(classInfoBuilder, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        // Only visit the class if we need to extract its list of members.  If we do visit, skip
+        // code and debug attributes since we just care about finding declarations here.
+        if (lazyClasspath.populateMembers) {
+          classReader.accept(
+              classInfoBuilder,
+              ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        } else {
+          classInfoBuilder.setNames(
+              classReader.getClassName(), classReader.getSuperName(), classReader.getInterfaces());
+        }
 
         ImmutableList<ResolutionFailureChain> resolutionFailureChains =
             resolutionFailureChainsBuilder.build();
@@ -220,14 +232,17 @@ public final class ClassCache implements Closeable {
     private final ClassIndex regularClasspath;
     private final ClassIndex inputJars;
     private final ImmutableList<ClassIndex> orderedClasspath;
+    final boolean populateMembers; // accessed from other inner classes
     private final Closer closer = Closer.create();
 
     public LazyClasspath(
         ImmutableSet<Path> bootclasspath,
         ImmutableSet<Path> directClasspath,
         ImmutableSet<Path> regularClasspath,
-        ImmutableSet<Path> inputJars)
+        ImmutableSet<Path> inputJars,
+        boolean populateMembers)
         throws IOException {
+      this.populateMembers = populateMembers;
       this.bootclasspath = new ClassIndex("boot classpath", bootclasspath, Predicates.alwaysTrue());
       this.inputJars = new ClassIndex("input jars", inputJars, Predicates.alwaysTrue());
       this.regularClasspath =
@@ -361,9 +376,7 @@ public final class ClassCache implements Closeable {
         String signature,
         String superName,
         String[] interfaces) {
-      checkState(internalName == null && superClasses == null, "This visitor is already used.");
-      internalName = name;
-      superClasses = combineWithoutNull(superName, interfaces);
+      setNames(name, superName, interfaces);
     }
 
     @Override
@@ -378,6 +391,12 @@ public final class ClassCache implements Closeable {
         int access, String name, String desc, String signature, String[] exceptions) {
       members.add(MemberInfo.create(name, desc));
       return null;
+    }
+
+    void setNames(String name, String superName, String[] interfaces) {
+      checkState(internalName == null && superClasses == null, "This visitor is already used.");
+      internalName = name;
+      superClasses = combineWithoutNull(superName, interfaces);
     }
 
     public ClassInfoBuilder setJarPath(Path jarPath) {
