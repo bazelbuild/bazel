@@ -229,7 +229,7 @@ public abstract class SkylarkSemantics {
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(false)
           .incompatibleRemoveNativeMavenJar(false)
-          .incompatibleRequireFeatureConfigurationForPic(false)
+          .incompatibleRequireFeatureConfigurationForPic(true)
           .incompatibleStricArgumentOrdering(false)
           .incompatibleStringIsNotIterable(true)
           .internalSkylarkFlagTestCanary(false)

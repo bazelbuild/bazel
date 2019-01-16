@@ -218,7 +218,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
 
   @Option(
       name = "incompatible_require_feature_configuration_for_pic",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
