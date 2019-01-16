@@ -35,6 +35,8 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
     --output reduced
   cp DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
+  # These are necessary for --host_jvm_debug to work.
+  cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
   zip -r -9 ../reduced.zip reduced/
   cd ..
   mv reduced.zip "$out"
@@ -46,6 +48,8 @@ else
     --output reduced
   cp DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
+  # These are necessary for --host_jvm_debug to work.
+  cp lib/libdt_socket.so lib/libjdwp.so reduced/lib
   GZIP=-9 tar -zcf ../reduced.tgz reduced
   cd ..
   mv reduced.tgz "$out"
