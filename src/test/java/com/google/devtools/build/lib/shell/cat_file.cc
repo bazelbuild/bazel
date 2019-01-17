@@ -17,19 +17,27 @@
 
 int main(int argc, char** argv) {
   if (argc != 2) {
-    fprintf(stderr, "ERROR(%s:%d): usage %s <path>\n", __FILE__, __LINE__, argv[0]);
+    fprintf(stderr, "ERROR(%s:%d): usage %s <path>\n", __FILE__, __LINE__,
+            argv[0]);
     return 1;
   }
   FILE* f = fopen(argv[1], "rt");
   if (f == NULL) {
-    fprintf(stderr, "ERROR(%s:%d): cannot open \"%s\"\n", __FILE__, __LINE__, argv[1]);
+    fprintf(stderr, "ERROR(%s:%d): cannot open \"%s\"\n", __FILE__, __LINE__,
+            argv[1]);
     return 1;
   }
   static constexpr size_t kBufSize = 0x10000;
   uint8_t buf[kBufSize];
-  size_t read = 0;
-  while ((read = fread(buf, 1, kBufSize, f)) > 0) {
-    fwrite(buf, 1, read, stdout);
+  while (!feof(f)) {
+    size_t read = fread(buf, 1, kBufSize, f);
+    if (read > 0) {
+      fwrite(buf, 1, read, stdout);
+    } else {
+      fprintf(stderr, "ERROR(%s:%d): failed to read \"%s\"\n", __FILE__,
+              __LINE__, argv[1]);
+      break;
+    }
   }
   fclose(f);
   return 0;
