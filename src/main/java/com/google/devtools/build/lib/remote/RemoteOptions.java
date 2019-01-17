@@ -298,4 +298,17 @@ public final class RemoteOptions extends OptionsBase {
           "The relative priority of actions to be executed remotely. "
               + "The semantics of the particular priority values are server-dependent.")
   public int remoteExecutionPriority;
+
+  @Option(
+      name = "remote_default_platform_properties",
+      oldName = "host_platform_remote_properties_override",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Set the default platform properties to be set for the remote execution API, "
+              + "if the execution platform does not already set remote_execution_properties. "
+              + "This value will also be used if the host platform is selected as the execution "
+              + "platform for remote execution.")
+  public String remoteDefaultPlatformProperties;
 }

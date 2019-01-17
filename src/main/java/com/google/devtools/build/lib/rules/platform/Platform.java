@@ -75,11 +75,6 @@ public class Platform implements RuleConfiguredTargetFactory {
 
     String remoteExecutionProperties =
         ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING);
-    if (Strings.isNullOrEmpty(platformBuilder.getRemoteExecutionProperties())
-        && ruleContext.attributes().get(PlatformRule.HOST_PLATFORM_ATTR, Type.BOOLEAN)) {
-      // Use the default override.
-      remoteExecutionProperties = platformOptions.hostPlatformRemotePropertiesOverride;
-    }
     platformBuilder.setRemoteExecutionProperties(remoteExecutionProperties);
 
     PlatformInfo platformInfo;

@@ -72,7 +72,5 @@ public class LocalConfigPlatformFunctionPosixTest {
       assertThat(hostPlatformProvider.constraints().has(OS_CONSTRAINT)).isTrue();
       assertThat(hostPlatformProvider.constraints().get(OS_CONSTRAINT)).isEqualTo(LINUX_CONSTRAINT);
     }
-
-    // TODO(katre): check the host_platform_remote_properties_override flag
   }
 }
