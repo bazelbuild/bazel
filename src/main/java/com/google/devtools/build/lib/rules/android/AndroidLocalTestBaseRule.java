@@ -40,7 +40,9 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .requiresConfigurationFragments(
-            JavaConfiguration.class, AndroidLocalTestConfiguration.class)
+            JavaConfiguration.class,
+            AndroidLocalTestConfiguration.class,
+            AndroidConfiguration.class)
 
         // Update documentation for inherited attributes
 
