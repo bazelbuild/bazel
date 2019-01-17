@@ -49,7 +49,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
     if (ruleContext.getFragment(JavaConfiguration.class).isDisallowStrictDepsForJpl()
         && ruleContext.attributes().has("strict_deps")
         && ruleContext.attributes().isAttributeValueExplicitlySpecified("strict_deps")) {
-      ruleContext.attributeError("strict_deps", "Not allowed to be set explicitly.");
+      ruleContext.attributeError("strict_deps", "The strict_deps attribute has been removed.");
       return null;
     }
 
