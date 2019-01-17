@@ -302,7 +302,7 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
       name = "remote_default_platform_properties",
       oldName = "host_platform_remote_properties_override",
-      defaultValue = "null",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =

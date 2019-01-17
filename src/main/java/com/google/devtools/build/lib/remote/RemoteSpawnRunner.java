@@ -25,6 +25,7 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -414,28 +415,31 @@ class RemoteSpawnRunner implements SpawnRunner {
     return action.build();
   }
 
-  static Platform parsePlatform(PlatformInfo executionPlatform, String defaultPlatformProperties) {
-    Label platformLabel = executionPlatform.label();
-    String platformDescription = executionPlatform.remoteExecutionProperties();
+  static Platform parsePlatform(@Nullable PlatformInfo executionPlatform, @Nullable String defaultPlatformProperties) {
     Platform.Builder platformBuilder = Platform.newBuilder();
-    if (platformDescription != null) {
-    try {
-        TextFormat.getParser().merge(platformDescription, platformBuilder);
-    } catch (ParseException e) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to parse remote_execution_properties from platform %s", platformLabel),
-          e);
-    }
-    } else {
+
+    if (executionPlatform != null && !Strings.isNullOrEmpty(executionPlatform.remoteExecutionProperties())) {
+      // Try and get the platform info from the execution properties.
+      try {
+        TextFormat.getParser().merge(executionPlatform.remoteExecutionProperties(), platformBuilder);
+      } catch (ParseException e) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Failed to parse remote_execution_properties from platform %s", executionPlatform.label()),
+            e);
+      }
+    } else if (!Strings.isNullOrEmpty(defaultPlatformProperties)) {
+      // Try and use the provided default value.
       try {
         TextFormat.getParser().merge(defaultPlatformProperties, platformBuilder);
       } catch (ParseException e) {
         throw new IllegalArgumentException(
-            String.format("Failed to parse --remote_default_platform_properties %s", platformLabel),
+            String.format("Failed to parse --remote_default_platform_properties %s", defaultPlatformProperties),
             e);
       }
     }
+
+    // Sort the properties.
     List<Platform.Property> properties = platformBuilder.getPropertiesList();
     platformBuilder.clearProperties();
     platformBuilder.addAllProperties(
