@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -134,6 +135,11 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     @Override
     public ListenableFuture<Void> close() {
       return Futures.immediateFuture(null);
+    }
+
+    @Override
+    public BuildEventArtifactUploader getUploader() {
+      throw new IllegalStateException();
     }
 
     List<BuildEvent> getEvents() {

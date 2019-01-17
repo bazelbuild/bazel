@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -52,4 +54,8 @@ public interface BuildEventTransport {
    * <p>This method should not throw any exceptions.
    */
   ListenableFuture<Void> close();
+
+  @VisibleForTesting
+  @Nullable
+  BuildEventArtifactUploader getUploader();
 }

@@ -263,4 +263,9 @@ abstract class FileTransport implements BuildEventTransport {
     }
     return uploader.upload(localFileMap);
   }
+
+  @Override
+  public BuildEventArtifactUploader getUploader() {
+    return uploader;
+  }
 }

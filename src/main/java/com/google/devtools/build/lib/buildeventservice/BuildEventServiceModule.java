@@ -20,6 +20,8 @@ import static java.lang.String.format;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -161,10 +163,22 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
         env.getOptions().getOptions(BuildEventStreamOptions.class);
     this.keepClient = buildEventStreamOptions.keepBackendConnections;
 
+    BuildEventProtocolOptions protocolOptions =
+        checkNotNull(
+            env.getOptions().getOptions(BuildEventProtocolOptions.class),
+            "Could not get BuildEventProtocolOptions.");
+    Supplier<BuildEventArtifactUploader> uploaderSupplier =
+        Suppliers.memoize(
+            () ->
+                env.getRuntime()
+                    .getBuildEventArtifactUploaderFactoryMap()
+                    .select(protocolOptions.buildEventUploadStrategy)
+                    .create(env));
+
     try {
-      BuildEventTransport besTransport = null;
+      BuildEventTransport besTransport;
       try {
-        besTransport = tryCreateBesTransport(env);
+        besTransport = tryCreateBesTransport(env, uploaderSupplier);
       } catch (Exception e) {
         String message = "Failed to create BuildEventTransport: " + e;
         logger.log(Level.WARNING, message, e);
@@ -177,7 +191,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       }
 
       ImmutableSet<BuildEventTransport> bepTransports =
-          BuildEventTransportFactory.createFromOptions(env, env.getBlazeModuleEnvironment()::exit);
+          BuildEventTransportFactory.createFromOptions(
+              env, env.getBlazeModuleEnvironment()::exit, protocolOptions, uploaderSupplier);
 
       ImmutableSet.Builder<BuildEventTransport> transportsBuilder =
           ImmutableSet.<BuildEventTransport>builder().addAll(bepTransports);
@@ -199,7 +214,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   }
 
   @Nullable
-  private BuildEventTransport tryCreateBesTransport(CommandEnvironment env)
+  private BuildEventTransport tryCreateBesTransport(
+      CommandEnvironment env, Supplier<BuildEventArtifactUploader> uploaderSupplier)
       throws IOException, OptionsParsingException {
     OptionsParsingResult optionsProvider = env.getOptions();
     T besOptions =
@@ -243,11 +259,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       }
 
       BuildEventServiceClient client = getBesClient(besOptions, authTlsOptions);
-      BuildEventArtifactUploader artifactUploader =
-          env.getRuntime()
-              .getBuildEventArtifactUploaderFactoryMap()
-              .select(protocolOptions.buildEventUploadStrategy)
-              .create(env);
+      BuildEventArtifactUploader artifactUploader = uploaderSupplier.get();
 
       BuildEventLogger buildEventLogger =
           (BuildEventStreamProtos.BuildEvent bepEvent) -> {
