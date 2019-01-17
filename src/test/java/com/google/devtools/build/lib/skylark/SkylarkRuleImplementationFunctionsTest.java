@@ -23,6 +23,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -310,7 +312,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionArgumentsBadExecutable() throws Exception {
     checkErrorContains(
         createRuleContext("//foo:foo"),
-        "expected value of type 'File or string' for parameter 'executable', "
+        "expected value of type 'File or string or FilesToRunProvider' for parameter 'executable', "
             + "for call to method run(",
         "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
@@ -2791,6 +2793,61 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(expected).hasMessageThat()
         .contains("When an attribute value is a function, "
             + "the attribute must be private (i.e. start with '_')");
+  }
+
+  @Test
+  public void testFilesToRunInActionsRun() throws Exception {
+    scratch.file(
+        "a/a.bzl",
+        "def _impl(ctx):",
+        "    f = ctx.actions.declare_file('output')",
+        "    ctx.actions.run(",
+        "        inputs = [],",
+        "        outputs = [f],",
+        "        executable = ctx.attr._tool[DefaultInfo].files_to_run)",
+        "    return [DefaultInfo(files=depset([f]))]",
+        "r = rule(implementation=_impl, attrs = {'_tool': attr.label(default='//a:tool')})");
+
+    scratch.file(
+        "a/BUILD",
+        "load(':a.bzl', 'r')",
+        "r(name='r')",
+        "sh_binary(name='tool', srcs=['tool.sh'], data=['data'])");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    Action action =
+        getGeneratingAction(
+            Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
+        .containsAllOf("tool", "tool.sh", "data");
+  }
+
+  @Test
+  public void testFilesToRunInActionsTools() throws Exception {
+    scratch.file(
+        "a/a.bzl",
+        "def _impl(ctx):",
+        "    f = ctx.actions.declare_file('output')",
+        "    ctx.actions.run(",
+        "        inputs = [],",
+        "        outputs = [f],",
+        "        tools = [ctx.attr._tool[DefaultInfo].files_to_run],",
+        "        executable = 'a/tool')",
+        "    return [DefaultInfo(files=depset([f]))]",
+        "r = rule(implementation=_impl, attrs = {'_tool': attr.label(default='//a:tool')})");
+
+    scratch.file(
+        "a/BUILD",
+        "load(':a.bzl', 'r')",
+        "r(name='r')",
+        "sh_binary(name='tool', srcs=['tool.sh'], data=['data'])");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    Action action =
+        getGeneratingAction(
+            Iterables.getOnlyElement(r.getProvider(FileProvider.class).getFilesToBuild()));
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
+        .containsAllOf("tool", "tool.sh", "data");
   }
 
   // Verifies that configuration_field can only be used on 'label' attributes.
