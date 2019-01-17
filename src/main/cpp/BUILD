@@ -18,11 +18,11 @@ cc_library(
         "global_variables.h",
         "startup_options.h",
     ] + select({
-        "//src/conditions:darwin": [
+        "//tools/osx:darwin": [
             "blaze_util_darwin.cc",
             "blaze_util_posix.cc",
         ],
-        "//src/conditions:darwin_x86_64": [
+        "//tools/osx:darwin_x86_64": [
             "blaze_util_darwin.cc",
             "blaze_util_posix.cc",
         ],
@@ -43,10 +43,10 @@ cc_library(
         "blaze_util_platform.h",
     ],
     linkopts = select({
-        "//src/conditions:darwin": [
+        "//tools/osx:darwin": [
             "-framework CoreFoundation",
         ],
-        "//src/conditions:darwin_x86_64": [
+        "//tools/osx:darwin_x86_64": [
             "-framework CoreFoundation",
         ],
         "//src/conditions:freebsd": [
@@ -83,9 +83,9 @@ cc_binary(
         "//conditions:default": ["-Wno-sign-compare"],
     }),
     linkopts = select({
-        "//src/conditions:darwin": [
+        "//tools/osx:darwin": [
         ],
-        "//src/conditions:darwin_x86_64": [
+        "//tools/osx:darwin_x86_64": [
         ],
         "//src/conditions:freebsd": [
             "-lprocstat",

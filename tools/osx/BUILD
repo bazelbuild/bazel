@@ -31,7 +31,6 @@ genrule(
     output_to_bindir = 1,
 )
 
-# TODO(cparsons): Consolidate with config_settings under //src
 config_setting(
     name = "darwin",
     values = {"cpu": "darwin"},

@@ -282,8 +282,8 @@ sh_test(
     size = "medium",
     srcs = ["bazel_toolchain_test.sh"],
     data = [":test-deps"] + select({
-        "//src/conditions:darwin": [],
-        "//src/conditions:darwin_x86_64": [],
+        "//tools/osx:darwin": [],
+        "//tools/osx:darwin_x86_64": [],
         "//src/conditions:windows": [],
         "//conditions:default": ["//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg"],
     }),

@@ -20,12 +20,12 @@ filegroup(
             ":zip-bazel-exe_nojdk",
         ],
         "//src/conditions:freebsd": [],
-        "//src/conditions:darwin": [
+        "//tools/osx:darwin": [
             ":with-jdk/install.sh",
             ":without-jdk/install.sh",
             ":generate-package-info",
         ],
-        "//src/conditions:darwin_x86_64": [
+        "//tools/osx:darwin_x86_64": [
             ":with-jdk/install.sh",
             ":without-jdk/install.sh",
             ":generate-package-info",

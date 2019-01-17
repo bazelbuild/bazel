@@ -54,8 +54,8 @@ cc_binary(
 cc_binary(
     name = "linux-sandbox",
     srcs = select({
-        "//src/conditions:darwin": ["dummy-sandbox.c"],
-        "//src/conditions:darwin_x86_64": ["dummy-sandbox.c"],
+        "//tools/osx:darwin": ["dummy-sandbox.c"],
+        "//tools/osx:darwin_x86_64": ["dummy-sandbox.c"],
         "//src/conditions:freebsd": ["dummy-sandbox.c"],
         "//src/conditions:windows": ["dummy-sandbox.c"],
         "//conditions:default": [
@@ -69,8 +69,8 @@ cc_binary(
     }),
     linkopts = ["-lm"],
     deps = select({
-        "//src/conditions:darwin": [],
-        "//src/conditions:darwin_x86_64": [],
+        "//tools/osx:darwin": [],
+        "//tools/osx:darwin_x86_64": [],
         "//src/conditions:freebsd": [],
         "//src/conditions:windows": [],
         "//conditions:default": [

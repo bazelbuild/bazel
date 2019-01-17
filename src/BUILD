@@ -11,8 +11,8 @@ md5_cmd = "set -e -o pipefail && cat $(SRCS) | sort | %s | awk '{ print $$1; }' 
 filegroup(
     name = "libunix",
     srcs = select({
-        "//src/conditions:darwin": ["//src/main/native:libunix.dylib"],
-        "//src/conditions:darwin_x86_64": ["//src/main/native:libunix.dylib"],
+        "//tools/osx:darwin": ["//src/main/native:libunix.dylib"],
+        "//tools/osx:darwin_x86_64": ["//src/main/native:libunix.dylib"],
         "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
@@ -35,8 +35,8 @@ filegroup(
     ] + embedded_tools_target,
     outs = ["install_base_key" + suffix],
     cmd = select({
-        "//src/conditions:darwin": md5_cmd % "/sbin/md5",
-        "//src/conditions:darwin_x86_64": md5_cmd % "/sbin/md5",
+        "//tools/osx:darwin": md5_cmd % "/sbin/md5",
+        "//tools/osx:darwin_x86_64": md5_cmd % "/sbin/md5",
         "//src/conditions:freebsd": md5_cmd % "/sbin/md5",
         "//conditions:default": md5_cmd % "md5sum",
     }),
@@ -154,10 +154,10 @@ py_binary(
                "//third_party/java/jacoco:srcs",
                "//third_party/zlib:embedded_tools",
            ] + select({
-               "//src/conditions:darwin": [
+               "//tools/osx:darwin": [
                    ":darwin_tools",
                ],
-               "//src/conditions:darwin_x86_64": [
+               "//tools/osx:darwin_x86_64": [
                    ":darwin_tools",
                ],
                "//conditions:default": [
@@ -200,10 +200,10 @@ rule_size_test(
 filegroup(
     name = "embedded_jdk_allmodules",
     srcs = select({
-        "//src/conditions:darwin": [
+        "//tools/osx:darwin": [
             "@openjdk_macos//file",
         ],
-        "//src/conditions:darwin_x86_64": [
+        "//tools/osx:darwin_x86_64": [
             "@openjdk_macos//file",
         ],
         "//src/conditions:windows": [
@@ -222,10 +222,10 @@ filegroup(
 filegroup(
     name = "embedded_jdk_minimal_cached",
     srcs = select({
-        "//src/conditions:darwin": [
+        "//tools/osx:darwin": [
             "@openjdk_macos_minimal//file",
         ],
-        "//src/conditions:darwin_x86_64": [
+        "//tools/osx:darwin_x86_64": [
             "@openjdk_macos_minimal//file",
         ],
         "//src/conditions:windows": [
@@ -241,10 +241,10 @@ filegroup(
 filegroup(
     name = "embedded_jdk_vanilla",
     srcs = select({
-        "//src/conditions:darwin": [
+        "//tools/osx:darwin": [
             "@openjdk_macos_vanilla//file",
         ],
-        "//src/conditions:darwin_x86_64": [
+        "//tools/osx:darwin_x86_64": [
             "@openjdk_macos_vanilla//file",
         ],
         "//src/conditions:windows": [

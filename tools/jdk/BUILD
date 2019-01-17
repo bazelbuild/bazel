@@ -331,8 +331,8 @@ alias(
     name = "remote_jdk",
     actual = select(
         {
-            "//src/conditions:darwin": "@remotejdk_macos//:jdk",
-            "//src/conditions:darwin_x86_64": "@remotejdk_macos//:jdk",
+            "//tools/osx:darwin": "@remotejdk_macos//:jdk",
+            "//tools/osx:darwin_x86_64": "@remotejdk_macos//:jdk",
             "//src/conditions:windows": "@remotejdk_win//:jdk",
             "//src/conditions:linux_aarch64": "@remotejdk_linux_aarch64//:jdk",
             "//src/conditions:linux_x86_64": "@remotejdk_linux//:jdk",
@@ -348,8 +348,8 @@ alias(
     name = "remote_jdk10",
     actual = select(
         {
-            "//src/conditions:darwin": "@remotejdk10_macos//:jdk",
-            "//src/conditions:darwin_x86_64": "@remotejdk10_macos//:jdk",
+            "//tools/osx:darwin": "@remotejdk10_macos//:jdk",
+            "//tools/osx:darwin_x86_64": "@remotejdk10_macos//:jdk",
             "//src/conditions:windows": "@remotejdk10_win//:jdk",
             "//src/conditions:linux_aarch64": "@remotejdk10_linux_aarch64//:jdk",
             "//src/conditions:linux_x86_64": "@remotejdk10_linux//:jdk",
