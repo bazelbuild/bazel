@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
     size_t read = fread(buf, 1, kBufSize, f);
     if (read > 0) {
       fwrite(buf, 1, read, stdout);
-    } else {
+    } else if (ferror(f)) {
       fprintf(stderr, "ERROR(%s:%d): failed to read \"%s\"\n", __FILE__,
               __LINE__, argv[1]);
       fclose(f);
