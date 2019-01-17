@@ -192,15 +192,6 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
           FileSystemUtils.createEmptyFile(emptyFile);
         }
         target = emptyFile.asFragment();
-      } else if (entry.getValue().isSymbolicLink()) {
-        // If an input is a symlink, we don't necessarily have its target as an input as well.  To
-        // ensure the target is reachable within the sandbox, we have two choices: we can either
-        // expose the target in the sandbox and respect the symlink, or we can resolve what the
-        // actual target is and point the mapping there.  The former has higher fidelity, as the
-        // sandbox will respect the file's type as a symlink.  The latter is easier to implement
-        // and is slightly faster, as we avoid having to resolve symlinks later via sandboxfs.
-        // Therefore, do the latter until proven insufficient.
-        target = entry.getValue().resolveSymbolicLinks().asFragment();
       } else {
         target = entry.getValue().asFragment();
       }
