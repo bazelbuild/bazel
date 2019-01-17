@@ -15,5 +15,5 @@ filegroup(
     ) + select({
         "//src/conditions:arm": ["bazel-singlejar_deploy.jar"],
         "//conditions:default": [],
-    }),
+    }) + ["BUILD.pkg"]
 )
