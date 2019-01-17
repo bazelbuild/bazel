@@ -342,7 +342,7 @@ public class WorkspaceFactory {
                 }
                 // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
                 // treats references to @name as a separate external repo
-                if (env.getSemantics().experimentalRemapMainRepo()) {
+                if (env.getSemantics().incompatibleRemapMainRepo()) {
                   builder.addRepositoryMappingEntry(
                       RepositoryName.MAIN,
                       RepositoryName.createFromValidStrippedName(name),

@@ -146,7 +146,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testDefaultMainRepoNameInMapping() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_remap_main_repo");
+    setSkylarkSemanticsOptions("--incompatible_remap_main_repo");
     scratch.overwriteFile(
         "WORKSPACE",
         "local_repository(",
@@ -168,7 +168,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testExplicitMainRepoNameInMapping() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_remap_main_repo");
+    setSkylarkSemanticsOptions("--incompatible_remap_main_repo");
     scratch.overwriteFile(
         "WORKSPACE",
         "workspace(name = 'good')",

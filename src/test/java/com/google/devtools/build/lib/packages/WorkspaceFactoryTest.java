@@ -204,7 +204,7 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testImplicitMainRepoRename() throws Exception {
-    helper.setSkylarkSemantics("--experimental_remap_main_repo");
+    helper.setSkylarkSemantics("--incompatible_remap_main_repo");
     helper.parse("workspace(name = 'foo')");
     assertMapping(helper, "@", "@foo", "@");
   }

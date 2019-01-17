@@ -126,8 +126,6 @@ public abstract class SkylarkSemantics {
 
   public abstract ImmutableList<String> experimentalJavaCommonCreateProviderEnabledPackages();
 
-  public abstract boolean experimentalRemapMainRepo();
-
   public abstract boolean experimentalPlatformsApi();
 
   public abstract boolean experimentalStarlarkConfigTransitions();
@@ -174,6 +172,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleNoTransitiveLoads();
 
+  public abstract boolean incompatibleRemapMainRepo();
+
   public abstract boolean incompatibleRemoveNativeMavenJar();
 
   public abstract boolean incompatibleRequireFeatureConfigurationForPic();
@@ -204,7 +204,6 @@ public abstract class SkylarkSemantics {
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalEnableRepoMapping(false)
           .experimentalJavaCommonCreateProviderEnabledPackages(ImmutableList.of())
-          .experimentalRemapMainRepo(false)
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(false)
           .experimentalTransitionWhitelistLocation("")
@@ -228,6 +227,7 @@ public abstract class SkylarkSemantics {
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(false)
+          .incompatibleRemapMainRepo(false)
           .incompatibleRemoveNativeMavenJar(false)
           .incompatibleRequireFeatureConfigurationForPic(true)
           .incompatibleStricArgumentOrdering(false)
@@ -247,8 +247,6 @@ public abstract class SkylarkSemantics {
     public abstract Builder experimentalEnableAndroidMigrationApis(boolean value);
 
     public abstract Builder experimentalEnableRepoMapping(boolean value);
-
-    public abstract Builder experimentalRemapMainRepo(boolean value);
 
     public abstract Builder experimentalJavaCommonCreateProviderEnabledPackages(List<String> value);
 
@@ -299,6 +297,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
 
     public abstract Builder incompatibleNoTransitiveLoads(boolean value);
+
+    public abstract Builder incompatibleRemapMainRepo(boolean value);
 
     public abstract Builder incompatibleRemoveNativeMavenJar(boolean value);
 

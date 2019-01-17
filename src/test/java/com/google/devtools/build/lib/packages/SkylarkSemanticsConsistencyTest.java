@@ -130,7 +130,6 @@ public class SkylarkSemanticsConsistencyTest {
             + ","
             + rand.nextDouble(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
-        "--experimental_remap_main_repo=" + rand.nextBoolean(),
         "--experimental_starlark_config_transitions=" + rand.nextBoolean(),
         "--experimental_transition_whitelist_location=" + rand.nextDouble(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
@@ -153,6 +152,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_no_support_tools_in_action_inputs=" + rand.nextBoolean(),
         "--incompatible_no_target_output_group=" + rand.nextBoolean(),
         "--incompatible_no_transitive_loads=" + rand.nextBoolean(),
+        "--incompatible_remap_main_repo=" + rand.nextBoolean(),
         "--incompatible_remove_native_maven_jar=" + rand.nextBoolean(),
         "--incompatible_require_feature_configuration_for_pic=" + rand.nextBoolean(),
         "--incompatible_strict_argument_ordering=" + rand.nextBoolean(),
@@ -175,7 +175,6 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalJavaCommonCreateProviderEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalPlatformsApi(rand.nextBoolean())
-        .experimentalRemapMainRepo(rand.nextBoolean())
         .experimentalStarlarkConfigTransitions(rand.nextBoolean())
         .experimentalTransitionWhitelistLocation(String.valueOf(rand.nextDouble()))
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
@@ -198,6 +197,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleNoSupportToolsInActionInputs(rand.nextBoolean())
         .incompatibleNoTargetOutputGroup(rand.nextBoolean())
         .incompatibleNoTransitiveLoads(rand.nextBoolean())
+        .incompatibleRemapMainRepo(rand.nextBoolean())
         .incompatibleRemoveNativeMavenJar(rand.nextBoolean())
         .incompatibleRequireFeatureConfigurationForPic(rand.nextBoolean())
         .incompatibleStricArgumentOrdering(rand.nextBoolean())

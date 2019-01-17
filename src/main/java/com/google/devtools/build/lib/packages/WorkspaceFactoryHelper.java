@@ -99,7 +99,7 @@ public class WorkspaceFactoryHelper {
    */
   public static void addMainRepoEntry(
       Package.Builder builder, String externalRepoName, SkylarkSemantics semantics) {
-    if (semantics.experimentalRemapMainRepo()) {
+    if (semantics.incompatibleRemapMainRepo()) {
       if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
         builder.addRepositoryMappingEntry(
             RepositoryName.createFromValidStrippedName(externalRepoName),

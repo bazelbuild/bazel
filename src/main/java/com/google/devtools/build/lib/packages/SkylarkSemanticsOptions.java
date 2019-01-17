@@ -118,14 +118,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public List<String> experimentalJavaCommonCreateProviderEnabledPackages;
 
   @Option(
-      name = "experimental_remap_main_repo",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help = "If set to true, will treat references to '@<main repo name>' the same as '@'.")
-  public boolean experimentalRemapMainRepo;
-
-  @Option(
       name = "experimental_platforms_api",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -449,6 +441,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleNoTransitiveLoads;
 
   @Option(
+      name = "incompatible_remap_main_repo",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      oldName = "experimental_remap_main_repo",
+      help = "If set to true, will treat references to '@<main repo name>' the same as '@'.")
+  public boolean incompatibleRemapMainRepo;
+
+  @Option(
       name = "incompatible_remove_native_maven_jar",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -508,7 +513,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
         .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
         .experimentalEnableRepoMapping(experimentalEnableRepoMapping)
-        .experimentalRemapMainRepo(experimentalRemapMainRepo)
         .experimentalJavaCommonCreateProviderEnabledPackages(
             experimentalJavaCommonCreateProviderEnabledPackages)
         .experimentalPlatformsApi(experimentalPlatformsApi)
@@ -535,6 +539,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
         .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
         .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
+        .incompatibleRemapMainRepo(incompatibleRemapMainRepo)
         .incompatibleRemoveNativeMavenJar(incompatibleRemoveNativeMavenJar)
         .incompatibleRequireFeatureConfigurationForPic(requireFeatureConfigurationForPic)
         .incompatibleStricArgumentOrdering(incompatibleStricArgumentOrdering)
