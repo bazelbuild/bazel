@@ -142,10 +142,10 @@ function release_to_github() {
   local rc=$(get_release_candidate)
 
   if [ -n "${release_name}" ] && [ -z "${rc}" ]; then
-    local github_token="$(gsutil cat gs://bazel-encrypted-secrets/github-token.enc | \
-        gcloud kms decrypt --location global --keyring buildkite --key github-token --ciphertext-file - --plaintext-file -)"
+    local github_token="$(gsutil cat gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc | \
+        gcloud kms decrypt --project bazel-public --location global --keyring buildkite --key github-trusted-token --ciphertext-file - --plaintext-file -)"
 
-    GITHUB_TOKEN=${github_token} github-release "bazelbuild/bazel" "${release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
+    GITHUB_TOKEN="${github_token}" github-release "bazelbuild/bazel" "${release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
   fi
 }
 
