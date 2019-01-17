@@ -573,6 +573,18 @@ public class JavaOptions extends FragmentOptions {
   public boolean requireJavaToolchainHeaderCompilerDirect;
 
   @Option(
+      name = "incompatible_use_remote_java_toolchain",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If enabled, uses the remote Java tools for the default --java_toolchain")
+  public boolean useRemoteJavaToolchain;
+
+  @Option(
       name = "incompatible_disallow_resource_jars",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

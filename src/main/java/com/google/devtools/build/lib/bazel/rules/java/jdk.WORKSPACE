@@ -171,3 +171,12 @@ http_archive(
     build_file = "@local_jdk//:BUILD.bazel",
     strip_prefix = "jdk10-server-release-1804",
 )
+
+http_archive(
+  name = "remote_java_tools",
+  sha256 = "16c3d1719d04c93791fff8d4c7013c3c217b8a0ea2d9b4b71f0d2cdf63e08ac2",
+  urls = [
+    "https://mirror.bazel.build/bazel_java_tools/java_tools_pkg.tar"
+  ],
+  build_file = "@bazel_tools//tools/jdk:BUILD.pkg",
+)

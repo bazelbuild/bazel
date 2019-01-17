@@ -134,9 +134,16 @@ filegroup(
     }),
 )
 
+exports_files(["BUILD.pkg"])
+
 filegroup(
     name = "genclass",
     srcs = ["//tools/jdk:GenClass_deploy.jar"],
+)
+
+filegroup(
+    name = "remote-genclass",
+    srcs = ["@remote_java_tools//:GenClass"],
 )
 
 filegroup(
@@ -145,8 +152,18 @@ filegroup(
 )
 
 filegroup(
+    name = "remote-turbine",
+    srcs = ["@remote_java_tools//:Turbine"],
+)
+
+filegroup(
     name = "turbine_direct",
     srcs = glob(["turbine_direct*"]),
+)
+
+filegroup(
+    name = "remote-turbine_direct",
+    srcs = ["@remote_java_tools//:TurbineDirect"],
 )
 
 filegroup(
@@ -155,8 +172,18 @@ filegroup(
 )
 
 filegroup(
+    name = "remote-javabuilder",
+    srcs = ["@remote_java_tools//:JavaBuilder"],
+)
+
+filegroup(
     name = "vanillajavabuilder",
     srcs = ["//tools/jdk:VanillaJavaBuilder_deploy.jar"],
+)
+
+filegroup(
+    name = "remote-vanillajavabuilder",
+    srcs = ["@remote_java_tools//:VanillaJavaBuilder"],
 )
 
 BOOTCLASS_JARS = [
@@ -217,6 +244,18 @@ bootclasspath(
     target_javabase = "current_java_runtime",
 )
 
+#TODO(iirina): Also add the remote java compiler jars
+# and handle ijar and singlejar (native implementations)
+default_java_toolchain(
+    name = "remote_toolchain",
+    source_version = "8",
+    target_version = "8",
+    genclass = ["@bazel_tools//tools/jdk:remote-genclass"],
+    header_compiler = ["@bazel_tools//tools/jdk:remote-turbine"],
+    header_compiler_direct = ["@bazel_tools//tools/jdk:remote-turbine_direct"],
+    javabuilder = ["@bazel_tools//tools/jdk:remote-javabuilder"],
+)
+
 default_java_toolchain(
     name = "toolchain_hostjdk8",
     jvm_opts = JDK8_JVM_OPTS,
@@ -250,6 +289,13 @@ default_java_toolchain(
     name = "toolchain_vanilla",
     forcibly_disable_header_compilation = True,
     javabuilder = [":vanillajavabuilder"],
+    jvm_opts = [],
+)
+
+default_java_toolchain(
+    name = "remote_toolchain_vanilla",
+    forcibly_disable_header_compilation = True,
+    javabuilder = ["@bazel_tools//tools/jdk:remote-vanillajavabuilder"],
     jvm_opts = [],
 )
 
@@ -364,3 +410,4 @@ alias(
     ),
     visibility = ["//visibility:public"],
 )
+
