@@ -77,16 +77,12 @@ public class WorkspaceFactoryHelper {
    * Updates the map of attributes specified by the user to match the set of attributes decared in
    * the rule definition.
    */
-  public static Map<String, Object> getFinalKwargs(
-      Map<String, Object> kwargs, SkylarkSemantics semantics) {
-    if (semantics.experimentalEnableRepoMapping()) {
-      // 'repo_mapping' is not an explicit attribute of any rule and so it would
-      // result in a rule error if propagated to the rule factory.
-      return kwargs.entrySet().stream()
-          .filter(x -> !x.getKey().equals("repo_mapping"))
-          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-    return kwargs;
+  public static Map<String, Object> getFinalKwargs(Map<String, Object> kwargs) {
+    // 'repo_mapping' is not an explicit attribute of any rule and so it would
+    // result in a rule error if propagated to the rule factory.
+    return kwargs.entrySet().stream()
+        .filter(x -> !x.getKey().equals("repo_mapping"))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   /**
@@ -123,26 +119,24 @@ public class WorkspaceFactoryHelper {
       Package.Builder builder,
       Map<String, Object> kwargs,
       String externalRepoName,
-      Location location,
-      SkylarkSemantics semantics)
+      Location location)
       throws EvalException, LabelSyntaxException {
-    if (semantics.experimentalEnableRepoMapping()) {
-      if (kwargs.containsKey("repo_mapping")) {
-        if (!(kwargs.get("repo_mapping") instanceof SkylarkDict)) {
-          throw new EvalException(
-              location,
-              "Invalid value for 'repo_mapping': '"
-                  + kwargs.get("repo_mapping")
-                  + "'. Value must be a dict.");
-        }
-        @SuppressWarnings("unchecked")
-        Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
-        for (Map.Entry<String, String> e : map.entrySet()) {
-          builder.addRepositoryMappingEntry(
-              RepositoryName.createFromValidStrippedName(externalRepoName),
-              RepositoryName.create(e.getKey()),
-              RepositoryName.create(e.getValue()));
-        }
+
+    if (kwargs.containsKey("repo_mapping")) {
+      if (!(kwargs.get("repo_mapping") instanceof SkylarkDict)) {
+        throw new EvalException(
+            location,
+            "Invalid value for 'repo_mapping': '"
+                + kwargs.get("repo_mapping")
+                + "'. Value must be a dict.");
+      }
+      @SuppressWarnings("unchecked")
+      Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
+      for (Map.Entry<String, String> e : map.entrySet()) {
+        builder.addRepositoryMappingEntry(
+            RepositoryName.createFromValidStrippedName(externalRepoName),
+            RepositoryName.create(e.getKey()),
+            RepositoryName.create(e.getValue()));
       }
     }
   }

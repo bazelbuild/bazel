@@ -348,12 +348,12 @@ EOF
   cd tree
 
   # Do initial load of the packages
-  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+  bazel query --noexperimental_ui \
         //oak:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: oak"
   expect_log "//oak:oak"
 
-  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+  bazel query --noexperimental_ui \
         @flower//daisy:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: @flower//daisy"
   expect_log "@flower//daisy:daisy"
@@ -369,13 +369,13 @@ local_repository(
 EOF
 
   # Test that packages in the tree workspace are not affected
-  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+  bazel query --noexperimental_ui \
         //oak:all >& "$TEST_log" || fail "Expected success"
   expect_not_log "Loading package: oak"
   expect_log "//oak:oak"
 
   # Test that packages in the flower workspace are reloaded
-  bazel query --experimental_enable_repo_mapping --noexperimental_ui \
+  bazel query --noexperimental_ui \
         @flower//daisy:all >& "$TEST_log" || fail "Expected success"
   expect_log "Loading package: @flower//daisy"
   expect_log "@flower//daisy:daisy"
@@ -412,7 +412,7 @@ genrule(name = "a",
 EOF
 
   cd main
-  bazel build --experimental_enable_repo_mapping @a//:a || fail "Expected build to succeed"
+  bazel build @a//:a || fail "Expected build to succeed"
   cat bazel-genfiles/external/a/result.txt
   grep "y_symbol" bazel-genfiles/external/a/result.txt \
       || fail "expected 'y_symbol' in $(cat bazel-genfiles/external/a/result.txt)"
@@ -453,7 +453,7 @@ foo_symbol = Y_SYMBOL
 EOF
 
   cd main
-  bazel build --experimental_enable_repo_mapping @a//:a || fail "Expected build to succeed"
+  bazel build @a//:a || fail "Expected build to succeed"
   grep "y_symbol" bazel-genfiles/external/a/result.txt \
       || fail "expected 'y_symbol' in $(cat bazel-genfiles/external/a/result.txt)"
 }
@@ -489,7 +489,7 @@ EOF
   touch main/BUILD
 
   cd main
-  bazel query --experimental_enable_repo_mapping --output=build @a//:a | grep "@b//:x.txt" \
+  bazel query --output=build @a//:a | grep "@b//:x.txt" \
       || fail "Expected srcs to contain '@b//:x.txt'"
 }
 
@@ -525,7 +525,7 @@ EOF
   touch main/BUILD
 
   cd main
-  bazel build --experimental_enable_repo_mapping @a//:a || fail "Expected build to succeed"
+  bazel build @a//:a || fail "Expected build to succeed"
   grep "external/b/x.txt" bazel-genfiles/external/a/result.txt \
       || fail "expected external/b/x.txt in $(cat bazel-genfiles/external/a/result.txt)"
 }
@@ -570,7 +570,7 @@ EOF
   touch main/BUILD
 
   cd main
-  bazel query --experimental_enable_repo_mapping --output=build @a//:a | grep "@b//:x.txt" \
+  bazel query --output=build @a//:a | grep "@b//:x.txt" \
       || fail "Expected srcs to contain '@b//:x.txt'"
 }
 
@@ -602,7 +602,7 @@ EOF
   touch main/BUILD
 
   cd main
-  bazel build --experimental_enable_repo_mapping @foo//:bar \
+  bazel build @foo//:bar \
       >& "$TEST_log" || fail "Expected build to succeed"
   expect_log "@b//:baz"
   expect_not_log "@a//:baz"
@@ -636,7 +636,7 @@ EOF
   touch main/BUILD
 
   cd main
-  bazel build --experimental_enable_repo_mapping @foo//:bar \
+  bazel build @foo//:bar \
       >& "$TEST_log" || fail "Expected build to succeed"
   expect_log "@b//blah:blah"
   expect_not_log "@a//blah:blah"
@@ -772,7 +772,7 @@ EOF
   # now that @mainrepo doesn't exist within workspace "a",
   # the query should fail
   cd mainrepo
-  bazel query --experimental_remap_main_repo --experimental_enable_repo_mapping \
+  bazel query --experimental_remap_main_repo \
       @a//... &>"$TEST_log" \
       && fail "Failure expected" || true
 }

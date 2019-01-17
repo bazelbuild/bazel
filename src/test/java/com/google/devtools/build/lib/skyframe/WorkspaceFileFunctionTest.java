@@ -258,7 +258,6 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testRepositoryMappingInChunks() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
     scratch.file("b.bzl", "b = 'b'");
     scratch.file("BUILD", "");
     RootedPath workspace =

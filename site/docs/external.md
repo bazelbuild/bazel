@@ -211,9 +211,6 @@ This mechanism can also be used to join diamonds. For example if `A` and `B`
 had the same dependency but call it by different names, those dependencies can
 be joined in myproject/WORKSPACE.
 
-This behavior is currently gated behind a flag,
-`--experimental_enable_repo_mapping`.
-
 
 <a name="using-proxies"></a>
 ## Using Proxies

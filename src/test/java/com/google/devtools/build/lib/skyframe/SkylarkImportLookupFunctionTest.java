@@ -417,8 +417,6 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadBzlFileFromWorkspaceWithRemapping() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
-
     scratch.deleteFile(preludeLabelRelativePath);
     Path p =
         scratch.overwriteFile(

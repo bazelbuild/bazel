@@ -155,17 +155,13 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
             packageBuilder, externalRepoName, env.getSemantics());
 
         WorkspaceFactoryHelper.addRepoMappings(
-            packageBuilder,
-            attributeValues,
-            externalRepoName,
-            ast.getLocation(),
-            env.getSemantics());
+            packageBuilder, attributeValues, externalRepoName, ast.getLocation());
 
         return WorkspaceFactoryHelper.createAndAddRepositoryRule(
             context.getBuilder(),
             ruleClass,
             null,
-            WorkspaceFactoryHelper.getFinalKwargs(attributeValues, env.getSemantics()),
+            WorkspaceFactoryHelper.getFinalKwargs(attributeValues),
             ast);
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
