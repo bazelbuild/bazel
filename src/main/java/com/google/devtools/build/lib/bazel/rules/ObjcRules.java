@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryRule;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcBuildInfoFactory;
-import com.google.devtools.build.lib.rules.objc.ObjcBundleLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.ObjcImportRule;
 import com.google.devtools.build.lib.rules.objc.ObjcLibraryRule;
@@ -73,7 +72,6 @@ public class ObjcRules implements RuleSet {
 
     builder.addRuleDefinition(new AppleCcToolchainRule());
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
-    builder.addRuleDefinition(new ObjcBundleLibraryRule());
     builder.addRuleDefinition(new ObjcImportRule());
     builder.addRuleDefinition(new ObjcLibraryRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CoptsRule());

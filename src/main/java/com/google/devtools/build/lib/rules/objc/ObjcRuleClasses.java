@@ -456,10 +456,7 @@ public class ObjcRuleClasses {
                   // removed in the near future. By adding the new rule names here, the migration
                   // path towards the end state is easier, as it will allow breaking the migration
                   // into smaller chunks.
-                  .allowedRuleClasses(
-                      "apple_bundle_import",
-                      "apple_resource_bundle",
-                      "objc_bundle_library")
+                  .allowedRuleClasses("apple_bundle_import", "apple_resource_bundle")
                   .allowedFileTypes())
           .build();
     }

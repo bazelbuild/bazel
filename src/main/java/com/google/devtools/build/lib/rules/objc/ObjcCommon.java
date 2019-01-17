@@ -577,8 +577,8 @@ public final class ObjcCommon {
     }
 
     private static boolean useStrictObjcModuleMaps(RuleContext context) {
-      // We need to check isLegalFragment first because some non-compilation rules, like
-      // objc_bundle_library, don't declare this fragment.
+      // We need to check isLegalFragment first because some non-compilation rules don't declare
+      // this fragment.
       return context.isLegalFragment(ObjcConfiguration.class)
           && context.getFragment(ObjcConfiguration.class).useStrictObjcModuleMaps();
     }
