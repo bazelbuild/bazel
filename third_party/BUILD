@@ -1,5 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -602,6 +604,28 @@ filegroup(
         "junit/junit-4.12.jar",
     ],
 )
+
+pkg_tar(
+    name = "java_tools_pkg",
+    srcs = [
+        "//third_party/java/java_tools:java_tools",
+        "//third_party/java/jdk/langtools:javac_jar",
+        "//third_party/java/jdk/langtools:jdk_compiler_jar",
+        "//third_party/java/jdk/langtools:java_compiler_jar"
+    ],
+)
+
+pkg_tar(
+    name = "java_tools_pkg-gz",
+    srcs = [
+        "//third_party/java/java_tools:java_tools",
+        "//third_party/java/jdk/langtools:javac_jar",
+        "//third_party/java/jdk/langtools:jdk_compiler_jar",
+        "//third_party/java/jdk/langtools:java_compiler_jar"
+    ],
+    extension = "tar.gz"
+)
+
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 
