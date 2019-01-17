@@ -52,6 +52,9 @@ public enum ApplePlatform implements ApplePlatformApi {
       ImmutableSet.of("tvos_x86_64");
   private static final ImmutableSet<String> TVOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("tvos_arm64");
+  // "darwin" is included because that's currently the default when on macOS, and
+  // migrating it would be a breaking change more details:
+  // https://github.com/bazelbuild/bazel/pull/7062
   private static final ImmutableSet<String> MACOS_TARGET_CPUS =
       ImmutableSet.of("darwin_x86_64", "darwin");
 
