@@ -4,7 +4,7 @@
 # by the Java rules in Bazel.
 #
 # For usage please run
-# ~/third_party/java/java_tools/update_java_tools.sh help
+# third_party/java/java_tools/update_java_tools.sh help
 
 # Maps the java tool names to their associated bazel target.
 declare -A tool_name_to_target=(["JavaBuilder"]="src/java_tools/buildjar:JavaBuilder_deploy.jar" \
@@ -23,6 +23,11 @@ usage="This script updates the checked-in jars corresponding to the tools "\
 
 To update all the tools simultaneously run from your bazel workspace root:
 ~/third_party/java/java_tools/update_java_tools.sh
+
+This script also allows updating individual tools, but it is not recommended
+to do so, because it involves creating the sources archive manually from
+different commits in bazel. Prefer to update all the tools, even though you
+only target one of them.
 
 To update only one or one subset of the tools run
 third_party/java/java_tools/update_java_tools.sh tool_1 tool_2 ... tool_n
@@ -43,18 +48,26 @@ fi
 
 # Stores the names of the tools required for update.
 tools_to_update=()
-if [[ ! -z "$@" ]]
-then
-   # Update only the tools specified on the command line.
-   tools_to_update=("$@")
-else
-  # If no tools were specified update all of them.
-  tools_to_update=(${!tool_name_to_target[*]})
-fi
 
 # Stores the workspace relative path of all the tools that were updated
 # (e.g. third_party/java/java_tools/JavaBuilder_deploy.jar)
 updated_tools=()
+
+if [[ ! -z "$@" ]]
+then
+   # Update only the tools specified on the command line.
+   tools_to_update=("$@")
+   echo "The sources archive was NOT created. Please create it manually!"
+else
+  # If no tools were specified update all of them.
+  tools_to_update=(${!tool_name_to_target[*]})
+  # Create the sources archive only when all the tools were updated.
+  zip -r third_party/java/java_tools/java_tools-srcs.zip src/java_tools/buildjar/* \
+  src/java_tools/junitrunner/* src/java_tools/singlejar/* third_party/jarjar/*
+  echo "Created sources archive third_party/java/java_tools/java_tools-srcs.zip"
+  updated_tools+=("third_party/java/java_tools/java_tools-srcs.zip")
+fi
+
 
 # Updates the tool with the given bazel target.
 #
@@ -99,6 +112,8 @@ done
 if [[ ${#updated_tools[@]} -gt 0 ]]; then
   bazel_version=$(bazel version | grep "Build label" | cut -d " " -f 3)
   git_head=$(git rev-parse HEAD)
+  echo "IMPORTANT: Make sure that third_party/java/java_tools/java_tools-srcs.zip was created \
+or create it manually!"
   echo ""
   echo "Please copy/paste the following into third_party/java/java_tools/README.md:"
   echo ""

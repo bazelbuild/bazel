@@ -1,5 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
 licenses(["notice"])
 
 filegroup(
@@ -16,4 +18,9 @@ filegroup(
         "//src/conditions:arm": ["bazel-singlejar_deploy.jar"],
         "//conditions:default": [],
     }),
+)
+
+pkg_tar(
+    name = "java_tools_pkg",
+    srcs = glob(["*.jar"]) + ["BUILD.pkg"],
 )
