@@ -18,10 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.BufferedOutputStream;
 import java.time.Duration;
 import java.util.Optional;
@@ -33,13 +33,13 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link ExecutionStatistics}. */
 @RunWith(JUnit4.class)
 public final class ExecutionStatisticsTest {
-  private FileSystem testFS;
   private Path workingDir;
 
   @Before
   public final void createFileSystem() throws Exception {
-    testFS = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    FileSystem testFS = new InMemoryFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
     workingDir = testFS.getPath(TestUtils.makeTempDir().getCanonicalPath());
+    workingDir.createDirectoryAndParents();
   }
 
   private Path createExecutionStatisticsProtoFile(
