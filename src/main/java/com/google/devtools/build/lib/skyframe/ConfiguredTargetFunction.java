@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
@@ -66,7 +67,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
@@ -257,8 +257,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               resolver,
               ctgValue,
               transitivePackagesForPackageRootResolution,
-              transitiveRootCauses,
-              ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
+              transitiveRootCauses);
       if (env.valuesMissing()) {
         return null;
       }
@@ -558,8 +557,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
-      NestedSetBuilder<Cause> transitiveRootCauses,
-      @Nullable RuleTransitionFactory trimmingTransitionFactory)
+      NestedSetBuilder<Cause> transitiveRootCauses)
       throws DependencyEvaluationException, InterruptedException {
     if (!(target instanceof Rule)) {
       return NO_CONFIG_CONDITIONS;
@@ -581,31 +579,34 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return NO_CONFIG_CONDITIONS;
     }
 
+    Map<Label, Target> configurabilityTargets =
+        resolver.getTargets(configLabelMap.values(), target, transitiveRootCauses);
+    if (configurabilityTargets == null) {
+      return null;
+    }
+
     // Collect the actual deps, hard-coded to the current configuration (since by definition config
     // conditions evaluate over the current target's configuration).
     ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
-    try {
-      Iterable<Dependency> dependencies =
-          resolver.resolveRuleLabels(
-              ctgValue, configLabelMap, transitiveRootCauses, trimmingTransitionFactory);
-      if (env.valuesMissing()) {
-        return null;
+    for (Label configurabilityLabel : configLabelMap.values()) {
+      Target configurabilityTarget = configurabilityTargets.get(configurabilityLabel);
+      Dependency configurabilityDependency;
+      if (TransitionResolver.usesNullConfiguration(configurabilityTarget)) {
+        // This is kinda awful: select conditions should be config_setting rules, but we don't know
+        // if they are one until after we analyzed them. However, we need to figure out which
+        // configuration we analyze them in and input files and package groups are supposed to have
+        // the null configuration.
+        //
+        // We can't check for the Target being a config_setting because configurability targets can
+        // also be aliases pointing to config_settig rules.
+        configurabilityDependency = Dependency.withNullConfiguration(configurabilityLabel);
+      } else {
+        configurabilityDependency =
+            Dependency.withConfiguration(configurabilityLabel, ctgValue.getConfiguration());
       }
-      for (Dependency dep : dependencies) {
-        if (dep.hasExplicitConfiguration() && dep.getConfiguration() == null) {
-          // Bazel assumes non-existent labels are source files, which have a null configuration.
-          // Keep those as is. Otherwise ConfiguredTargetAndData throws an exception about a
-          // source file having a non-null configuration. The error checking later in this method
-          // reports a proper "bad config condition" error to the user.
-          depsBuilder.add(dep);
-        } else {
-          depsBuilder.add(Dependency.withConfigurationAndAspects(dep.getLabel(),
-              ctgValue.getConfiguration(), dep.getAspects()));
-        }
-      }
-    } catch (InconsistentAspectOrderException e) {
-      throw new DependencyEvaluationException(e);
+      depsBuilder.add(configurabilityDependency);
     }
+
     ImmutableList<Dependency> configConditionDeps = depsBuilder.build();
 
     Map<SkyKey, ConfiguredTargetAndData> configValues =
@@ -623,7 +624,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     for (Dependency entry : configConditionDeps) {
       SkyKey baseKey = ConfiguredTargetValue.key(entry.getLabel(), entry.getConfiguration());
       ConfiguredTarget value = configValues.get(baseKey).getConfiguredTarget();
-      // The code above guarantees that value is non-null here.
+      // The code above guarantees that value is non-null here and since the rule is a
+      // config_setting, provider must also be non-null.
       ConfigMatchingProvider provider = value.getProvider(ConfigMatchingProvider.class);
       if (provider != null) {
         configConditions.put(entry.getLabel(), provider);

@@ -180,8 +180,7 @@ public final class ConfigurationResolver {
       // provide needed fragments. This unnecessarily drags performance on the critical path (up
       // to 0.5% of total analysis time as profiled over a simple cc_binary).
       if (ctgValue.getConfiguration().trimConfigurations()) {
-        checkForMissingFragments(env, ctgValue, attributeAndLabel.attribute.getName(), dep,
-            depFragments);
+        checkForMissingFragments(env, ctgValue, attributeAndLabel.attribute, dep, depFragments);
       }
 
       boolean sameFragments = depFragments.equals(ctgFragments.fragmentClasses());
@@ -475,8 +474,11 @@ public final class ConfigurationResolver {
    * Checks the config fragments required by a dep against the fragments in its actual
    * configuration. If any are missing, triggers a descriptive "missing fragments" error.
    */
-  private static void checkForMissingFragments(SkyFunction.Environment env,
-      TargetAndConfiguration ctgValue, String attribute, Dependency dep,
+  private static void checkForMissingFragments(
+      SkyFunction.Environment env,
+      TargetAndConfiguration ctgValue,
+      Attribute attribute,
+      Dependency dep,
       Set<Class<? extends BuildConfiguration.Fragment>> expectedDepFragments)
       throws ConfiguredTargetFunction.DependencyEvaluationException {
     Set<String> ctgFragmentNames = new HashSet<>();
@@ -490,9 +492,13 @@ public final class ConfigurationResolver {
     }
     Set<String> missing = Sets.difference(depFragmentNames, ctgFragmentNames);
     if (!missing.isEmpty()) {
-      String msg = String.format(
-          "%s: dependency %s from attribute \"%s\" is missing required config fragments: %s",
-          ctgValue.getLabel(), dep.getLabel(), attribute, Joiner.on(", ").join(missing));
+      String msg =
+          String.format(
+              "%s: dependency %s from attribute \"%s\" is missing required config fragments: %s",
+              ctgValue.getLabel(),
+              dep.getLabel(),
+              attribute == null ? "(null)" : attribute.getName(),
+              Joiner.on(", ").join(missing));
       env.getListener().handle(Event.error(msg));
       throw new ConfiguredTargetFunction.DependencyEvaluationException(
           new InvalidConfigurationException(msg));

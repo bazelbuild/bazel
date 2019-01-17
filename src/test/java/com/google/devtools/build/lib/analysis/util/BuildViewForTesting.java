@@ -303,21 +303,13 @@ public class BuildViewForTesting {
       }
 
       @Override
-      protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
-        throw new RuntimeException("bad visibility on " + label + " during testing unexpected");
-      }
-
-      @Override
       protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
         throw new RuntimeException("bad package group on " + label + " during testing unexpected");
       }
 
       @Override
       protected Map<Label, Target> getTargets(
-          Iterable<Label> labels,
-          Target fromTarget,
-          NestedSetBuilder<Cause> rootCauses,
-          int labelsSizeHint) {
+          Collection<Label> labels, Target fromTarget, NestedSetBuilder<Cause> rootCauses) {
         return Streams.stream(labels)
             .distinct()
             .collect(

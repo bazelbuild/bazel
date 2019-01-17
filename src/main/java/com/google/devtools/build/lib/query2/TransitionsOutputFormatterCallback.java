@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.io.OutputStream;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -202,15 +203,6 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
     }
 
     @Override
-    protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
-      eventHandler.handle(
-          Event.error(
-              TargetUtils.getLocationMaybe(node.getTarget()),
-              String.format(
-                  "Label '%s' in visibility attribute does not refer to a package group", label)));
-    }
-
-    @Override
     protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
       eventHandler.handle(
           Event.error(
@@ -220,10 +212,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
 
     @Override
     protected Map<Label, Target> getTargets(
-        Iterable<Label> labels,
-        Target fromTarget,
-        NestedSetBuilder<Cause> rootCauses,
-        int labelsSizeHint) {
+        Collection<Label> labels, Target fromTarget, NestedSetBuilder<Cause> rootCauses) {
       return Streams.stream(labels)
           .distinct()
           .filter(Objects::nonNull)

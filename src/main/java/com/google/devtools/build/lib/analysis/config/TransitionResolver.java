@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
@@ -44,25 +42,21 @@ import javax.annotation.Nullable;
  */
 public final class TransitionResolver {
   /**
-   * Given a parent rule and configuration depending on a child through an attribute, determines
-   * the configuration the child should take.
+   * Given a parent rule and configuration depending on a child through an attribute, determines the
+   * configuration the child should take.
    *
    * @param fromConfig the parent rule's configuration
-   * @param fromRule the parent rule
-   * @param attribute the attribute creating the dependency (e.g. "srcs")
+   * @param attributeTransition the configuration transition of the attribute of this dependency
+   *     edge
    * @param toTarget the child target (which may or may not be a rule)
-   * @param attributeMap the attributes of the rule
    * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
-   *
-   * @return the child's configuration, expressed as a diff from the parent's configuration. This
-   *     is either a {@link PatchTransition} or {@link SplitTransition}.
+   * @return the child's configuration(s), expressed as a diff from the parent's configuration.
    */
   public static ConfigurationTransition evaluateTransition(
       BuildConfiguration fromConfig,
-      final Attribute attribute,
-      final Target toTarget,
-      ConfiguredAttributeMapper attributeMap,
+      ConfigurationTransition attributeTransition,
+      Target toTarget,
       @Nullable RuleTransitionFactory trimmingTransitionFactory) {
 
     // I. Input files and package groups have no configurations. We don't want to duplicate them.
@@ -96,18 +90,8 @@ public final class TransitionResolver {
     // The current transition to apply. When multiple transitions are requested, this is a
     // ComposingTransition, which encapsulates them into a single object so calling code
     // doesn't need special logic for combinations.
-    ConfigurationTransition currentTransition = NoTransition.INSTANCE;
-
-    // TODO(gregce): make the below transitions composable (i.e. take away the "else" clauses).
-    // The "else" is a legacy restriction from static configurations.
-    if (attribute.hasSplitConfigurationTransition()) {
-      currentTransition = split(currentTransition, attribute.getSplitTransition(attributeMap));
-    } else {
-      // III. Attributes determine configurations. The configuration of a prerequisite is determined
-      // by the attribute.
-      currentTransition = composeTransitions(currentTransition,
-          attribute.getConfigurationTransition());
-    }
+    // III. Apply whatever transition the attribute requires.
+    ConfigurationTransition currentTransition = attributeTransition;
 
     // IV. Applies any rule transitions associated with the dep target and composes their
     // transitions with a passed-in existing transition.
@@ -126,7 +110,6 @@ public final class TransitionResolver {
       TargetAndConfiguration targetAndConfig,
       @Nullable RuleTransitionFactory trimmingTransitionFactory) {
     Target target = targetAndConfig.getTarget();
-    BuildConfiguration fromConfig = targetAndConfig.getConfiguration();
 
     // Rule class transitions (chosen by rule class definitions):
     if (target.getAssociatedRule() == null) {
@@ -175,11 +158,9 @@ public final class TransitionResolver {
         || transition == HostTransition.INSTANCE);
   }
 
-  /**
-   * Applies the given split and composes it after an existing transition.
-   */
-  private static ConfigurationTransition split(ConfigurationTransition currentTransition,
-      SplitTransition split) {
+  /** Applies the given split and composes it after an existing transition. */
+  public static ConfigurationTransition split(
+      ConfigurationTransition currentTransition, SplitTransition split) {
     Preconditions.checkState(currentTransition != NullTransition.INSTANCE,
         "cannot apply splits after null transitions (null transitions are expected to be final)");
     Preconditions.checkState(currentTransition != HostTransition.INSTANCE,
