@@ -263,7 +263,7 @@ bar_toolchain(
         # Different flags, no debug support on windows.
     ],
     compiler_path = "C:\\path\\on\\windows\\barc.exe",
-    system_lib = "C:\\path\\on\windows\\barclib.dll",
+    system_lib = "C:\\path\\on\\windows\\barclib.dll",
 )
 ```
 
