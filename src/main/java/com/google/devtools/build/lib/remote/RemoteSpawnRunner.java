@@ -26,6 +26,7 @@ import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -92,7 +93,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   private final boolean verboseFailures;
 
   @Nullable private final Reporter cmdlineReporter;
-  @Nullable private final AbstractRemoteActionCache remoteCache;
+  private final GrpcRemoteCache remoteCache;
   @Nullable private final GrpcRemoteExecutor remoteExecutor;
   @Nullable private final RemoteRetrier retrier;
   private final String buildRequestId;
@@ -112,7 +113,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       @Nullable Reporter cmdlineReporter,
       String buildRequestId,
       String commandId,
-      @Nullable AbstractRemoteActionCache remoteCache,
+      GrpcRemoteCache remoteCache,
       @Nullable GrpcRemoteExecutor remoteExecutor,
       @Nullable RemoteRetrier retrier,
       DigestUtil digestUtil,
@@ -121,7 +122,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     this.remoteOptions = remoteOptions;
     this.executionOptions = executionOptions;
     this.fallbackRunner = fallbackRunner;
-    this.remoteCache = remoteCache;
+    this.remoteCache = Preconditions.checkNotNull(remoteCache, "remoteCache");
     this.remoteExecutor = remoteExecutor;
     this.verboseFailures = verboseFailures;
     this.cmdlineReporter = cmdlineReporter;
@@ -140,7 +141,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
-    if (!Spawns.mayBeExecutedRemotely(spawn) || remoteCache == null) {
+    if (!Spawns.mayBeExecutedRemotely(spawn)) {
       return execLocally(spawn, context);
     }
 

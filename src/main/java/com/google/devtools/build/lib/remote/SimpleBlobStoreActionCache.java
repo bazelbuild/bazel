@@ -72,21 +72,6 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     this.storedBlobs = new ConcurrentHashMap<>();
   }
 
-  @Override
-  public void ensureInputsPresent(
-      TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
-          throws IOException, InterruptedException {
-    repository.computeMerkleDigests(root);
-    uploadBlob(action.toByteArray());
-    uploadBlob(command.toByteArray());
-    for (Directory directory : repository.treeToDirectories(root)) {
-      uploadBlob(directory.toByteArray());
-    }
-    for (TreeNode leaf : repository.leaves(root)) {
-      uploadFileContents(leaf.getActionInput(), execRoot, repository.getInputFileCache());
-    }
-  }
-
   public void downloadTree(Digest rootDigest, Path rootLocation)
       throws IOException, InterruptedException {
     rootLocation.createDirectoryAndParents();

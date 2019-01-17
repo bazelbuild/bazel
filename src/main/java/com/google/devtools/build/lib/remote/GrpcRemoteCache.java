@@ -189,10 +189,17 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   }
 
   /**
-   * Upload enough of the tree metadata and data into remote cache so that the entire tree can be
-   * reassembled remotely using the root digest.
+   * Ensures that the tree structure of the inputs, the input files themselves, and the command are
+   * available in the remote cache, such that the tree can be reassembled and executed on another
+   * machine given the root digest.
+   *
+   * <p>The cache may check whether files or parts of the tree structure are already present, and do
+   * not need to be uploaded again.
+   *
+   * <p>Note that this method is only required for remote execution, not for caching itself.
+   * However, remote execution uses a cache to store input files, and that may be a separate
+   * end-point from the executor itself, so the functionality lives here.
    */
-  @Override
   public void ensureInputsPresent(
       TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
       throws IOException, InterruptedException {

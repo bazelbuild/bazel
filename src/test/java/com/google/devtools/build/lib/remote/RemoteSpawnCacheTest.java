@@ -234,13 +234,6 @@ public class RemoteSpawnCacheTest {
     // All other methods on RemoteActionCache have side effects, so we verify all of them.
     verify(remoteCache).download(actionResult, execRoot, outErr);
     verify(remoteCache, never())
-        .ensureInputsPresent(
-            any(TreeNodeRepository.class),
-            any(Path.class),
-            any(TreeNode.class),
-            any(Action.class),
-            any(Command.class));
-    verify(remoteCache, never())
         .upload(
             any(ActionKey.class),
             any(Action.class),

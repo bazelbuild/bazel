@@ -280,9 +280,12 @@ public final class RemoteModule extends BlazeModule {
                 GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
                 retrier);
         execChannel.release();
+        actionContextProvider = RemoteActionContextProvider.createForRemoteExecution(env,
+            (GrpcRemoteCache) cache, executor, executeRetrier, digestUtil, logDir);
+      } else {
+        actionContextProvider = RemoteActionContextProvider.createForRemoteCaching(env, cache,
+            executeRetrier, digestUtil);
       }
-      actionContextProvider =
-          new RemoteActionContextProvider(env, cache, executor, executeRetrier, digestUtil, logDir);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       env.getBlazeModuleEnvironment()

@@ -114,7 +114,7 @@ public class RemoteSpawnRunnerTest {
   private RemoteOptions options;
   private RemoteRetrier retrier;
 
-  @Mock private AbstractRemoteActionCache cache;
+  @Mock private GrpcRemoteCache cache;
 
   @Mock
   private GrpcRemoteExecutor executor;

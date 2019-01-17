@@ -87,25 +87,6 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
   }
 
   /**
-   * Ensures that the tree structure of the inputs, the input files themselves, and the command are
-   * available in the remote cache, such that the tree can be reassembled and executed on another
-   * machine given the root digest.
-   *
-   * <p>The cache may check whether files or parts of the tree structure are already present, and do
-   * not need to be uploaded again.
-   *
-   * <p>Note that this method is only required for remote execution, not for caching itself.
-   * However, remote execution uses a cache to store input files, and that may be a separate
-   * end-point from the executor itself, so the functionality lives here. A pure remote caching
-   * implementation that does not support remote execution may choose not to implement this
-   * function, and throw {@link UnsupportedOperationException} instead. If so, it should be clearly
-   * documented that it cannot be used for remote execution.
-   */
-  public abstract void ensureInputsPresent(
-      TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
-      throws IOException, InterruptedException;
-
-  /**
    * Attempts to look up the given action in the remote cache and return its result, if present.
    * Returns {@code null} if there is no such entry. Note that a successful result from this method
    * does not guarantee the availability of the corresponding output files in the remote cache.

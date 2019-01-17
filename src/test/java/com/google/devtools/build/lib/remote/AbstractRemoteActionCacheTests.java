@@ -719,13 +719,6 @@ public class AbstractRemoteActionCacheTests {
       return Utils.getFromFuture(f);
     }
 
-    @Override
-    public void ensureInputsPresent(
-        TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
-        throws IOException, InterruptedException {
-      throw new UnsupportedOperationException();
-    }
-
     @Nullable
     @Override
     ActionResult getCachedActionResult(ActionKey actionKey)
