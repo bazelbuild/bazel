@@ -6,7 +6,7 @@ To see how to update the tools run:
 third_party/java/java_tools/update_java_tools.sh help
 ```
 
-The following tools were built with bazel 0.21.0 at commit 26d5a40229a99c3896f43c90cfb0416a9bec5718 by running:
+The following tools were built with bazel 0.21.0 at commit 9cf5c6955a8ea7cd9dffb2670b7b2e4c509dc2d0 by running:
 $ third_party/java/java_tools/update_java_tools.sh
 
 third_party/java/java_tools/java_tools-srcs.zip

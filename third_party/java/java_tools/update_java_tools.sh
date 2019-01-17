@@ -63,7 +63,11 @@ else
   tools_to_update=(${!tool_name_to_target[*]})
   # Create the sources archive only when all the tools were updated.
   zip -r third_party/java/java_tools/java_tools-srcs.zip src/java_tools/buildjar/* \
-  src/java_tools/junitrunner/* src/java_tools/singlejar/* third_party/jarjar/*
+  src/java_tools/junitrunner/* src/java_tools/singlejar/* third_party/jarjar/* \
+  third_party/java/jdk/langtools/LICENSE \
+  third_party/java/jdk/langtools/java_compiler-src.jar \
+  third_party/java/jdk/langtools/javac-9+181-r4173-1.srcjar \
+  third_party/java/jdk/langtools/jdk_compiler-src.jar \
   echo "Created sources archive third_party/java/java_tools/java_tools-srcs.zip"
   updated_tools+=("third_party/java/java_tools/java_tools-srcs.zip")
 fi
