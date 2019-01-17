@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <stdio.h>
-#include <stdint.h>
+#include <cstdio>
+#include <cstdint>
 
 int main(int argc, char** argv) {
   if (argc != 2) {
@@ -36,7 +36,8 @@ int main(int argc, char** argv) {
     } else {
       fprintf(stderr, "ERROR(%s:%d): failed to read \"%s\"\n", __FILE__,
               __LINE__, argv[1]);
-      break;
+      fclose(f);
+      return 1;
     }
   }
   fclose(f);
