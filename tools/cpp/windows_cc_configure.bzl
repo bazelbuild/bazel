@@ -18,6 +18,7 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "auto_configure_fail",
     "auto_configure_warning",
+    "build_flags",
     "escape_string",
     "execute",
     "get_env_var",
@@ -72,35 +73,31 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
             '   tool_path { name: "objcopy" path: "%s" }\n' % tool_path["objcopy"] +
             '   tool_path { name: "objdump" path: "%s" }\n' % tool_path["objdump"] +
             '   tool_path { name: "strip" path: "%s" }\n' % tool_path["strip"] +
-            ((' cxx_builtin_include_directory: "%s/"\n' % tool_path_prefix) if msys_root else "") +
+            (('  cxx_builtin_include_directory: "%s/"\n' % tool_path_prefix) if msys_root else "") +
             '   artifact_name_pattern { category_name: "executable" prefix: "" extension: ".exe"}\n' +
-            '   cxx_flag: "-std=gnu++0x"\n' +
-            '   linker_flag: "-lstdc++"\n' +
-            '   objcopy_embed_flag: "-I"\n' +
-            '   objcopy_embed_flag: "binary"\n' +
             '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }\n' +
             '   feature { name: "copy_dynamic_libraries_to_binary" }\n' +
             "   feature {\n" +
-            '    name: "gcc_env"\n' +
-            "    enabled: true\n" +
-            "    env_set {\n" +
-            '      action: "c-compile"\n' +
-            '      action: "c++-compile"\n' +
-            '      action: "c++-module-compile"\n' +
-            '      action: "c++-module-codegen"\n' +
-            '      action: "c++-header-parsing"\n' +
-            '      action: "assemble"\n' +
-            '      action: "preprocess-assemble"\n' +
-            '      action: "c++-link-executable"\n' +
-            '      action: "c++-link-dynamic-library"\n' +
-            '      action: "c++-link-nodeps-dynamic-library"\n' +
-            '      action: "c++-link-static-library"\n' +
-            "      env_entry {\n" +
-            '        key: "PATH"\n' +
-            '        value: "%s"\n' % tool_bin_path +
-            "      }\n" +
-            "    }\n" +
-            "  }")
+            "     name: 'gcc_env'\n" +
+            "     enabled: true\n" +
+            "     env_set {\n" +
+            '       action: "c-compile"\n' +
+            '       action: "c++-compile"\n' +
+            '       action: "c++-module-compile"\n' +
+            '       action: "c++-module-codegen"\n' +
+            '       action: "c++-header-parsing"\n' +
+            '       action: "assemble"\n' +
+            '       action: "preprocess-assemble"\n' +
+            '       action: "c++-link-executable"\n' +
+            '       action: "c++-link-dynamic-library"\n' +
+            '       action: "c++-link-nodeps-dynamic-library"\n' +
+            '       action: "c++-link-static-library"\n' +
+            "       env_entry {\n" +
+            '         key: "PATH"\n' +
+            '         value: "%s"\n' % tool_bin_path +
+            "       }\n" +
+            "     }\n" +
+            "   }")
 
 def _get_system_root(repository_ctx):
     """Get System root path on Windows, default is C:\\\Windows. Doesn't %-escape the result."""
@@ -405,16 +402,20 @@ def configure_windows_toolchain(repository_ctx):
                 "%{msvc_ml_path}": "vc_installation_error.bat",
                 "%{msvc_link_path}": "vc_installation_error.bat",
                 "%{msvc_lib_path}": "vc_installation_error.bat",
+                "%{msys_x64_mingw_top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
+                "%{msys_x64_mingw_cxx_content}": build_flags(["-std=gnu++0x"]),
+                "%{msys_x64_mingw_link_content}": build_flags(["-lstdc++"]),
                 "%{dbg_mode_debug}": "/DEBUG",
                 "%{fastbuild_mode_debug}": "/DEBUG",
-                "%{compilation_mode_content}": "",
-                "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-                "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
-                "%{opt_content}": "",
-                "%{dbg_content}": "",
-                "%{link_content}": "",
-                "%{cxx_builtin_include_directory}": "",
-                "%{coverage}": "",
+                "%{top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+                "%{compile_content}": "",
+                "%{cxx_content}": build_flags(["-std=gnu++0x"]),
+                "%{link_content}": build_flags(["-lstdc++"]),
+                "%{opt_compile_content}": "",
+                "%{opt_link_content}": "",
+                "%{unfiltered_content}": "",
+                "%{dbg_compile_content}": "",
+                "%{msvc_x64_top_level_content}": "",
             },
         )
         return
@@ -478,12 +479,17 @@ def configure_windows_toolchain(repository_ctx):
             "%{msvc_lib_path}": lib_path,
             "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
             "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
-            "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-            "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
-            "%{opt_content}": "",
-            "%{dbg_content}": "",
-            "%{link_content}": "",
-            "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories),
-            "%{coverage}": "",
+            "%{top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+            "%{msys_x64_mingw_top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
+            "%{msys_x64_mingw_cxx_content}": build_flags(["-std=gnu++0x"]),
+            "%{msys_x64_mingw_link_content}": build_flags(["-lstdc++"]),
+            "%{compile_content}": "",
+            "%{cxx_content}": build_flags(["-std=gnu++0x"]),
+            "%{link_content}": build_flags(["-lstdc++"]),
+            "%{opt_compile_content}": "",
+            "%{opt_link_content}": "",
+            "%{unfiltered_content}": "",
+            "%{dbg_compile_content}": "",
+            "%{msvc_x64_top_level_content}": "\n".join(escaped_cxx_include_directories),
         },
     )

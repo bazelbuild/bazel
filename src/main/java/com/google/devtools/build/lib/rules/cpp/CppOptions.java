@@ -884,7 +884,7 @@ public class CppOptions extends FragmentOptions {
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
-
+    host.disableLegacyCrosstoolFields = disableLegacyCrosstoolFields;
     return host;
   }
 
