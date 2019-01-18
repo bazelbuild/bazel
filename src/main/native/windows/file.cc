@@ -72,30 +72,23 @@ static wstring uint32asHexString(uint32_t value) {
   return wstring(attr_str, 8);
 }
 
-static DWORD GetAttributesOfMaybeMissingFile(const WCHAR* path) {
-  // According to a comment in .NET CoreFX [1] (which is the only relevant
-  // information we found as of 2018-07-13) GetFileAttributesW may fail with
-  // ERROR_ACCESS_DENIED if the file is marked for deletion but not yet
-  // actually deleted, but FindFirstFileW should succeed even then.
-  //
-  // [1]
-  // https://github.com/dotnet/corefx/blob/f25eb288a449010574a6e95fe298f3ad880ada1e/src/System.IO.FileSystem/src/System/IO/FileSystem.Windows.cs#L205-L208
-  WIN32_FIND_DATAW find_data;
-  HANDLE find = FindFirstFileW(path, &find_data);
-  if (find == INVALID_HANDLE_VALUE) {
-    // The path is deleted and we couldn't create a directory there.
-    // Give up.
-    return INVALID_FILE_ATTRIBUTES;
+int IsJunctionOrDirectorySymlink(const WCHAR* path, wstring* error) {
+  if (!IsAbsoluteNormalizedWindowsPath(path)) {
+    if (error) {
+      *error = MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"IsJunctionOrDirectorySymlink", path,
+          L"expected an absolute Windows path");
+    }
+    return IS_JUNCTION_ERROR;
   }
-  FindClose(find);
-  // The path exists, yet we cannot open it for metadata-reading. Report at
-  // least the attributes, then give up.
-  return find_data.dwFileAttributes;
-}
 
-int IsJunctionOrDirectorySymlink(const WCHAR* path) {
   DWORD attrs = ::GetFileAttributesW(path);
   if (attrs == INVALID_FILE_ATTRIBUTES) {
+    DWORD err = GetLastError();
+    if (error) {
+      *error = MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"IsJunctionOrDirectorySymlink", path, err);
+    }
     return IS_JUNCTION_ERROR;
   } else {
     if ((attrs & FILE_ATTRIBUTE_DIRECTORY) &&
@@ -108,14 +101,20 @@ int IsJunctionOrDirectorySymlink(const WCHAR* path) {
 }
 
 wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
-  DWORD size = ::GetLongPathNameW(path, NULL, 0);
+  if (!IsAbsoluteNormalizedWindowsPath(path)) {
+    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"GetLongPath", path,
+                            L"expected an absolute Windows path");
+  }
+
+  std::wstring wpath(AddUncPrefixMaybe(path));
+  DWORD size = ::GetLongPathNameW(wpath.c_str(), NULL, 0);
   if (size == 0) {
     DWORD err_code = GetLastError();
     return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"GetLongPathNameW", path,
                             err_code);
   }
   result->reset(new WCHAR[size]);
-  ::GetLongPathNameW(path, result->get(), size);
+  ::GetLongPathNameW(wpath.c_str(), result->get(), size);
   return L"";
 }
 
@@ -142,6 +141,23 @@ typedef struct _JunctionDescription {
 
 int CreateJunction(const wstring& junction_name, const wstring& junction_target,
                    wstring* error) {
+  if (!IsAbsoluteNormalizedWindowsPath(junction_name)) {
+    if (error) {
+      *error = MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"CreateJunction", junction_name,
+          L"expected an absolute Windows path for junction_name");
+    }
+    CreateJunctionResult::kError;
+  }
+  if (!IsAbsoluteNormalizedWindowsPath(junction_target)) {
+    if (error) {
+      *error = MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"CreateJunction", junction_target,
+          L"expected an absolute Windows path for junction_target");
+    }
+    CreateJunctionResult::kError;
+  }
+
   const wstring target = HasUncPrefix(junction_target.c_str())
                              ? junction_target.substr(4)
                              : junction_target;
@@ -220,23 +236,11 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
         return CreateJunctionResult::kDisappeared;
       }
 
-      wstring err_str = uint32asHexString(err);
       // The path seems to exist yet we cannot open it for metadata-reading.
       // Report as much information as we have, then give up.
-      DWORD attr = GetAttributesOfMaybeMissingFile(name.c_str());
-      if (attr == INVALID_FILE_ATTRIBUTES) {
-        if (error) {
-          *error = MakeErrorMessage(
-              WSTR(__FILE__), __LINE__, L"CreateFileW", name,
-              wstring(L"err=0x") + err_str + L", invalid attributes");
-        }
-      } else {
-        if (error) {
-          *error =
-              MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW", name,
-                               wstring(L"err=0x") + err_str + L", attr=0x" +
-                                   uint32asHexString(attr));
-        }
+      if (error) {
+        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW",
+                                  name, err);
       }
       return CreateJunctionResult::kError;
     }
@@ -429,7 +433,7 @@ int DeletePath(const wstring& path, wstring* error) {
         // The file disappeared, or one of its parent directories disappeared,
         // or one of its parent directories is no longer a directory.
         return DeletePathResult::kDoesNotExist;
-      } else if (err != ERROR_ACCESS_DENIED) {
+      } else {
         // Some unknown error occurred.
         if (error) {
           *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
@@ -437,14 +441,9 @@ int DeletePath(const wstring& path, wstring* error) {
         }
         return DeletePathResult::kError;
       }
-
-      attr = GetAttributesOfMaybeMissingFile(wpath);
-      if (attr == INVALID_FILE_ATTRIBUTES) {
-        // The path is already deleted.
-        return DeletePathResult::kDoesNotExist;
-      }
     }
 
+    // DeleteFileW failed with access denied, but the path exists.
     if (attr & FILE_ATTRIBUTE_DIRECTORY) {
       // It's a directory or a junction.
       if (!RemoveDirectoryW(wpath)) {
