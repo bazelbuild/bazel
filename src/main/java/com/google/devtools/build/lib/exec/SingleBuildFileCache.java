@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -60,10 +61,7 @@ public class SingleBuildFileCache implements MetadataProvider {
           .get(
               input.getExecPathString(),
               () -> {
-                Path path =
-                    (input instanceof Artifact)
-                        ? ((Artifact) input).getPath()
-                        : execRoot.getRelative(input.getExecPath());
+                Path path = ActionInputHelper.toPath(input, execRoot);
                 try {
                   FileArtifactValue metadata = FileArtifactValue.create(path);
                   if (metadata.getType().isDirectory()) {
