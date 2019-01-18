@@ -277,6 +277,7 @@ distdir_tar(
       "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz",
       "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip",
       "jdk10-server-release-1804.tar.xz",
+      "java_tools_pkg.tar"
   ],
   dirname = "jdk_WORKSPACE/distdir",
   sha256 = {
@@ -288,6 +289,7 @@ distdir_tar(
       "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz" : "e669c9a897413d855b550b4e39d79614392e6fb96f494e8ef99a34297d9d85d3",
       "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip" : "c39e7700a8d41794d60985df5a20352435196e78ecbc6a2b30df7be8637bffd5",
       "jdk10-server-release-1804.tar.xz" : "b7098b7aaf6ee1ffd4a2d0371a0be26c5a5c87f6aebbe46fe9a92c90583a84be",
+      "java_tools_pkg.tar": "321b437e0ad384b54c66f5acafcccdf87c7ae0fb85fa69e57d98f06042e931e4",
   },
   urls = {
       "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz" : ["https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz"],
@@ -298,6 +300,7 @@ distdir_tar(
       "zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz" : ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-macosx_x64-allmodules.tar.gz"],
       "zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip" : ["https://mirror.bazel.build/openjdk/azul-zulu10.2+3-jdk10.0.1/zulu10.2+3-jdk10.0.1-win_x64-allmodules.zip" ],
       "jdk10-server-release-1804.tar.xz" : ["https://mirror.bazel.build/openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz"],
+      "java_tools_pkg.tar": ["https://mirror.bazel.build/bazel_java_tools/java_tools_pkg.tar"]
   },
 )
 
