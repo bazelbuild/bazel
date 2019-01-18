@@ -43,6 +43,7 @@ filegroup(
 ) for suffix, embedded_tools_target in {
     "_jdk_allmodules": [":embedded_tools_jdk_allmodules"],
     "_jdk_minimal": [":embedded_tools_jdk_minimal"],
+    "_dev_jdk": [":embedded_tools_dev_jdk"],
     "_nojdk": [":embedded_tools_nojdk"],
     "_notools": [],
 }.items()]
@@ -179,6 +180,7 @@ JAVA_TOOLS = [
 ) for suffix, jdk in {
     "_jdk_allmodules": [":embedded_jdk_allmodules"],
     "_jdk_minimal": [":embedded_jdk_minimal_cached"],
+    "_dev_jdk": [":embedded_jdk_minimal"],
     "_nojdk": [],
 }.items()]
 
@@ -294,6 +296,7 @@ filegroup(
 ) for suffix in [
     "_jdk_allmodules",
     "_jdk_minimal",
+    "_dev_jdk",
     "_nojdk",
 ]]
 
@@ -309,6 +312,7 @@ filegroup(
 ) for suffix in [
     "_jdk_allmodules",
     "_jdk_minimal",
+    "_dev_jdk",
     "_nojdk",
 ]]
 
@@ -333,6 +337,7 @@ filegroup(
 ) for suffix, embed in [
     ("_jdk_allmodules", True),
     ("_jdk_minimal", True),
+    ("_dev_jdk", True),
     ("_notools", False),
     ("_nojdk", True),
 ]]
@@ -359,6 +364,7 @@ filegroup(
 ) for suffix in [
     "_jdk_allmodules",
     "_jdk_minimal",
+    "_dev_jdk",
     "_notools",
     "_nojdk",
 ]]
