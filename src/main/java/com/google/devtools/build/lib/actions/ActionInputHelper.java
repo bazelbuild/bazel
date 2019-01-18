@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -217,5 +218,15 @@ public final class ActionInputHelper {
 
   public static Iterable<String> toExecPaths(Iterable<? extends ActionInput> artifacts) {
     return Iterables.transform(artifacts, EXEC_PATH_STRING_FORMATTER);
+  }
+
+  /** Returns the {@link Path} for an {@link ActionInput}. */
+  public static Path toPath(ActionInput input, Path execRoot) {
+    Preconditions.checkNotNull(input, "input");
+    Preconditions.checkNotNull(execRoot, "execRoot");
+
+    return (input instanceof Artifact)
+        ? ((Artifact) input).getPath()
+        : execRoot.getRelative(input.getExecPath());
   }
 }
