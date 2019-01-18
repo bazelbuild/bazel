@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
 public class LocalConfigPlatformFunction extends RepositoryFunction {
 
   @Override
-  public boolean isLocal(Rule rule) {
+  public boolean isLocal(Environment env, Rule rule) {
     return true;
   }
 
