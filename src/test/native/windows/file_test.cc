@@ -48,6 +48,32 @@ class WindowsFileOperationsTest : public ::testing::Test {
   void TearDown() override { DeleteAllUnder(GetTestTmpDirW()); }
 };
 
+TEST_F(WindowsFileOperationsTest, TestIsAbsoluteWindowsStylePath) {
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L""));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"NUL"));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"nul"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:/"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:/"));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"c:\\"));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo/bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo/bar"));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo\\bar"));
+  EXPECT_TRUE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"foo"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"foo\\bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo\\."));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\."));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo\\.\\bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\.\\bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"c:\\foo\\..\\bar"));
+  EXPECT_FALSE(IsAbsoluteNormalizedWindowsPath(L"\\\\?\\c:\\foo\\..\\bar"));
+}
+
 TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
   wstring tmp(kUncPrefix + GetTestTmpDirW());
   wstring target(tmp + L"\\junc_target");
