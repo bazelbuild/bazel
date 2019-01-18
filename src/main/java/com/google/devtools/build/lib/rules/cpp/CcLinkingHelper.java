@@ -211,6 +211,13 @@ public final class CcLinkingHelper {
     return this;
   }
 
+  public CcLinkingHelper addCcLinkingContexts(Iterable<CcLinkingContext> ccLinkingContexts) {
+    for (CcLinkingContext ccLinkingContext : ccLinkingContexts) {
+      ccLinkingInfos.add(ccLinkingContext.toCcLinkingInfo());
+    }
+    return this;
+  }
+
   /**
    * Adds the given linkstamps. Note that linkstamps are usually not compiled at the library level,
    * but only in the dependent binary rules.
