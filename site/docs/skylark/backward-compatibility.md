@@ -1,34 +1,16 @@
 ---
 layout: documentation
-title: Backward Compatibility
+title: Legacy Incompatible Changes List
 ---
 
-# Backward Compatibility
 
-Bazel is still in Beta and new releases may include backward incompatible
-changes. As we make changes and polish the extension mechanism, old features
-may be removed and new features that are not backward compatible may be added.
+# Legacy Incompatible Changes List
 
-Backward incompatible changes are introduced gradually:
+Legacy, partial list of [backward-incompatible changes](../backward-compatibility.md).
 
-1.  The backward incompatible change is introduced behind a flag with its
-    default value set to `false`.
-2.  In a later release, the flag's default value will be set to `true`. You
-    can still use the flag to disable the change.
-3.  Then in a later release, the flag will be removed and you will no longer be
-    able to disable the change.
+Full, authorative list of incompatible changes is [GitHub issues with
+"incompatible-change" label](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+label%3Aincompatible-change)
 
-To check if your code will be compatible with future releases you can:
-
-*   Build your code with the flag `--all_incompatible_changes`. This flag
-    enables all backward incompatible changes, and so you can ensure your code
-    is compatible with upcoming changes.
-*   Use boolean flags to enable/disable specific backward incompatible changes.
-
-## Current backward incompatible changes
-
-The following are the backward incompatible changes that are implemented and
-guarded behind flags in the current release:
 
 General Starlark
 
