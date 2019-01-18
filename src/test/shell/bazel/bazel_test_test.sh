@@ -198,11 +198,11 @@ EOF
 
   # We don't just use the local PATH, but use the test's PATH, which is more restrictive.
   PATH=$PATH:$PWD/scripts bazel --nomaster_bazelrc test //testing:t1 -s --run_under=hello \
-    --test_output=all >& $TEST_log && fail "Expected failure"
+    --test_output=all --incompatible_strict_action_env=true >& $TEST_log && fail "Expected failure"
 
   # With --action_env=PATH, the local PATH is forwarded to the test.
   PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
-    --test_output=all --action_env=PATH >& $TEST_log || fail "Expected success"
+    --test_output=all >& $TEST_log || fail "Expected success"
   expect_log 'hello script!!! testing/t1'
 
   # We need to forward the PATH to make it work.
