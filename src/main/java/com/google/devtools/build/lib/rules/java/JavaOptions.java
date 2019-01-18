@@ -581,7 +581,7 @@ public class JavaOptions extends FragmentOptions {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If enabled, uses the remote Java tools for the default --java_toolchain")
+      help = "If enabled, uses the remote Java tools for the default --java_toolchain.")
   public boolean useRemoteJavaToolchain;
 
   @Option(
@@ -593,7 +593,7 @@ public class JavaOptions extends FragmentOptions {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If enabled, uses the remote Java tools for the default --host_java_toolchain")
+      help = "If enabled, uses the remote Java tools for the default --host_java_toolchain.")
   public boolean useRemoteHostJavaToolchain;
 
   @Option(
