@@ -41,13 +41,14 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeIsJunction(
     JNIEnv* env, jclass clazz, jstring path, jobjectArray error_msg_holder) {
   std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
-  int result = bazel::windows::IsJunctionOrDirectorySymlink(wpath.c_str());
+  std::wstring error;
+  int result = bazel::windows::IsJunctionOrDirectorySymlink(wpath.c_str(),
+                                                            &error);
   if (result == bazel::windows::IS_JUNCTION_ERROR &&
       CanReportError(env, error_msg_holder)) {
-    DWORD err_code = GetLastError();
     ReportLastError(
         bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                         L"nativeIsJunction", wpath, err_code),
+                                         L"nativeIsJunction", wpath, error),
         env, error_msg_holder);
   }
   return result;
