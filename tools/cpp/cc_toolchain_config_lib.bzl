@@ -460,7 +460,7 @@ ActionConfigInfo = provider(fields = [
 
 def action_config(
         action_name,
-        enabled = True,
+        enabled = False,
         tools = [],
         flag_sets = [],
         implies = []):
