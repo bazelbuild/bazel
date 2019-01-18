@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventservice;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_FAILED;
 import static com.google.devtools.build.v1.BuildStatus.Result.COMMAND_SUCCEEDED;
 import static com.google.devtools.build.v1.BuildStatus.Result.UNKNOWN_STATUS;
@@ -352,7 +353,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     }
 
     /** Stops the upload immediately. Enqueued events that have not been sent yet will be lost. */
-    public void closeOnTimeout() {
+    void closeOnTimeout() {
       synchronized (lock) {
         if (uploadThread != null) {
           if (uploadThread.isInterrupted()) {
@@ -397,9 +398,9 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         try {
           logInfo(e, "Aborting the BES upload due to having received an interrupt");
           synchronized (lock) {
-            if (interruptCausedByTimeout) {
-              exitFunc.accept("The Build Event Protocol upload timed out", e);
-            }
+            Preconditions.checkState(
+                interruptCausedByTimeout, "Unexpected interrupt on BES uploader thread");
+            exitFunc.accept("The Build Event Protocol upload timed out", e);
           }
         } finally {
           // TODO(buchgr): Due to b/113035235 exitFunc needs to be called before the close future
@@ -677,8 +678,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
               () -> {
                 // Call closeOnTimeout() if the future does not complete within closeTimeout
                 try {
-                  closeFuture.get(closeTimeout.toMillis(), TimeUnit.MILLISECONDS);
-                } catch (InterruptedException | TimeoutException e) {
+                  getUninterruptibly(closeFuture, closeTimeout.toMillis(), TimeUnit.MILLISECONDS);
+                } catch (TimeoutException e) {
                   closeOnTimeout();
                 } catch (ExecutionException e) {
                   if (e.getCause() instanceof TimeoutException) {

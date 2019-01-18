@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SynchronizedOutputStream;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -142,10 +143,14 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   @Override
   public void afterCommand() {
     if (streamer != null) {
-      // This should not occur, but close with an internal error if a {@link BuildEventStreamer} bug
-      // manifests as an unclosed streamer.
-      logger.warning("Attempting to close BES streamer after command");
-      streamer.close(AbortReason.INTERNAL);
+      if (!streamer.isClosed()) {
+        // This should not occur, but close with an internal error if a {@link BuildEventStreamer}
+        // bug manifests as an unclosed streamer.
+        logger.warning("Attempting to close BES streamer after command");
+        String msg = "BES was not properly closed";
+        LoggingUtil.logToRemote(Level.WARNING, msg, new IllegalStateException(msg));
+        streamer.close(AbortReason.INTERNAL);
+      }
       this.streamer = null;
     }
 

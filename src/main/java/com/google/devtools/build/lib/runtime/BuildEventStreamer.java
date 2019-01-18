@@ -30,6 +30,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
+import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -75,10 +77,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -408,11 +412,12 @@ public class BuildEventStreamer implements EventHandler {
         }
 
         ScheduledFuture<?> f = bepUploadWaitEvent(executor);
-        // Wait for all transports to close.
-        Futures.allAsList(closeFutures).get();
+        // Wait for all transports to close, ignoring interrupts.
+        Uninterruptibles.getUninterruptibly(Futures.allAsList(closeFutures));
         f.cancel(true);
-      } catch (Exception e) {
-        logger.severe("Failed to close a build event transport: " + e);
+      } catch (ExecutionException e) {
+        logger.log(Level.SEVERE, "Failed to close a build event transport", e);
+        LoggingUtil.logToRemote(Level.SEVERE, "Failed to close a build event transport", e);
       }
     } finally {
       if (executor != null) {
