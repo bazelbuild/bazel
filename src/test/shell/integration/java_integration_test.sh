@@ -166,7 +166,7 @@ EOF
 
 # This test intentionally show some errors on the standard output.
 function test_compiles_hello_world() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_world_files "$pkg"
@@ -196,7 +196,7 @@ function test_compiles_hello_world_remote_java_tools() {
 }
 
 function test_compiles_hello_world_from_deploy_jar() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_world_files "$pkg"
@@ -229,7 +229,7 @@ function test_compiles_hello_world_from_deploy_jar_remote_java_tools() {
 }
 
 function test_explicit_bogus_wrapper_args_are_rejected() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_world_files "$pkg"
@@ -324,7 +324,7 @@ function test_singlejar_with_custom_jdk_without_stamp() {
 # Regression test for b/18191163: ensure that the build is deterministic when
 # used with --nostamp.
 function test_deterministic_nostamp_build() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_world_files "$pkg"
@@ -362,7 +362,7 @@ function test_deterministic_nostamp_build_remote_java_tools() {
 }
 
 function test_compiles_hello_library() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
@@ -383,7 +383,7 @@ function test_compiles_hello_library_remote_java_tools() {
 }
 
 function test_compiles_hello_library_using_ijars() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
@@ -401,7 +401,7 @@ function test_compiles_hello_library_using_ijars_remote_java_tools() {
 }
 
 function test_compiles_hello_library_from_deploy_jar() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
@@ -423,7 +423,7 @@ function test_compiles_hello_library_from_deploy_jar_remote_java_tools() {
 }
 
 function test_building_deploy_jar_twice_does_not_rebuild() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
@@ -444,7 +444,7 @@ function test_building_deploy_jar_twice_does_not_rebuild_remote_java_tools() {
 }
 
 function test_does_not_create_executable_when_not_asked_for() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_sailor_files "$pkg"
@@ -473,7 +473,7 @@ function test_does_not_create_executable_when_not_asked_for_remote_java_tools() 
 
 # Assert that the a deploy jar can be a dependency of another java_binary.
 function test_building_deploy_jar_dependent_on_deploy_jar() {
-  declare -a bazel_opts=("${@}")
+ declare -a bazel_opts=("${@:+$@}")
  local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/deploy || fail "mkdir"
   cat > $pkg/java/deploy/BUILD <<EOF
@@ -511,7 +511,7 @@ function test_building_deploy_jar_dependent_on_deploy_jar_remote_java_tools() {
 }
 
 function test_wrapper_script_arg_handling() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/hello/ || fail "Expected success"
   cat > $pkg/java/hello/Test.java <<EOF
@@ -543,7 +543,7 @@ function test_wrapper_script_arg_handling_remote_java_tools() {
 }
 
 function test_srcjar_compilation() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/hello/ || fail "Expected success"
   cat > $pkg/java/hello/Test.java <<EOF
@@ -619,7 +619,7 @@ EOF
 }
 
 function test_java_plugin() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/test/processor || fail "mkdir"
 
@@ -721,7 +721,7 @@ function test_java_plugin_remote_java_tools() {
 }
 
 function test_jvm_flags_are_passed_verbatim() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/com/google/jvmflags || fail "mkdir"
   cat >$pkg/java/com/google/jvmflags/BUILD <<EOF
@@ -773,7 +773,7 @@ function test_jvm_flags_are_passed_verbatim_remote_java_tools() {
 }
 
 function test_classpath_fiddling() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
@@ -848,7 +848,7 @@ function test_classpath_fiddling_remote_java_tools() {
 }
 
 function test_java7() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/foo/ || fail "Expected success"
   cat > $pkg/java/foo/Foo.java <<EOF
@@ -879,7 +879,7 @@ function test_java7_remote_java_tools() {
 }
 
 function test_header_compilation() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   write_hello_library_files "$pkg"
@@ -899,7 +899,7 @@ function test_header_compilation_remote_java_tools() {
 }
 
 function test_header_compilation_errors() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/test/ || fail "Expected success"
   cat > $pkg/java/test/A.java <<EOF
@@ -935,7 +935,7 @@ function test_header_compilation_errors_remote_java_tools() {
 }
 
 function test_java_import_with_empty_jars_attribute() {
-  declare -a bazel_opts=("${@}")
+  declare -a bazel_opts=("${@:+$@}")
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/hello/ || fail "Expected success"
   cat > $pkg/java/hello/Hello.java <<EOF
