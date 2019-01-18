@@ -62,11 +62,23 @@ CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library"
 # Name of the action stripping the binary.
 STRIP_ACTION_NAME = "strip"
 
+# A string constant for the objc archive action.
+OBJC_ARCHIVE_ACTION_NAME = "objc-archive"
+
 # A string constant for the objc compilation action.
 OBJC_COMPILE_ACTION_NAME = "objc-compile"
 
 # A string constant for the objc++ compile action.
 OBJCPP_COMPILE_ACTION_NAME = "objc++-compile"
+
+# A string constant for the objc executable link action.
+OBJC_EXECUTABLE_ACTION_NAME = "objc-executable"
+
+# A string constant for the objc++ executable link action.
+OBJCPP_EXECUTABLE_ACTION_NAME = "objc++-executable"
+
+# A string constant for the objc fully-link link action.
+OBJC_FULLY_LINK_ACTION_NAME = "objc-fully-link"
 
 # A string constant for the clif actions.
 CLIF_MATCH_ACTION_NAME = "clif-match"
