@@ -25,6 +25,7 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,9 +40,9 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -156,11 +157,14 @@ class RemoteSpawnRunner implements SpawnRunner {
       repository.computeMerkleDigests(inputRoot);
     }
     maybeWriteParamFilesLocally(spawn);
-    Command command = buildCommand(
-        spawn.getOutputFiles(),
-        spawn.getArguments(),
-        spawn.getEnvironment(),
-        spawn.getExecutionPlatform());
+
+    // Get the remote platform properties.
+    Platform platform =
+        parsePlatform(spawn.getExecutionPlatform(), remoteOptions.remoteDefaultPlatformProperties);
+
+    Command command =
+        buildCommand(
+            spawn.getOutputFiles(), spawn.getArguments(), spawn.getEnvironment(), platform);
     Action action;
     ActionKey actionKey;
     try (SilentCloseable c = Profiler.instance().profile("Remote.buildAction")) {
@@ -413,18 +417,43 @@ class RemoteSpawnRunner implements SpawnRunner {
     return action.build();
   }
 
-  static Platform parsePlatform(Label platformLabel, @Nullable String platformDescription) {
-    Platform.Builder platformBuilder = Platform.newBuilder();
-    try {
-      if (platformDescription != null) {
-        TextFormat.getParser().merge(platformDescription, platformBuilder);
-      }
-    } catch (ParseException e) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to parse remote_execution_properties from platform %s", platformLabel),
-          e);
+  @Nullable
+  static Platform parsePlatform(
+      @Nullable PlatformInfo executionPlatform, @Nullable String defaultPlatformProperties)
+      throws UserExecException {
+    if (executionPlatform == null && Strings.isNullOrEmpty(defaultPlatformProperties)) {
+      return null;
     }
+
+    Platform.Builder platformBuilder = Platform.newBuilder();
+
+    if (executionPlatform != null
+        && !Strings.isNullOrEmpty(executionPlatform.remoteExecutionProperties())) {
+      // Try and get the platform info from the execution properties.
+      try {
+        TextFormat.getParser()
+            .merge(executionPlatform.remoteExecutionProperties(), platformBuilder);
+      } catch (ParseException e) {
+        throw new UserExecException(
+            String.format(
+                "Failed to parse remote_execution_properties from platform %s",
+                executionPlatform.label()),
+            e);
+      }
+    } else if (!Strings.isNullOrEmpty(defaultPlatformProperties)) {
+      // Try and use the provided default value.
+      try {
+        TextFormat.getParser().merge(defaultPlatformProperties, platformBuilder);
+      } catch (ParseException e) {
+        throw new UserExecException(
+            String.format(
+                "Failed to parse --remote_default_platform_properties %s",
+                defaultPlatformProperties),
+            e);
+      }
+    }
+
+    // Sort the properties.
     List<Platform.Property> properties = platformBuilder.getPropertiesList();
     platformBuilder.clearProperties();
     platformBuilder.addAllProperties(
@@ -436,7 +465,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
       ImmutableMap<String, String> env,
-      @Nullable PlatformInfo executionPlatform) {
+      @Nullable Platform platform) {
     Command.Builder command = Command.newBuilder();
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
@@ -453,10 +482,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     command.addAllOutputFiles(outputFiles);
     command.addAllOutputDirectories(outputDirectories);
 
-    // Get the remote platform properties.
-    if (executionPlatform != null) {
-      Platform platform =
-          parsePlatform(executionPlatform.label(), executionPlatform.remoteExecutionProperties());
+    if (platform != null) {
       command.setPlatform(platform);
     }
     command.addAllArguments(arguments);

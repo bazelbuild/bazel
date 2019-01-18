@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -75,11 +74,6 @@ public class Platform implements RuleConfiguredTargetFactory {
 
     String remoteExecutionProperties =
         ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING);
-    if (Strings.isNullOrEmpty(platformBuilder.getRemoteExecutionProperties())
-        && ruleContext.attributes().get(PlatformRule.HOST_PLATFORM_ATTR, Type.BOOLEAN)) {
-      // Use the default override.
-      remoteExecutionProperties = platformOptions.hostPlatformRemotePropertiesOverride;
-    }
     platformBuilder.setRemoteExecutionProperties(remoteExecutionProperties);
 
     PlatformInfo platformInfo;
