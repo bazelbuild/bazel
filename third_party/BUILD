@@ -611,6 +611,17 @@ pkg_tar(
     ],
 )
 
+pkg_tar(
+    name = "java_tools_pkg-gz",
+    srcs = [
+        "//third_party/java/java_tools:java_tools",
+        "//third_party/java/jdk/langtools:javac_jar",
+        "//third_party/java/jdk/langtools:jdk_compiler_jar",
+        "//third_party/java/jdk/langtools:java_compiler_jar"
+    ],
+    extension = "tar.gz"
+)
+
 
 load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 
