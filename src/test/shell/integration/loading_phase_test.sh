@@ -377,4 +377,19 @@ function test_incompatible_disallow_load_labels_to_cross_package_boundaries() {
   expect_log "//$pkg/foo:BUILD"
 }
 
+function test_package_loading_errors_in_target_parsing() {
+  mkdir bad || fail "mkdir failed"
+  echo "nope" > bad/BUILD || fail "echo failed"
+
+  for keep_going in "--keep_going" "--nokeep_going"
+  do
+    for target_pattern in "//bad:BUILD" "//bad:all" "//bad/..."
+    do
+      bazel build --nobuild "$target_pattern" >& "$TEST_log" \
+        && fail "Expected failure"
+      expect_log "Build did NOT complete successfully"
+    done
+  done
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."
