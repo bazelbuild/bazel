@@ -196,7 +196,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.bundleTranslations = javaOptions.bundleTranslations;
-    this.toolchainLabel = javaOptions.javaToolchain;
+    this.toolchainLabel = javaOptions.getJavaToolchain();
     this.runtimeLabel = javaOptions.javaBase;
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
@@ -355,9 +355,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       defaultLabel = "//tools/jdk:toolchain",
       defaultInToolRepository = true)
   public Label getToolchainLabel() {
-    if (useRemoteJavaToolchain) {
-      return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_toolchain");
-    }
     return toolchainLabel;
   }
 

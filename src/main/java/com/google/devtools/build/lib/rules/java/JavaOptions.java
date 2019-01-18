@@ -85,7 +85,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_toolchain",
-      defaultValue = "@bazel_tools//tools/jdk:toolchain",
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -94,7 +94,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "host_java_toolchain",
-      defaultValue = "@bazel_tools//tools/jdk:toolchain",
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -621,10 +621,25 @@ public class JavaOptions extends FragmentOptions {
   }
 
   private Label getHostJavaToolchain() {
-    if (useRemoteHostJavaToolchain) {
-      return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_toolchain");
+    if (hostJavaToolchain == null) {
+      if (useRemoteHostJavaToolchain) {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_toolchain");
+      } else {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:toolchain");
+      }
     }
     return hostJavaToolchain;
+  }
+
+  Label getJavaToolchain() {
+    if (javaToolchain == null) {
+      if (useRemoteJavaToolchain) {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_toolchain");
+      } else {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:toolchain");
+      }
+    }
+    return javaToolchain;
   }
 
   @Override
@@ -672,7 +687,7 @@ public class JavaOptions extends FragmentOptions {
   public Map<String, Set<Label>> getDefaultsLabels() {
     Map<String, Set<Label>> result = new HashMap<>();
     result.put("JDK", ImmutableSet.of(javaBase, getHostJavaBase()));
-    result.put("JAVA_TOOLCHAIN", ImmutableSet.of(javaToolchain));
+    result.put("JAVA_TOOLCHAIN", ImmutableSet.of(getJavaToolchain()));
 
     return result;
   }
