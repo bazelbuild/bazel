@@ -44,21 +44,12 @@ public enum CPU {
   }
 
   private static final CPU HOST_CPU = determineCurrentCpu();
-  @Nullable private static CPU cpuForTesting = null;
 
   /**
    * The current CPU.
    */
   public static CPU getCurrent() {
-    if (cpuForTesting != null) {
-      return cpuForTesting;
-    }
     return HOST_CPU;
-  }
-
-  @VisibleForTesting
-  public static void setForTesting(@Nullable CPU cpu) {
-    cpuForTesting = cpu;
   }
 
   private static CPU determineCurrentCpu() {

@@ -47,21 +47,12 @@ public enum OS {
   }
 
   private static final OS HOST_SYSTEM = determineCurrentOs();
-  @Nullable private static OS osForTesting = null;
 
   /**
    * The current operating system.
    */
   public static OS getCurrent() {
-    if (osForTesting != null) {
-      return osForTesting;
-    }
     return HOST_SYSTEM;
-  }
-
-  @VisibleForTesting
-  public static void setForTesting(OS os) {
-    osForTesting = os;
   }
 
   public static boolean isPosixCompatible() {
