@@ -163,7 +163,7 @@ public class WindowsFileOperations {
   public static boolean deletePath(String path) throws IOException {
     WindowsJniLoader.loadJni();
     String[] error = new String[] {null};
-    int result = nativeDeletePath(asLongPath(path), error);
+    int result = nativeDeletePath(asLongPath(path.replace('/', '\\')), error);
     switch (result) {
       case DELETE_PATH_SUCCESS:
         return true;

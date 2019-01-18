@@ -15,6 +15,7 @@
 #include <stdint.h>  // uint8_t
 #include <windows.h>
 
+#include <algorithm>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -36,6 +37,32 @@ wstring AddUncPrefixMaybe(const wstring& path) {
 
 wstring RemoveUncPrefixMaybe(const wstring& path) {
   return bazel::windows::HasUncPrefix(path.c_str()) ? path.substr(4) : path;
+}
+
+bool HasDriveSpecifierPrefix(const wstring& p) {
+  if (HasUncPrefix(p.c_str())) {
+    return p.size() >= 7 && iswalpha(p[4]) && p[5] == ':' && p[6] == '\\';
+  } else {
+    return p.size() >= 3 && iswalpha(p[0]) && p[1] == ':' && p[2] == '\\';
+  }
+}
+
+bool IsAbsoluteNormalizedWindowsPath(const wstring& p) {
+  if (p.empty()) {
+    return false;
+  }
+  if (IsDevNull(p.c_str())) {
+    return true;
+  }
+  if (p.find_first_of('/') != wstring::npos) {
+    return false;
+  }
+
+  return HasDriveSpecifierPrefix(p) &&
+         p.find(L".\\") != 0 && p.find(L"\\.\\") == wstring::npos &&
+         p.find(L"\\.") != p.size() - 2 &&
+         p.find(L"..\\") != 0 && p.find(L"\\..\\") == wstring::npos &&
+         p.find(L"\\..") != p.size() - 3;
 }
 
 static wstring uint32asHexString(uint32_t value) {
@@ -365,7 +392,18 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
 }
 
 int DeletePath(const wstring& path, wstring* error) {
-  const wchar_t* wpath = path.c_str();
+  if (!IsAbsoluteNormalizedWindowsPath(path)) {
+    if (error) {
+      *error = MakeErrorMessage(
+          WSTR(__FILE__), __LINE__, L"DeletePath", path,
+          L"expected an absolute Windows path");
+    }
+    return DeletePathResult::kError;
+  }
+
+  const std::wstring winpath(AddUncPrefixMaybe(path));
+  const wchar_t* wpath = winpath.c_str();
+
   if (!DeleteFileW(wpath)) {
     DWORD err = GetLastError();
     if (err == ERROR_SHARING_VIOLATION) {
@@ -435,7 +473,7 @@ int DeletePath(const wstring& path, wstring* error) {
         }
         return DeletePathResult::kError;
       }
-    } else {
+    } else if (attr & FILE_ATTRIBUTE_READONLY) {
       // It's a file and it's probably read-only.
       // Make it writable then try deleting it again.
       attr &= ~FILE_ATTRIBUTE_READONLY;
@@ -470,6 +508,14 @@ int DeletePath(const wstring& path, wstring* error) {
         }
         return DeletePathResult::kError;
       }
+    } else {
+      if (error) {
+        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                  (std::wstring(L"Unkown error, winpath=[")
+                                       + winpath + L"]").c_str(),
+                                  path, err);
+      }
+      return DeletePathResult::kError;
     }
   }
   return DeletePathResult::kSuccess;
