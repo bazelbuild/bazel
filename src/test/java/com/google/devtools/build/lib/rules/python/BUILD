@@ -18,6 +18,7 @@ test_suite(
         ":PyProviderTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
+        ":PythonStarlarkApiTest",
         ":PythonVersionSelectTest",
         ":PythonVersionTest",
     ],
@@ -167,6 +168,18 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PythonStarlarkApiTest",
+    srcs = ["PythonStarlarkApiTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],
