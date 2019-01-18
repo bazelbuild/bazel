@@ -174,7 +174,7 @@ http_archive(
 
 http_archive(
   name = "remote_java_tools",
-  sha256 = "16c3d1719d04c93791fff8d4c7013c3c217b8a0ea2d9b4b71f0d2cdf63e08ac2",
+  sha256 = "321b437e0ad384b54c66f5acafcccdf87c7ae0fb85fa69e57d98f06042e931e4",
   urls = [
     "https://mirror.bazel.build/bazel_java_tools/java_tools_pkg.tar"
   ],

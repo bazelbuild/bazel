@@ -1,8 +1,10 @@
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
+    "default_remote_java_toolchain",
     "java_runtime_files",
     "JDK8_JVM_OPTS",
+    "JDK8_JVM_OPTS_REMOTE_JAVAC",
     "bootclasspath",
 )
 
@@ -186,6 +188,21 @@ filegroup(
     srcs = ["@remote_java_tools//:VanillaJavaBuilder"],
 )
 
+filegroup(
+    name = "remote-javac_jar",
+    srcs = ["@remote_java_tools//:javac_jar"],
+)
+
+filegroup(
+    name = "remote-jdk_compiler_jar",
+    srcs = ["@remote_java_tools//:jdk_compiler_jar"],
+)
+
+filegroup(
+    name = "remote-java_compiler_jar",
+    srcs = ["@remote_java_tools//:java_compiler_jar"],
+)
+
 BOOTCLASS_JARS = [
     "rt.jar",
     "resources.jar",
@@ -244,17 +261,6 @@ bootclasspath(
     target_javabase = "current_java_runtime",
 )
 
-#TODO(iirina): Also add the remote java compiler jars
-# and handle ijar and singlejar (native implementations)
-default_java_toolchain(
-    name = "remote_toolchain",
-    source_version = "8",
-    target_version = "8",
-    genclass = ["@bazel_tools//tools/jdk:remote-genclass"],
-    header_compiler = ["@bazel_tools//tools/jdk:remote-turbine"],
-    header_compiler_direct = ["@bazel_tools//tools/jdk:remote-turbine_direct"],
-    javabuilder = ["@bazel_tools//tools/jdk:remote-javabuilder"],
-)
 
 default_java_toolchain(
     name = "toolchain_hostjdk8",
@@ -263,10 +269,23 @@ default_java_toolchain(
     target_version = "8",
 )
 
+default_remote_java_toolchain(
+    name = "remote_toolchain_hostjdk8",
+    jvm_opts = JDK8_JVM_OPTS_REMOTE_JAVAC,
+    source_version = "8",
+    target_version = "8",
+)
+
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
 default_java_toolchain(
     name = "toolchain",
+    source_version = "8",
+    target_version = "8",
+)
+
+default_remote_java_toolchain(
+    name = "remote_toolchain",
     source_version = "8",
     target_version = "8",
 )
@@ -292,7 +311,7 @@ default_java_toolchain(
     jvm_opts = [],
 )
 
-default_java_toolchain(
+default_remote_java_toolchain(
     name = "remote_toolchain_vanilla",
     forcibly_disable_header_compilation = True,
     javabuilder = ["@bazel_tools//tools/jdk:remote-vanillajavabuilder"],

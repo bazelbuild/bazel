@@ -51,3 +51,18 @@ filegroup(
     name = "TurbineDirect",
     srcs = ["turbine_direct_binary_deploy.jar"],
 )
+
+filegroup(
+    name = "javac_jar",
+    srcs = ["javac-9+181-r4173-1.jar"],
+)
+
+filegroup(
+    name = "jdk_compiler_jar",
+    srcs = ["jdk_compiler.jar"],
+)
+
+filegroup(
+    name = "java_compiler_jar",
+    srcs = ["java_compiler.jar"],
+)
