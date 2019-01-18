@@ -17,6 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.actions.ArtifactFileMetadata.Symlink;
+import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValue;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -177,36 +179,49 @@ public abstract class FileArtifactValue implements SkyValue {
       throws IOException {
     boolean isFile = fileValue.isFile();
     FileContentsProxy proxy = getProxyFromFileStateValue(fileValue.realFileStateValue());
-    return create(
+    FileArtifactValue resolvedValue = create(
         artifact.getPath(),
         isFile,
         isFile ? fileValue.getSize() : 0,
         proxy,
         isFile ? fileValue.getDigest() : null);
+    if (fileValue.isSymlink()) {
+      return new SymlinkArtifactValue(fileValue.getUnresolvedLinkTarget(),
+          resolvedValue);
+    }
+    return resolvedValue;
   }
 
   public static FileArtifactValue create(Artifact artifact, ArtifactFileMetadata metadata)
       throws IOException {
     boolean isFile = metadata.isFile();
     FileContentsProxy proxy = getProxyFromFileStateValue(metadata.realFileStateValue());
-    return create(
+    FileArtifactValue resolvedValue = create(
         artifact.getPath(),
         isFile,
         isFile ? metadata.getSize() : 0,
         proxy,
         isFile ? metadata.getDigest() : null);
+    if (metadata.isSymlink()) {
+      return new SymlinkArtifactValue(((Symlink) metadata).getLinkTarget(), resolvedValue);
+    }
+    return resolvedValue;
   }
 
   public static FileArtifactValue create(
       Artifact artifact,
       ArtifactPathResolver resolver,
-      ArtifactFileMetadata fileValue,
+      ArtifactFileMetadata metadata,
       @Nullable byte[] injectedDigest)
       throws IOException {
-    boolean isFile = fileValue.isFile();
-    FileContentsProxy proxy = getProxyFromFileStateValue(fileValue.realFileStateValue());
-    return create(
-        resolver.toPath(artifact), isFile, isFile ? fileValue.getSize() : 0, proxy, injectedDigest);
+    boolean isFile = metadata.isFile();
+    FileContentsProxy proxy = getProxyFromFileStateValue(metadata.realFileStateValue());
+    FileArtifactValue resolvedValue = create(
+        resolver.toPath(artifact), isFile, isFile ? metadata.getSize() : 0, proxy, injectedDigest);
+    if (metadata.isSymlink()) {
+      return new SymlinkArtifactValue(((Symlink) metadata).getLinkTarget(), resolvedValue);
+    }
+    return resolvedValue;
   }
 
   @VisibleForTesting
@@ -218,7 +233,12 @@ public abstract class FileArtifactValue implements SkyValue {
     // Caution: there's a race condition between stating the file and computing the
     // digest. We need to stat first, since we're using the stat to detect changes.
     // We follow symlinks here to be consistent with getDigest.
-    return create(path, path.stat(Symlinks.FOLLOW));
+    FileStatus stat = path.stat(Symlinks.NOFOLLOW);
+    if (stat.isSymbolicLink()) {
+      FileArtifactValue resolved = create(path, path.stat(Symlinks.FOLLOW));
+      return new SymlinkArtifactValue(path.readSymbolicLink(), resolved);
+    }
+    return create(path, stat);
   }
 
   public static FileArtifactValue create(Path path, FileStatus stat) throws IOException {
@@ -354,7 +374,7 @@ public abstract class FileArtifactValue implements SkyValue {
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+    public boolean wasModifiedSinceDigest(Path path) {
       // TODO(ulfjack): Ideally, we'd attempt to detect intra-build modifications here. I'm
       // consciously deferring work here as this code will most likely change again, and we're
       // already doing better than before by detecting inter-build modifications.
@@ -449,6 +469,83 @@ public abstract class FileArtifactValue implements SkyValue {
     public int hashCode() {
       return (proxy != null ? 127 * proxy.hashCode() : 0)
           + 37 * Long.hashCode(getSize()) + Arrays.hashCode(getDigest());
+    }
+  }
+
+  public static final class SymlinkArtifactValue extends FileArtifactValue {
+
+    private final PathFragment symlinkTarget;
+    private final FileArtifactValue resolvedValue;
+
+    private SymlinkArtifactValue(PathFragment symlinkTarget, FileArtifactValue resolvedValue) {
+      this.symlinkTarget = Preconditions.checkNotNull(symlinkTarget, "symlinkTarget");
+      this.resolvedValue = Preconditions.checkNotNull(resolvedValue, "resolvedTarget");
+    }
+
+    public PathFragment getSymlinkTarget() {
+      return symlinkTarget;
+    }
+
+    public FileArtifactValue getResolvedValue() {
+      return resolvedValue;
+    }
+
+    @Override
+    public FileStateType getType() {
+      return FileStateType.SYMLINK;
+    }
+
+    @Nullable
+    @Override
+    public byte[] getDigest() {
+      return resolvedValue.getDigest();
+    }
+
+    @Override
+    public long getSize() {
+      return resolvedValue.getSize();
+    }
+
+    @Override
+    public long getModifiedTime() {
+      return resolvedValue.getModifiedTime();
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+      return resolvedValue.wasModifiedSinceDigest(path);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other == null) {
+        return false;
+      }
+      if (other == this) {
+        return true;
+      }
+      if (!(other instanceof SymlinkArtifactValue)) {
+        return false;
+      }
+      SymlinkArtifactValue otherSymlink = (SymlinkArtifactValue) other;
+      return symlinkTarget.equals(otherSymlink.getSymlinkTarget()) &&
+          // The resolved values can be different even if the targets match
+          // because we typically compare SymlinkArtifactValues at different
+          // points in time i.e. between two builds.
+          resolvedValue.equals(otherSymlink.resolvedValue);
+    }
+
+    @Override
+    public int hashCode() {
+      return symlinkTarget.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("symlinkTarget", symlinkTarget)
+          .add("resolvedValue", resolvedValue)
+          .toString();
     }
   }
 

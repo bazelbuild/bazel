@@ -252,13 +252,17 @@ public abstract class ArtifactFileMetadata {
   }
 
   /** Implementation of {@link ArtifactFileMetadata} for files that are symlinks. */
-  private static final class Symlink extends DifferentRealPath {
+  static final class Symlink extends DifferentRealPath {
     private final PathFragment linkTarget;
 
     private Symlink(
         PathFragment realPath, FileStateValue realFileStateValue, PathFragment linkTarget) {
       super(realPath, realFileStateValue);
       this.linkTarget = linkTarget;
+    }
+
+    public PathFragment getLinkTarget() {
+      return linkTarget;
     }
 
     @Override

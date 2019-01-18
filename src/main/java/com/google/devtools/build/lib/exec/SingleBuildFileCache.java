@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.SymlinkArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -63,7 +64,11 @@ public class SingleBuildFileCache implements MetadataProvider {
                 Path path = ActionInputHelper.toInputPath(input, execRoot);
                 try {
                   FileArtifactValue metadata = FileArtifactValue.create(path);
-                  if (metadata.getType().isDirectory()) {
+
+                  boolean isDirectory = metadata.getType().isDirectory();
+                  isDirectory = isDirectory || metadata.getType().isSymlink() &&
+                      ((SymlinkArtifactValue) metadata).getResolvedValue().getType().isDirectory();
+                  if (isDirectory) {
                     throw new DigestOfDirectoryException(
                         "Input is a directory: " + input.getExecPathString());
                   }

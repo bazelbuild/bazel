@@ -20,6 +20,8 @@ import static org.junit.Assert.fail;
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
+import com.google.devtools.build.lib.skyframe.SkyframeAwareAction.ExceptionBase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -241,5 +243,57 @@ public class FileArtifactValueTest {
   public void testIsMarkerValue_notMarker() throws Exception {
     FileArtifactValue value = create(scratchFile("/dir/artifact1", 0L, "content"));
     assertThat(value.isMarkerValue()).isFalse();
+  }
+
+  @Test
+  public void testSymlinkEquality_sameTargets() throws Exception {
+    // Test that two symlinks pointing to the same file are equal
+    Path file = scratchFile("/dir/artifact", 0L, "content");
+    Path symlink1 = fs.getPath("/dir/symlink1");
+    symlink1.createSymbolicLink(file);
+    Path symlink2 = fs.getPath("/dir/symlink2");
+    symlink2.createSymbolicLink(file);
+
+    FileArtifactValue symlinkValue1 = create(symlink1);
+    FileArtifactValue symlinkValue2 = create(symlink2);
+    assertThat(symlinkValue1.getType()).isEqualTo(FileStateType.SYMLINK);
+    assertThat(symlinkValue2.getType()).isEqualTo(FileStateType.SYMLINK);
+    assertThat(symlinkValue1).isEqualTo(symlinkValue2);
+  }
+
+  @Test
+  public void testSymlinkEquality_differentTargets() throws Exception {
+    // Test that two symlinks with different targets are not equal.
+    Path file1 = scratchFile("/dir/artifact1", 0L, "content");
+    Path file2 = scratchFile("/dir/artifact2", 0L, "content");
+    Path symlink1 = fs.getPath("/dir/symlink1");
+    symlink1.createSymbolicLink(file1);
+    Path symlink2 = fs.getPath("/dir/symlink2");
+    symlink2.createSymbolicLink(file2);
+
+    FileArtifactValue symlinkValue1 = create(symlink1);
+    FileArtifactValue symlinkValue2 = create(symlink2);
+    assertThat(symlinkValue1.getType()).isEqualTo(FileStateType.SYMLINK);
+    assertThat(symlinkValue2.getType()).isEqualTo(FileStateType.SYMLINK);
+    assertThat(symlinkValue1).isNotEqualTo(symlinkValue2);
+  }
+
+  @Test
+  public void testSymlinkEquality_differentContents() throws Exception {
+    // Test that two symlinks with the same target but different
+    // contents are not equal.
+    Path file = scratchFile("/dir/artifact", 0L, "content");
+    Path symlink = fs.getPath("/dir/symlink");
+    symlink.createSymbolicLink(file);
+    FileArtifactValue symlinkValue1 = create(symlink);
+
+    // Update the file contents i.e. between two builds
+    FileSystemUtils.writeContent(file, "content1".getBytes());
+
+    FileArtifactValue symlinkValue2 = create(symlink);
+
+    assertThat(symlinkValue1.getType()).isEqualTo(FileStateType.SYMLINK);
+    assertThat(symlinkValue2.getType()).isEqualTo(FileStateType.SYMLINK);
+    assertThat(symlinkValue1).isNotEqualTo(symlinkValue2);
   }
 }
