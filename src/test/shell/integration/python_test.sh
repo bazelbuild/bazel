@@ -68,8 +68,7 @@ fi
 #
 #   - If you need to check Bazel's behavior concerning the *selection* of a
 #     Python 2 or 3 runtime, but do not actually need the runtime itself, then
-#     you may put your test in this file and call `use_fake_python_runtimes`
-#     before your test logic.
+#     you may put your test in python_stub_test.sh (in this directory) instead.
 #
 #   - Otherwise, put your test in //src/test/shell/bazel. That suite can invoke
 #     actual Python 2 and 3 interpreters.
@@ -138,49 +137,6 @@ EOF
   bazel clean
   bazel build --noexperimental_build_transitive_python_runfiles :sh-tool
   [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
-}
-
-# Tests that Python 2 or Python 3 is actually invoked, with and without flag
-# overrides.
-function test_python_version() {
-  use_fake_python_runtimes
-
-  mkdir -p test
-  touch test/main2.py test/main3.py
-  cat > test/BUILD << EOF
-py_binary(name = "main2",
-    default_python_version = "PY2",
-    srcs = ['main2.py'],
-)
-py_binary(name = "main3",
-    default_python_version = "PY3",
-    srcs = ["main3.py"],
-)
-EOF
-
-  # No flag, use the default from the rule.
-  bazel run //test:main2 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 2"
-  bazel run //test:main3 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 3"
-
-  # Force to Python 2.
-  bazel run //test:main2 --force_python=PY2 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 2"
-  bazel run //test:main3 --force_python=PY2 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 2"
-
-  # Force to Python 3.
-  bazel run //test:main2 --force_python=PY3 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 3"
-  bazel run //test:main3 --force_python=PY3 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 3"
 }
 
 run_suite "Tests for the Python rules"

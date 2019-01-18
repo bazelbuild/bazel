@@ -542,11 +542,11 @@ function create_and_cd_client() {
 
 create_and_cd_client
 
-# Optional per-test environment changes.
+# Optional environment changes.
 
-# Create a fake Python default runtime that just outputs a marker string
+# Creates a fake Python default runtime that just outputs a marker string
 # indicating which version was used, without executing any Python code.
-function use_fake_python_runtimes() {
+function use_fake_python_runtimes_for_testsuite() {
   # The stub script template automatically appends ".exe" to the Python binary
   # name if it doesn't already end in ".exe", ".com", or ".bat".
   if [[ $PLATFORM =~ msys ]]; then

@@ -49,6 +49,16 @@ sh_test(
 )
 
 sh_test(
+    name = "python_stub_test",
+    size = "medium",
+    srcs = ["python_stub_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "python_test",
     size = "medium",
     srcs = ["python_test.sh"],
