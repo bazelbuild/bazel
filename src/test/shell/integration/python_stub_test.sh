@@ -105,4 +105,28 @@ EOF
   expect_log "I am Python 3"
 }
 
+function test_can_build_py_library_at_top_level_regardless_of_version() {
+  mkdir -p test
+  cat > test/BUILD << EOF
+py_library(
+    name = "lib2",
+    srcs = ["lib2.py"],
+    srcs_version = "PY2ONLY",
+)
+py_library(
+    name = "lib3",
+    srcs = ["lib3.py"],
+    srcs_version = "PY3ONLY",
+)
+EOF
+  touch test/lib2.py test/lib3.py
+
+  EXPFLAG="--experimental_allow_python_version_transitions=true"
+
+  bazel build --python_version=PY2 $EXPFLAG //test:* \
+      &> $TEST_log || fail "bazel build failed"
+  bazel build --python_version=PY3 $EXPFLAG //test:* \
+      &> $TEST_log || fail "bazel build failed"
+}
+
 run_suite "Tests for the Python rules without Python execution"

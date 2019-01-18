@@ -34,6 +34,22 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
   }
 
   @Test
+  public void canBuildWithIncompatibleSrcsVersionUnderNewSemantics() throws Exception {
+    // See PyBaseConfiguredTargetTestBase for the analogous test under the old semantics, which
+    // applies not just to py_library but also to py_binary and py_test.
+    useConfiguration("--experimental_allow_python_version_transitions=true", "--force_python=PY3");
+    scratch.file(
+        "pkg/BUILD",
+        "py_library(",
+        "    name = 'foo',",
+        "    srcs = [':foo.py'],",
+        "    srcs_version = 'PY2ONLY')");
+    // Under the new semantics, errors are only reported at the binary target, not the library, and
+    // even then they'd be deferred to execution time, so there should be nothing wrong here.
+    assertThat(view.hasErrors(getConfiguredTarget("//pkg:foo"))).isFalse();
+  }
+
+  @Test
   public void versionIs3IfSetByFlagUnderNewSemantics() throws Exception {
     // See PyBaseConfiguredTargetTestBase for the analogous test under the old semantics, which
     // applies not just to py_library but also to py_binary and py_test.

@@ -57,6 +57,8 @@ public class PyProviderTest extends BuildViewTestCase {
     fields.put(
         PyProvider.IMPORTS,
         SkylarkNestedSet.of(String.class, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
+    fields.put(PyProvider.HAS_PY2_ONLY_SOURCES, false);
+    fields.put(PyProvider.HAS_PY3_ONLY_SOURCES, false);
     fields.putAll(overrides);
     return StructProvider.STRUCT.create(fields, "No such attribute '%s'");
   }
@@ -71,6 +73,8 @@ public class PyProviderTest extends BuildViewTestCase {
         "        transitive_sources = depset(direct=ctx.files.transitive_sources),",
         "        uses_shared_libraries = ctx.attr.uses_shared_libraries,",
         "        imports = depset(direct=ctx.attr.imports),",
+        "        has_py2_only_sources = ctx.attr.has_py2_only_sources,",
+        "        has_py3_only_sources = ctx.attr.has_py3_only_sources,",
         "    )",
         "    return struct(py=info)",
         "",
@@ -80,6 +84,8 @@ public class PyProviderTest extends BuildViewTestCase {
         "        'transitive_sources': attr.label_list(allow_files=True),",
         "        'uses_shared_libraries': attr.bool(default=False),",
         "        'imports': attr.string_list(),",
+        "        'has_py2_only_sources': attr.bool(),",
+        "        'has_py3_only_sources': attr.bool(),",
         "    },",
         ")");
     scratch.file(
@@ -90,7 +96,9 @@ public class PyProviderTest extends BuildViewTestCase {
         "    name = 'pytarget',",
         "    transitive_sources = ['a.py'],",
         "    uses_shared_libraries = True,",
-        "    imports = ['b']",
+        "    imports = ['b'],",
+        "    has_py2_only_sources = True,",
+        "    has_py3_only_sources = True,",
         ")");
     scratch.file("pytarget/a.py");
   }
@@ -296,6 +304,44 @@ public class PyProviderTest extends BuildViewTestCase {
     assertHasWrongTypeMessage(() -> PyProvider.getImports(info), "imports", "depset of strings");
   }
 
+  @Test
+  public void getHasPy2OnlySources_Good() throws Exception {
+    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.HAS_PY2_ONLY_SOURCES, true));
+    assertThat(PyProvider.getHasPy2OnlySources(info)).isTrue();
+  }
+
+  @Test
+  public void getHasPy2OnlySources_Missing() throws Exception {
+    StructImpl info = StructProvider.STRUCT.createEmpty(null);
+    assertThat(PyProvider.getHasPy2OnlySources(info)).isFalse();
+  }
+
+  @Test
+  public void getHasPy2OnlySources_WrongType() {
+    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.HAS_PY2_ONLY_SOURCES, 123));
+    assertHasWrongTypeMessage(
+        () -> PyProvider.getHasPy2OnlySources(info), "has_py2_only_sources", "boolean");
+  }
+
+  @Test
+  public void getHasPy3OnlySources_Good() throws Exception {
+    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.HAS_PY3_ONLY_SOURCES, true));
+    assertThat(PyProvider.getHasPy3OnlySources(info)).isTrue();
+  }
+
+  @Test
+  public void getHasPy3OnlySources_Missing() throws Exception {
+    StructImpl info = StructProvider.STRUCT.createEmpty(null);
+    assertThat(PyProvider.getHasPy3OnlySources(info)).isFalse();
+  }
+
+  @Test
+  public void getHasPy3OnlySources_WrongType() {
+    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.HAS_PY3_ONLY_SOURCES, 123));
+    assertHasWrongTypeMessage(
+        () -> PyProvider.getHasPy3OnlySources(info), "has_py3_only_sources", "boolean");
+  }
+
   /** Checks values set by the builder. */
   @Test
   public void builder() throws Exception {
@@ -307,6 +353,8 @@ public class PyProviderTest extends BuildViewTestCase {
             .setTransitiveSources(sources)
             .setUsesSharedLibraries(true)
             .setImports(imports)
+            .setHasPy2OnlySources(true)
+            .setHasPy3OnlySources(true)
             .build();
     // Assert using struct operations, not PyProvider accessors, which aren't necessarily trusted to
     // be correct.
@@ -319,6 +367,8 @@ public class PyProviderTest extends BuildViewTestCase {
         ((SkylarkNestedSet) info.getValue(PyProvider.IMPORTS)).getSet(String.class),
         Order.COMPILE_ORDER,
         "abc");
+    assertThat((Boolean) info.getValue(PyProvider.HAS_PY2_ONLY_SOURCES)).isTrue();
+    assertThat((Boolean) info.getValue(PyProvider.HAS_PY3_ONLY_SOURCES)).isTrue();
   }
 
   /** Checks the defaults set by the builder. */
@@ -334,5 +384,7 @@ public class PyProviderTest extends BuildViewTestCase {
     assertHasOrderAndContainsExactly(
         ((SkylarkNestedSet) info.getValue(PyProvider.IMPORTS)).getSet(String.class),
         Order.COMPILE_ORDER);
+    assertThat((Boolean) info.getValue(PyProvider.HAS_PY2_ONLY_SOURCES)).isFalse();
+    assertThat((Boolean) info.getValue(PyProvider.HAS_PY3_ONLY_SOURCES)).isFalse();
   }
 }

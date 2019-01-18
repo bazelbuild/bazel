@@ -75,6 +75,8 @@ public interface PythonSemantics {
    *
    * <p>This should create a generating action for {@code common.getExecutable()}.
    */
+  // TODO(brandjon): I believe this always returns common.getExecutable(), so we should be able to
+  // eliminate the return as redundant.
   Artifact createExecutable(
       RuleContext ruleContext,
       PyCommon common,

@@ -47,12 +47,12 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   private final boolean useNewPyVersionSemantics;
 
   PythonConfiguration(
-      PythonVersion defaultPythonVersion,
+      PythonVersion version,
       TriState buildPythonZip,
       boolean buildTransitiveRunfilesTrees,
       boolean oldPyVersionApiAllowed,
       boolean useNewPyVersionSemantics) {
-    this.version = defaultPythonVersion;
+    this.version = version;
     this.buildPythonZip = buildPythonZip;
     this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
     this.oldPyVersionApiAllowed = oldPyVersionApiAllowed;

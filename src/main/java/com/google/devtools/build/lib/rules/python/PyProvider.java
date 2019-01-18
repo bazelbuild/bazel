@@ -60,6 +60,18 @@ public class PyProvider {
   // with the one expected by the rules.
   public static final String IMPORTS = "imports";
 
+  /**
+   * Name of field holding a boolean indicating whether there are any transitive sources that
+   * require a Python 2 runtime.
+   */
+  public static final String HAS_PY2_ONLY_SOURCES = "has_py2_only_sources";
+
+  /**
+   * Name of field holding a boolean indicating whether there are any transitive sources that
+   * require a Python 3 runtime.
+   */
+  public static final String HAS_PY3_ONLY_SOURCES = "has_py3_only_sources";
+
   private static final ImmutableMap<String, Object> DEFAULTS;
 
   static {
@@ -69,6 +81,8 @@ public class PyProvider {
     builder.put(
         IMPORTS,
         SkylarkNestedSet.of(String.class, NestedSetBuilder.<String>compileOrder().build()));
+    builder.put(HAS_PY2_ONLY_SOURCES, false);
+    builder.put(HAS_PY3_ONLY_SOURCES, false);
     DEFAULTS = builder.build();
   }
 
@@ -160,6 +174,40 @@ public class PyProvider {
     return castValue.getSet(String.class);
   }
 
+  /**
+   * Casts and returns the py2-only-sources field (or its default value).
+   *
+   * @throws EvalException if the field exists and is not a boolean
+   */
+  public static boolean getHasPy2OnlySources(StructImpl info) throws EvalException {
+    Object fieldValue = getValue(info, HAS_PY2_ONLY_SOURCES);
+    return SkylarkType.cast(
+        fieldValue,
+        Boolean.class,
+        null,
+        "'%s' provider's '%s' field should be a boolean (got a '%s')",
+        PROVIDER_NAME,
+        HAS_PY2_ONLY_SOURCES,
+        EvalUtils.getDataTypeNameFromClass(fieldValue.getClass()));
+  }
+
+  /**
+   * Casts and returns the py3-only-sources field (or its default value).
+   *
+   * @throws EvalException if the field exists and is not a boolean
+   */
+  public static boolean getHasPy3OnlySources(StructImpl info) throws EvalException {
+    Object fieldValue = getValue(info, HAS_PY3_ONLY_SOURCES);
+    return SkylarkType.cast(
+        fieldValue,
+        Boolean.class,
+        null,
+        "'%s' provider's '%s' field should be a boolean (got a '%s')",
+        PROVIDER_NAME,
+        HAS_PY3_ONLY_SOURCES,
+        EvalUtils.getDataTypeNameFromClass(fieldValue.getClass()));
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -169,6 +217,8 @@ public class PyProvider {
     SkylarkNestedSet transitiveSources = null;
     Boolean usesSharedLibraries = null;
     SkylarkNestedSet imports = null;
+    Boolean hasPy2OnlySources = null;
+    Boolean hasPy3OnlySources = null;
 
     // Use the static builder() method instead.
     private Builder() {}
@@ -188,6 +238,16 @@ public class PyProvider {
       return this;
     }
 
+    public Builder setHasPy2OnlySources(boolean hasPy2OnlySources) {
+      this.hasPy2OnlySources = hasPy2OnlySources;
+      return this;
+    }
+
+    public Builder setHasPy3OnlySources(boolean hasPy3OnlySources) {
+      this.hasPy3OnlySources = hasPy3OnlySources;
+      return this;
+    }
+
     private static void put(
         ImmutableMap.Builder<String, Object> fields, String fieldName, Object value) {
       fields.put(fieldName, value != null ? value : DEFAULTS.get(fieldName));
@@ -199,6 +259,8 @@ public class PyProvider {
       put(fields, TRANSITIVE_SOURCES, transitiveSources);
       put(fields, USES_SHARED_LIBRARIES, usesSharedLibraries);
       put(fields, IMPORTS, imports);
+      put(fields, HAS_PY2_ONLY_SOURCES, hasPy2OnlySources);
+      put(fields, HAS_PY3_ONLY_SOURCES, hasPy3OnlySources);
       return StructProvider.STRUCT.create(fields.build(), "No such attribute '%s'");
     }
   }

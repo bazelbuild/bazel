@@ -31,59 +31,72 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
     super("py_binary");
   }
 
-  @Test
-  public void python2WithPy3SrcsVersionDependency() throws Exception {
-    eventCollector.clear();
-    reporter.removeHandler(failFastHandler); // expect errors
-    scratch.file("python2/BUILD",
-        "py_library(name = 'py3lib',",
+  /**
+   * Creates a target //pkg:bin with the given version attr and that depends on a target //pkg:lib
+   * having the given sources version attr.
+   */
+  private void declareBinDependingOnLibWithVersions(String binVersion, String libSrcsVersion)
+      throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        "py_library(name = 'lib',",
         "    srcs = [],",
-        "    srcs_version = 'PY3')",
-        "py_binary(name = 'pybin',",
-        "    srcs = ['pybin.py'],",
-        "    deps = [':py3lib'],",
-        "    srcs_version = 'PY2',",
-        "    default_python_version = 'PY2')");
-    assertThat(view.hasErrors(getConfiguredTarget("//python2:pybin"))).isTrue();
-    assertContainsEvent("//python2:py3lib: Rule '//python2:py3lib' can only be used with Python 3");
+        "    srcs_version = '" + libSrcsVersion + "')",
+        "py_binary(name = 'bin',",
+        "    srcs = ['bin.py'],",
+        "    deps = [':lib'],",
+        "    default_python_version = '" + binVersion + "')");
   }
 
   @Test
-  public void python2WithPy3OnlySrcsVersionDependency() throws Exception {
-    eventCollector.clear();
+  public void python2WithPy3SrcsVersionDependency_OldSemantics() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
-    scratch.file("python2/BUILD",
-        "py_library(",
-        "    name = 'py3lib',",
-        "    srcs = [],",
-        "    srcs_version = 'PY3ONLY')",
-        "py_binary(",
-        "    name = 'pybin',",
-        "    srcs = ['pybin.py'],",
-        "    deps = [':py3lib'],",
-        "    srcs_version = 'PY2',",
-        "    default_python_version = 'PY2')");
-    assertThat(view.hasErrors(getConfiguredTarget("//python2:pybin"))).isTrue();
-    assertContainsEvent("//python2:py3lib: Rule '//python2:py3lib' can only be used with Python 3");
+    useConfiguration("--experimental_allow_python_version_transitions=false");
+    declareBinDependingOnLibWithVersions("PY2", "PY3");
+    assertThat(view.hasErrors(getConfiguredTarget("//pkg:bin"))).isTrue();
+    assertContainsEvent("//pkg:lib: Rule '//pkg:lib' can only be used with Python 3");
   }
 
   @Test
-  public void python3WithPy2OnlySrcsVersionDependency() throws Exception {
-    eventCollector.clear();
+  public void python2WithPy3SrcsVersionDependency_NewSemantics() throws Exception {
+    useConfiguration("--experimental_allow_python_version_transitions=true");
+    declareBinDependingOnLibWithVersions("PY2", "PY3");
+    assertThat(getPyExecutableDeferredError("//pkg:bin"))
+        .contains("being built for Python 2 but (transitively) includes Python 3-only sources");
+  }
+
+  @Test
+  public void python2WithPy3OnlySrcsVersionDependency_OldSemantics() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
-    scratch.file("python3/BUILD",
-        "py_library(",
-        "    name = 'py2lib',",
-        "    srcs = [],",
-        "    srcs_version = 'PY2ONLY')",
-        "py_binary(",
-        "    name = 'pybin',",
-        "    srcs = ['pybin.py'],",
-        "    deps = [':py2lib'],",
-        "    srcs_version = 'PY3',",
-        "    default_python_version = 'PY3')");
-    assertThat(view.hasErrors(getConfiguredTarget("//python3:pybin"))).isTrue();
-    assertContainsEvent("//python3:py2lib: Rule '//python3:py2lib' can only be used with Python 2");
+    useConfiguration("--experimental_allow_python_version_transitions=false");
+    declareBinDependingOnLibWithVersions("PY2", "PY3ONLY");
+    assertThat(view.hasErrors(getConfiguredTarget("//pkg:bin"))).isTrue();
+    assertContainsEvent("//pkg:lib: Rule '//pkg:lib' can only be used with Python 3");
+  }
+
+  @Test
+  public void python2WithPy3OnlySrcsVersionDependency_NewSemantics() throws Exception {
+    useConfiguration("--experimental_allow_python_version_transitions=true");
+    declareBinDependingOnLibWithVersions("PY2", "PY3ONLY");
+    assertThat(getPyExecutableDeferredError("//pkg:bin"))
+        .contains("being built for Python 2 but (transitively) includes Python 3-only sources");
+  }
+
+  @Test
+  public void python3WithPy2OnlySrcsVersionDependency_OldSemantics() throws Exception {
+    reporter.removeHandler(failFastHandler); // expect errors
+    useConfiguration("--experimental_allow_python_version_transitions=false");
+    declareBinDependingOnLibWithVersions("PY3", "PY2ONLY");
+    assertThat(view.hasErrors(getConfiguredTarget("//pkg:bin"))).isTrue();
+    assertContainsEvent("//pkg:lib: Rule '//pkg:lib' can only be used with Python 2");
+  }
+
+  @Test
+  public void python3WithPy2OnlySrcsVersionDependency_NewSemantics() throws Exception {
+    useConfiguration("--experimental_allow_python_version_transitions=true");
+    declareBinDependingOnLibWithVersions("PY3", "PY2ONLY");
+    assertThat(getPyExecutableDeferredError("//pkg:bin"))
+        .contains("being built for Python 3 but (transitively) includes Python 2-only sources");
   }
 
   @Test
@@ -92,7 +105,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
-    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
+    ConfiguredTarget target = getOkPyTarget("//pkg:foo");
     FileConfiguredTarget srcFile = getFileConfiguredTarget("//pkg:foo.py");
     assertThat(getFilesToBuild(target))
         .containsExactly(getExecutable(target), srcFile.getArtifact());
@@ -134,7 +147,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "    name = 'foo',",
         "    main = 'foo.py',",
         "    srcs = ['foo.py', 'bar.py'])");
-    getConfiguredTarget("//pkg:foo");  // should not fail
+    getOkPyTarget("//pkg:foo"); // should not fail
   }
 
   @Test
@@ -203,7 +216,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "py_binary(",
         "    name = 'foo',",
         "    srcs = [':gen_py'])");
-    getConfiguredTarget("//pkg:foo");  // should not fail
+    getOkPyTarget("//pkg:foo"); // should not fail
   }
 
   @Test
@@ -213,7 +226,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "py_binary(",
         "    name = 'foo/bar',",
         "    srcs = ['foo/bar.py'])");
-    getConfiguredTarget("//pkg:foo/bar");  // should not fail
+    getOkPyTarget("//pkg:foo/bar"); // should not fail
   }
 
   // TODO(brandjon): Add tests for content of stub Python script (particularly for choosing python

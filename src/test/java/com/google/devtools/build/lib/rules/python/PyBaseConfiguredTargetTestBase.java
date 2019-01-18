@@ -67,8 +67,15 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   }
 
   @Test
-  public void srcsVersionClashesWithForcePythonFlag() throws Exception {
-    useConfiguration("--force_python=PY3");
+  public void srcsVersionClashesWithForcePythonFlagUnderOldSemantics() throws Exception {
+    // Under the old version semantics, we fail on any Python target the moment a conflict between
+    // srcs_version and the configuration is detected. Under the new semantics, py_binary and
+    // py_test care if there's a conflict but py_library does not. This test case checks the old
+    // semantics; the new semantics are checked in PyLibraryConfiguredTargetTest and
+    // PyExecutableConfiguredTargetTestBase. Note that under the new semantics py_binary and
+    // py_library ignore the version flag, so those tests use the attribute to set the version
+    // instead.
+    useConfiguration("--experimental_allow_python_version_transitions=false", "--force_python=PY3");
     checkError("pkg", "foo",
         // error:
         "'//pkg:foo' can only be used with Python 2",

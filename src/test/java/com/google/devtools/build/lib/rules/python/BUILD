@@ -85,6 +85,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
