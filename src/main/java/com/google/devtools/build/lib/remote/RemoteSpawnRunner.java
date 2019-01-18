@@ -40,9 +40,9 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -415,7 +415,14 @@ class RemoteSpawnRunner implements SpawnRunner {
     return action.build();
   }
 
-  static Platform parsePlatform(@Nullable PlatformInfo executionPlatform, @Nullable String defaultPlatformProperties) {
+  @Nullable
+  static Platform parsePlatform(
+      @Nullable PlatformInfo executionPlatform, @Nullable String defaultPlatformProperties)
+      throws UserExecException {
+    if (executionPlatform == null && Strings.isNullOrEmpty(defaultPlatformProperties)) {
+      return null;
+    }
+
     Platform.Builder platformBuilder = Platform.newBuilder();
 
     if (executionPlatform != null && !Strings.isNullOrEmpty(executionPlatform.remoteExecutionProperties())) {
@@ -423,9 +430,10 @@ class RemoteSpawnRunner implements SpawnRunner {
       try {
         TextFormat.getParser().merge(executionPlatform.remoteExecutionProperties(), platformBuilder);
       } catch (ParseException e) {
-        throw new IllegalArgumentException(
+        throw new UserExecException(
             String.format(
-                "Failed to parse remote_execution_properties from platform %s", executionPlatform.label()),
+                "Failed to parse remote_execution_properties from platform %s",
+                executionPlatform.label()),
             e);
       }
     } else if (!Strings.isNullOrEmpty(defaultPlatformProperties)) {
@@ -433,8 +441,10 @@ class RemoteSpawnRunner implements SpawnRunner {
       try {
         TextFormat.getParser().merge(defaultPlatformProperties, platformBuilder);
       } catch (ParseException e) {
-        throw new IllegalArgumentException(
-            String.format("Failed to parse --remote_default_platform_properties %s", defaultPlatformProperties),
+        throw new UserExecException(
+            String.format(
+                "Failed to parse --remote_default_platform_properties %s",
+                defaultPlatformProperties),
             e);
       }
     }
@@ -451,7 +461,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
       ImmutableMap<String, String> env,
-      Platform platform) {
+      @Nullable Platform platform) {
     Command.Builder command = Command.newBuilder();
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
@@ -469,7 +479,9 @@ class RemoteSpawnRunner implements SpawnRunner {
     command.addAllOutputDirectories(outputDirectories);
 
     // Get the remote platform properties.
-    command.setPlatform(platform);
+    if (platform != null) {
+      command.setPlatform(platform);
+    }
     command.addAllArguments(arguments);
     // Sorting the environment pairs by variable name.
     TreeSet<String> variables = new TreeSet<>(env.keySet());
