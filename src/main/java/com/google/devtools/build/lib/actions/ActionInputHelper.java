@@ -221,7 +221,7 @@ public final class ActionInputHelper {
   }
 
   /** Returns the {@link Path} for an {@link ActionInput}. */
-  public static Path toPath(ActionInput input, Path execRoot) {
+  public static Path toInputPath(ActionInput input, Path execRoot) {
     Preconditions.checkNotNull(input, "input");
     Preconditions.checkNotNull(execRoot, "execRoot");
 

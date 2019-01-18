@@ -60,7 +60,7 @@ public class SingleBuildFileCache implements MetadataProvider {
           .get(
               input.getExecPathString(),
               () -> {
-                Path path = ActionInputHelper.toPath(input, execRoot);
+                Path path = ActionInputHelper.toInputPath(input, execRoot);
                 try {
                   FileArtifactValue metadata = FileArtifactValue.create(path);
                   if (metadata.getType().isDirectory()) {

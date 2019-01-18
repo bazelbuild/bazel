@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
@@ -284,7 +285,7 @@ public final class Chunker {
         inputStream =
             () -> {
               try {
-                return execRoot.getRelative(actionInput.getExecPathString()).getInputStream();
+                return ActionInputHelper.toInputPath(actionInput, execRoot).getInputStream();
               } catch (IOException e) {
                 throw new RuntimeException(e);
               }
