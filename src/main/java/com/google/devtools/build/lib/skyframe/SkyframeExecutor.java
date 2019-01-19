@@ -2441,13 +2441,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // set as being in error.
         eventHandler.post(PatternExpandingError.failed(targetPatterns, exc.getMessage()));
       } else {
+        Exception e = Preconditions.checkNotNull(errorInfo.getException());
+
         // TargetPatternPhaseFunction never directly throws. Thus, the only way
         // evalResult.hasError() && keepGoing can hold is if there are cycles, which is handled
         // above.
-        Preconditions.checkState(!keepGoing);
+        Preconditions.checkState(!keepGoing, e.getMessage());
+
         // Following SkyframeTargetPatternEvaluator, we convert any exception into a
         // TargetParsingException.
-        Exception e = Preconditions.checkNotNull(errorInfo.getException());
         exc =
             (e instanceof TargetParsingException)
                 ? (TargetParsingException) e
