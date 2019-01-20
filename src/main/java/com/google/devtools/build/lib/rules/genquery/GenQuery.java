@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.query2.BlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
@@ -286,6 +287,16 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     OutputFormatter formatter;
     AggregateAllOutputFormatterCallback<Target, ?> targets;
     try {
+      Set<Setting> settings = queryOptions.toSettings();
+
+      // Turns out, if we have two targets with a cycle of length 2 were one of
+      // the edges is of type NODEP_LABEL type, the targets both show up in
+      // each other's result for deps(X) when the query is executed using
+      // 'blaze query'. This obviously does not fly when doing the query as a
+      // part of the build, thus, there is a slight discrepancy between the
+      // behavior of the query engine in these two use cases.
+      settings.add(Setting.NO_NODEP_DEPS);
+
       formatter =
           OutputFormatter.getFormatter(
               OutputFormatter.getDefaultFormatters(), queryOptions.outputFormat);
@@ -316,7 +327,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                   /*loadingPhaseThreads=*/ 4,
                   labelFilter,
                   getEventHandler(ruleContext),
-                  queryOptions.toSettings(),
+                  settings,
                   ImmutableList.<QueryFunction>of(),
                   /*packagePath=*/ null,
                   /*blockUniverseEvaluationErrors=*/ false);
