@@ -118,14 +118,11 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
     return libraryToLinkWrapperBuilder.build();
   }
 
-  public Artifact getDynamicLibraryForRuntimeOrNull(boolean linkingStatically) {
-    if (dynamicLibrary == null) {
-      return null;
+  public Artifact getDynamicLibraryForRuntimeOrNull() {
+    if (staticLibrary == null && picStaticLibrary == null && dynamicLibrary != null) {
+      return dynamicLibrary;
     }
-    if (linkingStatically && (staticLibrary != null || picStaticLibrary != null)) {
-      return null;
-    }
-    return dynamicLibrary;
+    return null;
   }
 
   /** Structure of the new CcLinkingContext. This will replace {@link CcLinkingInfo}. */
@@ -639,12 +636,11 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
 
   @Nullable
   @SuppressWarnings("ReferenceEquality")
-  public static String setDynamicArtifactsAndReturnIdentifier(
+  private static String setDynamicArtifactsAndReturnIdentifier(
       LibraryToLinkWrapper.Builder libraryToLinkWrapperBuilder,
       LibraryToLink dynamicModeParamsForExecutableEntry,
       LibraryToLink dynamicModeParamsForDynamicLibraryEntry,
       ListIterator<Artifact> runtimeLibraryIterator) {
-    Preconditions.checkNotNull(runtimeLibraryIterator);
     Artifact artifact = dynamicModeParamsForExecutableEntry.getArtifact();
     String libraryIdentifier = null;
     Artifact runtimeArtifact = null;
@@ -913,28 +909,22 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
         initializeCcLinkParams(linkOpts, linkstamps, nonCodeInputs, extraLinkTimeLibraries);
     for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
       boolean usedDynamic = false;
-      CcLinkParams.Builder oneSingleLibraryCcLinkParamsBuilder = CcLinkParams.builder();
       if (libraryToLinkWrapper.getStaticLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getStaticLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getStaticLibraryToLink());
       } else if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getPicStaticLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getPicStaticLibraryToLink());
       } else if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
         usedDynamic = true;
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getInterfaceLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getInterfaceLibraryToLink());
       } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
         usedDynamic = true;
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getDynamicLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getDynamicLibraryToLink());
       }
 
       if (usedDynamic && libraryToLinkWrapper.getDynamicLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addDynamicLibrariesForRuntime(
+        ccLinkParamsBuilder.addDynamicLibrariesForRuntime(
             ImmutableList.of(libraryToLinkWrapper.getDynamicLibrary()));
       }
-      ccLinkParamsBuilder.addTransitiveArgs(oneSingleLibraryCcLinkParamsBuilder.build());
     }
     return ccLinkParamsBuilder.build();
   }
@@ -949,28 +939,22 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
         initializeCcLinkParams(linkOpts, linkstamps, nonCodeInputs, extraLinkTimeLibraries);
     for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
       boolean usedDynamic = false;
-      CcLinkParams.Builder oneSingleLibraryCcLinkParamsBuilder = CcLinkParams.builder();
       if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getPicStaticLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getPicStaticLibraryToLink());
       } else if (libraryToLinkWrapper.getStaticLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getStaticLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getStaticLibraryToLink());
       } else if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
         usedDynamic = true;
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getInterfaceLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getInterfaceLibraryToLink());
       } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
         usedDynamic = true;
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getDynamicLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getDynamicLibraryToLink());
       }
 
       if (usedDynamic && libraryToLinkWrapper.getDynamicLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addDynamicLibrariesForRuntime(
+        ccLinkParamsBuilder.addDynamicLibrariesForRuntime(
             ImmutableList.of(libraryToLinkWrapper.getDynamicLibrary()));
       }
-      ccLinkParamsBuilder.addTransitiveArgs(oneSingleLibraryCcLinkParamsBuilder.build());
     }
     return ccLinkParamsBuilder.build();
   }
@@ -985,28 +969,22 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
         initializeCcLinkParams(linkOpts, linkstamps, nonCodeInputs, extraLinkTimeLibraries);
     for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
       boolean usedDynamic = false;
-      CcLinkParams.Builder oneSingleLibraryCcLinkParamsBuilder = CcLinkParams.builder();
       if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
         usedDynamic = true;
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getInterfaceLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getInterfaceLibraryToLink());
       } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
         usedDynamic = true;
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getDynamicLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getDynamicLibraryToLink());
       } else if (libraryToLinkWrapper.getStaticLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getStaticLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getStaticLibraryToLink());
       } else if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getPicStaticLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getPicStaticLibraryToLink());
       }
 
       if (usedDynamic && libraryToLinkWrapper.getDynamicLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addDynamicLibrariesForRuntime(
+        ccLinkParamsBuilder.addDynamicLibrariesForRuntime(
             ImmutableList.of(libraryToLinkWrapper.getDynamicLibrary()));
       }
-      ccLinkParamsBuilder.addTransitiveArgs(oneSingleLibraryCcLinkParamsBuilder.build());
     }
     return ccLinkParamsBuilder.build();
   }
@@ -1021,28 +999,22 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
         initializeCcLinkParams(linkOpts, linkstamps, nonCodeInputs, extraLinkTimeLibraries);
     for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
       boolean usedDynamic = false;
-      CcLinkParams.Builder oneSingleLibraryCcLinkParamsBuilder = CcLinkParams.builder();
       if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
         usedDynamic = true;
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getInterfaceLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getInterfaceLibraryToLink());
       } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
         usedDynamic = true;
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getDynamicLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getDynamicLibraryToLink());
       } else if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getPicStaticLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getPicStaticLibraryToLink());
       } else if (libraryToLinkWrapper.getStaticLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addLibraries(
-            ImmutableList.of(libraryToLinkWrapper.getStaticLibraryToLink()));
+        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getStaticLibraryToLink());
       }
 
       if (usedDynamic && libraryToLinkWrapper.getDynamicLibrary() != null) {
-        oneSingleLibraryCcLinkParamsBuilder.addDynamicLibrariesForRuntime(
+        ccLinkParamsBuilder.addDynamicLibrariesForRuntime(
             ImmutableList.of(libraryToLinkWrapper.getDynamicLibrary()));
       }
-      ccLinkParamsBuilder.addTransitiveArgs(oneSingleLibraryCcLinkParamsBuilder.build());
     }
     return ccLinkParamsBuilder.build();
   }

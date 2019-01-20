@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.ExtraLinkTimeLibrary.BuildLibraryOutput;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Collection;
@@ -106,7 +107,7 @@ public final class ExtraLinkTimeLibraries {
   public BuildLibraryOutput buildLibraries(
       RuleContext ruleContext, boolean staticMode, boolean forDynamicLibrary)
       throws InterruptedException, RuleErrorException {
-    NestedSetBuilder<LibraryToLinkWrapper> librariesToLink = NestedSetBuilder.linkOrder();
+    NestedSetBuilder<LibraryToLink> librariesToLink = NestedSetBuilder.linkOrder();
     NestedSetBuilder<Artifact> runtimeLibraries = NestedSetBuilder.linkOrder();
     for (ExtraLinkTimeLibrary extraLibrary : getExtraLibraries()) {
       BuildLibraryOutput buildLibraryOutput =
