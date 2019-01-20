@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -34,11 +33,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
+import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.nativedeps.NativeDepsHelper;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -68,15 +68,17 @@ public final class NativeLibs {
     String nativeDepsLibraryBasename = null;
     for (Map.Entry<String, Collection<TransitiveInfoCollection>> entry :
         getSplitDepsByArchitecture(ruleContext, depsAttributes).asMap().entrySet()) {
-      CcInfo ccInfo =
+      CcLinkParams linkParams =
           AndroidCommon.getCcInfo(
-              entry.getValue(),
-              ImmutableList.of("-Wl,-soname=lib" + ruleContext.getLabel().getName()));
+                  entry.getValue(),
+                  ImmutableList.of("-Wl,-soname=lib" + ruleContext.getLabel().getName()))
+              .getCcLinkingInfo()
+              .getStaticModeParamsForDynamicLibrary();
 
       Artifact nativeDepsLibrary =
           NativeDepsHelper.linkAndroidNativeDepsIfPresent(
               ruleContext,
-              ccInfo,
+              linkParams,
               configurationMap.get(entry.getKey()),
               toolchainsByCpu.get(entry.getKey()),
               cppSemantics);
@@ -87,8 +89,7 @@ public final class NativeLibs {
         nativeDepsLibraryBasename = nativeDepsLibrary.getExecPath().getBaseName();
       }
       librariesBuilder.addAll(
-          filterUniqueSharedLibraries(
-              ruleContext, nativeDepsLibrary, ccInfo.getCcLinkingContext().getLibraries()));
+          filterUniqueSharedLibraries(ruleContext, nativeDepsLibrary, linkParams.getLibraries()));
       NestedSet<Artifact> libraries = librariesBuilder.build();
 
       if (!libraries.isEmpty()) {
@@ -245,33 +246,20 @@ public final class NativeLibs {
   }
 
   private static Iterable<Artifact> filterUniqueSharedLibraries(
-      RuleContext ruleContext, Artifact linkedLibrary, NestedSet<LibraryToLinkWrapper> libraries) {
+      RuleContext ruleContext, Artifact linkedLibrary, NestedSet<? extends LinkerInput> libraries) {
     Map<String, Artifact> basenames = new HashMap<>();
     Set<Artifact> artifacts = new HashSet<>();
     if (linkedLibrary != null) {
       basenames.put(linkedLibrary.getExecPath().getBaseName(), linkedLibrary);
     }
-    for (LibraryToLinkWrapper linkerInput : libraries) {
-      if (linkerInput.getPicStaticLibrary() != null || linkerInput.getStaticLibrary() != null) {
+    for (LinkerInput linkerInput : libraries) {
+      String name = linkerInput.getArtifact().getFilename();
+      if (!(CppFileTypes.SHARED_LIBRARY.matches(name)
+          || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name))) {
         // This is not a shared library and will not be loaded by Android, so skip it.
         continue;
       }
-      Artifact artifact = null;
-      if (linkerInput.getInterfaceLibrary() != null) {
-        if (linkerInput.getResolvedSymlinkInterfaceLibrary() != null) {
-          artifact = linkerInput.getResolvedSymlinkInterfaceLibrary();
-        } else {
-          artifact = linkerInput.getInterfaceLibrary();
-        }
-      } else {
-        if (linkerInput.getResolvedSymlinkDynamicLibrary() != null) {
-          artifact = linkerInput.getResolvedSymlinkDynamicLibrary();
-        } else {
-          artifact = linkerInput.getDynamicLibrary();
-        }
-      }
-      Preconditions.checkNotNull(artifact);
-
+      Artifact artifact = linkerInput.getOriginalLibraryArtifact();
       if (!artifacts.add(artifact)) {
         // We have already reached this library, e.g., through a different solib symlink.
         continue;

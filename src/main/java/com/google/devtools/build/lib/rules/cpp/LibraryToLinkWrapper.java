@@ -177,23 +177,6 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
       return getStaticModeParamsForExecutableLibraries(fromCcLinkingInfo(ccLinkingInfo));
     }
 
-    public static List<Artifact> getStaticModeParamsForDynamicLibraryLibraries(
-        CcLinkingContext ccLinkingContext) {
-      ImmutableList.Builder<Artifact> artifactListBuilder = ImmutableList.builder();
-      for (LibraryToLinkWrapper library : ccLinkingContext.getLibraries()) {
-        if (library.getPicStaticLibrary() != null) {
-          artifactListBuilder.add(library.getPicStaticLibrary());
-        } else if (library.getStaticLibrary() != null) {
-          artifactListBuilder.add(library.getStaticLibrary());
-        } else if (library.getInterfaceLibrary() != null) {
-          artifactListBuilder.add(library.getInterfaceLibrary());
-        } else {
-          artifactListBuilder.add(library.getDynamicLibrary());
-        }
-      }
-      return artifactListBuilder.build();
-    }
-
     public NestedSet<LibraryToLinkWrapper> getLibraries() {
       return libraries;
     }
@@ -398,26 +381,14 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
     return dynamicLibrary;
   }
 
-  public Artifact getResolvedSymlinkDynamicLibrary() {
-    return resolvedSymlinkDynamicLibrary;
-  }
-
   @Override
   public Artifact getInterfaceLibrary() {
     return interfaceLibrary;
   }
 
-  public Artifact getResolvedSymlinkInterfaceLibrary() {
-    return resolvedSymlinkInterfaceLibrary;
-  }
-
   @Override
   public boolean getAlwayslink() {
     return alwayslink;
-  }
-
-  public boolean getMustKeepDebug() {
-    return mustKeepDebug;
   }
 
   public static Builder builder() {

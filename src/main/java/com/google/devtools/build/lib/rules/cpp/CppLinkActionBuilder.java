@@ -112,8 +112,6 @@ public class CppLinkActionBuilder {
   private final Set<LinkerInput> objectFiles = new LinkedHashSet<>();
   private final Set<Artifact> nonCodeInputs = new LinkedHashSet<>();
   private final NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
-  private final NestedSetBuilder<LibraryToLinkWrapper> libraryToLinkWrappers =
-      NestedSetBuilder.linkOrder();
   private NestedSet<Artifact> linkerFiles = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private Artifact runtimeMiddleman;
   private ArtifactCategory toolchainLibrariesType = null;
@@ -578,63 +576,8 @@ public class CppLinkActionBuilder {
     }
   }
 
-  private List<LibraryToLink> convertLibraryToLinkWrapperListToLibraryToLinkList(
-      NestedSet<LibraryToLinkWrapper> libraryToLinkWrappers) {
-    ImmutableList.Builder<LibraryToLink> librariesToLink = ImmutableList.builder();
-    for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
-      LibraryToLink staticLibraryToLink =
-          libraryToLinkWrapper.getStaticLibrary() == null
-              ? null
-              : libraryToLinkWrapper.getStaticLibraryToLink();
-      LibraryToLink picStaticLibraryToLink =
-          libraryToLinkWrapper.getPicStaticLibrary() == null
-              ? null
-              : libraryToLinkWrapper.getPicStaticLibraryToLink();
-      LibraryToLink libraryToLinkToUse = null;
-      if (linkingMode == LinkingMode.STATIC) {
-        if (linkType.isDynamicLibrary()) {
-          if (picStaticLibraryToLink != null) {
-            libraryToLinkToUse = picStaticLibraryToLink;
-          } else if (staticLibraryToLink != null) {
-            libraryToLinkToUse = staticLibraryToLink;
-          }
-        } else {
-          if (staticLibraryToLink != null) {
-            libraryToLinkToUse = staticLibraryToLink;
-          } else if (picStaticLibraryToLink != null) {
-            libraryToLinkToUse = picStaticLibraryToLink;
-          }
-        }
-      }
-      if (libraryToLinkToUse == null) {
-        if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-          libraryToLinkToUse = libraryToLinkWrapper.getInterfaceLibraryToLink();
-        } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
-          libraryToLinkToUse = libraryToLinkWrapper.getDynamicLibraryToLink();
-        }
-      }
-      Preconditions.checkNotNull(libraryToLinkToUse);
-      checkLibrary(libraryToLinkToUse);
-      librariesToLink.add(libraryToLinkToUse);
-    }
-    return librariesToLink.build();
-  }
-
   /** Builds the Action as configured and returns it. */
   public CppLinkAction build() throws InterruptedException {
-    NestedSet<LibraryToLink> originalUniqueLibraries = null;
-
-    if (libraryToLinkWrappers.isEmpty()) {
-      originalUniqueLibraries = libraries.build();
-    } else {
-      Preconditions.checkState(libraries.isEmpty());
-      originalUniqueLibraries =
-          NestedSetBuilder.<LibraryToLink>linkOrder()
-              .addAll(
-                  convertLibraryToLinkWrapperListToLibraryToLinkList(libraryToLinkWrappers.build()))
-              .build();
-    }
-
     // Executable links do not have library identifiers.
     boolean hasIdentifier = (libraryIdentifier != null);
     boolean isExecutable = linkType.isExecutable();
@@ -686,6 +629,8 @@ public class CppLinkActionBuilder {
     boolean allowLtoIndexing =
         includeLinkStaticInLtoIndexing
             || (linkingMode == Link.LinkingMode.DYNAMIC && !ltoCompilationContext.isEmpty());
+
+    NestedSet<LibraryToLink> originalUniqueLibraries = libraries.build();
 
     PathFragment ltoOutputRootPrefix = null;
     if (isLtoIndexing) {
@@ -1371,7 +1316,6 @@ public class CppLinkActionBuilder {
    * libraries.
    */
   public CppLinkActionBuilder addLibraries(Iterable<LibraryToLink> inputs) {
-    Preconditions.checkState(libraryToLinkWrappers.isEmpty());
     for (LibraryToLink input : inputs) {
       checkLibrary(input);
       if (input.isMustKeepDebug()) {
@@ -1379,17 +1323,6 @@ public class CppLinkActionBuilder {
       }
     }
     this.libraries.addAll(inputs);
-    return this;
-  }
-
-  public CppLinkActionBuilder addLibraryToLinkWrappers(Iterable<LibraryToLinkWrapper> inputs) {
-    Preconditions.checkState(libraries.isEmpty());
-    for (LibraryToLinkWrapper input : inputs) {
-      if (input.getMustKeepDebug()) {
-        mustKeepDebug = true;
-      }
-    }
-    this.libraryToLinkWrappers.addAll(inputs);
     return this;
   }
 

@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
@@ -42,11 +42,11 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FdoContext;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.Link;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LtoCompilationContext;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -104,19 +104,20 @@ public abstract class NativeDepsHelper {
    * shared libraries. In this case, this function returns {@code null}.
    *
    * @param ruleContext the rule context to determine the native deps library
-   * @param ccInfo the {@link CcInfo} for the rule, collected with linkstatic = 1 and linkshared = 1
+   * @param linkParams the {@link CcLinkParams} for the rule, collected with linkstatic = 1 and
+   *     linkshared = 1
    * @param cppSemantics to use for linkstamp compiles
    * @return the native deps library, or null if there was no code which needed to be linked in the
    *     transitive closure.
    */
   public static Artifact linkAndroidNativeDepsIfPresent(
       final RuleContext ruleContext,
-      CcInfo ccInfo,
+      CcLinkParams linkParams,
       final BuildConfiguration configuration,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics)
       throws InterruptedException, RuleErrorException {
-    if (!containsCodeToLink(ccInfo.getCcLinkingContext().getLibraries())) {
+    if (!containsCodeToLink(linkParams.getLibraries())) {
       return null;
     }
 
@@ -130,7 +131,7 @@ public abstract class NativeDepsHelper {
 
     return createNativeDepsAction(
             ruleContext,
-            ccInfo,
+            linkParams,
             /* extraLinkOpts= */ ImmutableList.of(),
             configuration,
             toolchain,
@@ -143,8 +144,8 @@ public abstract class NativeDepsHelper {
   }
 
   /** Determines if there is any code to be linked in the input iterable. */
-  private static boolean containsCodeToLink(Iterable<LibraryToLinkWrapper> libraries) {
-    for (LibraryToLinkWrapper library : libraries) {
+  private static boolean containsCodeToLink(Iterable<LibraryToLink> libraries) {
+    for (LibraryToLink library : libraries) {
       if (containsCodeToLink(library)) {
         return true;
       }
@@ -153,21 +154,16 @@ public abstract class NativeDepsHelper {
   }
 
   /** Determines if the input library is or contains an archive which must be linked. */
-  private static boolean containsCodeToLink(LibraryToLinkWrapper library) {
-    if (library.getStaticLibrary() == null && library.getPicStaticLibrary() == null) {
+  private static boolean containsCodeToLink(LibraryToLink library) {
+    if (Link.SHARED_LIBRARY_FILETYPES.matches(library.getArtifact().getFilename())) {
       // this is a shared library so we're going to have to copy it
       return false;
     }
-    Iterable<Artifact> objectFiles;
-    if (library.getObjectFiles() != null) {
-      objectFiles = library.getObjectFiles();
-    } else if (library.getPicObjectFiles() != null) {
-      objectFiles = library.getPicObjectFiles();
-    } else {
+    if (!library.containsObjectFiles()) {
       // this is an opaque library so we're going to have to link it
       return true;
     }
-    for (Artifact object : objectFiles) {
+    for (Artifact object : library.getObjectFiles()) {
       if (!Link.SHARED_LIBRARY_FILETYPES.matches(object.getFilename())) {
         // this library was built with a non-shared-library object so we should link it
         return true;
@@ -179,7 +175,7 @@ public abstract class NativeDepsHelper {
 
   public static NativeDepsRunfiles createNativeDepsAction(
       final RuleContext ruleContext,
-      CcInfo ccInfo,
+      CcLinkParams linkParams,
       Collection<String> extraLinkOpts,
       BuildConfiguration configuration,
       CcToolchainProvider toolchain,
@@ -189,30 +185,30 @@ public abstract class NativeDepsHelper {
       boolean useDynamicRuntime,
       CppSemantics cppSemantics)
       throws InterruptedException, RuleErrorException {
-    CcLinkingContext ccLinkingContext = ccInfo.getCcLinkingContext();
     Preconditions.checkState(
         ruleContext.isLegalFragment(CppConfiguration.class),
         "%s does not have access to CppConfiguration",
         ruleContext.getRule().getRuleClass());
     List<String> linkopts = new ArrayList<>(extraLinkOpts);
-    linkopts.addAll(ccLinkingContext.getFlattenedUserLinkFlags());
+    linkopts.addAll(linkParams.flattenedLinkopts());
 
-    CppHelper.checkLinkstampsUnique(ruleContext, ccLinkingContext.getLinkstamps());
-    ImmutableSet<Linkstamp> linkstamps = ImmutableSet.copyOf(ccLinkingContext.getLinkstamps());
+    CppHelper.checkLinkstampsUnique(ruleContext, linkParams.getLinkstamps());
+    ImmutableSet<Linkstamp> linkstamps = ImmutableSet.copyOf(linkParams.getLinkstamps());
     List<Artifact> buildInfoArtifacts = linkstamps.isEmpty()
         ? ImmutableList.<Artifact>of()
         : ruleContext.getAnalysisEnvironment().getBuildInfo(
             ruleContext, CppBuildInfo.KEY, configuration);
 
     boolean shareNativeDeps = configuration.getFragment(CppConfiguration.class).shareNativeDeps();
-    NestedSet<LibraryToLinkWrapper> linkerInputs = ccLinkingContext.getLibraries();
+    NestedSet<LibraryToLink> linkerInputs = linkParams.getLibraries();
     Artifact sharedLibrary;
     if (shareNativeDeps) {
       PathFragment sharedPath =
           getSharedNativeDepsPath(
-              CcLinkingContext.getStaticModeParamsForDynamicLibraryLibraries(ccLinkingContext),
+              LinkerInputs.toLibraryArtifacts(linkerInputs),
               linkopts,
-              linkstamps.stream()
+              linkstamps
+                  .stream()
                   .map(Linkstamp::getArtifact)
                   .collect(ImmutableList.toImmutableList()),
               buildInfoArtifacts,
@@ -255,17 +251,13 @@ public abstract class NativeDepsHelper {
           toolchain.getStaticRuntimeLinkInputs(ruleContext, featureConfiguration));
     }
     LtoCompilationContext.Builder ltoCompilationContext = new LtoCompilationContext.Builder();
-    for (LibraryToLinkWrapper lib : linkerInputs) {
-      if (lib.getPicLtoCompilationContext() != null
-          && !lib.getPicLtoCompilationContext().isEmpty()) {
-        ltoCompilationContext.addAll(lib.getPicLtoCompilationContext());
-      } else if (lib.getLtoCompilationContext() != null
-          && !lib.getLtoCompilationContext().isEmpty()) {
+    for (LibraryToLink lib : linkerInputs) {
+      if (!lib.getLtoCompilationContext().isEmpty()) {
         ltoCompilationContext.addAll(lib.getLtoCompilationContext());
       }
     }
 
-    Iterable<Artifact> nonCodeInputs = ccLinkingContext.getNonCodeInputs();
+    Iterable<Artifact> nonCodeInputs = linkParams.getNonCodeInputs();
     if (nonCodeInputs == null) {
       nonCodeInputs = ImmutableList.of();
     }
@@ -273,7 +265,7 @@ public abstract class NativeDepsHelper {
     builder
         .setLinkArtifactFactory(SHAREABLE_LINK_ARTIFACT_FACTORY)
         .setLinkerFiles(toolchain.getLinkerFiles())
-        .addLibraryToLinkWrappers(linkerInputs)
+        .addLibraries(linkerInputs)
         .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
         .setLinkingMode(LinkingMode.STATIC)
         .setLibraryIdentifier(libraryIdentifier)
