@@ -59,6 +59,10 @@ android/ @ahumesky @jin
 
 /src/main/java/com/google/devtools/build/lib/remote/ @buchgr @philwo @ola-rozenfeld
 
+/src/main/java/com/google/devtools/build/lib/authentication/ @buchgr
+
+/src/main/java/com/google/devtools/build/lib/grpc/ @buchgr
+
 /src/test/shell/bazel/remote/ @buchgr @philwo @ola-rozenfeld
 
 /src/tools/execlog/ @buchgr @ola-rozenfeld
@@ -66,7 +70,6 @@ android/ @ahumesky @jin
 
 # Execution and I/O related code
 
-/src/main/java/com/google/devtools/build/lib/authandtls/ @philwo
 /src/main/java/com/google/devtools/build/lib/clock/ @philwo
 /src/main/java/com/google/devtools/build/lib/exec/ @philwo
 /src/main/java/com/google/devtools/build/lib/sandbox/ @philwo

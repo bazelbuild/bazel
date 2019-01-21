@@ -7,20 +7,16 @@ filegroup(
 )
 
 java_library(
-    name = "http",
+    name = "grpc",
     srcs = glob(["*.java"]),
-    tags = ["bazel"],
-    runtime_deps = [
-        # This is required for client TLS.
-        "//third_party:netty_tcnative",
-    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auth",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:netty",
+        "//third_party/grpc:grpc-jar",
     ],
 )

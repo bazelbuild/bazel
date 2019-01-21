@@ -53,8 +53,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnExecException;
@@ -79,7 +77,6 @@ import com.google.rpc.Code;
 import com.google.rpc.PreconditionFailure;
 import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.BindableService;
-import io.grpc.CallCredentials;
 import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerCall;
@@ -267,13 +264,11 @@ public class GrpcRemoteExecutionClientTest {
         new ReferenceCountedChannel(InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel.retain(), null, retrier);
-    CallCredentials creds =
-        GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     ByteStreamUploader uploader =
-        new ByteStreamUploader(remoteOptions.remoteInstanceName, channel.retain(), creds,
-            remoteOptions.remoteTimeout, retrier);
-    GrpcRemoteCache remoteCache =
-        new GrpcRemoteCache(channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
+        new ByteStreamUploader(remoteOptions.remoteInstanceName, channel.retain(),
+            /* callCredential= */ null, remoteOptions.remoteTimeout, retrier);
+    GrpcRemoteCache remoteCache = new GrpcRemoteCache(channel.retain(), /* callCredentials= */ null,
+        remoteOptions, retrier, DIGEST_UTIL, uploader);
     client =
         new RemoteSpawnRunner(
             execRoot,

@@ -15,14 +15,18 @@
 package com.google.devtools.build.lib.buildeventservice;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.authentication.TlsOptions;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.ManagedBuildEventServiceGrpcClient;
-import java.io.IOException;
+import com.google.devtools.build.lib.grpc.GrpcUtils;
+import com.google.devtools.build.lib.runtime.AuthHeadersProvider;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Bazel's BES module.
@@ -34,7 +38,9 @@ public class BazelBuildEventServiceModule
   abstract static class BackendConfig {
     abstract String besBackend();
 
-    abstract AuthAndTLSOptions authAndTLSOptions();
+    abstract TlsOptions tlsOptions();
+
+    abstract AuthHeadersProvider authHeadersProvider();
   }
 
   private BuildEventServiceClient client;
@@ -46,18 +52,20 @@ public class BazelBuildEventServiceModule
   }
 
   @Override
-  protected BuildEventServiceClient getBesClient(
-      BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
+  protected BuildEventServiceClient getBesClient(BuildEventServiceOptions besOptions,
+      TlsOptions tlsOptions, Map<String, AuthHeadersProvider> authHeadersProvidersMap)
+      throws AbruptExitException {
+    AuthHeadersProvider authHeadersProvider = selectAuthHeadersProvider(authHeadersProvidersMap);
     BackendConfig newConfig =
         new AutoValue_BazelBuildEventServiceModule_BackendConfig(
-            besOptions.besBackend, authAndTLSOptions);
+            besOptions.besBackend, tlsOptions, authHeadersProvider);
     if (client == null || !Objects.equals(config, newConfig)) {
       clearBesClient();
       config = newConfig;
-      client =
-          new ManagedBuildEventServiceGrpcClient(
-              GoogleAuthUtils.newChannel(besOptions.besBackend, authAndTLSOptions),
-              GoogleAuthUtils.newCallCredentials(authAndTLSOptions));
+      client = new ManagedBuildEventServiceGrpcClient(
+          GrpcUtils.newManagedChannel(besOptions.besBackend, ImmutableList.of(),
+              tlsOptions.tlsEnabled, tlsOptions.tlsAuthorityOverride, tlsOptions.tlsCertificate),
+              GrpcUtils.newCallCredentials(authHeadersProvider));
     }
     return client;
   }
@@ -86,5 +94,18 @@ public class BazelBuildEventServiceModule
   @Override
   protected Set<String> whitelistedCommands() {
     return WHITELISTED_COMMANDS;
+  }
+
+  @Nullable
+  private static AuthHeadersProvider selectAuthHeadersProvider(
+      Map<String, AuthHeadersProvider> authHeadersProvidersMap) {
+    // TODO(buchgr): Implement a selection strategy based on name.
+    for (AuthHeadersProvider provider : authHeadersProvidersMap.values()) {
+      if (provider.isEnabled()) {
+        return provider;
+      }
+    }
+
+    return null;
   }
 }

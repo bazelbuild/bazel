@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore.http;
 
-import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.runtime.AuthHeadersProvider;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandler;
 import io.netty.channel.ChannelPromise;
@@ -29,15 +29,17 @@ import java.net.URI;
 import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Common functionality shared by concrete classes. */
 abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelInboundHandler<T>
     implements ChannelOutboundHandler {
 
-  private final Credentials credentials;
+  @Nullable
+  private final AuthHeadersProvider authHeadersProvider;
 
-  public AbstractHttpHandler(Credentials credentials) {
-    this.credentials = credentials;
+  public AbstractHttpHandler(AuthHeadersProvider authHeadersProvider) {
+    this.authHeadersProvider = authHeadersProvider;
   }
 
   protected ChannelPromise userPromise;
@@ -57,16 +59,17 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
   }
 
   protected void addCredentialHeaders(HttpRequest request, URI uri) throws IOException {
+    // TODO(buchgr): implement basic auth as a AuthHeadersProvider
     String userInfo = uri.getUserInfo();
     if (userInfo != null) {
       String value = BaseEncoding.base64Url().encode(userInfo.getBytes(Charsets.UTF_8));
       request.headers().set(HttpHeaderNames.AUTHORIZATION, "Basic " + value);
       return;
     }
-    if (credentials == null || !credentials.hasRequestMetadata()) {
+    if (authHeadersProvider == null) {
       return;
     }
-    Map<String, List<String>> authHeaders = credentials.getRequestMetadata(uri);
+    Map<String, List<String>> authHeaders = authHeadersProvider.getRequestHeaders(uri);
     if (authHeaders == null || authHeaders.isEmpty()) {
       return;
     }

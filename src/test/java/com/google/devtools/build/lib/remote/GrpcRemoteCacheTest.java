@@ -33,8 +33,6 @@ import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.Tree;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
-import com.google.api.client.json.GenericJson;
-import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
@@ -47,14 +45,13 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.grpc.GrpcUtils;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.runtime.AuthHeadersProvider;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -78,9 +75,11 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -176,23 +175,30 @@ public class GrpcRemoteCacheTest {
   }
 
   private GrpcRemoteCache newClient(RemoteOptions remoteOptions) throws IOException {
-    AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
-    authTlsOptions.useGoogleDefaultCredentials = true;
-    authTlsOptions.googleCredentials = "/exec/root/creds.json";
-    authTlsOptions.googleAuthScopes = ImmutableList.of("dummy.scope");
+    AuthHeadersProvider authHeadersProvider = new AuthHeadersProvider() {
+      @Override
+      public String getType() {
+        return "test-headers";
+      }
 
-    GenericJson json = new GenericJson();
-    json.put("type", "authorized_user");
-    json.put("client_id", "some_client");
-    json.put("client_secret", "foo");
-    json.put("refresh_token", "bar");
-    Scratch scratch = new Scratch();
-    scratch.file(authTlsOptions.googleCredentials, new JacksonFactory().toString(json));
+      @Override
+      public Map<String, List<String>> getRequestHeaders(URI uri) {
+        return ImmutableMap.of("authenticaton-header", ImmutableList.of("token"));
+      }
 
-    CallCredentials creds;
-    try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
-      creds = GoogleAuthUtils.newCallCredentials(in, authTlsOptions.googleAuthScopes);
-    }
+      @Override
+      public void refresh() {
+      }
+
+      @Override
+      public boolean isEnabled() {
+        return true;
+      }
+    };
+
+    CallCredentials creds = GrpcUtils.newCallCredentials(authHeadersProvider);
+    assertThat(creds).isNotNull();
+
     RemoteRetrier retrier =
         new RemoteRetrier(
             remoteOptions,

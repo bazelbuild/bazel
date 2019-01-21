@@ -24,7 +24,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authentication.TlsOptions;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.BuildEventLogger;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.ExitFunction;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedE
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.runtime.AuthHeadersProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
 import com.google.devtools.build.lib.runtime.BuildEventTransportFactory;
@@ -50,6 +51,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -84,11 +86,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
-    return ImmutableList.of(
-        optionsClass(),
-        AuthAndTLSOptions.class,
-        BuildEventStreamOptions.class,
-        BuildEventProtocolOptions.class);
+    return ImmutableList.of(optionsClass(), BuildEventStreamOptions.class,
+        BuildEventProtocolOptions.class, TlsOptions.class);
   }
 
   @Override
@@ -219,17 +218,17 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   }
 
   @Nullable
-  private BuildEventTransport tryCreateBesTransport(
-      CommandEnvironment env, Supplier<BuildEventArtifactUploader> uploaderSupplier)
-      throws IOException, OptionsParsingException {
+  private BuildEventTransport tryCreateBesTransport(CommandEnvironment env,
+        Supplier<BuildEventArtifactUploader> uploaderSupplier)
+      throws IOException, OptionsParsingException, AbruptExitException {
     OptionsParsingResult optionsProvider = env.getOptions();
     T besOptions =
         checkNotNull(
             optionsProvider.getOptions(optionsClass()), "Could not get BuildEventServiceOptions.");
-    AuthAndTLSOptions authTlsOptions =
+    TlsOptions tlsOptions =
         checkNotNull(
-            optionsProvider.getOptions(AuthAndTLSOptions.class),
-            "Could not get AuthAndTLSOptions.");
+            optionsProvider.getOptions(TlsOptions.class),
+            "Could not get TlsOptions.");
     BuildEventProtocolOptions protocolOptions =
         checkNotNull(
             optionsProvider.getOptions(BuildEventProtocolOptions.class),
@@ -263,7 +262,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
                         besOptions.besBackend, env.getBuildRequestId(), invocationId)));
       }
 
-      BuildEventServiceClient client = getBesClient(besOptions, authTlsOptions);
+      BuildEventServiceClient client = getBesClient(besOptions, tlsOptions,
+          env.getRuntime().getAuthHeadersProvidersMap());
       BuildEventArtifactUploader artifactUploader = uploaderSupplier.get();
 
       BuildEventLogger buildEventLogger =
@@ -305,9 +305,9 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   protected abstract Class<T> optionsClass();
 
-  protected abstract BuildEventServiceClient getBesClient(
-      T besOptions, AuthAndTLSOptions authAndTLSOptions)
-      throws IOException, OptionsParsingException;
+  protected abstract BuildEventServiceClient getBesClient(T besOptions, TlsOptions tlsOptions,
+      Map<String, AuthHeadersProvider> authHeadersProvidersMap)
+      throws IOException, OptionsParsingException, AbruptExitException;
 
   protected abstract void clearBesClient();
 

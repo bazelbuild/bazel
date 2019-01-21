@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.auth.Credentials;
 import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStore;
+import com.google.devtools.build.lib.runtime.AuthHeadersProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.netty.channel.unix.DomainSocketAddress;
@@ -36,7 +36,8 @@ public final class SimpleBlobStoreFactory {
 
   private SimpleBlobStoreFactory() {}
 
-  public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds) {
+  public static SimpleBlobStore createRest(RemoteOptions options,
+      AuthHeadersProvider authHeadersProvider) {
     try {
       URI uri = URI.create(options.remoteHttpCache);
       int timeoutMillis = (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout);
@@ -45,12 +46,13 @@ public final class SimpleBlobStoreFactory {
         if (options.remoteCacheProxy.startsWith("unix:")) {
           return HttpBlobStore.create(
             new DomainSocketAddress(options.remoteCacheProxy.replaceFirst("^unix:", "")),
-              uri, timeoutMillis, options.remoteMaxConnections, creds);
+              uri, timeoutMillis, options.remoteMaxConnections, authHeadersProvider);
         } else {
           throw new Exception("Remote cache proxy unsupported: " + options.remoteCacheProxy);
         }
       } else {
-        return HttpBlobStore.create(uri, timeoutMillis, options.remoteMaxConnections, creds);
+        return HttpBlobStore.create(uri, timeoutMillis, options.remoteMaxConnections,
+            authHeadersProvider);
       }
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -66,11 +68,11 @@ public final class SimpleBlobStoreFactory {
     return new OnDiskBlobStore(cacheDir);
   }
 
-  public static SimpleBlobStore create(
-      RemoteOptions options, @Nullable Credentials creds, @Nullable Path workingDirectory)
-      throws IOException {
+  public static SimpleBlobStore create(RemoteOptions options,
+      @Nullable AuthHeadersProvider authHeadersProvider,
+      @Nullable Path workingDirectory) throws IOException {
     if (isRestUrlOptions(options)) {
-      return createRest(options, creds);
+      return createRest(options, authHeadersProvider);
     }
     if (workingDirectory != null && isDiskCache(options)) {
       return createDiskCache(workingDirectory, options.diskCache);

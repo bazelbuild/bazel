@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.remote.blobstore.http;
 
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
-import com.google.auth.Credentials;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
+import com.google.devtools.build.lib.runtime.AuthHeadersProvider;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -114,52 +114,48 @@ public final class HttpBlobStore implements SimpleBlobStore {
   @GuardedBy("closeLock")
   private boolean isClosed;
 
-  private final Object credentialsLock = new Object();
+  private final Object authHeadersProviderLock = new Object();
 
-  @GuardedBy("credentialsLock")
-  private final Credentials creds;
+  @Nullable
+  private final AuthHeadersProvider authHeadersProvider;
 
-  @GuardedBy("credentialsLock")
+  @GuardedBy("authHeadersProviderLock")
   private long lastRefreshTime;
 
   public static HttpBlobStore create(URI uri, int timeoutMillis,
-      int remoteMaxConnections, @Nullable final Credentials creds)
+      int remoteMaxConnections, @Nullable final AuthHeadersProvider authHeadersProvider)
       throws Exception {
     return new HttpBlobStore(
         NioEventLoopGroup::new,
         NioSocketChannel.class,
-        uri, timeoutMillis, remoteMaxConnections, creds,
+        uri, timeoutMillis, remoteMaxConnections, authHeadersProvider,
         null);
   }
 
-  public static HttpBlobStore create(
-      DomainSocketAddress domainSocketAddress,
-      URI uri, int timeoutMillis, int remoteMaxConnections, @Nullable final Credentials creds)
-      throws Exception {
-
+  public static HttpBlobStore create(DomainSocketAddress domainSocketAddress, URI uri,
+      int timeoutMillis, int remoteMaxConnections,
+      @Nullable final AuthHeadersProvider authHeadersProvider) throws Exception {
       if (KQueue.isAvailable()) {
         return new HttpBlobStore(
             KQueueEventLoopGroup::new,
             KQueueDomainSocketChannel.class,
-            uri, timeoutMillis, remoteMaxConnections, creds,
+            uri, timeoutMillis, remoteMaxConnections, authHeadersProvider,
             domainSocketAddress);
       } else if (Epoll.isAvailable()) {
         return new HttpBlobStore(
             EpollEventLoopGroup::new,
             EpollDomainSocketChannel.class,
-            uri, timeoutMillis, remoteMaxConnections, creds,
+            uri, timeoutMillis, remoteMaxConnections, authHeadersProvider,
             domainSocketAddress);
       } else {
         throw new Exception("Unix domain sockets are unsupported on this platform");
       }
   }
 
-  private HttpBlobStore(
-      Function<Integer, EventLoopGroup> newEventLoopGroup,
-      Class<? extends Channel> channelClass,
-      URI uri, int timeoutMillis, int remoteMaxConnections, @Nullable final Credentials creds,
-      @Nullable SocketAddress socketAddress)
-      throws Exception {
+  private HttpBlobStore(Function<Integer, EventLoopGroup> newEventLoopGroup,
+      Class<? extends Channel> channelClass, URI uri, int timeoutMillis, int remoteMaxConnections,
+      @Nullable final AuthHeadersProvider authHeadersProvider,
+      @Nullable SocketAddress socketAddress) throws Exception {
     useTls = uri.getScheme().equals("https");
     if (uri.getPort() == -1) {
       int port = useTls ? 443 : 80;
@@ -220,7 +216,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
     } else {
       channelPool = new SimpleChannelPool(clientBootstrap, channelPoolHandler);
     }
-    this.creds = creds;
+    this.authHeadersProvider = authHeadersProvider;
     this.timeoutMillis = timeoutMillis;
   }
 
@@ -252,8 +248,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
                 p.addLast(new HttpObjectAggregator(10 * 1024));
                 p.addLast(new HttpRequestEncoder());
                 p.addLast(new ChunkedWriteHandler());
-                synchronized (credentialsLock) {
-                  p.addLast(new HttpUploadHandler(creds));
+                synchronized (authHeadersProviderLock) {
+                  p.addLast(new HttpUploadHandler(authHeadersProvider));
                 }
 
                 channelReady.setSuccess(ch);
@@ -314,8 +310,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
                 ch.pipeline()
                     .addFirst("read-timeout-handler", new ReadTimeoutHandler(timeoutMillis));
                 p.addLast(new HttpClientCodec());
-                synchronized (credentialsLock) {
-                  p.addLast(new HttpDownloadHandler(creds));
+                synchronized (authHeadersProviderLock) {
+                  p.addLast(new HttpDownloadHandler(authHeadersProvider));
                 }
 
                 channelReady.setSuccess(ch);
@@ -587,14 +583,14 @@ public final class HttpBlobStore implements SimpleBlobStore {
 
   /** See https://tools.ietf.org/html/rfc6750#section-3.1 */
   private boolean authTokenExpired(HttpResponse response) {
-    synchronized (credentialsLock) {
-      if (creds == null) {
+    synchronized (authHeadersProviderLock) {
+      if (authHeadersProvider == null) {
         return false;
       }
     }
     List<String> values = response.headers().getAllAsString(HttpHeaderNames.WWW_AUTHENTICATE);
     String value = String.join(",", values);
-    if (value != null && value.startsWith("Bearer")) {
+    if (value.startsWith("Bearer")) {
       return INVALID_TOKEN_ERROR.matcher(value).find();
     } else {
       return response.status().equals(HttpResponseStatus.UNAUTHORIZED);
@@ -602,15 +598,18 @@ public final class HttpBlobStore implements SimpleBlobStore {
   }
 
   private void refreshCredentials() throws IOException {
-    synchronized (credentialsLock) {
+    synchronized (authHeadersProviderLock) {
+      if (authHeadersProvider == null) {
+        return;
+      }
       long now = System.currentTimeMillis();
-      // Call creds.refresh() at most once per second. The one second was arbitrarily chosen, as
-      // a small enough value that we don't expect to interfere with actual token lifetimes, but
-      // it should just make sure that potentially hundreds of threads don't call this method
-      // at the same time.
+      // Call authHeadersProvider.refresh() at most once per second. The one second was arbitrarily
+      // chosen, as a small enough value that we don't expect to interfere with actual token
+      // lifetimes, but it should just make sure that potentially hundreds of threads don't call
+      // this method at the same time.
       if ((now - lastRefreshTime) > TimeUnit.SECONDS.toMillis(1)) {
         lastRefreshTime = now;
-        creds.refresh();
+        authHeadersProvider.refresh();
       }
     }
   }

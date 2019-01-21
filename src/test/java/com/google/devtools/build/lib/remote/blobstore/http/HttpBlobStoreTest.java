@@ -27,8 +27,9 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.api.client.util.Preconditions;
-import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.runtime.AuthHeadersProvider;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -64,6 +65,7 @@ import io.netty.handler.timeout.ReadTimeoutException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -71,7 +73,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.IntFunction;
@@ -239,17 +240,18 @@ public class HttpBlobStoreTest {
   }
 
   private HttpBlobStore createHttpBlobStore(ServerChannel serverChannel, int timeoutMillis,
-      int remoteMaxConnections, @Nullable final Credentials creds) throws Exception {
+      int remoteMaxConnections, @Nullable final AuthHeadersProvider authHeadersProvider)
+      throws Exception {
     SocketAddress socketAddress = serverChannel.localAddress();
     if (socketAddress instanceof DomainSocketAddress) {
       DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
       URI uri = new URI("http://localhost");
       return HttpBlobStore.create(domainSocketAddress, uri, timeoutMillis, remoteMaxConnections,
-          creds);
+          authHeadersProvider);
     } else if (socketAddress instanceof InetSocketAddress) {
       InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
       URI uri = new URI("http://localhost:" + inetSocketAddress.getPort());
-      return HttpBlobStore.create(uri, timeoutMillis, remoteMaxConnections, creds);
+      return HttpBlobStore.create(uri, timeoutMillis, remoteMaxConnections, authHeadersProvider);
     } else {
       throw new IllegalStateException(
           "unsupported socket address class " + socketAddress.getClass());
@@ -261,9 +263,9 @@ public class HttpBlobStoreTest {
     ServerChannel server = testServer.start(new ChannelInboundHandlerAdapter() {});
     testServer.stop(server);
 
-    Credentials credentials = newCredentials();
+    AuthHeadersProvider authHeadersProvider = newAuthHeadersProvider();
     HttpBlobStore blobStore =
-        createHttpBlobStore(server, 5, 0, credentials);
+        createHttpBlobStore(server, 5, 0, authHeadersProvider);
     getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
 
     fail("Exception expected");
@@ -283,9 +285,9 @@ public class HttpBlobStoreTest {
                 }
               });
 
-      Credentials credentials = newCredentials();
+      AuthHeadersProvider authHeadersProvider = newAuthHeadersProvider();
       HttpBlobStore blobStore =
-          createHttpBlobStore(server, 5, 0, credentials);
+          createHttpBlobStore(server, 5, 0, authHeadersProvider);
       getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
       fail("Exception expected");
     } finally {
@@ -307,18 +309,17 @@ public class HttpBlobStoreTest {
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
-      Credentials credentials = newCredentials();
+      AuthHeadersProvider authHeadersProvider = Mockito.spy(newAuthHeadersProvider());
       HttpBlobStore blobStore =
-          createHttpBlobStore(server, 30, 0, credentials);
+          createHttpBlobStore(server, 30, 0, authHeadersProvider);
       ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
       getFromFuture(blobStore.get("key", out));
       assertThat(out.toString(Charsets.US_ASCII.name())).isEqualTo("File Contents");
-      verify(credentials, times(1)).refresh();
-      verify(credentials, times(2)).getRequestMetadata(any(URI.class));
-      verify(credentials, times(2)).hasRequestMetadata();
+      verify(authHeadersProvider, times(1)).refresh();
+      verify(authHeadersProvider, times(2)).getRequestHeaders(any(URI.class));
       // The caller is responsible to the close the stream.
       verify(out, never()).close();
-      verifyNoMoreInteractions(credentials);
+      verifyNoMoreInteractions(authHeadersProvider);
     } finally {
       testServer.stop(server);
     }
@@ -338,16 +339,15 @@ public class HttpBlobStoreTest {
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
-      Credentials credentials = newCredentials();
+      AuthHeadersProvider authHeadersProvider = Mockito.spy(newAuthHeadersProvider());
       HttpBlobStore blobStore =
-          createHttpBlobStore(server, 30, 0, credentials);
+          createHttpBlobStore(server, 30, 0, authHeadersProvider);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
       ByteArrayInputStream in = new ByteArrayInputStream(data);
       blobStore.put("key", data.length, in);
-      verify(credentials, times(1)).refresh();
-      verify(credentials, times(2)).getRequestMetadata(any(URI.class));
-      verify(credentials, times(2)).hasRequestMetadata();
-      verifyNoMoreInteractions(credentials);
+      verify(authHeadersProvider, times(1)).refresh();
+      verify(authHeadersProvider, times(2)).getRequestHeaders(any(URI.class));
+      verifyNoMoreInteractions(authHeadersProvider);
     } finally {
       testServer.stop(server);
     }
@@ -367,9 +367,9 @@ public class HttpBlobStoreTest {
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
-      Credentials credentials = newCredentials();
+      AuthHeadersProvider authHeadersProvider = newAuthHeadersProvider();
       HttpBlobStore blobStore =
-          createHttpBlobStore(server, 30, 0, credentials);
+          createHttpBlobStore(server, 30, 0, authHeadersProvider);
       getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
       fail("Exception expected.");
     } catch (Exception e) {
@@ -395,9 +395,8 @@ public class HttpBlobStoreTest {
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
-      Credentials credentials = newCredentials();
-      HttpBlobStore blobStore =
-          createHttpBlobStore(server, 30, 0, credentials);
+      AuthHeadersProvider authHeadersProvider = newAuthHeadersProvider();
+      HttpBlobStore blobStore = createHttpBlobStore(server, 30, 0, authHeadersProvider);
       blobStore.put("key", 1, new ByteArrayInputStream(new byte[]{0}));
       fail("Exception expected.");
     } catch (Exception e) {
@@ -409,22 +408,34 @@ public class HttpBlobStoreTest {
     }
   }
 
-  private Credentials newCredentials() throws Exception {
-    Credentials credentials = mock(Credentials.class);
-    when(credentials.hasRequestMetadata()).thenReturn(true);
-    Map<String, List<String>> headers = new HashMap<>();
-    headers.put("Authorization", singletonList("Bearer invalidToken"));
-    when(credentials.getRequestMetadata(any(URI.class))).thenReturn(headers);
-    Mockito.doAnswer(
-        (mock) -> {
-          Map<String, List<String>> headers2 = new HashMap<>();
-          headers2.put("Authorization", singletonList("Bearer validToken"));
-          when(credentials.getRequestMetadata(any(URI.class))).thenReturn(headers2);
-          return null;
-        })
-        .when(credentials)
-        .refresh();
-    return credentials;
+  private AuthHeadersProvider newAuthHeadersProvider() {
+    return new AuthHeadersProvider() {
+
+      private boolean refreshCalled;
+
+      @Override
+      public String getType() {
+        return null;
+      }
+
+      @Override
+      public Map<String, List<String>> getRequestHeaders(URI uri) {
+        if (refreshCalled) {
+          return ImmutableMap.of("Authorization", singletonList("Bearer validToken"));
+        }
+        return ImmutableMap.of("Authorization", singletonList("Bearer invalidToken"));
+      }
+
+      @Override
+      public void refresh() throws IOException {
+        refreshCalled = true;
+      }
+
+      @Override
+      public boolean isEnabled() {
+        return true;
+      }
+    };
   }
 
   /**

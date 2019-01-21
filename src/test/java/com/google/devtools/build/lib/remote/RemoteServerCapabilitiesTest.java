@@ -28,11 +28,8 @@ import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.common.options.Options;
-import io.grpc.CallCredentials;
 import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerCall;
@@ -143,10 +140,8 @@ public class RemoteServerCapabilitiesTest {
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
-    CallCredentials creds =
-        GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
-    RemoteServerCapabilities client =
-        new RemoteServerCapabilities("instance", channel.retain(), creds, 3, retrier);
+    RemoteServerCapabilities client = new RemoteServerCapabilities("instance", channel.retain(),
+        /* callCredentials= */ null, 3, retrier);
 
     assertThat(client.get("build-req-id", "command-id")).isEqualTo(caps);
   }
