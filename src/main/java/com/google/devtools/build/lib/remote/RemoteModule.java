@@ -285,7 +285,7 @@ public final class RemoteModule extends BlazeModule {
             "Only the gRPC cache is support for remote execution");
         actionContextProvider = RemoteActionContextProvider.createForRemoteExecution(env,
             (GrpcRemoteCache) cache, executor, executeRetrier, digestUtil, logDir);
-      } else {
+      } else if (cache != null ){
         actionContextProvider = RemoteActionContextProvider.createForRemoteCaching(env, cache,
             executeRetrier, digestUtil);
       }
