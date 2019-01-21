@@ -62,7 +62,8 @@ else
   # If no tools were specified update all of them.
   tools_to_update=(${!tool_name_to_target[*]})
   # Create the sources archive only when all the tools were updated.
-  # -X doesn't save extra file attributes (e.g. file times)
+  # TODO(iirina): Find another archiving method that is reproducible
+  # (e.g. doesn't include timestamps).
   zip -Xr third_party/java/java_tools/java_tools-srcs.zip src/java_tools/buildjar/* \
   src/java_tools/junitrunner/* src/java_tools/singlejar/* third_party/jarjar/* \
   third_party/java/jdk/langtools/LICENSE \
