@@ -59,6 +59,10 @@ android/ @ahumesky @jin
 
 /src/main/java/com/google/devtools/build/lib/remote/ @buchgr @ishikhman @ola-rozenfeld
 
+/src/main/java/com/google/devtools/build/lib/authentication/ @buchgr
+
+/src/main/java/com/google/devtools/build/lib/grpc/ @buchgr
+
 /src/test/shell/bazel/remote/ @buchgr @ishikhman @ola-rozenfeld
 
 /src/tools/execlog/ @buchgr @ola-rozenfeld

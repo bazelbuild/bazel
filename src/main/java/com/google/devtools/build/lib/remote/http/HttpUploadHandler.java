@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.remote.http;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.runtime.AuthHeadersProvider;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.TooLongFrameException;
@@ -45,8 +45,8 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
   private long contentLength;
 
   public HttpUploadHandler(
-      Credentials credentials, ImmutableList<Entry<String, String>> extraHttpHeaders) {
-    super(credentials, extraHttpHeaders);
+      AuthHeadersProvider authHeadersProvider, ImmutableList<Entry<String, String>> extraHttpHeaders) {
+    super(authHeadersProvider, extraHttpHeaders);
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")

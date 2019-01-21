@@ -39,6 +39,9 @@ public final class Bazel {
       ImmutableList.of(
           BazelStartupOptionsModule.class,
           com.google.devtools.build.lib.runtime.BazelFileSystemModule.class,
+          // This module needs to be loaded before any module using google authentication
+          // As of this writing: RemoteModule and BazelBuildEventServiceModule.
+          com.google.devtools.build.lib.authentication.google.GoogleAuthModule.class,
           com.google.devtools.build.lib.runtime.mobileinstall.MobileInstallModule.class,
           com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
           com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,
