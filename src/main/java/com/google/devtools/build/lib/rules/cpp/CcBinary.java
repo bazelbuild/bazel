@@ -322,12 +322,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // can also be enabled specifically for tests with an experimental flag.
     // TODO(meikeb): Retire the experimental flag by end of 2018.
     boolean linkCompileOutputSeparately =
-        (ruleContext.isTestTarget()
-                && cppConfiguration.getLinkCompileOutputSeparately()
-                && linkingMode == LinkingMode.DYNAMIC)
-            || (ruleContext.isTestTarget()
-                && cppConfiguration.getDynamicModeFlag() == DynamicMode.DEFAULT
-                && ruleContext.getDisabledFeatures().contains(STATIC_LINK_TEST_SRCS));
+        ruleContext.isTestTarget()
+            && linkingMode == LinkingMode.DYNAMIC
+            && cppConfiguration.getDynamicModeFlag() == DynamicMode.DEFAULT
+            && (cppConfiguration.getLinkCompileOutputSeparately()
+                || ruleContext.getDisabledFeatures().contains(STATIC_LINK_TEST_SRCS));
     // When linking the object files directly into the resulting binary, we do not need
     // library-level link outputs; thus, we do not let CcCompilationHelper produce link outputs
     // (either shared object files or archives) for a non-library link type [*], and add

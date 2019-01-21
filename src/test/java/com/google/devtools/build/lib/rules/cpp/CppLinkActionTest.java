@@ -288,8 +288,9 @@ public class CppLinkActionTest extends BuildViewTestCase {
     }
     scratch.file(
         "x/BUILD",
-        "cc_test(name = 'a', srcs = ['a.cc'], features = ['-static_link_test_srcs'])",
-        "cc_binary(name = 'b', srcs = ['a.cc'])");
+        "cc_test(name='a', srcs=['a.cc'], features=['-static_link_test_srcs'])",
+        "cc_binary(name='b', srcs=['a.cc'])",
+        "cc_test(name='c', srcs=['a.cc'], features=['-static_link_test_srcs'], linkstatic=1)");
     scratch.file("x/a.cc", "int main() {}");
     useConfiguration("--force_pic");
 
@@ -311,6 +312,13 @@ public class CppLinkActionTest extends BuildViewTestCase {
     runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
         .containsExactly("bin x/b");
+
+    configuredTarget = getConfiguredTarget("//x:c");
+    linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/c");
+    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/c/a.pic.o");
+    runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
+    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
+        .containsExactly("bin x/c");
   }
 
   @Test
