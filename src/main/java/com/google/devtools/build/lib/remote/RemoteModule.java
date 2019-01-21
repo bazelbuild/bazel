@@ -52,6 +52,7 @@ import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
+import io.grpc.Grpc;
 import io.grpc.Status.Code;
 import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
@@ -280,6 +281,8 @@ public final class RemoteModule extends BlazeModule {
                 GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
                 retrier);
         execChannel.release();
+        Preconditions.checkState(cache instanceof GrpcRemoteCache,
+            "Only the gRPC cache is support for remote execution");
         actionContextProvider = RemoteActionContextProvider.createForRemoteExecution(env,
             (GrpcRemoteCache) cache, executor, executeRetrier, digestUtil, logDir);
       } else {
