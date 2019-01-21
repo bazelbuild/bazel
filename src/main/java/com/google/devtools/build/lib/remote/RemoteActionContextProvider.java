@@ -40,26 +40,45 @@ import javax.annotation.Nullable;
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
-  @Nullable private final AbstractRemoteActionCache cache;
+  private final AbstractRemoteActionCache cache;
   @Nullable private final GrpcRemoteExecutor executor;
   private final RemoteRetrier retrier;
   private final DigestUtil digestUtil;
-  private final Path logDir;
+  @Nullable private final Path logDir;
   private final AtomicReference<SpawnRunner> fallbackRunner = new AtomicReference<>();
 
-  RemoteActionContextProvider(
+  private RemoteActionContextProvider(
       CommandEnvironment env,
-      @Nullable AbstractRemoteActionCache cache,
+      AbstractRemoteActionCache cache,
       @Nullable GrpcRemoteExecutor executor,
       RemoteRetrier retrier,
       DigestUtil digestUtil,
-      Path logDir) {
-    this.env = env;
+      @Nullable Path logDir) {
+    this.env = Preconditions.checkNotNull(env, "env");
+    this.cache = Preconditions.checkNotNull(cache, "cache");
     this.executor = executor;
-    this.cache = cache;
     this.retrier = retrier;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
+  }
+
+  public static RemoteActionContextProvider createForRemoteCaching(
+      CommandEnvironment env,
+      AbstractRemoteActionCache cache,
+      RemoteRetrier retrier,
+      DigestUtil digestUtil) {
+    return new RemoteActionContextProvider(
+        env, cache, /*executor=*/ null, retrier, digestUtil, /*logDir=*/ null);
+  }
+
+  public static RemoteActionContextProvider createForRemoteExecution(
+      CommandEnvironment env,
+      GrpcRemoteCache cache,
+      GrpcRemoteExecutor executor,
+      RemoteRetrier retrier,
+      DigestUtil digestUtil,
+      Path logDir) {
+    return new RemoteActionContextProvider(env, cache, executor, retrier, digestUtil, logDir);
   }
 
   @Override
@@ -70,7 +89,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     String buildRequestId = env.getBuildRequestId();
     String commandId = env.getCommandId().toString();
 
-    if (executor == null && cache != null) {
+    if (executor == null) {
       RemoteSpawnCache spawnCache =
           new RemoteSpawnCache(
               env.getExecRoot(),
@@ -92,7 +111,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               env.getReporter(),
               buildRequestId,
               commandId,
-              cache,
+              (GrpcRemoteCache) cache,
               executor,
               retrier,
               digestUtil,

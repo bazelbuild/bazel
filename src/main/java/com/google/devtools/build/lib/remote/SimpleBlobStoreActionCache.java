@@ -27,12 +27,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
@@ -72,21 +68,6 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     this.storedBlobs = new ConcurrentHashMap<>();
   }
 
-  @Override
-  public void ensureInputsPresent(
-      TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
-          throws IOException, InterruptedException {
-    repository.computeMerkleDigests(root);
-    uploadBlob(action.toByteArray());
-    uploadBlob(command.toByteArray());
-    for (Directory directory : repository.treeToDirectories(root)) {
-      uploadBlob(directory.toByteArray());
-    }
-    for (TreeNode leaf : repository.leaves(root)) {
-      uploadFileContents(leaf.getActionInput(), execRoot, repository.getInputFileCache());
-    }
-  }
-
   public void downloadTree(Digest rootDigest, Path rootLocation)
       throws IOException, InterruptedException {
     rootLocation.createDirectoryAndParents();
@@ -109,18 +90,6 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     Digest digest = digestUtil.compute(file);
     try (InputStream in = file.getInputStream()) {
       return uploadStream(digest, in);
-    }
-  }
-
-  private Digest uploadFileContents(
-      ActionInput input, Path execRoot, MetadataProvider inputCache)
-          throws IOException, InterruptedException {
-    if (input instanceof VirtualActionInput) {
-      byte[] blob = ((VirtualActionInput) input).getBytes().toByteArray();
-      return uploadBlob(blob, digestUtil.compute(blob));
-    }
-    try (InputStream in = execRoot.getRelative(input.getExecPathString()).getInputStream()) {
-      return uploadStream(DigestUtil.getFromInputCache(input, inputCache), in);
     }
   }
 

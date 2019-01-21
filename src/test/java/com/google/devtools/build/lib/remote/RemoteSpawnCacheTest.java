@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
-import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -233,13 +232,6 @@ public class RemoteSpawnCacheTest {
     SpawnResult result = entry.getResult();
     // All other methods on RemoteActionCache have side effects, so we verify all of them.
     verify(remoteCache).download(actionResult, execRoot, outErr);
-    verify(remoteCache, never())
-        .ensureInputsPresent(
-            any(TreeNodeRepository.class),
-            any(Path.class),
-            any(TreeNode.class),
-            any(Action.class),
-            any(Command.class));
     verify(remoteCache, never())
         .upload(
             any(ActionKey.class),

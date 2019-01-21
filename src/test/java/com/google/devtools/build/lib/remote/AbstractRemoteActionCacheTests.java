@@ -38,7 +38,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
-import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -717,13 +716,6 @@ public class AbstractRemoteActionCacheTests {
     protected <T> T getFromFuture(ListenableFuture<T> f) throws IOException, InterruptedException {
       blockingDownloads.add(f);
       return Utils.getFromFuture(f);
-    }
-
-    @Override
-    public void ensureInputsPresent(
-        TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
-        throws IOException, InterruptedException {
-      throw new UnsupportedOperationException();
     }
 
     @Nullable
