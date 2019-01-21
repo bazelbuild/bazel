@@ -85,7 +85,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_toolchain",
-      defaultValue = "@bazel_tools//tools/jdk:toolchain",
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -94,7 +94,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "host_java_toolchain",
-      defaultValue = "@bazel_tools//tools/jdk:toolchain",
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -573,6 +573,34 @@ public class JavaOptions extends FragmentOptions {
   public boolean requireJavaToolchainHeaderCompilerDirect;
 
   @Option(
+      name = "incompatible_use_remote_java_toolchain",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If enabled, uses the remote Java tools for the default --java_toolchain. "
+              + "See #7196.")
+  public boolean useRemoteJavaToolchain;
+
+  @Option(
+      name = "incompatible_use_remote_host_java_toolchain",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If enabled, uses the remote Java tools for the default --host_java_toolchain. "
+              + "See #7197.")
+  public boolean useRemoteHostJavaToolchain;
+
+  @Option(
       name = "incompatible_disallow_resource_jars",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -596,6 +624,28 @@ public class JavaOptions extends FragmentOptions {
     return hostJavaBase;
   }
 
+  private Label getHostJavaToolchain() {
+    if (hostJavaToolchain == null) {
+      if (useRemoteHostJavaToolchain) {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_toolchain");
+      } else {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:toolchain");
+      }
+    }
+    return hostJavaToolchain;
+  }
+
+  Label getJavaToolchain() {
+    if (javaToolchain == null) {
+      if (useRemoteJavaToolchain) {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_toolchain");
+      } else {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:toolchain");
+      }
+    }
+    return javaToolchain;
+  }
+
   @Override
   public FragmentOptions getHost() {
     JavaOptions host = (JavaOptions) getDefault();
@@ -604,7 +654,7 @@ public class JavaOptions extends FragmentOptions {
     host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
 
     host.javacOpts = hostJavacOpts;
-    host.javaToolchain = hostJavaToolchain;
+    host.javaToolchain = getHostJavaToolchain();
 
     host.javaLauncher = hostJavaLauncher;
 
@@ -641,7 +691,7 @@ public class JavaOptions extends FragmentOptions {
   public Map<String, Set<Label>> getDefaultsLabels() {
     Map<String, Set<Label>> result = new HashMap<>();
     result.put("JDK", ImmutableSet.of(javaBase, getHostJavaBase()));
-    result.put("JAVA_TOOLCHAIN", ImmutableSet.of(javaToolchain));
+    result.put("JAVA_TOOLCHAIN", ImmutableSet.of(getJavaToolchain()));
 
     return result;
   }

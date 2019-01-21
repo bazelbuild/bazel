@@ -38,6 +38,7 @@ output_paths = [
      lambda x: 'tools/jdk/jarjar_command_deploy.jar'),
     ('*JacocoCoverage*_deploy.jar',
      lambda x: 'tools/jdk/JacocoCoverage_deploy.jar'),
+    ('*BUILD.pkg', lambda x: 'tools/jdk/BUILD.pkg'),
     ('*turbine_deploy.jar', lambda x: 'tools/jdk/turbine_deploy.jar'),
     ('*turbine_direct*', lambda x: 'tools/jdk/' + os.path.basename(x)),
     ('*javac-9+181-r4173-1.jar',

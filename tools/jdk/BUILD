@@ -1,8 +1,10 @@
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
+    "default_remote_java_toolchain",
     "java_runtime_files",
     "JDK8_JVM_OPTS",
+    "JDK8_JVM_OPTS_REMOTE_JAVAC",
     "bootclasspath",
 )
 
@@ -134,9 +136,16 @@ filegroup(
     }),
 )
 
+exports_files(["BUILD.pkg"])
+
 filegroup(
     name = "genclass",
     srcs = ["//tools/jdk:GenClass_deploy.jar"],
+)
+
+filegroup(
+    name = "remote-genclass",
+    srcs = ["@remote_java_tools//:GenClass"],
 )
 
 filegroup(
@@ -145,8 +154,18 @@ filegroup(
 )
 
 filegroup(
+    name = "remote-turbine",
+    srcs = ["@remote_java_tools//:Turbine"],
+)
+
+filegroup(
     name = "turbine_direct",
     srcs = glob(["turbine_direct*"]),
+)
+
+filegroup(
+    name = "remote-turbine_direct",
+    srcs = ["@remote_java_tools//:TurbineDirect"],
 )
 
 filegroup(
@@ -155,8 +174,33 @@ filegroup(
 )
 
 filegroup(
+    name = "remote-javabuilder",
+    srcs = ["@remote_java_tools//:JavaBuilder"],
+)
+
+filegroup(
     name = "vanillajavabuilder",
     srcs = ["//tools/jdk:VanillaJavaBuilder_deploy.jar"],
+)
+
+filegroup(
+    name = "remote-vanillajavabuilder",
+    srcs = ["@remote_java_tools//:VanillaJavaBuilder"],
+)
+
+filegroup(
+    name = "remote-javac_jar",
+    srcs = ["@remote_java_tools//:javac_jar"],
+)
+
+filegroup(
+    name = "remote-jdk_compiler_jar",
+    srcs = ["@remote_java_tools//:jdk_compiler_jar"],
+)
+
+filegroup(
+    name = "remote-java_compiler_jar",
+    srcs = ["@remote_java_tools//:java_compiler_jar"],
 )
 
 BOOTCLASS_JARS = [
@@ -224,10 +268,23 @@ default_java_toolchain(
     target_version = "8",
 )
 
+default_remote_java_toolchain(
+    name = "remote_toolchain_hostjdk8",
+    jvm_opts = JDK8_JVM_OPTS_REMOTE_JAVAC,
+    source_version = "8",
+    target_version = "8",
+)
+
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
 default_java_toolchain(
     name = "toolchain",
+    source_version = "8",
+    target_version = "8",
+)
+
+default_remote_java_toolchain(
+    name = "remote_toolchain",
     source_version = "8",
     target_version = "8",
 )
@@ -250,6 +307,13 @@ default_java_toolchain(
     name = "toolchain_vanilla",
     forcibly_disable_header_compilation = True,
     javabuilder = [":vanillajavabuilder"],
+    jvm_opts = [],
+)
+
+default_remote_java_toolchain(
+    name = "remote_toolchain_vanilla",
+    forcibly_disable_header_compilation = True,
+    javabuilder = ["@bazel_tools//tools/jdk:remote-vanillajavabuilder"],
     jvm_opts = [],
 )
 
