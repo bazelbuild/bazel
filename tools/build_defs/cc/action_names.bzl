@@ -82,3 +82,29 @@ OBJC_FULLY_LINK_ACTION_NAME = "objc-fully-link"
 
 # A string constant for the clif actions.
 CLIF_MATCH_ACTION_NAME = "clif-match"
+
+ACTION_NAMES = struct(
+    c_compile = C_COMPILE_ACTION_NAME,
+    cpp_compile = CPP_COMPILE_ACTION_NAME,
+    linkstamp_compile = LINKSTAMP_COMPILE_ACTION_NAME,
+    cc_flags_make_variable = CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
+    cpp_module_codegen = CPP_MODULE_CODEGEN_ACTION_NAME,
+    cpp_header_parsing = CPP_HEADER_PARSING_ACTION_NAME,
+    cpp_module_compile = CPP_MODULE_COMPILE_ACTION_NAME,
+    assemble = ASSEMBLE_ACTION_NAME,
+    preprocess_assemble = PREPROCESS_ASSEMBLE_ACTION_NAME,
+    lto_indexing = LTO_INDEXING_ACTION_NAME,
+    lto_backend = LTO_BACKEND_ACTION_NAME,
+    cpp_link_executable = CPP_LINK_EXECUTABLE_ACTION_NAME,
+    cpp_link_dynamic_library = CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME,
+    cpp_link_nodeps_dynamic_library = CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,
+    cpp_link_static_library = CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
+    strip = STRIP_ACTION_NAME,
+    objc_archive = OBJC_ARCHIVE_ACTION_NAME,
+    objc_compile = OBJC_COMPILE_ACTION_NAME,
+    objc_executable = OBJC_EXECUTABLE_ACTION_NAME,
+    objc_fully_link = OBJC_FULLY_LINK_ACTION_NAME,
+    objcpp_compile = OBJCPP_COMPILE_ACTION_NAME,
+    objcpp_executable = OBJCPP_EXECUTABLE_ACTION_NAME,
+    clif_match = CLIF_MATCH_ACTION_NAME,
+)
