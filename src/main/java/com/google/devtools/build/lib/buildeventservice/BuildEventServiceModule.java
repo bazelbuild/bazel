@@ -32,7 +32,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authentication.TlsOptions;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.network.ConnectivityStatus;
 import com.google.devtools.build.lib.network.ConnectivityStatus.Status;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.runtime.AuthHeadersProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -100,7 +101,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   private static final int RUNS_PER_TEST_LIMIT = 100000;
 
   private BuildEventProtocolOptions bepOptions;
-  private AuthAndTLSOptions authTlsOptions;
+  private TlsOptions tlsOptions;
   private BuildEventStreamOptions besStreamOptions;
   private boolean isRunsPerTestOverTheLimit;
 
@@ -167,7 +168,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.of(
         optionsClass(),
-        AuthAndTLSOptions.class,
+        TlsOptions.class,
         BuildEventStreamOptions.class,
         BuildEventProtocolOptions.class);
   }
@@ -294,8 +295,8 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     this.besOptions = Preconditions.checkNotNull(parsingResult.getOptions(optionsClass()));
     this.bepOptions =
         Preconditions.checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
-    this.authTlsOptions =
-        Preconditions.checkNotNull(parsingResult.getOptions(AuthAndTLSOptions.class));
+    this.tlsOptions =
+        Preconditions.checkNotNull(parsingResult.getOptions(TlsOptions.class));
     this.besStreamOptions =
         Preconditions.checkNotNull(parsingResult.getOptions(BuildEventStreamOptions.class));
     this.isRunsPerTestOverTheLimit =
@@ -638,10 +639,12 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       return null;
     }
 
+    Map<String, AuthHeadersProvider> authProviders = cmdEnv.getRuntime().getAuthHeadersProvidersMap();
+
     final BuildEventServiceClient besClient;
     try {
-      besClient = getBesClient(besOptions, authTlsOptions);
-    } catch (IOException | OptionsParsingException e) {
+      besClient = getBesClient(besOptions, tlsOptions, authProviders);
+    } catch (IOException | OptionsParsingException | AbruptExitException e) {
       reportError(
           reporter,
           cmdEnv.getBlazeModuleEnvironment(),
@@ -781,8 +784,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   protected abstract Class<BESOptionsT> optionsClass();
 
   protected abstract BuildEventServiceClient getBesClient(
-      BESOptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
-      throws IOException, OptionsParsingException;
+      BESOptionsT besOptions, TlsOptions tlsOptions,
+      Map<String, AuthHeadersProvider> authHeadersProvidersMap)
+      throws IOException, OptionsParsingException, AbruptExitException;
 
   protected abstract void clearBesClient();
 
@@ -807,4 +811,19 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   ImmutableSet<BuildEventTransport> getBepTransports() {
     return bepTransports;
   }
+
+  @Nullable
+  private static AuthHeadersProvider selectAuthHeadersProvider(
+      Map<String, AuthHeadersProvider> authHeadersProvidersMap) {
+    // TODO(buchgr): Implement a selection strategy based on name.
+    for (AuthHeadersProvider provider : authHeadersProvidersMap.values()) {
+      if (provider.isEnabled()) {
+        return provider;
+      }
+    }
+
+    return null;
+  }
+
 }
+

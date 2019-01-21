@@ -29,8 +29,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.authentication.TlsOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -38,12 +37,14 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.grpc.GrpcUtils;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.runtime.AuthHeadersProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.Command;
@@ -70,10 +71,12 @@ import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
@@ -143,6 +146,8 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(remoteOutputsMode == null, "remoteOutputsMode must be null");
 
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+
+    // Quit if no remote options specified.
     if (remoteOptions == null) {
       // Quit if no supported command is being used. See getCommandOptions for details.
       return;
@@ -150,7 +155,7 @@ public final class RemoteModule extends BlazeModule {
 
     remoteOutputsMode = remoteOptions.remoteOutputsMode;
 
-    AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
+    TlsOptions tlsOptions = env.getOptions().getOptions(TlsOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
 
@@ -191,13 +196,12 @@ public final class RemoteModule extends BlazeModule {
       RemoteRetrier rpcRetrier = null;
       // Initialize the gRPC channels and capabilities service, when relevant.
       if (!Strings.isNullOrEmpty(remoteOptions.remoteExecutor)) {
-        execChannel =
-            new ReferenceCountedChannel(
-                GoogleAuthUtils.newChannel(
-                    remoteOptions.remoteExecutor,
-                    authAndTlsOptions,
-                    interceptors.toArray(new ClientInterceptor[0])));
+        execChannel = new ReferenceCountedChannel(
+            GrpcUtils.newManagedChannel(/* target= */ remoteOptions.remoteExecutor, interceptors,
+                tlsOptions.tlsEnabled, tlsOptions.tlsAuthorityOverride, tlsOptions.tlsCertificate));
       }
+      AuthHeadersProvider authHeadersProvider =
+          selectAuthHeadersProvider(env.getRuntime().getAuthHeadersProvidersMap());
       RemoteRetrier executeRetrier = null;
       AbstractRemoteActionCache cache = null;
       if (enableGrpcCache || !Strings.isNullOrEmpty(remoteOptions.remoteExecutor)) {
@@ -209,23 +213,24 @@ public final class RemoteModule extends BlazeModule {
                   Retrier.ALLOW_ALL_CALLS);
         if (!Strings.isNullOrEmpty(remoteOptions.remoteCache)
             && !remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
-          cacheChannel =
-              new ReferenceCountedChannel(
-                  GoogleAuthUtils.newChannel(
-                      remoteOptions.remoteCache,
-                      authAndTlsOptions,
-                      interceptors.toArray(new ClientInterceptor[0])));
+          cacheChannel = new ReferenceCountedChannel(
+              GrpcUtils.newManagedChannel(/* target= */ remoteOptions.remoteCache, interceptors,
+                  tlsOptions.tlsEnabled, tlsOptions.tlsAuthorityOverride,
+                  tlsOptions.tlsCertificate));
         } else {  // Assume --remote_cache is equal to --remote_executor by default.
           cacheChannel = execChannel.retain(); // execChannel is guaranteed to be defined here.
         }
-        CallCredentials credentials = GoogleAuthUtils.newCallCredentials(authAndTlsOptions);
+        CallCredentials callCredentials = null;
+        if (authHeadersProvider != null) {
+          callCredentials = GrpcUtils.newCallCredentials(authHeadersProvider);
+        }
         // We always query the execution server for capabilities, if it is defined. A remote
         // execution/cache system should have all its servers to return the capabilities pertaining
         // to the system as a whole.
         RemoteServerCapabilities rsc = new RemoteServerCapabilities(
                 remoteOptions.remoteInstanceName,
                 (execChannel != null ? execChannel : cacheChannel),
-                credentials,
+                callCredentials,
                 remoteOptions.remoteTimeout,
                 rpcRetrier);
         ServerCapabilities capabilities = null;
@@ -247,14 +252,14 @@ public final class RemoteModule extends BlazeModule {
             new ByteStreamUploader(
                 remoteOptions.remoteInstanceName,
                 cacheChannel.retain(),
-                credentials,
+                callCredentials,
                 remoteOptions.remoteTimeout,
                 rpcRetrier);
         cacheChannel.release();
         cache =
             new GrpcRemoteCache(
                 cacheChannel.retain(),
-                credentials,
+                callCredentials,
                 remoteOptions,
                 rpcRetrier,
                 digestUtil,
@@ -277,7 +282,7 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions,
                 SimpleBlobStoreFactory.create(
                     remoteOptions,
-                    GoogleAuthUtils.newCredentials(authAndTlsOptions),
+                    authHeadersProvider,
                     Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory")),
                 digestUtil);
       }
@@ -290,10 +295,14 @@ public final class RemoteModule extends BlazeModule {
                 RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
                 retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
+        CallCredentials callCredentials = null;
+        if (authHeadersProvider != null) {
+          callCredentials = GrpcUtils.newCallCredentials(authHeadersProvider);
+        }
         executor =
             new GrpcRemoteExecutor(
                 execChannel.retain(),
-                GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
+                callCredentials,
                 retrier);
         execChannel.release();
         Preconditions.checkState(
@@ -309,11 +318,22 @@ public final class RemoteModule extends BlazeModule {
       }
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      env.getBlazeModuleEnvironment()
-          .exit(
-              new AbruptExitException(
-                  "Error initializing RemoteModule", ExitCode.COMMAND_LINE_ERROR));
+      env.getBlazeModuleEnvironment().exit(
+          new AbruptExitException("Error initializing RemoteModule", ExitCode.COMMAND_LINE_ERROR));
     }
+  }
+
+  @Nullable
+  private static AuthHeadersProvider selectAuthHeadersProvider(
+      Map<String, AuthHeadersProvider> authHeadersProvidersMap) {
+    // TODO(buchgr): Implement a selection strategy based on name.
+    for (AuthHeadersProvider provider : authHeadersProvidersMap.values()) {
+      if (provider.isEnabled()) {
+        return provider;
+      }
+    }
+
+    return null;
   }
 
   @Override
@@ -497,7 +517,7 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.of(RemoteOptions.class, AuthAndTLSOptions.class)
+        ? ImmutableList.of(RemoteOptions.class, TlsOptions.class)
         : ImmutableList.of();
   }
 
