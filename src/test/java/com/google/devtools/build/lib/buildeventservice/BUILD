@@ -19,7 +19,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
