@@ -695,7 +695,7 @@ public abstract class MockCcSupport {
           PathFragment.create(TestConstants.MOCK_CC_CROSSTOOL_PATH));
     } catch (LabelSyntaxException e) {
       Verify.verify(false);
-      throw new AssertionError();
+      throw new AssertionError(e);
     }
   }
 
