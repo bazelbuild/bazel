@@ -340,7 +340,7 @@ public final class TreeNodeRepository {
       Preconditions.checkArgument(
           inputsStart == inputsEnd - 1, "Encountered two inputs with the same path.");
       ActionInput input = inputs.get(inputsStart);
-      Path leafPath = ActionInputHelper.toPath(input, execRoot);
+      Path leafPath = ActionInputHelper.toInputPath(input, execRoot);
       if (!(input instanceof VirtualActionInput) && uploadSymlinks) {
         FileStatus stat = leafPath.stat(Symlinks.NOFOLLOW);
         if (stat.isSymbolicLink()) {
@@ -405,7 +405,7 @@ public final class TreeNodeRepository {
           if (uploadSymlinks) {
             // We need to stat the input to check whether it is a symlink.
             // getInputMetadata only gives target metadata.
-            Path inputPath = ActionInputHelper.toPath(input, execRoot);
+            Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
             FileStatus stat = inputPath.stat(Symlinks.NOFOLLOW);
             if (stat.isSymbolicLink()) {
               PathFragment target = inputPath.readSymbolicLink();
