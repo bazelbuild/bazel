@@ -135,12 +135,12 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  outs = [ 'gl.a', 'gl.gcgox', ],",
         "  output_to_bindir = 1,",
         ")",
-        // The taraget below is used by testResolveCommand and testResolveTools
+        // The target below is used by testResolveCommand and testResolveTools
         "sh_binary(name = 'mytool',",
         "  srcs = ['mytool.sh'],",
         "  data = ['file1.dat', 'file2.dat'],",
         ")",
-        // The taraget below is used by testResolveCommand and testResolveTools
+        // The target below is used by testResolveCommand and testResolveTools
         "genrule(name = 'resolve_me',",
         "  cmd = 'aa',",
         "  tools = [':mytool', 't.exe'],",
@@ -740,10 +740,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testResolveTools() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:resolve_me");
     evalRuleContextCode(
-        createRuleContext("//foo:resolve_me"),
-        "inputs, input_manifests = ruleContext.resolve_tools(",
-        "   tools=ruleContext.attr.tools)");
+        ruleContext,
+        "inputs, input_manifests = ruleContext.resolve_tools(tools=ruleContext.attr.tools)",
+        "ruleContext.actions.run(",
+        "    outputs = [ruleContext.actions.declare_file('x.out')],",
+        "    inputs = inputs,",
+        "    input_manifests = input_manifests,",
+        "    executable = 'dummy',",
+        ")");
     assertArtifactFilenames(
         ((SkylarkNestedSet) lookup("inputs")).getSet(Artifact.class),
         "mytool.sh",
@@ -754,6 +760,15 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     CompositeRunfilesSupplier runfilesSupplier =
         new CompositeRunfilesSupplier((List<RunfilesSupplier>) lookup("input_manifests"));
     assertThat(runfilesSupplier.getMappings(ArtifactPathResolver.IDENTITY)).hasSize(1);
+
+    SpawnAction action = (SpawnAction) Iterables.getOnlyElement(
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
+        .containsAllOf(
+            "mytool.sh",
+            "mytool",
+            "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
+            "t.exe");
   }
 
   @Test
