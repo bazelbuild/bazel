@@ -35,10 +35,12 @@
 namespace {
 
 using bazel::tools::test_wrapper::FileInfo;
+using bazel::tools::test_wrapper::IFStream;
 using bazel::tools::test_wrapper::ZipEntryPaths;
 using bazel::tools::test_wrapper::testing::TestOnly_AsMixedPath;
 using bazel::tools::test_wrapper::testing::TestOnly_CdataEncodeBuffer;
 using bazel::tools::test_wrapper::testing::TestOnly_CdataEscapeAndAppend;
+using bazel::tools::test_wrapper::testing::TestOnly_CreateIFStream;
 using bazel::tools::test_wrapper::testing::TestOnly_CreateTee;
 using bazel::tools::test_wrapper::testing::
     TestOnly_CreateUndeclaredOutputsAnnotations;
@@ -599,6 +601,224 @@ TEST_F(TestWrapperWindowsTest, TestCdataEscapeAndAppend) {
             "\xF7\xB0\x80\x81"
             "d"
             "]]>]]&gt;<![CDATA[");
+}
+
+void CreateIFStreamForData(const std::string& data,
+                           std::unique_ptr<IFStream>* result, DWORD page_size) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+  std::wstring filename = tmpdir + L"\\tmp" + WLINE;
+  EXPECT_TRUE(blaze_util::CreateDummyFile(filename, data));
+
+  bazel::windows::AutoHandle read(
+      CreateFileW(filename.c_str(), GENERIC_READ,
+                  FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
+                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+  EXPECT_TRUE(read.IsValid());
+
+  result->reset(TestOnly_CreateIFStream(&read, page_size));
+  EXPECT_NE(nullptr, result->get());
+}
+
+TEST_F(TestWrapperWindowsTest, TestIFStreamNoData) {
+  std::unique_ptr<IFStream> s;
+  uint8_t buf[3] = {0, 0, 0};
+
+  CreateIFStreamForData("", &s, 6);
+  ASSERT_FALSE(s->Get(buf));
+  ASSERT_FALSE(s->Move());
+  ASSERT_FALSE(s->Peek1(buf));
+  ASSERT_FALSE(s->Peek2(buf));
+  ASSERT_FALSE(s->Peek3(buf));
+}
+
+TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanPageSize) {
+  std::unique_ptr<IFStream> s;
+  uint8_t buf[3] = {0, 0, 0};
+
+  // The data is "abc" (3 bytes), page size is 6 bytes.
+  CreateIFStreamForData("abc", &s, 6);
+
+  // Read position is at "a".
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'a');
+  ASSERT_TRUE(s->Peek1(buf));
+  ASSERT_EQ(buf[0], 'b');
+  ASSERT_TRUE(s->Peek2(buf));
+  ASSERT_EQ(buf[0], 'b');
+  ASSERT_EQ(buf[1], 'c');
+  ASSERT_FALSE(s->Peek3(buf));
+  ASSERT_TRUE(s->Move());
+
+  // Read position is at "b".
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'b');
+  ASSERT_TRUE(s->Peek1(buf));
+  ASSERT_EQ(buf[0], 'c');
+  ASSERT_FALSE(s->Peek2(buf));
+  ASSERT_FALSE(s->Peek3(buf));
+  ASSERT_TRUE(s->Move());
+
+  // Read position is at "c".
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'c');
+  ASSERT_FALSE(s->Peek1(buf));
+  ASSERT_FALSE(s->Peek2(buf));
+  ASSERT_FALSE(s->Peek3(buf));
+  ASSERT_FALSE(s->Move());
+}
+
+TEST_F(TestWrapperWindowsTest, TestIFStreamExactlySinglePageSize) {
+  std::unique_ptr<IFStream> s;
+  uint8_t buf[3] = {0, 0, 0};
+
+  // The data is "abcdef" (6 bytes), page size is 6 bytes.
+  CreateIFStreamForData("abcdef", &s, 6);
+
+  // Read position is at "a".
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'a');
+  ASSERT_TRUE(s->Peek1(buf));
+  ASSERT_EQ(buf[0], 'b');
+  ASSERT_TRUE(s->Peek2(buf));
+  ASSERT_EQ(buf[0], 'b');
+  ASSERT_EQ(buf[1], 'c');
+  ASSERT_TRUE(s->Peek3(buf));
+  ASSERT_EQ(buf[0], 'b');
+  ASSERT_EQ(buf[1], 'c');
+  ASSERT_EQ(buf[2], 'd');
+  ASSERT_TRUE(s->Move());
+
+  // Read position is at "b". Nothing to test here, move to "c".
+  ASSERT_TRUE(s->Move());
+
+  // Read position is at "c". Last position where we can Peek3.
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'c');
+  ASSERT_TRUE(s->Peek1(buf));
+  ASSERT_EQ(buf[0], 'd');
+  ASSERT_TRUE(s->Peek2(buf));
+  ASSERT_EQ(buf[0], 'd');
+  ASSERT_EQ(buf[1], 'e');
+  ASSERT_TRUE(s->Peek3(buf));
+  ASSERT_EQ(buf[0], 'd');
+  ASSERT_EQ(buf[1], 'e');
+  ASSERT_EQ(buf[2], 'f');
+  ASSERT_TRUE(s->Move());
+
+  // Read position is at "d". Last position where we can Peek2.
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'd');
+  ASSERT_TRUE(s->Peek1(buf));
+  ASSERT_EQ(buf[0], 'e');
+  ASSERT_TRUE(s->Peek2(buf));
+  ASSERT_EQ(buf[0], 'e');
+  ASSERT_EQ(buf[1], 'f');
+  ASSERT_FALSE(s->Peek3(buf));
+  ASSERT_TRUE(s->Move());
+
+  // Read position is at "e". Last position where we can Peek1.
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'e');
+  ASSERT_TRUE(s->Peek1(buf));
+  ASSERT_EQ(buf[0], 'f');
+  ASSERT_FALSE(s->Peek2(buf));
+  ASSERT_FALSE(s->Peek3(buf));
+  ASSERT_TRUE(s->Move());
+
+  // Read position is at "f". No more peeking or moving.
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'f');
+  ASSERT_FALSE(s->Peek1(buf));
+  ASSERT_FALSE(s->Peek2(buf));
+  ASSERT_FALSE(s->Peek3(buf));
+  ASSERT_FALSE(s->Move());
+}
+
+TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanDoublePageSize) {
+  std::unique_ptr<IFStream> s;
+  uint8_t buf[3] = {0, 0, 0};
+
+  CreateIFStreamForData("abcdefghi", &s, 6);
+
+  // Move near the page boundary.
+  while (buf[0] != 'e') {
+    ASSERT_TRUE(s->Move());
+    ASSERT_TRUE(s->Get(buf));
+  }
+
+  // Read position is at "e". Peek2 and Peek3 will need to read from next page.
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'e');
+  ASSERT_TRUE(s->Peek1(buf));
+  ASSERT_EQ(buf[0], 'f');
+  ASSERT_TRUE(s->Peek2(buf));
+  ASSERT_EQ(buf[0], 'f');
+  ASSERT_EQ(buf[1], 'g');
+  ASSERT_TRUE(s->Peek3(buf));
+  ASSERT_EQ(buf[0], 'f');
+  ASSERT_EQ(buf[1], 'g');
+  ASSERT_EQ(buf[2], 'h');
+  ASSERT_TRUE(s->Move());
+
+  // Read position is at "f". Keep moving.
+  ASSERT_TRUE(s->Move());
+  // Read position is at "g". Keep moving.
+  ASSERT_TRUE(s->Move());
+
+  // Read position is at "h".
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'h');
+  ASSERT_TRUE(s->Peek1(buf));
+  ASSERT_EQ(buf[0], 'i');
+  ASSERT_FALSE(s->Peek2(buf));
+  ASSERT_FALSE(s->Peek3(buf));
+  ASSERT_TRUE(s->Move());
+}
+
+TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanTriplePageSize) {
+  std::unique_ptr<IFStream> s;
+  uint8_t buf[3] = {0, 0, 0};
+
+  // Data is 15 bytes, page size is 6 bytes, we'll cross 2 page boundaries.
+  CreateIFStreamForData("abcdefghijklmno", &s, 6);
+
+  // Move near the second page boundary.
+  while (buf[0] != 'k') {
+    ASSERT_TRUE(s->Move());
+    ASSERT_TRUE(s->Get(buf));
+  }
+
+  // Read position is at "k". Peek2 and Peek3 will need to read from last page.
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'k');
+  ASSERT_TRUE(s->Peek1(buf));
+  ASSERT_EQ(buf[0], 'l');
+  ASSERT_TRUE(s->Peek2(buf));
+  ASSERT_EQ(buf[0], 'l');
+  ASSERT_EQ(buf[1], 'm');
+  ASSERT_TRUE(s->Peek3(buf));
+  ASSERT_EQ(buf[0], 'l');
+  ASSERT_EQ(buf[1], 'm');
+  ASSERT_EQ(buf[2], 'n');
+  ASSERT_TRUE(s->Move());
+
+  // Move near the end of the last page.
+  while (buf[0] != 'm') {
+    ASSERT_TRUE(s->Move());
+    ASSERT_TRUE(s->Get(buf));
+  }
+
+  // Read position is at "h".
+  ASSERT_TRUE(s->Get(buf));
+  ASSERT_EQ(buf[0], 'm');
+  ASSERT_TRUE(s->Peek1(buf));
+  ASSERT_EQ(buf[0], 'n');
+  ASSERT_TRUE(s->Peek2(buf));
+  ASSERT_EQ(buf[0], 'n');
+  ASSERT_EQ(buf[1], 'o');
+  ASSERT_FALSE(s->Peek3(buf));
+  ASSERT_TRUE(s->Move());
 }
 
 }  // namespace
