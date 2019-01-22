@@ -405,6 +405,28 @@ public class SkylarkRepositoryContext
   }
 
   @Override
+  public void extract(
+      Object archive, Object output, String stripPrefix, Location location)
+      throws RepositoryFunctionException, InterruptedException, EvalException {
+    SkylarkPath archivePath = getPath("extract()", archive);
+    SkylarkPath outputPath = getPath("extract()", output);
+
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newExtractEvent(
+            archive.toString(), output.toString(), stripPrefix, rule.getLabel().toString(), location);
+    env.getListener().post(w);
+
+    DecompressorValue.decompress(
+        DecompressorDescriptor.builder()
+            .setTargetKind(rule.getTargetKind())
+            .setTargetName(rule.getName())
+            .setArchivePath(archivePath.getPath())
+            .setRepositoryPath(outputPath.getPath())
+            .setPrefix(stripPrefix)
+            .build());
+  }
+
+  @Override
   public StructImpl downloadAndExtract(
       Object url, Object output, String sha256, String type, String stripPrefix, Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
