@@ -51,7 +51,6 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.stream.ChunkedWriteHandler;
-import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
@@ -424,9 +423,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
                                 outerF.set(false);
                                 return;
                               }
-                            } else if (cause instanceof ReadTimeoutException) {
-                              outerF.set(false);
-                              return;
                             }
                             outerF.setException(cause);
                           }
@@ -463,9 +459,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
                                 outerF.set(false);
                                 return;
                               }
-                            } else if (cause instanceof ReadTimeoutException) {
-                              outerF.set(false);
-                              return;
                             }
                             outerF.setException(cause);
                           }
