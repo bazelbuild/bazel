@@ -169,21 +169,21 @@ public final class NestedSetBuilder<E> {
    */
   @SuppressWarnings("unchecked")
   public static <E> NestedSet<E> wrap(Order order, Iterable<E> wrappedItems) {
-    ImmutableList<E> wrappedList = ImmutableList.copyOf(wrappedItems);
-    if (wrappedList.isEmpty()) {
+    if (Iterables.isEmpty(wrappedItems)) {
       return order.emptySet();
-    } else if (order == Order.STABLE_ORDER
-               && wrappedList == wrappedItems && wrappedList.size() > 1) {
-      NestedSet<?> cached = immutableListCache.get(wrappedList);
-      if (cached != null) {
-        return (NestedSet<E>) cached;
+    } else if (order == Order.STABLE_ORDER && wrappedItems instanceof ImmutableList) {
+      ImmutableList<E> wrappedList = (ImmutableList) wrappedItems;
+      if (wrappedList.size() > 1) {
+        NestedSet<?> cached = immutableListCache.get(wrappedList);
+        if (cached != null) {
+          return (NestedSet<E>) cached;
+        }
+        NestedSet<E> built = new NestedSetBuilder<E>(order).addAll(wrappedList).build();
+        immutableListCache.putIfAbsent(wrappedList, built);
+        return built;
       }
-      NestedSet<E> built = new NestedSetBuilder<E>(order).addAll(wrappedList).build();
-      immutableListCache.putIfAbsent(wrappedList, built);
-      return built;
-    } else {
-      return new NestedSetBuilder<E>(order).addAll(wrappedList).build();
     }
+    return new NestedSetBuilder<E>(order).addAll(wrappedItems).build();
   }
 
   /**
