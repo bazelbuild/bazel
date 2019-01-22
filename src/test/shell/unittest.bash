@@ -281,6 +281,12 @@ if [ $# -gt 0 ]; then
     echo "WARNING: Arguments do not specifies tests!" >&2
   fi
 fi
+# TESTBRIDGE_TEST_ONLY contains the value of --test_filter, if any. We want to
+# preferentially use that instead of $@ to determine which tests to run.
+if [[ ${TESTBRIDGE_TEST_ONLY:-} != "" ]]; then
+  # Split TESTBRIDGE_TEST_ONLY on comma and put the results into an array.
+  IFS=',' read -r -a TESTS <<< "$TESTBRIDGE_TEST_ONLY"
+fi
 
 TEST_verbose="true"             # Whether or not to be verbose.  A
                                 # command; "true" or "false" are
