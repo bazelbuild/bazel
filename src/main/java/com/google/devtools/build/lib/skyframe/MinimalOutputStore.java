@@ -39,7 +39,4 @@ final class MinimalOutputStore extends OutputStore {
 
   @Override
   void addTreeArtifactContents(Artifact artifact, TreeFileArtifact contents) {}
-
-  @Override
-  void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {}
 }

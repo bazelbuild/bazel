@@ -476,13 +476,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
   public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution.", output);
-    Preconditions.checkArgument(
-        locationIndex != 0 || size == 0,
-        "output = %s, size = %s, locationIndex =%s",
-        output,
-        size,
-        locationIndex);
-
     store.injectRemoteFile(output, digest, size, locationIndex);
   }
 
