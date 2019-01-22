@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.util.EnumSet;
-import javax.annotation.Nullable;
 
 /**
  * Detects the running operating system and returns a describing enum value.
@@ -47,21 +45,12 @@ public enum OS {
   }
 
   private static final OS HOST_SYSTEM = determineCurrentOs();
-  @Nullable private static OS osForTesting = null;
 
   /**
    * The current operating system.
    */
   public static OS getCurrent() {
-    if (osForTesting != null) {
-      return osForTesting;
-    }
     return HOST_SYSTEM;
-  }
-
-  @VisibleForTesting
-  public static void setForTesting(OS os) {
-    osForTesting = os;
   }
 
   public static boolean isPosixCompatible() {

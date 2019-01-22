@@ -9,7 +9,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository/posix:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )
@@ -74,7 +73,6 @@ test_suite(
         ":windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository/posix:all_windows_tests",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )
