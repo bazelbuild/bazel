@@ -153,12 +153,25 @@ if [[ -z "$no_echo" ]]; then
 fi
 
 # Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
+function encode_stream {
+  # See generate-xml.sh for documentation.
+  LC_ALL=C sed -E \
+      -e 's/.*/& /g' \
+      -e 's/(('\
+"$(echo -e '[\x9\x20-\x7f]')|"\
+"$(echo -e '[\xc0-\xdf][\x80-\xbf]')|"\
+"$(echo -e '[\xe0-\xec][\x80-\xbf][\x80-\xbf]')|"\
+"$(echo -e '[\xed][\x80-\x9f][\x80-\xbf]')|"\
+"$(echo -e '[\xee-\xef][\x80-\xbf][\x80-\xbf]')|"\
+"$(echo -e '[\xf0][\x80-\x8f][\x80-\xbf][\x80-\xbf]')"\
+')*)./\1?/g' \
+      -e 's/(.*)\?/\1/g' \
+      -e 's|]]>|]]>]]<![CDATA[>|g'
+}
+
 function encode_output_file {
   if [ -f "$1" ]; then
-    # Replace invalid XML characters and invalid sequence in CDATA
-    # cf. https://stackoverflow.com/a/7774512/4717701
-    perl -CSDA -pe's/[^\x9\xA\xD\x20-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]+/?/g;' "$1" \
-      | sed 's|]]>|]]>]]<![CDATA[>|g'
+    cat "$1" | encode_stream
   fi
 }
 
@@ -194,7 +207,9 @@ function write_xml_output_file {
 <testsuites>
   <testsuite name="$test_name" tests="1" failures="0" errors="${errors}">
     <testcase name="$test_name" status="run" duration="${duration}" time="${duration}">${error_msg}</testcase>
-    <system-out><![CDATA[$(encode_output_file "${XML_OUTPUT_FILE}.log")]]></system-out>
+    <system-out>Generated test.log (if the file is not UTF-8, then this may be unreadable):
+      <![CDATA[$(encode_output_file "${XML_OUTPUT_FILE}.log")]]>
+    </system-out>
   </testsuite>
 </testsuites>
 EOF

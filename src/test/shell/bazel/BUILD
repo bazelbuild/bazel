@@ -800,3 +800,13 @@ sh_test(
     ],
     tags = ["no_windows"],
 )
+
+sh_test(
+    name = "generate_xml_test",
+    srcs = ["generate_xml_test.sh"],
+    data = [
+        "//src/test/shell:bashunit",
+        "//tools/test:test_xml_generator",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
