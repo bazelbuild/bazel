@@ -417,7 +417,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                         ),
                     ),
                     _feature("supports_pic", True),
-                    _feature("supports_start_end_lib", True),
+                    _feature("supports_start_end_lib", True) if supports_gold_linker else "",
                     _coverage_feature(repository_ctx, darwin),
                 ],
             ),
