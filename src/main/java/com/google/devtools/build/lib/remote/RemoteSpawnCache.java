@@ -102,11 +102,7 @@ final class RemoteSpawnCache implements SpawnCache {
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     TreeNodeRepository repository =
-        new TreeNodeRepository(
-            execRoot,
-            context.getMetadataProvider(),
-            digestUtil,
-            options.incompatibleRemoteSymlinks);
+        new TreeNodeRepository(execRoot, context.getMetadataProvider(), digestUtil);
     TreeNode inputRoot;
     try (SilentCloseable c = Profiler.instance().profile("RemoteCache.computeMerkleDigests")) {
       inputRoot = repository.buildFromActionInputs(inputMap);
