@@ -1607,7 +1607,8 @@ bool ShouldCreateXml(const Path& xml_log, bool* result) {
 }
 
 bool CreateXmlLog(const Path& output, const Path& test_outerr,
-                  const Duration duration, const int exit_code) {
+                  const Duration duration, const int exit_code,
+                  const bool delete_afterwards) {
   bool should_create_xml;
   if (!ShouldCreateXml(output, &should_create_xml)) {
     LogError(__LINE__,
@@ -1618,11 +1619,13 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     return true;
   }
 
-  Defer delete_test_outerr([test_outerr]() {
+  Defer delete_test_outerr([test_outerr, delete_afterwards]() {
     // Delete the test's outerr file after we have the XML file.
     // We don't care if this succeeds or not, because the outerr file is not a
     // declared output.
-    DeleteFileW(test_outerr.Get().c_str());
+    if (delete_afterwards) {
+      DeleteFileW(test_outerr.Get().c_str());
+    }
   });
 
   std::wstring test_name;
@@ -1797,7 +1800,7 @@ int TestWrapperMain(int argc, wchar_t** argv) {
 
   Duration test_duration;
   int result = RunSubprocess(test_path, args, test_outerr, &test_duration);
-  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result) ||
+  if (!CreateXmlLog(xml_log, test_outerr, test_duration, result, true) ||
       !ArchiveUndeclaredOutputs(undecl) ||
       !CreateUndeclaredOutputsAnnotations(undecl.annotations_dir,
                                           undecl.annotations)) {
@@ -1814,7 +1817,7 @@ int XmlWriterMain(int argc, wchar_t** argv) {
   if (!GetCwd(&cwd) ||
       !ParseXmlWriterArgs(argc, argv, cwd, &test_outerr, &test_xml_log,
                           &duration, &exit_code) ||
-      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code)) {
+      !CreateXmlLog(test_xml_log, test_outerr, duration, exit_code, false)) {
     return 1;
   }
 
