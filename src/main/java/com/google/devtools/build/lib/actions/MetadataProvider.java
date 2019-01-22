@@ -28,15 +28,13 @@ public interface MetadataProvider {
    * then t >= p. Aside from these properties, t can be any value and may vary arbitrarily across
    * calls.
    *
-   * <p>Returned {@link FileArtifactValue} instance corresponds to the final target of a symlink and
-   * therefore must not have a type of {@link FileStateType#SYMLINK}.
-   *
    * <p>The return value is owned by the cache and must not be modified.
    *
    * @param input the input to retrieve the digest for
    * @return the artifact's digest or null if digest cannot be obtained (due to artifact
    *     non-existence, lookup errors, or any other reason)
-   * @throws DigestOfDirectoryException in case {@code input} is a directory.
+   * @throws DigestOfDirectoryException in case {@code input} is a directory, or a symlink to a
+   * directory.
    * @throws IOException If the file cannot be digested.
    */
   @Nullable
