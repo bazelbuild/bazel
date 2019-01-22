@@ -20,7 +20,6 @@ import static java.util.logging.Level.WARNING;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -38,20 +37,21 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
-import com.google.devtools.build.lib.shell.AbnormalTerminationException;
-import com.google.devtools.build.lib.shell.Command;
-import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.ExecutionStatistics;
+import com.google.devtools.build.lib.shell.Subprocess;
+import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -285,72 +285,67 @@ public class LocalSpawnRunner implements SpawnRunner {
       Path tmpDir = createActionTemp(execRoot);
       Path statisticsPath = null;
       try {
-        Command cmd;
-        OutputStream stdOut;
-        OutputStream stdErr;
         Path commandTmpDir = tmpDir.getRelative("work");
         commandTmpDir.createDirectory();
         Map<String, String> environment =
             localEnvProvider.rewriteLocalEnv(
                 spawn.getEnvironment(), binTools, commandTmpDir.getPathString());
+
+        SubprocessBuilder subprocessBuilder = new SubprocessBuilder();
+        subprocessBuilder.setWorkingDirectory(execRoot.getPathFile());
+        subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());
+        subprocessBuilder.setStderr(outErr.getErrorPath().getPathFile());
+        subprocessBuilder.setEnv(environment);
+        List<String> args;
         if (useProcessWrapper) {
           // If the process wrapper is enabled, we use its timeout feature, which first interrupts
           // the subprocess and only kills it after a grace period so that the subprocess can output
-          // a stack trace, test log or similar, which is incredibly helpful for debugging. The
-          // process wrapper also supports output file redirection, so we don't need to stream the
-          // output through this process.
-          stdOut = ByteStreams.nullOutputStream();
-          stdErr = ByteStreams.nullOutputStream();
+          // a stack trace, test log or similar, which is incredibly helpful for debugging.
           ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =
-              ProcessWrapperUtil.commandLineBuilder(processWrapper.getPathString(),
-                  spawn.getArguments())
-                  .setStdoutPath(getPathOrDevNull(outErr.getOutputPath()))
-                  .setStderrPath(getPathOrDevNull(outErr.getErrorPath()))
+              ProcessWrapperUtil.commandLineBuilder(
+                      processWrapper.getPathString(), spawn.getArguments())
                   .setTimeout(context.getTimeout())
                   .setKillDelay(Duration.ofSeconds(localExecutionOptions.localSigkillGraceSeconds));
           if (localExecutionOptions.collectLocalExecutionStatistics) {
             statisticsPath = tmpDir.getRelative("stats.out");
             commandLineBuilder.setStatisticsPath(statisticsPath);
           }
-          List<String> cmdLine = commandLineBuilder.build();
-          cmd =
-              new Command(
-                  cmdLine.toArray(new String[0]),
-                  environment,
-                  execRoot.getPathFile());
+          args = commandLineBuilder.build();
         } else {
-          stdOut = outErr.getOutputStream();
-          stdErr = outErr.getErrorStream();
-          cmd =
-              new Command(
-                  spawn.getArguments().toArray(new String[0]),
-                  environment,
-                  execRoot.getPathFile(),
-                  context.getTimeout());
+          subprocessBuilder.setTimeoutMillis(context.getTimeout().toMillis());
+          args = spawn.getArguments();
         }
+        // SubprocessBuilder does not accept relative paths for the first argument, even though
+        // Command does. We sometimes get relative paths here, so we need to handle it.
+        File argv0 = new File(args.get(0));
+        if (!argv0.isAbsolute() && argv0.getParent() != null) {
+          args = new ArrayList<>(args);
+          args.set(0, new File(execRoot.getPathFile(), args.get(0)).getAbsolutePath());
+        }
+        subprocessBuilder.setArgv(args);
 
         long startTime = System.currentTimeMillis();
-        CommandResult commandResult = null;
+        TerminationStatus terminationStatus;
         try (SilentCloseable c =
             Profiler.instance().profile(
                 ProfilerTask.PROCESS_TIME, spawn.getResourceOwner().getMnemonic())) {
-          commandResult = cmd.execute(stdOut, stdErr);
-          if (Thread.currentThread().isInterrupted()) {
-            throw new InterruptedException();
+          Subprocess subprocess = subprocessBuilder.start();
+          subprocess.getOutputStream().close();
+          try {
+            subprocess.waitFor();
+            terminationStatus =
+                new TerminationStatus(subprocess.exitValue(), subprocess.timedout());
+          } catch (InterruptedException e) {
+            subprocess.destroy();
+            throw e;
           }
-        } catch (AbnormalTerminationException e) {
-          if (Thread.currentThread().isInterrupted()) {
-            throw new InterruptedException();
-          }
-          commandResult = e.getResult();
-        } catch (CommandException e) {
-          // At the time this comment was written, this must be a ExecFailedException encapsulating
-          // an IOException from the underlying Subprocess.Factory.
+        } catch (IOException e) {
           String msg = e.getMessage() == null ? e.getClass().getName() : e.getMessage();
           setState(State.PERMANENT_ERROR);
           outErr
               .getErrorStream()
-              .write(("Action failed to execute: " + msg + "\n").getBytes(UTF_8));
+              .write(
+                  ("Action failed to execute: java.io.IOException: " + msg + "\n").getBytes(UTF_8));
           outErr.getErrorStream().flush();
           return new SpawnResult.Builder()
               .setRunnerName(getName())
@@ -363,12 +358,9 @@ public class LocalSpawnRunner implements SpawnRunner {
         // TODO(b/62588075): Calculate wall time inside commands instead?
         Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
         boolean wasTimeout =
-            commandResult.getTerminationStatus().timedOut()
+            terminationStatus.timedOut()
                 || (useProcessWrapper && wasTimeout(context.getTimeout(), wallTime));
-        int exitCode =
-            wasTimeout
-                ? POSIX_TIMEOUT_EXIT_CODE
-                : commandResult.getTerminationStatus().getRawExitCode();
+        int exitCode = wasTimeout ? POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
         Status status =
             wasTimeout
                 ? Status.TIMEOUT
@@ -413,10 +405,6 @@ public class LocalSpawnRunner implements SpawnRunner {
                   tmpDir));
         }
       }
-    }
-
-    private Path getPathOrDevNull(Path path) {
-      return path == null ? execRoot.getRelative("/dev/null") : path;
     }
 
     private boolean wasTimeout(Duration timeout, Duration wallTime) {
