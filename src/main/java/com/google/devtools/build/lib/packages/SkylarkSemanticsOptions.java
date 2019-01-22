@@ -345,7 +345,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
 
   @Option(
       name = "incompatible_expand_directories",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "incompatible changes",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -548,4 +548,3 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .build();
   }
 }
-

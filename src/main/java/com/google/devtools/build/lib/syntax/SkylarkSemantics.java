@@ -219,7 +219,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowLegacyJavaInfo(false)
           .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(false)
           .incompatibleDisallowOldStyleArgsAdd(false)
-          .incompatibleExpandDirectories(false)
+          .incompatibleExpandDirectories(true)
           .incompatibleGenerateJavaCommonSourceJar(false)
           .incompatibleNewActionsApi(false)
           .incompatibleNoAttrLicense(false)
@@ -311,4 +311,3 @@ public abstract class SkylarkSemantics {
     public abstract SkylarkSemantics build();
   }
 }
-
