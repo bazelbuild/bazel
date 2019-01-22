@@ -298,30 +298,32 @@ public class RemoteSpawnCacheTest {
 
   @Test
   public void noCacheSpawns() throws Exception {
-    // Checks that spawns that have mayBeCached false are not looked up in the remote cache,
+    // Checks that spawns satisfying Spawns.mayBeCached false are not looked up in the remote cache,
     // and also that their result and artifacts are not uploaded to the remote cache.
-    SimpleSpawn uncacheableSpawn =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar"),
-            /*arguments=*/ ImmutableList.of(),
-            /*environment=*/ ImmutableMap.of(),
-            ImmutableMap.of(ExecutionRequirements.NO_CACHE, ""),
-            /*inputs=*/ ImmutableList.of(),
-            /*outputs=*/ ImmutableList.of(ActionInputHelper.fromPath("/random/file")),
-            ResourceSet.ZERO);
-    CacheHandle entry = cache.lookup(uncacheableSpawn, simplePolicy);
-    verify(remoteCache, never())
-        .getCachedActionResult(any(ActionKey.class));
-    assertThat(entry.hasResult()).isFalse();
-    SpawnResult result =
-        new SpawnResult.Builder()
-            .setExitCode(0)
-            .setStatus(Status.SUCCESS)
-            .setRunnerName("test")
-            .build();
-    entry.store(result);
-    verifyNoMoreInteractions(remoteCache);
-    assertThat(progressUpdates).containsExactly();
+    for (String requirement :
+        ImmutableList.of(ExecutionRequirements.NO_CACHE, ExecutionRequirements.LOCAL)) {
+      SimpleSpawn uncacheableSpawn =
+          new SimpleSpawn(
+              new FakeOwner("foo", "bar"),
+              /*arguments=*/ ImmutableList.of(),
+              /*environment=*/ ImmutableMap.of(),
+              ImmutableMap.of(requirement, ""),
+              /*inputs=*/ ImmutableList.of(),
+              /*outputs=*/ ImmutableList.of(ActionInputHelper.fromPath("/random/file")),
+              ResourceSet.ZERO);
+      CacheHandle entry = cache.lookup(uncacheableSpawn, simplePolicy);
+      verify(remoteCache, never()).getCachedActionResult(any(ActionKey.class));
+      assertThat(entry.hasResult()).isFalse();
+      SpawnResult result =
+          new SpawnResult.Builder()
+              .setExitCode(0)
+              .setStatus(Status.SUCCESS)
+              .setRunnerName("test")
+              .build();
+      entry.store(result);
+      verifyNoMoreInteractions(remoteCache);
+      assertThat(progressUpdates).containsExactly();
+    }
   }
 
   @Test

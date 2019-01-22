@@ -35,10 +35,10 @@
     executed remotely (but it may be cached remotely).
   </li>
 
-  <li><code>local</code> keyword results in the action or test never being
-    run remotely or inside the
+  <li><code>local</code> keyword precludes the action or test from being remotely cached,
+    remotely executed, or run inside the
     <a href="../user-manual.html#sandboxing">sandbox</a>.
-    For genrules and tests, marking the rule with the <code>local = 1</code>
+    For genrules and tests, marking the rule with the <code>local = True</code>
     attribute has the same effect.
   </li>
 
