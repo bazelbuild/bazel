@@ -207,6 +207,41 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         ruleDeclWithDefaultPyVersionAttr("foo", "PY2"));
   }
 
+  /**
+   * Regression test for #7071: Don't let prohibiting the old attribute get in the way of cloning a
+   * target using {@code native.existing_rules()}.
+   *
+   * <p>The use case of cloning a target is pretty dubious and brittle. But as long as it's possible
+   * and not proscribed, we won't let version attribute validation get in the way.
+   */
+  @Test
+  public void canCopyTargetWhenOldAttrDisallowed() throws Exception {
+    useConfiguration("--experimental_remove_old_python_version_api=true");
+    scratch.file(
+        "pkg/rules.bzl",
+        "def copy_target(rulefunc, src, dest):",
+        "    t = native.existing_rule(src)",
+        "    t.pop('kind')",
+        "    t.pop('name')",
+        "    # Also remove these because they get in the way of creating the new target but aren't",
+        "    # related to the attribute under test.",
+        "    t.pop('restricted_to')",
+        "    t.pop('shard_count', default=None)",
+        "    rulefunc(name = dest, **t)");
+    scratch.file(
+        "pkg/BUILD",
+        "load(':rules.bzl', 'copy_target')",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        "    main = 'foo.py',",
+        "    python_version = 'PY2',",
+        ")",
+        "copy_target(" + ruleName + ", 'foo', 'bar')");
+    ConfiguredTarget target = getConfiguredTarget("//pkg:bar");
+    assertThat(target).isNotNull();
+  }
+
   @Test
   public void newVersionAttrTakesPrecedenceOverOld() throws Exception {
     scratch.file(

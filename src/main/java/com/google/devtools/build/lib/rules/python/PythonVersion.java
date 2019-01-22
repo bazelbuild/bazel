@@ -67,7 +67,19 @@ public enum PythonVersion {
    *
    * <p><i>Deprecated meaning:</i> Indicates code that cannot be processed by 3to2.
    */
-  PY3ONLY;
+  PY3ONLY,
+
+  /**
+   * Internal sentinel value used as the default value of the {@code python_version} and {@code
+   * default_python_version} attributes.
+   *
+   * <p>This should not be referenced by the user. But since we can't actually hide it from Starlark
+   * ({@code native.existing_rules()}) or bazel query, we give it the scary "_internal" prefix
+   * instead.
+   *
+   * <p>The logical meaning of this value is the same as {@link #DEFAULT_TARGET_VALUE}.
+   */
+  _INTERNAL_SENTINEL;
 
   private static ImmutableList<String> convertToStrings(List<PythonVersion> values) {
     return values.stream()
@@ -75,18 +87,26 @@ public enum PythonVersion {
         .collect(ImmutableList.toImmutableList());
   }
 
-  /** All enum values. */
-  public static final ImmutableList<PythonVersion> ALL_VALUES =
-      ImmutableList.of(PY2, PY3, PY2AND3, PY2ONLY, PY3ONLY);
-
-  /** String names of all enum values. */
-  public static final ImmutableList<String> ALL_STRINGS = convertToStrings(ALL_VALUES);
-
   /** Enum values representing a distinct Python version. */
   public static final ImmutableList<PythonVersion> TARGET_VALUES = ImmutableList.of(PY2, PY3);
 
   /** String names of enum values representing a distinct Python version. */
   public static final ImmutableList<String> TARGET_STRINGS = convertToStrings(TARGET_VALUES);
+
+  /** Target values plus the sentinel value. */
+  public static final ImmutableList<PythonVersion> TARGET_AND_SENTINEL_VALUES =
+      ImmutableList.of(PY2, PY3, _INTERNAL_SENTINEL);
+
+  /** String names of target values plus the sentinel value. */
+  public static final ImmutableList<String> TARGET_AND_SENTINEL_STRINGS =
+      convertToStrings(TARGET_AND_SENTINEL_VALUES);
+
+  /** All values not including the sentinel. */
+  public static final ImmutableList<PythonVersion> SRCS_VALUES =
+      ImmutableList.of(PY2, PY3, PY2AND3, PY2ONLY, PY3ONLY);
+
+  /** String names of all enum values not including the sentinel. */
+  public static final ImmutableList<String> SRCS_STRINGS = convertToStrings(SRCS_VALUES);
 
   /** Enum values that do not imply running a transpiler to convert between versions. */
   public static final ImmutableList<PythonVersion> NON_CONVERSION_VALUES =
@@ -121,11 +141,30 @@ public enum PythonVersion {
   }
 
   /**
+   * Converts the string to a target or sentinel {@code PythonVersion} value (case-sensitive).
+   *
+   * @throws IllegalArgumentException if the string is not "PY2", "PY3", or "_INTERNAL_SENTINEL".
+   */
+  public static PythonVersion parseTargetOrSentinelValue(String str) {
+    if (!TARGET_AND_SENTINEL_STRINGS.contains(str)) {
+      // Use the same error message as for parseTargetValue, because the user shouldn't be aware of
+      // the sentinel value.
+      throw new IllegalArgumentException(
+          String.format("'%s' is not a valid Python major version. Expected 'PY2' or 'PY3'.", str));
+    }
+    return PythonVersion.valueOf(str);
+  }
+
+  /**
    * Converts the string to a sources {@code PythonVersion} value (case-sensitive).
    *
-   * @throws IllegalArgumentException if the string is not an enum name.
+   * @throws IllegalArgumentException if the string is not an enum name or is the sentinel value.
    */
   public static PythonVersion parseSrcsValue(String str) {
+    if (!SRCS_STRINGS.contains(str)) {
+      throw new IllegalArgumentException(
+          String.format("'%s' is not a valid Python srcs_version value.", str));
+    }
     return PythonVersion.valueOf(str);
   }
 }

@@ -111,7 +111,7 @@ public final class BazelPyRuleClasses {
           .add(
               attr("srcs_version", STRING)
                   .value(PythonVersion.DEFAULT_SRCS_VALUE.toString())
-                  .allowedValues(new AllowedValueSet(PythonVersion.ALL_STRINGS)))
+                  .allowedValues(new AllowedValueSet(PythonVersion.SRCS_STRINGS)))
           // TODO(brandjon): Consider adding to py_interpreter a .mandatoryNativeProviders() of
           // BazelPyRuntimeProvider. (Add a test case to PythonConfigurationTest for violations
           // of this requirement.)
@@ -170,8 +170,8 @@ public final class BazelPyRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr(PyCommon.DEFAULT_PYTHON_VERSION_ATTRIBUTE, STRING)
-                  .value(PythonVersion.DEFAULT_TARGET_VALUE.toString())
-                  .allowedValues(new AllowedValueSet(PythonVersion.TARGET_STRINGS))
+                  .value(PythonVersion._INTERNAL_SENTINEL.toString())
+                  .allowedValues(PyRuleClasses.TARGET_PYTHON_ATTR_VALUE_SET)
                   .nonconfigurable(
                       "read by PyRuleClasses.PYTHON_VERSION_TRANSITION, which doesn't have access"
                           + " to the configuration"))
@@ -181,8 +181,8 @@ public final class BazelPyRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr(PyCommon.PYTHON_VERSION_ATTRIBUTE, STRING)
-                  .value(PythonVersion.DEFAULT_TARGET_VALUE.toString())
-                  .allowedValues(new AllowedValueSet(PythonVersion.TARGET_STRINGS))
+                  .value(PythonVersion._INTERNAL_SENTINEL.toString())
+                  .allowedValues(PyRuleClasses.TARGET_PYTHON_ATTR_VALUE_SET)
                   .nonconfigurable(
                       "read by PyRuleClasses.PYTHON_VERSION_TRANSITION, which doesn't have access"
                           + " to the configuration"))

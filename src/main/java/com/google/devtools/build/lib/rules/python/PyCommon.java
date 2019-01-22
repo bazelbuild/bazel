@@ -65,6 +65,37 @@ public final class PyCommon {
   public static final String DEFAULT_PYTHON_VERSION_ATTRIBUTE = "default_python_version";
   public static final String PYTHON_VERSION_ATTRIBUTE = "python_version";
 
+  /**
+   * Returns the Python version based on the {@code python_version} and {@code
+   * default_python_version} attributes of the given {@code AttributeMap}.
+   *
+   * <p>It is expected that both attributes are defined, string-typed, and default to {@link
+   * PythonVersion#_INTERNAL_SENTINEL}. The returned version is the value of {@code python_version}
+   * if it is not the sentinel, then {@code default_python_version} if it is not the sentinel, then
+   * finally {@code default}. In all cases the return value is a target version value (either {@code
+   * PY2} or {@code PY3}).
+   *
+   * @throws IllegalArgumentException if the attributes are not present, not string-typed, or not
+   *     parsable as target {@link PythonVersion} values or as the sentinel value; or if {@code
+   *     default} is not a target version value
+   */
+  public static PythonVersion readPythonVersionFromAttributes(
+      AttributeMap attrs, PythonVersion defaultVersion) {
+    Preconditions.checkArgument(defaultVersion.isTargetValue());
+    PythonVersion pythonVersionAttr =
+        PythonVersion.parseTargetOrSentinelValue(attrs.get(PYTHON_VERSION_ATTRIBUTE, Type.STRING));
+    PythonVersion defaultPythonVersionAttr =
+        PythonVersion.parseTargetOrSentinelValue(
+            attrs.get(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING));
+    if (pythonVersionAttr != PythonVersion._INTERNAL_SENTINEL) {
+      return pythonVersionAttr;
+    } else if (defaultPythonVersionAttr != PythonVersion._INTERNAL_SENTINEL) {
+      return defaultPythonVersionAttr;
+    } else {
+      return defaultVersion;
+    }
+  }
+
   private static final LocalMetadataCollector METADATA_COLLECTOR = new LocalMetadataCollector() {
     @Override
     public void collectMetadataArtifacts(Iterable<Artifact> artifacts,
@@ -153,7 +184,9 @@ public final class PyCommon {
     this.hasPy3OnlySources = initHasPy3OnlySources(ruleContext, this.sourcesVersion);
     this.convertedFiles = makeAndInitConvertedFiles(ruleContext, version, this.sourcesVersion);
     maybeValidateVersionCompatibleWithOwnSourcesAttr();
-    validatePythonVersionAttr();
+    validateTargetPythonVersionAttr(DEFAULT_PYTHON_VERSION_ATTRIBUTE);
+    validateTargetPythonVersionAttr(PYTHON_VERSION_ATTRIBUTE);
+    validateOldVersionAttrNotUsedIfDisabled();
   }
 
   /** Returns the parsed value of the "srcs_version" attribute. */
@@ -167,7 +200,7 @@ public final class PyCommon {
           "srcs_version",
           String.format(
               "'%s' is not a valid value. Expected one of: %s",
-              attrValue, Joiner.on(", ").join(PythonVersion.ALL_STRINGS)));
+              attrValue, Joiner.on(", ").join(PythonVersion.SRCS_STRINGS)));
       return PythonVersion.DEFAULT_SRCS_VALUE;
     }
   }
@@ -387,15 +420,48 @@ public final class PyCommon {
   }
 
   /**
+   * Reports an attribute error if the given target Python version attribute ({@code
+   * default_python_version} or {@code python_version}) cannot be parsed as {@code PY2}, {@code
+   * PY3}, or the sentinel value.
+   *
+   * <p>This *should* be enforced by rule attribute validation ({@link
+   * Attribute.Builder.allowedValues}), but this check is here to fail-fast just in case.
+   */
+  private void validateTargetPythonVersionAttr(String attr) {
+    AttributeMap attrs = ruleContext.attributes();
+    if (!attrs.has(attr, Type.STRING)) {
+      return;
+    }
+    String attrValue = attrs.get(attr, Type.STRING);
+    try {
+      PythonVersion.parseTargetOrSentinelValue(attrValue);
+    } catch (IllegalArgumentException ex) {
+      ruleContext.attributeError(
+          attr,
+          String.format("'%s' is not a valid value. Expected either 'PY2' or 'PY3'", attrValue));
+    }
+  }
+
+  /**
    * Reports an attribute error if the {@code default_python_version} attribute is set but
    * disallowed by the configuration.
    */
-  private void validatePythonVersionAttr() {
+  private void validateOldVersionAttrNotUsedIfDisabled() {
     AttributeMap attrs = ruleContext.attributes();
+    if (!attrs.has(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING)) {
+      return;
+    }
+    PythonVersion value;
+    try {
+      value =
+          PythonVersion.parseTargetOrSentinelValue(
+              attrs.get(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING));
+    } catch (IllegalArgumentException e) {
+      // Should be reported by validateTargetPythonVersionAttr(); no action required here.
+      return;
+    }
     PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
-    if (attrs.has(DEFAULT_PYTHON_VERSION_ATTRIBUTE, Type.STRING)
-        && attrs.isAttributeValueExplicitlySpecified(DEFAULT_PYTHON_VERSION_ATTRIBUTE)
-        && !config.oldPyVersionApiAllowed()) {
+    if (value != PythonVersion._INTERNAL_SENTINEL && !config.oldPyVersionApiAllowed()) {
       ruleContext.attributeError(
           DEFAULT_PYTHON_VERSION_ATTRIBUTE,
           "the 'default_python_version' attribute is disabled by the "
