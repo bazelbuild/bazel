@@ -138,6 +138,16 @@ public class CppOptions extends FragmentOptions {
   )
   public String cppCompiler;
 
+  @Option(
+      name = "host_compiler",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      help =
+          "The C++ compiler to use for host compilation. It is ignored if --host_crosstool_top "
+              + "is not set.")
+  public String hostCppCompiler;
+
   // This is different from --platform_suffix in that that one is designed to facilitate the
   // migration to toolchains and this one is designed to eliminate the C++ toolchain identifier
   // from the output directory path.
@@ -845,6 +855,7 @@ public class CppOptions extends FragmentOptions {
       host.crosstoolTop = crosstoolTop;
     } else {
       host.crosstoolTop = hostCrosstoolTop;
+      host.cppCompiler = hostCppCompiler;
     }
 
     // hostLibcTop doesn't default to the target's libcTop.
