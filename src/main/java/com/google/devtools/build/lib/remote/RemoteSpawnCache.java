@@ -90,7 +90,10 @@ final class RemoteSpawnCache implements SpawnCache {
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException {
-    boolean checkCache = options.remoteAcceptCached && Spawns.mayBeCached(spawn);
+    if (!Spawns.mayBeCached(spawn)) {
+      return SpawnCache.NO_RESULT_NO_STORE;
+    }
+    boolean checkCache = options.remoteAcceptCached;
 
     if (checkCache) {
       context.report(ProgressStatus.CHECKING_CACHE, "remote-cache");
@@ -126,7 +129,7 @@ final class RemoteSpawnCache implements SpawnCache {
               digestUtil.compute(command),
               repository.getMerkleDigest(inputRoot),
               context.getTimeout(),
-              Spawns.mayBeCached(spawn));
+              true);
       // Look up action cache, and reuse the action output if it is found.
       actionKey = digestUtil.computeActionKey(action);
     }
@@ -201,10 +204,7 @@ final class RemoteSpawnCache implements SpawnCache {
               return;
             }
           }
-          boolean uploadAction =
-              Spawns.mayBeCached(spawn)
-                  && Status.SUCCESS.equals(result.status())
-                  && result.exitCode() == 0;
+          boolean uploadAction = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
           Context previous = withMetadata.attach();
           Collection<Path> files =
               RemoteSpawnRunner.resolveActionInputs(execRoot, spawn.getOutputFiles());
