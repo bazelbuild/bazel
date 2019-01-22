@@ -714,7 +714,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
         "    toolchain_config = ':toolchain_config')");
-    scratch.file("a/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
 
     scratch.file(
         "a/crosstool_rule.bzl",
@@ -1022,5 +1021,119 @@ public class CcToolchainTest extends BuildViewTestCase {
         (CcToolchainProvider) target.get(CcToolchainProvider.PROVIDER);
 
     assertThat(ccToolchainProvider.getSysroot()).isEqualTo("libc3");
+  }
+
+  @Test
+  public void testCrosstoolNeededWhenStarlarkRuleNotEnabled() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
+    getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ false);
+
+    useConfiguration("--cpu=k8", "--crosstool_top=//a:a");
+    ConfiguredTarget target = getConfiguredTarget("//lib:lib");
+    // Skyframe cannot find the CROSSTOOL file
+    assertContainsEvent("errors encountered while analyzing target '//lib:lib'");
+    assertThat(target).isNull();
+  }
+
+  @Test
+  public void testCrosstoolReadWhenStarlarkRuleNotEnabled() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
+    getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ false);
+
+    scratch.file("a/CROSSTOOL", getAnalysisMock().ccSupport().readCrosstoolFile());
+
+    useConfiguration("--cpu=k8", "--crosstool_top=//a:a");
+    ConfiguredTarget target = getConfiguredTarget("//lib:lib");
+    assertNoEvents();
+    assertThat(target).isNotNull();
+  }
+
+  @Test
+  public void testCrosstoolNeededWhenStarlarkRuleIsEnabledButNotPresent() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
+    getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ false);
+
+    useConfiguration(
+        "--cpu=k8", "--crosstool_top=//a:a", "--experimental_enable_cc_toolchain_config_info");
+    ConfiguredTarget target = getConfiguredTarget("//lib:lib");
+    // Skyframe cannot find the CROSSTOOL file
+    assertContainsEvent("errors encountered while analyzing target '//lib:lib'");
+    assertThat(target).isNull();
+  }
+
+  @Test
+  public void testCrosstoolReadWhenStarlarkRuleIsEnabledButNotPresent() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
+    getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ false);
+
+    scratch.file("a/CROSSTOOL", getAnalysisMock().ccSupport().readCrosstoolFile());
+
+    useConfiguration(
+        "--cpu=k8", "--crosstool_top=//a:a", "--experimental_enable_cc_toolchain_config_info");
+    ConfiguredTarget target = getConfiguredTarget("//lib:lib");
+    assertThat(target).isNotNull();
+  }
+
+  @Test
+  public void testCrosstoolNotNeededWhenStarlarkRuleIsEnabled() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
+    getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ true);
+
+    useConfiguration(
+        "--cpu=k8", "--crosstool_top=//a:a", "--experimental_enable_cc_toolchain_config_info");
+    // We don't have a CROSSTOOL, but we don't need it
+    ConfiguredTarget target = getConfiguredTarget("//lib:lib");
+    assertThat(target).isNotNull();
+  }
+
+  private void getSimpleStarlarkRule(boolean addToolchainConfigAttribute) throws IOException {
+    scratch.file(
+        "a/BUILD",
+        "load(':cc_toolchain_config_info.bzl', 'cc_toolchain_config_rule')",
+        "cc_toolchain_config_rule(name = 'toolchain_config')",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain_suite(",
+        "    name = 'a',",
+        "    toolchains = { 'k8': ':b' },",
+        ")",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    toolchain_identifier = 'toolchain-identifier-k8',",
+        (addToolchainConfigAttribute ? "    toolchain_config = ':toolchain_config'" : "") + ")");
+
+    scratch.file(
+        "a/cc_toolchain_config_info.bzl",
+        "def _impl(ctx):",
+        "    return cc_common.create_cc_toolchain_config_info(",
+        "        ctx = ctx,",
+        "        toolchain_identifier = 'toolchain',",
+        "        host_system_name = 'host',",
+        "        target_system_name = 'target',",
+        "        target_cpu = 'cpu',",
+        "        target_libc = 'libc',",
+        "        compiler = 'compiler',",
+        "        abi_libc_version = 'abi_libc',",
+        "        abi_version = 'banana')",
+        "cc_toolchain_config_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        "    provides = [CcToolchainConfigInfo],",
+        "    fragments = ['cpp']",
+        ")");
   }
 }
