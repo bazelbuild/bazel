@@ -821,8 +821,18 @@ public abstract class AbstractParallelEvaluator {
     // removeUndoneNewlyRequestedDeps() just above this loop. However, with intra-evaluation
     // dirtying, a dep may not be done.
     boolean dirtyDepFound = false;
-    for (Map.Entry<SkyKey, ? extends NodeEntry> newDep :
-        graph.getBatch(skyKey, Reason.SIGNAL_DEP, previouslyRegisteredNewDeps).entrySet()) {
+    Map<SkyKey, ? extends NodeEntry> previouslyRegisteredEntries =
+        graph.getBatch(skyKey, Reason.SIGNAL_DEP, previouslyRegisteredNewDeps);
+    if (previouslyRegisteredEntries.size() != previouslyRegisteredNewDeps.size()) {
+      throw new IllegalStateException(
+          "Missing entries that were already known about: "
+              + Sets.difference(previouslyRegisteredNewDeps, previouslyRegisteredEntries.keySet())
+              + " for "
+              + skyKey
+              + " with entry "
+              + entry);
+    }
+    for (Map.Entry<SkyKey, ? extends NodeEntry> newDep : previouslyRegisteredEntries.entrySet()) {
       DependencyState triState = newDep.getValue().checkIfDoneForDirtyReverseDep(skyKey);
       if (maybeHandleUndoneDepForDoneEntry(entry, triState, skyKey, newDep.getKey())) {
         dirtyDepFound = true;
