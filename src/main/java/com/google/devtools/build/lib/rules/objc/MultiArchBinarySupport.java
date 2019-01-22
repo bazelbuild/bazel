@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
@@ -263,8 +262,7 @@ public class MultiArchBinarySupport {
               additionalDepProviders);
       ObjcProvider objcProviderWithDylibSymbols = common.getObjcProvider();
       ObjcProvider objcProvider =
-          objcProviderWithDylibSymbols.subtractSubtrees(
-              dylibObjcProviders, ImmutableList.<CcLinkingInfo>of());
+          objcProviderWithDylibSymbols.subtractSubtrees(dylibObjcProviders, ImmutableList.of());
 
       childInfoBuilder.add(
           DependencySpecificConfiguration.create(

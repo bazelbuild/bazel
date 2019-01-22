@@ -66,17 +66,17 @@ public final class CcLinkingHelper {
   // TODO(plf): Only used by Skylark API. Remove after migrating.
   @Deprecated
   public static final class LinkingInfo implements LinkingInfoApi {
-    private final CcLinkingInfo ccLinkingInfo;
+    private final CcLinkingContext ccLinkingContext;
     private final CcLinkingOutputs linkingOutputs;
 
-    public LinkingInfo(CcLinkingInfo ccLinkingInfo, CcLinkingOutputs linkingOutputs) {
-      this.ccLinkingInfo = ccLinkingInfo;
+    public LinkingInfo(CcLinkingContext ccLinkingContext, CcLinkingOutputs linkingOutputs) {
+      this.ccLinkingContext = ccLinkingContext;
       this.linkingOutputs = linkingOutputs;
     }
 
     @Override
-    public CcLinkingInfo getCcLinkingInfo() {
-      return ccLinkingInfo;
+    public CcLinkingContext getCcLinkingContext() {
+      return ccLinkingContext;
     }
 
     @Override
@@ -93,7 +93,7 @@ public final class CcLinkingHelper {
   private final List<Artifact> nonCodeLinkerInputs = new ArrayList<>();
   private final List<String> linkopts = new ArrayList<>();
   private final List<TransitiveInfoCollection> deps = new ArrayList<>();
-  private final List<CcLinkingInfo> ccLinkingInfos = new ArrayList<>();
+  private final List<CcLinkingContext> ccLinkingContexts = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
   private final List<Artifact> linkActionInputs = new ArrayList<>();
 
@@ -194,20 +194,20 @@ public final class CcLinkingHelper {
    * (like from a "deps" attribute) and also implicit dependencies on runtime libraries.
    */
   public CcLinkingHelper addDeps(Iterable<? extends TransitiveInfoCollection> deps) {
-    this.ccLinkingInfos.addAll(
+    this.ccLinkingContexts.addAll(
         Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
-            .map(CcInfo::getCcLinkingInfo)
+            .map(CcInfo::getCcLinkingContext)
             .collect(ImmutableList.toImmutableList()));
     Iterables.addAll(this.deps, deps);
     return this;
   }
 
   /**
-   * Adds additional {@link CcLinkingInfo} that will be used everywhere where CcLinkingInfos were
+   * Adds additional {@link CcLinkingContext} that will be used everywhere where CcLinkingInfos were
    * obtained from deps.
    */
-  public CcLinkingHelper addCcLinkingInfos(Iterable<CcLinkingInfo> ccLinkingInfos) {
-    Iterables.addAll(this.ccLinkingInfos, ccLinkingInfos);
+  public CcLinkingHelper addCcLinkingContexts(Iterable<CcLinkingContext> ccLinkingContexts) {
+    Iterables.addAll(this.ccLinkingContexts, ccLinkingContexts);
     return this;
   }
 
@@ -359,32 +359,36 @@ public final class CcLinkingHelper {
     return ccLinkingOutputs;
   }
 
-  public CcLinkingInfo buildCcLinkingInfoFromLibraryToLinkWrappers(
+  public CcLinkingContext buildCcLinkingContextFromLibraryToLinkWrappers(
       ImmutableCollection<LibraryToLinkWrapper> libraryToLinkWrappers,
       CcCompilationContext ccCompilationContext) {
     NestedSetBuilder<Linkstamp> linkstampBuilder = NestedSetBuilder.stableOrder();
     for (Artifact linkstamp : linkstamps.build()) {
       linkstampBuilder.add(new Linkstamp(linkstamp, ccCompilationContext.getDeclaredIncludeSrcs()));
     }
-    CcLinkingInfo ccLinkingInfo = CcLinkingInfo.EMPTY;
+    CcLinkingContext ccLinkingContext = CcLinkingContext.EMPTY;
     if (!neverlink) {
-      ccLinkingInfo =
-          LibraryToLinkWrapper.toCcLinkingInfo(
-              cppConfiguration.forcePic(),
-              libraryToLinkWrappers,
-              // We want an empty set if there are no link options. We have to make sure we don't
-              // create a LinkOptions instance that contains an empty list.
-              linkopts.isEmpty()
-                  ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
-                  : NestedSetBuilder.create(Order.LINK_ORDER, LinkOptions.of(linkopts)),
-              linkstampBuilder.build(),
-              nonCodeLinkerInputs,
-              /* extraLinkTimeLibraries= */ null);
+      // We want an empty set if there are no link options. We have to make sure we don't
+      // create a LinkOptions instance that contains an empty list.
+      ccLinkingContext =
+          CcLinkingContext.builder()
+              .addUserLinkFlags(
+                  linkopts.isEmpty()
+                      ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
+                      : NestedSetBuilder.create(Order.LINK_ORDER, LinkOptions.of(linkopts)))
+              .addLibraries(
+                  NestedSetBuilder.<LibraryToLinkWrapper>linkOrder()
+                      .addAll(libraryToLinkWrappers)
+                      .build())
+              .addNonCodeInputs(
+                  NestedSetBuilder.<Artifact>linkOrder().addAll(nonCodeLinkerInputs).build())
+              .addLinkstamps(linkstampBuilder.build())
+              .build();
     }
-    ImmutableList.Builder<CcLinkingInfo> mergedCcLinkingInfos = ImmutableList.builder();
-    mergedCcLinkingInfos.add(ccLinkingInfo);
-    mergedCcLinkingInfos.addAll(ccLinkingInfos);
-    return CcLinkingInfo.merge(mergedCcLinkingInfos.build());
+    ImmutableList.Builder<CcLinkingContext> mergedCcLinkingContexts = ImmutableList.builder();
+    mergedCcLinkingContexts.add(ccLinkingContext);
+    mergedCcLinkingContexts.addAll(ccLinkingContexts);
+    return CcLinkingContext.merge(mergedCcLinkingContexts.build());
   }
 
   /**
@@ -664,16 +668,12 @@ public final class CcLinkingHelper {
             || dynamicLinkType != LinkTargetType.NODEPS_DYNAMIC_LIBRARY;
 
     if (shouldLinkTransitively) {
-      CcLinkingInfo mergedCcLinkingInfo = CcLinkingInfo.merge(ccLinkingInfos);
-      CcLinkingContext ccLinkingContext =
-          LibraryToLinkWrapper.fromCcLinkingInfo(mergedCcLinkingInfo);
+      CcLinkingContext ccLinkingContext = CcLinkingContext.merge(ccLinkingContexts);
       List<LibraryToLink> libraries =
-          ccLinkingContext
-              .toCcLinkingInfo()
-              .getCcLinkParams(
-                  linkingMode != LinkingMode.DYNAMIC, dynamicLinkType.isDynamicLibrary())
-              .getLibraries()
-              .toList();
+          LibraryToLinkWrapper.convertLibraryToLinkWrapperListToLibraryToLinkList(
+              ccLinkingContext.getLibraries(),
+              linkingMode != LinkingMode.DYNAMIC,
+              dynamicLinkType.isDynamicLibrary());
       dynamicLinkActionBuilder.addLinkParams(
           libraries,
           ccLinkingContext.getFlattenedUserLinkFlags(),

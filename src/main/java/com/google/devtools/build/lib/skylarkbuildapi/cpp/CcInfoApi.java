@@ -45,7 +45,7 @@ public interface CcInfoApi extends StructApi {
       name = "linking_context",
       doc = "Returns the <code>LinkingContext</code>",
       structField = true)
-  CcLinkingInfoApi getCcLinkingInfo();
+  CcLinkingContextApi getCcLinkingContext();
 
   /** The provider implementing this can construct the CcInfo provider. */
   @SkylarkModule(
@@ -83,7 +83,6 @@ public interface CcInfoApi extends StructApi {
               defaultValue = "None",
               allowedTypes = {
                 @ParamType(type = CcLinkingContextApi.class),
-                @ParamType(type = CcLinkingInfoApi.class),
                 @ParamType(type = NoneType.class)
               })
         },

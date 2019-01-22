@@ -1384,7 +1384,7 @@ public class CompilationSupport {
 
   /** Returns libraries that should be passed into the linker with {@code -force_load}. */
   private ImmutableSet<Artifact> getForceLoadArtifacts(ObjcProvider objcProvider) {
-    ImmutableList<Artifact> ccLibraries = objcProvider.getCcLibraries();
+    List<Artifact> ccLibraries = objcProvider.getCcLibraries();
     Iterable<Artifact> ccLibrariesToForceLoad =
         Iterables.filter(ccLibraries, ALWAYS_LINKED_CC_LIBRARY);
 

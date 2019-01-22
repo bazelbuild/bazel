@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
@@ -46,7 +45,6 @@ public class BazelCcModule extends CcModule
         CcCompilationContext,
         CcCompilationOutputs,
         LinkingInfo,
-        CcLinkingInfo,
         CcLinkingContext,
         LibraryToLinkWrapper,
         CcToolchainVariables> {
@@ -87,7 +85,7 @@ public class BazelCcModule extends CcModule
       CcCompilationOutputs ccCompilationOutputs,
       Object skylarkLinkopts,
       Object dynamicLibrary,
-      SkylarkList<CcLinkingInfo> skylarkCcLinkingInfos,
+      SkylarkList<CcLinkingContext> skylarkCcLinkingContexts,
       boolean neverLink)
       throws InterruptedException, EvalException {
     return BazelCcModule.link(
@@ -99,7 +97,7 @@ public class BazelCcModule extends CcModule
         skylarkLinkopts,
         /* shouldCreateStaticLibraries= */ true,
         dynamicLibrary,
-        skylarkCcLinkingInfos,
+        skylarkCcLinkingContexts,
         neverLink);
   }
 }

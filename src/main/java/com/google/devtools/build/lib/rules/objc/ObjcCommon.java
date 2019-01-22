@@ -62,15 +62,16 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.FileType;
@@ -167,7 +168,7 @@ public final class ObjcCommon {
     private Optional<Artifact> linkedBinary = Optional.absent();
     private Optional<Artifact> linkmapFile = Optional.absent();
     private Iterable<CcCompilationContext> depCcHeaderProviders = ImmutableList.of();
-    private Iterable<CcLinkingInfo> depCcLinkProviders = ImmutableList.of();
+    private Iterable<CcLinkingContext> depCcLinkProviders = ImmutableList.of();
 
     /**
      * Builder for {@link ObjcCommon} obtaining both attribute data and configuration data from
@@ -256,14 +257,14 @@ public final class ObjcCommon {
       ImmutableList.Builder<ObjcProvider> propagatedObjcDeps =
           ImmutableList.<ObjcProvider>builder();
       ImmutableList.Builder<CcInfo> cppDeps = ImmutableList.builder();
-      ImmutableList.Builder<CcLinkingInfo> cppDepLinkParams = ImmutableList.builder();
+      ImmutableList.Builder<CcLinkingContext> cppDepLinkParams = ImmutableList.builder();
 
       for (ConfiguredTargetAndData dep : deps) {
         ConfiguredTarget depCT = dep.getConfiguredTarget();
         addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
         addAnyProviders(cppDeps, depCT, CcInfo.PROVIDER);
         if (isCcLibrary(dep)) {
-          cppDepLinkParams.add(depCT.get(CcInfo.PROVIDER).getCcLinkingInfo());
+          cppDepLinkParams.add(depCT.get(CcInfo.PROVIDER).getCcLinkingContext());
           CcCompilationContext ccCompilationContext =
               depCT.get(CcInfo.PROVIDER).getCcCompilationContext();
           addDefines(ccCompilationContext.getDefines());
@@ -434,9 +435,8 @@ public final class ObjcCommon {
         objcProvider.addAll(DEFINE, headerProvider.getDefines());
         textualHeaders.addAll(headerProvider.getTextualHdrs());
       }
-      for (CcLinkingInfo linkProvider : depCcLinkProviders) {
-        CcLinkParams params = linkProvider.getStaticModeParamsForExecutable();
-        ImmutableList<String> linkOpts = params.flattenedLinkopts();
+      for (CcLinkingContext linkProvider : depCcLinkProviders) {
+        ImmutableList<String> linkOpts = linkProvider.getFlattenedUserLinkFlags();
         ImmutableSet.Builder<SdkFramework> frameworkLinkOpts = new ImmutableSet.Builder<>();
         ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();
         // Add any framework flags as frameworks directly, rather than as linkopts.
@@ -453,7 +453,11 @@ public final class ObjcCommon {
         objcProvider
             .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
             .addAll(LINKOPT, nonFrameworkLinkOpts.build())
-            .addTransitiveAndPropagate(CC_LIBRARY, params.getLibraries());
+            .addTransitiveAndPropagate(
+                CC_LIBRARY,
+                NestedSetBuilder.<LibraryToLinkWrapper>linkOrder()
+                    .addTransitive(linkProvider.getLibraries())
+                    .build());
       }
 
       if (compilationAttributes.isPresent()) {

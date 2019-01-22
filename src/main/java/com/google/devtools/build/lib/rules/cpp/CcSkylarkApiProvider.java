@@ -55,9 +55,8 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider
     if (ccInfo == null) {
       return libs.build();
     }
-    for (LinkerInput lib :
-        ccInfo.getCcLinkingInfo().getStaticModeParamsForExecutable().getLibraries()) {
-      libs.add(lib.getArtifact());
+    for (Artifact lib : ccInfo.getCcLinkingContext().getStaticModeParamsForExecutableLibraries()) {
+      libs.add(lib);
     }
     return libs.build();
   }
@@ -68,7 +67,7 @@ public final class CcSkylarkApiProvider extends SkylarkApiProvider
     if (ccInfo == null) {
       return ImmutableList.of();
     }
-    return ccInfo.getCcLinkingInfo().getStaticModeParamsForExecutable().flattenedLinkopts();
+    return ccInfo.getCcLinkingContext().getFlattenedUserLinkFlags();
   }
 
   @Override

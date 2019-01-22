@@ -122,9 +122,8 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(
             emptylib
                 .get(CcInfo.PROVIDER)
-                .getCcLinkingInfo()
-                .getDynamicModeParamsForExecutable()
-                .getDynamicLibrariesForRuntime()
+                .getCcLinkingContext()
+                .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
                 .isEmpty())
         .isTrue();
   }
@@ -236,9 +235,8 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(
             statically
                 .get(CcInfo.PROVIDER)
-                .getCcLinkingInfo()
-                .getDynamicModeParamsForExecutable()
-                .getDynamicLibrariesForRuntime()
+                .getCcLinkingContext()
+                .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
                 .isEmpty())
         .isTrue();
     Artifact staticallyDotA = getOnlyElement(getFilesToBuild(statically));

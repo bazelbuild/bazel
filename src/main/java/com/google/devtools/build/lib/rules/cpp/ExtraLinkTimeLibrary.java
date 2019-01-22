@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 
 /**
  * An extra library to include in a link. The actual library is built at link time.
@@ -34,16 +33,16 @@ public interface ExtraLinkTimeLibrary {
 
   /** Output of {@link #buildLibraries}. Pair of libraries to link and runtime libraries. */
   class BuildLibraryOutput {
-    public NestedSet<LibraryToLink> librariesToLink;
+    public NestedSet<LibraryToLinkWrapper> librariesToLink;
     public NestedSet<Artifact> runtimeLibraries;
 
     public BuildLibraryOutput(
-        NestedSet<LibraryToLink> librariesToLink, NestedSet<Artifact> runtimeLibraries) {
+        NestedSet<LibraryToLinkWrapper> librariesToLink, NestedSet<Artifact> runtimeLibraries) {
       this.librariesToLink = librariesToLink;
       this.runtimeLibraries = runtimeLibraries;
     }
 
-    public NestedSet<LibraryToLink> getLibrariesToLink() {
+    public NestedSet<LibraryToLinkWrapper> getLibrariesToLink() {
       return librariesToLink;
     }
 

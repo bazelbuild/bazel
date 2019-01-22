@@ -2472,9 +2472,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             target
                 .get(AndroidCcLinkParamsProvider.PROVIDER)
                 .getLinkParams()
-                .getCcLinkingInfo()
-                .getDynamicModeParamsForDynamicLibrary()
-                .flattenedLinkopts())
+                .getCcLinkingContext()
+                .getFlattenedUserLinkFlags())
         .containsExactly("-CC_DEP")
         .inOrder();
   }

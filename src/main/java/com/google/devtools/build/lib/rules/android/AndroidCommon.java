@@ -48,8 +48,8 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.ZipFilterBuilder.CheckHashMismatchMode;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams.LinkOptions;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -825,16 +825,13 @@ public class AndroidCommon {
   public static CcInfo getCcInfo(
       final Iterable<? extends TransitiveInfoCollection> deps, final Collection<String> linkOpts) {
 
-    CcLinkParams linkOptsParams = CcLinkParams.builder().addLinkOpts(linkOpts).build();
-    CcLinkingInfo linkOptsCcLinkingInfo =
-        CcLinkingInfo.Builder.create()
-            .setStaticModeParamsForDynamicLibrary(linkOptsParams)
-            .setStaticModeParamsForExecutable(linkOptsParams)
-            .setDynamicModeParamsForDynamicLibrary(linkOptsParams)
-            .setDynamicModeParamsForExecutable(linkOptsParams)
+    CcLinkingContext ccLinkingContext =
+        CcLinkingContext.builder()
+            .addUserLinkFlags(
+                NestedSetBuilder.<LinkOptions>linkOrder().add(LinkOptions.of(linkOpts)).build())
             .build();
 
-    CcInfo linkoptsCcInfo = CcInfo.builder().setCcLinkingInfo(linkOptsCcLinkingInfo).build();
+    CcInfo linkoptsCcInfo = CcInfo.builder().setCcLinkingContext(ccLinkingContext).build();
 
     ImmutableList<CcInfo> ccInfos =
         ImmutableList.<CcInfo>builder()

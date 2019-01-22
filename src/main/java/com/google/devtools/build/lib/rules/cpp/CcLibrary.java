@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.SolibLibraryToLink;
@@ -375,8 +376,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               ccCompilationOutputs);
     }
 
-    CcLinkingInfo ccLinkingInfo =
-        linkingHelper.buildCcLinkingInfoFromLibraryToLinkWrappers(
+    CcLinkingContext ccLinkingContext =
+        linkingHelper.buildCcLinkingContextFromLibraryToLinkWrappers(
             libraryToLinkWrappers, compilationInfo.getCcCompilationContext());
     CcNativeLibraryProvider ccNativeLibraryProvider =
         CppHelper.collectNativeCcLibraries(
@@ -445,7 +446,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             CcInfo.builder()
                 .setCcCompilationContext(compilationInfo.getCcCompilationContext())
-                .setCcLinkingInfo(ccLinkingInfo)
+                .setCcLinkingContext(ccLinkingContext)
                 .build())
         .addOutputGroups(
             CcCommon.mergeOutputGroups(
@@ -658,7 +659,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // files if they exist.
     libraryToLinkWrappers.addAll(
         convertPrecompiledLibrariesToLibraryToLinkWrapper(
-            staticLibraries, picStaticLibraries, dynamicLibrariesForRuntime));
+            ruleContext.getFragment(CppConfiguration.class).forcePic(),
+            staticLibraries,
+            picStaticLibraries,
+            dynamicLibrariesForRuntime));
     if (!ccCompilationOutputs.isEmpty()
         || (staticLibraries.isEmpty()
             && picStaticLibraries.isEmpty()
@@ -681,6 +685,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
   }
 
   private static List<LibraryToLinkWrapper> convertPrecompiledLibrariesToLibraryToLinkWrapper(
+      boolean forcePic,
       List<LibraryToLink> staticLibraries,
       List<LibraryToLink> picStaticLibraries,
       List<LibraryToLink> dynamicLibrariesForRuntime) {
@@ -691,16 +696,20 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // here with the local libraries, none of the libraries of the transitive closure.
     for (LibraryToLink staticLibrary : staticLibraries) {
       LibraryToLinkWrapper.Builder libraryToLinkWrapperBuilder = LibraryToLinkWrapper.builder();
-      libraryToLinkWrapperBuilder.setStaticLibrary(staticLibrary.getArtifact());
       String identifier = staticLibrary.getLibraryIdentifier();
       libraryToLinkWrapperBuilder.setLibraryIdentifier(identifier);
       List<LibraryToLink> sameIdentifierPicStaticLibraries =
           picStaticLibraries.stream()
               .filter(x -> x.getLibraryIdentifier().equals(identifier))
               .collect(ImmutableList.toImmutableList());
+      boolean hadPic = false;
       if (!sameIdentifierPicStaticLibraries.isEmpty()) {
+        hadPic = true;
         libraryToLinkWrapperBuilder.setPicStaticLibrary(
             sameIdentifierPicStaticLibraries.get(0).getArtifact());
+      }
+      if (!forcePic || !hadPic) {
+        libraryToLinkWrapperBuilder.setStaticLibrary(staticLibrary.getArtifact());
       }
       List<LibraryToLink> sameIdentifierDynamicLibraries =
           dynamicLibrariesForRuntime.stream()

@@ -39,7 +39,7 @@ public final class PyCcLinkParamsProvider extends NativeInfo {
 
   public PyCcLinkParamsProvider(CcInfo ccInfo) {
     super(PROVIDER);
-    this.ccInfo = CcInfo.builder().setCcLinkingInfo(ccInfo.getCcLinkingInfo()).build();
+    this.ccInfo = CcInfo.builder().setCcLinkingContext(ccInfo.getCcLinkingContext()).build();
   }
 
   @SkylarkCallable(name = "cc_info", doc = "", structField = true, documented = false)

@@ -38,7 +38,6 @@ public interface BazelCcModuleApi<
         CcCompilationContextT extends CcCompilationContextApi,
         CcCompilationOutputsT extends CcCompilationOutputsApi,
         LinkingInfoT extends LinkingInfoApi,
-        CcLinkingInfoT extends CcLinkingInfoApi,
         LinkingContextT extends CcLinkingContextApi,
         LibraryToLinkWrapperT extends LibraryToLinkWrapperApi,
         CcToolchainVariablesT extends CcToolchainVariablesApi>
@@ -197,7 +196,7 @@ public interface BazelCcModuleApi<
       CcCompilationOutputsT ccCompilationOutputs,
       Object skylarkLinkopts,
       Object dynamicLibrary,
-      SkylarkList<CcLinkingInfoT> skylarkCcLinkingInfos,
+      SkylarkList<LinkingContextT> skylarkCcLinkingContexts,
       boolean neverLink)
       throws InterruptedException, EvalException;
 }

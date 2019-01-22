@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
@@ -46,7 +45,6 @@ public class FakeCcModule
         CcCompilationContextApi,
         CcCompilationOutputsApi,
         LinkingInfoApi,
-        CcLinkingInfoApi,
         CcLinkingContextApi,
         LibraryToLinkWrapperApi,
         CcToolchainVariablesApi> {
@@ -177,7 +175,7 @@ public class FakeCcModule
       CcCompilationOutputsApi ccCompilationOutputs,
       Object skylarkLinkopts,
       Object dynamicLibrary,
-      SkylarkList<CcLinkingInfoApi> skylarkCcLinkingInfos,
+      SkylarkList<CcLinkingContextApi> skylarkCcLinkingContexts,
       boolean neverLink) {
     return null;
   }

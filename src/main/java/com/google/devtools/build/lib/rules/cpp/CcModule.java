@@ -606,7 +606,7 @@ public class CcModule
       Object skylarkLinkopts,
       boolean shouldCreateStaticLibraries,
       Object dynamicLibrary,
-      SkylarkList<CcLinkingInfo> skylarkCcLinkingInfos,
+      SkylarkList<CcLinkingContext> skylarkCcLinkingContexts,
       boolean neverLink)
       throws InterruptedException, EvalException, InterruptedException {
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
@@ -628,7 +628,7 @@ public class CcModule
             .addLinkopts(linkopts)
             .setShouldCreateStaticLibraries(shouldCreateStaticLibraries)
             .setLinkerOutputArtifact(convertFromNoneable(dynamicLibrary, null))
-            .addCcLinkingInfos(skylarkCcLinkingInfos)
+            .addCcLinkingContexts(skylarkCcLinkingContexts)
             .setNeverLink(neverLink);
     try {
       CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
@@ -641,10 +641,10 @@ public class CcModule
               LibraryToLinkWrapper.convertLinkOutputsToLibraryToLinkWrapper(ccLinkingOutputs));
         }
       }
-      CcLinkingInfo ccLinkingInfo =
-          helper.buildCcLinkingInfoFromLibraryToLinkWrappers(
+      CcLinkingContext ccLinkingContext =
+          helper.buildCcLinkingContextFromLibraryToLinkWrappers(
               libraryToLinkWrapperBuilder.build(), CcCompilationContext.EMPTY);
-      return new LinkingInfo(ccLinkingInfo, ccLinkingOutputs);
+      return new LinkingInfo(ccLinkingContext, ccLinkingOutputs);
     } catch (RuleErrorException e) {
       throw new EvalException(ruleContext.getRule().getLocation(), e);
     }

@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
-import com.google.devtools.build.lib.rules.cpp.LinkerInput;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1475,12 +1475,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     ObjcProvider objcProvider = providerForTarget("//objc2:lib");
 
     Iterable<Artifact> linkerInputArtifacts =
-        Iterables.transform(objcProvider.get(CC_LIBRARY), new Function<LinkerInput, Artifact>() {
-      @Override
-      public Artifact apply(LinkerInput library) {
-        return library.getArtifact();
-      }
-    });
+        Iterables.transform(
+            objcProvider.get(CC_LIBRARY),
+            new Function<LibraryToLinkWrapper, Artifact>() {
+              @Override
+              public Artifact apply(LibraryToLinkWrapper library) {
+                return library.getStaticLibrary();
+              }
+            });
 
     assertThat(linkerInputArtifacts)
         .containsAllOf(

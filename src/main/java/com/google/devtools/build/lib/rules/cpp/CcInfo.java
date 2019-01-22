@@ -36,13 +36,12 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
   public static final CcInfo EMPTY = CcInfo.builder().build();
 
   private final CcCompilationContext ccCompilationContext;
-  // TODO(b/117875295): Rename CcLinkingInfo to CcLinkingContext
-  private final CcLinkingInfo ccLinkingInfo;
+  private final CcLinkingContext ccLinkingContext;
 
-  public CcInfo(CcCompilationContext ccCompilationContext, CcLinkingInfo ccLinkingInfo) {
+  public CcInfo(CcCompilationContext ccCompilationContext, CcLinkingContext ccLinkingContext) {
     super(PROVIDER);
     this.ccCompilationContext = ccCompilationContext;
-    this.ccLinkingInfo = ccLinkingInfo;
+    this.ccLinkingContext = ccLinkingContext;
   }
 
   @Override
@@ -51,27 +50,23 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
   }
 
   @Override
-  public CcLinkingInfo getCcLinkingInfo() {
-    return ccLinkingInfo;
-  }
-
   public CcLinkingContext getCcLinkingContext() {
-    return LibraryToLinkWrapper.fromCcLinkingInfo(ccLinkingInfo);
+    return ccLinkingContext;
   }
 
   public static CcInfo merge(Collection<CcInfo> ccInfos) {
     ImmutableList.Builder<CcCompilationContext> ccCompilationContexts = ImmutableList.builder();
-    ImmutableList.Builder<CcLinkingInfo> ccLinkingInfos = ImmutableList.builder();
+    ImmutableList.Builder<CcLinkingContext> ccLinkingContexts = ImmutableList.builder();
     for (CcInfo ccInfo : ccInfos) {
       ccCompilationContexts.add(ccInfo.getCcCompilationContext());
-      ccLinkingInfos.add(ccInfo.getCcLinkingInfo());
+      ccLinkingContexts.add(ccInfo.getCcLinkingContext());
     }
     CcCompilationContext.Builder builder =
         new CcCompilationContext.Builder(/* ruleContext= */ null);
 
     return new CcInfo(
         builder.mergeDependentCcCompilationContexts(ccCompilationContexts.build()).build(),
-        CcLinkingInfo.merge(ccLinkingInfos.build()));
+        CcLinkingContext.merge(ccLinkingContexts.build()));
   }
 
   @Override
@@ -84,7 +79,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
       return true;
     }
     if (!this.ccCompilationContext.equals(other.ccCompilationContext)
-        || !this.ccLinkingInfo.equals(other.ccLinkingInfo)) {
+        || !this.getCcLinkingContext().equals(other.getCcLinkingContext())) {
       return false;
     }
     return true;
@@ -92,7 +87,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(ccCompilationContext, ccLinkingInfo);
+    return Objects.hashCode(ccCompilationContext, ccLinkingContext);
   }
 
   public static Builder builder() {
@@ -102,7 +97,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
   /** A Builder for {@link CcInfo}. */
   public static class Builder {
     private CcCompilationContext ccCompilationContext;
-    private CcLinkingInfo ccLinkingInfo;
+    private CcLinkingContext ccLinkingContext;
 
     public CcInfo.Builder setCcCompilationContext(CcCompilationContext ccCompilationContext) {
       Preconditions.checkState(this.ccCompilationContext == null);
@@ -110,15 +105,9 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
       return this;
     }
 
-    public CcInfo.Builder setCcLinkingInfo(CcLinkingInfo ccLinkingInfo) {
-      Preconditions.checkState(this.ccLinkingInfo == null);
-      this.ccLinkingInfo = ccLinkingInfo;
-      return this;
-    }
-
     public CcInfo.Builder setCcLinkingContext(CcLinkingContext ccLinkingContext) {
-      Preconditions.checkState(this.ccLinkingInfo == null);
-      this.ccLinkingInfo = ccLinkingContext.toCcLinkingInfo();
+      Preconditions.checkState(this.ccLinkingContext == null);
+      this.ccLinkingContext = ccLinkingContext;
       return this;
     }
 
@@ -126,10 +115,10 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
       if (ccCompilationContext == null) {
         ccCompilationContext = CcCompilationContext.EMPTY;
       }
-      if (ccLinkingInfo == null) {
-        ccLinkingInfo = CcLinkingInfo.EMPTY;
+      if (ccLinkingContext == null) {
+        ccLinkingContext = CcLinkingContext.EMPTY;
       }
-      return new CcInfo(ccCompilationContext, ccLinkingInfo);
+      return new CcInfo(ccCompilationContext, ccLinkingContext);
     }
   }
 
@@ -148,24 +137,15 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
         throws EvalException {
       CcCompilationContext ccCompilationContext =
           nullIfNone(skylarkCcCompilationContext, CcCompilationContext.class);
-      CcLinkingInfo ccLinkingInfo = null;
-      try {
-        ccLinkingInfo = nullIfNone(skylarkCcLinkingInfo, CcLinkingInfo.class);
-      } catch (ClassCastException e) {
-        // TODO(b/118663806): Eventually only CcLinkingContext will be allowed, this is for
-        // backwards compatibility.
-        CcLinkingContext ccLinkingContext =
-            nullIfNone(skylarkCcLinkingInfo, CcLinkingContext.class);
-        if (ccLinkingContext != null) {
-          ccLinkingInfo = ccLinkingContext.toCcLinkingInfo();
-        }
-      }
+      // TODO(b/118663806): Eventually only CcLinkingContext will be allowed, this is for
+      // backwards compatibility.
+      CcLinkingContext ccLinkingContext = nullIfNone(skylarkCcLinkingInfo, CcLinkingContext.class);
       CcInfo.Builder ccInfoBuilder = CcInfo.builder();
       if (ccCompilationContext != null) {
         ccInfoBuilder.setCcCompilationContext(ccCompilationContext);
       }
-      if (ccLinkingInfo != null) {
-        ccInfoBuilder.setCcLinkingInfo(ccLinkingInfo);
+      if (ccLinkingContext != null) {
+        ccInfoBuilder.setCcLinkingContext(ccLinkingContext);
       }
       return ccInfoBuilder.build();
     }

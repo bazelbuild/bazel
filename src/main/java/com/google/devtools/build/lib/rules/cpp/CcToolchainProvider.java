@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
@@ -196,7 +197,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.ccInfo =
         CcInfo.builder()
             .setCcCompilationContext(Preconditions.checkNotNull(ccCompilationContext))
-            .setCcLinkingInfo(CcLinkingInfo.EMPTY)
+            .setCcLinkingContext(CcLinkingContext.EMPTY)
             .build();
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;

@@ -369,7 +369,7 @@ public class BazelPythonSemantics implements PythonSemantics {
                     .collect(ImmutableList.toImmutableList()))
             .build();
 
-    // TODO(plf): return empty CcLinkingInfo.
+    // TODO(plf): return empty CcInfo.
     return CcInfo.merge(ccInfos);
   }
 }

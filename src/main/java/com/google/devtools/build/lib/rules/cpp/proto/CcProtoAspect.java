@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationIn
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
@@ -219,8 +219,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       }
       CcNativeLibraryProvider ccNativeLibraryProvider =
           CppHelper.collectNativeCcLibraries(deps, ccLinkingOutputs);
-      CcLinkingInfo ccLinkingInfo =
-          ccLinkingHelper.buildCcLinkingInfoFromLibraryToLinkWrappers(
+      CcLinkingContext ccLinkingContext =
+          ccLinkingHelper.buildCcLinkingContextFromLibraryToLinkWrappers(
               libraryToLinkWrapperBuilder.build(), compilationInfo.getCcCompilationContext());
 
       ccLibraryProviders =
@@ -229,7 +229,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
               .put(
                   CcInfo.builder()
                       .setCcCompilationContext(compilationInfo.getCcCompilationContext())
-                      .setCcLinkingInfo(ccLinkingInfo)
+                      .setCcLinkingContext(ccLinkingContext)
                       .build())
               .add(ccNativeLibraryProvider)
               .build();
