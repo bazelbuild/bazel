@@ -85,7 +85,7 @@ public class BazelTestRunner {
     } catch (Throwable e) {
       // An exception was thrown by the runner. Print the error to the output stream so it will be logged
       // by the executing strategy, and return a failure, so this process can gracefully shut down.
-      e.printStackTrace(System.err);
+      e.printStackTrace();
       exitCode = 1;
     }
 
