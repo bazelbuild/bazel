@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.pkgcache.FilteringPolicies.NO_FILTER;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Function;
@@ -725,13 +726,24 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           reportBuildFileError(owner, exn.getMessage());
           return Futures.immediateFuture(null);
         };
-    ListenableFuture<Void> evalFuture = patternToEval.evalAsync(
-        resolver,
-        blacklistedSubdirectoriesToExclude,
-        additionalSubdirectoriesToExclude,
-        callback,
-        QueryException.class,
-        executor);
+    Callback<Target> filteredCallback = callback;
+    if (!targetPatternKey.getPolicy().equals(NO_FILTER)) {
+      filteredCallback =
+          targets ->
+              callback.process(
+                  Iterables.filter(
+                      targets,
+                      target ->
+                          targetPatternKey.getPolicy().shouldRetain(target, /*explicit=*/ false)));
+    }
+    ListenableFuture<Void> evalFuture =
+        patternToEval.evalAsync(
+            resolver,
+            blacklistedSubdirectoriesToExclude,
+            additionalSubdirectoriesToExclude,
+            filteredCallback,
+            QueryException.class,
+            executor);
     return QueryTaskFutureImpl.ofDelegate(
         Futures.catchingAsync(
             evalFuture,

@@ -33,6 +33,12 @@ public final class FilteringPolicies {
 
   /** Returns the result of applying y, if target passes x. */
   public static FilteringPolicy and(final FilteringPolicy x, final FilteringPolicy y) {
+    if (x.equals(NO_FILTER)) {
+      return y;
+    }
+    if (y.equals(NO_FILTER)) {
+      return x;
+    }
     return new AndFilteringPolicy(x, y);
   }
 
@@ -68,6 +74,11 @@ public final class FilteringPolicies {
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
       return true;
+    }
+
+    @Override
+    public String toString() {
+      return "[]";
     }
   }
 
@@ -156,6 +167,11 @@ public final class FilteringPolicies {
       }
       AndFilteringPolicy other = (AndFilteringPolicy) obj;
       return other.firstPolicy.equals(firstPolicy) && other.secondPolicy.equals(secondPolicy);
+    }
+
+    @Override
+    public String toString() {
+      return String.format("and_filter(%s, %s)", firstPolicy, secondPolicy);
     }
   }
 }
