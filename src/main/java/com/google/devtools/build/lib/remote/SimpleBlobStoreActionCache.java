@@ -95,11 +95,9 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
       Command command,
       Path execRoot,
       Collection<Path> files,
-      FileOutErr outErr,
-      boolean uploadAction)
-      throws ExecException, IOException, InterruptedException {
+      FileOutErr outErr) throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
-    upload(result, actionKey, action, command, execRoot, files, uploadAction);
+    upload(result, actionKey, action, command, execRoot, files, /* uploadAction= */ true);
     if (outErr.getErrorPath().exists()) {
       Digest stderr = uploadFileContents(outErr.getErrorPath());
       result.setStderrDigest(stderr);
@@ -108,9 +106,7 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
       Digest stdout = uploadFileContents(outErr.getOutputPath());
       result.setStdoutDigest(stdout);
     }
-    if (uploadAction) {
-      blobStore.putActionResult(actionKey.getDigest().getHash(), result.build().toByteArray());
-    }
+    blobStore.putActionResult(actionKey.getDigest().getHash(), result.build().toByteArray());
   }
 
   public void upload(

@@ -329,7 +329,7 @@ final class ExecutionServer extends ExecutionImplBase {
     ActionResult.Builder result = ActionResult.newBuilder();
     boolean setResult = exitCode == 0 && !action.getDoNotCache();
     try {
-      cache.upload(result, actionKey, action, command, execRoot, outputs, setResult);
+        cache.upload(result, actionKey, action, command, execRoot, outputs, setResult);
     } catch (ExecException e) {
       if (errStatus == null) {
         errStatus =

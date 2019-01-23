@@ -248,58 +248,20 @@ function is_file_uploaded() {
   if [ -e "$cas_path/${h:0:64}" ]; then return 0; else return 1; fi
 }
 
-function test_failing_cc_test_grpc_cache() {
+function test_failed_test_outputs_not_uploaded() {
+  # Test that outputs of a failed test/action are not uploaded to the remote
+  # cache. This is a regression test for https://github.com/bazelbuild/bazel/issues/7232
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
 cc_test(
-name = 'test',
-srcs = [ 'test.cc' ],
+  name = 'test',
+  srcs = [ 'test.cc' ],
 )
 EOF
   cat > a/test.cc <<EOF
 #include <iostream>
 int main() { std::cout << "Fail me!" << std::endl; return 1; }
-EOF
-  bazel test \
-      --remote_cache=localhost:${worker_port} \
-      --test_output=errors \
-      //a:test >& $TEST_log \
-      && fail "Expected test failure" || true
-   $(is_file_uploaded bazel-testlogs/a/test/test.log) \
-     || fail "Expected test log to be uploaded to remote execution"
-   $(is_file_uploaded bazel-testlogs/a/test/test.xml) \
-     || fail "Expected test xml to be uploaded to remote execution"
-}
-
-function test_failing_cc_test_remote_spawn_cache() {
-  mkdir -p a
-  cat > a/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-cc_test(
-name = 'test',
-srcs = [ 'test.cc' ],
-)
-EOF
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Fail me!" << std::endl; return 1; }
-EOF
-  bazel test \
-      --remote_cache=localhost:${worker_port} \
-      --test_output=errors \
-      //a:test >& $TEST_log \
-      && fail "Expected test failure" || true
-   $(is_file_uploaded bazel-testlogs/a/test/test.log) \
-     || fail "Expected test log to be uploaded to remote execution"
-   $(is_file_uploaded bazel-testlogs/a/test/test.xml) \
-     || fail "Expected test xml to be uploaded to remote execution"
-  # Check that logs are uploaded regardless of the spawn being cacheable.
-  # Re-running a changed test that failed once renders the test spawn uncacheable.
-  rm -f a/test.cc
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Fail me again!" << std::endl; return 1; }
 EOF
   bazel test \
       --remote_cache=localhost:${worker_port} \
