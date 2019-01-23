@@ -29,11 +29,8 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
       CycleInfo cycleInfo,
       boolean alreadyReported,
       ExtendedEventHandler eventHandler) {
-    ImmutableList<SkyKey> pathToCycle = cycleInfo.getPathToCycle();
     ImmutableList<SkyKey> cycle = cycleInfo.getCycle();
-    if (pathToCycle.isEmpty()) {
-      return false;
-    } else if (alreadyReported) {
+    if (alreadyReported) {
       return true;
     } else if (!Iterables.any(cycle, IS_REGISTERED_TOOLCHAINS_SKY_KEY)
         || !Iterables.any(cycle, IS_CONFIGURED_TARGET_SKY_KEY)
