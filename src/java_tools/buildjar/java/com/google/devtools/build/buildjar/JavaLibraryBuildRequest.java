@@ -186,7 +186,8 @@ public final class JavaLibraryBuildRequest {
     return paths.stream().map(Paths::get).collect(toImmutableList());
   }
 
-  private static @Nullable Path asPath(@Nullable String path) {
+  @Nullable
+  private static Path asPath(@Nullable String path) {
     return path != null ? Paths.get(path) : null;
   }
 

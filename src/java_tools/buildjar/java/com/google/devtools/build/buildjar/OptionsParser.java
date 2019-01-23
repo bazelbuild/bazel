@@ -71,7 +71,7 @@ public final class OptionsParser {
   private final List<String> processorNames = new ArrayList<>();
 
   private String outputJar;
-  private @Nullable String nativeHeaderOutput;
+  @Nullable private String nativeHeaderOutput;
 
   private String classDir;
   private String tempDir;
