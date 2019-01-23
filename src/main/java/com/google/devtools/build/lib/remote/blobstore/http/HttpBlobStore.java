@@ -106,7 +106,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private final EventLoopGroup eventLoop;
   private final ChannelPool channelPool;
   private final URI uri;
-  private final int timeoutMillis;
+  private final int timeoutSeconds;
   private final boolean useTls;
 
   private final Object closeLock = new Object();
@@ -122,33 +122,45 @@ public final class HttpBlobStore implements SimpleBlobStore {
   @GuardedBy("credentialsLock")
   private long lastRefreshTime;
 
-  public static HttpBlobStore create(URI uri, int timeoutMillis,
-      int remoteMaxConnections, @Nullable final Credentials creds)
+  public static HttpBlobStore create(
+      URI uri, int timeoutSeconds, int remoteMaxConnections, @Nullable final Credentials creds)
       throws Exception {
     return new HttpBlobStore(
         NioEventLoopGroup::new,
         NioSocketChannel.class,
-        uri, timeoutMillis, remoteMaxConnections, creds,
+        uri,
+        timeoutSeconds,
+        remoteMaxConnections,
+        creds,
         null);
   }
 
   public static HttpBlobStore create(
       DomainSocketAddress domainSocketAddress,
-      URI uri, int timeoutMillis, int remoteMaxConnections, @Nullable final Credentials creds)
+      URI uri,
+      int timeoutSeconds,
+      int remoteMaxConnections,
+      @Nullable final Credentials creds)
       throws Exception {
 
       if (KQueue.isAvailable()) {
-        return new HttpBlobStore(
-            KQueueEventLoopGroup::new,
-            KQueueDomainSocketChannel.class,
-            uri, timeoutMillis, remoteMaxConnections, creds,
-            domainSocketAddress);
+      return new HttpBlobStore(
+          KQueueEventLoopGroup::new,
+          KQueueDomainSocketChannel.class,
+          uri,
+          timeoutSeconds,
+          remoteMaxConnections,
+          creds,
+          domainSocketAddress);
       } else if (Epoll.isAvailable()) {
-        return new HttpBlobStore(
-            EpollEventLoopGroup::new,
-            EpollDomainSocketChannel.class,
-            uri, timeoutMillis, remoteMaxConnections, creds,
-            domainSocketAddress);
+      return new HttpBlobStore(
+          EpollEventLoopGroup::new,
+          EpollDomainSocketChannel.class,
+          uri,
+          timeoutSeconds,
+          remoteMaxConnections,
+          creds,
+          domainSocketAddress);
       } else {
         throw new Exception("Unix domain sockets are unsupported on this platform");
       }
@@ -157,7 +169,10 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private HttpBlobStore(
       Function<Integer, EventLoopGroup> newEventLoopGroup,
       Class<? extends Channel> channelClass,
-      URI uri, int timeoutMillis, int remoteMaxConnections, @Nullable final Credentials creds,
+      URI uri,
+      int timeoutSeconds,
+      int remoteMaxConnections,
+      @Nullable final Credentials creds,
       @Nullable SocketAddress socketAddress)
       throws Exception {
     useTls = uri.getScheme().equals("https");
@@ -193,7 +208,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
     Bootstrap clientBootstrap =
         new Bootstrap()
             .channel(channelClass)
-            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, timeoutMillis)
+            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 1000 * timeoutSeconds)
             .group(eventLoop)
             .remoteAddress(socketAddress);
 
@@ -221,7 +236,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
       channelPool = new SimpleChannelPool(clientBootstrap, channelPoolHandler);
     }
     this.creds = creds;
-    this.timeoutMillis = timeoutMillis;
+    this.timeoutSeconds = timeoutSeconds;
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -311,8 +326,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
                   return;
                 }
 
-                ch.pipeline()
-                    .addFirst("read-timeout-handler", new ReadTimeoutHandler(timeoutMillis));
+                p.addFirst("read-timeout-handler", new ReadTimeoutHandler(timeoutSeconds));
                 p.addLast(new HttpClientCodec());
                 synchronized (credentialsLock) {
                   p.addLast(new HttpDownloadHandler(creds));

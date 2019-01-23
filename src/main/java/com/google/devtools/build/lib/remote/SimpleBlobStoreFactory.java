@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
@@ -39,18 +38,21 @@ public final class SimpleBlobStoreFactory {
   public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds) {
     try {
       URI uri = URI.create(options.remoteHttpCache);
-      int timeoutMillis = (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout);
 
       if (options.remoteCacheProxy != null) {
         if (options.remoteCacheProxy.startsWith("unix:")) {
           return HttpBlobStore.create(
-            new DomainSocketAddress(options.remoteCacheProxy.replaceFirst("^unix:", "")),
-              uri, timeoutMillis, options.remoteMaxConnections, creds);
+              new DomainSocketAddress(options.remoteCacheProxy.replaceFirst("^unix:", "")),
+              uri,
+              options.remoteTimeout,
+              options.remoteMaxConnections,
+              creds);
         } else {
           throw new Exception("Remote cache proxy unsupported: " + options.remoteCacheProxy);
         }
       } else {
-        return HttpBlobStore.create(uri, timeoutMillis, options.remoteMaxConnections, creds);
+        return HttpBlobStore.create(
+            uri, options.remoteTimeout, options.remoteMaxConnections, creds);
       }
     } catch (Exception e) {
       throw new RuntimeException(e);
