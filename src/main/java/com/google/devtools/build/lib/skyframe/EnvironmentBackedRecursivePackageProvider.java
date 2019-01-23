@@ -59,8 +59,13 @@ public final class EnvironmentBackedRecursivePackageProvider
     this.env = env;
   }
 
-  // TODO(nharmata): Audit the rest of the codebase to determine if we should be calling this method
-  // in more places.
+  /**
+   * Whether any of the calls to {@link #getPackage}, {@link #getTarget}, {@link #bulkGetPackages},
+   * or {@link #getPackagesUnderDirectory} encountered a package in error.
+   *
+   * <p>The client of {@link EnvironmentBackedRecursivePackageProvider} may want to check this. See
+   * comments in {@link #getPackage} for details.
+   */
   boolean encounteredPackageErrors() {
     return encounteredPackageErrors.get();
   }
