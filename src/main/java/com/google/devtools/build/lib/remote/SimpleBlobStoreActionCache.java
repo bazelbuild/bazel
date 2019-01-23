@@ -21,7 +21,6 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
-import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.ByteArrayInputStream;
@@ -79,10 +77,6 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     }
     for (DirectoryNode child : directory.getDirectoriesList()) {
       downloadTree(child.getDigest(), rootLocation.getRelative(child.getName()));
-    }
-    for (SymlinkNode symlink : directory.getSymlinksList()) {
-      PathFragment targetPath = PathFragment.create(symlink.getTarget());
-      rootLocation.getRelative(symlink.getName()).createSymbolicLink(targetPath);
     }
   }
 

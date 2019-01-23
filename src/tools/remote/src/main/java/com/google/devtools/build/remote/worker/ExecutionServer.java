@@ -350,14 +350,6 @@ final class ExecutionServer extends ExecutionImplBase {
     } else if (setResult) {
       cache.setCachedActionResult(actionKey, finalResult);
     }
-    if (finalResult.getOutputFilesCount()
-            + finalResult.getOutputFileSymlinksCount()
-            + finalResult.getOutputDirectoriesCount()
-            + finalResult.getOutputDirectorySymlinksCount()
-        <= 0) {
-      logger.warning(
-          String.format("Unexpected result of remote execution: no output files: %s", finalResult));
-    }
     return finalResult;
   }
 

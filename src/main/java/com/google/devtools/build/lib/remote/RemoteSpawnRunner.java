@@ -149,9 +149,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     context.report(ProgressStatus.EXECUTING, getName());
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     MetadataProvider inputFileCache = context.getMetadataProvider();
-    TreeNodeRepository repository =
-        new TreeNodeRepository(
-            execRoot, inputFileCache, digestUtil, remoteOptions.incompatibleRemoteSymlinks);
+    TreeNodeRepository repository = new TreeNodeRepository(execRoot, inputFileCache, digestUtil);
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
     TreeNode inputRoot;
     try (SilentCloseable c = Profiler.instance().profile("Remote.computeMerkleDigests")) {
