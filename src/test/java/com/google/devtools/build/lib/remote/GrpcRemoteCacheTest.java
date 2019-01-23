@@ -249,7 +249,7 @@ public class GrpcRemoteCacheTest {
   public void testVirtualActionInputSupport() throws Exception {
     GrpcRemoteCache client = newClient();
     TreeNodeRepository treeNodeRepository =
-        new TreeNodeRepository(execRoot, fakeFileCache, DIGEST_UTIL, true);
+        new TreeNodeRepository(execRoot, fakeFileCache, DIGEST_UTIL);
     PathFragment execPath = PathFragment.create("my/exec/path");
     VirtualActionInput virtualActionInput = new StringVirtualActionInput("hello", execPath);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
