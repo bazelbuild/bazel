@@ -221,6 +221,11 @@ final class JavaInfoBuildHelper {
     javaInfoBuilder.addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports));
 
     javaInfoBuilder.addProvider(
+        JavaPluginInfoProvider.class,
+        JavaPluginInfoProvider.merge(
+            JavaInfo.getProvidersFromListOfJavaProviders(JavaPluginInfoProvider.class, exports)));
+
+    javaInfoBuilder.addProvider(
         JavaSourceJarsProvider.class,
         createJavaSourceJarsProvider(sourceJars, concat(compileTimeDeps, runtimeDeps, exports)));
 
