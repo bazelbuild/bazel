@@ -112,34 +112,14 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-    env.getEventBus().register(this);
-
-    String invocationId = env.getCommandId().toString();
-    String buildRequestId = env.getBuildRequestId();
-    env.getReporter().handle(Event.info(String.format("Invocation ID: %s", invocationId)));
-
-    Path logDir =
-        env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-remote-logs");
-    try {
-      // Clean out old logs files.
-      if (logDir.exists()) {
-        FileSystemUtils.deleteTree(logDir);
-      }
-      logDir.createDirectory();
-    } catch (IOException e) {
-      env.getReporter()
-          .handle(Event.error("Could not create base directory for remote logs: " + logDir));
-      throw new AbruptExitException(ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e);
-    }
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+    if (remoteOptions == null) {
+      // Quit if no supported command is being used. See getCommandOptions for details.
+      return;
+    }
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
-
-    // Quit if no remote options specified.
-    if (remoteOptions == null) {
-      return;
-    }
 
     boolean enableRestCache = SimpleBlobStoreFactory.isRestUrlOptions(remoteOptions);
     boolean enableDiskCache = SimpleBlobStoreFactory.isDiskCache(remoteOptions);
@@ -150,11 +130,26 @@ public final class RemoteModule extends BlazeModule {
     }
     boolean enableBlobStoreCache = enableRestCache || enableDiskCache;
     boolean enableGrpcCache = GrpcRemoteCache.isRemoteCacheOptions(remoteOptions);
-    if (enableBlobStoreCache && !Strings.isNullOrEmpty(remoteOptions.remoteExecutor)) {
+    boolean enableRemoteExecution = !Strings.isNullOrEmpty(remoteOptions.remoteExecutor);
+    if (enableBlobStoreCache && enableRemoteExecution) {
       throw new AbruptExitException(
           "Cannot combine gRPC based remote execution with local disk or HTTP-based caching",
           ExitCode.COMMAND_LINE_ERROR);
     }
+
+    if (!enableBlobStoreCache && !enableGrpcCache && !enableRemoteExecution) {
+      // Quit if no remote caching or execution was enabled.
+      return;
+    }
+
+    env.getEventBus().register(this);
+    String invocationId = env.getCommandId().toString();
+    String buildRequestId = env.getBuildRequestId();
+    env.getReporter().handle(Event.info(String.format("Invocation ID: %s", invocationId)));
+
+    Path logDir =
+        env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-remote-logs");
+    cleanAndCreateRemoteLogsDir(logDir);
 
     try {
       List<ClientInterceptor> interceptors = new ArrayList<>();
@@ -267,7 +262,7 @@ public final class RemoteModule extends BlazeModule {
       }
 
       GrpcRemoteExecutor executor = null;
-      if (!Strings.isNullOrEmpty(remoteOptions.remoteExecutor)) {
+      if (enableRemoteExecution) {
         RemoteRetrier retrier =
             new RemoteRetrier(
                 remoteOptions,
@@ -297,6 +292,19 @@ public final class RemoteModule extends BlazeModule {
           .exit(
               new AbruptExitException(
                   "Error initializing RemoteModule", ExitCode.COMMAND_LINE_ERROR));
+    }
+  }
+
+  private static void cleanAndCreateRemoteLogsDir(Path logDir) throws AbruptExitException {
+    try {
+      // Clean out old logs files.
+      if (logDir.exists()) {
+        FileSystemUtils.deleteTree(logDir);
+      }
+      logDir.createDirectory();
+    } catch (IOException e) {
+      String message = String.format("Could not create base directory for remote logs: %s", logDir);
+      throw new AbruptExitException(message, ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e);
     }
   }
 
