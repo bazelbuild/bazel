@@ -164,7 +164,7 @@ final class RemoteSpawnCache implements SpawnCache {
           if (isNullOrEmpty(errorMsg)) {
             errorMsg = e.getClass().getSimpleName();
           }
-          errorMsg = "Error reading from the remote cache:\n" + errorMsg;
+          errorMsg = "Reading from Remote Cache:\n" + errorMsg;
           report(Event.warn(errorMsg));
         }
       } finally {
@@ -212,7 +212,7 @@ final class RemoteSpawnCache implements SpawnCache {
             if (isNullOrEmpty(errorMsg)) {
               errorMsg = e.getClass().getSimpleName();
             }
-            errorMsg = "Error writing to the remote cache:\n" + errorMsg;
+            errorMsg = "Writing to Remote Cache:\n" + errorMsg;
             report(Event.warn(errorMsg));
           } finally {
             withMetadata.detach(previous);
