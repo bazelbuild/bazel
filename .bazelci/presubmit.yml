@@ -222,35 +222,13 @@ platforms:
     - "//src:bazel"
     - "//src:bazel_jdk_minimal"
     test_flags:
+    - "--flaky_test_attempts=1"
     - "--test_timeout=1200"
     # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
     - "--noincompatible_strict_action_env"
     test_targets:
     - "--"
-    - "//scripts/..."
-    - "//src/test/..."
-    - "//src/tools/execlog/..."
-    - "//src/tools/singlejar/..."
-    - "//src/tools/workspacelog/..."
-    - "//third_party/ijar/..."
-    - "//tools/android/..."
-    - "//tools/cmd_line_differ/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
-    - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # The below tests have been disabled because they are too slow on macOS.
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4684
-    - "-//src/test/shell/bazel:bazel_determinism_test"
-    - "-//src/test/shell/bazel:bazel_java_test"
-    - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-    - "-//src/test/shell/bazel/remote:remote_execution_test"
-    - "-//src/test/shell/bazel/remote:remote_execution_http_test"
-    - "-//src/test/shell/bazel:skylark_git_repository_test"
-    - "-//src/test/shell/bazel:external_path_test"
-    - "-//src/test/py/bazel:runfiles_test"
-    - "-//src/test/shell/bazel:git_repository_test"
-    - "-//src/test/shell/bazel/android:aar_integration_test"
-    - "-//src/test/shell/bazel/android:android_integration_test"
-    - "-//src/test/shell/integration:minimal_jdk_test"
+    - "//src/test/shell/bazel/remote:remote_execution_test"
   windows:
     batch_commands:
     - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
