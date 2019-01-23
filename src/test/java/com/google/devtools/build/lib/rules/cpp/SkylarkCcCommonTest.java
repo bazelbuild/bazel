@@ -1174,6 +1174,22 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCcLinkingContextOnWindows() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.COPY_DYNAMIC_LIBRARIES_TO_BINARY_CONFIGURATION,
+            MockCcSupport.TARGETS_WINDOWS_CONFIGURATION,
+            "supports_interface_shared_objects: false",
+            "needsPic: false");
+    doTestCcLinkingContext(
+        ImmutableList.of("a.a", "libdep2.a", "b.a", "c.a", "d.a", "libdep1.a"),
+        ImmutableList.of("a.pic.a", "b.pic.a", "c.pic.a", "e.pic.a"),
+        ImmutableList.of("a.so", "libdep2.so", "b.so", "e.so", "libdep1.so"));
+  }
+
+  @Test
   public void testCcLinkingContext() throws Exception {
     AnalysisMock.get()
         .ccSupport()
@@ -1182,6 +1198,17 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
             MockCcSupport.PIC_FEATURE,
             "supports_interface_shared_objects: false",
             "needsPic: true");
+    doTestCcLinkingContext(
+        ImmutableList.of("a.a", "b.a", "c.a", "d.a"),
+        ImmutableList.of("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a"),
+        ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
+  }
+
+  private void doTestCcLinkingContext(
+      List<String> staticLibraryList,
+      List<String> picStaticLibraryList,
+      List<String> dynamicLibraryList)
+      throws Exception {
     useConfiguration();
     setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
@@ -1200,19 +1227,19 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 .filter(x -> x.getStaticLibrary() != null)
                 .map(x -> x.getStaticLibrary().getFilename())
                 .collect(ImmutableList.toImmutableList()))
-        .containsExactly("a.a", "b.a", "c.a", "d.a");
+        .containsExactlyElementsIn(staticLibraryList);
     assertThat(
             librariesToLink.stream()
                 .filter(x -> x.getPicStaticLibrary() != null)
                 .map(x -> x.getPicStaticLibrary().getFilename())
                 .collect(ImmutableList.toImmutableList()))
-        .containsExactly("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a");
+        .containsExactlyElementsIn(picStaticLibraryList);
     assertThat(
             librariesToLink.stream()
                 .filter(x -> x.getDynamicLibrary() != null)
                 .map(x -> x.getDynamicLibrary().getFilename())
                 .collect(ImmutableList.toImmutableList()))
-        .containsExactly("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so");
+        .containsExactlyElementsIn(dynamicLibraryList);
     assertThat(
             librariesToLink.stream()
                 .filter(x -> x.getInterfaceLibrary() != null)

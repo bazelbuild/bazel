@@ -399,22 +399,26 @@ public class CcModule
                 /* prefixConsumer= */ true,
                 /* configuration= */ null);
       }
-
-      return LibraryToLinkWrapper.builder()
-          .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(notNullArtifactForIdentifier))
-          .setStaticLibrary(staticLibrary)
-          .setPicStaticLibrary(picStaticLibrary)
-          .setDynamicLibrary(dynamicLibrary)
-          .setResolvedSymlinkDynamicLibrary(resolvedSymlinkDynamicLibrary)
-          .setInterfaceLibrary(interfaceLibrary)
-          .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
-          .setAlwayslink(alwayslink)
-          .build();
     }
-    throw new EvalException(
-        location,
-        "Must pass parameters: static_library, pic_static_library, dynamic_library, "
-            + "interface_library and alwayslink.");
+    if (staticLibrary == null
+        && picStaticLibrary == null
+        && dynamicLibrary == null
+        && interfaceLibrary == null) {
+      throw new EvalException(
+          location,
+          "Must pass at least one of the following parameters: static_library, pic_static_library, "
+              + "dynamic_library and interface_library.");
+    }
+    return LibraryToLinkWrapper.builder()
+        .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(notNullArtifactForIdentifier))
+        .setStaticLibrary(staticLibrary)
+        .setPicStaticLibrary(picStaticLibrary)
+        .setDynamicLibrary(dynamicLibrary)
+        .setResolvedSymlinkDynamicLibrary(resolvedSymlinkDynamicLibrary)
+        .setInterfaceLibrary(interfaceLibrary)
+        .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
+        .setAlwayslink(alwayslink)
+        .build();
   }
 
   @Override
