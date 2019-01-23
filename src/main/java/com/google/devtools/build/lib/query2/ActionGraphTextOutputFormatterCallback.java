@@ -129,14 +129,20 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
       BuildEvent configuration = actionOwner.getConfiguration();
       BuildEventStreamProtos.Configuration configProto =
           configuration.asStreamProto(/*context=*/ null).getConfiguration();
+
       stringBuilder
-          .append("  Owner: ")
-          .append(actionOwner.getLabel().toString())
+          .append("  Target: ")
+          .append(actionOwner.getLabel())
           .append('\n')
           .append("  Configuration: ")
           .append(configProto.getMnemonic())
           .append('\n');
-      ImmutableList<AspectDescriptor> aspectDescriptors = actionOwner.getAspectDescriptors();
+
+      // In the case of aspect-on-aspect, AspectDescriptors are listed in
+      // topological order of the dependency graph.
+      // e.g. [A -> B] would imply that aspect A is applied on top of aspect B.
+      ImmutableList<AspectDescriptor> aspectDescriptors =
+          actionOwner.getAspectDescriptors().reverse();
       if (!aspectDescriptors.isEmpty()) {
         stringBuilder
             .append("  AspectDescriptors: [")
@@ -164,8 +170,7 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
                               .append(')');
                           return aspectDescription.toString();
                         })
-                    .sorted()
-                    .collect(Collectors.joining(",\n")))
+                    .collect(Collectors.joining("\n    -> ")))
             .append("]\n");
       }
     }

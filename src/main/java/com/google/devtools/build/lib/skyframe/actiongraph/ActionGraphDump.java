@@ -200,13 +200,17 @@ public class ActionGraphDump {
       BuildEvent event = actionOwner.getConfiguration();
       actionBuilder.setConfigurationId(knownConfigurations.dataToId(event));
 
-      // store aspect
-      for (AspectDescriptor aspectDescriptor : actionOwner.getAspectDescriptors()) {
+      // Store aspects.
+      // Iterate through the aspect path and dump the aspect descriptors.
+      // In the case of aspect-on-aspect, AspectDescriptors are listed in topological order
+      // of the configured target graph.
+      // e.g. [A, B] would imply that aspect A is applied on top of aspect B.
+      for (AspectDescriptor aspectDescriptor : actionOwner.getAspectDescriptors().reverse()) {
         actionBuilder.addAspectDescriptorIds(knownAspectDescriptors.dataToId(aspectDescriptor));
       }
     }
 
-    // store inputs
+    // Store inputs
     Iterable<Artifact> inputs = action.getInputs();
     if (!(inputs instanceof NestedSet)) {
       inputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs);

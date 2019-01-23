@@ -118,7 +118,7 @@ EOF
   cat output >> "$TEST_log"
   assert_contains "action 'Executing genrule //$pkg:bar'" output
   assert_contains "Mnemonic: Genrule" output
-  assert_contains "Owner: //$pkg:bar" output
+  assert_contains "Target: //$pkg:bar" output
   assert_contains "Configuration: .*-fastbuild" output
   # Only check that the inputs/outputs/command line/environment exist, but not
   # their actual contents since that would be too much.
@@ -199,7 +199,7 @@ EOF
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_contains "Mnemonic: SkylarkAction" output
-  assert_contains "Owner: //$pkg:goo" output
+  assert_contains "Target: //$pkg:goo" output
   assert_contains "Environment: \[.*foo=bar" output
 }
 
@@ -819,6 +819,131 @@ EOF
   expect_log_n "CppCompileActionTemplate compiling .*.cc" $expected_num_actions "Expected exactly $expected_num_actions CppCompileActionTemplates."
 
   bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_aspect_on_aspect() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/rule.bzl" <<'EOF'
+IntermediateProvider = provider(
+  fields = {
+    'dummy_field': 'dummy field'
+  }
+)
+
+MyBaseRuleProvider = provider(
+  fields = {
+    'dummy_field': 'dummy field'
+  }
+)
+
+def _base_rule_impl(ctx):
+  return [MyBaseRuleProvider(dummy_field = 1)]
+
+base_rule = rule(
+  attrs = {
+    'srcs': attr.label_list(allow_files = True),
+  },
+  implementation = _base_rule_impl
+)
+
+def _intermediate_aspect_imp(target, ctx):
+  if hasattr(ctx.rule.attr, 'srcs'):
+    out = ctx.actions.declare_file('out_jpl_{}'.format(target))
+    ctx.actions.run(
+      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],
+      outputs = [out],
+      executable = 'dummy',
+      mnemonic = 'MyIntermediateAspect'
+    )
+
+  return [IntermediateProvider(dummy_field = 1)]
+
+intermediate_aspect = aspect(
+  attr_aspects = ['deps', 'exports'],
+  required_aspect_providers = [[MyBaseRuleProvider]],
+  provides = [IntermediateProvider],
+  implementation = _intermediate_aspect_imp,
+)
+
+def _int_rule_impl(ctx):
+  return struct()
+
+intermediate_rule = rule(
+  attrs = {
+    'deps': attr.label_list(aspects = [intermediate_aspect]),
+    'srcs': attr.label_list(allow_files = True),
+  },
+  implementation = _int_rule_impl
+)
+
+def _aspect_impl(target, ctx):
+  if hasattr(ctx.rule.attr, 'srcs'):
+    out = ctx.actions.declare_file('out{}'.format(target))
+    ctx.actions.run(
+      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],
+      outputs = [out],
+      executable = 'dummy',
+      mnemonic = 'MyAspect'
+    )
+
+  return [struct()]
+
+my_aspect = aspect(
+  attr_aspects = ['deps', 'exports'],
+  required_aspect_providers = [[IntermediateProvider], [MyBaseRuleProvider]],
+  attrs = {
+    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])
+  },
+  implementation = _aspect_impl,
+)
+
+def _rule_impl(ctx):
+  return struct()
+
+my_rule = rule(
+  attrs = {
+    'deps': attr.label_list(aspects = [my_aspect]),
+    'srcs': attr.label_list(allow_files = True),
+    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])
+  },
+  implementation = _rule_impl
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load(':rule.bzl', 'my_rule', 'intermediate_rule', 'base_rule')
+
+base_rule(
+    name = 'x',
+    srcs = [':x.java'],
+)
+
+intermediate_rule(
+    name = 'int_target',
+    deps = [':x'],
+)
+
+my_rule(
+    name = 'my_target',
+    srcs = ['foo.java'],
+    aspect_param = 'y',
+    deps = [':int_target'],
+)
+EOF
+
+  QUERY="deps(//$pkg:my_target)"
+
+  bazel aquery --output=text --include_aspects ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Mnemonic: MyAspect" output
+  assert_contains "AspectDescriptors: \[.*:rule.bzl%my_aspect(aspect_param='y')" output
+  assert_contains "^.*->.*:rule.bzl%intermediate_aspect()\]$" output
+
+  bazel aquery --output=textproto --include_aspects --noinclude_commandline ${QUERY} > output \
     2> "$TEST_log" || fail "Expected success"
 }
 

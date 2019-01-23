@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,9 +24,11 @@ import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.Action;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisProtos.AspectDescriptor;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.DepSetOfFiles;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.KeyValuePair;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ParamFile;
+import com.google.devtools.build.lib.analysis.AnalysisProtos.Target;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.ActionGraphProtoOutputFormatterCallback.OutputType;
@@ -504,6 +507,377 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
     assertThat(cppCompileActionTemplates).hasSize(expectedActionsCount);
   }
 
+  @Test
+  public void testIncludeAspects_AspectOnAspect() throws Exception {
+    options.useAspects = true;
+    writeFile(
+        "test/rule.bzl",
+        "MyProvider = provider(",
+        "  fields = {",
+        "    'dummy_field': 'dummy field'",
+        "  }",
+        ")",
+        "def _my_jpl_aspect_imp(target, ctx):",
+        "  if hasattr(ctx.rule.attr, 'srcs'):",
+        "    out = ctx.actions.declare_file('out_jpl_{}'.format(target))",
+        "    ctx.actions.run(",
+        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],",
+        "      outputs = [out],",
+        "      executable = 'dummy',",
+        "      mnemonic = 'MyJplAspect'",
+        "    )",
+        "  return [MyProvider(dummy_field = 1)]",
+        "my_jpl_aspect = aspect(",
+        "  attr_aspects = ['deps', 'exports'],",
+        "  required_aspect_providers = [['proto_java']],",
+        "  provides = [MyProvider],",
+        "  implementation = _my_jpl_aspect_imp,",
+        ")",
+        "def _jpl_rule_impl(ctx):",
+        "  return struct()",
+        "my_jpl_rule = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [my_jpl_aspect]),",
+        "    'srcs': attr.label_list(allow_files = True),",
+        "  },",
+        "  implementation = _jpl_rule_impl",
+        ")",
+        "def _aspect_impl(target, ctx):",
+        "  if hasattr(ctx.rule.attr, 'srcs'):",
+        "    out = ctx.actions.declare_file('out{}'.format(target))",
+        "    ctx.actions.run(",
+        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],",
+        "      outputs = [out],",
+        "      executable = 'dummy',",
+        "      mnemonic = 'MyAspect'",
+        "    )",
+        "  return [struct()]",
+        "my_aspect = aspect(",
+        "  attr_aspects = ['deps', 'exports'],",
+        "  required_aspect_providers = [[MyProvider]],",
+        "  attrs = {",
+        "    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])",
+        "  },",
+        "  implementation = _aspect_impl,",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return struct()",
+        "my_rule = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [my_aspect]),",
+        "    'srcs': attr.label_list(allow_files = True),",
+        "    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])",
+        "  },",
+        "  implementation = _rule_impl",
+        ")");
+
+    writeFile(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_rule', 'my_jpl_rule')",
+        "proto_library(",
+        "  name = 'x',",
+        "  srcs = [':x.proto']",
+        ")",
+        "my_jpl_rule(",
+        "  name = 'my_java_proto',",
+        "  deps = [':x'],",
+        ")",
+        "my_rule(",
+        "  name = 'my_target',",
+        "  deps = [':my_java_proto'],",
+        "  srcs = ['foo.java'],",
+        "  aspect_param = 'y'",
+        ")");
+
+    ActionGraphContainer actionGraphContainer =
+        getOutput("deps(//test:my_target)", AqueryActionFilter.emptyInstance());
+
+    Target protoLibraryTarget =
+        Iterables.getOnlyElement(
+            actionGraphContainer.getTargetsList().stream()
+                .filter(target -> target.getLabel().equals("//test:x"))
+                .collect(Collectors.toList()));
+    Action actionFromMyAspect =
+        Iterables.getOnlyElement(
+            actionGraphContainer.getActionsList().stream()
+                .filter(
+                    action ->
+                        action.getMnemonic().equals("MyAspect")
+                            && action.getTargetId().equals(protoLibraryTarget.getId()))
+                .collect(Collectors.toList()));
+
+    // Verify the aspect path of the action.
+    assertThat(actionFromMyAspect.getAspectDescriptorIdsCount()).isEqualTo(2);
+    List<KeyValuePair> expectedMyAspectParams =
+        ImmutableList.of(KeyValuePair.newBuilder().setKey("aspect_param").setValue("y").build());
+    assertCorrectAspectDescriptor(
+        actionGraphContainer,
+        actionFromMyAspect.getAspectDescriptorIds(0),
+        "//test:rule.bzl%my_aspect",
+        expectedMyAspectParams);
+    assertCorrectAspectDescriptor(
+        actionGraphContainer,
+        actionFromMyAspect.getAspectDescriptorIds(1),
+        "//test:rule.bzl%my_jpl_aspect",
+        ImmutableList.of());
+  }
+
+  @Test
+  public void testIncludeAspects_SingleAspect() throws Exception {
+    options.useAspects = true;
+    writeFile(
+        "test/rule.bzl",
+        "MyProvider = provider(",
+        "  fields = {",
+        "    'dummy_field': 'dummy field'",
+        "  }",
+        ")",
+        "def _my_jpl_aspect_imp(target, ctx):",
+        "  if hasattr(ctx.rule.attr, 'srcs'):",
+        "    out = ctx.actions.declare_file('out_jpl_{}'.format(target))",
+        "    ctx.actions.run(",
+        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],",
+        "      outputs = [out],",
+        "      executable = 'dummy',",
+        "      mnemonic = 'MyJplAspect'",
+        "    )",
+        "  return [MyProvider(dummy_field = 1)]",
+        "my_jpl_aspect = aspect(",
+        "  attr_aspects = ['deps', 'exports'],",
+        "  required_aspect_providers = [['proto_java']],",
+        "  attrs = {",
+        "    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])",
+        "  },",
+        "  implementation = _my_jpl_aspect_imp,",
+        ")",
+        "def _jpl_rule_impl(ctx):",
+        "  return struct()",
+        "my_jpl_rule = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [my_jpl_aspect]),",
+        "    'srcs': attr.label_list(allow_files = True),",
+        "    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])",
+        "  },",
+        "  implementation = _jpl_rule_impl",
+        ")");
+
+    writeFile(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_jpl_rule')",
+        "proto_library(",
+        "  name = 'x',",
+        "  srcs = [':x.proto']",
+        ")",
+        "my_jpl_rule(",
+        "  name = 'my_java_proto',",
+        "  deps = [':x'],",
+        "  aspect_param = 'y'",
+        ")");
+
+    ActionGraphContainer actionGraphContainer =
+        getOutput("deps(//test:my_java_proto)", AqueryActionFilter.emptyInstance());
+
+    Target protoLibraryTarget =
+        Iterables.getOnlyElement(
+            actionGraphContainer.getTargetsList().stream()
+                .filter(target -> target.getLabel().equals("//test:x"))
+                .collect(Collectors.toList()));
+    Action actionFromMyJplAspect =
+        Iterables.getOnlyElement(
+            actionGraphContainer.getActionsList().stream()
+                .filter(
+                    action ->
+                        action.getMnemonic().equals("MyJplAspect")
+                            && action.getTargetId().equals(protoLibraryTarget.getId()))
+                .collect(Collectors.toList()));
+
+    // Verify the aspect of the action.
+    assertThat(actionFromMyJplAspect.getAspectDescriptorIdsCount()).isEqualTo(1);
+    List<KeyValuePair> expectedMyAspectParams =
+        ImmutableList.of(KeyValuePair.newBuilder().setKey("aspect_param").setValue("y").build());
+    assertCorrectAspectDescriptor(
+        actionGraphContainer,
+        Iterables.getOnlyElement(actionFromMyJplAspect.getAspectDescriptorIdsList()),
+        "//test:rule.bzl%my_jpl_aspect",
+        expectedMyAspectParams);
+  }
+
+  @Test
+  public void testIncludeAspects_twoAspectsOneTarget_separateAspectDescriptors() throws Exception {
+    options.useAspects = true;
+    writeFile(
+        "test/rule.bzl",
+        "JplProvider = provider(",
+        "  fields = {",
+        "    'dummy_field': 'dummy field'",
+        "  }",
+        ")",
+        "RandomProvider = provider(",
+        "  fields = {",
+        "    'dummy_field': 'dummy field'",
+        "  }",
+        ")",
+        "def _common_impl(target, ctx, outfilename, mnemonic, provider):",
+        "  if hasattr(ctx.rule.attr, 'srcs'):",
+        "    out = ctx.actions.declare_file(outfilename)",
+        "    ctx.actions.run(",
+        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],",
+        "      outputs = [out],",
+        "      executable = 'dummy',",
+        "      mnemonic = mnemonic",
+        "    )",
+        "  return [provider(dummy_field = 1)]",
+        "def _my_random_aspect_impl(target, ctx):",
+        "  return _common_impl(target, ctx, 'rand_out', 'MyRandomAspect', RandomProvider)",
+        "my_random_aspect = aspect(",
+        "  attr_aspects = ['deps', 'exports'],",
+        "  required_aspect_providers = [['proto_java']],",
+        "  provides = [RandomProvider],",
+        "  implementation = _my_random_aspect_impl,",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return struct()",
+        "my_random_rule = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [my_random_aspect]),",
+        "    'srcs': attr.label_list(allow_files = True),",
+        "  },",
+        "  implementation = _rule_impl",
+        ")",
+        "def _my_jpl_aspect_impl(target, ctx):",
+        "  return _common_impl(target, ctx, 'jpl_out', 'MyJplAspect', JplProvider)",
+        "my_jpl_aspect = aspect(",
+        "  attr_aspects = ['deps', 'exports'],",
+        "  required_aspect_providers = [['proto_java']],",
+        "  provides = [JplProvider],",
+        "  implementation = _my_jpl_aspect_impl,",
+        ")",
+        "my_jpl_rule = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [my_jpl_aspect]),",
+        "    'srcs': attr.label_list(allow_files = True),",
+        "  },",
+        "  implementation = _rule_impl",
+        ")");
+
+    writeFile(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_jpl_rule', 'my_random_rule')",
+        "proto_library(",
+        "  name = 'x',",
+        "  srcs = [':x.proto']",
+        ")",
+        "my_jpl_rule(",
+        "  name = 'target_1',",
+        "  deps = [':x'],",
+        ")",
+        "my_random_rule(",
+        "  name = 'target_2',",
+        "  deps = [':x'],",
+        ")");
+
+    ActionGraphContainer actionGraphContainer =
+        getOutput("//test:all", AqueryActionFilter.emptyInstance());
+
+    Target protoLibraryTarget =
+        Iterables.getOnlyElement(
+            actionGraphContainer.getTargetsList().stream()
+                .filter(target -> target.getLabel().equals("//test:x"))
+                .collect(Collectors.toList()));
+    Action actionFromMyJplAspect =
+        Iterables.getOnlyElement(
+            actionGraphContainer.getActionsList().stream()
+                .filter(
+                    action ->
+                        action.getMnemonic().equals("MyJplAspect")
+                            && action.getTargetId().equals(protoLibraryTarget.getId()))
+                .collect(Collectors.toList()));
+    Action actionFromMyRandomAspect =
+        Iterables.getOnlyElement(
+            actionGraphContainer.getActionsList().stream()
+                .filter(
+                    action ->
+                        action.getMnemonic().equals("MyRandomAspect")
+                            && action.getTargetId().equals(protoLibraryTarget.getId()))
+                .collect(Collectors.toList()));
+
+    // Verify the aspect path of the action contains exactly 1 aspect.
+    assertThat(actionFromMyJplAspect.getAspectDescriptorIdsCount()).isEqualTo(1);
+    assertCorrectAspectDescriptor(
+        actionGraphContainer,
+        Iterables.getOnlyElement(actionFromMyJplAspect.getAspectDescriptorIdsList()),
+        "//test:rule.bzl%my_jpl_aspect",
+        ImmutableList.of());
+    assertThat(actionFromMyRandomAspect.getAspectDescriptorIdsCount()).isEqualTo(1);
+    assertCorrectAspectDescriptor(
+        actionGraphContainer,
+        Iterables.getOnlyElement(actionFromMyRandomAspect.getAspectDescriptorIdsList()),
+        "//test:rule.bzl%my_random_aspect",
+        ImmutableList.of());
+  }
+
+  @Test
+  public void testIncludeAspects_flagDisabled_NoAspect() throws Exception {
+    // The flag --include_aspects is set to false by default.
+    writeFile(
+        "test/rule.bzl",
+        "MyProvider = provider(",
+        "  fields = {",
+        "    'dummy_field': 'dummy field'",
+        "  }",
+        ")",
+        "def _my_jpl_aspect_imp(target, ctx):",
+        "  if hasattr(ctx.rule.attr, 'srcs'):",
+        "    out = ctx.actions.declare_file('out_jpl_{}'.format(target))",
+        "    ctx.actions.run(",
+        "      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],",
+        "      outputs = [out],",
+        "      executable = 'dummy',",
+        "      mnemonic = 'MyJplAspect'",
+        "    )",
+        "  return [MyProvider(dummy_field = 1)]",
+        "my_jpl_aspect = aspect(",
+        "  attr_aspects = ['deps', 'exports'],",
+        "  required_aspect_providers = [['proto_java']],",
+        "  attrs = {",
+        "    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])",
+        "  },",
+        "  implementation = _my_jpl_aspect_imp,",
+        ")",
+        "def _jpl_rule_impl(ctx):",
+        "  return struct()",
+        "my_jpl_rule = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [my_jpl_aspect]),",
+        "    'srcs': attr.label_list(allow_files = True),",
+        "    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])",
+        "  },",
+        "  implementation = _jpl_rule_impl",
+        ")");
+
+    writeFile(
+        "test/BUILD",
+        "load(':rule.bzl', 'my_jpl_rule')",
+        "proto_library(",
+        "  name = 'x',",
+        "  srcs = [':x.proto']",
+        ")",
+        "my_jpl_rule(",
+        "  name = 'my_java_proto',",
+        "  deps = [':x'],",
+        "  aspect_param = 'y'",
+        ")");
+
+    ActionGraphContainer actionGraphContainer =
+        getOutput("deps(//test:my_java_proto)", AqueryActionFilter.emptyInstance());
+
+    assertThat(
+            actionGraphContainer.getActionsList().stream()
+                .filter(action -> !action.getAspectDescriptorIdsList().isEmpty())
+                .collect(Collectors.toList()))
+        .isEmpty();
+  }
+
   private AnalysisProtos.ActionGraphContainer getOutput(String queryExpression) throws Exception {
     return getOutput(queryExpression, /* actionFilters= */ AqueryActionFilter.emptyInstance());
   }
@@ -568,6 +942,22 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
       }
     }
     assertThat(action.getOutputIdsList()).contains(outputId);
+  }
+
+  private void assertCorrectAspectDescriptor(
+      ActionGraphContainer actionGraphContainer,
+      String aspectDescriptorId,
+      String expectedName,
+      List<KeyValuePair> expectedParameters) {
+    for (AspectDescriptor aspectDescriptor : actionGraphContainer.getAspectDescriptorsList()) {
+      if (!aspectDescriptorId.equals(aspectDescriptor.getId())) {
+        continue;
+      }
+      assertThat(aspectDescriptor.getName()).isEqualTo(expectedName);
+      assertThat(aspectDescriptor.getParametersList()).isEqualTo(expectedParameters);
+      return;
+    }
+    fail("Should have matched at least one AspectDescriptor.");
   }
 
   private AqueryActionFilter constructActionFilter(ImmutableMap<String, String> patternStrings) {

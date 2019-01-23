@@ -54,6 +54,9 @@ message Action {
   string target_id = 1;
 
   // The aspects that were responsible for the creation of the action (if any).
+  // In the case of aspect-on-aspect, AspectDescriptors are listed in
+  // topological order of the dependency graph.
+  // e.g. [A, B] would imply that aspect A is applied on top of aspect B.
   repeated string aspect_descriptor_ids = 2;
 
   // Encodes all significant behavior that might affect the output. The key
