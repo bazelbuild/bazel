@@ -19,7 +19,6 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Action;
@@ -299,7 +298,8 @@ public class RemoteSpawnCacheTest {
   @Test
   public void noCacheSpawns() throws Exception {
     // Checks that spawns that have mayBeCached false are not looked up in the remote cache,
-    // and also that their result and artifacts are not uploaded to the remote cache.
+    // and also that their result is not uploaded to the remote cache. The artifacts, however,
+    // are uploaded.
     SimpleSpawn uncacheableSpawn =
         new SimpleSpawn(
             new FakeOwner("foo", "bar"),
@@ -320,7 +320,16 @@ public class RemoteSpawnCacheTest {
             .setRunnerName("test")
             .build();
     entry.store(result);
-    verifyNoMoreInteractions(remoteCache);
+    ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
+    verify(remoteCache)
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr),
+            eq(false));
     assertThat(progressUpdates).containsExactly();
   }
 

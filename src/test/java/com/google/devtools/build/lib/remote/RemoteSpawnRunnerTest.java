@@ -23,7 +23,6 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
@@ -228,7 +227,7 @@ public class RemoteSpawnRunnerTest {
   @SuppressWarnings("unchecked")
   public void nonCachableSpawnsShouldNotBeCached_local() throws Exception {
     // Test that if a spawn is executed locally, due to the local fallback, that its result is not
-    // uploaded to the remote cache.
+    // uploaded to the remote cache. However, the artifacts should still be uploaded.
 
     options.remoteAcceptCached = true;
     options.remoteLocalFallback = true;
@@ -270,7 +269,15 @@ public class RemoteSpawnRunnerTest {
 
     verify(cache, never())
         .getCachedActionResult(any(ActionKey.class));
-    verifyNoMoreInteractions(cache);
+    verify(cache)
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            any(Collection.class),
+            any(FileOutErr.class),
+            eq(false));
   }
 
   @Test

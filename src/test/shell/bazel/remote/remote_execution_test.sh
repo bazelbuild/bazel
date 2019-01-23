@@ -307,9 +307,9 @@ EOF
       //a:test >& $TEST_log \
       && fail "Expected test failure" || true
    $(is_file_uploaded bazel-testlogs/a/test/test.log) \
-     && fail "Expected test log to not be uploaded to remote execution" || true
+     || fail "Expected test log to be uploaded to remote execution"
    $(is_file_uploaded bazel-testlogs/a/test/test.xml) \
-     && fail "Expected test xml to not be uploaded to remote execution" || true
+     || fail "Expected test xml to be uploaded to remote execution"
 }
 
 # Tests that the remote worker can return a 200MB blob that requires chunking.
