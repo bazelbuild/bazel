@@ -72,7 +72,7 @@ EOF
   # Note that this will change in the future but is the current state.
   bazel aquery --output=text //java:javalib >& $TEST_log
   expect_not_log "exec external/embedded_jdk/bin/java"
-  expect_log "exec external/remotejdk_.*/bin/java"
+  expect_log "exec external/remotejdk10_.*/bin/java"
 
   bazel aquery --output=text --host_javabase=//:host_javabase \
     //java:javalib >& $TEST_log
