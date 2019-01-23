@@ -39,8 +39,7 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
     }
 
     // Find the ConfiguredTargetKey, this should tell the problem.
-    Optional<SkyKey> configuredTargetKey =
-        cycle.stream().filter(IS_CONFIGURED_TARGET_SKY_KEY).findFirst();
+    Optional<ConfiguredTargetKey> configuredTargetKey = findRootConfiguredTarget(cycle);
     if (!configuredTargetKey.isPresent()) {
       return false;
     }
@@ -77,5 +76,27 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
     AbstractLabelCycleReporter.printCycle(cycleInfo.getCycle(), cycleMessage, printer);
     eventHandler.handle(Event.error(null, cycleMessage.toString()));
     return true;
+  }
+
+  /**
+   * Returns the first {@link SkyKey} that is an instance of {@link ConfiguredTargetKey} and follows
+   * {@link RegisteredToolchainsValue.Key}. This will loop over the cycle in case the {@link
+   * RegisteredToolchainsValue} is not first in the list.
+   */
+  private Optional<ConfiguredTargetKey> findRootConfiguredTarget(ImmutableList<SkyKey> cycle) {
+    // Loop over the cycle, possibly twice, first looking for RegisteredToolchainsValue,
+    // then finding the first ConfiguredTargetKey.
+    boolean rtvFound = false;
+    for (int i = 0; i < cycle.size() * 2; i++) {
+      SkyKey skyKey = cycle.get(i % cycle.size());
+      if (!rtvFound && IS_REGISTERED_TOOLCHAINS_SKY_KEY.apply(skyKey)) {
+        rtvFound = true;
+      }
+      if (rtvFound && IS_CONFIGURED_TARGET_SKY_KEY.apply(skyKey)) {
+        return Optional.of((ConfiguredTargetKey) skyKey);
+      }
+    }
+
+    return Optional.empty();
   }
 }
