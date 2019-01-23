@@ -548,8 +548,8 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
     for f in [
-        'bin_java.exe', 'bin_java.exe.runfiles_manifest', 'bin_sh.exe',
-        'bin_sh', 'bin_sh.exe.runfiles_manifest'
+        'bin_java.exe', 'bin_java.exe.runfiles_manifest',
+        'bin_sh.exe', 'bin_sh', 'bin_sh.exe.runfiles_manifest',
     ]:
       self.CopyFile(os.path.join(bazel_bin, 'bin', f),
                     os.path.join(u'./\u6d4b\u8bd5', f))
@@ -561,6 +561,75 @@ class LauncherTest(test_base.TestBase):
 
     unicode_binary_path = u'./\u6d4b\u8bd5/bin_sh.exe'
     exit_code, stdout, stderr = self.RunProgram([unicode_binary_path])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual('helloworld', ''.join(stdout))
+
+  def testWindowsNativeLauncherInLongPath(self):
+    if not self.IsWindows():
+      return
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('bin/BUILD', [
+        'java_binary(',
+        '  name = "bin_java",',
+        '  srcs = ["Main.java"],',
+        '  main_class = "Main",',
+        ')',
+        'sh_binary(',
+        '  name = "bin_sh",',
+        '  srcs = ["main.sh"],',
+        ')',
+        'py_binary(',
+        '  name = "bin_py",',
+        '  srcs = ["bin_py.py"],',
+        ')',
+    ])
+    self.ScratchFile('bin/Main.java', [
+        'public class Main {',
+        '  public static void main(String[] args) {'
+        '    System.out.println("helloworld");',
+        '  }',
+        '}',
+    ])
+    self.ScratchFile('bin/main.sh', [
+        'echo "helloworld"',
+    ])
+    self.ScratchFile('bin/bin_py.py', [
+        'print("helloworld")',
+    ])
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel(['build', '//bin/...'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    # Create a directory with a path longer than 260
+    long_dir_path = "./" + "/".join(["a" * 100, "b" * 100, "c" * 100])
+
+    for f in [
+        'bin_java.exe', 'bin_java.exe.runfiles_manifest',
+        'bin_sh.exe', 'bin_sh', 'bin_sh.exe.runfiles_manifest',
+        'bin_py.exe', 'bin_py.zip', 'bin_py.exe.runfiles_manifest',
+    ]:
+      self.CopyFile(os.path.join(bazel_bin, 'bin', f),
+                    os.path.join(long_dir_path, f))
+
+    long_binary_path = os.path.abspath(long_dir_path + '/bin_java.exe')
+    # To run a binary at a long path, we need to set shell=True
+    exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual('helloworld', ''.join(stdout))
+
+    long_binary_path = os.path.abspath(long_dir_path + '/bin_sh.exe')
+    # To run a binary at a long path, we need to set shell=True
+    exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual('helloworld', ''.join(stdout))
+
+    long_binary_path = os.path.abspath(long_dir_path + '/bin_py.exe')
+    # To run a binary at a long path, we need to set shell=True
+    exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
 
