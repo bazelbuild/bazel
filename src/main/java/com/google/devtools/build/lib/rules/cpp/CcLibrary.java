@@ -144,8 +144,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .addSources(common.getSources())
             .addPrivateHeaders(common.getPrivateHeaders())
             .addPublicHeaders(common.getHeaders())
-            .enableCompileProviders()
-            .addPrecompiledFiles(precompiledFiles);
+            .enableCompileProviders();
 
     CcLinkingHelper linkingHelper =
         new CcLinkingHelper(
@@ -257,7 +256,17 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
 
     CompilationInfo compilationInfo = compilationHelper.compile();
-    CcCompilationOutputs ccCompilationOutputs = compilationInfo.getCcCompilationOutputs();
+    CcCompilationOutputs precompiledFilesObjects =
+        new CcCompilationOutputs.Builder()
+            .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
+            .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
+            .build();
+    CcCompilationOutputs ccCompilationOutputs =
+        new CcCompilationOutputs.Builder()
+            .merge(precompiledFilesObjects)
+            .merge(compilationInfo.getCcCompilationOutputs())
+            .build();
+
     // Generate .a and .so outputs even without object files to fulfill the rule class
     // contract wrt. implicit output files, if the contract says so. Behavior here differs
     // between Bazel and Blaze.

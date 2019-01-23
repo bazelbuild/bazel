@@ -295,7 +295,6 @@ public class CompilationSupport {
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
       Iterable<PathFragment> priorityHeaders,
-      PrecompiledFiles precompiledFiles,
       Collection<Artifact> sources,
       Collection<Artifact> privateHdrs,
       Collection<Artifact> publicHdrs,
@@ -304,7 +303,7 @@ public class CompilationSupport {
       Iterable<? extends TransitiveInfoCollection> deps,
       ObjcCppSemantics semantics,
       String purpose)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException {
     CcCompilationHelper result =
         new CcCompilationHelper(
                 ruleContext,
@@ -319,7 +318,6 @@ public class CompilationSupport {
             .addDefines(objcProvider.get(DEFINE))
             .enableCompileProviders()
             .addPublicHeaders(publicHdrs)
-            .addPrecompiledFiles(precompiledFiles)
             .addDeps(deps)
             // Not all our dependencies need to export cpp information.
             // For example, objc_proto_library can depend on a proto_library rule that does not
@@ -392,7 +390,6 @@ public class CompilationSupport {
             ccToolchain,
             fdoContext,
             priorityHeaders,
-            precompiledFiles,
             arcSources,
             privateHdrs,
             publicHdrs,
@@ -411,7 +408,6 @@ public class CompilationSupport {
             ccToolchain,
             fdoContext,
             priorityHeaders,
-            precompiledFiles,
             nonArcSources,
             privateHdrs,
             publicHdrs,
@@ -452,7 +448,17 @@ public class CompilationSupport {
         String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
     semantics.setupCcCompilationContext(ruleContext, ccCompilationContextBuilder);
 
-    CcCompilationOutputs.Builder compilationOutputsBuilder = new CcCompilationOutputs.Builder();
+    CcCompilationOutputs precompiledFilesObjects =
+        new CcCompilationOutputs.Builder()
+            .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ false))
+            .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
+            .build();
+
+    CcCompilationOutputs.Builder compilationOutputsBuilder =
+        new CcCompilationOutputs.Builder()
+            .merge(objcArcCompilationInfo.getCcCompilationOutputs())
+            .merge(nonObjcArcCompilationInfo.getCcCompilationOutputs())
+            .merge(precompiledFilesObjects);
     compilationOutputsBuilder.merge(objcArcCompilationInfo.getCcCompilationOutputs());
     compilationOutputsBuilder.merge(nonObjcArcCompilationInfo.getCcCompilationOutputs());
     CcCompilationOutputs compilationOutputs = compilationOutputsBuilder.build();

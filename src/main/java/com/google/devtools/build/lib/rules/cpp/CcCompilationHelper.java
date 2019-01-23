@@ -260,8 +260,6 @@ public final class CcCompilationHelper {
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
   private final List<CppModuleMap> additionalCppModuleMaps = new ArrayList<>();
   private final LinkedHashMap<Artifact, CppSource> compilationUnitSources = new LinkedHashMap<>();
-  private final List<Artifact> objectFiles = new ArrayList<>();
-  private final List<Artifact> picObjectFiles = new ArrayList<>();
   private ImmutableList<String> copts = ImmutableList.of();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
@@ -573,34 +571,6 @@ public final class CcCompilationHelper {
     return ImmutableSet.copyOf(this.compilationUnitSources.values());
   }
 
-  /**
-   * Add the corresponding files as linker inputs for no-PIC links. If the corresponding files are
-   * compiled with PIC, the final link may or may not fail. Note that the final link may not happen
-   * here, if {@code --start_end_lib} is enabled, but instead at any binary that transitively
-   * depends on the current rule.
-   */
-  public CcCompilationHelper addObjectFiles(Iterable<Artifact> objectFiles) {
-    for (Artifact objectFile : objectFiles) {
-      Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(objectFile.getFilename()));
-    }
-    Iterables.addAll(this.objectFiles, objectFiles);
-    return this;
-  }
-
-  /**
-   * Add the corresponding files as linker inputs for PIC links. If the corresponding files are not
-   * compiled with PIC, the final link may or may not fail. Note that the final link may not happen
-   * here, if {@code --start_end_lib} is enabled, but instead at any binary that transitively
-   * depends on the current rule.
-   */
-  public CcCompilationHelper addPicObjectFiles(Iterable<Artifact> picObjectFiles) {
-    for (Artifact objectFile : objectFiles) {
-      Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(objectFile.getFilename()));
-    }
-    Iterables.addAll(this.picObjectFiles, picObjectFiles);
-    return this;
-  }
-
   public CcCompilationHelper setCopts(Iterable<String> copts) {
     this.copts = ImmutableList.copyOf(copts);
     return this;
@@ -634,17 +604,6 @@ public final class CcCompilationHelper {
   public CcCompilationHelper addCcCompilationContexts(
       Iterable<CcCompilationContext> ccCompilationContexts) {
     Iterables.addAll(this.ccCompilationContexts, Preconditions.checkNotNull(ccCompilationContexts));
-    return this;
-  }
-
-  /**
-   * Adds the given precompiled files to this helper. Shared and static libraries are added as
-   * compilation prerequisites, and object files are added as pic or no-PIC object files
-   * respectively.
-   */
-  public CcCompilationHelper addPrecompiledFiles(PrecompiledFiles precompiledFiles) {
-    addObjectFiles(precompiledFiles.getObjectFiles(false));
-    addPicObjectFiles(precompiledFiles.getObjectFiles(true));
     return this;
   }
 
@@ -805,15 +764,6 @@ public final class CcCompilationHelper {
 
     // Create compile actions (both PIC and no-PIC).
     CcCompilationOutputs ccOutputs = createCcCompileActions();
-    if (!objectFiles.isEmpty() || !picObjectFiles.isEmpty()) {
-      // Merge the pre-compiled object files into the compiler outputs.
-      ccOutputs =
-          new CcCompilationOutputs.Builder()
-              .merge(ccOutputs)
-              .addObjectFiles(objectFiles)
-              .addPicObjectFiles(picObjectFiles)
-              .build();
-    }
 
     DwoArtifactsCollector dwoArtifacts =
         DwoArtifactsCollector.transitiveCollector(

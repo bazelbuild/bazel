@@ -27,6 +27,8 @@ import java.util.Set;
 
 /** A structured representation of the compilation outputs of a C++ rule. */
 public class CcCompilationOutputs implements CcCompilationOutputsApi {
+  public static final CcCompilationOutputs EMPTY = new CcCompilationOutputs.Builder().build();
+
   /**
    * All .o files built by the target.
    */

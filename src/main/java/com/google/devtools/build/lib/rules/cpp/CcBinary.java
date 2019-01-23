@@ -312,11 +312,19 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             .addPrivateHeaders(common.getPrivateHeaders())
             .addSources(common.getSources())
             .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
-            .setFake(fake)
-            .addPrecompiledFiles(precompiledFiles);
+            .setFake(fake);
     CompilationInfo compilationInfo = compilationHelper.compile();
     CcCompilationContext ccCompilationContext = compilationInfo.getCcCompilationContext();
-    CcCompilationOutputs ccCompilationOutputs = compilationInfo.getCcCompilationOutputs();
+    CcCompilationOutputs precompiledFileObjects =
+        new CcCompilationOutputs.Builder()
+            .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ false))
+            .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
+            .build();
+    CcCompilationOutputs ccCompilationOutputs =
+        new CcCompilationOutputs.Builder()
+            .merge(precompiledFileObjects)
+            .merge(compilationInfo.getCcCompilationOutputs())
+            .build();
 
     // Allows the dynamic library generated for code of default dynamic mode targets to be linked
     // separately. The main use case for default dynamic mode is the cc_test rule. The same behavior
