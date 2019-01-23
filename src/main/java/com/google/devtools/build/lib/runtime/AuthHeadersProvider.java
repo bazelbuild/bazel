@@ -4,11 +4,15 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Generic interface to provide authentication headers for http/grpc requests
  * to bazel modules.
+ *
+ * <p>Implementations need to be thread-safe.
  */
+@ThreadSafe
 public interface AuthHeadersProvider {
 
   /**
