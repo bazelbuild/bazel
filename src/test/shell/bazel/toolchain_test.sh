@@ -1076,7 +1076,7 @@ function test_local_config_platform() {
   expect_log '@local_config_platform//:host'
 }
 
-# Test cycles in registered toolchain dtaa, which can only happen when
+# Test cycles in registered toolchains, which can only happen when
 # registered_toolchains is called for something that is not actually
 # using the "toolchain" rule.
 function test_registered_toolchain_cycle() {
