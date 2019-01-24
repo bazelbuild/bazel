@@ -280,12 +280,17 @@ public final class BuildResult {
   public static final class BuildToolLogCollection {
     private final List<Pair<String, ByteString>> directValues = new ArrayList<>();
     private final List<Pair<String, String>> directUris = new ArrayList<>();
-    private final List<Pair<String, Path>> logFiles = new ArrayList<>();
+    private final List<Pair<String, Path>> localFiles = new ArrayList<>();
     private boolean frozen;
 
     public BuildToolLogCollection freeze() {
       frozen = true;
       return this;
+    }
+
+    @VisibleForTesting
+    public List<Pair<String, Path>> getLocalFiles() {
+      return localFiles;
     }
 
     public BuildToolLogCollection addDirectValue(String name, byte[] data) {
@@ -302,13 +307,13 @@ public final class BuildResult {
 
     public BuildToolLogCollection addLocalFile(String name, Path path) {
       Preconditions.checkState(!frozen);
-      this.logFiles.add(Pair.of(name, path));
+      this.localFiles.add(Pair.of(name, path));
       return this;
     }
 
     public BuildToolLogs toEvent() {
       Preconditions.checkState(frozen);
-      return new BuildToolLogs(directValues, directUris, logFiles);
+      return new BuildToolLogs(directValues, directUris, localFiles);
     }
 
     /** For debugging. */
@@ -317,7 +322,7 @@ public final class BuildResult {
       return MoreObjects.toStringHelper(this)
           .add("directValues", directValues)
           .add("directUris", directUris)
-          .add("logFiles", logFiles)
+          .add("localFiles", localFiles)
           .toString();
     }
   }

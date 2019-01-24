@@ -417,6 +417,7 @@ public class BuildView {
     AnalysisResult result =
         createResult(
             eventHandler,
+            eventBus,
             loadingResult,
             configurations,
             topLevelOptions,
@@ -430,6 +431,7 @@ public class BuildView {
 
   private AnalysisResult createResult(
       ExtendedEventHandler eventHandler,
+      EventBus eventBus,
       TargetPatternPhaseValue loadingResult,
       BuildConfigurationCollection configurations,
       TopLevelArtifactContext topLevelOptions,
@@ -472,6 +474,7 @@ public class BuildView {
       actionsWrapper =
           coverageReportActionFactory.createCoverageReportActionsWrapper(
               eventHandler,
+              eventBus,
               directories,
               allTargetsToTest,
               baselineCoverageArtifacts,
