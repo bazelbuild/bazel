@@ -136,52 +136,56 @@ class GrpcRemoteExecutor {
         new AtomicReference<>(Operation.getDefaultInstance());
     final AtomicBoolean waitExecution =
         new AtomicBoolean(false); // Whether we should call WaitExecution.
-    return retrier.execute(
-        () -> {
-          final Iterator<Operation> replies;
-          if (waitExecution.get()) {
-            WaitExecutionRequest wr =
-                WaitExecutionRequest.newBuilder().setName(operation.get().getName()).build();
-            replies = execBlockingStub().waitExecution(wr);
-          } else {
-            replies = execBlockingStub().execute(request);
-          }
-          try {
-            while (replies.hasNext()) {
-              Operation o = replies.next();
-              operation.set(o);
-              waitExecution.set(!operation.get().getDone());
-              ExecuteResponse r = getOperationResponse(o);
-              if (r != null) {
-                return r;
-              }
+    try {
+      return retrier.execute(
+          () -> {
+            final Iterator<Operation> replies;
+            if (waitExecution.get()) {
+              WaitExecutionRequest wr =
+                  WaitExecutionRequest.newBuilder().setName(operation.get().getName()).build();
+              replies = execBlockingStub().waitExecution(wr);
+            } else {
+              replies = execBlockingStub().execute(request);
             }
-          } catch (StatusRuntimeException e) {
-            if (e.getStatus().getCode() == Code.NOT_FOUND) {
-              // Operation was lost on the server. Retry Execute.
-              waitExecution.set(false);
-            }
-            throw e;
-          } finally {
-            // The blocking streaming call closes correctly only when trailers and a Status
-            // are received from the server so that onClose() is called on this call's
-            // CallListener. Under normal circumstances (no cancel/errors), these are
-            // guaranteed to be sent by the server only if replies.hasNext() has been called
-            // after all replies from the stream have been consumed.
             try {
               while (replies.hasNext()) {
-                replies.next();
+                Operation o = replies.next();
+                operation.set(o);
+                waitExecution.set(!operation.get().getDone());
+                ExecuteResponse r = getOperationResponse(o);
+                if (r != null) {
+                  return r;
+                }
               }
             } catch (StatusRuntimeException e) {
-              // Cleanup: ignore exceptions, because the meaningful errors have already been
-              // propagated.
+              if (e.getStatus().getCode() == Code.NOT_FOUND) {
+                // Operation was lost on the server. Retry Execute.
+                waitExecution.set(false);
+              }
+              throw e;
+            } finally {
+              // The blocking streaming call closes correctly only when trailers and a Status
+              // are received from the server so that onClose() is called on this call's
+              // CallListener. Under normal circumstances (no cancel/errors), these are
+              // guaranteed to be sent by the server only if replies.hasNext() has been called
+              // after all replies from the stream have been consumed.
+              try {
+                while (replies.hasNext()) {
+                  replies.next();
+                }
+              } catch (StatusRuntimeException e) {
+                // Cleanup: ignore exceptions, because the meaningful errors have already been
+                // propagated.
+              }
             }
-          }
-          throw new IOException(
-              String.format(
-                  "Remote server error: execution request for %s terminated with no result.",
-                  operation.get().getName()));
-        });
+            throw new IOException(
+                String.format(
+                    "Remote server error: execution request for %s terminated with no result.",
+                    operation.get().getName()));
+          });
+    } catch (StatusRuntimeException e) {
+      throw new IOException(e);
+    }
   }
 
   public void close() {

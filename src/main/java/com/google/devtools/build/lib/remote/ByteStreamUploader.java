@@ -33,7 +33,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
@@ -42,6 +41,7 @@ import io.grpc.ClientCall;
 import io.grpc.Context;
 import io.grpc.Metadata;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import java.io.IOException;
@@ -130,7 +130,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
    *        uploaded, if {@code true} the blob is uploaded.
    * @throws IOException when reading of the {@link Chunker}s input source fails
-   * @throws RetryException when the upload failed after a retry
    */
   public void uploadBlob(Chunker chunker, boolean forceUpload) throws IOException,
       InterruptedException {
@@ -151,12 +150,11 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    *
    * @param chunkers the data to upload.
    * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
-   *        uploaded, if {@code true} the blob is uploaded.
-   * @throws IOException when reading of the {@link Chunker}s input source fails
-   * @throws RetryException when the upload failed after a retry
+   *     uploaded, if {@code true} the blob is uploaded.
+   * @throws IOException when reading of the {@link Chunker}s input source or uploading fails
    */
-  public void uploadBlobs(Iterable<Chunker> chunkers, boolean forceUpload) throws IOException,
-      InterruptedException {
+  public void uploadBlobs(Iterable<Chunker> chunkers, boolean forceUpload)
+      throws IOException, InterruptedException {
     List<ListenableFuture<Void>> uploads = new ArrayList<>();
 
     for (Chunker chunker : chunkers) {
@@ -170,7 +168,11 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       Throwables.propagateIfInstanceOf(cause, IOException.class);
-      throw new RuntimeException(cause);
+      Throwables.propagateIfInstanceOf(cause, InterruptedException.class);
+      if (cause instanceof StatusRuntimeException) {
+        throw new IOException(cause);
+      }
+      Throwables.propagate(cause);
     }
   }
 
@@ -212,7 +214,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
    *        uploaded, if {@code true} the blob is uploaded.
    * @throws IOException when reading of the {@link Chunker}s input source fails
-   * @throws RetryException when the upload failed after a retry
    */
   public ListenableFuture<Void> uploadBlobAsync(Chunker chunker, boolean forceUpload) {
     Digest digest = checkNotNull(chunker.digest());

@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
@@ -204,10 +203,7 @@ class RemoteSpawnRunner implements SpawnRunner {
                 .setCacheHit(true)
                 .setRunnerName("remote cache hit")
                 .build();
-          } catch (RetryException e) {
-            if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
-              throw e;
-            }
+          } catch (CacheNotFoundException e) {
             // No cache hit, so we fall through to local or remote execution.
             // We set acceptCachedResult to false in order to force the action re-execution.
             acceptCachedResult = false;
@@ -357,9 +353,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     if (Thread.currentThread().isInterrupted()) {
       throw new InterruptedException();
     }
-    if (remoteOptions.remoteLocalFallback
-        && !(cause instanceof RetryException
-            && RemoteRetrierUtils.causedByExecTimeout((RetryException) cause))) {
+    if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(
           spawn, context, inputMap, remoteCache, actionKey, action, command, uploadLocalResults);
     }
@@ -368,9 +362,8 @@ class RemoteSpawnRunner implements SpawnRunner {
 
   private SpawnResult handleError(IOException exception, FileOutErr outErr, ActionKey actionKey)
       throws ExecException, InterruptedException, IOException {
-    final Throwable cause = exception.getCause();
-    if (cause instanceof ExecutionStatusException) {
-      ExecutionStatusException e = (ExecutionStatusException) cause;
+    if (exception.getCause() instanceof ExecutionStatusException) {
+      ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
       if (e.getResponse() != null) {
         ExecuteResponse resp = e.getResponse();
         maybeDownloadServerLogs(resp, actionKey);
@@ -388,11 +381,9 @@ class RemoteSpawnRunner implements SpawnRunner {
       }
     }
     final Status status;
-    if (exception instanceof RetryException
-        && RemoteRetrierUtils.causedByStatus((RetryException) exception, Code.UNAVAILABLE)) {
+    if (RemoteRetrierUtils.causedByStatus(exception, Code.UNAVAILABLE)) {
       status = Status.EXECUTION_FAILED_CATASTROPHICALLY;
-    } else if (exception instanceof CacheNotFoundException
-        || cause instanceof CacheNotFoundException) {
+    } else if (exception instanceof CacheNotFoundException) {
       status = Status.REMOTE_CACHE_FAILED;
     } else {
       status = Status.EXECUTION_FAILED;
