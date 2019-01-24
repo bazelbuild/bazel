@@ -616,19 +616,19 @@ class LauncherTest(test_base.TestBase):
                     os.path.join(long_dir_path, f))
 
     long_binary_path = os.path.abspath(long_dir_path + '/bin_java.exe')
-    # To run a binary at a long path, we need to set shell=True
+    # subprocess doesn't support long path without shell=True
     exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
 
     long_binary_path = os.path.abspath(long_dir_path + '/bin_sh.exe')
-    # To run a binary at a long path, we need to set shell=True
+    # subprocess doesn't support long path without shell=True
     exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
 
     long_binary_path = os.path.abspath(long_dir_path + '/bin_py.exe')
-    # To run a binary at a long path, we need to set shell=True
+    # subprocess doesn't support long path without shell=True
     exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
