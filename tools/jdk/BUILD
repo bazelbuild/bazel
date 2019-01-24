@@ -428,3 +428,19 @@ alias(
     ),
     visibility = ["//visibility:public"],
 )
+
+# A JDK 11 for use as a --host_javabase.
+alias(
+    name = "remote_jdk11",
+    actual = select(
+        {
+            "//src/conditions:darwin": "@remotejdk11_macos//:jdk",
+            "//src/conditions:darwin_x86_64": "@remotejdk11_macos//:jdk",
+            "//src/conditions:windows": "@remotejdk11_win//:jdk",
+            "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
+        },
+        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
+                         " provide one using `--host_javabase.`",
+    ),
+    visibility = ["//visibility:public"],
+)
