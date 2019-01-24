@@ -310,7 +310,7 @@ class TestBase(unittest.TestCase):
       print('--------------------------')
       print('\n'.join(stderr_lines))
 
-  def RunProgram(self, args, env_remove=None, env_add=None):
+  def RunProgram(self, args, env_remove=None, env_add=None, shell=False):
     """Runs a program (args[0]), waits for it to exit.
 
     Args:
@@ -319,6 +319,8 @@ class TestBase(unittest.TestCase):
         to the program
       env_add: {string: string}; optional; environment variables to pass to
         the program, won't be removed by env_remove.
+      shell: {bool: bool}; optional; whether to use the shell as the program
+        to execute
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -329,7 +331,8 @@ class TestBase(unittest.TestCase):
             stdout=stdout,
             stderr=stderr,
             cwd=self._test_cwd,
-            env=self._EnvMap(env_remove, env_add))
+            env=self._EnvMap(env_remove, env_add),
+            shell=shell)
         exit_code = proc.wait()
 
         stdout.seek(0)
