@@ -250,6 +250,14 @@ class RemoteSpawnRunner implements SpawnRunner {
               try (SilentCloseable c = Profiler.instance().profile("Remote.executeRemotely")) {
                 reply = remoteExecutor.executeRemotely(request);
               }
+
+              FileOutErr outErr = context.getFileOutErr();
+              String message = reply.getMessage();
+              if ((reply.getResult().getExitCode() != 0 ||
+                   reply.getStatus().getCode() != Code.OK.value()) && !message.isEmpty()) {
+                outErr.printErr(message + "\n");
+              }
+
               try (SilentCloseable c =
                   Profiler.instance().profile("Remote.maybeDownloadServerLogs")) {
                 maybeDownloadServerLogs(reply, actionKey);
@@ -257,7 +265,7 @@ class RemoteSpawnRunner implements SpawnRunner {
 
               try (SilentCloseable c =
                   Profiler.instance().profile("Remote.downloadRemoteResults")) {
-                return downloadRemoteResults(reply.getResult(), context.getFileOutErr())
+                return downloadRemoteResults(reply.getResult(), outErr)
                     .setRunnerName(reply.getCachedResult() ? "remote cache hit" : getName())
                     .setCacheHit(reply.getCachedResult())
                     .build();
