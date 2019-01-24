@@ -19,10 +19,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
@@ -31,13 +34,18 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link SandboxfsSandboxedSpawn}. */
 @RunWith(JUnit4.class)
-public class SandboxfsSandboxedSpawnTest extends SandboxTestCase {
+public class SandboxfsSandboxedSpawnTest {
+  private Path testRoot;
   private Path workspaceDir;
   private Path outerDir;
   private SandboxfsProcess sandboxfs;
 
   @Before
   public final void setupTestDirs() throws IOException {
+    FileSystem fileSystem = new InMemoryFileSystem();
+    testRoot = fileSystem.getPath(TestUtils.tmpDir());
+    testRoot.createDirectoryAndParents();
+
     workspaceDir = testRoot.getRelative("workspace");
     workspaceDir.createDirectory();
     outerDir = testRoot.getRelative("scratch");

@@ -19,10 +19,13 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,10 +33,14 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link SandboxedSpawn}. */
 @RunWith(JUnit4.class)
-public class SandboxedSpawnTest extends SandboxTestCase {
+public class SandboxedSpawnTest {
 
   @Test
   public void testMoveOutputs() throws Exception {
+    FileSystem fileSystem = new InMemoryFileSystem();
+    Path testRoot = fileSystem.getPath(TestUtils.tmpDir());
+    testRoot.createDirectoryAndParents();
+
     Path execRoot = testRoot.getRelative("execroot");
     execRoot.createDirectory();
 
