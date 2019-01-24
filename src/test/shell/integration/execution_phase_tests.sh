@@ -277,5 +277,35 @@ EOF
   expect_log "WARNING: .*: foo warning"
 }
 
+function test_max_open_file_descriptors() {
+  echo "nfiles: hard $(ulimit -H -n), soft $(ulimit -S -n)"
+
+  local exp_nfiles="$(ulimit -H -n)"
+  if [[ "$(uname -s)" == Darwin && "${exp_nfiles}" == unlimited ]]; then
+    exp_nfiles="$(/usr/sbin/sysctl -n kern.maxfilesperproc)"
+  elif "${is_windows}"; then
+    # We do not implement the resources unlimiting feature on Windows at
+    # the moment... so just expect the soft limit to remain unchanged.
+    exp_nfiles="$(ulimit -S -n)"
+  fi
+  echo "Will expect soft nfiles to be ${exp_nfiles}"
+
+  mkdir -p "pkg" || fail "Could not create directory"
+  cat > pkg/BUILD <<'EOF' || fail "Could not create test file"
+genrule(
+    name = "nfiles",
+    outs = ["nfiles-soft"],
+    cmd = "mkdir -p pkg && ulimit -S -n >$(location nfiles-soft)",
+)
+EOF
+  bazel build //pkg:nfiles >& "${TEST_log}" || fail "Expected success"
+  local soft="$(cat bazel-genfiles/pkg/nfiles-soft)"
+
+  # Make sure that the soft limit was raised to the expected hard value.
+  # Our code doesn't touch the hard limit (even in the case "unlimited" case
+  # handled above) and that's OK: if we were able to set the soft limit to a
+  # high value, the hard limit must already be the same or higher.
+  assert_equals "${exp_nfiles}" "${soft}"
+}
 
 run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."

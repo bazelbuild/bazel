@@ -538,6 +538,17 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
     const string &server_javabase, std::vector<string> *result,
     const vector<string> &user_options, string *error) const {
   AddJVMLoggingArguments(result);
+
+  // Disable the JVM's own unlimiting of file descriptors.  We do this
+  // ourselves in blaze.cc so we want our setting to propagate to the JVM.
+  //
+  // The reason to do this is that the JVM's unlimiting is suboptimal on
+  // macOS.  Under that platform, the JVM limits the open file descriptors
+  // to the OPEN_MAX constant... which is much lower than the per-process
+  // kernel allowed limit of kern.maxfilesperproc (which is what we set
+  // ourselves to).
+  result->push_back("-XX:-MaxFDLimit");
+
   return AddJVMMemoryArguments(server_javabase, result, user_options, error);
 }
 
