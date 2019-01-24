@@ -35,30 +35,30 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link PyProvider}. */
+/** Tests for {@link PyStructUtils}. */
 @RunWith(JUnit4.class)
-public class PyProviderTest extends BuildViewTestCase {
+public class PyStructUtilsTest extends BuildViewTestCase {
 
   /**
    * Constructs a py provider struct with the given field values and with default values for any
    * field not specified.
    *
-   * <p>The struct is constructed directly, rather than using {@link PyProvider.Builder}, so that
-   * the resulting instance is suitable for asserting on {@code PyProvider}'s operations over
+   * <p>The struct is constructed directly, rather than using {@link PyStructUtils.Builder}, so that
+   * the resulting instance is suitable for asserting on {@code PyStructUtils}'s operations over
    * structs with known contents. {@code overrides} is applied directly without validating the
    * fields' names or types.
    */
   private StructImpl makeStruct(Map<String, Object> overrides) {
     Map<String, Object> fields = new LinkedHashMap<>();
     fields.put(
-        PyProvider.TRANSITIVE_SOURCES,
+        PyStructUtils.TRANSITIVE_SOURCES,
         SkylarkNestedSet.of(Artifact.class, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
-    fields.put(PyProvider.USES_SHARED_LIBRARIES, false);
+    fields.put(PyStructUtils.USES_SHARED_LIBRARIES, false);
     fields.put(
-        PyProvider.IMPORTS,
+        PyStructUtils.IMPORTS,
         SkylarkNestedSet.of(String.class, NestedSetBuilder.emptySet(Order.COMPILE_ORDER)));
-    fields.put(PyProvider.HAS_PY2_ONLY_SOURCES, false);
-    fields.put(PyProvider.HAS_PY3_ONLY_SOURCES, false);
+    fields.put(PyStructUtils.HAS_PY2_ONLY_SOURCES, false);
+    fields.put(PyStructUtils.HAS_PY3_ONLY_SOURCES, false);
     fields.putAll(overrides);
     return StructProvider.STRUCT.create(fields, "No such attribute '%s'");
   }
@@ -126,19 +126,19 @@ public class PyProviderTest extends BuildViewTestCase {
   @Test
   public void hasProvider_True() throws Exception {
     definePyTarget();
-    assertThat(PyProvider.hasProvider(getConfiguredTarget("//pytarget"))).isTrue();
+    assertThat(PyStructUtils.hasProvider(getConfiguredTarget("//pytarget"))).isTrue();
   }
 
   @Test
   public void hasProvider_False() throws Exception {
     defineDummyTarget();
-    assertThat(PyProvider.hasProvider(getConfiguredTarget("//dummytarget"))).isFalse();
+    assertThat(PyStructUtils.hasProvider(getConfiguredTarget("//dummytarget"))).isFalse();
   }
 
   @Test
   public void getProvider_Present() throws Exception {
     definePyTarget();
-    StructImpl info = PyProvider.getProvider(getConfiguredTarget("//pytarget"));
+    StructImpl info = PyStructUtils.getProvider(getConfiguredTarget("//pytarget"));
     // If we got this far, it's present. getProvider() should never be null, but check just in case.
     assertThat(info).isNotNull();
   }
@@ -149,7 +149,7 @@ public class PyProviderTest extends BuildViewTestCase {
     EvalException ex =
         assertThrows(
             EvalException.class,
-            () -> PyProvider.getProvider(getConfiguredTarget("//dummytarget")));
+            () -> PyStructUtils.getProvider(getConfiguredTarget("//dummytarget")));
     assertThat(ex).hasMessageThat().contains("Target does not have 'py' provider");
   }
 
@@ -175,7 +175,7 @@ public class PyProviderTest extends BuildViewTestCase {
     EvalException ex =
         assertThrows(
             EvalException.class,
-            () -> PyProvider.getProvider(getConfiguredTarget("//badtypetarget")));
+            () -> PyStructUtils.getProvider(getConfiguredTarget("//badtypetarget")));
     assertThat(ex).hasMessageThat().contains("'py' provider should be a struct");
   }
 
@@ -211,21 +211,22 @@ public class PyProviderTest extends BuildViewTestCase {
     StructImpl info =
         makeStruct(
             ImmutableMap.of(
-                PyProvider.TRANSITIVE_SOURCES, SkylarkNestedSet.of(Artifact.class, sources)));
-    assertThat(PyProvider.getTransitiveSources(info)).isSameAs(sources);
+                PyStructUtils.TRANSITIVE_SOURCES, SkylarkNestedSet.of(Artifact.class, sources)));
+    assertThat(PyStructUtils.getTransitiveSources(info)).isSameAs(sources);
   }
 
   @Test
   public void getTransitiveSources_Missing() {
     StructImpl info = StructProvider.STRUCT.createEmpty(null);
-    assertHasMissingFieldMessage(() -> PyProvider.getTransitiveSources(info), "transitive_sources");
+    assertHasMissingFieldMessage(
+        () -> PyStructUtils.getTransitiveSources(info), "transitive_sources");
   }
 
   @Test
   public void getTransitiveSources_WrongType() {
-    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.TRANSITIVE_SOURCES, 123));
+    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.TRANSITIVE_SOURCES, 123));
     assertHasWrongTypeMessage(
-        () -> PyProvider.getTransitiveSources(info), "transitive_sources", "depset of Files");
+        () -> PyStructUtils.getTransitiveSources(info), "transitive_sources", "depset of Files");
   }
 
   @Test
@@ -267,79 +268,80 @@ public class PyProviderTest extends BuildViewTestCase {
 
   @Test
   public void getUsesSharedLibraries_Good() throws Exception {
-    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.USES_SHARED_LIBRARIES, true));
-    assertThat(PyProvider.getUsesSharedLibraries(info)).isTrue();
+    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.USES_SHARED_LIBRARIES, true));
+    assertThat(PyStructUtils.getUsesSharedLibraries(info)).isTrue();
   }
 
   @Test
   public void getUsesSharedLibraries_Missing() throws Exception {
     StructImpl info = StructProvider.STRUCT.createEmpty(null);
-    assertThat(PyProvider.getUsesSharedLibraries(info)).isFalse();
+    assertThat(PyStructUtils.getUsesSharedLibraries(info)).isFalse();
   }
 
   @Test
   public void getUsesSharedLibraries_WrongType() {
-    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.USES_SHARED_LIBRARIES, 123));
+    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.USES_SHARED_LIBRARIES, 123));
     assertHasWrongTypeMessage(
-        () -> PyProvider.getUsesSharedLibraries(info), "uses_shared_libraries", "boolean");
+        () -> PyStructUtils.getUsesSharedLibraries(info), "uses_shared_libraries", "boolean");
   }
 
   @Test
   public void getImports_Good() throws Exception {
     NestedSet<String> imports = NestedSetBuilder.create(Order.COMPILE_ORDER, "abc");
     StructImpl info =
-        makeStruct(ImmutableMap.of(PyProvider.IMPORTS, SkylarkNestedSet.of(String.class, imports)));
-    assertThat(PyProvider.getImports(info)).isSameAs(imports);
+        makeStruct(
+            ImmutableMap.of(PyStructUtils.IMPORTS, SkylarkNestedSet.of(String.class, imports)));
+    assertThat(PyStructUtils.getImports(info)).isSameAs(imports);
   }
 
   @Test
   public void getImports_Missing() throws Exception {
     StructImpl info = StructProvider.STRUCT.createEmpty(null);
-    assertHasOrderAndContainsExactly(PyProvider.getImports(info), Order.COMPILE_ORDER);
+    assertHasOrderAndContainsExactly(PyStructUtils.getImports(info), Order.COMPILE_ORDER);
   }
 
   @Test
   public void getImports_WrongType() {
-    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.IMPORTS, 123));
-    assertHasWrongTypeMessage(() -> PyProvider.getImports(info), "imports", "depset of strings");
+    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.IMPORTS, 123));
+    assertHasWrongTypeMessage(() -> PyStructUtils.getImports(info), "imports", "depset of strings");
   }
 
   @Test
   public void getHasPy2OnlySources_Good() throws Exception {
-    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.HAS_PY2_ONLY_SOURCES, true));
-    assertThat(PyProvider.getHasPy2OnlySources(info)).isTrue();
+    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.HAS_PY2_ONLY_SOURCES, true));
+    assertThat(PyStructUtils.getHasPy2OnlySources(info)).isTrue();
   }
 
   @Test
   public void getHasPy2OnlySources_Missing() throws Exception {
     StructImpl info = StructProvider.STRUCT.createEmpty(null);
-    assertThat(PyProvider.getHasPy2OnlySources(info)).isFalse();
+    assertThat(PyStructUtils.getHasPy2OnlySources(info)).isFalse();
   }
 
   @Test
   public void getHasPy2OnlySources_WrongType() {
-    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.HAS_PY2_ONLY_SOURCES, 123));
+    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.HAS_PY2_ONLY_SOURCES, 123));
     assertHasWrongTypeMessage(
-        () -> PyProvider.getHasPy2OnlySources(info), "has_py2_only_sources", "boolean");
+        () -> PyStructUtils.getHasPy2OnlySources(info), "has_py2_only_sources", "boolean");
   }
 
   @Test
   public void getHasPy3OnlySources_Good() throws Exception {
-    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.HAS_PY3_ONLY_SOURCES, true));
-    assertThat(PyProvider.getHasPy3OnlySources(info)).isTrue();
+    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.HAS_PY3_ONLY_SOURCES, true));
+    assertThat(PyStructUtils.getHasPy3OnlySources(info)).isTrue();
   }
 
   @Test
   public void getHasPy3OnlySources_Missing() throws Exception {
     StructImpl info = StructProvider.STRUCT.createEmpty(null);
-    assertThat(PyProvider.getHasPy3OnlySources(info)).isFalse();
+    assertThat(PyStructUtils.getHasPy3OnlySources(info)).isFalse();
   }
 
   @Test
   public void getHasPy3OnlySources_WrongType() {
-    StructImpl info = makeStruct(ImmutableMap.of(PyProvider.HAS_PY3_ONLY_SOURCES, 123));
+    StructImpl info = makeStruct(ImmutableMap.of(PyStructUtils.HAS_PY3_ONLY_SOURCES, 123));
     assertHasWrongTypeMessage(
-        () -> PyProvider.getHasPy3OnlySources(info), "has_py3_only_sources", "boolean");
+        () -> PyStructUtils.getHasPy3OnlySources(info), "has_py3_only_sources", "boolean");
   }
 
   /** Checks values set by the builder. */
@@ -349,26 +351,26 @@ public class PyProviderTest extends BuildViewTestCase {
         NestedSetBuilder.create(Order.COMPILE_ORDER, getSourceArtifact("dummy"));
     NestedSet<String> imports = NestedSetBuilder.create(Order.COMPILE_ORDER, "abc");
     StructImpl info =
-        PyProvider.builder()
+        PyStructUtils.builder()
             .setTransitiveSources(sources)
             .setUsesSharedLibraries(true)
             .setImports(imports)
             .setHasPy2OnlySources(true)
             .setHasPy3OnlySources(true)
             .build();
-    // Assert using struct operations, not PyProvider accessors, which aren't necessarily trusted to
-    // be correct.
+    // Assert using struct operations, not PyStructUtils accessors, which aren't necessarily trusted
+    // to be correct.
     assertHasOrderAndContainsExactly(
-        ((SkylarkNestedSet) info.getValue(PyProvider.TRANSITIVE_SOURCES)).getSet(Artifact.class),
+        ((SkylarkNestedSet) info.getValue(PyStructUtils.TRANSITIVE_SOURCES)).getSet(Artifact.class),
         Order.COMPILE_ORDER,
         getSourceArtifact("dummy"));
-    assertThat((Boolean) info.getValue(PyProvider.USES_SHARED_LIBRARIES)).isTrue();
+    assertThat((Boolean) info.getValue(PyStructUtils.USES_SHARED_LIBRARIES)).isTrue();
     assertHasOrderAndContainsExactly(
-        ((SkylarkNestedSet) info.getValue(PyProvider.IMPORTS)).getSet(String.class),
+        ((SkylarkNestedSet) info.getValue(PyStructUtils.IMPORTS)).getSet(String.class),
         Order.COMPILE_ORDER,
         "abc");
-    assertThat((Boolean) info.getValue(PyProvider.HAS_PY2_ONLY_SOURCES)).isTrue();
-    assertThat((Boolean) info.getValue(PyProvider.HAS_PY3_ONLY_SOURCES)).isTrue();
+    assertThat((Boolean) info.getValue(PyStructUtils.HAS_PY2_ONLY_SOURCES)).isTrue();
+    assertThat((Boolean) info.getValue(PyStructUtils.HAS_PY3_ONLY_SOURCES)).isTrue();
   }
 
   /** Checks the defaults set by the builder. */
@@ -377,14 +379,14 @@ public class PyProviderTest extends BuildViewTestCase {
     // transitive_sources is mandatory, so create a dummy value but no need to assert on it.
     NestedSet<Artifact> sources =
         NestedSetBuilder.create(Order.COMPILE_ORDER, getSourceArtifact("dummy"));
-    StructImpl info = PyProvider.builder().setTransitiveSources(sources).build();
-    // Assert using struct operations, not PyProvider accessors, which aren't necessarily trusted to
-    // be correct.
-    assertThat((Boolean) info.getValue(PyProvider.USES_SHARED_LIBRARIES)).isFalse();
+    StructImpl info = PyStructUtils.builder().setTransitiveSources(sources).build();
+    // Assert using struct operations, not PyStructUtils accessors, which aren't necessarily trusted
+    // to be correct.
+    assertThat((Boolean) info.getValue(PyStructUtils.USES_SHARED_LIBRARIES)).isFalse();
     assertHasOrderAndContainsExactly(
-        ((SkylarkNestedSet) info.getValue(PyProvider.IMPORTS)).getSet(String.class),
+        ((SkylarkNestedSet) info.getValue(PyStructUtils.IMPORTS)).getSet(String.class),
         Order.COMPILE_ORDER);
-    assertThat((Boolean) info.getValue(PyProvider.HAS_PY2_ONLY_SOURCES)).isFalse();
-    assertThat((Boolean) info.getValue(PyProvider.HAS_PY3_ONLY_SOURCES)).isFalse();
+    assertThat((Boolean) info.getValue(PyStructUtils.HAS_PY2_ONLY_SOURCES)).isFalse();
+    assertThat((Boolean) info.getValue(PyStructUtils.HAS_PY3_ONLY_SOURCES)).isFalse();
   }
 }

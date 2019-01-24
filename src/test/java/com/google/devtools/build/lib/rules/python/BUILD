@@ -15,7 +15,7 @@ test_suite(
         ":BazelPythonConfigurationTest",
         ":PyBinaryConfiguredTargetTest",
         ":PyLibraryConfiguredTargetTest",
-        ":PyProviderTest",
+        ":PyStructUtilsTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
         ":PythonStarlarkApiTest",
@@ -156,8 +156,8 @@ java_test(
 )
 
 java_test(
-    name = "PyProviderTest",
-    srcs = ["PyProviderTest.java"],
+    name = "PyStructUtilsTest",
+    srcs = ["PyStructUtilsTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",

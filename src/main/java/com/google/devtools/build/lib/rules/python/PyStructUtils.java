@@ -27,14 +27,12 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
-/**
- * Static helper class for managing the "py" struct provider returned and consumed by Python rules.
- */
+/** Static helper class for creating and accessing instances of the "py" legacy struct provider. */
 // TODO(#7010): Replace this with a real provider.
-public class PyProvider {
+public class PyStructUtils {
 
   // Disable construction.
-  private PyProvider() {}
+  private PyStructUtils() {}
 
   /** Name of the Python provider in Starlark code (as a field of a {@code Target}. */
   public static final String PROVIDER_NAME = "py";

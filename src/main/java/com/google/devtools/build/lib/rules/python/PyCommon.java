@@ -230,14 +230,14 @@ public final class PyCommon {
   private static void collectTransitivePythonSourcesFromDeps(
       RuleContext ruleContext, NestedSetBuilder<Artifact> builder) {
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
-      if (PyProvider.hasProvider(dep)) {
+      if (PyStructUtils.hasProvider(dep)) {
         try {
-          StructImpl info = PyProvider.getProvider(dep);
-          NestedSet<Artifact> sources = PyProvider.getTransitiveSources(info);
+          StructImpl info = PyStructUtils.getProvider(dep);
+          NestedSet<Artifact> sources = PyStructUtils.getTransitiveSources(info);
           if (!builder.getOrder().isCompatible(sources.getOrder())) {
             ruleContext.ruleError(
                 getOrderErrorMessage(
-                    PyProvider.TRANSITIVE_SOURCES, builder.getOrder(), sources.getOrder()));
+                    PyStructUtils.TRANSITIVE_SOURCES, builder.getOrder(), sources.getOrder()));
           } else {
             builder.addTransitive(sources);
           }
@@ -289,8 +289,8 @@ public final class PyCommon {
 
   private static boolean checkForSharedLibraries(TransitiveInfoCollection target)
       throws EvalException {
-    if (PyProvider.hasProvider(target)) {
-      return PyProvider.getUsesSharedLibraries(PyProvider.getProvider(target));
+    if (PyStructUtils.hasProvider(target)) {
+      return PyStructUtils.getUsesSharedLibraries(PyStructUtils.getProvider(target));
     } else {
       NestedSet<Artifact> files = target.getProvider(FileProvider.class).getFilesToBuild();
       return FileType.contains(files, CppFileTypes.SHARED_LIBRARY);
@@ -309,7 +309,7 @@ public final class PyCommon {
           // TODO(brandjon): Add test case for this error, once we replace PythonImportsProvider
           // with the normal Python provider and once we clean up our provider merge logic.
           ruleContext.ruleError(
-              getOrderErrorMessage(PyProvider.IMPORTS, builder.getOrder(), imports.getOrder()));
+              getOrderErrorMessage(PyStructUtils.IMPORTS, builder.getOrder(), imports.getOrder()));
         } else {
           builder.addTransitive(imports);
         }
@@ -330,9 +330,9 @@ public final class PyCommon {
       return true;
     }
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
-      if (PyProvider.hasProvider(dep)) {
+      if (PyStructUtils.hasProvider(dep)) {
         try {
-          if (PyProvider.getHasPy2OnlySources(PyProvider.getProvider(dep))) {
+          if (PyStructUtils.getHasPy2OnlySources(PyStructUtils.getProvider(dep))) {
             return true;
           }
         } catch (EvalException e) {
@@ -353,9 +353,9 @@ public final class PyCommon {
       return true;
     }
     for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
-      if (PyProvider.hasProvider(dep)) {
+      if (PyStructUtils.hasProvider(dep)) {
         try {
-          if (PyProvider.getHasPy3OnlySources(PyProvider.getProvider(dep))) {
+          if (PyStructUtils.getHasPy3OnlySources(PyStructUtils.getProvider(dep))) {
             return true;
           }
         } catch (EvalException e) {
@@ -604,8 +604,8 @@ public final class PyCommon {
                 filesToBuild,
                 /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER)))
         .addSkylarkTransitiveInfo(
-            PyProvider.PROVIDER_NAME,
-            PyProvider.builder()
+            PyStructUtils.PROVIDER_NAME,
+            PyStructUtils.builder()
                 .setTransitiveSources(transitivePythonSources)
                 .setUsesSharedLibraries(usesSharedLibraries)
                 .setImports(imports)
