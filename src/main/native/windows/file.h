@@ -93,7 +93,7 @@ struct CreateJunctionResult {
 //   created using "mklink" instead of "mklink /d", as such symlinks don't
 //   behave the same way as directories (e.g. they can't be listed)
 // - IS_JUNCTION_ERROR, if `path` doesn't exist or some error occurred
-int IsJunctionOrDirectorySymlink(const WCHAR* path);
+int IsJunctionOrDirectorySymlink(const WCHAR* path, std::wstring* error);
 
 // Computes the long version of `path` if it has any 8dot3 style components.
 // Returns the empty string upon success, or a human-readable error message upon
