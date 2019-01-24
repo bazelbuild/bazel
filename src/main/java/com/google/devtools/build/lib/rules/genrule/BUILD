@@ -20,8 +20,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-implicit-attributes",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
