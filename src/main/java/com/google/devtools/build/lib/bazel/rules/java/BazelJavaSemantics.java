@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
+import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
@@ -265,7 +267,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       List<String> jvmFlags,
       Artifact executable,
       String javaStartClass,
-      String javaExecutable) {
+      String javaExecutable) throws RuleErrorException {
     return createStubAction(
         ruleContext,
         javaCommon,
@@ -288,7 +290,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       String coverageStartClass,
       NestedSetBuilder<Artifact> filesBuilder,
       String javaExecutable,
-      boolean createCoverageMetadataJar) {
+      boolean createCoverageMetadataJar) throws RuleErrorException {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(JavaConfiguration.class));
 
     Preconditions.checkNotNull(jvmFlags);
@@ -399,18 +401,35 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.ofSpaceSeparatedList("%jvm_flags%", jvmFlagsList));
 
     if (OS.getCurrent() == OS.WINDOWS) {
+      // Bash-tokenize the JVM flags. On Linux/macOS tokenization is achieved by embedding the
+      // 'jvmFlags' into the java_binary stub script (which is a Bash script) and letting Bash
+      // tokenize them.
+      List<String> tokenizedJvmFlags = new ArrayList<>(jvmFlagsList.size());
+      for (String s : jvmFlags) {
+        try {
+          ShellUtils.tokenize(tokenizedJvmFlags, s);
+        } catch (ShellUtils.TokenizationException e) {
+          ruleContext.attributeError(
+              "jvm_flags", "Could not Bash-tokenize \"" + s + "\": " + e.getMessage());
+          throw new RuleErrorException();
+        }
+      }
+      for (int i = 0; i < tokenizedJvmFlags.size(); ++i) {
+        String s = ShellUtils.escapeArgForCreateProcessW(tokenizedJvmFlags.get(i));
+        tokenizedJvmFlags.set(i, s);
+      }
       return createWindowsExeLauncher(
           ruleContext,
           javaExecutable,
           classpath,
           javaStartClass,
-          jvmFlagsList,
+          tokenizedJvmFlags,
           executable);
+    } else {
+      ruleContext.registerAction(new TemplateExpansionAction(
+          ruleContext.getActionOwner(), executable, STUB_SCRIPT, arguments, true));
+      return executable;
     }
-
-    ruleContext.registerAction(new TemplateExpansionAction(
-        ruleContext.getActionOwner(), executable, STUB_SCRIPT, arguments, true));
-    return executable;
   }
 
   private static Artifact createWindowsExeLauncher(
@@ -418,9 +437,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       String javaExecutable,
       NestedSet<Artifact> classpath,
       String javaStartClass,
-      ImmutableList<String> jvmFlags,
+      List<String> bashTokenizedJvmFlags,
       Artifact javaLauncher) {
-
     LaunchInfo launchInfo =
         LaunchInfo.builder()
             .addKeyValuePair("binary_type", "Java")
@@ -440,7 +458,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 "classpath",
                 ";",
                 Iterables.transform(classpath, Artifact.ROOT_RELATIVE_PATH_STRING))
-            .addJoinedValues("jvm_flags", " ", jvmFlags)
+            .addJoinedValues("jvm_flags", " ", bashTokenizedJvmFlags)
             .build();
 
     LauncherFileWriteAction.createAndRegister(ruleContext, javaLauncher, launchInfo);

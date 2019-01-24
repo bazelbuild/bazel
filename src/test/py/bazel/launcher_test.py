@@ -651,6 +651,46 @@ class LauncherTest(test_base.TestBase):
           return
     self.fail('Runfiles manifest "%s" did not contain "%s"' % (manifest, entry))
 
+  def testJvmFlagsFromBuildFile(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'java_binary(',
+        '  name = "foo",',
+        '  srcs = ["Main.java"],',
+        '  main_class = "Main",',
+        '  jvm_flags = [',
+        '      "-Darg0=a",',
+        '      "-Darg1=\"a\\\"\"\\ b",',
+        '      "-Darg2=\'a\\\"\'\\ b",',
+        '      "-Darg3=a\"\\\\\"\\ \'\\\\\"\\\"b \'",',
+        '  ],',
+        ')',
+    ])
+    self.ScratchFile('Main.java', [
+        "public class Main {",
+        "  public static void main(String[] args) {",
+        "    for (int i = 0; i < 4; ++i) {",
+        "      System.out.printf(",
+        "          \"arg%d=(%s)%n\", i, System.getProperty(\"arg\" + i));",
+        "    }",
+        "  }",
+        "}"])
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel(['build', '//:foo'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    if self.IsWindows():
+      foo_path = os.path.abspath(os.path.join(bazel_bin, 'foo.exe'))
+    else:
+      foo_path = os.path.abspath(os.path.join(bazel_bin, 'foo'))
+    exit_code, stdout, stderr = self.RunProgram([foo_path])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertListEqual(['arg0=(a)', 'arg1=(a" b)', 'arg2=(a\\" b)',
+                          'arg3=(a\\ \\\\"\\"b )'], stdout)
+
 
 if __name__ == '__main__':
   unittest.main()

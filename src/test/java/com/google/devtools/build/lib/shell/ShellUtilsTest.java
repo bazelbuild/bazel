@@ -134,4 +134,21 @@ public class ShellUtilsTest {
     assertTokenizeFails("-Dfoo='bar", "unterminated quotation");
     assertTokenizeFails("-Dfoo=\"b'ar", "unterminated quotation");
   }
+
+  @Test
+  public void testEscapeArgForCreateProcessW() {
+    assertThat(ShellUtils.escapeArgForCreateProcessW("")).isEmpty();
+    assertThat(ShellUtils.escapeArgForCreateProcessW("no_space")).isEqualTo("no_space");
+    assertThat(ShellUtils.escapeArgForCreateProcessW("with space")).isEqualTo("\"with space\"");
+    assertThat(ShellUtils.escapeArgForCreateProcessW("with\"quote"))
+        .isEqualTo("\"with\\\"quote\"");
+    assertThat(ShellUtils.escapeArgForCreateProcessW("one\\backslash"))
+        .isEqualTo("\"one\\backslash\"");
+    assertThat(ShellUtils.escapeArgForCreateProcessW("two\\\\backslashes"))
+        .isEqualTo("\"two\\\\backslashes\"");
+    assertThat(ShellUtils.escapeArgForCreateProcessW("one\\\"x")).isEqualTo("\"one\\\\\\\"x\"");
+    assertThat(ShellUtils.escapeArgForCreateProcessW("two\\\\\"x")).isEqualTo("\"two\\\\\\\\\\\"x\"");
+    assertThat(ShellUtils.escapeArgForCreateProcessW("a \\ b")).isEqualTo("\"a \\ b\"");
+    assertThat(ShellUtils.escapeArgForCreateProcessW("a \\\" b")).isEqualTo("\"a \\\\\\\" b\"");
+  }
 }

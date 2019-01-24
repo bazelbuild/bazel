@@ -304,7 +304,7 @@ public interface JavaSemantics {
       Artifact executable,
       String javaStartClass,
       String javaExecutable)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   /**
    * Same as {@link #createStubAction(RuleContext, JavaCommon, List, Artifact, String, String)}.
@@ -326,7 +326,7 @@ public interface JavaSemantics {
       NestedSetBuilder<Artifact> filesBuilder,
       String javaExecutable,
       boolean createCoverageMetadataJar)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   /**
    * Returns true if {@code createStubAction} considers {@code javaExecutable} as a substitution.

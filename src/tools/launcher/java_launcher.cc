@@ -18,6 +18,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <stdio.h>
+
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
@@ -99,13 +101,13 @@ bool JavaBinaryLauncher::ProcessWrapperArgument(const wstring& argument) {
   return true;
 }
 
-vector<wstring> JavaBinaryLauncher::ProcessesCommandLine() {
+const vector<wstring> JavaBinaryLauncher::ProcessCommandLine() {
   vector<wstring> args;
-  bool first = 1;
+  bool first = true;
   for (const auto& arg : this->GetCommandlineArguments()) {
     // Skip the first argument.
     if (first) {
-      first = 0;
+      first = false;
       continue;
     }
     wstring flag_value;
@@ -288,8 +290,13 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
 }
 
 ExitCode JavaBinaryLauncher::Launch() {
-  // Parse the original command line.
-  vector<wstring> remaining_args = this->ProcessesCommandLine();
+  // Parse the original command line. The call updates this object's state.
+  // TODO(laszlocsomor): we *have* to call ProcessCommandLine() as the first
+  // thing in Launch() otherwise the object is not constructed correctly. We
+  // should redesign the class's construction logic so that
+  // ProcessCommandLine's side-effects are done during construction, and
+  // Launch() can be a const method.
+  const vector<wstring> remaining_args = this->ProcessCommandLine();
 
   // Set JAVA_RUNFILES
   wstring java_runfiles;
@@ -358,10 +365,8 @@ ExitCode JavaBinaryLauncher::Launch() {
   while (getline(jvm_flags_env_ss, flag, L' ')) {
     jvm_flags.push_back(flag);
   }
-  wstringstream jvm_flags_launch_info_ss(this->GetLaunchInfoByKey(JVM_FLAGS));
-  while (getline(jvm_flags_launch_info_ss, flag, L' ')) {
-    jvm_flags.push_back(flag);
-  }
+
+  jvm_flags.push_back(this->GetLaunchInfoByKey(JVM_FLAGS));
 
   // Check if TEST_TMPDIR is available to use for scratch.
   wstring test_tmpdir;
@@ -380,14 +385,17 @@ ExitCode JavaBinaryLauncher::Launch() {
   wstring classpath_jar = L"";
   if (classpath_str.length() > this->classpath_limit) {
     classpath_jar = CreateClasspathJar(classpath_str);
-    arguments.push_back(classpath_jar);
+    arguments.push_back(
+        GetEscapedArgument(classpath_jar, /*escape_backslash = */ false));
   } else {
-    arguments.push_back(classpath_str);
+    arguments.push_back(
+        GetEscapedArgument(classpath_str, /*escape_backslash = */ false));
   }
   // Add JVM debug flags
   wstring jvm_debug_flags_str = jvm_debug_flags.str();
   if (!jvm_debug_flags_str.empty()) {
-    arguments.push_back(jvm_debug_flags_str);
+    arguments.push_back(
+        GetEscapedArgument(jvm_debug_flags_str, /*escape_backslash = */ false));
   }
   // Add JVM flags parsed from env and launch info.
   for (const auto& arg : jvm_flags) {
@@ -395,27 +403,22 @@ ExitCode JavaBinaryLauncher::Launch() {
   }
   // Add JVM flags parsed from command line.
   for (const auto& arg : this->jvm_flags_cmdline) {
-    arguments.push_back(arg);
+    arguments.push_back(GetEscapedArgument(arg, /*escape_backslash = */ false));
   }
   // Add main advice class
   if (!this->main_advice.empty()) {
     arguments.push_back(this->main_advice);
+    arguments.push_back(
+        GetEscapedArgument(this->main_advice, /*escape_backslash = */ false));
   }
   // Add java start class
   arguments.push_back(this->GetLaunchInfoByKey(JAVA_START_CLASS));
   // Add the remaininng arguments, they will be passed to the program.
   for (const auto& arg : remaining_args) {
-    arguments.push_back(arg);
+    arguments.push_back(GetEscapedArgument(arg, /*escape_backslash = */ false));
   }
 
-  vector<wstring> escaped_arguments;
-  // Quote the arguments if having spaces
-  for (const auto& arg : arguments) {
-    escaped_arguments.push_back(
-        GetEscapedArgument(arg, /*escape_backslash = */ false));
-  }
-
-  ExitCode exit_code = this->LaunchProcess(java_bin, escaped_arguments);
+  ExitCode exit_code = this->LaunchProcess(java_bin, arguments);
 
   // Delete classpath jar file after execution.
   if (!classpath_jar.empty()) {

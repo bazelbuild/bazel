@@ -241,6 +241,17 @@ ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
   }
   CmdLine cmdline;
   CreateCommandLine(&cmdline, executable, arguments);
+
+  FILE* fff = fopen("c:\\src\\tmp\\launcher.log", "at");
+  fseek(fff, 0, SEEK_END);
+  fprintf(fff, "CreateProcessW(");
+  for (const auto& wc : cmdline.cmdline) {
+    fputc((char) wc, fff);
+  }
+  fputc('\n', fff);
+  fclose(fff);
+
+
   PROCESS_INFORMATION processInfo = {0};
   STARTUPINFOW startupInfo = {0};
   startupInfo.cb = sizeof(startupInfo);
