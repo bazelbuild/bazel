@@ -283,10 +283,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   private static Iterable<Artifact> getProducedRuntimeJars(
       ConfiguredTarget base, RuleContext ruleContext) {
-    JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
-    if (javaInfo != null) {
-      return javaInfo.getDirectRuntimeJars();
-    } else if (isProtoLibrary(ruleContext)) {
+    if (isProtoLibrary(ruleContext)) {
       if (!ruleContext.getPrerequisites("srcs", Mode.TARGET).isEmpty()) {
         JavaRuleOutputJarsProvider outputJarsProvider =
             base.getProvider(JavaRuleOutputJarsProvider.class);
@@ -296,7 +293,17 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
               .stream()
               .map(OutputJar::getClassJar)
               .collect(toImmutableList());
+        } else {
+          JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
+          if (javaInfo != null) {
+            return javaInfo.getDirectRuntimeJars();
+          }
         }
+      }
+    } else {
+      JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
+      if (javaInfo != null) {
+        return javaInfo.getDirectRuntimeJars();
       }
     }
     return null;
