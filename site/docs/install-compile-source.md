@@ -91,7 +91,7 @@ sudo apt-get install build-essential openjdk-8-jdk python zip unzip
 
 3.  `cd` to the directory where you unpacked the distribution archive.
 
-3.  Run the compilation script: `bash ./compile.sh`.
+3.  Run the compilation script: `env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" bash ./compile.sh`.
 
 The compiled output is placed into `output/bazel`. This is a self-contained
 Bazel binary, without an embedded JDK. You can copy it anywhere or use it
