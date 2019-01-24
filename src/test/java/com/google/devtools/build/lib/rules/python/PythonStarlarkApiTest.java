@@ -92,7 +92,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    srcs = ['upperuserlib.py'],",
         "    deps = [':pylib'],",
         ")");
-    StructImpl info = PyStructUtils.getProvider(getConfiguredTarget("//pkg:upperuserlib"));
+    StructImpl info = PyProviderUtils.getProvider(getConfiguredTarget("//pkg:upperuserlib"));
     assertThat(PyStructUtils.getTransitiveSources(info))
         .containsExactly(
             getSourceArtifact("pkg/loweruserlib.py"),

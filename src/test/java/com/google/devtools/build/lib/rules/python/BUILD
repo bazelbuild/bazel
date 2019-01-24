@@ -15,6 +15,7 @@ test_suite(
         ":BazelPythonConfigurationTest",
         ":PyBinaryConfiguredTargetTest",
         ":PyLibraryConfiguredTargetTest",
+        ":PyProviderUtilsTest",
         ":PyStructUtilsTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
@@ -156,16 +157,31 @@ java_test(
 )
 
 java_test(
+    name = "PyProviderUtilsTest",
+    srcs = ["PyProviderUtilsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "PyStructUtilsTest",
     srcs = ["PyStructUtilsTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:junit4",

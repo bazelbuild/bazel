@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -27,17 +27,29 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts.ThrowingRunnable;
-import java.io.IOException;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link PyStructUtils}. */
 @RunWith(JUnit4.class)
-public class PyStructUtilsTest extends BuildViewTestCase {
+public class PyStructUtilsTest extends FoundationTestCase {
+
+  private Artifact dummyArtifact;
+
+  @Before
+  public void setUp() {
+    this.dummyArtifact =
+        new Artifact(
+            PathFragment.create("dummy"), ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory)));
+  }
 
   /**
    * Constructs a py provider struct with the given field values and with default values for any
@@ -61,122 +73,6 @@ public class PyStructUtilsTest extends BuildViewTestCase {
     fields.put(PyStructUtils.HAS_PY3_ONLY_SOURCES, false);
     fields.putAll(overrides);
     return StructProvider.STRUCT.create(fields, "No such attribute '%s'");
-  }
-
-  /** Defines //pytarget, a target that returns a py provider with some arbitrary field values. */
-  private void definePyTarget() throws IOException {
-    scratch.file("rules/BUILD");
-    scratch.file(
-        "rules/pyrule.bzl",
-        "def _pyrule_impl(ctx):",
-        "    info = struct(",
-        "        transitive_sources = depset(direct=ctx.files.transitive_sources),",
-        "        uses_shared_libraries = ctx.attr.uses_shared_libraries,",
-        "        imports = depset(direct=ctx.attr.imports),",
-        "        has_py2_only_sources = ctx.attr.has_py2_only_sources,",
-        "        has_py3_only_sources = ctx.attr.has_py3_only_sources,",
-        "    )",
-        "    return struct(py=info)",
-        "",
-        "pyrule = rule(",
-        "    implementation = _pyrule_impl,",
-        "    attrs = {",
-        "        'transitive_sources': attr.label_list(allow_files=True),",
-        "        'uses_shared_libraries': attr.bool(default=False),",
-        "        'imports': attr.string_list(),",
-        "        'has_py2_only_sources': attr.bool(),",
-        "        'has_py3_only_sources': attr.bool(),",
-        "    },",
-        ")");
-    scratch.file(
-        "pytarget/BUILD",
-        "load('//rules:pyrule.bzl', 'pyrule')",
-        "",
-        "pyrule(",
-        "    name = 'pytarget',",
-        "    transitive_sources = ['a.py'],",
-        "    uses_shared_libraries = True,",
-        "    imports = ['b'],",
-        "    has_py2_only_sources = True,",
-        "    has_py3_only_sources = True,",
-        ")");
-    scratch.file("pytarget/a.py");
-  }
-
-  /** Defines //dummytarget, a target that returns no py provider. */
-  private void defineDummyTarget() throws IOException {
-    scratch.file("rules/BUILD");
-    scratch.file(
-        "rules/dummytarget.bzl",
-        "def _dummyrule_impl(ctx):",
-        "    pass",
-        "",
-        "dummyrule = rule(",
-        "    implementation = _dummyrule_impl,",
-        ")");
-    scratch.file(
-        "dummytarget/BUILD",
-        "load('//rules:dummytarget.bzl', 'dummyrule')",
-        "",
-        "dummyrule(",
-        "    name = 'dummytarget',",
-        ")");
-  }
-
-  @Test
-  public void hasProvider_True() throws Exception {
-    definePyTarget();
-    assertThat(PyStructUtils.hasProvider(getConfiguredTarget("//pytarget"))).isTrue();
-  }
-
-  @Test
-  public void hasProvider_False() throws Exception {
-    defineDummyTarget();
-    assertThat(PyStructUtils.hasProvider(getConfiguredTarget("//dummytarget"))).isFalse();
-  }
-
-  @Test
-  public void getProvider_Present() throws Exception {
-    definePyTarget();
-    StructImpl info = PyStructUtils.getProvider(getConfiguredTarget("//pytarget"));
-    // If we got this far, it's present. getProvider() should never be null, but check just in case.
-    assertThat(info).isNotNull();
-  }
-
-  @Test
-  public void getProvider_Absent() throws Exception {
-    defineDummyTarget();
-    EvalException ex =
-        assertThrows(
-            EvalException.class,
-            () -> PyStructUtils.getProvider(getConfiguredTarget("//dummytarget")));
-    assertThat(ex).hasMessageThat().contains("Target does not have 'py' provider");
-  }
-
-  @Test
-  public void getProvider_WrongType() throws Exception {
-    // badtyperule() returns a "py" provider that has the wrong type.
-    scratch.file("rules/BUILD");
-    scratch.file(
-        "rules/badtyperule.bzl",
-        "def _badtyperule_impl(ctx):",
-        "    return struct(py='abc')",
-        "",
-        "badtyperule = rule(",
-        "    implementation = _badtyperule_impl",
-        ")");
-    scratch.file(
-        "badtypetarget/BUILD",
-        "load('//rules:badtyperule.bzl', 'badtyperule')",
-        "",
-        "badtyperule(",
-        "    name = 'badtypetarget',",
-        ")");
-    EvalException ex =
-        assertThrows(
-            EvalException.class,
-            () -> PyStructUtils.getProvider(getConfiguredTarget("//badtypetarget")));
-    assertThat(ex).hasMessageThat().contains("'py' provider should be a struct");
   }
 
   private static void assertThrowsEvalExceptionContaining(
@@ -206,8 +102,7 @@ public class PyStructUtilsTest extends BuildViewTestCase {
 
   @Test
   public void getTransitiveSources_Good() throws Exception {
-    NestedSet<Artifact> sources =
-        NestedSetBuilder.create(Order.COMPILE_ORDER, getSourceArtifact("dummy"));
+    NestedSet<Artifact> sources = NestedSetBuilder.create(Order.COMPILE_ORDER, dummyArtifact);
     StructImpl info =
         makeStruct(
             ImmutableMap.of(
@@ -323,8 +218,7 @@ public class PyStructUtilsTest extends BuildViewTestCase {
   /** Checks values set by the builder. */
   @Test
   public void builder() throws Exception {
-    NestedSet<Artifact> sources =
-        NestedSetBuilder.create(Order.COMPILE_ORDER, getSourceArtifact("dummy"));
+    NestedSet<Artifact> sources = NestedSetBuilder.create(Order.COMPILE_ORDER, dummyArtifact);
     NestedSet<String> imports = NestedSetBuilder.create(Order.COMPILE_ORDER, "abc");
     StructImpl info =
         PyStructUtils.builder()
@@ -339,7 +233,7 @@ public class PyStructUtilsTest extends BuildViewTestCase {
     assertHasOrderAndContainsExactly(
         ((SkylarkNestedSet) info.getValue(PyStructUtils.TRANSITIVE_SOURCES)).getSet(Artifact.class),
         Order.COMPILE_ORDER,
-        getSourceArtifact("dummy"));
+        dummyArtifact);
     assertThat((Boolean) info.getValue(PyStructUtils.USES_SHARED_LIBRARIES)).isTrue();
     assertHasOrderAndContainsExactly(
         ((SkylarkNestedSet) info.getValue(PyStructUtils.IMPORTS)).getSet(String.class),
@@ -353,8 +247,7 @@ public class PyStructUtilsTest extends BuildViewTestCase {
   @Test
   public void builderDefaults() throws Exception {
     // transitive_sources is mandatory, so create a dummy value but no need to assert on it.
-    NestedSet<Artifact> sources =
-        NestedSetBuilder.create(Order.COMPILE_ORDER, getSourceArtifact("dummy"));
+    NestedSet<Artifact> sources = NestedSetBuilder.create(Order.COMPILE_ORDER, dummyArtifact);
     StructImpl info = PyStructUtils.builder().setTransitiveSources(sources).build();
     // Assert using struct operations, not PyStructUtils accessors, which aren't necessarily trusted
     // to be correct.
