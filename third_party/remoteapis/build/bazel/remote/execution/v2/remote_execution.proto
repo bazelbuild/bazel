@@ -81,6 +81,7 @@ service Execution {
   // action will be reported in the `status` field of the `ExecuteResponse`. The
   // server MUST NOT set the `error` field of the `Operation` proto.
   // The possible errors include:
+  //
   // * `INVALID_ARGUMENT`: One or more arguments are invalid.
   // * `FAILED_PRECONDITION`: One or more errors occurred in setting up the
   //   action requested, such as a missing input or command or no worker being
@@ -140,17 +141,13 @@ service ActionCache {
   // Retrieve a cached execution result.
   //
   // Errors:
+  //
   // * `NOT_FOUND`: The requested `ActionResult` is not in the cache.
   rpc GetActionResult(GetActionResultRequest) returns (ActionResult) {
     option (google.api.http) = { get: "/v2/{instance_name=**}/actionResults/{action_digest.hash}/{action_digest.size_bytes}" };
   }
 
   // Upload a new execution result.
-  //
-  // This method is intended for servers which implement the distributed cache
-  // independently of the
-  // [Execution][build.bazel.remote.execution.v2.Execution] API. As a
-  // result, it is OPTIONAL for servers to implement.
   //
   // In order to allow the server to perform access control based on the type of
   // action, and to assist with client debugging, the client MUST first upload
@@ -160,7 +157,10 @@ service ActionCache {
   // `ContentAddressableStorage`.
   //
   // Errors:
-  // * `UNIMPLEMENTED`: This method is not supported by the server.
+  //
+  // * `INVALID_ARGUMENT`: One or more arguments are invalid.
+  // * `FAILED_PRECONDITION`: One or more errors occurred in updating the
+  //   action result, such as a missing command or action.
   // * `RESOURCE_EXHAUSTED`: There is insufficient storage space to add the
   //   entry to the cache.
   rpc UpdateActionResult(UpdateActionResultRequest) returns (ActionResult) {
@@ -207,6 +207,9 @@ service ActionCache {
 // by the server. For servers which do not support multiple instances, then the
 // `instance_name` is the empty path and the leading slash is omitted, so that
 // the `resource_name` becomes `uploads/{uuid}/blobs/{hash}/{size}`.
+// To simplify parsing, a path segment cannot equal any of the following
+// keywords: `blobs`, `uploads`, `actions`, `actionResults`, `operations` and
+// `capabilities`.
 //
 // When attempting an upload, if another client has already completed the upload
 // (which may occur in the middle of a single upload if another client uploads
@@ -258,10 +261,12 @@ service ContentAddressableStorage {
   // independently.
   //
   // Errors:
+  //
   // * `INVALID_ARGUMENT`: The client attempted to upload more than the
   //   server supported limit.
   //
   // Individual requests may return the following errors, additionally:
+  //
   // * `RESOURCE_EXHAUSTED`: There is insufficient disk quota to store the blob.
   // * `INVALID_ARGUMENT`: The
   // [Digest][build.bazel.remote.execution.v2.Digest] does not match the
@@ -284,6 +289,7 @@ service ContentAddressableStorage {
   // independently.
   //
   // Errors:
+  //
   // * `INVALID_ARGUMENT`: The client attempted to read more than the
   //   server supported limit.
   //
@@ -421,7 +427,8 @@ message Command {
   // provide its own default environment variables; these defaults can be
   // overridden using this field. Additional variables can also be specified.
   //
-  // In order to ensure that equivalent `Command`s always hash to the same
+  // In order to ensure that equivalent
+  // [Command][build.bazel.remote.execution.v2.Command]s always hash to the same
   // value, the environment variables MUST be lexicographically sorted by name.
   // Sorting of strings is done by code point, equivalently, by the UTF-8 bytes.
   repeated EnvironmentVariable environment_variables = 2;
@@ -429,7 +436,8 @@ message Command {
   // A list of the output files that the client expects to retrieve from the
   // action. Only the listed files, as well as directories listed in
   // `output_directories`, will be returned to the client as output.
-  // Other files that may be created during command execution are discarded.
+  // Other files or directories that may be created during command execution
+  // are discarded.
   //
   // The paths are relative to the working directory of the action execution.
   // The paths are specified using a single forward slash (`/`) as a path
@@ -443,13 +451,18 @@ message Command {
   //
   // An output file cannot be duplicated, be a parent of another output file, or
   // have the same path as any of the listed output directories.
+  //
+  // Directories leading up to the output files are created by the worker prior
+  // to execution, even if they are not explicitly part of the input root.
   repeated string output_files = 3;
 
   // A list of the output directories that the client expects to retrieve from
-  // the action. Only the contents of the indicated directories (recursively
-  // including the contents of their subdirectories) will be
-  // returned, as well as files listed in `output_files`. Other files that may
-  // be created during command execution are discarded.
+  // the action. Only the listed directories will be returned (an entire
+  // directory structure will be returned as a
+  // [Tree][build.bazel.remote.execution.v2.Tree] message digest, see
+  // [OutputDirectory][build.bazel.remote.execution.v2.OutputDirectory]), as
+  // well as files listed in `output_files`. Other files or directories that
+  // may be created during command execution are discarded.
   //
   // The paths are relative to the working directory of the action execution.
   // The paths are specified using a single forward slash (`/`) as a path
@@ -465,6 +478,10 @@ message Command {
   //
   // An output directory cannot be duplicated or have the same path as any of
   // the listed output files.
+  //
+  // Directories leading up to the output directories (but not the output
+  // directories themselves) are created by the worker prior to execution, even
+  // if they are not explicitly part of the input root.
   repeated string output_directories = 4;
 
   // The platform requirements for the execution environment. The server MAY
@@ -528,12 +545,18 @@ message Platform {
 // In order to ensure that two equivalent directory trees hash to the same
 // value, the following restrictions MUST be obeyed when constructing a
 // a `Directory`:
-//   - Every child in the directory must have a path of exactly one segment.
-//     Multiple levels of directory hierarchy may not be collapsed.
-//   - Each child in the directory must have a unique path segment (file name).
-//   - The files, directories and symlinks in the directory must each be sorted
-//     in lexicographical order by path. The path strings must be sorted by code
-//     point, equivalently, by UTF-8 bytes.
+//
+// * Every child in the directory must have a path of exactly one segment.
+//   Multiple levels of directory hierarchy may not be collapsed.
+// * Each child in the directory must have a unique path segment (file name).
+//   Note that while the API itself is case-sensitive, the environment where
+//   the Action is executed may or may not be case-sensitive. That is, it is
+//   legal to call the API with a Directory that has both "Foo" and "foo" as
+//   children, but the Action may be rejected by the remote system upon
+//   execution.
+// * The files, directories and symlinks in the directory must each be sorted
+//   in lexicographical order by path. The path strings must be sorted by code
+//   point, equivalently, by UTF-8 bytes.
 //
 // A `Directory` that obeys the restrictions is said to be in canonical form.
 //
@@ -653,11 +676,12 @@ message SymlinkNode {
 // When a `Digest` is used to refer to a proto message, it always refers to the
 // message in binary encoded form. To ensure consistent hashing, clients and
 // servers MUST ensure that they serialize messages according to the following
-// rules, even if there are alternate valid encodings for the same message.
-// - Fields are serialized in tag order.
-// - There are no unknown fields.
-// - There are no duplicate fields.
-// - Fields are serialized according to the default semantics for their type.
+// rules, even if there are alternate valid encodings for the same message:
+//
+// * Fields are serialized in tag order.
+// * There are no unknown fields.
+// * There are no duplicate fields.
+// * Fields are serialized according to the default semantics for their type.
 //
 // Most protocol buffer implementations will always follow these rules when
 // serializing, but care should be taken to avoid shortcuts. For instance,
@@ -724,7 +748,7 @@ message ActionResult {
   // The output files of the action that are symbolic links to other files. Those
   // may be links to other output files, or input files, or even absolute paths
   // outside of the working directory, if the server supports
-  // [SymlinkAbsolutePathStrategy.ALLOWED][build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy].
+  // [SymlinkAbsolutePathStrategy.ALLOWED][build.bazel.remote.execution.v2.CacheCapabilities.SymlinkAbsolutePathStrategy].
   // For each output file requested in the `output_files` field of the Action,
   // if the corresponding file existed after
   // the action completed, a single entry will be present either in this field,
@@ -801,7 +825,7 @@ message ActionResult {
   // directories. Those may be links to other output directories, or input
   // directories, or even absolute paths outside of the working directory,
   // if the server supports
-  // [SymlinkAbsolutePathStrategy.ALLOWED][build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy].
+  // [SymlinkAbsolutePathStrategy.ALLOWED][build.bazel.remote.execution.v2.CacheCapabilities.SymlinkAbsolutePathStrategy].
   // For each output directory requested in the `output_directories` field of
   // the Action, if the directory file existed after
   // the action completed, a single entry will be present either in this field,
@@ -1024,6 +1048,10 @@ message ExecuteResponse {
   // phase. The keys SHOULD be human readable so that a client can display them
   // to a user.
   map<string, LogFile> server_logs = 4;
+
+  // Freeform informational message with details on the execution of the action
+  // that may be displayed to the user upon failure or when requested explicitly.
+  string message = 5;
 }
 
 // Metadata about an ongoing
@@ -1069,7 +1097,7 @@ message ExecuteOperationMetadata {
 // A request message for
 // [WaitExecution][build.bazel.remote.execution.v2.Execution.WaitExecution].
 message WaitExecutionRequest {
-  // The name of the [Operation][google.longrunning.operations.v1.Operation]
+  // The name of the [Operation][google.longrunning.Operation]
   // returned by [Execute][build.bazel.remote.execution.v2.Execution.Execute].
   string name = 1;
 }
@@ -1248,7 +1276,7 @@ message GetTreeResponse {
 }
 
 // A request message for
-// [Capabilities.GetCapabilities][google.devtools.remoteexecution.v2.Capabilities.GetCapabilities].
+// [Capabilities.GetCapabilities][build.bazel.remote.execution.v2.Capabilities.GetCapabilities].
 message GetCapabilitiesRequest {
   // The instance of the execution system to operate against. A server may
   // support multiple instances of the execution system (with their own workers,
@@ -1259,7 +1287,7 @@ message GetCapabilitiesRequest {
 }
 
 // A response message for
-// [Capabilities.GetCapabilities][google.devtools.remoteexecution.v2.Capabilities.GetCapabilities].
+// [Capabilities.GetCapabilities][build.bazel.remote.execution.v2.Capabilities.GetCapabilities].
 message ServerCapabilities {
   // Capabilities of the remote cache system.
   CacheCapabilities cache_capabilities = 1;
@@ -1280,9 +1308,16 @@ message ServerCapabilities {
 // The digest function used for converting values into keys for CAS and Action
 // Cache.
 enum DigestFunction {
+  // It is an error for the server to return this value.
   UNKNOWN = 0;
+
+  // The Sha-256 digest function.
   SHA256 = 1;
+
+  // The Sha-1 digest function.
   SHA1 = 2;
+
+  // The MD5 digest function.
   MD5 = 3;
 }
 
@@ -1309,9 +1344,10 @@ message CacheCapabilities {
   enum SymlinkAbsolutePathStrategy {
     UNKNOWN = 0;
 
-    // Server will return an INVALID_ARGUMENT on input symlinks with absolute targets.
+    // Server will return an `INVALID_ARGUMENT` on input symlinks with absolute
+    // targets.
     // If an action tries to create an output symlink with an absolute target, a
-    // FAILED_PRECONDITION will be returned.
+    // `FAILED_PRECONDITION` will be returned.
     DISALLOWED = 1;
 
     // Server will allow symlink targets to escape the input root tree, possibly
@@ -1364,8 +1400,9 @@ message ToolDetails {
 // external context of the request. The server may use this for logging or other
 // purposes. To use it, the client attaches the header to the call using the
 // canonical proto serialization:
-// name: build.bazel.remote.execution.v2.requestmetadata-bin
-// contents: the base64 encoded binary RequestMetadata message.
+//
+// * name: `build.bazel.remote.execution.v2.requestmetadata-bin`
+// * contents: the base64 encoded binary `RequestMetadata` message.
 message RequestMetadata {
   // The details for the tool invoking the requests.
   ToolDetails tool_details = 1;
