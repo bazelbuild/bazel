@@ -767,7 +767,7 @@ EOF
     2> "$TEST_log" || fail "Expected success"
 }
 
-function test_aquery_cpp_action_template() {
+function test_aquery_cpp_action_template_treeartifact_output() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/a.bzl" <<'EOF'
@@ -817,6 +817,8 @@ EOF
   cat output >> "$TEST_log"
 
   expect_log_n "CppCompileActionTemplate compiling .*.cc" $expected_num_actions "Expected exactly $expected_num_actions CppCompileActionTemplates."
+
+  assert_contains "Outputs:.*tree_artifact_artifact (TreeArtifact)\]$" output
 
   bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
     2> "$TEST_log" || fail "Expected success"

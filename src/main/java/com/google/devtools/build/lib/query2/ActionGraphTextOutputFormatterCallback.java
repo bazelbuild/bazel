@@ -194,7 +194,11 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
         .append("  Outputs: [")
         .append(
             Streams.stream(action.getOutputs())
-                .map(output -> output.getExecPathString())
+                .map(
+                    output ->
+                        output.isTreeArtifact()
+                            ? output.getExecPathString() + " (TreeArtifact)"
+                            : output.getExecPathString())
                 .sorted()
                 .collect(Collectors.joining(", ")))
         .append("]\n");
