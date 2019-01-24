@@ -82,8 +82,8 @@ public class SymlinkedSandboxedSpawnTest {
 
   @Test
   public void copyOutputs() throws Exception {
-    // These tests are very simple because we just rely on SandboxedSpawnTest.testMoveOutputs to
-    // properly verify all corner cases.
+    // These tests are very simple because we just rely on
+    // AbstractContainerizingSandboxedSpawnTest.testMoveOutputs to properly verify all corner cases.
     Path outputFile = execRoot.getRelative("very/output.txt");
 
     SymlinkedSandboxedSpawn symlinkedExecRoot =

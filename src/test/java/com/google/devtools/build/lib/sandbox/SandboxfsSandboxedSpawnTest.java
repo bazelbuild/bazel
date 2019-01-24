@@ -112,8 +112,8 @@ public class SandboxfsSandboxedSpawnTest {
 
   @Test
   public void testCopyOutputs() throws Exception {
-    // These tests are very simple because we just rely on SandboxedSpawnTest.testMoveOutputs to
-    // properly verify all corner cases.
+    // These tests are very simple because we just rely on
+    // AbstractContainerizingSandboxedSpawnTest.testMoveOutputs to properly verify all corner cases.
     PathFragment outputFile = PathFragment.create("very/output.txt");
 
     SandboxedSpawn spawn =

@@ -129,9 +129,42 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
 
   protected abstract void copyFile(Path source, Path target) throws IOException;
 
+  /**
+   * Moves all given outputs from a root to another.
+   *
+   * <p>This is a support function to help with the implementation of {@link #copyOutputs(Path)}.
+   *
+   * @param outputs outputs to move as relative paths to a root
+   * @param sourceRoot source directory from which to resolve outputs
+   * @param targetRoot target directory to which to move the resolved outputs from the source
+   * @throws IOException if any of the moves fails
+   */
+  static void moveOutputs(SandboxOutputs outputs, Path sourceRoot, Path targetRoot)
+      throws IOException {
+    for (PathFragment output : Iterables.concat(outputs.files(), outputs.dirs())) {
+      Path source = sourceRoot.getRelative(output);
+      Path target = targetRoot.getRelative(output);
+      if (source.isFile() || source.isSymbolicLink()) {
+        // Ensure the target directory exists in the target. The directories for the action outputs
+        // have already been created, but the spawn outputs may be different from the overall action
+        // outputs. This is the case for test actions.
+        target.getParentDirectory().createDirectoryAndParents();
+        FileSystemUtils.moveFile(source, target);
+      } else if (source.isDirectory()) {
+        try {
+          source.renameTo(target);
+        } catch (IOException e) {
+          // Failed to move directory directly, thus move it recursively.
+          target.createDirectory();
+          FileSystemUtils.moveTreesBelow(source, target);
+        }
+      }
+    }
+  }
+
   @Override
   public void copyOutputs(Path execRoot) throws IOException {
-    SandboxedSpawn.moveOutputs(outputs, sandboxExecRoot, execRoot);
+    moveOutputs(outputs, sandboxExecRoot, execRoot);
   }
 
   @Override

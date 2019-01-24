@@ -33,7 +33,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link SandboxedSpawn}. */
 @RunWith(JUnit4.class)
-public class SandboxedSpawnTest {
+public class AbstractContainerizingSandboxedSpawnTest {
 
   @Test
   public void testMoveOutputs() throws Exception {
@@ -74,7 +74,8 @@ public class SandboxedSpawnTest {
     Path outputsDir = testRoot.getRelative("outputs");
     outputsDir.createDirectory();
     outputsDir.getRelative("very").createDirectory();
-    SandboxedSpawn.moveOutputs(SandboxOutputs.create(outputs, outputDirs), execRoot, outputsDir);
+    AbstractContainerizingSandboxedSpawn.moveOutputs(
+        SandboxOutputs.create(outputs, outputDirs), execRoot, outputsDir);
 
     assertThat(outputsDir.getRelative("very/output.txt").isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(outputsDir.getRelative("very/output.link").isSymbolicLink()).isTrue();
