@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -164,6 +165,40 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
         .isEqualTo("/usr/local/custom-sysroot");
+  }
+
+  @Test
+  public void testPresenceOfPerObjectDebugFileBuildVariable() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION);
+    useConfiguration("--fission=yes");
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    assertThat(
+            variables.getStringVariable(
+                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName()))
+        .isNotNull();
+  }
+
+  @Test
+  public void testPresenceOfPerObjectDebugFileBuildVariableUsingLegacyFields() throws Exception {
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig, "supports_fission: true");
+    useConfiguration("--fission=yes");
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    assertThat(
+            variables.getStringVariable(
+                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName()))
+        .isNotNull();
   }
 
   @Test

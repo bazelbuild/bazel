@@ -388,7 +388,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   @Test
-  public void testIsUsingFissionVariable() throws Exception {
+  public void testIsUsingFissionVariableUsingLegacyFields() throws Exception {
     scratch.file("x/BUILD",
         "cc_binary(name = 'foo', srcs = ['foo.cc'])");
     scratch.file("x/foo.cc");
@@ -396,6 +396,29 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, "supports_fission: true");
+
+    useConfiguration("--fission=no");
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    CcToolchainVariables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    assertThat(variables.isAvailable(LinkBuildVariables.IS_USING_FISSION.getVariableName()))
+        .isFalse();
+
+    useConfiguration("--fission=yes");
+    ConfiguredTarget fissionTarget = getConfiguredTarget("//x:foo");
+    CcToolchainVariables fissionVariables =
+        getLinkBuildVariables(fissionTarget, LinkTargetType.EXECUTABLE);
+    assertThat(fissionVariables.isAvailable(LinkBuildVariables.IS_USING_FISSION.getVariableName()))
+        .isTrue();
+  }
+
+  @Test
+  public void testIsUsingFissionVariable() throws Exception {
+    scratch.file("x/BUILD", "cc_binary(name = 'foo', srcs = ['foo.cc'])");
+    scratch.file("x/foo.cc");
+
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PER_OBJECT_DEBUG_INFO_CONFIGURATION);
 
     useConfiguration("--fission=no");
     ConfiguredTarget target = getConfiguredTarget("//x:foo");

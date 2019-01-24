@@ -315,6 +315,15 @@ public final class CcToolchainProvider extends ToolchainInfo
         && supportsFission();
   }
 
+  /**
+   * Returns true if PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL for the
+   * build implied by the given configuration, toolchain and feature configuration.
+   */
+  public boolean shouldCreatePerObjectDebugInfo(FeatureConfiguration featureConfiguration) {
+    return cppConfiguration.fissionIsActiveForCurrentCompilationMode()
+        && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
+  }
+
   /** Whether the toolchains supports header parsing. */
   public boolean supportsHeaderParsing() {
     return supportsHeaderParsing;
@@ -332,14 +341,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     // self-contained by building the module instead.
     return !cppConfiguration.getParseHeadersVerifiesModules()
         && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
-  }
-
-  /**
-   * Returns true if Fission and PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL
-   * for the build implied by the given configuration, toolchain and feature configuration.
-   */
-  public boolean shouldCreatePerObjectDebugInfo(FeatureConfiguration featureConfiguration) {
-    return useFission() && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
   }
 
   @Override
