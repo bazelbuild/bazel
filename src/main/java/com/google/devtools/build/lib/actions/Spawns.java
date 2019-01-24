@@ -29,7 +29,8 @@ public final class Spawns {
    * Returns {@code true} if the result of {@code spawn} may be cached.
    */
   public static boolean mayBeCached(Spawn spawn) {
-    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_CACHE);
+    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_CACHE)
+        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL);
   }
 
   /** Returns whether a Spawn can be executed in a sandbox environment. */
