@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -45,7 +46,9 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
@@ -162,16 +165,20 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
    * JavaInfo}s. Returns an empty list if no providers can be fetched. Returns a list of the same
    * size as the given list if the requested providers are of type JavaCompilationArgsProvider.
    */
-  public static <C extends TransitiveInfoProvider> List<C> fetchProvidersFromList(
-      Iterable<JavaInfo> javaProviders, Class<C> providersClass) {
-    List<C> fetchedProviders = new ArrayList<>();
-    for (JavaInfo javaInfo : javaProviders) {
-      C provider = javaInfo.getProvider(providersClass);
-      if (provider != null) {
-        fetchedProviders.add(provider);
-      }
-    }
-    return fetchedProviders;
+  public static <T extends TransitiveInfoProvider> ImmutableList<T> fetchProvidersFromList(
+      Iterable<JavaInfo> javaProviders, Class<T> providerClass) {
+    return streamProviders(javaProviders, providerClass).collect(ImmutableList.toImmutableList());
+  }
+
+  /**
+   * Returns a stream of providers of the specified class, fetched from the given list of {@link
+   * JavaInfo}.
+   */
+  public static <C extends TransitiveInfoProvider> Stream<C> streamProviders(
+      Iterable<JavaInfo> javaProviders, Class<C> providerClass) {
+    return Streams.stream(javaProviders)
+        .map(javaInfo -> javaInfo.getProvider(providerClass))
+        .filter(Objects::nonNull);
   }
 
   /**
@@ -223,23 +230,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       }
     }
     return providersList;
-  }
-
-  /**
-   * Returns a list of the given provider class with all the said providers retrieved from the given
-   * {@link JavaInfo}s.
-   */
-  public static <T extends TransitiveInfoProvider>
-      ImmutableList<T> getProvidersFromListOfJavaProviders(
-          Class<T> providerClass, Iterable<JavaInfo> javaProviders) {
-    ImmutableList.Builder<T> providersList = new ImmutableList.Builder<>();
-    for (JavaInfo javaInfo : javaProviders) {
-      T provider = javaInfo.getProvider(providerClass);
-      if (provider != null) {
-        providersList.add(provider);
-      }
-    }
-    return providersList.build();
   }
 
   @VisibleForSerialization

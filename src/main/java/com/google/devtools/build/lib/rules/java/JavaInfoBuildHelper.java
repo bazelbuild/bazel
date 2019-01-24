@@ -17,17 +17,16 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.RUNTIME_ONLY;
+import static com.google.devtools.build.lib.rules.java.JavaInfo.streamProviders;
 import static java.util.stream.Stream.concat;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -44,10 +43,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import java.util.List;
-import java.util.Objects;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 
 /** Implements logic for creating JavaInfo from different set of input parameters. */
@@ -207,12 +203,12 @@ final class JavaInfoBuildHelper {
 
     ClasspathType type = neverlink ? COMPILE_ONLY : BOTH;
 
-    fetchProviders(exports, JavaCompilationArgsProvider.class)
+    streamProviders(exports, JavaCompilationArgsProvider.class)
         .forEach(args -> javaCompilationArgsBuilder.addExports(args, type));
-    fetchProviders(compileTimeDeps, JavaCompilationArgsProvider.class)
+    streamProviders(compileTimeDeps, JavaCompilationArgsProvider.class)
         .forEach(args -> javaCompilationArgsBuilder.addDeps(args, type));
 
-    fetchProviders(runtimeDeps, JavaCompilationArgsProvider.class)
+    streamProviders(runtimeDeps, JavaCompilationArgsProvider.class)
         .forEach(args -> javaCompilationArgsBuilder.addDeps(args, RUNTIME_ONLY));
 
     javaInfoBuilder.addProvider(
@@ -220,10 +216,7 @@ final class JavaInfoBuildHelper {
 
     javaInfoBuilder.addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports));
 
-    javaInfoBuilder.addProvider(
-        JavaPluginInfoProvider.class,
-        JavaPluginInfoProvider.merge(
-            JavaInfo.getProvidersFromListOfJavaProviders(JavaPluginInfoProvider.class, exports)));
+    javaInfoBuilder.addProvider(JavaPluginInfoProvider.class, createJavaPluginsProvider(exports));
 
     javaInfoBuilder.addProvider(
         JavaSourceJarsProvider.class,
@@ -277,13 +270,6 @@ final class JavaInfoBuildHelper {
     return outputSrcJar;
   }
 
-  /** Creates a {@link JavaSourceJarsProvider} from the given lists of source jars. */
-  private static JavaSourceJarsProvider createJavaSourceJarsProvider(
-      List<Artifact> sourceJars, NestedSet<Artifact> transitiveSourceJars) {
-    NestedSet<Artifact> javaSourceJars = NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJars);
-    return JavaSourceJarsProvider.create(transitiveSourceJars, javaSourceJars);
-  }
-
   private JavaSourceJarsProvider createJavaSourceJarsProvider(
       Iterable<Artifact> sourceJars, Iterable<JavaInfo> transitiveDeps) {
     NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
@@ -295,50 +281,29 @@ final class JavaInfoBuildHelper {
     return JavaSourceJarsProvider.create(transitiveSourceJars.build(), sourceJars);
   }
 
-  private Iterable<NestedSet<Artifact>> fetchSourceJars(Iterable<JavaInfo> javaInfos) {
+  private Stream<NestedSet<Artifact>> fetchSourceJars(Iterable<JavaInfo> javaInfos) {
+    // TODO(b/123265803): This step should be only necessary if transitive source jar doesn't
+    // include sourcejar at this level but they should.
     Stream<NestedSet<Artifact>> sourceJars =
-        fetchProviders(javaInfos, JavaSourceJarsProvider.class)
+        streamProviders(javaInfos, JavaSourceJarsProvider.class)
             .map(JavaSourceJarsProvider::getSourceJars)
             .map(sourceJarsList -> NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsList));
 
     Stream<NestedSet<Artifact>> transitiveSourceJars =
-        fetchProviders(javaInfos, JavaSourceJarsProvider.class)
+        streamProviders(javaInfos, JavaSourceJarsProvider.class)
             .map(JavaSourceJarsProvider::getTransitiveSourceJars);
 
-    return concat(sourceJars, transitiveSourceJars)::iterator;
-  }
-
-  /**
-   * Returns Stream of not null Providers.
-   *
-   * <p>Gets Stream from dependencies, transforms to Provider defined by providerClass param and
-   * filters nulls.
-   *
-   * @see JavaInfo#merge(List)
-   */
-  private <P extends TransitiveInfoProvider> Stream<P> fetchProviders(
-      Iterable<JavaInfo> javaInfos, Class<P> providerClass) {
-    return StreamSupport.stream(javaInfos.spliterator(), /*parallel=*/ false)
-        .map(javaInfo -> javaInfo.getProvider(providerClass))
-        .filter(Objects::nonNull);
+    return concat(sourceJars, transitiveSourceJars);
   }
 
   private JavaExportsProvider createJavaExportsProvider(Iterable<JavaInfo> javaInfos) {
-    NestedSet<Label> exportsNestedSet = fetchExports(javaInfos);
-
-    // TODO(b/69780248): I need to add javaInfos there too. See #3769
-    // The problem is JavaInfo can not be converted to Label.
-    return new JavaExportsProvider(exportsNestedSet);
+    return JavaExportsProvider.merge(
+        JavaInfo.fetchProvidersFromList(javaInfos, JavaExportsProvider.class));
   }
 
-  private NestedSet<Label> fetchExports(Iterable<JavaInfo> javaInfos) {
-    NestedSetBuilder<Label> builder = NestedSetBuilder.stableOrder();
-
-    fetchProviders(javaInfos, JavaExportsProvider.class)
-        .map(JavaExportsProvider::getTransitiveExports)
-        .forEach(builder::addTransitive);
-
-    return builder.build();
+  private JavaPluginInfoProvider createJavaPluginsProvider(Iterable<JavaInfo> javaInfos) {
+    return JavaPluginInfoProvider.merge(
+        JavaInfo.fetchProvidersFromList(javaInfos, JavaPluginInfoProvider.class));
   }
 
   @Deprecated
@@ -451,19 +416,10 @@ final class JavaInfoBuildHelper {
                     .addAll(javacOpts)
                     .build());
 
-    List<JavaCompilationArgsProvider> depsCompilationArgsProviders =
-        JavaInfo.fetchProvidersFromList(deps, JavaCompilationArgsProvider.class);
-    List<JavaCompilationArgsProvider> exportsCompilationArgsProviders =
-        JavaInfo.fetchProvidersFromList(exports, JavaCompilationArgsProvider.class);
-    helper.addAllDeps(depsCompilationArgsProviders);
-    helper.addAllExports(exportsCompilationArgsProviders);
+    streamProviders(deps, JavaCompilationArgsProvider.class).forEach(helper::addDep);
+    streamProviders(exports, JavaCompilationArgsProvider.class).forEach(helper::addExport);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)));
-
-    helper.setPlugins(
-        JavaPluginInfoProvider.merge(
-            Iterables.concat(
-                JavaInfo.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class),
-                JavaInfo.fetchProvidersFromList(deps, JavaPluginInfoProvider.class))));
+    helper.setPlugins(createJavaPluginsProvider(concat(plugins, deps)));
     helper.setNeverlink(neverlink);
 
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
@@ -496,10 +452,9 @@ final class JavaInfoBuildHelper {
             javaInfoBuilder,
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
             // added to javaInfoBuilder for this target.
-            NestedSetBuilder.<JavaGenJarsProvider>stableOrder()
-                .addAll(JavaInfo.fetchProvidersFromList(deps, JavaGenJarsProvider.class))
-                .addAll(JavaInfo.fetchProvidersFromList(exports, JavaGenJarsProvider.class))
-                .build());
+            NestedSetBuilder.wrap(
+                Order.STABLE_ORDER,
+                JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class)));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true, neverlink);
@@ -509,24 +464,7 @@ final class JavaInfoBuildHelper {
                 javaCompilationArgsProvider.getRuntimeJars())
             .build();
 
-    JavaPluginInfoProvider transitivePluginsProvider =
-        JavaPluginInfoProvider.merge(
-            concat(
-                JavaInfo.getProvidersFromListOfJavaProviders(
-                    JavaPluginInfoProvider.class, exportedPlugins),
-                JavaInfo.getProvidersFromListOfJavaProviders(
-                    JavaPluginInfoProvider.class, exports)));
-
     ImmutableList<Artifact> outputSourceJars = ImmutableList.of(outputSourceJar);
-
-    NestedSetBuilder<Artifact> transitiveSourceJars =
-        NestedSetBuilder.<Artifact>stableOrder().addAll(outputSourceJars);
-    Stream.concat(deps.stream(), exports.stream())
-        .filter(javaInfo -> javaInfo.getProvider(JavaSourceJarsProvider.class) != null)
-        .map(javaInfo -> javaInfo.getProvider(JavaSourceJarsProvider.class))
-        .forEach(
-            sourceJarsP ->
-                transitiveSourceJars.addTransitive(sourceJarsP.getTransitiveSourceJars()));
 
     // When sources are not provided, the subsequent output Jar will be empty. As such, the output
     // Jar is omitted from the set of Runtime Jars.
@@ -538,10 +476,12 @@ final class JavaInfoBuildHelper {
         .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
         .addProvider(
             JavaSourceJarsProvider.class,
-            createJavaSourceJarsProvider(outputSourceJars, transitiveSourceJars.build()))
+            createJavaSourceJarsProvider(outputSourceJars, concat(deps, exports)))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
-        .addProvider(JavaPluginInfoProvider.class, transitivePluginsProvider)
+        .addProvider(
+            JavaPluginInfoProvider.class,
+            createJavaPluginsProvider(concat(exportedPlugins, exports)))
         .setNeverlink(neverlink)
         .build();
   }
