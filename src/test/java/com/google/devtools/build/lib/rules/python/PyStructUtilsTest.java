@@ -231,39 +231,15 @@ public class PyStructUtilsTest extends BuildViewTestCase {
 
   @Test
   public void getTransitiveSources_OrderMismatch() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    // Depset order mismatches should be caught as rule errors.
-    scratch.file("rules/BUILD");
-    scratch.file(
-        "rules/badorderrule.bzl",
-        "def _badorderrule_impl(ctx):",
-        // Native rules use "compile" / "postorder", so using "preorder" here creates a conflict.
-        "    info = struct(transitive_sources=depset(direct=[], order='preorder'))",
-        "    return struct(py=info)",
-        "",
-        "badorderrule = rule(",
-        "    implementation = _badorderrule_impl",
-        ")");
-    scratch.file(
-        "badordertarget/BUILD",
-        "load('//rules:badorderrule.bzl', 'badorderrule')",
-        "",
-        "badorderrule(",
-        "    name = 'badorderdep',",
-        ")",
-        "py_library(",
-        "    name = 'pylib',",
-        "    srcs = ['pylib.py'],",
-        ")",
-        "py_binary(",
-        "    name = 'pybin',",
-        "    srcs = ['pybin.py'],",
-        "    deps = [':pylib', ':badorderdep'],",
-        ")");
-    getConfiguredTarget("//badordertarget:pybin");
-    assertContainsEvent(
-        "Incompatible order for transitive_sources: expected 'default' or 'postorder', got "
-            + "'preorder'");
+    NestedSet<Artifact> sources = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+    StructImpl info =
+        makeStruct(
+            ImmutableMap.of(
+                PyStructUtils.TRANSITIVE_SOURCES, SkylarkNestedSet.of(Artifact.class, sources)));
+    assertThrowsEvalExceptionContaining(
+        () -> PyStructUtils.getTransitiveSources(info),
+        "Incompatible depset order for 'transitive_sources': expected 'default' or 'postorder', "
+            + "but got 'preorder'");
   }
 
   @Test

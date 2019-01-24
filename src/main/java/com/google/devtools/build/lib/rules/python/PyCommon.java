@@ -234,13 +234,7 @@ public final class PyCommon {
         try {
           StructImpl info = PyStructUtils.getProvider(dep);
           NestedSet<Artifact> sources = PyStructUtils.getTransitiveSources(info);
-          if (!builder.getOrder().isCompatible(sources.getOrder())) {
-            ruleContext.ruleError(
-                getOrderErrorMessage(
-                    PyStructUtils.TRANSITIVE_SOURCES, builder.getOrder(), sources.getOrder()));
-          } else {
-            builder.addTransitive(sources);
-          }
+          builder.addTransitive(sources);
         } catch (EvalException e) {
           // Either the provider type or field type is bad.
           ruleContext.ruleError(e.getMessage());

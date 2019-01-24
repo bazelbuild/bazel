@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -38,8 +39,8 @@ public class PyStructUtils {
   public static final String PROVIDER_NAME = "py";
 
   /**
-   * Name of field holding a postorder depset of transitive sources (i.e., .py files in srcs and in
-   * srcs of transitive deps).
+   * Name of field holding a postorder-compatible depset of transitive sources (i.e., .py files in
+   * {@code srcs} and in {@code srcs} of transitive {@code deps}).
    */
   public static final String TRANSITIVE_SOURCES = "transitive_sources";
 
@@ -132,7 +133,16 @@ public class PyStructUtils {
             PROVIDER_NAME,
             TRANSITIVE_SOURCES,
             EvalUtils.getDataTypeNameFromClass(fieldValue.getClass()));
-    return castValue.getSet(Artifact.class);
+    NestedSet<Artifact> unwrappedValue = castValue.getSet(Artifact.class);
+    if (!unwrappedValue.getOrder().isCompatible(Order.COMPILE_ORDER)) {
+      throw new EvalException(
+          /*location=*/ null,
+          String.format(
+              "Incompatible depset order for 'transitive_sources': expected 'default' or "
+                  + "'postorder', but got '%s'",
+              unwrappedValue.getOrder().getSkylarkName()));
+    }
+    return unwrappedValue;
   }
 
   /**
