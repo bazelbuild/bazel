@@ -12,6 +12,7 @@ filegroup(
         "//third_party/iossim:srcs",
         "//third_party/grpc:srcs",
         "//third_party/jarjar:srcs",
+        "//third_party/jaxb:srcs",
         "//third_party/java/android_databinding:srcs",
         "//third_party/java/aosp_gradle_core:srcs",
         "//third_party/java/apkbuilder:srcs",
@@ -96,6 +97,9 @@ java_import(
         "android_common/com.android.tools_repository_25.0.0.jar",
         "android_common/com.android.tools_sdk-common_25.0.0.jar",
         "android_common/com.android.tools_sdklib_25.0.0.jar",
+    ],
+    deps = [
+        "//third_party/jaxb",
     ],
     runtime_deps = [
         ":asm",
