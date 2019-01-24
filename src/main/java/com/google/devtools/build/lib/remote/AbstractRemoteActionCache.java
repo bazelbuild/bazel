@@ -28,6 +28,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.hash.HashingOutputStream;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -126,13 +127,19 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       return EMPTY_BYTES;
     }
     ByteArrayOutputStream bOut = new ByteArrayOutputStream((int) digest.getSizeBytes());
+    HashingOutputStream hashOut = digestUtil.newHashingOutputStream(bOut);
     SettableFuture<byte[]> outerF = SettableFuture.create();
     Futures.addCallback(
-        downloadBlob(digest, bOut),
+        downloadBlob(digest, hashOut),
         new FutureCallback<Void>() {
           @Override
           public void onSuccess(Void aVoid) {
-            outerF.set(bOut.toByteArray());
+            try {
+              verifyContents(digest, hashOut);
+              outerF.set(bOut.toByteArray());
+            } catch (IOException e) {
+              outerF.setException(e);
+            }
           }
 
           @Override
@@ -674,6 +681,19 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
                   + "uploaded to a remote cache. "
                   + "Change the file type or use --remote_allow_symlink_upload.",
               what.relativeTo(execRoot), kind));
+    }
+  }
+
+  protected void verifyContents(Digest expected, HashingOutputStream actual) throws IOException {
+    String expectedHash = expected.getHash();
+    String actualHash = DigestUtil.hashCodeToString(actual.hash());
+    if (!expectedHash.equals(actualHash)) {
+      String msg =
+          String.format(
+              "Download an output failed, because the expected hash"
+                  + "'%s' did not match the received hash '%s'.",
+              expectedHash, actualHash);
+      throw new IOException(msg);
     }
   }
 

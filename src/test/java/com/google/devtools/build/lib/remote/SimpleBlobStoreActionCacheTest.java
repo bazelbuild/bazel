@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Action;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import io.grpc.Context;
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
@@ -448,5 +450,26 @@ public class SimpleBlobStoreActionCacheTest {
 
     assertThat(map.keySet())
         .containsExactly(wobbleDigest.getHash(), quxDigest.getHash(), barDigest.getHash());
+  }
+
+  @Test
+  public void testDownloadFailsOnDigestMismatch() {
+    // Test that the download fails when a blob/file has a different content hash than expected.
+
+    final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
+    Digest digest = DIGEST_UTIL.computeAsUtf8("hello");
+    // Store content that doesn't match its digest
+    map.put(digest.getHash(), "world".getBytes(Charsets.UTF_8));
+    final SimpleBlobStoreActionCache client = newClient(map);
+
+    IOException e =
+        assertThrows(IOException.class, () -> getFromFuture(client.downloadBlob(digest)));
+    assertThat(e).hasMessageThat().contains(digest.getHash());
+
+    e =
+        assertThrows(
+            IOException.class,
+            () -> getFromFuture(client.downloadFile(fs.getPath("/exec/root/foo"), digest)));
+    assertThat(e).hasMessageThat().contains(digest.getHash());
   }
 }
