@@ -48,7 +48,12 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -319,6 +324,31 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
       if (variableName.equals("@")) {
         return expandSingletonArtifact(filesToBuild, "$@", "output file");
+      }
+
+      if (variableName.equals("OUT_ROOT_DIR")) {
+        // The output root directory. This variable expands to the package's root directory
+        // in the genfiles tree.
+        Path dirPath;
+        PathFragment dirFragment;
+        if (ruleContext.getRule().hasBinaryOutput()) {
+          dirPath = ruleContext.getConfiguration().getBinDir().getRoot().asPath();
+          dirFragment = ruleContext.getConfiguration().getBinFragment();
+        } else {
+          dirPath = ruleContext.getConfiguration().getGenfilesDir().getRoot().asPath();
+          dirFragment = ruleContext.getConfiguration().getGenfilesFragment();
+        }
+
+        PathFragment relPath = ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
+        // TODO: Instead of creating a new directory, use the root
+        String outDirStr = "testing-genrules";
+        Path outputRootDir = dirPath.getRelative(relPath).getRelative(outDirStr);
+        try {
+          outputRootDir.createDirectory();
+        } catch (IOException e) {
+          throw new UncheckedIOException(e);
+        }
+        return dirFragment.getRelative(relPath).getRelative(outDirStr).getPathString();
       }
 
       if (variableName.equals("@D")) {

@@ -241,8 +241,9 @@ public final class PathFragment
   /**
    * Returns the {@link PathFragment} relative to the base {@link PathFragment}.
    *
-   * <p>For example, <code>FilePath.create("foo/bar/wiz").relativeTo(FilePath.create("foo"))</code>
-   * returns <code>"bar/wiz"</code>.
+   * <p>For example,
+   * <code>{@link PathFragment}.create("foo/bar/wiz").relativeTo({@link PathFragment}.create("foo"))
+   * </code> returns <code>"bar/wiz"</code>.
    *
    * <p>If the {@link PathFragment} is not a child of the passed {@link PathFragment} an {@link
    * IllegalArgumentException} is thrown. In particular, this will happen whenever the two {@link
