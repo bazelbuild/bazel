@@ -141,10 +141,6 @@ java_library(
 java_library(
     name = "os_util",
     srcs = ["util/OS.java"],
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
 )
 
 java_library(
@@ -239,7 +235,6 @@ java_library(
         ":base-util",
         ":exitcode-external",
         ":os_util",
-        ":resource-converter",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -415,7 +410,6 @@ java_library(
         ":skylark_semantics",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
-        "//third_party:guava",
     ],
 )
 
@@ -927,7 +921,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-event",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository",
@@ -1160,9 +1153,7 @@ java_library(
     deps = [
         ":resource-converter",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
     ],
 )
 
@@ -1173,7 +1164,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:apache_commons_lang",
         "//third_party:guava",
@@ -1282,7 +1272,6 @@ java_library(
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:apache_commons_lang",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
