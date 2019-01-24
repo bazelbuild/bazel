@@ -1074,6 +1074,18 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
         helper.getToolsRunfilesSuppliers());
   }
 
+  @Override
+  public Tuple<Object> resolveTools(SkylarkList tools) throws ConversionException, EvalException {
+    checkMutable("resolve_tools");
+    CommandHelper helper =
+        CommandHelper.builder(getRuleContext())
+            .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
+            .build();
+    return Tuple.<Object>of(
+        SkylarkNestedSet.of(Artifact.class, helper.getResolvedTools()),
+        helper.getToolsRunfilesSuppliers());
+  }
+
   public SkylarkSemantics getSkylarkSemantics() {
     return skylarkSemantics;
   }
