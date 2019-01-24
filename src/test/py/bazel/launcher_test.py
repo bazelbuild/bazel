@@ -15,6 +15,7 @@
 
 import os
 import stat
+import string
 import unittest
 from src.test.py.bazel import test_base
 
@@ -605,7 +606,7 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
     # Create a directory with a path longer than 260
-    long_dir_path = "./" + "/".join(["a" * 100, "b" * 100, "c" * 100])
+    long_dir_path = "./" + "/".join([(c * 8 + "." + c * 3) for c in string.ascii_lowercase])
 
     for f in [
         'bin_java.exe', 'bin_java.exe.runfiles_manifest',
