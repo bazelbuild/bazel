@@ -13,6 +13,7 @@ Supported Ubuntu Linux platforms:
 
 Install Bazel on Ubuntu using one of the following methods:
 
+*   [Use the package installer (recommended)](#install-with-package-installer-ubuntu)
 *   [Use the binary installer (recommended)](#install-with-installer-ubuntu)
 *   [Use our custom APT repository](#install-on-ubuntu)
 *   [Compile Bazel from source](install-compile-source.md)
@@ -21,6 +22,32 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 
 *   Access the [bash completion script](completion.md#bash)
 *   Install the [zsh completion script](completion.md#zsh)
+
+<h2 id="install-with-package-installer-ubuntu">Installing using package installer</h2>
+
+The debian package files are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
+
+### Step 1: Install required packages
+
+First, install the prerequisites: `pkg-config`, `zip`, `g++`, `zlib1g-dev`, `unzip`, and `python`.
+
+```bash
+sudo apt-get install pkg-config zip g++ zlib1g-dev unzip python
+```
+
+### Step 2: Download Bazel
+
+Next, download the Bazel binary installer named `bazel-<version>-installer-linux-x86_64.sh`
+from the [Bazel releases page on GitHub](https://github.com/bazelbuild/bazel/releases).
+
+### Step 3: Run the installer
+
+Run the Bazel installer as follows:
+
+```bash
+sudo dpkg -i bazel_version-linux-x86_64.deb 
+sudo apt-get install -f
+```
 
 <h2 id="install-with-installer-ubuntu">Installing using binary installer</h2>
 
