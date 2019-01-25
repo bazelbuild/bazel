@@ -37,7 +37,7 @@ sudo apt-get install pkg-config zip g++ zlib1g-dev unzip python
 
 ### Step 2: Download Bazel
 
-Next, download the Bazel binary installer named `bazel-<version>-installer-linux-x86_64.sh`
+Next, download the Bazel debian package file named `bazel-<version>-linux-x86_64.deb`
 from the [Bazel releases page on GitHub](https://github.com/bazelbuild/bazel/releases).
 
 ### Step 3: Run the installer
