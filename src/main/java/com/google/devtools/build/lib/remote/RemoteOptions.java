@@ -274,12 +274,6 @@ public final class RemoteOptions extends OptionsBase {
               + "cachable actions that output symlinks will fail.")
   public boolean allowSymlinkUpload;
 
-  // The below options are not configurable by users, only tests.
-  // This is part of the effort to reduce the overall number of flags.
-
-  /** The maximum size of an outbound message sent via a gRPC channel. */
-  public int maxOutboundMessageSize = 1024 * 1024;
-
   @Option(
       name = "remote_result_cache_priority",
       defaultValue = "0",
@@ -312,4 +306,20 @@ public final class RemoteOptions extends OptionsBase {
               + "This value will also be used if the host platform is selected as the execution "
               + "platform for remote execution.")
   public String remoteDefaultPlatformProperties;
+
+  @Option(
+      name = "remote_verify_downloads",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If set to true, Bazel will compute the hash sum of all remote downloads and "
+          + " discard the remotely cached values if they don't match the expected value."
+  )
+  public boolean remoteVerifyDownloads;
+
+  // The below options are not configurable by users, only tests.
+  // This is part of the effort to reduce the overall number of flags.
+
+  /** The maximum size of an outbound message sent via a gRPC channel. */
+  public int maxOutboundMessageSize = 1024 * 1024;
 }
