@@ -14,14 +14,6 @@ filegroup(
     ],
 )
 
-# For exposing the Python version Starlark flag to tests.
-filegroup(
-    name = "python_version_srcs",
-    srcs = [
-        "python_version.bzl",
-    ],
-)
-
 filegroup(
     name = "embedded_tools",
     srcs = glob(["**"]) + [

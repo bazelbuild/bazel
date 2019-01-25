@@ -27,7 +27,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests that <tools repo>//tools/python:python_version works, and that users cannot {@code
+ * Tests that {@code <tools repo>//tools/python:python_version} works, and that users cannot {@code
  * select()} on the native flags.
  */
 @RunWith(JUnit4.class)

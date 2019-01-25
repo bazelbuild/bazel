@@ -457,8 +457,7 @@ public final class PyCommon {
     if (!ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
       return false;
     }
-    // TODO(brandjon): Add hints to the error message about how to locate the offending
-    // dependencies.
+    // TODO(brandjon): Add link to documentation explaining the error and use of the aspect.
     String error = null;
     if (version == PythonVersion.PY2 && hasPy3OnlySources) {
       error =

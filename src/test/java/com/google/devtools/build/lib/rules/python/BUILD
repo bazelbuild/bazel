@@ -19,6 +19,7 @@ test_suite(
         ":PyStructUtilsTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
+        ":PythonSrcsVersionAspectTest",
         ":PythonStarlarkApiTest",
         ":PythonVersionSelectTest",
         ":PythonVersionTest",
@@ -149,6 +150,19 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PythonSrcsVersionAspectTest",
+    srcs = ["PythonSrcsVersionAspectTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",

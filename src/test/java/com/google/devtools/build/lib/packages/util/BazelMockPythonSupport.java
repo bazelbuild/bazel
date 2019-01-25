@@ -22,12 +22,16 @@ public class BazelMockPythonSupport extends MockPythonSupport {
 
   public static final BazelMockPythonSupport INSTANCE = new BazelMockPythonSupport();
 
+  private static void addTool(MockToolsConfig config, String toolRelativePath) throws IOException {
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + toolRelativePath,
+        ResourceLoader.readFromResources(TestConstants.BAZEL_REPO_PATH + toolRelativePath));
+  }
+
   @Override
   public void setup(MockToolsConfig config) throws IOException {
-    config.create(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/python/python_version.bzl",
-        ResourceLoader.readFromResources(
-            TestConstants.BAZEL_REPO_PATH + "tools/python/python_version.bzl"));
+    addTool(config, "tools/python/python_version.bzl");
+    addTool(config, "tools/python/srcs_version.bzl");
 
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/python/BUILD",
