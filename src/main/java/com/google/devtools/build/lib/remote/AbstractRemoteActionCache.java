@@ -127,19 +127,13 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       return EMPTY_BYTES;
     }
     ByteArrayOutputStream bOut = new ByteArrayOutputStream((int) digest.getSizeBytes());
-    HashingOutputStream hashOut = digestUtil.newHashingOutputStream(bOut);
     SettableFuture<byte[]> outerF = SettableFuture.create();
     Futures.addCallback(
-        downloadBlob(digest, hashOut),
+        downloadBlob(digest, bOut),
         new FutureCallback<Void>() {
           @Override
           public void onSuccess(Void aVoid) {
-            try {
-              verifyContents(digest, hashOut);
-              outerF.set(bOut.toByteArray());
-            } catch (IOException e) {
-              outerF.setException(e);
-            }
+            outerF.set(bOut.toByteArray());
           }
 
           @Override
