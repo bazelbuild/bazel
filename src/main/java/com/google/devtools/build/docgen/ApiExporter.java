@@ -27,6 +27,7 @@ import com.google.devtools.build.docgen.skylark.SkylarkParamDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.MethodDescriptor;
@@ -93,6 +94,15 @@ public class ApiExporter {
       Value.Builder value = Value.newBuilder();
       if (obj instanceof BaseFunction) {
         value = collectFunctionInfo((BaseFunction) obj);
+      } else if (obj instanceof BuiltinCallable) {
+        BuiltinCallable builtinCallable = (BuiltinCallable) obj;
+        MethodDescriptor descriptor =
+            builtinCallable.getMethodDescriptor(SkylarkSemantics.DEFAULT_SEMANTICS);
+        value =
+            collectFunctionInfo(
+                descriptor.getName(),
+                SkylarkSignatureProcessor.getSignatureForCallable(
+                    descriptor.getName(), descriptor, null, null));
       } else {
         value.setName(entry.getKey());
       }

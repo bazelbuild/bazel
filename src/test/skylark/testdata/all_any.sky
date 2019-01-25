@@ -34,9 +34,9 @@ assert_eq(any({1 : None, '' : None}), True)
 assert_eq(any({None : 1, '' : 2}), False)
 
 ---
-all(None) ### type 'NoneType' is not iterable
+all(None) ### parameter 'elements' cannot be None, for call to function all(elements)
 ---
-any(None) ### type 'NoneType' is not iterable
+any(None) ### parameter 'elements' cannot be None, for call to function any(elements)
 ---
 any(1) ### type 'int' is not iterable
 ---

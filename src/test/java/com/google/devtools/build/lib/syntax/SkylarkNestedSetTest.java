@@ -266,12 +266,11 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testTooManyPositionals() throws Exception {
-    new BothModesTest().testIfExactError(
-        "too many (3) positional arguments in call to "
-            + "depset(items = [], order: string = \"default\", *, "
-            + "direct: sequence or NoneType = None, "
-            + "transitive: sequence of depsets or NoneType = None)",
-        "depset([], 'default', [])");
+    new BothModesTest()
+        .testIfErrorContains(
+            "expected no more than 2 positional arguments, but got 3, for call to function "
+                + "depset(items = [], order = \"default\", direct = None, transitive = None)",
+            "depset([], 'default', [])");
   }
 
 

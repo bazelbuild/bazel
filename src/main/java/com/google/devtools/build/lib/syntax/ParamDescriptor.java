@@ -74,7 +74,11 @@ public final class ParamDescriptor {
     this.flagResponsibleForDisable = flagResponsibleForDisable;
   }
 
-  static ParamDescriptor of(Param param, SkylarkSemantics skylarkSemantics) {
+  /**
+   * Returns a {@link ParamDescriptor} representing the given raw {@link Param} annotation and the
+   * given semantics.
+   */
+  public static ParamDescriptor of(Param param, SkylarkSemantics skylarkSemantics) {
     ImmutableList<ParamTypeDescriptor> allowedTypes =
         Arrays.stream(param.allowedTypes())
             .map(ParamTypeDescriptor::of)

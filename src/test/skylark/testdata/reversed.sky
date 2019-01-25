@@ -7,7 +7,7 @@ assert_eq(reversed('__test  '.elems()), [' ', ' ', 't', 's', 'e', 't', '_', '_']
 assert_eq(reversed('bbb'.elems()), ['b', 'b', 'b'])
 
 ---
-reversed(None) ### type 'NoneType' is not iterable
+reversed(None) ### parameter 'sequence' cannot be None, for call to function reversed(sequence)
 ---
 reversed(1) ### type 'int' is not iterable
 ---
