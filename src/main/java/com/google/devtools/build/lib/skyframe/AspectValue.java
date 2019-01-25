@@ -39,9 +39,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
 
 /** An aspect in the context of the Skyframe graph. */
-@AutoCodec
 public final class AspectValue extends BasicActionLookupValue {
-
   /**
    * A base class for keys that have AspectValue as a Sky value.
    */
@@ -428,24 +426,7 @@ public final class AspectValue extends BasicActionLookupValue {
   @Nullable private AspectKey key;
   @Nullable private ConfiguredAspect configuredAspect;
   // May be null either after clearing or because transitive packages are not tracked.
-  @Nullable private NestedSet<Package> transitivePackagesForPackageRootResolution;
-
-  @AutoCodec.Instantiator
-  @AutoCodec.VisibleForSerialization
-  AspectValue(
-      AspectKey key,
-      Aspect aspect,
-      Label label,
-      Location location,
-      ConfiguredAspect configuredAspect) {
-    super(configuredAspect.getActions(), configuredAspect.getGeneratingActionIndex());
-    this.label = Preconditions.checkNotNull(label, actions);
-    this.aspect = Preconditions.checkNotNull(aspect, label);
-    this.location = Preconditions.checkNotNull(location, label);
-    this.key = Preconditions.checkNotNull(key, label);
-    this.configuredAspect = Preconditions.checkNotNull(configuredAspect, label);
-    this.transitivePackagesForPackageRootResolution = null;
-  }
+  @Nullable private transient NestedSet<Package> transitivePackagesForPackageRootResolution;
 
   public AspectValue(
       AspectKey key,
