@@ -48,7 +48,7 @@ import javax.annotation.Nullable;
  * <p>To do this refactoring incrementally, we first introduce this class and add a method that is
  * able to convert from this representation to the old four CcLinkParams variables.
  */
-public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi {
+public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Artifact> {
 
   public static LibraryToLinkWrapper convertLinkOutputsToLibraryToLinkWrapper(
       CcLinkingOutputs ccLinkingOutputs) {

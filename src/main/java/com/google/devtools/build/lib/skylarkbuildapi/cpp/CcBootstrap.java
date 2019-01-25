@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 
 /**
  * {@link Bootstrap} for skylark objects related to cpp rules.
@@ -23,6 +25,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 public class CcBootstrap implements Bootstrap {
 
   private final BazelCcModuleApi<
+          ? extends FileApi,
+          ? extends SkylarkRuleContextApi,
           ? extends CcToolchainProviderApi,
           ? extends FeatureConfigurationApi,
           ? extends CompilationInfoApi,
@@ -36,6 +40,8 @@ public class CcBootstrap implements Bootstrap {
 
   public CcBootstrap(
       BazelCcModuleApi<
+              ? extends FileApi,
+              ? extends SkylarkRuleContextApi,
               ? extends CcToolchainProviderApi,
               ? extends FeatureConfigurationApi,
               ? extends CompilationInfoApi,

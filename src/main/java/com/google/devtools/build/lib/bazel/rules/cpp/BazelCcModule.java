@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
  */
 public class BazelCcModule extends CcModule
     implements BazelCcModuleApi<
+        Artifact,
+        SkylarkRuleContext,
         CcToolchainProvider,
         FeatureConfiguration,
         CompilationInfo,

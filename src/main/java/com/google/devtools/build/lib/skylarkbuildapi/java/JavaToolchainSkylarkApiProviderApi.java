@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -47,7 +46,7 @@ public interface JavaToolchainSkylarkApiProviderApi {
   public FileApi getJavacJar();
 
   @SkylarkCallable(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
-  public Artifact getSingleJar();
+  public FileApi getSingleJar();
 
   @SkylarkCallable(
       name = "bootclasspath",

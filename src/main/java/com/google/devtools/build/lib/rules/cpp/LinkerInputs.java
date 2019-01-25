@@ -153,7 +153,7 @@ public abstract class LinkerInputs {
    * A library the user can link to. This is different from a simple linker input in that it also
    * has a library identifier.
    */
-  public interface LibraryToLink extends LinkerInput, LibraryToLinkApi {
+  public interface LibraryToLink extends LinkerInput, LibraryToLinkApi<Artifact> {
     LtoCompilationContext getLtoCompilationContext();
 
     /**

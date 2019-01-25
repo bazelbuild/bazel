@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -507,38 +507,38 @@ public interface CcModuleApi<
             type = CcToolchainProviderApi.class),
         @Param(
             name = "static_library",
-            doc = "<code>Artifact</code> of static library to be linked.",
+            doc = "<code>File</code> of static library to be linked.",
             positional = false,
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = Artifact.class),
+            type = FileApi.class),
         @Param(
             name = "pic_static_library",
-            doc = "<code>Artifact</code> of pic static library to be linked.",
+            doc = "<code>File</code> of pic static library to be linked.",
             positional = false,
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = Artifact.class),
+            type = FileApi.class),
         @Param(
             name = "dynamic_library",
             doc =
-                "<code>Artifact</code> of dynamic library to be linked. Always used for runtime "
+                "<code>File</code> of dynamic library to be linked. Always used for runtime "
                     + "and used for linking if <code>interface_library</code> is not passed.",
             positional = false,
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = Artifact.class),
+            type = FileApi.class),
         @Param(
             name = "interface_library",
-            doc = "<code>Artifact</code> of interface library to be linked.",
+            doc = "<code>File</code> of interface library to be linked.",
             positional = false,
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = Artifact.class),
+            type = FileApi.class),
         @Param(
             name = "alwayslink",
             doc = "Whether to link the static library/objects in the --whole_archive block.",

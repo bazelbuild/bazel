@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
  * to their constituent object files, we need to keep information whether a certain file contains
  * embedded objects and if so, the list of the object files themselves.
  */
-public interface LinkerInput extends LinkerInputApi {
+public interface LinkerInput extends LinkerInputApi<Artifact> {
   /**
    * Returns the type of the linker input.
    */

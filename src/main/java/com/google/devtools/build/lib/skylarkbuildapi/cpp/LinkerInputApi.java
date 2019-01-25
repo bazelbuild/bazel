@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -29,11 +29,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     category = SkylarkModuleCategory.BUILTIN,
     documented = false,
     doc = "An input that appears in the command line of the linker.")
-public interface LinkerInputApi {
+public interface LinkerInputApi<FileT extends FileApi> {
   /** Returns the artifact that is the input of the linker. */
   @SkylarkCallable(name = "artifact", doc = "Artifact passed to the linker.")
-  Artifact getArtifact();
+  FileT getArtifact();
 
   @SkylarkCallable(name = "original_artifact", doc = "Artifact passed to the linker.")
-  Artifact getOriginalLibraryArtifact();
+  FileT getOriginalLibraryArtifact();
 }

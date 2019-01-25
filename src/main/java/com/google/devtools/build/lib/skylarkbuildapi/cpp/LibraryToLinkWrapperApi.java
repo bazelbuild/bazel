@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -27,20 +27,20 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     name = "LibraryToLink",
     category = SkylarkModuleCategory.BUILTIN,
     doc = "A library the user can link against.")
-public interface LibraryToLinkWrapperApi {
+public interface LibraryToLinkWrapperApi<FileT extends FileApi> {
   @SkylarkCallable(
       name = "static_library",
       allowReturnNones = true,
       doc = "<code>Artifact</code> of static library to be linked.",
       structField = true)
-  Artifact getStaticLibrary();
+  FileT getStaticLibrary();
 
   @SkylarkCallable(
       name = "pic_static_library",
       allowReturnNones = true,
       doc = "<code>Artifact</code> of pic static library to be linked.",
       structField = true)
-  Artifact getPicStaticLibrary();
+  FileT getPicStaticLibrary();
 
   @SkylarkCallable(
       name = "dynamic_library",
@@ -49,14 +49,14 @@ public interface LibraryToLinkWrapperApi {
               + "and used for linking if <code>interface_library</code> is not passed.",
       allowReturnNones = true,
       structField = true)
-  Artifact getDynamicLibrary();
+  FileT getDynamicLibrary();
 
   @SkylarkCallable(
       name = "interface_library",
       doc = "<code>Artifact</code> of interface library to be linked.",
       allowReturnNones = true,
       structField = true)
-  Artifact getInterfaceLibrary();
+  FileT getInterfaceLibrary();
 
   @SkylarkCallable(
       name = "alwayslink",
