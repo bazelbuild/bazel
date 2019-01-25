@@ -1790,7 +1790,8 @@ public class RuleClass {
       EventHandler eventHandler,
       @Nullable FuncallExpression ast,
       Location location,
-      AttributeContainer attributeContainer)
+      AttributeContainer attributeContainer,
+      boolean checkThirdPartyRulesHaveLicenses)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
     Rule rule = pkgBuilder.createRule(ruleLabel, this, location, attributeContainer);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
@@ -1800,7 +1801,9 @@ public class RuleClass {
       populateAttributeLocations(rule, ast);
     }
     checkForDuplicateLabels(rule, eventHandler);
-    checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
+    if (checkThirdPartyRulesHaveLicenses) {
+      checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
+    }
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
     rule.checkValidityPredicate(eventHandler);
     rule.checkForNullLabels();
