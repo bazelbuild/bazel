@@ -88,7 +88,7 @@ StartupOptions::StartupOptions(const string &product_name,
       fatal_event_bus_exceptions(false),
       command_port(0),
       connect_timeout_secs(30),
-      invocation_policy(NULL),
+      have_invocation_policy_(false),
       client_debug(false),
       java_logging_formatter(
           "com.google.devtools.build.lib.util.SingleLineFormatter"),
@@ -373,7 +373,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     option_sources["command_port"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--invocation_policy")) !=
              NULL) {
-    if (invocation_policy == NULL) {
+    if (!have_invocation_policy_) {
+      have_invocation_policy_ = true;
       invocation_policy = value;
       option_sources["invocation_policy"] = rcfile;
     } else {

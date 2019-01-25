@@ -285,8 +285,10 @@ class StartupOptions {
   // Connection timeout for each gRPC connection attempt.
   int connect_timeout_secs;
 
-  // Invocation policy proto. May be NULL.
-  const char *invocation_policy;
+  // Invocation policy proto, or an empty string.
+  std::string invocation_policy;
+  // Invocation policy can only be specified once.
+  bool have_invocation_policy_;
 
   // Whether to output addition debugging information in the client.
   bool client_debug;
