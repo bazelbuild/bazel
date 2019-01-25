@@ -71,7 +71,9 @@ public final class JavaLibraryBuildRequest {
 
   private final boolean compressJar;
 
-  private final boolean noClasspathFallback;
+  private final OptionsParser.ReduceClasspathMode reduceClasspathMode;
+  private final int fullClasspathLength;
+  private final int reducedClasspathLength;
 
   /** Repository for all dependency-related information. */
   private final DependencyModule dependencyModule;
@@ -124,7 +126,7 @@ public final class JavaLibraryBuildRequest {
             .addAll(asPaths(optionsParser.getBootClassPath()))
             .addAll(asPaths(optionsParser.getExtClassPath()))
             .build());
-    if (optionsParser.reduceClasspath()) {
+    if (optionsParser.reduceClasspathMode() != OptionsParser.ReduceClasspathMode.NONE) {
       depsBuilder.setReduceClasspath();
     }
     if (optionsParser.getTargetLabel() != null) {
@@ -149,7 +151,9 @@ public final class JavaLibraryBuildRequest {
     this.plugins = pluginsBuilder.build();
 
     this.compressJar = optionsParser.compressJar();
-    this.noClasspathFallback = optionsParser.noClasspathFallback();
+    this.reduceClasspathMode = optionsParser.reduceClasspathMode();
+    this.fullClasspathLength = optionsParser.fullClasspathLength();
+    this.reducedClasspathLength = optionsParser.reducedClasspathLength();
     this.sourceFiles = new ArrayList<>(asPaths(optionsParser.getSourceFiles()));
     this.sourceJars = asPaths(optionsParser.getSourceJars());
     this.classPath = asPaths(optionsParser.getClassPath());
@@ -274,8 +278,16 @@ public final class JavaLibraryBuildRequest {
     return compressJar;
   }
 
-  public boolean noClasspathFallback() {
-    return noClasspathFallback;
+  public OptionsParser.ReduceClasspathMode reduceClasspathMode() {
+    return reduceClasspathMode;
+  }
+
+  public int fullClasspathLength() {
+    return fullClasspathLength;
+  }
+
+  public int reducedClasspathLength() {
+    return reducedClasspathLength;
   }
 
   public DependencyModule getDependencyModule() {
