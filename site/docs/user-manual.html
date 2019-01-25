@@ -2030,7 +2030,7 @@ Examples:
 <h2 id='run'>Running executables with Bazel</h2>
 <p>
   The <code>bazel run</code> command is similar to <code>bazel build</code>, except
-  it is used to build and run a single target.  Here is a typical session:
+  it is used to build <em>and run</em> a single target.  Here is a typical session:
 </p>
 <pre>
   % bazel run -- java/myapp:myapp --arg1 --arg2
@@ -2057,6 +2057,11 @@ Examples:
   Bazel options, but rather as part of the command line for running the binary.
   (The program being run simply says hello and prints out its args.)
 </p>
+
+<p><code>bazel run</code> is similar, but not identical, to directly invoking
+the binary built by Bazel. In particular, this command does not run the target
+in the current working directory. <code>bazel run</code> should not be used if
+the binary's behavior depends on the directory it's invoked in.
 
 <h3>Options for <code>bazel run</code></h3>
 
