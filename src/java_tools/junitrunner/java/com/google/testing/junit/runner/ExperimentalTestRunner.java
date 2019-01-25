@@ -82,7 +82,16 @@ public class ExperimentalTestRunner {
       System.exit(2);
     }
 
-    int exitCode = runTestsInSuite(suiteClassName, args);
+    int exitCode;
+    try {
+      exitCode = runTestsInSuite(suiteClassName, args);
+    } catch (Throwable e) {
+      // An exception was thrown by the runner. Print the error to the output stream so it will be
+      // logged
+      // by the executing strategy, and return a failure, so this process can gracefully shut down.
+      e.printStackTrace();
+      exitCode = 1;
+    }
 
     System.err.printf("%nExperimentalTestRunner exiting with a return value of %d%n", exitCode);
     System.err.println("JVM shutdown hooks (if any) will run now.");
