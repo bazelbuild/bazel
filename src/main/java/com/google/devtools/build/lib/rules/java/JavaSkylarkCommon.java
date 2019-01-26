@@ -38,8 +38,7 @@ import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for Java support. */
 public class JavaSkylarkCommon
-    implements JavaCommonApi<
-        Artifact, JavaInfo, SkylarkRuleContext, ConfiguredTarget, SkylarkActionFactory> {
+    implements JavaCommonApi<Artifact, JavaInfo, SkylarkRuleContext, SkylarkActionFactory> {
   private final JavaSemantics javaSemantics;
 
   @Override
@@ -95,11 +94,12 @@ public class JavaSkylarkCommon
       SkylarkList<JavaInfo> plugins,
       SkylarkList<JavaInfo> exportedPlugins,
       String strictDepsMode,
-      ConfiguredTarget javaToolchain,
-      ConfiguredTarget hostJavabase,
+      Object javaToolchain,
+      Object hostJavabase,
       SkylarkList<Artifact> sourcepathEntries,
       SkylarkList<Artifact> resources,
       Boolean neverlink,
+      Location location,
       Environment environment)
       throws EvalException, InterruptedException {
 
@@ -121,6 +121,7 @@ public class JavaSkylarkCommon
             resources,
             neverlink,
             javaSemantics,
+            location,
             environment);
   }
 
@@ -129,7 +130,7 @@ public class JavaSkylarkCommon
       SkylarkActionFactory actions,
       Artifact jar,
       Object targetLabel,
-      ConfiguredTarget javaToolchain,
+      Object javaToolchain,
       Location location)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
@@ -146,7 +147,7 @@ public class JavaSkylarkCommon
       SkylarkActionFactory actions,
       Artifact jar,
       Label targetLabel,
-      ConfiguredTarget javaToolchain,
+      Object javaToolchain,
       Location location)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
@@ -159,8 +160,8 @@ public class JavaSkylarkCommon
       Artifact outputJar,
       SkylarkList<Artifact> sourceFiles,
       SkylarkList<Artifact> sourceJars,
-      ConfiguredTarget javaToolchain,
-      ConfiguredTarget hostJavabase,
+      Object javaToolchain,
+      Object hostJavabase,
       Location location)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
@@ -172,12 +173,14 @@ public class JavaSkylarkCommon
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
   public ImmutableList<String> getDefaultJavacOpts(
-      SkylarkRuleContext skylarkRuleContext, String javaToolchainAttr) throws EvalException {
+      SkylarkRuleContext skylarkRuleContext, String javaToolchainAttr, Location location)
+      throws EvalException {
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     ConfiguredTarget javaToolchainConfigTarget =
         (ConfiguredTarget) skylarkRuleContext.getAttr().getValue(javaToolchainAttr);
     JavaToolchainProvider toolchain =
-        JavaInfoBuildHelper.getInstance().getJavaToolchainProvider(javaToolchainConfigTarget);
+        JavaInfoBuildHelper.getInstance()
+            .getJavaToolchainProvider(location, javaToolchainConfigTarget);
     ImmutableList<String> javacOptsFromAttr;
     if (ruleContext.getRule().isAttrDefined("javacopts", Type.STRING_LIST)) {
       javacOptsFromAttr = ruleContext.getExpander().withDataLocations().tokenized("javacopts");
@@ -204,6 +207,11 @@ public class JavaSkylarkCommon
             JavaCompilationArgsProvider.makeNonStrict(
                 javaInfo.getProvider(JavaCompilationArgsProvider.class)))
         .build();
+  }
+
+  @Override
+  public Provider getJavaToolchainProvider() {
+    return JavaToolchainProvider.PROVIDER;
   }
 
   @Override

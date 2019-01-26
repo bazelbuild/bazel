@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -38,7 +39,6 @@ public interface JavaCommonApi<
     FileT extends FileApi,
     JavaInfoT extends JavaInfoApi<FileT>,
     SkylarkRuleContextT extends SkylarkRuleContextApi,
-    TransitiveInfoCollectionT extends TransitiveInfoCollectionApi,
     SkylarkActionFactoryT extends SkylarkActionFactoryApi> {
 
   @SkylarkCallable(
@@ -112,11 +112,15 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            type = TransitiveInfoCollectionApi.class,
+            type = Object.class,
+            allowedTypes = {
+              @ParamType(type = TransitiveInfoCollectionApi.class),
+              @ParamType(type = ToolchainInfoApi.class)
+            },
             noneable = true,
             defaultValue = "None",
             doc =
-                "A label pointing to a java_toolchain rule to be used for retrieving the ijar "
+                "A JavaToolchainInfo to be used for retrieving the ijar "
                     + "tool. Only set when use_ijar is True."),
         @Param(
             name = "transitive_compile_time_jars",
@@ -269,16 +273,22 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            type = TransitiveInfoCollectionApi.class,
-            doc =
-                "A label pointing to a java_toolchain rule to be used for this compilation. "
-                    + "Mandatory."),
+            type = Object.class,
+            allowedTypes = {
+              @ParamType(type = TransitiveInfoCollectionApi.class),
+              @ParamType(type = ToolchainInfoApi.class)
+            },
+            doc = "A JavaToolchainInfo to be used for this compilation. Mandatory."),
         @Param(
             name = "host_javabase",
             positional = false,
             named = true,
-            type = TransitiveInfoCollectionApi.class,
-            doc = "A label pointing to a JDK to be used for this compilation. Mandatory."),
+            type = Object.class,
+            allowedTypes = {
+              @ParamType(type = TransitiveInfoCollectionApi.class),
+              @ParamType(type = JavaRuntimeInfoApi.class)
+            },
+            doc = "A JavaRuntimeInfo to be used for this compilation. Mandatory."),
         @Param(
             name = "sourcepath",
             positional = false,
@@ -300,6 +310,7 @@ public interface JavaCommonApi<
             type = Boolean.class,
             defaultValue = "False")
       },
+      useLocation = true,
       useEnvironment = true)
   public JavaInfoT createJavaCompileAction(
       SkylarkRuleContextT skylarkRuleContext,
@@ -312,11 +323,12 @@ public interface JavaCommonApi<
       SkylarkList<JavaInfoT> plugins,
       SkylarkList<JavaInfoT> exportedPlugins,
       String strictDepsMode,
-      TransitiveInfoCollectionT javaToolchain,
-      TransitiveInfoCollectionT hostJavabase,
+      Object javaToolchain,
+      Object hostJavabase,
       SkylarkList<FileT> sourcepathEntries,
       SkylarkList<FileT> resources,
       Boolean neverlink,
+      Location loc,
       Environment environment)
       throws EvalException, InterruptedException;
 
@@ -355,15 +367,19 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            type = TransitiveInfoCollectionApi.class,
-            doc = "A label pointing to a java_toolchain rule to used to find the ijar tool."),
+            type = Object.class,
+            allowedTypes = {
+              @ParamType(type = TransitiveInfoCollectionApi.class),
+              @ParamType(type = ToolchainInfoApi.class)
+            },
+            doc = "A JavaToolchainInfo to used to find the ijar tool."),
       },
       useLocation = true)
   public FileApi runIjar(
       SkylarkActionFactoryT actions,
       FileT jar,
       Object targetLabel,
-      TransitiveInfoCollectionT javaToolchain,
+      Object javaToolchain,
       Location location)
       throws EvalException;
 
@@ -402,15 +418,19 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            type = TransitiveInfoCollectionApi.class,
-            doc = "A label pointing to a java_toolchain rule to used to find the stamp_jar tool."),
+            type = Object.class,
+            allowedTypes = {
+              @ParamType(type = TransitiveInfoCollectionApi.class),
+              @ParamType(type = ToolchainInfoApi.class)
+            },
+            doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
       },
       useLocation = true)
   public FileApi stampJar(
       SkylarkActionFactoryT actions,
       FileT jar,
       Label targetLabel,
-      TransitiveInfoCollectionT javaToolchain,
+      Object javaToolchain,
       Location location)
       throws EvalException;
 
@@ -453,14 +473,22 @@ public interface JavaCommonApi<
             name = "java_toolchain",
             positional = false,
             named = true,
-            type = TransitiveInfoCollectionApi.class,
-            doc = "A label pointing to a java_toolchain rule to used to find the ijar tool."),
+            type = Object.class,
+            allowedTypes = {
+              @ParamType(type = TransitiveInfoCollectionApi.class),
+              @ParamType(type = ToolchainInfoApi.class)
+            },
+            doc = "A JavaToolchainInfo to used to find the ijar tool."),
         @Param(
             name = "host_javabase",
             positional = false,
             named = true,
-            type = TransitiveInfoCollectionApi.class,
-            doc = "A label pointing to a JDK to be used for packing sources."),
+            type = Object.class,
+            allowedTypes = {
+              @ParamType(type = TransitiveInfoCollectionApi.class),
+              @ParamType(type = JavaRuntimeInfoApi.class)
+            },
+            doc = "A JavaRuntimeInfo to be used for packing sources."),
       },
       allowReturnNones = true,
       useLocation = true)
@@ -469,8 +497,8 @@ public interface JavaCommonApi<
       FileT outputJar,
       SkylarkList<FileT> sourceFiles,
       SkylarkList<FileT> sourceJars,
-      TransitiveInfoCollectionT javaToolchain,
-      TransitiveInfoCollectionT hostJavabase,
+      Object javaToolchain,
+      Object hostJavabase,
       Location location)
       throws EvalException;
 
@@ -484,14 +512,15 @@ public interface JavaCommonApi<
             positional = true,
             named = false,
             type = SkylarkRuleContextApi.class,
-            doc = "The rule context."
-        ),
-        @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class)
-      })
+            doc = "The rule context."),
+        @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class),
+      },
+      useLocation = true)
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
   public ImmutableList<String> getDefaultJavacOpts(
-      SkylarkRuleContextT skylarkRuleContext, String javaToolchainAttr) throws EvalException;
+      SkylarkRuleContextT skylarkRuleContext, String javaToolchainAttr, Location loc)
+      throws EvalException;
 
   @SkylarkCallable(
     name = "merge",
@@ -525,6 +554,14 @@ public interface JavaCommonApi<
     }
   )
   public JavaInfoT makeNonStrict(JavaInfoT javaInfo);
+
+  @SkylarkCallable(
+      name = "JavaToolchainInfo",
+      doc =
+          "The key used to retrieve the provider that contains information about the Java "
+              + "toolchain being used.",
+      structField = true)
+  public ProviderApi getJavaToolchainProvider();
 
   @SkylarkCallable(
     name = "JavaRuntimeInfo",

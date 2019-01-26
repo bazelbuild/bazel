@@ -26,7 +26,9 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -101,10 +103,10 @@ final class JavaInfoBuildHelper {
       if (!(actions instanceof SkylarkActionFactory)) {
         throw new EvalException(location, "Must pass ctx.actions when packing sources.");
       }
-      if (!(javaToolchain instanceof ConfiguredTarget)) {
+      if (!isValidJavaToolchain(javaToolchain)) {
         throw new EvalException(location, "Must pass java_toolchain when packing sources.");
       }
-      if (!(hostJavabase instanceof ConfiguredTarget)) {
+      if (!isValidJavaRuntime(hostJavabase)) {
         throw new EvalException(location, "Must pass host_javabase when packing sources.");
       }
       sourceJar =
@@ -113,8 +115,8 @@ final class JavaInfoBuildHelper {
               outputJar,
               sourceFiles,
               sourceJars,
-              (ConfiguredTarget) javaToolchain,
-              (ConfiguredTarget) hostJavabase,
+              javaToolchain,
+              hostJavabase,
               location);
     }
     final Artifact iJar;
@@ -124,7 +126,7 @@ final class JavaInfoBuildHelper {
             location,
             "The value of use_ijar is True. Make sure the ctx.actions argument is valid.");
       }
-      if (!(javaToolchain instanceof ConfiguredTarget)) {
+      if (!isValidJavaToolchain(javaToolchain)) {
         throw new EvalException(
             location,
             "The value of use_ijar is True. Make sure the java_toolchain argument is valid.");
@@ -134,7 +136,7 @@ final class JavaInfoBuildHelper {
               (SkylarkActionFactory) actions,
               outputJar,
               null,
-              (ConfiguredTarget) javaToolchain,
+              getJavaToolchainProvider(location, javaToolchain),
               location);
     } else {
       iJar = outputJar;
@@ -241,8 +243,8 @@ final class JavaInfoBuildHelper {
       Artifact outputJar,
       SkylarkList<Artifact> sourceFiles,
       SkylarkList<Artifact> sourceJars,
-      ConfiguredTarget javaToolchain,
-      ConfiguredTarget hostJavabase,
+      Object javaToolchain,
+      Object hostJavabase,
       Location location)
       throws EvalException {
     // No sources to pack, return None
@@ -255,8 +257,8 @@ final class JavaInfoBuildHelper {
     }
     ActionRegistry actionRegistry = actions.asActionRegistry(location, actions);
     Artifact outputSrcJar = getSourceJar(actions.getActionConstructionContext(), outputJar);
-    JavaRuntimeInfo javaRuntimeInfo = JavaRuntimeInfo.from(hostJavabase, null);
-    JavaToolchainProvider javaToolchainProvider = getJavaToolchainProvider(javaToolchain);
+    JavaRuntimeInfo javaRuntimeInfo = getJavaRuntimeProvider(location, hostJavabase, null);
+    JavaToolchainProvider javaToolchainProvider = getJavaToolchainProvider(location, javaToolchain);
     JavaSemantics javaSemantics = javaToolchainProvider.getJavaSemantics();
     SingleJarActionBuilder.createSourceJarAction(
         actionRegistry,
@@ -327,7 +329,7 @@ final class JavaInfoBuildHelper {
             location,
             "The value of use_ijar is True. Make sure the ctx.actions argument is valid.");
       }
-      if (!(javaToolchain instanceof ConfiguredTarget)) {
+      if (!isValidJavaToolchain(javaToolchain)) {
         throw new EvalException(
             location,
             "The value of use_ijar is True. Make sure the java_toolchain argument is valid.");
@@ -339,7 +341,7 @@ final class JavaInfoBuildHelper {
                 (SkylarkActionFactory) actions,
                 compileJar,
                 null,
-                (ConfiguredTarget) javaToolchain,
+                getJavaToolchainProvider(location, javaToolchain),
                 location));
       }
       javaCompilationArgsBuilder.addDirectCompileTimeJars(
@@ -376,26 +378,28 @@ final class JavaInfoBuildHelper {
       SkylarkList<JavaInfo> plugins,
       SkylarkList<JavaInfo> exportedPlugins,
       String strictDepsMode,
-      ConfiguredTarget javaToolchain,
-      ConfiguredTarget hostJavabase,
+      Object javaToolchain,
+      Object hostJavabase,
       SkylarkList<Artifact> sourcepathEntries,
       SkylarkList<Artifact> resources,
       Boolean neverlink,
       JavaSemantics javaSemantics,
+      Location location,
       Environment environment)
       throws EvalException {
+
     if (sourceJars.isEmpty() && sourceFiles.isEmpty() && exports.isEmpty()) {
       throw new EvalException(
-          null, "source_jars, sources and exports cannot be simultaneous empty");
+          location, "source_jars, sources and exports cannot be simultaneous empty");
     }
 
     JavaRuntimeInfo javaRuntimeInfo =
-        JavaRuntimeInfo.from(hostJavabase, skylarkRuleContext.getRuleContext());
+        getJavaRuntimeProvider(location, hostJavabase, skylarkRuleContext.getRuleContext());
     if (javaRuntimeInfo == null) {
-      throw new EvalException(null, "'host_javabase' must point to a Java runtime");
+      throw new EvalException(location, "'host_javabase' must point to a Java runtime");
     }
 
-    JavaToolchainProvider toolchainProvider = getJavaToolchainProvider(javaToolchain);
+    JavaToolchainProvider toolchainProvider = getJavaToolchainProvider(location, javaToolchain);
 
     JavaLibraryHelper helper =
         new JavaLibraryHelper(skylarkRuleContext.getRuleContext())
@@ -490,13 +494,12 @@ final class JavaInfoBuildHelper {
       SkylarkActionFactory actions,
       Artifact inputJar,
       @Nullable Label targetLabel,
-      ConfiguredTarget javaToolchainConfiguredTarget,
+      Object javaToolchain,
       Location location)
       throws EvalException {
     String ijarBasename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-ijar.jar";
     Artifact interfaceJar = actions.declareFile(ijarBasename, inputJar);
-    FilesToRunProvider ijarTarget =
-        getJavaToolchainProvider(javaToolchainConfiguredTarget).getIjar();
+    FilesToRunProvider ijarTarget = getJavaToolchainProvider(location, javaToolchain).getIjar();
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder().addExecPath(inputJar).addExecPath(interfaceJar);
     if (targetLabel != null) {
@@ -519,14 +522,13 @@ final class JavaInfoBuildHelper {
       SkylarkActionFactory actions,
       Artifact inputJar,
       Label targetLabel,
-      ConfiguredTarget javaToolchainConfiguredTarget,
+      Object javaToolchain,
       Location location)
       throws EvalException {
     String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
     Artifact outputJar = actions.declareFile(basename, inputJar);
     // ijar doubles as a stamping tool
-    FilesToRunProvider ijarTarget =
-        getJavaToolchainProvider(javaToolchainConfiguredTarget).getIjar();
+    FilesToRunProvider ijarTarget = getJavaToolchainProvider(location, javaToolchain).getIjar();
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addExecPath(inputJar)
@@ -546,14 +548,43 @@ final class JavaInfoBuildHelper {
     return outputJar;
   }
 
-  JavaToolchainProvider getJavaToolchainProvider(ConfiguredTarget javaToolchain)
+  private static boolean isValidJavaToolchain(Object javaToolchain) {
+    return javaToolchain instanceof ConfiguredTarget
+        || javaToolchain instanceof JavaToolchainProvider;
+  }
+
+  JavaToolchainProvider getJavaToolchainProvider(Location location, Object javaToolchain)
       throws EvalException {
-    JavaToolchainProvider javaToolchainProvider = JavaToolchainProvider.from(javaToolchain);
-    if (javaToolchainProvider == null) {
-      throw new EvalException(
-          null, javaToolchain.getLabel() + " does not provide JavaToolchainProvider.");
+    if (javaToolchain instanceof ConfiguredTarget) {
+      // TODO(b/122738702): remove support for passing toolchains as configured targets
+      ConfiguredTarget target = (ConfiguredTarget) javaToolchain;
+      JavaToolchainProvider javaToolchainProvider = JavaToolchainProvider.from(target);
+      if (javaToolchainProvider == null) {
+        throw new EvalException(
+            location, target.getLabel() + " does not provide JavaToolchainProvider.");
+      }
+      return javaToolchainProvider;
     }
-    return javaToolchainProvider;
+    if (javaToolchain instanceof JavaToolchainProvider) {
+      return (JavaToolchainProvider) javaToolchain;
+    }
+    throw new EvalException(null, javaToolchain + " is not a JavaToolchainProvider.");
+  }
+
+  private static boolean isValidJavaRuntime(Object javaRuntime) {
+    return javaRuntime instanceof ConfiguredTarget || javaRuntime instanceof JavaRuntimeInfo;
+  }
+
+  private JavaRuntimeInfo getJavaRuntimeProvider(
+      Location location, Object javabase, RuleContext ruleContext) throws EvalException {
+    if (javabase instanceof TransitiveInfoCollection) {
+      // TODO(b/122738702): remove support for passing toolchains as configured targets
+      return JavaRuntimeInfo.from((TransitiveInfoCollection) javabase, ruleContext);
+    }
+    if (javabase instanceof JavaRuntimeInfo) {
+      return (JavaRuntimeInfo) javabase;
+    }
+    throw new EvalException(location, javabase + " is not a JavaRuntimeInfo.");
   }
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
