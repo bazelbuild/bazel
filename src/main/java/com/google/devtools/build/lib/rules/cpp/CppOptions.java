@@ -774,7 +774,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_enable_cc_toolchain_config_info",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
