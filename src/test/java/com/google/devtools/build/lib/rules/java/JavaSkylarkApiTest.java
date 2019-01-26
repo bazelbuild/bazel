@@ -720,7 +720,59 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     } catch (AssertionError e) {
       assertThat(e)
           .hasMessageThat()
-          .contains("source_jars, sources and exports cannot be simultaneous empty");
+          .contains(
+              "source_jars, sources, exports and exported_plugins cannot be simultaneously empty");
+    }
+  }
+
+  @Test
+  public void testJavaCommonCompileWithOnlyExportedPlugins() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_library(name = 'plugin_dep',",
+        "    srcs = [ 'ProcessorDep.java'])",
+        "java_plugin(name = 'plugin',",
+        "    srcs = ['AnnotationProcessor.java'],",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [ ':plugin_dep' ])",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  exported_plugins = [':plugin'],",
+        ")");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    exported_plugins = [p[JavaInfo] for p in ctx.attr.exported_plugins],",
+        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    host_javabase = ctx.attr._host_javabase",
+        "  )",
+        "  return [DefaultInfo(files=depset([output_jar])), compilation_provider]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'exported_plugins': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+    try {
+      getConfiguredTarget("//java/test:custom");
+    } catch (AssertionError e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "source_jars, sources, exports and exported_plugins cannot be simultaneously empty");
     }
   }
 

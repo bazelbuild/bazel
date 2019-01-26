@@ -387,10 +387,13 @@ final class JavaInfoBuildHelper {
       Location location,
       Environment environment)
       throws EvalException {
-
-    if (sourceJars.isEmpty() && sourceFiles.isEmpty() && exports.isEmpty()) {
+    if (sourceJars.isEmpty()
+        && sourceFiles.isEmpty()
+        && exports.isEmpty()
+        && exportedPlugins.isEmpty()) {
       throw new EvalException(
-          location, "source_jars, sources and exports cannot be simultaneous empty");
+          location,
+          "source_jars, sources, exports and exported_plugins cannot be simultaneously empty");
     }
 
     JavaRuntimeInfo javaRuntimeInfo =
@@ -436,7 +439,9 @@ final class JavaInfoBuildHelper {
     } else {
       createOutputSourceJar =
           (sourceJars.size() > 1 || !sourceFiles.isEmpty())
-              || (sourceJars.isEmpty() && sourceFiles.isEmpty() && !exports.isEmpty());
+              || (sourceJars.isEmpty()
+                  && sourceFiles.isEmpty()
+                  && (!exports.isEmpty() || !exportedPlugins.isEmpty()));
       outputSourceJar =
           createOutputSourceJar
               ? getSourceJar(skylarkRuleContext.getRuleContext(), outputJar)
