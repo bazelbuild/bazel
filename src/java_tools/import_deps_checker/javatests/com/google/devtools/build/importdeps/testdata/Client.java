@@ -72,6 +72,9 @@ public class Client<@TypeAnnotation T> extends Library
     Class11 eleven = new Class11();
     eleven.foo();
     eleven.bar();
+
+    // Regression test for b/123020654: check class literals
+    Class<?> class12 = Class12.class;
   }
 
   public void testEnums() {
