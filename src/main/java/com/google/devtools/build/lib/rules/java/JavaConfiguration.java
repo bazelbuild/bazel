@@ -45,6 +45,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     OFF,
     /** JavaBuilder computes the reduced classpath before invoking javac. */
     JAVABUILDER,
+    /** Bazel computes the reduced classpath and tries it in a separate action invocation. */
+    BAZEL
   }
 
   /** Values for the --experimental_one_version_enforcement option */
