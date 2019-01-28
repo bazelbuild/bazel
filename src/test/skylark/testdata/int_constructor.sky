@@ -23,7 +23,7 @@ int('1.5') ### invalid literal for int\(\) with base 10
 ---
 int('ab') ### invalid literal for int\(\) with base 10: "ab"
 ---
-int(None) ### parameter 'x' cannot be None, for call to function int(x, base = unbound)
+int(None) ### None is not of type string or int or bool
 ---
 int('123', 3) ### invalid literal for int\(\) with base 3: "123"
 ---

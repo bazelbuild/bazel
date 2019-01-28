@@ -335,8 +335,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "dict('a')")
         .testIfErrorContains("cannot convert item #0 to a sequence", "dict(['a'])")
         .testIfErrorContains("cannot convert item #0 to a sequence", "dict([('a')])")
-        .testIfErrorContains(
-            "expected no more than 1 positional arguments, but got 3", "dict((3,4), (3,2), (1,2))")
+        .testIfErrorContains("too many (3) positional arguments", "dict((3,4), (3,2), (1,2))")
         .testIfErrorContains(
             "item #0 has length 3, but exactly two elements are required",
             "dict([('a', 'b', 'c')])");
@@ -465,8 +464,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("hash('skylark')", "skylark".hashCode())
         .testStatement("hash('google')", "google".hashCode())
         .testIfErrorContains(
-            "expected value of type 'string' for parameter 'value', "
-                + "for call to function hash(value)",
+            "argument 'value' has type 'NoneType', but should be 'string'\n"
+                + "in call to builtin function hash(value)",
             "hash(None)");
   }
 
@@ -535,8 +534,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testEnumerateBadArg() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "expected value of type 'sequence' for parameter 'list', "
-                + "for call to function enumerate(list)",
+            "argument 'list' has type 'string', but should be 'sequence'\n"
+                + "in call to builtin function enumerate(list)",
             "enumerate('a')");
   }
 

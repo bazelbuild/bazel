@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import java.lang.reflect.Field;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -104,5 +105,14 @@ public final class RuntimeTest {
     assertThat(expected).hasMessageThat()
         .matches("Attempted to register function 'dummyFunc' in namespace '(.*)DummyType' after "
             + "registry has already been frozen");
+  }
+
+  @Test
+  public void checkStaticallyRegistered_Global() throws Exception {
+    Field lenField = MethodLibrary.class.getDeclaredField("len");
+    lenField.setAccessible(true);
+    Object lenFieldValue = lenField.get(null);
+    List<Object> builtins = Runtime.getBuiltinRegistry().getBuiltins();
+    assertThat(builtins).contains(lenFieldValue);
   }
 }

@@ -2007,10 +2007,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testPrintBadKwargs() throws Exception {
-    new SkylarkTest()
-        .testIfErrorContains(
-            "unexpected keywords 'end', 'other', for call to function print(sep = \" \", *args)",
-            "print(end='x', other='y')");
+    new SkylarkTest().testIfExactError(
+        "unexpected keywords 'end', 'other' in call to print(*args, sep: string = \" \")",
+        "print(end='x', other='y')");
   }
 
   // Override tests in EvaluationTest incompatible with Skylark

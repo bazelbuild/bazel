@@ -42,7 +42,8 @@ public class BuiltinCallable implements StarlarkFunction {
       FuncallExpression ast,
       Environment env)
       throws EvalException, InterruptedException {
-    MethodDescriptor methodDescriptor = getMethodDescriptor(env.getSemantics());
+    MethodDescriptor methodDescriptor =
+        FuncallExpression.getMethod(env.getSemantics(), obj.getClass(), methodName);
 
     // TODO(cparsons): Profiling should be done at the MethodDescriptor level.
     try (SilentCloseable c =
@@ -52,10 +53,6 @@ public class BuiltinCallable implements StarlarkFunction {
               methodDescriptor, obj.getClass(), args, kwargs, env);
       return methodDescriptor.call(obj, javaArguments, ast.getLocation(), env);
     }
-  }
-
-  public MethodDescriptor getMethodDescriptor(SkylarkSemantics semantics) {
-    return FuncallExpression.getMethod(semantics, obj.getClass(), methodName);
   }
 
   @Override

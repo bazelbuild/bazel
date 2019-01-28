@@ -1999,9 +1999,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "silly_rule(name = 'silly')");
     thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
     thrown.expect(AssertionError.class);
-    thrown.expectMessage(
-        "expected value of type 'function' for parameter 'implementation', "
-            + "for call to function rule");
+    thrown.expectMessage("<rule context for //test:silly> is not of type string or int or bool");
     getConfiguredTarget("//test:silly");
   }
 
