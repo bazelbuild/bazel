@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -37,6 +38,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -1426,5 +1428,70 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    ],",
         ");");
   }
-}
 
+  private Set<LicenseType> getLicenses(String label) throws Exception {
+    return getTarget(label).getLicense().getLicenseTypes();
+  }
+
+  /** Tests that default license behavior is unaffected. */
+  @Test
+  public void licensesDefault() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'copt': '-Dfoo',",
+        "    })");
+
+    useConfiguration("--copt", "-Dfoo");
+    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
+  }
+
+  /** Tests that third-party doesn't require a license from config_setting. */
+  @Test
+  public void thirdPartyLicenseRequirement() throws Exception {
+    scratch.file(
+        "third_party/test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'copt': '-Dfoo',",
+        "    })");
+
+    useConfiguration("--copt", "-Dfoo");
+    assertThat(getLicenses("//third_party/test:match")).containsExactly(LicenseType.NONE);
+  }
+
+  /** Tests that package-wide licenses are ignored by config_setting. */
+  @Test
+  public void packageLicensesIgnored() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "licenses(['restricted'])",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'copt': '-Dfoo',",
+        "    })");
+
+    useConfiguration("--copt", "-Dfoo");
+    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
+  }
+
+  /** Tests that rule-specific licenses are still used by config_setting. */
+  @Test
+  public void ruleLicensesUsed() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    licenses = ['restricted'],",
+        "    values = {",
+        "        'copt': '-Dfoo',",
+        "    })");
+
+    useConfiguration("--copt", "-Dfoo");
+    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.RESTRICTED);
+  }
+}

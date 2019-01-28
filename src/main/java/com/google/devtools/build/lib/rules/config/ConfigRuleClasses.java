@@ -139,6 +139,7 @@ public class ConfigRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
+          .setIgnorePackageLicenses()
           .requiresConfigurationFragments(PlatformConfiguration.class)
           .add(
               attr(TOOLS_REPOSITORY_ATTRIBUTE, STRING)
