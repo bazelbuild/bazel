@@ -76,7 +76,7 @@ class JavaBinaryLauncher : public BinaryLauncherBase {
   // and process them.
   //
   // Return the remaining arguments that should be passed to the program.
-  const std::vector<std::wstring> ProcessCommandLine();
+  std::vector<std::wstring> ProcessesCommandLine();
 
   std::wstring jvm_debug_port;
   std::wstring main_advice;

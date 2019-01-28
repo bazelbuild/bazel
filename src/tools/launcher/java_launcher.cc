@@ -18,8 +18,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <stdio.h>
-
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
@@ -101,13 +99,13 @@ bool JavaBinaryLauncher::ProcessWrapperArgument(const wstring& argument) {
   return true;
 }
 
-const vector<wstring> JavaBinaryLauncher::ProcessCommandLine() {
+vector<wstring> JavaBinaryLauncher::ProcessesCommandLine() {
   vector<wstring> args;
-  bool first = true;
+  bool first = 1;
   for (const auto& arg : this->GetCommandlineArguments()) {
     // Skip the first argument.
     if (first) {
-      first = false;
+      first = 0;
       continue;
     }
     wstring flag_value;
@@ -290,13 +288,8 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
 }
 
 ExitCode JavaBinaryLauncher::Launch() {
-  // Parse the original command line. The call updates this object's state.
-  // TODO(laszlocsomor): we *have* to call ProcessCommandLine() as the first
-  // thing in Launch() otherwise the object is not constructed correctly. We
-  // should redesign the class's construction logic so that
-  // ProcessCommandLine's side-effects are done during construction, and
-  // Launch() can be a const method.
-  const vector<wstring> remaining_args = this->ProcessCommandLine();
+  // Parse the original command line.
+  vector<wstring> remaining_args = this->ProcessesCommandLine();
 
   // Set JAVA_RUNFILES
   wstring java_runfiles;
@@ -363,22 +356,26 @@ ExitCode JavaBinaryLauncher::Launch() {
   wstring flag;
   wstringstream jvm_flags_env_ss(jvm_flags_env);
   while (getline(jvm_flags_env_ss, flag, L' ')) {
-    jvm_flags.push_back(flag);
+    jvm_flags.push_back(
+        GetEscapedArgument(flag, /*escape_backslash = */ false));
   }
-
   jvm_flags.push_back(this->GetLaunchInfoByKey(JVM_FLAGS));
 
   // Check if TEST_TMPDIR is available to use for scratch.
   wstring test_tmpdir;
   if (GetEnv(L"TEST_TMPDIR", &test_tmpdir) &&
       DoesDirectoryPathExist(test_tmpdir.c_str())) {
-    jvm_flags.push_back(L"-Djava.io.tmpdir=" + test_tmpdir);
+    jvm_flags.push_back(
+          GetEscapedArgument(L"-Djava.io.tmpdir=" + test_tmpdir,
+                             /*escape_backslash = */ false));
   }
 
   // Construct the final command line arguments
   vector<wstring> arguments;
   // Add classpath flags
-  arguments.push_back(L"-classpath");
+  arguments.push_back(
+      GetEscapedArgument(L"-classpath", /*escape_backslash = */ false));
+
   // Check if CLASSPATH is over classpath length limit.
   // If it does, then we create a classpath jar to pass CLASSPATH value.
   wstring classpath_str = classpath.str();
@@ -403,16 +400,19 @@ ExitCode JavaBinaryLauncher::Launch() {
   }
   // Add JVM flags parsed from command line.
   for (const auto& arg : this->jvm_flags_cmdline) {
-    arguments.push_back(GetEscapedArgument(arg, /*escape_backslash = */ false));
+    arguments.push_back(
+        GetEscapedArgument(arg, /*escape_backslash = */ false));
   }
   // Add main advice class
   if (!this->main_advice.empty()) {
-    arguments.push_back(this->main_advice);
     arguments.push_back(
         GetEscapedArgument(this->main_advice, /*escape_backslash = */ false));
   }
   // Add java start class
-  arguments.push_back(this->GetLaunchInfoByKey(JAVA_START_CLASS));
+  arguments.push_back(
+      GetEscapedArgument(
+            this->GetLaunchInfoByKey(JAVA_START_CLASS),
+            /*escape_backslash = */ false));
   // Add the remaininng arguments, they will be passed to the program.
   for (const auto& arg : remaining_args) {
     arguments.push_back(GetEscapedArgument(arg, /*escape_backslash = */ false));
