@@ -45,6 +45,9 @@ public final class AspectValue extends BasicActionLookupValue {
    */
   public abstract static class AspectValueKey extends ActionLookupKey {
     public abstract String getDescription();
+
+    @Override
+    public abstract Label getLabel();
   }
 
   /** A base class for a key representing an aspect applied to a particular target. */
@@ -313,16 +316,21 @@ public final class AspectValue extends BasicActionLookupValue {
       return SkyFunctions.LOAD_SKYLARK_ASPECT;
     }
 
-    public String getSkylarkValueName() {
+    String getSkylarkValueName() {
       return skylarkValueName;
     }
 
-    public SkylarkImport getSkylarkImport() {
+    SkylarkImport getSkylarkImport() {
       return skylarkImport;
     }
 
     protected boolean isAspectConfigurationHost() {
       return false;
+    }
+
+    @Override
+    public Label getLabel() {
+      return targetLabel;
     }
 
     @Override

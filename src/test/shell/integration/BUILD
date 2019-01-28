@@ -69,6 +69,16 @@ sh_test(
 )
 
 sh_test(
+    name = "aspect_test",
+    size = "medium",
+    srcs = ["aspect_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "loading_phase_tests",
     size = "large",
     srcs = ["loading_phase_test.sh"],
