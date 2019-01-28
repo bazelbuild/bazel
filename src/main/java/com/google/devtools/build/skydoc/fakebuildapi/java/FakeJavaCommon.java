@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import javax.annotation.Nullable;
 
@@ -75,7 +76,8 @@ public class FakeJavaCommon
       FileApi jar,
       Object targetLabel,
       Object javaToolchain,
-      Location location)
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException {
     return null;
   }
@@ -86,7 +88,8 @@ public class FakeJavaCommon
       FileApi jar,
       Label targetLabel,
       Object javaToolchain,
-      Location location)
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException {
     return null;
   }
@@ -99,14 +102,18 @@ public class FakeJavaCommon
       SkylarkList<FileApi> sourceJars,
       Object javaToolchain,
       Object hostJavabase,
-      Location location)
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException {
     return null;
   }
 
   @Override
   public ImmutableList<String> getDefaultJavacOpts(
-      SkylarkRuleContextApi skylarkRuleContext, String javaToolchainAttr, Location loc)
+      SkylarkRuleContextApi skylarkRuleContext,
+      String javaToolchainAttr,
+      Location loc,
+      SkylarkSemantics semantics)
       throws EvalException {
     return ImmutableList.of();
   }

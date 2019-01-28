@@ -70,6 +70,7 @@ public class JavaSkylarkCommon
             asArtifactNestedSet(transitiveCompileTimeJars),
             asArtifactNestedSet(transitiveRuntimeJars),
             asArtifactNestedSet(sourceJars),
+            environment.getSemantics(),
             location);
   }
 
@@ -131,7 +132,8 @@ public class JavaSkylarkCommon
       Artifact jar,
       Object targetLabel,
       Object javaToolchain,
-      Location location)
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .buildIjar(
@@ -139,6 +141,7 @@ public class JavaSkylarkCommon
             jar,
             targetLabel != Runtime.NONE ? (Label) targetLabel : null,
             javaToolchain,
+            semantics,
             location);
   }
 
@@ -148,10 +151,11 @@ public class JavaSkylarkCommon
       Artifact jar,
       Label targetLabel,
       Object javaToolchain,
-      Location location)
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
-        .stampJar(actions, jar, targetLabel, javaToolchain, location);
+        .stampJar(actions, jar, targetLabel, javaToolchain, semantics, location);
   }
 
   @Override
@@ -162,25 +166,36 @@ public class JavaSkylarkCommon
       SkylarkList<Artifact> sourceJars,
       Object javaToolchain,
       Object hostJavabase,
-      Location location)
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException {
     return JavaInfoBuildHelper.getInstance()
         .packSourceFiles(
-            actions, outputJar, sourceFiles, sourceJars, javaToolchain, hostJavabase, location);
+            actions,
+            outputJar,
+            sourceFiles,
+            sourceJars,
+            javaToolchain,
+            hostJavabase,
+            semantics,
+            location);
   }
 
   @Override
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
   public ImmutableList<String> getDefaultJavacOpts(
-      SkylarkRuleContext skylarkRuleContext, String javaToolchainAttr, Location location)
+      SkylarkRuleContext skylarkRuleContext,
+      String javaToolchainAttr,
+      Location location,
+      SkylarkSemantics skylarkSemantics)
       throws EvalException {
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     ConfiguredTarget javaToolchainConfigTarget =
         (ConfiguredTarget) skylarkRuleContext.getAttr().getValue(javaToolchainAttr);
     JavaToolchainProvider toolchain =
         JavaInfoBuildHelper.getInstance()
-            .getJavaToolchainProvider(location, javaToolchainConfigTarget);
+            .getJavaToolchainProvider(skylarkSemantics, location, javaToolchainConfigTarget);
     ImmutableList<String> javacOptsFromAttr;
     if (ruleContext.getRule().isAttrDefined("javacopts", Type.STRING_LIST)) {
       javacOptsFromAttr = ruleContext.getExpander().withDataLocations().tokenized("javacopts");

@@ -157,6 +157,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_require_feature_configuration_for_pic=" + rand.nextBoolean(),
         "--incompatible_strict_argument_ordering=" + rand.nextBoolean(),
         "--incompatible_string_is_not_iterable=" + rand.nextBoolean(),
+        "--incompatible_use_toolchain_providers_in_java_common=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
   }
 
@@ -202,6 +203,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleRequireFeatureConfigurationForPic(rand.nextBoolean())
         .incompatibleStricArgumentOrdering(rand.nextBoolean())
         .incompatibleStringIsNotIterable(rand.nextBoolean())
+        .incompatibleUseToolchainProvidersInJavaCommon(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
         .build();
   }

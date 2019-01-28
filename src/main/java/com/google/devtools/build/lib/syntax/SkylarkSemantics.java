@@ -184,6 +184,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean internalSkylarkFlagTestCanary();
 
+  public abstract boolean incompatibleUseToolchainProvidersInJavaCommon();
+
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public abstract Builder toBuilder();
 
@@ -207,6 +209,7 @@ public abstract class SkylarkSemantics {
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(false)
           .experimentalTransitionWhitelistLocation("")
+          .incompatibleUseToolchainProvidersInJavaCommon(false)
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
@@ -305,6 +308,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleStricArgumentOrdering(boolean value);
 
     public abstract Builder incompatibleStringIsNotIterable(boolean value);
+
+    public abstract Builder incompatibleUseToolchainProvidersInJavaCommon(boolean value);
 
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
 

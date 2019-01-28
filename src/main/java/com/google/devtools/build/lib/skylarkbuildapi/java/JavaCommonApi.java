@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import javax.annotation.Nullable;
 
 /** Utilities for Java compilation support in Skylark. */
@@ -374,13 +375,15 @@ public interface JavaCommonApi<
             },
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
       },
+      useSkylarkSemantics = true,
       useLocation = true)
   public FileApi runIjar(
       SkylarkActionFactoryT actions,
       FileT jar,
       Object targetLabel,
       Object javaToolchain,
-      Location location)
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -425,13 +428,15 @@ public interface JavaCommonApi<
             },
             doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
       },
+      useSkylarkSemantics = true,
       useLocation = true)
   public FileApi stampJar(
       SkylarkActionFactoryT actions,
       FileT jar,
       Label targetLabel,
       Object javaToolchain,
-      Location location)
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -491,6 +496,7 @@ public interface JavaCommonApi<
             doc = "A JavaRuntimeInfo to be used for packing sources."),
       },
       allowReturnNones = true,
+      useSkylarkSemantics = true,
       useLocation = true)
   public FileApi packSources(
       SkylarkActionFactoryT actions,
@@ -499,7 +505,8 @@ public interface JavaCommonApi<
       SkylarkList<FileT> sourceJars,
       Object javaToolchain,
       Object hostJavabase,
-      Location location)
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(
@@ -515,11 +522,15 @@ public interface JavaCommonApi<
             doc = "The rule context."),
         @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class),
       },
+      useSkylarkSemantics = true,
       useLocation = true)
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
   public ImmutableList<String> getDefaultJavacOpts(
-      SkylarkRuleContextT skylarkRuleContext, String javaToolchainAttr, Location loc)
+      SkylarkRuleContextT skylarkRuleContext,
+      String javaToolchainAttr,
+      Location loc,
+      SkylarkSemantics semantics)
       throws EvalException;
 
   @SkylarkCallable(

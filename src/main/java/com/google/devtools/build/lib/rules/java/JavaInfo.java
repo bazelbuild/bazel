@@ -467,6 +467,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
                 javaToolchain,
                 hostJavabase,
                 jdeps,
+                env.getSemantics(),
                 loc);
       }
       if (compileJar == null) {

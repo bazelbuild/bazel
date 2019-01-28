@@ -504,6 +504,20 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   )
   public boolean internalSkylarkFlagTestCanary;
 
+  @Option(
+      name = "incompatible_use_toolchain_providers_in_java_common",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, java_common APIs that take a java_toolchain or host_javabase parameter "
+              + " require a JavaTootoolchainInfo or JavaRuntimeInfo instead of a configured"
+              + " target.")
+  public boolean incompatibleUseToolchainProvidersInJavaCommon;
 
   /** Constructs a {@link SkylarkSemantics} object corresponding to this set of option values. */
   public SkylarkSemantics toSkylarkSemantics() {
@@ -544,6 +558,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleRequireFeatureConfigurationForPic(requireFeatureConfigurationForPic)
         .incompatibleStricArgumentOrdering(incompatibleStricArgumentOrdering)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)
+        .incompatibleUseToolchainProvidersInJavaCommon(
+            incompatibleUseToolchainProvidersInJavaCommon)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
         .build();
   }

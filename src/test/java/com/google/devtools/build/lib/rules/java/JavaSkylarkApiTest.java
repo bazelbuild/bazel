@@ -2182,4 +2182,84 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "The .java provider is deprecated and cannot be used "
             + "when --incompatible_disallow_legacy_java_provider is set.");
   }
+
+  @Test
+  public void testConfiguredTargetHostJavabase() throws Exception {
+    writeBuildFileForJavaToolchain();
+    setSkylarkSemanticsOptions("--incompatible_use_toolchain_providers_in_java_common=true");
+
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "java_runtime(name='jvm', srcs=[], java_home='/foo/bar')",
+        "jrule(name='r', srcs=['S.java'])");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase",
+        "  )",
+        "  return struct()",
+        "jrule = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(default = Label('//a:jvm'))",
+        "  },",
+        "  fragments = ['java'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:r");
+    assertContainsEvent("java_common.JavaRuntimeInfo");
+  }
+
+  @Test
+  public void testConfiguredTargetToolchain() throws Exception {
+    writeBuildFileForJavaToolchain();
+    setSkylarkSemanticsOptions("--incompatible_use_toolchain_providers_in_java_common=true");
+
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "java_runtime(name='jvm', srcs=[], java_home='/foo/bar')",
+        "jrule(name='r', srcs=['S.java'])");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
+        "  )",
+        "  return struct()",
+        "jrule = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(default = Label('//a:jvm'))",
+        "  },",
+        "  fragments = ['java'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:r");
+    assertContainsEvent("java_common.JavaToolchainInfo");
+  }
 }
