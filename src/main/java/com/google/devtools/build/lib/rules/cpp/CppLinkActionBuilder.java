@@ -763,7 +763,7 @@ public class CppLinkActionBuilder {
                     : ImmutableSet.of(),
                 linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
                     ? ltoCompilationContext
-                    : new LtoCompilationContext(ImmutableMap.of()),
+                    : LtoCompilationContext.EMPTY,
                 createSharedNonLtoArtifacts(isLtoIndexing),
                 /* mustKeepDebug= */ false);
     final LibraryToLink interfaceOutputLibrary =

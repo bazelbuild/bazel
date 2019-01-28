@@ -22,13 +22,12 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * LtoBackendArtifacts represents a set of artifacts for a single ThinLTO backend compile.
@@ -51,7 +50,6 @@ import java.util.Map;
  *   <li>4. Backend link (once). This is the traditional link, and produces the final executable.
  * </ul>
  */
-@AutoCodec
 public final class LtoBackendArtifacts {
 
   // A file containing mapping of symbol => bitcode file containing the symbol.
@@ -70,21 +68,6 @@ public final class LtoBackendArtifacts {
 
   // The corresponding dwoFile if fission is used.
   private Artifact dwoFile;
-
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  LtoBackendArtifacts(
-      Artifact index,
-      Artifact bitcodeFile,
-      Artifact imports,
-      Artifact objectFile,
-      Artifact dwoFile) {
-    this.index = index;
-    this.bitcodeFile = bitcodeFile;
-    this.imports = imports;
-    this.objectFile = objectFile;
-    this.dwoFile = dwoFile;
-  }
 
   LtoBackendArtifacts(
       PathFragment ltoOutputRootPrefix,
@@ -158,7 +141,7 @@ public final class LtoBackendArtifacts {
     return objectFile;
   }
 
-  public Artifact getBitcodeFile() {
+  Artifact getBitcodeFile() {
     return bitcodeFile;
   }
 
@@ -166,7 +149,7 @@ public final class LtoBackendArtifacts {
     return dwoFile;
   }
 
-  public void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
+  void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
     // For objects from linkstatic libraries, we may not be including them in the LTO indexing
     // step when linked into a test, but rather will use shared non-LTO backends for better
     // scalability when running large numbers of tests.
@@ -244,8 +227,7 @@ public final class LtoBackendArtifacts {
           "per_object_debug_info_file", dwoFile.getExecPathString());
     }
 
-    List<String> execArgs = new ArrayList<>();
-    execArgs.addAll(commandLine);
+    List<String> execArgs = new ArrayList<>(commandLine);
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
     // Feature options should go after --copt for consistency with compile actions.
     execArgs.addAll(
@@ -286,5 +268,26 @@ public final class LtoBackendArtifacts {
     Artifact profile = branchFdoProfile.getProfileArtifact();
     buildVariables.addStringVariable("fdo_profile_path", profile.getExecPathString());
     builder.addInput(branchFdoProfile.getProfileArtifact());
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof LtoBackendArtifacts)) {
+      return false;
+    }
+    LtoBackendArtifacts that = (LtoBackendArtifacts) o;
+    return Objects.equals(index, that.index)
+        && bitcodeFile.equals(that.bitcodeFile)
+        && Objects.equals(imports, that.imports)
+        && objectFile.equals(that.objectFile)
+        && Objects.equals(dwoFile, that.dwoFile);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(index, bitcodeFile, imports, objectFile, dwoFile);
   }
 }

@@ -223,7 +223,7 @@ public abstract class LinkerInputs {
 
     @Override
     public LtoCompilationContext getLtoCompilationContext() {
-      return new LtoCompilationContext(ImmutableMap.of());
+      return LtoCompilationContext.EMPTY;
     }
 
     @Override
@@ -347,9 +347,7 @@ public abstract class LinkerInputs {
       this.libraryIdentifier = libraryIdentifier;
       this.objectFiles = objectFiles == null ? null : CollectionUtils.makeImmutable(objectFiles);
       this.ltoCompilationContext =
-          (ltoCompilationContext == null)
-              ? new LtoCompilationContext(ImmutableMap.of())
-              : ltoCompilationContext;
+          (ltoCompilationContext == null) ? LtoCompilationContext.EMPTY : ltoCompilationContext;
       this.sharedNonLtoBackends = sharedNonLtoBackends;
       this.mustKeepDebug = mustKeepDebug;
     }
