@@ -51,6 +51,8 @@ import javax.annotation.Nullable;
  *   <li>a "middleman marker" object, which has a null digest, 0 size, and mtime of 0.
  *   <li>The "self data" of a TreeArtifact, where we would expect to see a digest representing the
  *       artifact's contents, and a size of 0.
+ *   <li>a file that's only stored by a remote caching/execution system, in which case we would
+ *       expect to see a digest and size.
  * </ul>
  */
 @Immutable
@@ -137,6 +139,13 @@ public abstract class FileArtifactValue implements SkyValue {
    * that the cache entry is reliable.
    */
   public abstract boolean wasModifiedSinceDigest(Path path) throws IOException;
+
+  /**
+   * Returns {@code true} if the file only exists remotely.
+   */
+  public boolean isRemote() {
+    return false;
+  }
 
   @Override
   public boolean equals(Object o) {
@@ -524,7 +533,12 @@ public abstract class FileArtifactValue implements SkyValue {
 
     @Override
     public boolean wasModifiedSinceDigest(Path path) {
-      throw new UnsupportedOperationException();
+      return false;
+    }
+
+    @Override
+    public boolean isRemote() {
+      return true;
     }
 
     @Override
