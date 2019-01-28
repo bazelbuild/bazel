@@ -44,6 +44,7 @@ import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 
 /**
  * A RemoteActionCache implementation that uses a simple blob store for files and action output.
@@ -226,15 +227,19 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   @Override
   protected ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
     SettableFuture<Void> outerF = SettableFuture.create();
-    HashingOutputStream hashOut = digestUtil.newHashingOutputStream(out);
+    @Nullable
+    HashingOutputStream hashOut =
+        options.remoteVerifyDownloads ? digestUtil.newHashingOutputStream(out) : null;
     Futures.addCallback(
-        blobStore.get(digest.getHash(), hashOut),
+        blobStore.get(digest.getHash(), hashOut != null ? hashOut : out),
         new FutureCallback<Boolean>() {
           @Override
           public void onSuccess(Boolean found) {
             if (found) {
               try {
-                verifyContents(digest, hashOut);
+                if (hashOut != null) {
+                  verifyContents(digest, hashOut);
+                }
                 out.flush();
                 outerF.set(null);
               } catch (IOException e) {
