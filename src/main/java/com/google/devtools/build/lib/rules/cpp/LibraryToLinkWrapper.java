@@ -13,6 +13,7 @@ package com.google.devtools.build.lib.rules.cpp;
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -22,10 +23,11 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams.LinkOptions;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.SolibLibraryToLink;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkWrapperApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -38,15 +40,10 @@ import javax.annotation.Nullable;
 /**
  * Encapsulates information for linking a library.
  *
- * <p>TODO(b/118663806): We will be replacing {@link CcLinkParams} gradually as described in
- * b/118663806. This class which shall be renamed later to LibraryToLink (once the old LibraryToLink
- * implementation is removed) will have all the information necessary for linking a library in all
- * of its variants currently encapsulated in the four modes of {@link CcLinkParams} stored in {@link
- * CcLinkingInfo}, these modes are: static params for executable, static params for dynamic library,
+ * <p>TODO(b/118663806): This class which shall be renamed later to LibraryToLink (once the old
+ * LibraryToLink implementation is removed) will have all the information necessary for linking a
+ * library in all of its variants : static params for executable, static params for dynamic library,
  * dynamic params for executable and dynamic params for dynamic library.
- *
- * <p>To do this refactoring incrementally, we first introduce this class and add a method that is
- * able to convert from this representation to the old four CcLinkParams variables.
  */
 public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Artifact> {
 
@@ -193,6 +190,84 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Artifact> {
   /** Structure of the new CcLinkingContext. This will replace {@link CcLinkingInfo}. */
   public static class CcLinkingContext implements CcLinkingContextApi {
     public static final CcLinkingContext EMPTY = CcLinkingContext.builder().build();
+
+    /**
+     * A list of link options contributed by a single configured target.
+     *
+     * <p><b>WARNING:</b> Do not implement {@code #equals()} in the obvious way. This class must be
+     * checked for equality by object identity because otherwise if two configured targets
+     * contribute the same link options, they will be de-duplicated, which is not the desirable
+     * behavior.
+     */
+    @AutoCodec
+    @Immutable
+    public static final class LinkOptions {
+      private final ImmutableList<String> linkOptions;
+
+      @VisibleForSerialization
+      LinkOptions(Iterable<String> linkOptions) {
+        this.linkOptions = ImmutableList.copyOf(linkOptions);
+      }
+
+      public ImmutableList<String> get() {
+        return linkOptions;
+      }
+
+      public static LinkOptions of(Iterable<String> linkOptions) {
+        return new LinkOptions(linkOptions);
+      }
+
+      @Override
+      public String toString() {
+        return '[' + Joiner.on(",").join(linkOptions) + ']';
+      }
+    }
+
+    /**
+     * A linkstamp that also knows about its declared includes.
+     *
+     * <p>This object is required because linkstamp files may include other headers which will have
+     * to be provided during compilation.
+     */
+    @AutoCodec
+    public static final class Linkstamp {
+      private final Artifact artifact;
+      private final NestedSet<Artifact> declaredIncludeSrcs;
+
+      @VisibleForSerialization
+      Linkstamp(Artifact artifact, NestedSet<Artifact> declaredIncludeSrcs) {
+        this.artifact = Preconditions.checkNotNull(artifact);
+        this.declaredIncludeSrcs = Preconditions.checkNotNull(declaredIncludeSrcs);
+      }
+
+      /** Returns the linkstamp artifact. */
+      public Artifact getArtifact() {
+        return artifact;
+      }
+
+      /** Returns the declared includes. */
+      public NestedSet<Artifact> getDeclaredIncludeSrcs() {
+        return declaredIncludeSrcs;
+      }
+
+      @Override
+      public int hashCode() {
+        return java.util.Objects.hash(artifact, declaredIncludeSrcs);
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (this == obj) {
+          return true;
+        }
+        if (!(obj instanceof Linkstamp)) {
+          return false;
+        }
+        Linkstamp other = (Linkstamp) obj;
+        return artifact.equals(other.artifact)
+            && declaredIncludeSrcs.equals(other.declaredIncludeSrcs);
+      }
+    }
 
     private final NestedSet<LibraryToLinkWrapper> libraries;
     private final NestedSet<LinkOptions> userLinkFlags;
@@ -594,7 +669,7 @@ public class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Artifact> {
       // an interface library or not by checking the extension if it's a symlink.
 
       if (dynamicModeParamsForExecutableEntry instanceof SolibLibraryToLink) {
-        // Note: with the old way of doing CcLinkParams, we lose the information regarding the
+        // Note: with the old way of doing C++ linking, we lose the information regarding the
         // runtime library. If {@code runtimeArtifact} is a symlink we only have the symlink but
         // not a reference to the artifact it points to. We can infer whether it's a symlink by
         // looking at whether the interface library is a symlink, however, we can't find out what

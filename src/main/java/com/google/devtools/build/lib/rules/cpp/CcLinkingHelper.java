@@ -32,12 +32,11 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams.LinkOptions;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -375,7 +374,8 @@ public final class CcLinkingHelper {
               .addUserLinkFlags(
                   linkopts.isEmpty()
                       ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
-                      : NestedSetBuilder.create(Order.LINK_ORDER, LinkOptions.of(linkopts)))
+                      : NestedSetBuilder.create(
+                          Order.LINK_ORDER, CcLinkingContext.LinkOptions.of(linkopts)))
               .addLibraries(
                   NestedSetBuilder.<LibraryToLinkWrapper>linkOrder()
                       .addAll(libraryToLinkWrappers)

@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
@@ -504,7 +503,8 @@ public class CcModule
         ccLinkingContextBuilder.addUserLinkFlags(
             NestedSetBuilder.wrap(
                 Order.LINK_ORDER,
-                ImmutableList.of(LinkOptions.of(userLinkFlags.getImmutableList()))));
+                ImmutableList.of(
+                    CcLinkingContext.LinkOptions.of(userLinkFlags.getImmutableList()))));
       }
       return ccLinkingContextBuilder.build();
     }
