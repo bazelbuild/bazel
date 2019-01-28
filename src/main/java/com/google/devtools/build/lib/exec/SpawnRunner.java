@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.SortedMap;
 
 /**
@@ -129,6 +132,7 @@ public interface SpawnRunner {
    * by different threads, so they MUST not call any shared non-thread-safe objects.
    */
   interface SpawnExecutionContext {
+
     /**
      * Returns a unique id for this spawn, to be used for logging. Note that a single spawn may be
      * passed to multiple {@link SpawnRunner} implementations, so any log entries should also
@@ -137,25 +141,15 @@ public interface SpawnRunner {
     int getId();
 
     /**
-     * Prefetches the Spawns input files to the local machine. There are cases where Bazel runs on a
-     * network file system, and prefetching the files in parallel is a significant performance win.
-     * This should only be called by local strategies when local execution is imminent.
+     * Prefetches the {@link Spawn}'s input files to the local machine.
      *
-     * <p>Should be called with the equivalent of:
-     * <code>
-     * policy.prefetchInputs(
-     *      Iterables.filter(policy.getInputMapping().values(), Predicates.notNull()));
-     * </code>
+     * <p>This is used by remote caching / execution to only download remote build outputs to the
+     * local machine that are strictly required. It's also used as a performance optimization in
+     * cases when Bazel runs on a network filesystem.
      *
-     * <p>Note in particular that {@link #getInputMapping} may return {@code null} values, but
-     * this method does not accept {@code null} values.
-     *
-     * <p>The reason why this method requires passing in the inputs is that getInputMapping may be
-     * slow to compute, so if the implementation already called it, we don't want to compute it
-     * again. I suppose we could require implementations to memoize getInputMapping (but not compute
-     * it eagerly), and that may change in the future.
+     * <p>This should only be called by local strategies when local execution is imminent.
      */
-    void prefetchInputs() throws IOException;
+    void prefetchInputs() throws IOException, InterruptedException;
 
     /**
      * The input file metadata cache for this specific spawn, which can be used to efficiently
@@ -199,6 +193,18 @@ public interface SpawnRunner {
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus state, String name);
+
+    /**
+     * Returns the collection of files that this command must write and make available via
+     * the local {@link com.google.devtools.build.lib.vfs.FileSystem}. The returned output
+     * artifacts are a subset of the action's output artifacts.
+     *
+     * <p>This is for use with remote execution, where as an optimization we don't want to
+     * download all output files.
+     */
+    default Collection<Artifact> getRequiredLocalOutputs() {
+      return ImmutableList.of();
+    }
   }
 
   /**
