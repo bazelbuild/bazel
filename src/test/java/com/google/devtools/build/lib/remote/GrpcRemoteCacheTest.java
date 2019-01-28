@@ -50,7 +50,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -214,49 +214,14 @@ public class GrpcRemoteCacheTest {
         uploader);
   }
 
-  static class StringVirtualActionInput implements VirtualActionInput {
-    private final String contents;
-    private final PathFragment execPath;
-
-    StringVirtualActionInput(String contents, PathFragment execPath) {
-      this.contents = contents;
-      this.execPath = execPath;
-    }
-
-    @Override
-    public void writeTo(OutputStream out) throws IOException {
-      out.write(contents.getBytes(StandardCharsets.UTF_8));
-    }
-
-    @Override
-    public ByteString getBytes() throws IOException {
-      ByteString.Output out = ByteString.newOutput();
-      writeTo(out);
-      return out.toByteString();
-    }
-
-    @Override
-    public String getExecPathString() {
-      return execPath.getPathString();
-    }
-
-    @Override
-    public PathFragment getExecPath() {
-      return execPath;
-    }
-  }
-
   @Test
   public void testVirtualActionInputSupport() throws Exception {
     GrpcRemoteCache client = newClient();
-    TreeNodeRepository treeNodeRepository =
-        new TreeNodeRepository(execRoot, fakeFileCache, DIGEST_UTIL);
     PathFragment execPath = PathFragment.create("my/exec/path");
-    VirtualActionInput virtualActionInput = new StringVirtualActionInput("hello", execPath);
+    VirtualActionInput virtualActionInput = new StringActionInput("hello", execPath);
+    MerkleTree merkleTree = MerkleTree.build(ImmutableSortedMap.of(execPath, virtualActionInput),
+        fakeFileCache, execRoot, DIGEST_UTIL);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
-    TreeNode root =
-        treeNodeRepository.buildFromActionInputs(
-            ImmutableSortedMap.of(execPath, virtualActionInput));
 
     // Add a fake CAS that responds saying that the above virtual action input is missing
     serviceRegistry.addService(
@@ -302,13 +267,7 @@ public class GrpcRemoteCacheTest {
         });
 
     // Upload all missing inputs (that is, the virtual action input from above)
-    client.ensureInputsPresent(
-        treeNodeRepository,
-        execRoot,
-        root,
-        Action.getDefaultInstance(),
-        Command.getDefaultInstance());
-    assertThat(writeOccurred.get()).named("WriteOccurred").isTrue();
+    client.ensureInputsPresent(merkleTree, ImmutableMap.of(), execRoot);
   }
 
   @Test
