@@ -845,6 +845,18 @@ public class CppOptions extends FragmentOptions {
   // TODO(b/122328491): Document migration steps. See #7036.
   public boolean disableLegacyCcProvider;
 
+  @Option(
+      name = "incompatible_enable_cc_toolchain_resolution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If true, cc rules use toolchain resolution to find the cc_toolchain.")
+  public boolean enableCcToolchainResolution;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -896,6 +908,7 @@ public class CppOptions extends FragmentOptions {
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
     host.disableLegacyCrosstoolFields = disableLegacyCrosstoolFields;
+    host.enableCcToolchainResolution = enableCcToolchainResolution;
     return host;
   }
 

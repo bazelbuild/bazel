@@ -49,7 +49,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     String crosstool = analysisMock.ccSupport().readCrosstoolFile();
     getAnalysisMock().ccSupport().setupCrosstoolWithRelease(mockToolsConfig, crosstool);
     useConfiguration(
-        "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
+        "--incompatible_enable_cc_toolchain_resolution",
         "--experimental_platforms=//mock_platform:mock-piii-platform",
         "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii");
     ConfiguredTarget target =
@@ -70,7 +70,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     String crosstool = analysisMock.ccSupport().readCrosstoolFile();
     getAnalysisMock().ccSupport().setupCrosstoolWithRelease(mockToolsConfig, crosstool);
     useConfiguration(
-        "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
+        "--incompatible_enable_cc_toolchain_resolution",
         "--experimental_platforms=//mock_platform:mock-piii-platform",
         "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii");
     ConfiguredTarget target =
@@ -110,7 +110,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         "filegroup(name = 'dummy_filegroup')");
 
     useConfiguration(
-        "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
+        "--incompatible_enable_cc_toolchain_resolution",
         "--experimental_platforms=//mock_platform:mock-piii-platform",
         "--extra_toolchains=//incomplete_toolchain:incomplete_toolchain_cc-compiler-piii");
 
@@ -129,7 +129,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     getAnalysisMock().ccSupport().setupCrosstoolWithRelease(mockToolsConfig, crosstoolWithPiiiLd);
 
     useConfiguration(
-        "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
+        "--incompatible_enable_cc_toolchain_resolution",
         "--experimental_platforms=//mock_platform:mock-piii-platform",
         "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii");
     ConfiguredTarget target =

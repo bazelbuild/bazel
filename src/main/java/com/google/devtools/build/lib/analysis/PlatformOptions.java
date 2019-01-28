@@ -131,16 +131,18 @@ public class PlatformOptions extends FragmentOptions {
   public boolean toolchainResolutionDebug;
 
   @Option(
-    name = "enabled_toolchain_types",
-    defaultValue = "",
-    converter = LabelListConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-    help =
-        "Enable toolchain resolution for the given toolchain type, if the rules used support that. "
-            + "This does not directly change the core Blaze machinery, but is a signal to "
-            + "participating rule implementations that toolchain resolution should be used."
-  )
+      name = "enabled_toolchain_types",
+      defaultValue = "",
+      converter = LabelListConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      deprecationWarning =
+          "Use --incompatible_enable_cc_toolchain_resolution to enable toolchain for cc rules. "
+              + "Other rules will define separate flags as needed.",
+      help =
+          "Enable toolchain resolution for the given toolchain type, if the rules used support "
+              + "that. This does not directly change the core Blaze machinery, but is a signal to "
+              + "participating rule implementations that toolchain resolution should be used.")
   public List<Label> enabledToolchainTypes;
 
   @Option(

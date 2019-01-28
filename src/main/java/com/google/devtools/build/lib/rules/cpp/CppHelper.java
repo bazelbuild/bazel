@@ -107,17 +107,6 @@ public class CppHelper {
   }
 
   /**
-   * Returns true if this target should obtain c++ make variables from the toolchain instead of from
-   * the configuration.
-   */
-  public static boolean shouldUseToolchainForMakeVariables(RuleContext ruleContext) {
-    Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
-    return ruleContext
-        .getFragment(PlatformConfiguration.class)
-        .isToolchainTypeEnabled(toolchainType);
-  }
-
-  /**
    * Expands Make variables in a list of string and tokenizes the result. If the package feature
    * no_copts_tokenization is set, tokenize only items consisting of a single make variable.
    *
@@ -346,10 +335,7 @@ public class CppHelper {
       RuleContext ruleContext, TransitiveInfoCollection dep) {
 
     Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
-    if (toolchainType != null
-        && ruleContext
-            .getFragment(PlatformConfiguration.class)
-            .isToolchainTypeEnabled(toolchainType)) {
+    if (toolchainType != null && useToolchainResolution(ruleContext)) {
       return getToolchainFromPlatformConstraints(ruleContext, toolchainType);
     }
     return getToolchainFromCrosstoolTop(ruleContext, dep);
@@ -865,5 +851,20 @@ public class CppHelper {
             String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
       }
     }
+  }
+
+  static boolean useToolchainResolution(RuleContext ruleContext) {
+    CppOptions cppOptions =
+        Preconditions.checkNotNull(
+            ruleContext.getConfiguration().getOptions().get(CppOptions.class));
+
+    if (cppOptions.enableCcToolchainResolution) {
+      return true;
+    }
+
+    // TODO(https://github.com/bazelbuild/bazel/issues/7260): Remove this and the flag.
+    PlatformConfiguration platformConfig =
+        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
+    return platformConfig.isToolchainTypeEnabled(getToolchainTypeFromRuleClass(ruleContext));
   }
 }

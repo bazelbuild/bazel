@@ -13,13 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -57,10 +55,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       ruleConfiguredTargetBuilder.add(LicensesProvider.class, attributes.getLicensesProvider());
     }
 
-    PlatformConfiguration platformConfig =
-        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
-    if (!platformConfig.isToolchainTypeEnabled(
-        CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
+    if (!CppHelper.useToolchainResolution(ruleContext)) {
       // This is not a platforms-backed build, let's provide CcToolchainAttributesProvider
       // and have cc_toolchain_suite select one of its toolchains and create CcToolchainProvider
       // from its attributes.

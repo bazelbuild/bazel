@@ -70,9 +70,7 @@ public class ToolchainTypeTest extends BuildViewTestCase {
         ")");
 
     useConfiguration(
-        "--enabled_toolchain_types="
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/cpp:toolchain_type",
+        "--incompatible_enable_cc_toolchain_resolution",
         "--experimental_platforms=//a:mock-platform",
         "--extra_toolchains=//a:toolchain_b");
 
