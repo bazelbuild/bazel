@@ -744,10 +744,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
             state.inputArtifactData.putWithNoDepOwner(
                 ArtifactSkyKey.artifact(entry.getKey()), (FileArtifactValue) entry.getValue());
           }
-          // TODO(ulfjack): This causes information loss about omitted and injected outputs. Also
-          // see the documentation on MetadataHandler.artifactOmitted. This works by accident
-          // because markOmitted is only called for remote execution, and this code only gets
-          // executed for local execution.
           metadataHandler =
               new ActionMetadataHandler(
                   state.inputArtifactData,
@@ -755,7 +751,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
                   action.getOutputs(),
                   tsgm.get(),
                   metadataHandler.getArtifactPathResolver(),
-                  state.actionFileSystem == null ? new OutputStore() : new MinimalOutputStore());
+                  metadataHandler.getOutputStore());
         }
       }
       Preconditions.checkState(!env.valuesMissing(), action);
