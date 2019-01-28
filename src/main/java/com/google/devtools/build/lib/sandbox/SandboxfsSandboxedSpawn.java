@@ -246,16 +246,6 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       dirsToCreate.add(output.getParentDirectory());
     }
     dirsToCreate.addAll(outputs.dirs());
-    for (PathFragment input : inputs.keySet()) {
-      // We must pre-create the directory layout for input files as well as for output files.
-      // The reason is that we map the root directory as writable within the sandbox and later
-      // map read-only files on top of it. We want the intermediate components on those paths
-      // to remain writable within the top-level root directory we have mounted, but that's
-      // only possible if we pre-create those. Otherwise, sandboxfs will see that those components
-      // do not exist when mapping the read-only file and will generate fake, in-memory, read-only
-      // components for them.
-      dirsToCreate.add(input.getParentDirectory());
-    }
     for (PathFragment dir : dirsToCreate) {
       sandboxScratchDir.getRelative(dir).createDirectoryAndParents();
     }
