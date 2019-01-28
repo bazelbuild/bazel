@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.FutureSpawn;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -199,6 +200,14 @@ public interface SpawnRunner {
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus state, String name);
+
+    /**
+     * Returns a {@link MetadataInjector} that allows a caller to inject metadata about spawn
+     * outputs that are stored remotely.
+     */
+    default MetadataInjector getMetadataInjector() {
+      throw new UnsupportedOperationException();
+    }
   }
 
   /**
