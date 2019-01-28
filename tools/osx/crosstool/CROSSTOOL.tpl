@@ -1082,6 +1082,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
+        flag: "-mmacosx-version-min=%{version_min}"
       }
     }
   }
