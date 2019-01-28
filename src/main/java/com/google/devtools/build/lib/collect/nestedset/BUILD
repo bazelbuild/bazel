@@ -19,7 +19,7 @@ java_library(
         "Order.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:crash-utils",
+        "//src/main/java/com/google/devtools/build/lib:bug-report",
         "//src/main/java/com/google/devtools/build/lib:exitcode-external",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

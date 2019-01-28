@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.runtime;
+package com.google.devtools.build.lib.bugreport;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -25,15 +25,16 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /**
- * Utility methods for sending bug reports.
+ * Utility methods for handling crashes: we log the crash, optionally send a bug report, and then
+ * terminate the jvm.
  *
- * <p> Note, code in this class must be extremely robust.  There's nothing
- * worse than a crash-handler that itself crashes!
+ * <p> Note, code in this class must be extremely robust. There's nothing worse than a crash-handler
+ * that itself crashes!
  */
 public abstract class BugReport {
 
@@ -43,15 +44,27 @@ public abstract class BugReport {
 
   private static BlazeVersionInfo versionInfo = BlazeVersionInfo.instance();
 
-  private static BlazeRuntime runtime = null;
+  private static BlazeRuntimeInterface runtime = null;
 
-  private static AtomicBoolean alreadyHandlingCrash = new AtomicBoolean(false);
+  @Nullable private static volatile Throwable unprocessedThrowableInTest = null;
+  private static final Object LOCK = new Object();
 
-  private static final boolean IN_TEST =
-      System.getenv("TEST_TMPDIR") != null
-          && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
+  private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
 
-  public static void setRuntime(BlazeRuntime newRuntime) {
+  private static final boolean SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST =
+      System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
+
+  /**
+   * This is a narrow interface for {@link BugReport}'s usage of BlazeRuntime. It lives in this
+   * file, for the sake of avoiding a build-time cycle.
+   */
+  public interface BlazeRuntimeInterface {
+    String getProductName();
+    void notifyCommandComplete(int exitCode);
+    void shutdownOnCrash();
+  }
+
+  public static void setRuntime(BlazeRuntimeInterface newRuntime) {
     Preconditions.checkNotNull(newRuntime);
     Preconditions.checkState(runtime == null, "runtime already set: %s, %s", runtime, newRuntime);
     runtime = newRuntime;
@@ -62,6 +75,24 @@ public abstract class BugReport {
   }
 
   /**
+   * In tests, Runtime#halt is disabled. Thus, the main thread should call this method whenever it
+   * is about to block on thread completion that might hang because of a failed halt below.
+   */
+  public static void maybePropagateUnprocessedThrowableIfInTest() {
+    if (IN_TEST) {
+      // Instead of the jvm having been halted, we might have a saved Throwable.
+      synchronized (LOCK) {
+        Throwable lastUnprocessedThrowableInTest = unprocessedThrowableInTest;
+        unprocessedThrowableInTest = null;
+        if (lastUnprocessedThrowableInTest != null) {
+          Throwables.throwIfUnchecked(lastUnprocessedThrowableInTest);
+          throw new RuntimeException(lastUnprocessedThrowableInTest);
+        }
+      }
+    }
+  }
+
+  /**
    * Logs the unhandled exception with a special prefix signifying that this was a crash.
    *
    * @param exception the unhandled exception to display.
@@ -69,7 +100,7 @@ public abstract class BugReport {
    * @param values Additional string values to clarify the exception.
    */
   public static void sendBugReport(Throwable exception, List<String> args, String... values) {
-    if (IN_TEST) {
+    if (SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST) {
       Throwables.throwIfUnchecked(exception);
       throw new IllegalStateException(
           "Bug reports in tests should crash: " + args + ", " + Arrays.toString(values), exception);
@@ -82,48 +113,80 @@ public abstract class BugReport {
     logException(exception, filterClientEnv(args), values);
   }
 
-  private static void logCrash(Throwable throwable, String... args) {
+  private static void logCrash(Throwable throwable, boolean sendBugReport, String... args) {
     logger.severe("Crash: " + Throwables.getStackTraceAsString(throwable));
-    BugReport.sendBugReport(throwable, Arrays.asList(args));
+    if (sendBugReport) {
+      BugReport.sendBugReport(throwable, Arrays.asList(args));
+    }
     BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable);
     System.err.println("ERROR: " + getProductName() + " crash in async thread:");
     throwable.printStackTrace();
   }
 
   /**
-   * Print and send a bug report, and exit with the proper Blaze code. Does not exit if called a
-   * second time. This method tries hard to catch any throwables thrown during its execution and
-   * halts the runtime in that case.
+   * Print, log, send a bug report, and then cause the current Blaze command to fail with the
+   * specified exit code, and then cause the jvm to terminate.
+   *
+   * <p>Has no effect if another crash has already been handled by {@link BugReport}.
+   */
+  public static void handleCrashWithoutSendingBugReport(
+      Throwable throwable, int exitCode, String... args) {
+    handleCrash(throwable, /*sendBugReport=*/ false, Integer.valueOf(exitCode), args);
+  }
+
+  /**
+   * Print, log, send a bug report, and then cause the current Blaze command to fail with the
+   * specified exit code, and then cause the jvm to terminate.
+   *
+   * <p>Has no effect if another crash has already been handled by {@link BugReport}.
+   */
+  public static void handleCrash(Throwable throwable, int exitCode, String... args) {
+    handleCrash(throwable, /*sendBugReport=*/ true, Integer.valueOf(exitCode), args);
+  }
+
+  /**
+   * Print, log, and send a bug report, and then cause the current Blaze command to fail with an
+   * exit code inferred from the given {@link Throwable}, and then cause the jvm to terminate.
+   *
+   * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
   public static void handleCrash(Throwable throwable, String... args) {
-    int exitCode = getExitCodeForThrowable(throwable).getNumericExitCode();
+    handleCrash(throwable, /*sendBugReport=*/ true, /*exitCode=*/ null, args);
+  }
+
+  private static void handleCrash(
+      Throwable throwable, boolean sendBugReport, @Nullable Integer exitCode, String... args) {
+    int exitCodeToUse = exitCode == null
+        ? getExitCodeForThrowable(throwable).getNumericExitCode()
+        : exitCode.intValue();
     try {
-      if (alreadyHandlingCrash.compareAndSet(false, true)) {
+      synchronized (LOCK) {
+        if (IN_TEST) {
+          unprocessedThrowableInTest = throwable;
+        }
+        logCrash(throwable, sendBugReport, args);
         try {
-          logCrash(throwable, args);
           if (runtime != null) {
-            runtime.notifyCommandComplete(exitCode);
+            runtime.notifyCommandComplete(exitCodeToUse);
             // We don't call runtime#shutDown() here because all it does is shut down the modules,
             // and who knows if they can be trusted. Instead, we call runtime#shutdownOnCrash()
             // which attempts to cleanly shutdown those modules that might have something pending
             // to do as a best-effort operation.
             runtime.shutdownOnCrash();
           }
-          CustomExitCodePublisher.maybeWriteExitStatusFile(exitCode);
+          CustomExitCodePublisher.maybeWriteExitStatusFile(exitCodeToUse);
         } finally {
           // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
           // trigger our Blaze crash handler (this method). Calling System#exit() here, would
           // therefore induce a deadlock. This call would block on the shutdown sequence completing,
           // but the shutdown sequence would in turn be blocked on this thread finishing. Instead,
           // exit fast via halt().
-          Runtime.getRuntime().halt(exitCode);
+          Runtime.getRuntime().halt(exitCodeToUse);
         }
-      } else {
-        logCrash(throwable, args);
       }
     } catch (Throwable t) {
       System.err.println(
-          "ERROR: An crash occurred while "
+          "ERROR: A crash occurred while "
               + getProductName()
               + " was trying to handle a crash! Please file a bug against "
               + getProductName()
@@ -135,7 +198,7 @@ public abstract class BugReport {
       System.err.println("Exception encountered during BugReport#handleCrash:");
       t.printStackTrace(System.err);
 
-      Runtime.getRuntime().halt(exitCode);
+      Runtime.getRuntime().halt(exitCodeToUse);
     }
   }
 

@@ -116,10 +116,21 @@ java_library(
 )
 
 # I/O utilities.
+
+OUT_ERR_SRCS = [
+    "util/io/OutErr.java",
+    "util/io/LinePrefixingOutputStream.java",
+    "util/io/LineFlushingOutputStream.java",
+]
+
 java_library(
     name = "io",
-    srcs = glob(["util/io/*.java"]),
+    srcs = glob(
+        ["util/io/*.java"],
+        exclude = OUT_ERR_SRCS,
+    ),
     deps = [
+        ":out-err",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
@@ -127,6 +138,11 @@ java_library(
         "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
     ],
+)
+
+java_library(
+    name = "out-err",
+    srcs = OUT_ERR_SRCS,
 )
 
 # General utilities.
@@ -210,6 +226,7 @@ java_library(
             "util/StringCanonicalizer.java",
             "util/StringTrie.java",
             "util/StringUtil.java",
+            "util/StringUtilities.java",
             "util/VarInt.java",
         ],
     ),
@@ -271,6 +288,7 @@ java_library(
     srcs = [
         "util/StringCanonicalizer.java",
         "util/StringUtil.java",
+        "util/StringUtilities.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -289,14 +307,10 @@ java_library(
 )
 
 java_library(
-    name = "crash-utils",
-    srcs = [
-        "util/BazelCrashUtils.java",
-        "util/CustomExitCodePublisher.java",
-    ],
+    name = "custom-exit-code-publisher",
+    srcs = ["util/CustomExitCodePublisher.java"],
     deps = [
         ":exitcode-external",
-        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -307,6 +321,7 @@ java_library(
     srcs = glob(["events/*.java"]),
     deps = [
         ":io",
+        ":out-err",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -609,6 +624,7 @@ java_library(
         ],
         exclude = [
             "analysis/BuildInfo.java",
+            "analysis/BuildVersionInfo.java",
             "analysis/ProviderCollection.java",
             "analysis/TransitiveInfoProvider.java",
             "analysis/config/BuildConfigurationOptionDetails.java",
@@ -629,6 +645,7 @@ java_library(
         ":io",
         ":keep-going-option",
         ":os_util",
+        ":out-err",
         ":packages-internal",
         ":process_util",
         ":provider-collection",
@@ -903,10 +920,12 @@ java_library(
         ":events",
         ":io",
         ":maven-connector",
+        ":out-err",
         ":packages-internal",
         ":runtime",
         ":skylark_semantics",
         ":skylarkinterface",
+        ":string_util",
         ":util",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -1174,7 +1193,9 @@ java_library(
         ":exitcode-external",
         ":io",
         ":os_util",
+        ":out-err",
         ":runtime",
+        ":string_util",
         ":unix",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -1190,6 +1211,29 @@ java_library(
         "//third_party:jsr305",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "bug-report",
+    srcs = ["bugreport/BugReport.java"],
+    deps = [
+        ":blaze-version-info",
+        ":custom-exit-code-publisher",
+        ":exitcode-external",
+        ":logging-util",
+        ":out-err",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "logging-util",
+    srcs = ["util/LoggingUtil.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
     ],
 )
 
@@ -1213,14 +1257,17 @@ java_library(
         "server/signal/InterruptSignalHandler.java",
     ],
     deps = [
+        ":bug-report",
         ":build-base",
         ":build-request-options",
         ":command-utils",
+        ":custom-exit-code-publisher",
         ":events",
         ":exitcode-external",
         ":io",
         ":keep-going-option",
         ":loading-phase-threads-option",
+        ":out-err",
         ":packages-internal",
         ":process_util",
         ":shared-base-rules",
@@ -1269,6 +1316,17 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "blaze-version-info",
+    srcs = [
+        "analysis/BlazeVersionInfo.java",
+    ],
+    deps = [
+        ":string_util",
+        "//third_party:guava",
     ],
 )
 
