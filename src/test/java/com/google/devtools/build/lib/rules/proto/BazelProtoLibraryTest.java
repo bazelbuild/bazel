@@ -607,6 +607,70 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testStripImportPrefixWithStrictProtoDeps() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    useConfiguration("--strict_proto_deps=STRICT");
+    scratch.file(
+        "a/b/BUILD",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto','c/e.proto'],",
+        "    strip_import_prefix = 'c')");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    assertThat(commandLine).containsAllOf("--direct_dependencies",
+        "d.proto:e.proto").inOrder();
+  }
+
+  @Test
+  public void testDepOnStripImportPrefixWithStrictProtoDeps() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    useConfiguration("--strict_proto_deps=STRICT");
+    scratch.file(
+        "a/b/BUILD",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    strip_import_prefix = 'c')");
+    scratch.file(
+        "a/b/e/BUILD",
+        "proto_library(",
+        "    name = 'e',",
+        "    srcs = ['e.proto'],",
+        "    deps = ['//a/b:d'])");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b/e:e"));
+    assertThat(commandLine).containsAllOf("--direct_dependencies",
+        "d.proto:a/b/e/e.proto").inOrder();
+  }
+
+  @Test
+  public void testStripImportPrefixAndImportPrefixWithStrictProtoDeps() throws Exception {
+    if (!isThisBazel()) {
+      return;
+    }
+
+    useConfiguration("--strict_proto_deps=STRICT");
+    scratch.file(
+        "a/b/BUILD",
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    import_prefix = 'foo',",
+        "    strip_import_prefix = 'c')");
+
+    Iterable<String> commandLine = paramFileArgsForAction(getDescriptorWriteAction("//a/b:d"));
+    assertThat(commandLine).containsAllOf("--direct_dependencies",
+        "foo/d.proto").inOrder();
+  }
+
+  @Test
   public void testStripImportPrefixForExternalRepositories() throws Exception {
     if (!isThisBazel()) {
       return;
