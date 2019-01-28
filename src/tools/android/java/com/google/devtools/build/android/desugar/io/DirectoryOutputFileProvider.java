@@ -30,8 +30,9 @@ class DirectoryOutputFileProvider implements OutputFileProvider {
   }
 
   @Override
-  public void copyFrom(String filename, InputFileProvider inputFileProvider) throws IOException {
-    Path path = root.resolve(filename);
+  public void copyFrom(String filename, InputFileProvider inputFileProvider, String outputFilename)
+      throws IOException {
+    Path path = root.resolve(outputFilename);
     createParentFolder(path);
     try (InputStream is = inputFileProvider.getInputStream(filename);
         OutputStream os = Files.newOutputStream(path)) {

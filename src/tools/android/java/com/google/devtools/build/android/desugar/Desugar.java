@@ -589,7 +589,26 @@ class Desugar {
             outputFileProvider.write(filename, writer.toByteArray());
           }
         } else {
-          outputFileProvider.copyFrom(inputFilename, inputFiles);
+          // Most other files (and directories) we want to just copy, but...
+          String outputFilename = inputFilename;
+          if (options.coreLibrary && coreLibrarySupport != null && inputFilename.endsWith("/")) {
+            // rename core library directories together with files in them
+            outputFilename = coreLibrarySupport.renameCoreLibrary(inputFilename);
+          } else if (coreLibrarySupport != null
+              && !inputFilename.endsWith("/")
+              && inputFilename.startsWith("META-INF/services/")) {
+            // rename j.u.ServiceLoader files for renamed core libraries so they're found
+            String serviceName = inputFilename.substring("META-INF/services/".length());
+            if (!serviceName.contains("/")
+                && coreLibrarySupport.isRenamedCoreLibrary(serviceName.replace('.', '/'))) {
+              outputFilename =
+                  "META-INF/services/"
+                      + coreLibrarySupport
+                          .renameCoreLibrary(serviceName.replace('.', '/'))
+                          .replace('/', '.');
+            }
+          }
+          outputFileProvider.copyFrom(inputFilename, inputFiles, outputFilename);
         }
       }
     }
