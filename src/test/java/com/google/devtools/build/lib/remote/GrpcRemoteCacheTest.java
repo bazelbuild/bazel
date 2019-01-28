@@ -81,6 +81,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -655,21 +656,18 @@ public class GrpcRemoteCacheTest {
           public void findMissingBlobs(
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
-            assertThat(request.getBlobDigestsList())
-                .containsExactly(fooDigest, quxDigest, barDigest);
+            assertThat(request.getBlobDigestsList()).containsAllOf(fooDigest, quxDigest, barDigest);
             // Nothing is missing.
             responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
             responseObserver.onCompleted();
           }
         });
 
-    ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(
-        execRoot, null, null, null, ImmutableList.<Path>of(fooFile, barDir), outErr, false, result);
+    ActionResult result = uploadDirectory(client, ImmutableList.<Path>of(fooFile, barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
-    assertThat(result.build()).isEqualTo(expectedResult.build());
+    assertThat(result).isEqualTo(expectedResult.build());
   }
 
   @Test
@@ -686,19 +684,17 @@ public class GrpcRemoteCacheTest {
           public void findMissingBlobs(
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
-            assertThat(request.getBlobDigestsList()).containsExactly(barDigest);
+            assertThat(request.getBlobDigestsList()).contains(barDigest);
             // Nothing is missing.
             responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
             responseObserver.onCompleted();
           }
         });
 
-    ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(
-        execRoot, null, null, null, ImmutableList.<Path>of(barDir), outErr, false, result);
+    ActionResult result = uploadDirectory(client, ImmutableList.<Path>of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
-    assertThat(result.build()).isEqualTo(expectedResult.build());
+    assertThat(result).isEqualTo(expectedResult.build());
   }
 
   @Test
@@ -738,19 +734,27 @@ public class GrpcRemoteCacheTest {
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
             assertThat(request.getBlobDigestsList())
-                .containsExactly(quxDigest, barDigest, wobbleDigest);
+                .containsAllOf(quxDigest, barDigest, wobbleDigest);
             // Nothing is missing.
             responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
             responseObserver.onCompleted();
           }
         });
 
-    ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(
-        execRoot, null, null, null, ImmutableList.<Path>of(barDir), outErr, false, result);
+    ActionResult result = uploadDirectory(client, ImmutableList.of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
-    assertThat(result.build()).isEqualTo(expectedResult.build());
+    assertThat(result).isEqualTo(expectedResult.build());
+  }
+
+  private ActionResult uploadDirectory(GrpcRemoteCache client, List<Path> outputs)
+      throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Action action = Action.getDefaultInstance();
+    ActionKey actionKey = DIGEST_UTIL.computeActionKey(action);
+    Command cmd = Command.getDefaultInstance();
+    client.upload(execRoot, actionKey, action, cmd, outputs, outErr, result);
+    return result.build();
   }
 
   @Test
@@ -789,7 +793,6 @@ public class GrpcRemoteCacheTest {
         command,
         ImmutableList.<Path>of(fooFile, barFile),
         outErr,
-        true,
         result);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
@@ -840,7 +843,6 @@ public class GrpcRemoteCacheTest {
         command,
         ImmutableList.<Path>of(fooFile, barFile),
         outErr,
-        true,
         result);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
@@ -851,47 +853,6 @@ public class GrpcRemoteCacheTest {
         .setIsExecutable(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
     assertThat(numGetMissingCalls.get()).isEqualTo(4);
-  }
-
-  @Test
-  public void testUploadUploadsOnlyOutputs() throws Exception {
-    final GrpcRemoteCache client = newClient();
-    final Digest fooDigest =
-        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
-    final Digest barDigest =
-        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar"), "x");
-    serviceRegistry.addService(
-        new ContentAddressableStorageImplBase() {
-          @Override
-          public void findMissingBlobs(
-              FindMissingBlobsRequest request,
-              StreamObserver<FindMissingBlobsResponse> responseObserver) {
-            // This checks we will try to upload the actual outputs.
-            assertThat(request.getBlobDigestsList()).containsExactly(fooDigest, barDigest);
-            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
-            responseObserver.onCompleted();
-          }
-        });
-    serviceRegistry.addService(
-        new ActionCacheImplBase() {
-          @Override
-          public void updateActionResult(
-              UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
-            fail("Update action result was expected to not be called.");
-          }
-        });
-
-    ActionKey emptyKey = DIGEST_UTIL.computeActionKey(Action.getDefaultInstance());
-    Path fooFile = execRoot.getRelative("a/foo");
-    Path barFile = execRoot.getRelative("bar");
-    client.upload(
-        emptyKey,
-        Action.getDefaultInstance(),
-        Command.getDefaultInstance(),
-        execRoot,
-        ImmutableList.<Path>of(fooFile, barFile),
-        outErr,
-        false);
   }
 
   @Test
@@ -1014,8 +975,7 @@ public class GrpcRemoteCacheTest {
         Command.getDefaultInstance(),
         execRoot,
         ImmutableList.<Path>of(fooFile, barFile, bazFile),
-        outErr,
-        true);
+        outErr);
     // 4 times for the errors, 3 times for the successful uploads.
     Mockito.verify(mockByteStreamImpl, Mockito.times(7))
         .write(Mockito.<StreamObserver<WriteResponse>>anyObject());

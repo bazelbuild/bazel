@@ -732,8 +732,7 @@ public class AbstractRemoteActionCacheTests {
         Command command,
         Path execRoot,
         Collection<Path> files,
-        FileOutErr outErr,
-        boolean uploadAction)
+        FileOutErr outErr)
         throws ExecException, IOException, InterruptedException {
       throw new UnsupportedOperationException();
     }
