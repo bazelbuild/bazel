@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
@@ -198,6 +199,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     @Override
     public MetadataProvider getMetadataProvider() {
       return actionExecutionContext.getMetadataProvider();
+    }
+    
+    @Override
+    public MetadataHandler getMetadataInjector() {
+      return actionExecutionContext.getMetadataHandler();
     }
 
     @Override
