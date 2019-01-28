@@ -119,12 +119,9 @@ public class TestConstants {
   public static final BuilderFactoryForTesting PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING =
       PackageFactoryBuilderFactoryForBazelUnitTests.INSTANCE;
 
-  /**
-   * Partial query to filter out implicit dependencies of C/C++ rules.
-   */
+  /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =
-      " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:stl)"
-          + " - deps(" + TOOLS_REPOSITORY + CROSSTOOL_LABEL + ")";
+      " - deps(" + TOOLS_REPOSITORY + CROSSTOOL_LABEL + ")";
 
   public static final String PLATFORM_LABEL =
       "@bazel_tools//platforms:host_platform + @bazel_tools//platforms:target_platform";
