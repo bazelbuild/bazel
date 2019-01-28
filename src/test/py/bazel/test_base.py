@@ -137,7 +137,7 @@ class TestBase(unittest.TestCase):
     if os.path.isabs(path) or '..' in path:
       raise ArgumentError(('path="%s" may not be absolute and may not contain '
                            'uplevel references') % path)
-    return os.path.join(self._test_cwd, path)
+    return '\\\\?\\' + os.path.join(self._test_cwd, path).replace('/', '\\')
 
   def Rlocation(self, runfile):
     """Returns the absolute path to a runfile."""
@@ -310,7 +310,7 @@ class TestBase(unittest.TestCase):
       print('--------------------------')
       print('\n'.join(stderr_lines))
 
-  def RunProgram(self, args, env_remove=None, env_add=None, shell=False):
+  def RunProgram(self, args, env_remove=None, env_add=None, longpath=False):
     """Runs a program (args[0]), waits for it to exit.
 
     Args:
@@ -319,8 +319,8 @@ class TestBase(unittest.TestCase):
         to the program
       env_add: {string: string}; optional; environment variables to pass to
         the program, won't be removed by env_remove.
-      shell: {bool: bool}; optional; whether to use the shell as the program
-        to execute
+      longpath: {bool: bool}; optional; whether to support long path (on
+        Windows) for the executable
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -332,7 +332,9 @@ class TestBase(unittest.TestCase):
             stderr=stderr,
             cwd=self._test_cwd,
             env=self._EnvMap(env_remove, env_add),
-            shell=shell)
+            # subprocess.Popen only supports executables from long paths (on
+            # Windows) when shell=True.
+            shell=longpath)
         exit_code = proc.wait()
 
         stdout.seek(0)

@@ -556,14 +556,14 @@ class LauncherTest(test_base.TestBase):
         'bin_sh.exe.runfiles_manifest',
     ]:
       self.CopyFile(os.path.join(bazel_bin, 'bin', f),
-                    os.path.join(u'./\u6d4b\u8bd5', f))
+                    os.path.join(u'\u6d4b\u8bd5', f))
 
-    unicode_binary_path = u'./\u6d4b\u8bd5/bin_java.exe'
+    unicode_binary_path = u'\u6d4b\u8bd5/bin_java.exe'
     exit_code, stdout, stderr = self.RunProgram([unicode_binary_path])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
 
-    unicode_binary_path = u'./\u6d4b\u8bd5/bin_sh.exe'
+    unicode_binary_path = u'\u6d4b\u8bd5/bin_sh.exe'
     exit_code, stdout, stderr = self.RunProgram([unicode_binary_path])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
@@ -609,37 +609,41 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
     # Create a directory with a path longer than 260
-    long_dir_path = './' + '/'.join(
+    long_dir_path = '/'.join(
         [(c * 8 + '.' + c * 3) for c in string.ascii_lowercase])
 
     for f in [
-        'bin_java.exe',
-        'bin_java.exe.runfiles_manifest',
-        'bin_sh.exe',
-        'bin_sh',
-        'bin_sh.exe.runfiles_manifest',
-        'bin_py.exe',
-        'bin_py.zip',
-        'bin_py.exe.runfiles_manifest',
+        ('bin_java.exe', True),
+        ('bin_java.exe.runfiles_manifest', False),
+        ('bin_sh.exe', True),
+        ('bin_sh', False),
+        ('bin_sh.exe.runfiles_manifest', False),
+        ('bin_py.exe', True),
+        ('bin_py.zip', False),
+        ('bin_py.exe.runfiles_manifest', False),
     ]:
       self.CopyFile(
-          os.path.join(bazel_bin, 'bin', f), os.path.join(long_dir_path, f))
+          os.path.join(bazel_bin, 'bin', f[0]),
+          os.path.join(long_dir_path, f[0]),
+          executable = f[1])
+      p = self.Path(os.path.join(long_dir_path, f[0]))
+      self.assertTrue(os.path.exists(p), msg="path=(%s)" % p)
 
-    long_binary_path = os.path.abspath(long_dir_path + '/bin_java.exe')
-    # subprocess doesn't support long path without shell=True
-    exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
+    long_binary_path = self.Path(os.path.join(long_dir_path, 'bin_java.exe'))
+    exit_code, stdout, stderr = self.RunProgram([long_binary_path],
+                                                longpath=True)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
 
-    long_binary_path = os.path.abspath(long_dir_path + '/bin_sh.exe')
-    # subprocess doesn't support long path without shell=True
-    exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
+    long_binary_path = self.Path(os.path.join(long_dir_path, 'bin_sh.exe'))
+    exit_code, stdout, stderr = self.RunProgram([long_binary_path],
+                                                longpath=True)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
 
-    long_binary_path = os.path.abspath(long_dir_path + '/bin_py.exe')
-    # subprocess doesn't support long path without shell=True
-    exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
+    long_binary_path = self.Path(os.path.join(long_dir_path, 'bin_py.exe'))
+    exit_code, stdout, stderr = self.RunProgram([long_binary_path],
+                                                longpath=True)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
 

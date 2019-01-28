@@ -359,7 +359,10 @@ ExitCode JavaBinaryLauncher::Launch() {
     jvm_flags.push_back(
         GetEscapedArgument(flag, /*escape_backslash = */ false));
   }
-  jvm_flags.push_back(this->GetLaunchInfoByKey(JVM_FLAGS));
+  wstringstream jvm_flags_launch_info_ss(this->GetLaunchInfoByKey(JVM_FLAGS));
+  while (getline(jvm_flags_launch_info_ss, flag, L'\t')) {
+    jvm_flags.push_back(flag);
+  }
 
   // Check if TEST_TMPDIR is available to use for scratch.
   wstring test_tmpdir;

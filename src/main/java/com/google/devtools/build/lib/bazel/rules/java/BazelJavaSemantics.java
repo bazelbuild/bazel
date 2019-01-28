@@ -458,7 +458,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 "classpath",
                 ";",
                 Iterables.transform(classpath, Artifact.ROOT_RELATIVE_PATH_STRING))
-            .addJoinedValues("jvm_flags", " ", bashTokenizedJvmFlags)
+            .addJoinedValues("jvm_flags", "\t", bashTokenizedJvmFlags)
             .build();
 
     LauncherFileWriteAction.createAndRegister(ruleContext, javaLauncher, launchInfo);
