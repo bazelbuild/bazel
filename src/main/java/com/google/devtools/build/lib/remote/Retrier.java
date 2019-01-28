@@ -21,7 +21,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import java.io.IOException;
 import java.util.concurrent.Callable;
@@ -255,14 +254,6 @@ public class Retrier {
   /** Executes an {@link AsyncCallable}, retrying execution in case of failure. */
   public <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call) {
     return executeAsync(call, newBackoff());
-  }
-
-  /**
-   * Executes an {@link AsyncCallable}, retrying execution in case of failure and uses the provided
-   * {@code promise} to point to the result/error.
-   */
-  public <T> void executeAsync(AsyncCallable<T> call, SettableFuture<T> promise) {
-    promise.setFuture(executeAsync(call));
   }
 
   /**
