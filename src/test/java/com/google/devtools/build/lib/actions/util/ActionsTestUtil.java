@@ -147,6 +147,7 @@ public final class ActionsTestUtil {
         executor != null ? executor.getEventHandler() : null,
         ImmutableMap.copyOf(clientEnv),
         ImmutableMap.of(),
+        ImmutableList.of(),
         actionGraph == null
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
@@ -166,6 +167,7 @@ public final class ActionsTestUtil {
         eventHandler,
         ImmutableMap.of(),
         ImmutableMap.of(),
+        ImmutableList.of(),
         createDummyArtifactExpander(),
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null);

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -71,6 +72,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
             executor.getEventHandler(),
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
+            ImmutableList.of(),
             null,
             null,
             null);

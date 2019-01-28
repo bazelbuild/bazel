@@ -794,6 +794,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             null,
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
+            ImmutableList.of(),
             DUMMY_ARTIFACT_EXPANDER,
             null,
             null);
@@ -847,6 +848,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             null,
             ImmutableMap.of(),
             ImmutableMap.of(),
+            ImmutableList.of(),
             DUMMY_ARTIFACT_EXPANDER,
             null,
             null);

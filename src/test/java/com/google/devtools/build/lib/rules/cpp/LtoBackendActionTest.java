@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -90,6 +91,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             executor.getEventHandler(),
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
+            ImmutableList.of(),
             null,
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null);

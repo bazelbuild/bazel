@@ -192,6 +192,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         executor.getEventHandler(),
         ImmutableMap.of(),
         ImmutableMap.of(),
+        ImmutableList.of(),
         null,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null);

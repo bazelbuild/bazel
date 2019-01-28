@@ -203,6 +203,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         executor.getEventHandler(),
         ImmutableMap.<String, String>of(),
         ImmutableMap.of(),
+        ImmutableList.of(),
         artifactExpander,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null);

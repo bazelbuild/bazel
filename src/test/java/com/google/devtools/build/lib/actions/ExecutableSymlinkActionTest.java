@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -66,6 +67,7 @@ public class ExecutableSymlinkActionTest {
         executor.getEventHandler(),
         ImmutableMap.<String, String>of(),
         ImmutableMap.of(),
+        /*requiredLocalOutputs=*/ ImmutableList.of(),
         null,
         null,
         null);

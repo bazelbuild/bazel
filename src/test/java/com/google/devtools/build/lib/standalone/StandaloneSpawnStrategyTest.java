@@ -196,6 +196,7 @@ public class StandaloneSpawnStrategyTest {
         executor.getEventHandler(),
         ImmutableMap.of(),
         ImmutableMap.of(),
+        ImmutableList.of(),
         SIMPLE_ARTIFACT_EXPANDER,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null);

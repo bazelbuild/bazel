@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -125,6 +126,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
         executor.getEventHandler(),
         ImmutableMap.of(),
         ImmutableMap.of(),
+        ImmutableList.of(),
         null,
         null,
         null);

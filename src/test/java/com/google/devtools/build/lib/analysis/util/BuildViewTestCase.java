@@ -2230,6 +2230,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           reporter,
           clientEnv,
           ImmutableMap.of(),
+          ImmutableList.of(),
           artifactExpander,
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult*/ null);

@@ -96,6 +96,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           /*eventHandler=*/ null,
           /* clientEnv= */ ImmutableMap.of(),
           /* topLevelFilesets= */ ImmutableMap.of(),
+          /* requiredLocalOutputs= */ ImmutableList.of(),
           /* artifactExpander= */ null,
           /* actionFileSystem= */ null,
           /* skyframeDepsResult= */ null);
