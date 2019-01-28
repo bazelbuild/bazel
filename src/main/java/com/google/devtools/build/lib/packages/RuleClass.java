@@ -28,6 +28,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -1846,7 +1847,11 @@ public class RuleClass {
       throws InterruptedException, CannotPrecomputeDefaultsException {
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
-            rule, pkgBuilder.getRepositoryMapping(), attributeValues, eventHandler);
+            rule,
+            pkgBuilder.getRepositoryMapping(),
+            attributeValues,
+            pkgBuilder.getListInterner(),
+            eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
     populateConfigDependenciesAttribute(rule);
@@ -1867,6 +1872,7 @@ public class RuleClass {
       Rule rule,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       AttributeValues<T> attributeValues,
+      Interner<ImmutableList<?>> listInterner,
       EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
@@ -1893,7 +1899,7 @@ public class RuleClass {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(rule, attr, attributeValue, repositoryMapping);
+              convertFromBuildLangType(rule, attr, attributeValue, repositoryMapping, listInterner);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2193,7 +2199,8 @@ public class RuleClass {
       Rule rule,
       Attribute attr,
       Object buildLangValue,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      Interner<ImmutableList<?>> listInterner)
       throws ConversionException {
     LabelConversionContext context = new LabelConversionContext(rule.getLabel(), repositoryMapping);
     Object converted =
@@ -2214,7 +2221,10 @@ public class RuleClass {
         List<? extends Comparable<?>> list = (List<? extends Comparable<?>>) converted;
         converted = Ordering.natural().sortedCopy(list);
       }
-      converted = ImmutableList.copyOf((List<?>) converted);
+      // It's common for multiple rule instances in the same package to have the same value for some
+      // attributes. As a concrete example, consider a package having several 'java_test' instances,
+      // each with the same exact 'tags' attribute value.
+      converted = listInterner.intern(ImmutableList.copyOf((List<?>) converted));
     }
 
     return converted;

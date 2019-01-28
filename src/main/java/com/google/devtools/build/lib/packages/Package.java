@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -852,6 +854,8 @@ public class Package {
      */
     private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
+    private final Interner<ImmutableList<?>> listInterner = BlazeInterners.newStrongInterner();
+
     private boolean alreadyBuilt = false;
 
     private EventHandler builderEventHandler = new EventHandler() {
@@ -932,6 +936,10 @@ public class Package {
     /** Get the repository mapping for this package */
     ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
       return this.repositoryMapping;
+    }
+
+    Interner<ImmutableList<?>> getListInterner() {
+      return listInterner;
     }
 
     /** Sets the name of this package's BUILD file. */
