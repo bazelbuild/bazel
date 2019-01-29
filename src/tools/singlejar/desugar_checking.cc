@@ -22,7 +22,7 @@ bool Java8DesugarDepsChecker::Merge(const CDH *cdh, const LH *lh) {
   if (Z_NO_COMPRESSION == lh->compression_method()) {
     buffer_->ReadEntryContents(lh);
   } else if (Z_DEFLATED == lh->compression_method()) {
-    if (!inflater_.get()) {
+    if (!inflater_) {
       inflater_.reset(new Inflater());
     }
     buffer_->DecompressEntryContents(cdh, lh, inflater_.get());

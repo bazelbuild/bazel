@@ -64,9 +64,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "    dwp_files = ':empty',",
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])");
+        "    objcopy_files = ':empty')");
     scratch.file("b/CROSSTOOL", AnalysisMock.get().ccSupport().readCrosstoolFile());
 
     scratch.file("a/BUILD", "cc_host_toolchain_alias(name='current_cc_host_toolchain')");
@@ -74,6 +72,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
     useConfiguration("--host_crosstool_top=//b:my_custom_toolchain_suite", "--host_cpu=k8");
     ConfiguredTarget target = getConfiguredTarget("//a:current_cc_host_toolchain");
 
-    assertThat(target.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//b:toolchain_b"));
+    assertThat(target.getLabel())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//b:my_custom_toolchain_suite"));
   }
 }

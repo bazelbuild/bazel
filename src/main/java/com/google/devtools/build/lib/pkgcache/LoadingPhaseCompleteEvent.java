@@ -52,9 +52,4 @@ public final class LoadingPhaseCompleteEvent implements ExtendedEventHandler.Pos
   public ImmutableSet<Label> getFilteredLabels() {
     return filteredLabels;
   }
-
-  // TODO(ulfjack): Remove this method.
-  public long getTimeInMs() {
-    return 0;
-  }
 }

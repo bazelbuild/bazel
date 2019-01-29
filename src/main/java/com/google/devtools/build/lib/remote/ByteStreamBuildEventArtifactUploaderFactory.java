@@ -41,7 +41,11 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
 
   @Override
   public BuildEventArtifactUploader create(CommandEnvironment env) {
-    return new ByteStreamBuildEventArtifactUploader(uploader.retain(), remoteServerName, ctx,
-        remoteInstanceName);
+    return new ByteStreamBuildEventArtifactUploader(
+        uploader.retain(),
+        remoteServerName,
+        ctx,
+        remoteInstanceName,
+        env.getOptions().getOptions(RemoteOptions.class).buildEventUploadMaxThreads);
   }
 }

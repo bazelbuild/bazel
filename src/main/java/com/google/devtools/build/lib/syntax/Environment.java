@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.syntax.Parser.ParsingLevel;
@@ -439,13 +440,6 @@ public final class Environment implements Freezable, Debuggable {
       return label;
     }
 
-    /** Same as getLabel. */
-    @Nullable
-    public Label getTransitiveLabel() {
-      checkInitialized();
-      return label;
-    }
-
     /**
      * Returns a map of direct bindings of this {@link GlobalFrame}, ignoring universe.
      *
@@ -548,26 +542,17 @@ public final class Environment implements Freezable, Debuggable {
     /** The global Frame of the caller. */
     final GlobalFrame globalFrame;
 
-    /**
-     * The set of known global variables of the caller.
-     *
-     * <p>TODO(laurentlb): Remove this when we use static name resolution.
-     */
-    @Nullable final LinkedHashSet<String> knownGlobalVariables;
-
     Continuation(
         @Nullable Continuation continuation,
         BaseFunction function,
         @Nullable FuncallExpression caller,
         Frame lexicalFrame,
-        GlobalFrame globalFrame,
-        @Nullable LinkedHashSet<String> knownGlobalVariables) {
+        GlobalFrame globalFrame) {
       this.continuation = continuation;
       this.function = function;
       this.caller = caller;
       this.lexicalFrame = lexicalFrame;
       this.globalFrame = globalFrame;
-      this.knownGlobalVariables = knownGlobalVariables;
     }
   }
 
@@ -762,6 +747,8 @@ public final class Environment implements Freezable, Debuggable {
   /** The semantics options that affect how Skylark code is evaluated. */
   private final SkylarkSemantics semantics;
 
+  private final StarlarkContext starlarkContext;
+
   /**
    * An EventHandler for errors and warnings. This is not used in the BUILD language, however it
    * might be used in Skylark code called from the BUILD language, so shouldn't be null.
@@ -772,15 +759,6 @@ public final class Environment implements Freezable, Debuggable {
    * For each imported extension, a global Skylark frame from which to load() individual bindings.
    */
   private final Map<String, Extension> importedExtensions;
-
-  /**
-   * When in a lexical (Skylark) Frame, this set contains the variable names that are global, as
-   * determined not by global declarations (not currently supported), but by previous lookups that
-   * ended being global or dynamic. This is necessary because if in a function definition something
-   * reads a global variable after which a local variable with the same name is assigned an
-   * Exception needs to be thrown.
-   */
-  @Nullable private LinkedHashSet<String> knownGlobalVariables;
 
   /**
    * When in a lexical (Skylark) frame, this lists the names of the functions in the call stack. We
@@ -808,12 +786,9 @@ public final class Environment implements Freezable, Debuggable {
       Frame lexical,
       @Nullable FuncallExpression caller,
       GlobalFrame globals) {
-    continuation =
-        new Continuation(
-            continuation, function, caller, lexicalFrame, globalFrame, knownGlobalVariables);
+    continuation = new Continuation(continuation, function, caller, lexicalFrame, globalFrame);
     lexicalFrame = lexical;
     globalFrame = globals;
-    knownGlobalVariables = new LinkedHashSet<>();
   }
 
   /** Exits a scope by restoring state from the current continuation */
@@ -821,7 +796,6 @@ public final class Environment implements Freezable, Debuggable {
     Preconditions.checkNotNull(continuation);
     lexicalFrame = continuation.lexicalFrame;
     globalFrame = continuation.globalFrame;
-    knownGlobalVariables = continuation.knownGlobalVariables;
     continuation = continuation.continuation;
   }
 
@@ -903,6 +877,7 @@ public final class Environment implements Freezable, Debuggable {
       GlobalFrame globalFrame,
       LexicalFrame dynamicFrame,
       SkylarkSemantics semantics,
+      StarlarkContext starlarkContext,
       EventHandler eventHandler,
       Map<String, Extension> importedExtensions,
       @Nullable String fileContentHashCode,
@@ -913,6 +888,7 @@ public final class Environment implements Freezable, Debuggable {
     Preconditions.checkArgument(!globalFrame.mutability().isFrozen());
     Preconditions.checkArgument(!dynamicFrame.mutability().isFrozen());
     this.semantics = semantics;
+    this.starlarkContext = starlarkContext;
     this.eventHandler = eventHandler;
     this.importedExtensions = importedExtensions;
     this.callerLabel = callerLabel;
@@ -930,6 +906,7 @@ public final class Environment implements Freezable, Debuggable {
     private final Mutability mutability;
     @Nullable private GlobalFrame parent;
     @Nullable private SkylarkSemantics semantics;
+    @Nullable private StarlarkContext starlarkContext;
     @Nullable private EventHandler eventHandler;
     @Nullable private Map<String, Extension> importedExtensions;
     @Nullable private String fileContentHashCode;
@@ -937,6 +914,8 @@ public final class Environment implements Freezable, Debuggable {
 
     Builder(Mutability mutability) {
       this.mutability = mutability;
+      // TODO(cparsons): Require specifying a starlarkContext (or declaring use of an empty stub).
+      this.starlarkContext = new StarlarkContext() {};
     }
 
     /**
@@ -957,6 +936,16 @@ public final class Environment implements Freezable, Debuggable {
 
     public Builder useDefaultSemantics() {
       this.semantics = SkylarkSemantics.DEFAULT_SEMANTICS;
+      return this;
+    }
+
+    public Builder setStarlarkContext(StarlarkContext starlarkContext) {
+      this.starlarkContext = starlarkContext;
+      return this;
+    }
+
+    public Builder useEmptyStarlarkContext() {
+      this.starlarkContext = new StarlarkContext() {};
       return this;
     }
 
@@ -1017,6 +1006,7 @@ public final class Environment implements Freezable, Debuggable {
           globalFrame,
           dynamicFrame,
           semantics,
+          starlarkContext,
           eventHandler,
           importedExtensions,
           fileContentHashCode,
@@ -1094,14 +1084,6 @@ public final class Environment implements Freezable, Debuggable {
    */
   public Environment update(String varname, Object value) throws EvalException {
     Preconditions.checkNotNull(value, "trying to assign null to '%s'", varname);
-    if (isKnownGlobalVariable(varname)) {
-      throw new EvalException(
-          null,
-          String.format(
-              "Variable '%s' is referenced before assignment. "
-                  + "The variable is defined in the global scope.",
-              varname));
-    }
     try {
       lexicalFrame.put(this, varname, value);
     } catch (MutabilityException e) {
@@ -1165,14 +1147,7 @@ public final class Environment implements Freezable, Debuggable {
   /** Returns the value of a variable defined in the Universe scope (builtins). */
   public Object universeLookup(String varname) {
     // TODO(laurentlb): look only at globalFrame.universe.
-    Object result = globalFrame.get(varname);
-
-    if (result == null) {
-      // TODO(laurentlb): Remove once PACKAGE_NAME and REPOSITOYRY_NAME are removed (they are the
-      // only two user-visible values that use the dynamicFrame).
-      return dynamicLookup(varname);
-    }
-    return result;
+    return globalFrame.get(varname);
   }
 
   /** Returns the value of a variable defined with setupDynamic. */
@@ -1193,17 +1168,10 @@ public final class Environment implements Freezable, Debuggable {
       return lexicalValue;
     }
     Object globalValue = globalFrame.get(varname);
-    Object dynamicValue = dynamicFrame.get(varname);
-    if (globalValue == null && dynamicValue == null) {
+    if (globalValue == null) {
       return null;
     }
-    if (knownGlobalVariables != null) {
-      knownGlobalVariables.add(varname);
-    }
-    if (globalValue != null) {
-      return globalValue;
-    }
-    return dynamicValue;
+    return globalValue;
   }
 
   /**
@@ -1216,18 +1184,12 @@ public final class Environment implements Freezable, Debuggable {
     return globalFrame.restrictedBindings;
   }
 
-  /**
-   * Returns true if varname is a known global variable (i.e., it has been read in the context of
-   * the current function).
-   */
-  boolean isKnownGlobalVariable(String varname) {
-    return !semantics.incompatibleStaticNameResolution()
-        && knownGlobalVariables != null
-        && knownGlobalVariables.contains(varname);
-  }
-
   public SkylarkSemantics getSemantics() {
     return semantics;
+  }
+
+  public StarlarkContext getStarlarkContext() {
+    return starlarkContext;
   }
 
   public void handleEvent(Event event) {

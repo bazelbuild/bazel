@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
-import com.google.devtools.build.lib.rules.android.DataBinding.DataBindingContext;
+import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -56,6 +56,10 @@ public class ParsedAndroidResources extends AndroidResources {
                   getDummyDataBindingArtifact(dataContext.getActionConstructionContext())));
     }
 
+    // In databinding v2, this strips out the databinding and generates the layout info file.
+    AndroidResources databindingProcessedResources =
+        dataBindingContext.processResources(dataContext, resources, manifest.getPackage());
+
     return builder
         .setOutput(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS))
         .setCompiledSymbolsOutput(
@@ -64,7 +68,7 @@ public class ParsedAndroidResources extends AndroidResources {
                 : null)
         .build(
             dataContext,
-            dataBindingContext.processResources(resources),
+            databindingProcessedResources,
             manifest,
             dataBindingContext);
   }

@@ -682,6 +682,14 @@ public interface AndroidDataProcessingApi<
             doc =
                 "Dependency targets. Providers will be extracted from these dependencies for each"
                     + " type of data."),
+        @Param(
+            name = "nocompress_extensions",
+            positional = false,
+            defaultValue = "[]",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            named = true,
+            doc = "A list of file extensions to leave uncompressed in the resource apk.")
       },
       useLocation = true,
       useEnvironment = true,
@@ -699,6 +707,7 @@ public interface AndroidDataProcessingApi<
       String aaptVersionString,
       SkylarkDict<String, String> manifestValues,
       SkylarkList<TransitiveInfoCollectionT> deps,
+      SkylarkList<String> noCompressExtensions,
       Location location,
       Environment env)
       throws InterruptedException, EvalException;

@@ -34,6 +34,19 @@ bool HasUncPrefix(const char_type* path) {
          path[3] == '\\';
 }
 
+template <typename char_type>
+bool IsDevNull(const char_type* path) {
+  return (path[0] == 'N' || path[0] == 'n') &&
+         (path[1] == 'U' || path[1] == 'u') &&
+         (path[2] == 'L' || path[2] == 'l');
+}
+
+std::wstring AddUncPrefixMaybe(const std::wstring& path);
+
+std::wstring RemoveUncPrefixMaybe(const std::wstring& path);
+
+bool IsAbsoluteNormalizedWindowsPath(const std::wstring& p);
+
 // Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
 enum {
   IS_JUNCTION_YES = 0,
@@ -80,7 +93,7 @@ struct CreateJunctionResult {
 //   created using "mklink" instead of "mklink /d", as such symlinks don't
 //   behave the same way as directories (e.g. they can't be listed)
 // - IS_JUNCTION_ERROR, if `path` doesn't exist or some error occurred
-int IsJunctionOrDirectorySymlink(const WCHAR* path);
+int IsJunctionOrDirectorySymlink(const WCHAR* path, std::wstring* error);
 
 // Computes the long version of `path` if it has any 8dot3 style components.
 // Returns the empty string upon success, or a human-readable error message upon
@@ -92,12 +105,6 @@ int IsJunctionOrDirectorySymlink(const WCHAR* path);
 // TODO(laszlocsomor): update GetLongPath so it succeeds even if the path does
 // not (fully) exist.
 wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result);
-
-// Opens a directory using CreateFileW.
-// `path` must be a valid Windows path, with "\\?\" prefix if it's long.
-// If `read_write` is true then the directory is opened for reading and writing,
-// otherwise only for reading.
-HANDLE OpenDirectory(const WCHAR* path, bool read_write);
 
 // Creates a junction at `name`, pointing to `target`.
 // Returns CreateJunctionResult::kSuccess if it could create the junction, or if

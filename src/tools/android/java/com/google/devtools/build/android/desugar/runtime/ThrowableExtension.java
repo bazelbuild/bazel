@@ -65,7 +65,7 @@ public final class ThrowableExtension {
       // This catchall block is intentionally created to avoid anything unexpected, so that
       // the desugared app will continue running in case of exceptions.
       System.err.println(
-          "An error has occured when initializing the try-with-resources desuguring strategy. "
+          "An error has occurred when initializing the try-with-resources desuguring strategy. "
               + "The default strategy "
               + NullDesugaringStrategy.class.getName()
               + "will be used. The error is: ");

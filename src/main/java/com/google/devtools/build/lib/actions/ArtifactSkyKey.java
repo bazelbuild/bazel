@@ -89,6 +89,6 @@ public class ArtifactSkyKey implements SkyKey {
 
   @Override
   public String toString() {
-    return artifact.prettyPrint() + " " + artifact.getArtifactOwner();
+    return "ArtifactSkyKey:" + artifact.prettyPrint() + " " + artifact.getArtifactOwner();
   }
 }

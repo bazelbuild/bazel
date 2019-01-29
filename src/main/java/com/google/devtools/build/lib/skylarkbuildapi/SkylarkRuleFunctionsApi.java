@@ -16,19 +16,22 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkConfigApi.BuildSettingApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi.BuildSettingApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.Runtime.UnboundMarker;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 
 /**
  * Interface for a global Skylark library containing rule-related helper and registration functions.
@@ -141,7 +144,11 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         // TODO(bazel-team): need to give the types of these builtin attributes
         @Param(
             name = "outputs",
-            type = SkylarkDict.class,
+            allowedTypes = {
+              @ParamType(type = SkylarkDict.class),
+              @ParamType(type = NoneType.class),
+              @ParamType(type = BaseFunction.class)
+            },
             legacyNamed = true,
             callbackEnabled = true,
             noneable = true,
@@ -315,16 +322,30 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "None",
             named = true,
             positional = false,
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
+            valueWhenDisabled = "None",
             // TODO(juliexxia): Link to in-build testing documentation when it is available.
             doc =
-                "<b>Experimental: This parameter is experimental and subject to change at any "
-                    + "time.</b><p> If set, describes what kind of build setting this rule is. "
+                "If set, describes what kind of build setting this rule is. "
                     + "See the <a href='config.html'><code>config</code></a> module. If this is "
                     + "set, a mandatory attribute named \"build_setting_default\" is automatically"
                     + "added to this rule, with a type corresponding to the value passed in here."),
+        @Param(
+            name = "cfg",
+            type = Object.class,
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_STARLARK_CONFIG_TRANSITION,
+            valueWhenDisabled = "None",
+            doc =
+                "If set, points to the configuration transition the rule will "
+                    + "apply to its own configuration before analysis.")
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public BaseFunction rule(
       BaseFunction implementation,
       Boolean test,
@@ -342,8 +363,10 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
+      Object cfg,
       FuncallExpression ast,
-      Environment funcallEnv)
+      Environment funcallEnv,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
@@ -473,34 +496,42 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
 
   @SkylarkCallable(
       name = "Label",
-      doc = "Creates a Label referring to a BUILD target. Use "
-          + "this function only when you want to give a default value for the label attributes. "
-          + "The argument must refer to an absolute label. "
-          + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
+      doc =
+          "Creates a Label referring to a BUILD target. Use "
+              + "this function only when you want to give a default value for the label "
+              + "attributes. The argument must refer to an absolute label. "
+              + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
       parameters = {
-          @Param(name = "label_string", type = String.class, legacyNamed = true,
-              doc = "the label string."),
-          @Param(
-              name = "relative_to_caller_repository",
-              type = Boolean.class,
-              defaultValue = "False",
-              named = true,
-              positional = false,
-              doc = "Deprecated. Do not use. "
-                  + "When relative_to_caller_repository is True and the calling thread is a rule's "
-                  + "implementation function, then a repo-relative label //foo:bar is resolved "
-                  + "relative to the rule's repository.  For calls to Label from any other "
-                  + "thread, or calls in which the relative_to_caller_repository flag is False, "
-                  + "a repo-relative label is resolved relative to the file in which the "
-                  + "Label() call appears."
-          )
+        @Param(
+            name = "label_string",
+            type = String.class,
+            legacyNamed = true,
+            doc = "the label string."),
+        @Param(
+            name = "relative_to_caller_repository",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc =
+                "Deprecated. Do not use. "
+                    + "When relative_to_caller_repository is True and the calling thread is a "
+                    + "rule's implementation function, then a repo-relative label //foo:bar is "
+                    + "resolved relative to the rule's repository.  For calls to Label from any "
+                    + "other thread, or calls in which the relative_to_caller_repository flag is "
+                    + "False, a repo-relative label is resolved relative to the file in which the "
+                    + "Label() call appears.")
       },
       useLocation = true,
-      useEnvironment = true
-  )
+      useEnvironment = true,
+      useContext = true)
   @SkylarkConstructor(objectType = Label.class)
   public Label label(
-      String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
+      String labelString,
+      Boolean relativeToCallerRepository,
+      Location loc,
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(

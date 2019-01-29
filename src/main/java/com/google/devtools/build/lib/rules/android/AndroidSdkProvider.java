@@ -33,7 +33,6 @@ import javax.annotation.Nullable;
 public final class AndroidSdkProvider extends NativeInfo
     implements AndroidSdkProviderApi<Artifact, FilesToRunProvider, TransitiveInfoCollection> {
 
-  public static final String PROVIDER_NAME = "AndroidSdkInfo";
   public static final Provider PROVIDER = new Provider();
 
   private final String buildToolsVersion;
@@ -203,7 +202,7 @@ public final class AndroidSdkProvider extends NativeInfo
           Artifact, FilesToRunProvider, TransitiveInfoCollection> {
 
     private Provider() {
-      super(PROVIDER_NAME, AndroidSdkProvider.class);
+      super(NAME, AndroidSdkProvider.class);
     }
 
     @Override

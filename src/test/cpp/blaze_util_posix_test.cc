@@ -16,12 +16,12 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
-#include <inttypes.h>
 #include <string.h>
 #include <unistd.h>
 
 #include <cerrno>
 #include <cstdarg>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 
@@ -188,8 +188,10 @@ TEST_F(UnlimitResourcesTest, Coredumps) {
   // limit is non-zero.
   struct rlimit rl = GetrlimitOrDie(RLIMIT_CORE);
   if (rl.rlim_max <= 1) {
-    fprintf(stderr, "Hard resource limit for RLIMIT_CORE is %" PRIuMAX
-            "; cannot test anything meaningful\n", rl.rlim_max);
+    fprintf(stderr,
+            "Hard resource limit for RLIMIT_CORE is %" PRIuMAX
+            "; cannot test anything meaningful\n",
+            static_cast<uintmax_t>(rl.rlim_max));
     return;
   }
   rl.rlim_cur = 1;

@@ -49,3 +49,14 @@ filegroup(
         "//conditions:default": ["tw"],
     }),
 )
+
+filegroup(
+    name = "xml_writer",
+    # "xml" is the Windows-native test XML writer. It has a short name because
+    # paths have short limits on Windows.
+    # On other platforms this binary is a no-op.
+    srcs = select({
+        "@bazel_tools//src/conditions:windows": ["xml.exe"],
+        "//conditions:default": ["xml"],
+    }),
+)

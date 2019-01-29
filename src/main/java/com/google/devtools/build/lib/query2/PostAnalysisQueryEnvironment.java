@@ -72,7 +72,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -308,7 +307,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           result.add(parent);
         }
       }
-      result.addAll(getAllowedDeps((targetAndRdeps.getKey()), ruleDeps.build()));
+      result.addAll(getAllowedDeps(targetAndRdeps.getKey(), ruleDeps.build()));
     }
     return result;
   }
@@ -446,9 +445,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   /** A wrapper class for the set of top-level configurations in a query. */
   public static class TopLevelConfigurations {
 
-    private static final List<BuildConfiguration> SINGLETON_CONFIGURATION_LIST_OF_NULL =
-        Collections.singletonList(null);
-
     /** A map of non-null configured top-level targets sorted by configuration checksum. */
     private final ImmutableMap<Label, BuildConfiguration> nonNulls;
     /**
@@ -498,7 +494,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       if (nulls.isEmpty()) {
         return nonNullConfigs;
       } else {
-        return Iterables.concat(nonNullConfigs, SINGLETON_CONFIGURATION_LIST_OF_NULL);
+        return Iterables.concat(nonNullConfigs, Collections.singletonList(null));
       }
     }
   }

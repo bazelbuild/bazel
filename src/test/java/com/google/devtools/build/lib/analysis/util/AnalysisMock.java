@@ -42,7 +42,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -90,7 +89,13 @@ public abstract class AnalysisMock extends LoadingMock {
    * This is called from test setup to create the mock directory layout needed to create the
    * configuration.
    */
-  public abstract void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException;
+  public void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException {
+    List<String> workspaceContents = getWorkspaceContents(mockToolsConfig);
+    setupMockClient(mockToolsConfig, workspaceContents);
+  }
+
+  public abstract void setupMockClient(
+      MockToolsConfig mockToolsConfig, List<String> getWorkspaceContents) throws IOException;
 
   /**
    * Returns the contents of WORKSPACE.
@@ -109,8 +114,6 @@ public abstract class AnalysisMock extends LoadingMock {
   @Override
   public abstract ConfiguredRuleClassProvider createRuleClassProvider();
 
-  public abstract Collection<String> getOptionOverrides();
-
   public abstract boolean isThisBazel();
 
   public abstract MockCcSupport ccSupport();
@@ -123,23 +126,38 @@ public abstract class AnalysisMock extends LoadingMock {
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     // Some tests require the local_repository rule so we need the appropriate SkyFunctions.
-    RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers = ImmutableMap.of(
-        LocalRepositoryRule.NAME, localRepositoryFunction,
-        AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction(),
-        AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
+    ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
+        new ImmutableMap.Builder<String, RepositoryFunction>()
+            .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
+            .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
+            .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
+
+    addExtraRepositoryFunctions(repositoryHandlers);
 
     return ImmutableMap.of(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(
-            repositoryHandlers, null, new AtomicBoolean(true), ImmutableMap::of, directories),
+            repositoryHandlers.build(),
+            null,
+            new AtomicBoolean(true),
+            ImmutableMap::of,
+            directories),
         SkyFunctions.REPOSITORY,
         new RepositoryLoaderFunction(),
         CcSkyframeSupportValue.SKYFUNCTION,
         new CcSkyframeSupportFunction(directories));
   }
 
+  // Allow subclasses to add extra repository functions.
+  public abstract void addExtraRepositoryFunctions(
+      ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers);
+
+  /**
+   * Stub class for tests to extend in order to update a small amount of {@link AnalysisMock}
+   * functionality.
+   */
   public static class Delegate extends AnalysisMock {
+
     private final AnalysisMock delegate;
 
     public Delegate(AnalysisMock delegate) {
@@ -147,8 +165,9 @@ public abstract class AnalysisMock extends LoadingMock {
     }
 
     @Override
-    public void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException {
-      delegate.setupMockClient(mockToolsConfig);
+    public void setupMockClient(MockToolsConfig mockToolsConfig, List<String> workspaceContents)
+        throws IOException {
+      delegate.setupMockClient(mockToolsConfig, workspaceContents);
     }
 
     @Override
@@ -192,14 +211,15 @@ public abstract class AnalysisMock extends LoadingMock {
     }
 
     @Override
-    public Collection<String> getOptionOverrides() {
-      return delegate.getOptionOverrides();
-    }
-
-    @Override
     public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
         BlazeDirectories directories) {
       return delegate.getSkyFunctions(directories);
+    }
+
+    @Override
+    public void addExtraRepositoryFunctions(
+        ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers) {
+      delegate.addExtraRepositoryFunctions(repositoryHandlers);
     }
   }
 }

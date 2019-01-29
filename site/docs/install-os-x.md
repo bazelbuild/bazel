@@ -95,7 +95,7 @@ Install the Bazel package via Homebrew as follows:
 ```bash
 brew tap bazelbuild/tap
 brew tap-pin bazelbuild/tap
-brew install bazel
+brew install bazelbuild/tap/bazel
 ```
 
 All set! You can confirm Bazel is installed successfully by running the following command:
@@ -107,7 +107,7 @@ bazel version
 Once installed, you can upgrade to a newer version of Bazel using the following command:
 
 ```bash
-brew upgrade bazel
+brew upgrade bazelbuild/tap/bazel
 ```
 
 

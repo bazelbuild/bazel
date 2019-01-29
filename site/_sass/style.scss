@@ -120,7 +120,7 @@ code {
 }
 
 
-// Immitate material design buttons
+// Imitate material design buttons
 .btn-lg {
   font-size: 14px;
   text-transform: uppercase;
@@ -171,4 +171,12 @@ $md-shadow-3: rgba(0, 0, 0, .12);
     -moz-box-sizing: content-box !important;
     box-sizing: content-box !important;
   }
+}
+
+// Used for the Command-line Reference flag anchors. Linkifying the flag name
+// causes it to turn $link-color (green), but we turn it red here to be consistent
+// with the rest of the code block.
+dd > code > a,
+dl > dt > code > a {
+  color: #c7254e;
 }

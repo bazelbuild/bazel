@@ -29,6 +29,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -54,7 +55,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -115,7 +115,7 @@ public class Artifact
         SkyKey {
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
-  @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
+  @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
   public static final Comparator<Artifact> EXEC_PATH_COMPARATOR =
       (a, b) -> {
         if (a == b) {
@@ -123,9 +123,24 @@ public class Artifact
         } else if (a == null) {
           return -1;
         } else if (b == null) {
-          return -1;
+          return 1;
         } else {
           return a.execPath.compareTo(b.execPath);
+        }
+      };
+
+  /** Compares artifact according to their root relative paths. Sorts null values first. */
+  @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
+  public static final Comparator<Artifact> ROOT_RELATIVE_PATH_COMPARATOR =
+      (a, b) -> {
+        if (a == b) {
+          return 0;
+        } else if (a == null) {
+          return -1;
+        } else if (b == null) {
+          return 1;
+        } else {
+          return a.rootRelativePath.compareTo(b.rootRelativePath);
         }
       };
 
@@ -151,8 +166,7 @@ public class Artifact
     throw new ComparisonException("Cannot compare artifact with " + EvalUtils.getDataTypeName(o));
   }
 
-
-  /** An object that can expand middleman artifacts. */
+  /** An object that can expand middleman and tree artifacts. */
   public interface ArtifactExpander {
 
     /**
@@ -169,22 +183,6 @@ public class Artifact
      * @param artifact {@code artifact.isFileset()} must be true.
      */
     default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
-      throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Returns a map from each expanded-to {@link Artifact} to its owner artifact.
-     *
-     * <p>The moral inverse of {@link #expand(Artifact, Collection)}.
-     *
-     * <p>This does not map inputs contained in Filesets back to Fileset artifacts because:
-     *
-     * <ul>
-     *   <li>{@link #expand(Artifact, Collection)} does not expand Fileset artifacts, and
-     *   <li>inputs contained in Filesets may not be {@link Artifact}s.
-     * </ul>
-     */
-    default Map<Artifact, Artifact> getReverseExpansion() {
       throw new UnsupportedOperationException();
     }
   }
@@ -209,18 +207,6 @@ public class Artifact
       if (result != null) {
         output.addAll(result);
       }
-    }
-
-    @Override
-    public Map<Artifact, Artifact> getReverseExpansion() {
-      // See this method's Javadoc for why this ignores expandedFilesets.
-      Map<Artifact, Artifact> reverseMap = new HashMap<>();
-      for (Map.Entry<Artifact, Collection<Artifact>> entry : expandedInputs.entrySet()) {
-        for (Artifact expandedArtifact : entry.getValue()) {
-          reverseMap.put(expandedArtifact, entry.getKey());
-        }
-      }
-      return reverseMap;
     }
 
     @Override
@@ -692,9 +678,9 @@ public class Artifact
    */
   public final PathFragment getRunfilesPath() {
     PathFragment relativePath = rootRelativePath;
-    if (relativePath.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
+    if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
-      relativePath = relativePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
+      relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
       relativePath = PathFragment.create("..").getRelative(relativePath);
     }
     return relativePath;
@@ -782,7 +768,7 @@ public class Artifact
     } else {
       // Derived Artifact: path and root are under execRoot
       //
-      // TODO(blaze-team): this is misleading beacuse execution_root isn't unique. Dig the
+      // TODO(blaze-team): this is misleading because execution_root isn't unique. Dig the
       // workspace name out and print that also.
       return "[[<execution_root>]" + root.getExecPath() + "]" + rootRelativePath;
     }

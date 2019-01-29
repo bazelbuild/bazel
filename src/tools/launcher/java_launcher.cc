@@ -103,7 +103,7 @@ vector<wstring> JavaBinaryLauncher::ProcessesCommandLine() {
   vector<wstring> args;
   bool first = 1;
   for (const auto& arg : this->GetCommandlineArguments()) {
-    // Skip the first arugment.
+    // Skip the first argument.
     if (first) {
       first = 0;
       continue;
@@ -403,7 +403,7 @@ ExitCode JavaBinaryLauncher::Launch() {
   }
   // Add java start class
   arguments.push_back(this->GetLaunchInfoByKey(JAVA_START_CLASS));
-  // Add the remaininng arguements, they will be passed to the program.
+  // Add the remaininng arguments, they will be passed to the program.
   for (const auto& arg : remaining_args) {
     arguments.push_back(arg);
   }

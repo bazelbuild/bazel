@@ -21,19 +21,18 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import javax.annotation.Nullable;
 
-/**
- * Fake implementation of {@link JavaCommonApi}.
- */
-public class FakeJavaCommon implements JavaCommonApi<FileApi, FakeJavaInfo, SkylarkRuleContextApi,
-    TransitiveInfoCollectionApi, SkylarkActionFactoryApi> {
+/** Fake implementation of {@link JavaCommonApi}. */
+public class FakeJavaCommon
+    implements JavaCommonApi<
+        FileApi, FakeJavaInfo, SkylarkRuleContextApi, SkylarkActionFactoryApi> {
 
   @Override
   public FakeJavaInfo create(@Nullable Object actionsUnchecked, Object compileTimeJars,
@@ -49,14 +48,25 @@ public class FakeJavaCommon implements JavaCommonApi<FileApi, FakeJavaInfo, Skyl
   }
 
   @Override
-  public FakeJavaInfo createJavaCompileAction(SkylarkRuleContextApi skylarkRuleContext,
-      SkylarkList<FileApi> sourceJars, SkylarkList<FileApi> sourceFiles, FileApi outputJar,
-      SkylarkList<String> javacOpts, SkylarkList<FakeJavaInfo> deps,
-      SkylarkList<FakeJavaInfo> exports, SkylarkList<FakeJavaInfo> plugins,
-      SkylarkList<FakeJavaInfo> exportedPlugins, String strictDepsMode,
-      TransitiveInfoCollectionApi javaToolchain, TransitiveInfoCollectionApi hostJavabase,
-      SkylarkList<FileApi> sourcepathEntries, SkylarkList<FileApi> resources, Boolean neverlink,
-      Environment environment) throws EvalException, InterruptedException {
+  public FakeJavaInfo createJavaCompileAction(
+      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkList<FileApi> sourceJars,
+      SkylarkList<FileApi> sourceFiles,
+      FileApi outputJar,
+      SkylarkList<String> javacOpts,
+      SkylarkList<FakeJavaInfo> deps,
+      SkylarkList<FakeJavaInfo> exports,
+      SkylarkList<FakeJavaInfo> plugins,
+      SkylarkList<FakeJavaInfo> exportedPlugins,
+      String strictDepsMode,
+      Object javaToolchain,
+      Object hostJavabase,
+      SkylarkList<FileApi> sourcepathEntries,
+      SkylarkList<FileApi> resources,
+      Boolean neverlink,
+      Location loc,
+      Environment environment)
+      throws EvalException, InterruptedException {
     return new FakeJavaInfo();
   }
 
@@ -65,8 +75,9 @@ public class FakeJavaCommon implements JavaCommonApi<FileApi, FakeJavaInfo, Skyl
       SkylarkActionFactoryApi actions,
       FileApi jar,
       Object targetLabel,
-      TransitiveInfoCollectionApi javaToolchain,
-      Location location)
+      Object javaToolchain,
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException {
     return null;
   }
@@ -76,8 +87,9 @@ public class FakeJavaCommon implements JavaCommonApi<FileApi, FakeJavaInfo, Skyl
       SkylarkActionFactoryApi actions,
       FileApi jar,
       Label targetLabel,
-      TransitiveInfoCollectionApi javaToolchain,
-      Location location)
+      Object javaToolchain,
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException {
     return null;
   }
@@ -88,16 +100,21 @@ public class FakeJavaCommon implements JavaCommonApi<FileApi, FakeJavaInfo, Skyl
       FileApi outputJar,
       SkylarkList<FileApi> sourceFiles,
       SkylarkList<FileApi> sourceJars,
-      TransitiveInfoCollectionApi javaToolchain,
-      TransitiveInfoCollectionApi hostJavabase,
-      Location location)
+      Object javaToolchain,
+      Object hostJavabase,
+      Location location,
+      SkylarkSemantics semantics)
       throws EvalException {
     return null;
   }
 
   @Override
-  public ImmutableList<String> getDefaultJavacOpts(SkylarkRuleContextApi skylarkRuleContext,
-      String javaToolchainAttr) throws EvalException {
+  public ImmutableList<String> getDefaultJavacOpts(
+      SkylarkRuleContextApi skylarkRuleContext,
+      String javaToolchainAttr,
+      Location loc,
+      SkylarkSemantics semantics)
+      throws EvalException {
     return ImmutableList.of();
   }
 
@@ -109,6 +126,11 @@ public class FakeJavaCommon implements JavaCommonApi<FileApi, FakeJavaInfo, Skyl
   @Override
   public FakeJavaInfo makeNonStrict(FakeJavaInfo javaInfo) {
     return new FakeJavaInfo();
+  }
+
+  @Override
+  public ProviderApi getJavaToolchainProvider() {
+    return new FakeProviderApi();
   }
 
   @Override

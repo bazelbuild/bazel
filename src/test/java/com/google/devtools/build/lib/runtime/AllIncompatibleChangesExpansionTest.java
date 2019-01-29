@@ -95,6 +95,20 @@ public class AllIncompatibleChangesExpansionTest {
       help = "Migrate to B"
     )
     public boolean incompatibleB;
+
+    @Option(
+        name = "incompatible_C",
+        oldName = "experimental_C",
+        metadataTags = {
+            OptionMetadataTag.INCOMPATIBLE_CHANGE,
+            OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true",
+        help = "Migrate to C"
+    )
+    public boolean incompatibleC;
   }
 
   /** Dummy comment (linter suppression) */
@@ -145,6 +159,7 @@ public class AllIncompatibleChangesExpansionTest {
     assertThat(opts.y).isTrue();
     assertThat(opts.incompatibleA).isFalse();
     assertThat(opts.incompatibleB).isFalse();
+    assertThat(opts.incompatibleC).isTrue();
   }
 
   @Test
@@ -156,6 +171,7 @@ public class AllIncompatibleChangesExpansionTest {
     assertThat(opts.y).isTrue();
     assertThat(opts.incompatibleA).isTrue();
     assertThat(opts.incompatibleB).isTrue();
+    assertThat(opts.incompatibleC).isTrue();
   }
 
   @Test

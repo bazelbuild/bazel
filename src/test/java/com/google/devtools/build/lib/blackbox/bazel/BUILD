@@ -34,7 +34,7 @@ java_library(
     deps = [
         "//src/test/java/com/google/devtools/build/lib/blackbox:base_deps",
         "//src/test/java/com/google/devtools/build/lib/blackbox/framework",
-        "@bazel_tools//tools/runfiles:java-runfiles",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )
 
@@ -78,15 +78,11 @@ java_library(
     data = [
         ":langtools-copy",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
+        "//src/tools/singlejar",
         "//third_party/ijar",
         "//third_party/java/jdk/langtools:test-srcs",
         "@bazel_tools//tools/jdk:current_java_runtime",
-    ] + select({
-        # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
-        # is resolved, use cc implementation of singlejar on windows
-        "//src/conditions:windows": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
-        "//conditions:default": ["//src/tools/singlejar:singlejar"],
-    }),
+    ],
     visibility = [":tests"],
     deps = [
         ":common_tools_deps",

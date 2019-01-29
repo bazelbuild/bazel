@@ -23,6 +23,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
@@ -169,7 +170,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
     Package.Builder pkgBuilder =
         packageFactory
-            .newPackageBuilder(Label.EXTERNAL_PACKAGE_IDENTIFIER, "TESTING")
+            .newPackageBuilder(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "TESTING")
             .setFilename(RootedPath.toRootedPath(root, myPkgPath));
 
     Map<String, Object> attributeValues = new HashMap<>();

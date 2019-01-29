@@ -207,7 +207,7 @@ function test_action_env_changes_honored {
     bazel test --test_output=all --action_env=FOO=foo //pkg:test_env_foo \
         || fail "expected to pass with correct value for FOO"
     # While the test is cached, changing the environment should rerun it and
-    # detect the failure in the new environemnt.
+    # detect the failure in the new environment.
     (bazel test --test_output=all --action_env=FOO=bar //pkg:test_env_foo \
          && fail "expected to fail with incorrect value for FOO") || true
     # Redo the same FOO being taken from the environment

@@ -105,6 +105,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

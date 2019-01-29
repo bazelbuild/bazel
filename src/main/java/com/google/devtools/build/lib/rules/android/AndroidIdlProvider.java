@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public final class AndroidIdlProvider extends NativeInfo
     implements AndroidIdlProviderApi<Artifact> {
 
-  public static final String PROVIDER_NAME = "AndroidIdlInfo";
   public static final Provider PROVIDER = new Provider();
 
   private final NestedSet<String> transitiveIdlImportRoots;
@@ -76,7 +75,7 @@ public final class AndroidIdlProvider extends NativeInfo
       implements AndroidIdlProviderApi.Provider<Artifact> {
 
     private Provider() {
-      super(PROVIDER_NAME, AndroidIdlProvider.class);
+      super(NAME, AndroidIdlProvider.class);
     }
 
     @Override

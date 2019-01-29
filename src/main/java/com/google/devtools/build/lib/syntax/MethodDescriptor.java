@@ -47,6 +47,7 @@ public final class MethodDescriptor {
   private final boolean useAst;
   private final boolean useEnvironment;
   private final boolean useSkylarkSemantics;
+  private final boolean useContext;
 
   private MethodDescriptor(
       Method method,
@@ -63,7 +64,8 @@ public final class MethodDescriptor {
       boolean useLocation,
       boolean useAst,
       boolean useEnvironment,
-      boolean useSkylarkSemantics) {
+      boolean useSkylarkSemantics,
+      boolean useContext) {
     this.method = method;
     this.annotation = annotation;
     this.name = name;
@@ -79,6 +81,7 @@ public final class MethodDescriptor {
     this.useAst = useAst;
     this.useEnvironment = useEnvironment;
     this.useSkylarkSemantics = useSkylarkSemantics;
+    this.useContext = useContext;
   }
 
   /** Returns the SkylarkCallable annotation corresponding to this method. */
@@ -87,7 +90,8 @@ public final class MethodDescriptor {
   }
 
   /** @return Skylark method descriptor for provided Java method and signature annotation. */
-  public static MethodDescriptor of(Method method, SkylarkCallable annotation) {
+  public static MethodDescriptor of(
+      Method method, SkylarkCallable annotation, SkylarkSemantics semantics) {
     // This happens when the interface is public but the implementation classes
     // have reduced visibility.
     method.setAccessible(true);
@@ -99,16 +103,17 @@ public final class MethodDescriptor {
         annotation.documented(),
         annotation.structField(),
         Arrays.stream(annotation.parameters())
-            .map(ParamDescriptor::of)
+            .map(param -> ParamDescriptor.of(param, semantics))
             .collect(ImmutableList.toImmutableList()),
-        ParamDescriptor.of(annotation.extraPositionals()),
-        ParamDescriptor.of(annotation.extraKeywords()),
+        ParamDescriptor.of(annotation.extraPositionals(), semantics),
+        ParamDescriptor.of(annotation.extraKeywords(), semantics),
         annotation.selfCall(),
         annotation.allowReturnNones(),
         annotation.useLocation(),
         annotation.useAst(),
         annotation.useEnvironment(),
-        annotation.useSkylarkSemantics());
+        annotation.useSkylarkSemantics(),
+        annotation.useContext());
   }
 
   /** @return The result of this method invocation on the {@code obj} as a target. */
@@ -185,6 +190,11 @@ public final class MethodDescriptor {
   /** @see SkylarkCallable#useSkylarkSemantics() */
   boolean isUseSkylarkSemantics() {
     return useSkylarkSemantics;
+  }
+
+  /** See {@link SkylarkCallable#useContext()}. */
+  boolean isUseContext() {
+    return useContext;
   }
 
   /** @see SkylarkCallable#useLocation() */

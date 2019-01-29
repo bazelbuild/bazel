@@ -75,7 +75,7 @@ public final class FilesetEntryFunction implements SkyFunction {
     // root being the respective entry itself. These are all traversed for they may be
     // directories or symlinks to directories, and we need to establish Skyframe dependencies on
     // their contents for incremental correctness. If an entry is indeed a directory (but not when
-    // it's a symlink to one) then we have to create symlinks to each of their childen.
+    // it's a symlink to one) then we have to create symlinks to each of their children.
     // (NB: there seems to be no good reason for this, it's just how legacy Fileset works. We may
     // want to consider creating a symlink just for the directory and not for its child elements.)
     //

@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventservice.client;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.v1.PublishBuildEventGrpc.PublishBuildEventBlockingStub;
+import com.google.devtools.build.v1.PublishBuildEventGrpc.PublishBuildEventStub;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import javax.annotation.Nullable;
@@ -25,6 +28,12 @@ public class UnmanagedBuildEventServiceGrpcClient extends BuildEventServiceGrpcC
   public UnmanagedBuildEventServiceGrpcClient(
       Channel channel, @Nullable CallCredentials callCredentials) {
     super(channel, callCredentials);
+  }
+
+  @VisibleForTesting
+  public UnmanagedBuildEventServiceGrpcClient(
+      PublishBuildEventStub besAsync, PublishBuildEventBlockingStub besBlocking) {
+    super(besAsync, besBlocking);
   }
 
   @Override

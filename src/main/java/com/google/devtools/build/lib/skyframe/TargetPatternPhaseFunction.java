@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
@@ -38,7 +39,6 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
-import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
@@ -72,8 +72,11 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     PackageValue packageValue = null;
     boolean workspaceError = false;
     try {
-      packageValue = (PackageValue) env.getValueOrThrow(
-          PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER), NoSuchPackageException.class);
+      packageValue =
+          (PackageValue)
+              env.getValueOrThrow(
+                  PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
+                  NoSuchPackageException.class);
     } catch (NoSuchPackageException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       workspaceError = true;
@@ -344,10 +347,12 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         .filter(TargetUtils.tagFilter(options.getBuildTargetFilter()))
         .build();
     if (options.getCompileOneDependency()) {
-      TargetProvider targetProvider = new EnvironmentBackedRecursivePackageProvider(env);
+      EnvironmentBackedRecursivePackageProvider environmentBackedRecursivePackageProvider =
+          new EnvironmentBackedRecursivePackageProvider(env);
       try {
-        return new CompileOneDependencyTransformer(targetProvider)
-            .transformCompileOneDependency(env.getListener(), result);
+        result =
+            new CompileOneDependencyTransformer(environmentBackedRecursivePackageProvider)
+                .transformCompileOneDependency(env.getListener(), result);
       } catch (MissingDepException e) {
         return null;
       } catch (TargetParsingException e) {
@@ -359,6 +364,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         }
         env.getListener().handle(Event.error(e.getMessage()));
         return ResolvedTargets.failed();
+      }
+      if (environmentBackedRecursivePackageProvider.encounteredPackageErrors()) {
+        result = ResolvedTargets.<Target>builder().merge(result).setError().build();
       }
     }
     return result;

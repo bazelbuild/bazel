@@ -17,6 +17,7 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import com.google.rpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
+import io.grpc.protobuf.StatusProto;
 import javax.annotation.Nullable;
 
 /**
@@ -28,20 +29,24 @@ public class ExecutionStatusException extends StatusRuntimeException {
   private final Status status;
   private final ExecuteResponse response;
 
-  public ExecutionStatusException(Status status, @Nullable ExecuteResponse response) {
-    super(convertStatus(status, response));
-    this.status = status;
+  ExecutionStatusException(
+      StatusRuntimeException e, Status original, @Nullable ExecuteResponse response) {
+    super(e.getStatus(), e.getTrailers());
+    this.status = original;
     this.response = response;
   }
 
-  private static io.grpc.Status convertStatus(Status status, @Nullable ExecuteResponse response) {
-    io.grpc.Status result =
-        io.grpc.Status.fromCodeValue(
-            // Hack: convert to non-retriable exception on timeouts.
-            isExecutionTimeout(status, response)
-                ? Code.FAILED_PRECONDITION.value()
-                : status.getCode());
-    return result.withDescription(status.getMessage());
+  public ExecutionStatusException(Status status, @Nullable ExecuteResponse response) {
+    this(StatusProto.toStatusRuntimeException(convertStatus(status, response)), status, response);
+  }
+
+  private static Status convertStatus(Status status, @Nullable ExecuteResponse response) {
+    Status.Builder result = status.toBuilder();
+    if (isExecutionTimeout(status, response)) {
+      // Hack: convert to non-retriable exception on timeouts.
+      result.setCode(Code.FAILED_PRECONDITION.value());
+    }
+    return result.build();
   }
 
   private static boolean isExecutionTimeout(Status status, @Nullable ExecuteResponse response) {

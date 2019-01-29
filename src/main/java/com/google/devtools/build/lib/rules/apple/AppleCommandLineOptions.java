@@ -220,15 +220,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public Label appleCrosstoolTop;
 
   @Option(
-    name = "apple_platform_type",
-    defaultValue = "IOS",
-    converter = PlatformTypeConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    help =
-        "Don't set this value from the command line - it is derived from other flags and "
-            + "configuration transitions derived from rule attributes"
-  )
+      name = "apple_platform_type",
+      defaultValue = "MACOS",
+      converter = PlatformTypeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "Don't set this value from the command line - it is derived from other flags and "
+              + "configuration transitions derived from rule attributes")
   public PlatformType applePlatformType;
 
   @Option(

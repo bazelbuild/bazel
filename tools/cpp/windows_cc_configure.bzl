@@ -18,6 +18,7 @@ load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "auto_configure_fail",
     "auto_configure_warning",
+    "build_flags",
     "escape_string",
     "execute",
     "get_env_var",
@@ -41,11 +42,12 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
         msys_root = tokens[0][:len(tokens[0]) - len("bin")]
     prefix = "mingw64" if use_mingw else "usr"
     tool_path_prefix = escape_string(msys_root) + prefix
+    tool_bin_path = tool_path_prefix + "/bin"
     tool_path = {}
 
     for tool in ["ar", "compat-ld", "cpp", "dwp", "gcc", "gcov", "ld", "nm", "objcopy", "objdump", "strip"]:
         if msys_root:
-            tool_path[tool] = tool_path_prefix + "/bin/" + tool
+            tool_path[tool] = tool_bin_path + "/" + tool
         else:
             tool_path[tool] = "msys_gcc_installation_error.bat"
 
@@ -71,14 +73,31 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
             '   tool_path { name: "objcopy" path: "%s" }\n' % tool_path["objcopy"] +
             '   tool_path { name: "objdump" path: "%s" }\n' % tool_path["objdump"] +
             '   tool_path { name: "strip" path: "%s" }\n' % tool_path["strip"] +
-            ((' cxx_builtin_include_directory: "%s/"\n' % tool_path_prefix) if msys_root else "") +
+            (('  cxx_builtin_include_directory: "%s/"\n' % tool_path_prefix) if msys_root else "") +
             '   artifact_name_pattern { category_name: "executable" prefix: "" extension: ".exe"}\n' +
-            '   cxx_flag: "-std=gnu++0x"\n' +
-            '   linker_flag: "-lstdc++"\n' +
-            '   objcopy_embed_flag: "-I"\n' +
-            '   objcopy_embed_flag: "binary"\n' +
-            '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }' +
-            '   feature { name: "copy_dynamic_libraries_to_binary" }')
+            '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }\n' +
+            '   feature { name: "copy_dynamic_libraries_to_binary" }\n' +
+            "   feature {\n" +
+            "     name: 'gcc_env'\n" +
+            "     enabled: true\n" +
+            "     env_set {\n" +
+            '       action: "c-compile"\n' +
+            '       action: "c++-compile"\n' +
+            '       action: "c++-module-compile"\n' +
+            '       action: "c++-module-codegen"\n' +
+            '       action: "c++-header-parsing"\n' +
+            '       action: "assemble"\n' +
+            '       action: "preprocess-assemble"\n' +
+            '       action: "c++-link-executable"\n' +
+            '       action: "c++-link-dynamic-library"\n' +
+            '       action: "c++-link-nodeps-dynamic-library"\n' +
+            '       action: "c++-link-static-library"\n' +
+            "       env_entry {\n" +
+            '         key: "PATH"\n' +
+            '         value: "%s"\n' % tool_bin_path +
+            "       }\n" +
+            "     }\n" +
+            "   }")
 
 def _get_system_root(repository_ctx):
     """Get System root path on Windows, default is C:\\\Windows. Doesn't %-escape the result."""
@@ -319,6 +338,14 @@ def _use_clang_cl(repository_ctx):
     """Returns True if USE_CLANG_CL is set to 1."""
     return repository_ctx.os.environ.get("USE_CLANG_CL", default = "0") == "1"
 
+def _get_clang_version(repository_ctx, clang_cl):
+    result = repository_ctx.execute([clang_cl, "-v"])
+    if result.return_code != 0:
+        auto_configure_fail("Failed to get clang version by running \"%s -v\"" % clang_cl)
+
+    # Stderr should look like "clang version X.X.X ..."
+    return result.stderr.strip().split(" ")[2]
+
 def configure_windows_toolchain(repository_ctx):
     """Configure C++ toolchain on Windows."""
     paths = resolve_labels(repository_ctx, [
@@ -375,16 +402,20 @@ def configure_windows_toolchain(repository_ctx):
                 "%{msvc_ml_path}": "vc_installation_error.bat",
                 "%{msvc_link_path}": "vc_installation_error.bat",
                 "%{msvc_lib_path}": "vc_installation_error.bat",
+                "%{msys_x64_mingw_top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
+                "%{msys_x64_mingw_cxx_content}": build_flags(["-std=gnu++0x"]),
+                "%{msys_x64_mingw_link_content}": build_flags(["-lstdc++"]),
                 "%{dbg_mode_debug}": "/DEBUG",
                 "%{fastbuild_mode_debug}": "/DEBUG",
-                "%{compilation_mode_content}": "",
-                "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-                "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
-                "%{opt_content}": "",
-                "%{dbg_content}": "",
-                "%{link_content}": "",
-                "%{cxx_builtin_include_directory}": "",
-                "%{coverage}": "",
+                "%{top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+                "%{compile_content}": "",
+                "%{cxx_content}": build_flags(["-std=gnu++0x"]),
+                "%{link_content}": build_flags(["-lstdc++"]),
+                "%{opt_compile_content}": "",
+                "%{opt_link_content}": "",
+                "%{unfiltered_content}": "",
+                "%{dbg_compile_content}": "",
+                "%{msvc_x64_top_level_content}": "",
             },
         )
         return
@@ -405,7 +436,11 @@ def configure_windows_toolchain(repository_ctx):
                                 "Please install Clang via http://releases.llvm.org/download.html\n")
         cl_path = find_llvm_tool(repository_ctx, llvm_path, "clang-cl.exe")
         link_path = find_llvm_tool(repository_ctx, llvm_path, "lld-link.exe")
+        if not link_path:
+            link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe")
         lib_path = find_llvm_tool(repository_ctx, llvm_path, "llvm-lib.exe")
+        if not lib_path:
+            lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe")
     else:
         cl_path = find_msvc_tool(repository_ctx, vc_path, "cl.exe")
         link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe")
@@ -418,8 +453,12 @@ def configure_windows_toolchain(repository_ctx):
         if path:
             escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % path)
     if llvm_path:
-        clang_include_path = (llvm_path + "\\lib\\clang").replace("\\", "\\\\")
+        clang_version = _get_clang_version(repository_ctx, cl_path)
+        clang_dir = llvm_path + "\\lib\\clang\\" + clang_version
+        clang_include_path = (clang_dir + "\\include").replace("\\", "\\\\")
         escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % clang_include_path)
+        clang_lib_path = (clang_dir + "\\lib\\windows").replace("\\", "\\\\")
+        escaped_lib_paths = escaped_lib_paths + ";" + clang_lib_path
 
     support_debug_fastlink = _is_support_debug_fastlink(repository_ctx, link_path)
 
@@ -440,12 +479,17 @@ def configure_windows_toolchain(repository_ctx):
             "%{msvc_lib_path}": lib_path,
             "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
             "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
-            "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-            "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
-            "%{opt_content}": "",
-            "%{dbg_content}": "",
-            "%{link_content}": "",
-            "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories),
-            "%{coverage}": "",
+            "%{top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
+            "%{msys_x64_mingw_top_level_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
+            "%{msys_x64_mingw_cxx_content}": build_flags(["-std=gnu++0x"]),
+            "%{msys_x64_mingw_link_content}": build_flags(["-lstdc++"]),
+            "%{compile_content}": "",
+            "%{cxx_content}": build_flags(["-std=gnu++0x"]),
+            "%{link_content}": build_flags(["-lstdc++"]),
+            "%{opt_compile_content}": "",
+            "%{opt_link_content}": "",
+            "%{unfiltered_content}": "",
+            "%{dbg_compile_content}": "",
+            "%{msvc_x64_top_level_content}": "\n".join(escaped_cxx_include_directories),
         },
     )

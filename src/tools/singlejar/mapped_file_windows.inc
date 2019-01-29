@@ -19,6 +19,7 @@
 #error This code is for 64 bit Windows.
 #endif
 
+#include "src/main/cpp/util/path_platform.h"
 #include "src/tools/singlejar/diag.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -32,26 +33,38 @@
 MappedFile::MappedFile()
     : mapped_start_(nullptr),
       mapped_end_(nullptr),
-      fd_(-1),
+      hFile_(INVALID_HANDLE_VALUE),
       hMapFile_(INVALID_HANDLE_VALUE) {}
+
+bool MappedFile::is_open() const { return hFile_ != INVALID_HANDLE_VALUE; }
 
 bool MappedFile::Open(const std::string& path) {
   if (is_open()) {
     diag_errx(1, "%s:%d: This instance is already open", __FILE__, __LINE__);
   }
-  if ((fd_ = _open(path.c_str(), O_RDONLY | O_BINARY)) < 0) {
-    diag_warn("%s:%d: open %s:", __FILE__, __LINE__, path.c_str());
+
+  std::wstring wpath;
+  std::string error;
+  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
+    diag_warn("%s:%d: AsAbsoluteWindowsPath failed: %s", __FILE__, __LINE__,
+              error.c_str());
     return false;
   }
 
-  HANDLE hFile = reinterpret_cast<HANDLE>(_get_osfhandle(fd_));
+  hFile_ = CreateFileW(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
+                       OPEN_EXISTING, 0, NULL);
+  if (hFile_ == INVALID_HANDLE_VALUE) {
+    diag_warn("%s:%d: CreateFileW failed for %S", __FILE__, __LINE__,
+              wpath.c_str());
+    return false;
+  }
+
   LARGE_INTEGER temp;
-  ::GetFileSizeEx(hFile, &temp);
+  ::GetFileSizeEx(hFile_, &temp);
   size_t fileSize = temp.QuadPart;
 
   if (fileSize == 0) {
-    // This is where Windows implementation differs from POSIX's.
-    // CreateFileMapping cannot map empty file:
+    // Handle empty files specially, because CreateFileMapping cannot map them:
     //
     // From
     // https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-createfilemappinga
@@ -59,18 +72,14 @@ bool MappedFile::Open(const std::string& path) {
     // An attempt to map a file with a length of 0 (zero) fails with an error
     // code of ERROR_FILE_INVALID. Applications should test for files with a
     // length of 0 (zero) and reject those files.
-    //
-    // Since the test at //src/tools/singlerjar/input_jar_bad_jar_test expects
-    // empty file to fail anyway, returning error here shouldn't be a problem.
-    diag_warn("%s:%d: Windows MappedFile cannot handle empty file (%s)",
-              __FILE__, __LINE__, path.c_str());
-    _close(fd_);
-    fd_ = -1;
-    return false;
+    mapped_start_ = nullptr;
+    mapped_end_ = nullptr;
+    hMapFile_ = INVALID_HANDLE_VALUE;
+    return true;
   }
 
   hMapFile_ = ::CreateFileMapping(
-      hFile,
+      hFile_,
       nullptr,                             // default security
       PAGE_READONLY,                       // read-only permission
       static_cast<DWORD>(fileSize >> 32),  // size of mapping object, high
@@ -80,8 +89,8 @@ bool MappedFile::Open(const std::string& path) {
   if (hMapFile_ == nullptr) {
     diag_warn("%s:%d: CreateFileMapping for %s failed", __FILE__, __LINE__,
               path.c_str());
-    _close(fd_);
-    fd_ = -1;
+    ::CloseHandle(hFile_);
+    hFile_ = INVALID_HANDLE_VALUE;
     return false;
   }
 
@@ -95,9 +104,9 @@ bool MappedFile::Open(const std::string& path) {
     diag_warn("%s:%d: MapViewOfFile for %s failed", __FILE__, __LINE__,
               path.c_str());
     ::CloseHandle(hMapFile_);
-    _close(fd_);
+    ::CloseHandle(hFile_);
+    hFile_ = INVALID_HANDLE_VALUE;
     hMapFile_ = INVALID_HANDLE_VALUE;
-    fd_ = -1;
     return false;
   }
 
@@ -107,11 +116,15 @@ bool MappedFile::Open(const std::string& path) {
 
 void MappedFile::Close() {
   if (is_open()) {
-    ::UnmapViewOfFile(mapped_start_);
-    ::CloseHandle(hMapFile_);
-    _close(fd_);
-    hMapFile_ = INVALID_HANDLE_VALUE;
-    fd_ = -1;
+    if (mapped_start_) {
+      ::UnmapViewOfFile(mapped_start_);
+    }
+    if (hMapFile_ != INVALID_HANDLE_VALUE) {
+      ::CloseHandle(hMapFile_);
+      hMapFile_ = INVALID_HANDLE_VALUE;
+    }
+    ::CloseHandle(hFile_);
+    hFile_ = INVALID_HANDLE_VALUE;
     mapped_start_ = mapped_end_ = nullptr;
   }
 }

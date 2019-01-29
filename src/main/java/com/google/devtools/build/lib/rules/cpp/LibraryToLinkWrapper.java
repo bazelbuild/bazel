@@ -13,505 +13,782 @@ package com.google.devtools.build.lib.rules.cpp;
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import com.google.auto.value.AutoValue;
+import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs.SolibLibraryToLink;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkWrapperApi;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import java.util.Collection;
 import java.util.List;
+import java.util.ListIterator;
+import javax.annotation.Nullable;
 
 /**
  * Encapsulates information for linking a library.
  *
- * <p>TODO(b/118663806): We will be replacing {@link CcLinkParams} gradually as described in
- * b/118663806. This class which shall be renamed later to LibraryToLink (once the old LibraryToLink
- * implementation is removed) will have all the information necessary for linking a library in all
- * of its variants currently encapsulated in the four modes of {@link CcLinkParams} stored in {@link
- * CcLinkingInfo}, these modes are: static params for executable, static params for dynamic library,
+ * <p>TODO(b/118663806): This class which shall be renamed later to LibraryToLink (once the old
+ * LibraryToLink implementation is removed) will have all the information necessary for linking a
+ * library in all of its variants : static params for executable, static params for dynamic library,
  * dynamic params for executable and dynamic params for dynamic library.
- *
- * <p>To do this refactoring incrementally, we first introduce this class and add a method that is
- * able to convert from this representation to the old four CcLinkParams variables.
  */
-public class LibraryToLinkWrapper {
+@AutoValue
+public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Artifact> {
+  public static LibraryToLinkWrapper convertLinkOutputsToLibraryToLinkWrapper(
+      CcLinkingOutputs ccLinkingOutputs) {
+    Preconditions.checkState(!ccLinkingOutputs.isEmpty());
 
-  private final String libraryIdentifier;
+    Builder libraryToLinkWrapperBuilder = builder();
+    if (!ccLinkingOutputs.getStaticLibraries().isEmpty()) {
+      Preconditions.checkState(ccLinkingOutputs.getStaticLibraries().size() == 1);
+      LibraryToLink staticLibrary = ccLinkingOutputs.getStaticLibraries().get(0);
+      libraryToLinkWrapperBuilder.setStaticLibrary(staticLibrary.getArtifact());
+      libraryToLinkWrapperBuilder.setObjectFiles(
+          ImmutableList.copyOf(staticLibrary.getObjectFiles()));
+      libraryToLinkWrapperBuilder.setLtoCompilationContext(
+          staticLibrary.getLtoCompilationContext());
+      libraryToLinkWrapperBuilder.setSharedNonLtoBackends(
+          ImmutableMap.copyOf(staticLibrary.getSharedNonLtoBackends()));
+      libraryToLinkWrapperBuilder.setAlwayslink(
+          staticLibrary.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY);
+      libraryToLinkWrapperBuilder.setLibraryIdentifier(staticLibrary.getLibraryIdentifier());
+    }
 
-  private final Artifact staticLibrary;
-  private final Iterable<Artifact> objectFiles;
-  private final ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
-  private final ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends;
+    if (!ccLinkingOutputs.getPicStaticLibraries().isEmpty()) {
+      Preconditions.checkState(ccLinkingOutputs.getPicStaticLibraries().size() == 1);
+      LibraryToLink picStaticLibrary = ccLinkingOutputs.getPicStaticLibraries().get(0);
+      libraryToLinkWrapperBuilder.setPicStaticLibrary(picStaticLibrary.getArtifact());
+      libraryToLinkWrapperBuilder.setPicObjectFiles(
+          ImmutableList.copyOf(picStaticLibrary.getObjectFiles()));
+      libraryToLinkWrapperBuilder.setPicLtoCompilationContext(
+          picStaticLibrary.getLtoCompilationContext());
+      libraryToLinkWrapperBuilder.setPicSharedNonLtoBackends(
+          ImmutableMap.copyOf(picStaticLibrary.getSharedNonLtoBackends()));
+      libraryToLinkWrapperBuilder.setAlwayslink(
+          picStaticLibrary.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY);
+      libraryToLinkWrapperBuilder.setLibraryIdentifier(picStaticLibrary.getLibraryIdentifier());
+    }
 
-  private final Artifact picStaticLibrary;
-  private final Iterable<Artifact> picObjectFiles;
-  private final ImmutableMap<Artifact, Artifact> picLtoBitcodeFiles;
-  private final ImmutableMap<Artifact, LtoBackendArtifacts> picSharedNonLtoBackends;
+    if (!ccLinkingOutputs.getDynamicLibrariesForLinking().isEmpty()) {
+      Preconditions.checkState(ccLinkingOutputs.getDynamicLibrariesForLinking().size() == 1);
+      Preconditions.checkState(ccLinkingOutputs.getDynamicLibrariesForRuntime().size() == 1);
+      LibraryToLink dynamicLibraryForLinking =
+          ccLinkingOutputs.getDynamicLibrariesForLinking().get(0);
+      LibraryToLink dynamicLibraryForRuntime =
+          ccLinkingOutputs.getDynamicLibrariesForRuntime().get(0);
+      if (dynamicLibraryForLinking != dynamicLibraryForRuntime) {
+        libraryToLinkWrapperBuilder.setInterfaceLibrary(dynamicLibraryForLinking.getArtifact());
+        if (dynamicLibraryForLinking instanceof SolibLibraryToLink) {
+          libraryToLinkWrapperBuilder.setResolvedSymlinkInterfaceLibrary(
+              dynamicLibraryForLinking.getOriginalLibraryArtifact());
+        }
+        libraryToLinkWrapperBuilder.setDynamicLibrary(dynamicLibraryForRuntime.getArtifact());
+        if (dynamicLibraryForRuntime instanceof SolibLibraryToLink) {
+          libraryToLinkWrapperBuilder.setResolvedSymlinkDynamicLibrary(
+              dynamicLibraryForRuntime.getOriginalLibraryArtifact());
+        }
+      } else {
+        libraryToLinkWrapperBuilder.setDynamicLibrary(dynamicLibraryForRuntime.getArtifact());
+        if (dynamicLibraryForRuntime instanceof SolibLibraryToLink) {
+          libraryToLinkWrapperBuilder.setResolvedSymlinkDynamicLibrary(
+              dynamicLibraryForRuntime.getOriginalLibraryArtifact());
+        }
+      }
+      libraryToLinkWrapperBuilder.setLibraryIdentifier(
+          dynamicLibraryForLinking.getLibraryIdentifier());
+    }
+    return libraryToLinkWrapperBuilder.build();
+  }
 
-  private final Artifact dynamicLibrary;
-  private final Artifact resolvedSymlinkDynamicLibrary;
-  private final Artifact interfaceLibrary;
-  private final Artifact resolvedSymlinkInterfaceLibrary;
-  private final boolean alwayslink;
+  public static List<LibraryToLink> convertLibraryToLinkWrapperListToLibraryToLinkList(
+      NestedSet<LibraryToLinkWrapper> libraryToLinkWrappers,
+      boolean staticMode,
+      boolean forDynamicLibrary) {
+    ImmutableList.Builder<LibraryToLink> librariesToLink = ImmutableList.builder();
+    for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
+      LibraryToLink staticLibraryToLink =
+          libraryToLinkWrapper.getStaticLibrary() == null
+              ? null
+              : libraryToLinkWrapper.getStaticLibraryToLink();
+      LibraryToLink picStaticLibraryToLink =
+          libraryToLinkWrapper.getPicStaticLibrary() == null
+              ? null
+              : libraryToLinkWrapper.getPicStaticLibraryToLink();
+      LibraryToLink libraryToLinkToUse = null;
+      if (staticMode) {
+        if (forDynamicLibrary) {
+          if (picStaticLibraryToLink != null) {
+            libraryToLinkToUse = picStaticLibraryToLink;
+          } else if (staticLibraryToLink != null) {
+            libraryToLinkToUse = staticLibraryToLink;
+          }
+        } else {
+          if (staticLibraryToLink != null) {
+            libraryToLinkToUse = staticLibraryToLink;
+          } else if (picStaticLibraryToLink != null) {
+            libraryToLinkToUse = picStaticLibraryToLink;
+          }
+        }
+        if (libraryToLinkToUse == null) {
+          if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
+            libraryToLinkToUse = libraryToLinkWrapper.getInterfaceLibraryToLink();
+          } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
+            libraryToLinkToUse = libraryToLinkWrapper.getDynamicLibraryToLink();
+          }
+        }
+      } else {
+        if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
+          libraryToLinkToUse = libraryToLinkWrapper.getInterfaceLibraryToLink();
+        } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
+          libraryToLinkToUse = libraryToLinkWrapper.getDynamicLibraryToLink();
+        }
+        if (libraryToLinkToUse == null) {
+          if (forDynamicLibrary) {
+            if (picStaticLibraryToLink != null) {
+              libraryToLinkToUse = picStaticLibraryToLink;
+            } else if (staticLibraryToLink != null) {
+              libraryToLinkToUse = staticLibraryToLink;
+            }
+          } else {
+            if (staticLibraryToLink != null) {
+              libraryToLinkToUse = staticLibraryToLink;
+            } else if (picStaticLibraryToLink != null) {
+              libraryToLinkToUse = picStaticLibraryToLink;
+            }
+          }
+        }
+      }
+      Preconditions.checkNotNull(libraryToLinkToUse);
+      librariesToLink.add(libraryToLinkToUse);
+    }
+    return librariesToLink.build();
+  }
+
+  public Artifact getDynamicLibraryForRuntimeOrNull(boolean linkingStatically) {
+    if (getDynamicLibrary() == null) {
+      return null;
+    }
+    if (linkingStatically && (getStaticLibrary() != null || getPicStaticLibrary() != null)) {
+      return null;
+    }
+    return getDynamicLibrary();
+  }
+
+  /** Structure of the new CcLinkingContext. */
+  public static class CcLinkingContext implements CcLinkingContextApi {
+    public static final CcLinkingContext EMPTY = CcLinkingContext.builder().build();
+
+    /**
+     * A list of link options contributed by a single configured target.
+     *
+     * <p><b>WARNING:</b> Do not implement {@code #equals()} in the obvious way. This class must be
+     * checked for equality by object identity because otherwise if two configured targets
+     * contribute the same link options, they will be de-duplicated, which is not the desirable
+     * behavior.
+     */
+    @AutoCodec
+    @Immutable
+    public static final class LinkOptions {
+      private final ImmutableList<String> linkOptions;
+
+      @VisibleForSerialization
+      LinkOptions(Iterable<String> linkOptions) {
+        this.linkOptions = ImmutableList.copyOf(linkOptions);
+      }
+
+      public ImmutableList<String> get() {
+        return linkOptions;
+      }
+
+      public static LinkOptions of(Iterable<String> linkOptions) {
+        return new LinkOptions(linkOptions);
+      }
+
+      @Override
+      public String toString() {
+        return '[' + Joiner.on(",").join(linkOptions) + ']';
+      }
+    }
+
+    /**
+     * A linkstamp that also knows about its declared includes.
+     *
+     * <p>This object is required because linkstamp files may include other headers which will have
+     * to be provided during compilation.
+     */
+    @AutoCodec
+    public static final class Linkstamp {
+      private final Artifact artifact;
+      private final NestedSet<Artifact> declaredIncludeSrcs;
+
+      @VisibleForSerialization
+      Linkstamp(Artifact artifact, NestedSet<Artifact> declaredIncludeSrcs) {
+        this.artifact = Preconditions.checkNotNull(artifact);
+        this.declaredIncludeSrcs = Preconditions.checkNotNull(declaredIncludeSrcs);
+      }
+
+      /** Returns the linkstamp artifact. */
+      public Artifact getArtifact() {
+        return artifact;
+      }
+
+      /** Returns the declared includes. */
+      public NestedSet<Artifact> getDeclaredIncludeSrcs() {
+        return declaredIncludeSrcs;
+      }
+
+      @Override
+      public int hashCode() {
+        return java.util.Objects.hash(artifact, declaredIncludeSrcs);
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (this == obj) {
+          return true;
+        }
+        if (!(obj instanceof Linkstamp)) {
+          return false;
+        }
+        Linkstamp other = (Linkstamp) obj;
+        return artifact.equals(other.artifact)
+            && declaredIncludeSrcs.equals(other.declaredIncludeSrcs);
+      }
+    }
+
+    private final NestedSet<LibraryToLinkWrapper> libraries;
+    private final NestedSet<LinkOptions> userLinkFlags;
+    private final NestedSet<Linkstamp> linkstamps;
+    private final NestedSet<Artifact> nonCodeInputs;
+    private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
+
+    public CcLinkingContext(
+        NestedSet<LibraryToLinkWrapper> libraries,
+        NestedSet<LinkOptions> userLinkFlags,
+        NestedSet<Linkstamp> linkstamps,
+        NestedSet<Artifact> nonCodeInputs,
+        ExtraLinkTimeLibraries extraLinkTimeLibraries) {
+      this.libraries = libraries;
+      this.userLinkFlags = userLinkFlags;
+      this.linkstamps = linkstamps;
+      this.nonCodeInputs = nonCodeInputs;
+      this.extraLinkTimeLibraries = extraLinkTimeLibraries;
+    }
+
+    public static CcLinkingContext merge(List<CcLinkingContext> ccLinkingContexts) {
+      CcLinkingContext.Builder mergedCcLinkingContext = CcLinkingContext.builder();
+      ExtraLinkTimeLibraries.Builder mergedExtraLinkTimeLibraries =
+          ExtraLinkTimeLibraries.builder();
+      for (CcLinkingContext ccLinkingContext : ccLinkingContexts) {
+        mergedCcLinkingContext
+            .addLibraries(ccLinkingContext.getLibraries())
+            .addUserLinkFlags(ccLinkingContext.getUserLinkFlags())
+            .addLinkstamps(ccLinkingContext.getLinkstamps())
+            .addNonCodeInputs(ccLinkingContext.getNonCodeInputs());
+        if (ccLinkingContext.getExtraLinkTimeLibraries() != null) {
+          mergedExtraLinkTimeLibraries.addTransitive(ccLinkingContext.getExtraLinkTimeLibraries());
+        }
+      }
+      mergedCcLinkingContext.setExtraLinkTimeLibraries(mergedExtraLinkTimeLibraries.build());
+      return mergedCcLinkingContext.build();
+    }
+
+    public List<Artifact> getStaticModeParamsForExecutableLibraries() {
+      ImmutableList.Builder<Artifact> libraryListBuilder = ImmutableList.builder();
+      for (LibraryToLinkWrapper libraryToLinkWrapper : getLibraries()) {
+        if (libraryToLinkWrapper.getStaticLibrary() != null) {
+          libraryListBuilder.add(libraryToLinkWrapper.getStaticLibrary());
+        } else if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
+          libraryListBuilder.add(libraryToLinkWrapper.getPicStaticLibrary());
+        } else if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
+          libraryListBuilder.add(libraryToLinkWrapper.getInterfaceLibrary());
+        } else {
+          libraryListBuilder.add(libraryToLinkWrapper.getDynamicLibrary());
+        }
+      }
+      return libraryListBuilder.build();
+    }
+
+    public List<Artifact> getStaticModeParamsForDynamicLibraryLibraries() {
+      ImmutableList.Builder<Artifact> artifactListBuilder = ImmutableList.builder();
+      for (LibraryToLinkWrapper library : getLibraries()) {
+        if (library.getPicStaticLibrary() != null) {
+          artifactListBuilder.add(library.getPicStaticLibrary());
+        } else if (library.getStaticLibrary() != null) {
+          artifactListBuilder.add(library.getStaticLibrary());
+        } else if (library.getInterfaceLibrary() != null) {
+          artifactListBuilder.add(library.getInterfaceLibrary());
+        } else {
+          artifactListBuilder.add(library.getDynamicLibrary());
+        }
+      }
+      return artifactListBuilder.build();
+    }
+
+    public List<Artifact> getDynamicLibrariesForRuntime(boolean linkingStatically) {
+      ImmutableList.Builder<Artifact> dynamicLibrariesForRuntimeBuilder = ImmutableList.builder();
+      for (LibraryToLinkWrapper libraryToLinkWrapper : libraries) {
+        Artifact artifact =
+            libraryToLinkWrapper.getDynamicLibraryForRuntimeOrNull(linkingStatically);
+        if (artifact != null) {
+          dynamicLibrariesForRuntimeBuilder.add(artifact);
+        }
+      }
+      return dynamicLibrariesForRuntimeBuilder.build();
+    }
+
+    public NestedSet<LibraryToLinkWrapper> getLibraries() {
+      return libraries;
+    }
+
+    @Override
+    public SkylarkList<String> getSkylarkUserLinkFlags() {
+      return SkylarkList.createImmutable(getFlattenedUserLinkFlags());
+    }
+
+    @Override
+    public SkylarkList<LibraryToLinkWrapperApi> getSkylarkLibrariesToLink() {
+      return SkylarkList.createImmutable(libraries.toList());
+    }
+
+    public NestedSet<LinkOptions> getUserLinkFlags() {
+      return userLinkFlags;
+    }
+
+    public ImmutableList<String> getFlattenedUserLinkFlags() {
+      return Streams.stream(userLinkFlags)
+          .map(LinkOptions::get)
+          .flatMap(Collection::stream)
+          .collect(ImmutableList.toImmutableList());
+    }
+
+    public NestedSet<Linkstamp> getLinkstamps() {
+      return linkstamps;
+    }
+
+    public NestedSet<Artifact> getNonCodeInputs() {
+      return nonCodeInputs;
+    }
+
+    public ExtraLinkTimeLibraries getExtraLinkTimeLibraries() {
+      return extraLinkTimeLibraries;
+    }
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    /** Builder for {@link CcLinkingContext}. */
+    public static class Builder {
+      private final NestedSetBuilder<LibraryToLinkWrapper> libraries = NestedSetBuilder.linkOrder();
+      private final NestedSetBuilder<LinkOptions> userLinkFlags = NestedSetBuilder.linkOrder();
+      private final NestedSetBuilder<Linkstamp> linkstamps = NestedSetBuilder.compileOrder();
+      private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.linkOrder();
+      private ExtraLinkTimeLibraries extraLinkTimeLibraries = null;
+
+      public Builder addLibraries(NestedSet<LibraryToLinkWrapper> libraries) {
+        this.libraries.addTransitive(libraries);
+        return this;
+      }
+
+      public Builder addUserLinkFlags(NestedSet<LinkOptions> userLinkFlags) {
+        this.userLinkFlags.addTransitive(userLinkFlags);
+        return this;
+      }
+
+      Builder addLinkstamps(NestedSet<Linkstamp> linkstamps) {
+        this.linkstamps.addTransitive(linkstamps);
+        return this;
+      }
+
+      Builder addNonCodeInputs(NestedSet<Artifact> nonCodeInputs) {
+        this.nonCodeInputs.addTransitive(nonCodeInputs);
+        return this;
+      }
+
+      public Builder setExtraLinkTimeLibraries(ExtraLinkTimeLibraries extraLinkTimeLibraries) {
+        Preconditions.checkState(this.extraLinkTimeLibraries == null);
+        this.extraLinkTimeLibraries = extraLinkTimeLibraries;
+        return this;
+      }
+
+      public CcLinkingContext build() {
+        return new CcLinkingContext(
+            libraries.build(),
+            userLinkFlags.build(),
+            linkstamps.build(),
+            nonCodeInputs.build(),
+            extraLinkTimeLibraries);
+      }
+    }
+
+    @Override
+    public boolean equals(Object otherObject) {
+      if (!(otherObject instanceof CcLinkingContext)) {
+        return false;
+      }
+      CcLinkingContext other = (CcLinkingContext) otherObject;
+      if (this == other) {
+        return true;
+      }
+      return this.libraries.shallowEquals(other.libraries)
+          && this.userLinkFlags.shallowEquals(other.userLinkFlags)
+          && this.linkstamps.shallowEquals(other.linkstamps)
+          && this.nonCodeInputs.shallowEquals(other.nonCodeInputs);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(
+          libraries.shallowHashCode(),
+          userLinkFlags.shallowHashCode(),
+          linkstamps.shallowHashCode(),
+          nonCodeInputs.shallowHashCode());
+    }
+  }
 
   private LibraryToLink picStaticLibraryToLink;
   private LibraryToLink staticLibraryToLink;
   private LibraryToLink dynamicLibraryToLink;
   private LibraryToLink interfaceLibraryToLink;
 
-  private LibraryToLinkWrapper(
-      String libraryIdentifier,
-      Artifact staticLibrary,
-      Iterable<Artifact> objectFiles,
-      ImmutableMap<Artifact, Artifact> ltoBitcodeFiles,
-      ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
-      Artifact picStaticLibrary,
-      Iterable<Artifact> picObjectFiles,
-      ImmutableMap<Artifact, Artifact> picLtoBitcodeFiles,
-      ImmutableMap<Artifact, LtoBackendArtifacts> picSharedNonLtoBackends,
-      Artifact dynamicLibrary,
-      Artifact resolvedSymlinkDynamicLibrary,
-      Artifact interfaceLibrary,
-      Artifact resolvedSymlinkInterfaceLibrary,
-      boolean alwayslink) {
-    this.libraryIdentifier = libraryIdentifier;
-    this.staticLibrary = staticLibrary;
-    this.objectFiles = objectFiles;
-    this.ltoBitcodeFiles = ltoBitcodeFiles;
-    this.sharedNonLtoBackends = sharedNonLtoBackends;
+  public abstract String getLibraryIdentifier();
 
-    this.picStaticLibrary = picStaticLibrary;
-    this.picObjectFiles = picObjectFiles;
-    this.picLtoBitcodeFiles = picLtoBitcodeFiles;
-    this.picSharedNonLtoBackends = picSharedNonLtoBackends;
+  @Nullable
+  @Override
+  public abstract Artifact getStaticLibrary();
 
-    this.dynamicLibrary = dynamicLibrary;
-    this.resolvedSymlinkDynamicLibrary = resolvedSymlinkDynamicLibrary;
-    this.interfaceLibrary = interfaceLibrary;
-    this.resolvedSymlinkInterfaceLibrary = resolvedSymlinkInterfaceLibrary;
-    this.alwayslink = alwayslink;
+  @Nullable
+  public abstract ImmutableList<Artifact> getObjectFiles();
+
+  @Nullable
+  public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
+
+  @Nullable
+  public abstract LtoCompilationContext getLtoCompilationContext();
+
+  @Nullable
+  @Override
+  public abstract Artifact getPicStaticLibrary();
+
+  @Nullable
+  public abstract ImmutableList<Artifact> getPicObjectFiles();
+
+  @Nullable
+  public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackends();
+
+  @Nullable
+  public abstract LtoCompilationContext getPicLtoCompilationContext();
+
+  @Nullable
+  @Override
+  public abstract Artifact getDynamicLibrary();
+
+  @Nullable
+  public abstract Artifact getResolvedSymlinkDynamicLibrary();
+
+  @Nullable
+  @Override
+  public abstract Artifact getInterfaceLibrary();
+
+  @Nullable
+  public abstract Artifact getResolvedSymlinkInterfaceLibrary();
+
+  @Override
+  public abstract boolean getAlwayslink();
+
+  // TODO(plf): This is just needed for Go, do not expose to Skylark and try to remove it. This was
+  // introduced to let a linker input declare that it needs debug info in the executable.
+  // Specifically, this was introduced for linking Go into a C++ binary when using the gccgo
+  // compiler.
+  abstract boolean getMustKeepDebug();
+
+  public static Builder builder() {
+    return new AutoValue_LibraryToLinkWrapper.Builder()
+        .setMustKeepDebug(false)
+        .setAlwayslink(false);
   }
 
-  public String getLibraryIdentifier() {
+  @Nullable
+  @SuppressWarnings("ReferenceEquality")
+  static String setDynamicArtifactsAndReturnIdentifier(
+      LibraryToLinkWrapper.Builder libraryToLinkWrapperBuilder,
+      LibraryToLink dynamicModeParamsForExecutableEntry,
+      LibraryToLink dynamicModeParamsForDynamicLibraryEntry,
+      ListIterator<Artifact> runtimeLibraryIterator) {
+    Preconditions.checkNotNull(runtimeLibraryIterator);
+    Artifact artifact = dynamicModeParamsForExecutableEntry.getArtifact();
+    String libraryIdentifier = null;
+    Artifact runtimeArtifact = null;
+    if (dynamicModeParamsForExecutableEntry.getArtifactCategory()
+            == ArtifactCategory.DYNAMIC_LIBRARY
+        || dynamicModeParamsForExecutableEntry.getArtifactCategory()
+            == ArtifactCategory.INTERFACE_LIBRARY) {
+      Preconditions.checkState(
+          dynamicModeParamsForExecutableEntry == dynamicModeParamsForDynamicLibraryEntry);
+      libraryIdentifier = dynamicModeParamsForExecutableEntry.getLibraryIdentifier();
+
+      // Not every library to link has a corresponding runtime artifact, for example this is the
+      // case when it is provided by the system. Here we check if the next runtime artifact has the
+      // same basename as the current library to link, if it is, then we match them together. If
+      // isn't, then we must rewind the iterator since every call to next() advances it.
+      if (runtimeLibraryIterator.hasNext()) {
+        runtimeArtifact = runtimeLibraryIterator.next();
+        if (!doArtifactsHaveSameBasename(artifact, runtimeArtifact)) {
+          runtimeArtifact = null;
+          runtimeLibraryIterator.previous();
+        }
+      }
+    }
+
+    if (dynamicModeParamsForExecutableEntry.getArtifactCategory()
+        == ArtifactCategory.DYNAMIC_LIBRARY) {
+      // The SolibLibraryToLink implementation returns ArtifactCategory.DYNAMIC_LIBRARY even if
+      // the library being symlinked is an interface library. This was probably an oversight that
+      // didn't cause any issues. In any case, here we have to figure out whether the library is
+      // an interface library or not by checking the extension if it's a symlink.
+
+      if (dynamicModeParamsForExecutableEntry instanceof SolibLibraryToLink) {
+        // Note: with the old way of doing C++ linking, we lose the information regarding the
+        // runtime library. If {@code runtimeArtifact} is a symlink we only have the symlink but
+        // not a reference to the artifact it points to. We can infer whether it's a symlink by
+        // looking at whether the interface library is a symlink, however, we can't find out what
+        // it points to. With the new API design, we won't lose this information anymore. This is
+        // the way it has been done until now, but it wasn't a problem because symlinks get
+        // automatically resolved when they are in runfiles.
+        if (ArtifactCategory.INTERFACE_LIBRARY
+            .getAllowedExtensions()
+            .contains("." + artifact.getExtension())) {
+          libraryToLinkWrapperBuilder.setInterfaceLibrary(artifact);
+          libraryToLinkWrapperBuilder.setResolvedSymlinkInterfaceLibrary(
+              dynamicModeParamsForExecutableEntry.getOriginalLibraryArtifact());
+          if (runtimeArtifact != null) {
+            libraryToLinkWrapperBuilder.setDynamicLibrary(runtimeArtifact);
+          }
+        } else {
+          Preconditions.checkState(runtimeArtifact == null || artifact == runtimeArtifact);
+          libraryToLinkWrapperBuilder.setDynamicLibrary(artifact);
+          libraryToLinkWrapperBuilder.setResolvedSymlinkDynamicLibrary(
+              dynamicModeParamsForExecutableEntry.getOriginalLibraryArtifact());
+        }
+      } else {
+        libraryToLinkWrapperBuilder.setDynamicLibrary(artifact);
+        Preconditions.checkState(runtimeArtifact == null || artifact == runtimeArtifact);
+      }
+    } else if (dynamicModeParamsForExecutableEntry.getArtifactCategory()
+        == ArtifactCategory.INTERFACE_LIBRARY) {
+      Preconditions.checkState(
+          !(dynamicModeParamsForExecutableEntry instanceof SolibLibraryToLink));
+      libraryToLinkWrapperBuilder.setInterfaceLibrary(artifact);
+      if (runtimeArtifact != null) {
+        libraryToLinkWrapperBuilder.setDynamicLibrary(runtimeArtifact);
+      }
+    }
     return libraryIdentifier;
   }
 
-  public Artifact getStaticLibrary() {
-    return staticLibrary;
+  private static boolean doArtifactsHaveSameBasename(Artifact first, Artifact second) {
+    String nameFirst = removeAllExtensions(first.getRootRelativePath().getPathString());
+    String nameSecond = removeAllExtensions(second.getRootRelativePath().getPathString());
+    return nameFirst.equals(nameSecond);
   }
 
-  public Iterable<Artifact> getObjectFiles() {
-    return objectFiles;
-  }
-
-  public Artifact getPicStaticLibrary() {
-    return picStaticLibrary;
-  }
-
-  public Artifact getDynamicLibrary() {
-    return dynamicLibrary;
-  }
-
-  public Artifact getInterfaceLibrary() {
-    return interfaceLibrary;
-  }
-
-  public boolean getAlwayslink() {
-    return alwayslink;
-  }
-
-  public static Builder builder() {
-    return new Builder();
-  }
-
-  public static CcLinkingInfo toCcLinkingInfo(
-      boolean forcePic,
-      ImmutableCollection<LibraryToLinkWrapper> libraryToLinkWrappers,
-      ImmutableCollection<String> linkOpts,
-      NestedSet<Artifact> linkstamps,
-      CcCompilationContext ccCompilationContext,
-      Iterable<Artifact> nonCodeInputs) {
-    CcLinkParams staticModeParamsForDynamicLibrary =
-        buildStaticModeParamsForDynamicLibraryCcLinkParams(
-            libraryToLinkWrappers, linkOpts, linkstamps, ccCompilationContext, nonCodeInputs);
-
-    CcLinkParams staticModeParamsForExecutable;
-    if (forcePic) {
-      staticModeParamsForExecutable = staticModeParamsForDynamicLibrary;
-    } else {
-      staticModeParamsForExecutable =
-          buildStaticModeParamsForExecutableCcLinkParams(
-              libraryToLinkWrappers, linkOpts, linkstamps, ccCompilationContext, nonCodeInputs);
+  private static String removeAllExtensions(String name) {
+    String previousWithoutExtension = FileSystemUtils.removeExtension(name);
+    String currentWithoutExtension = FileSystemUtils.removeExtension(previousWithoutExtension);
+    while (!previousWithoutExtension.equals(currentWithoutExtension)) {
+      previousWithoutExtension = currentWithoutExtension;
+      currentWithoutExtension = FileSystemUtils.removeExtension(previousWithoutExtension);
     }
-
-    CcLinkParams dynamicModeParamsForDynamicLibrary =
-        buildDynamicModeParamsForDynamicLibraryCcLinkParams(
-            libraryToLinkWrappers, linkOpts, linkstamps, ccCompilationContext, nonCodeInputs);
-    CcLinkParams dynamicModeParamsForExecutable;
-    if (forcePic) {
-      dynamicModeParamsForExecutable = dynamicModeParamsForDynamicLibrary;
-    } else {
-      dynamicModeParamsForExecutable =
-          buildDynamicModeParamsForExecutableCcLinkParams(
-              libraryToLinkWrappers, linkOpts, linkstamps, ccCompilationContext, nonCodeInputs);
-    }
-
-    CcLinkingInfo.Builder ccLinkingInfoBuilder =
-        new CcLinkingInfo.Builder()
-            .setStaticModeParamsForExecutable(staticModeParamsForExecutable)
-            .setStaticModeParamsForDynamicLibrary(staticModeParamsForDynamicLibrary)
-            .setDynamicModeParamsForExecutable(dynamicModeParamsForExecutable)
-            .setDynamicModeParamsForDynamicLibrary(dynamicModeParamsForDynamicLibrary);
-    return ccLinkingInfoBuilder.build();
+    return currentWithoutExtension;
   }
 
-  /**
-   * In this method and {@link #buildStaticModeParamsForDynamicLibraryCcLinkParams}, {@link
-   * #buildDynamicModeParamsForExecutableCcLinkParams} and {@link
-   * #buildDynamicModeParamsForDynamicLibraryCcLinkParams}, we add the ".a", ".pic.a" and/or ".so"
-   * files in appropriate order of preference depending on the link preferences.
-   *
-   * <p>For static libraries, first choice is the PIC or no-PIC static variable, depending on
-   * whether we prefer PIC or not. Even if we are using PIC, we still prefer the no PIC static
-   * variant than using a dynamic library, although this may be an error later. Best performance is
-   * obtained with no-PIC static libraries. If we don't have that we use the PIC variant, we can
-   * live with the extra overhead.
-   */
-  private static CcLinkParams buildStaticModeParamsForExecutableCcLinkParams(
-      ImmutableCollection<LibraryToLinkWrapper> libraryToLinkWrappers,
-      ImmutableCollection<String> linkOpts,
-      NestedSet<Artifact> linkstamps,
-      CcCompilationContext ccCompilationContext,
-      Iterable<Artifact> nonCodeInputs) {
-    CcLinkParams.Builder ccLinkParamsBuilder =
-        initializeCcLinkParams(linkOpts, linkstamps, ccCompilationContext, nonCodeInputs);
-    for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
-      boolean usedDynamic = false;
-      if (libraryToLinkWrapper.getStaticLibrary() != null) {
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getStaticLibraryToLink());
-      } else if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getPicStaticLibraryToLink());
-      } else if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-        usedDynamic = true;
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getInterfaceLibraryToLink());
-      } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
-        usedDynamic = true;
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getDynamicLibraryToLink());
-      }
-
-      if (usedDynamic && libraryToLinkWrapper.getDynamicLibrary() != null) {
-        ccLinkParamsBuilder.addDynamicLibrariesForRuntime(
-            ImmutableList.of(libraryToLinkWrapper.getDynamicLibrary()));
-      }
-    }
-    return ccLinkParamsBuilder.build();
-  }
-
-  private static CcLinkParams buildStaticModeParamsForDynamicLibraryCcLinkParams(
-      ImmutableCollection<LibraryToLinkWrapper> libraryToLinkWrappers,
-      ImmutableCollection<String> linkOpts,
-      NestedSet<Artifact> linkstamps,
-      CcCompilationContext ccCompilationContext,
-      Iterable<Artifact> nonCodeInputs) {
-    CcLinkParams.Builder ccLinkParamsBuilder =
-        initializeCcLinkParams(linkOpts, linkstamps, ccCompilationContext, nonCodeInputs);
-    for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
-      boolean usedDynamic = false;
-      if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getPicStaticLibraryToLink());
-      } else if (libraryToLinkWrapper.getStaticLibrary() != null) {
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getStaticLibraryToLink());
-      } else if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-        usedDynamic = true;
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getInterfaceLibraryToLink());
-      } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
-        usedDynamic = true;
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getDynamicLibraryToLink());
-      }
-
-      if (usedDynamic && libraryToLinkWrapper.getDynamicLibrary() != null) {
-        ccLinkParamsBuilder.addDynamicLibrariesForRuntime(
-            ImmutableList.of(libraryToLinkWrapper.getDynamicLibrary()));
-      }
-    }
-    return ccLinkParamsBuilder.build();
-  }
-
-  private static CcLinkParams buildDynamicModeParamsForExecutableCcLinkParams(
-      ImmutableCollection<LibraryToLinkWrapper> libraryToLinkWrappers,
-      ImmutableCollection<String> linkOpts,
-      NestedSet<Artifact> linkstamps,
-      CcCompilationContext ccCompilationContext,
-      Iterable<Artifact> nonCodeInputs) {
-    CcLinkParams.Builder ccLinkParamsBuilder =
-        initializeCcLinkParams(linkOpts, linkstamps, ccCompilationContext, nonCodeInputs);
-    for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
-      boolean usedDynamic = false;
-      if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-        usedDynamic = true;
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getInterfaceLibraryToLink());
-      } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
-        usedDynamic = true;
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getDynamicLibraryToLink());
-      } else if (libraryToLinkWrapper.getStaticLibrary() != null) {
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getStaticLibraryToLink());
-      } else if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getPicStaticLibraryToLink());
-      }
-
-      if (usedDynamic && libraryToLinkWrapper.getDynamicLibrary() != null) {
-        ccLinkParamsBuilder.addDynamicLibrariesForRuntime(
-            ImmutableList.of(libraryToLinkWrapper.getDynamicLibrary()));
-      }
-    }
-    return ccLinkParamsBuilder.build();
-  }
-
-  private static CcLinkParams buildDynamicModeParamsForDynamicLibraryCcLinkParams(
-      ImmutableCollection<LibraryToLinkWrapper> libraryToLinkWrappers,
-      ImmutableCollection<String> linkOpts,
-      NestedSet<Artifact> linkstamps,
-      CcCompilationContext ccCompilationContext,
-      Iterable<Artifact> nonCodeInputs) {
-    CcLinkParams.Builder ccLinkParamsBuilder =
-        initializeCcLinkParams(linkOpts, linkstamps, ccCompilationContext, nonCodeInputs);
-    for (LibraryToLinkWrapper libraryToLinkWrapper : libraryToLinkWrappers) {
-      boolean usedDynamic = false;
-      if (libraryToLinkWrapper.getInterfaceLibrary() != null) {
-        usedDynamic = true;
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getInterfaceLibraryToLink());
-      } else if (libraryToLinkWrapper.getDynamicLibrary() != null) {
-        usedDynamic = true;
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getDynamicLibraryToLink());
-      } else if (libraryToLinkWrapper.getPicStaticLibrary() != null) {
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getPicStaticLibraryToLink());
-      } else if (libraryToLinkWrapper.getStaticLibrary() != null) {
-        ccLinkParamsBuilder.addLibrary(libraryToLinkWrapper.getStaticLibraryToLink());
-      }
-
-      if (usedDynamic && libraryToLinkWrapper.getDynamicLibrary() != null) {
-        ccLinkParamsBuilder.addDynamicLibrariesForRuntime(
-            ImmutableList.of(libraryToLinkWrapper.getDynamicLibrary()));
-      }
-    }
-    return ccLinkParamsBuilder.build();
-  }
-
-  private LibraryToLink getStaticLibraryToLink() {
-    Preconditions.checkNotNull(staticLibrary);
+  LibraryToLink getStaticLibraryToLink() {
+    Preconditions.checkNotNull(getStaticLibrary(), this);
     if (staticLibraryToLink != null) {
       return staticLibraryToLink;
     }
     staticLibraryToLink =
         LinkerInputs.newInputLibrary(
-            staticLibrary,
-            alwayslink
+            getStaticLibrary(),
+            getAlwayslink()
                 ? ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY
                 : ArtifactCategory.STATIC_LIBRARY,
-            libraryIdentifier,
-            objectFiles,
-            ltoBitcodeFiles,
-            sharedNonLtoBackends);
+            getLibraryIdentifier(),
+            getObjectFiles(),
+            getLtoCompilationContext(),
+            getSharedNonLtoBackends(),
+            getMustKeepDebug());
     return staticLibraryToLink;
   }
 
-  private LibraryToLink getPicStaticLibraryToLink() {
-    Preconditions.checkNotNull(picStaticLibrary);
+  LibraryToLink getPicStaticLibraryToLink() {
+    Preconditions.checkNotNull(getPicStaticLibrary(), this);
     if (picStaticLibraryToLink != null) {
       return picStaticLibraryToLink;
     }
     picStaticLibraryToLink =
         LinkerInputs.newInputLibrary(
-            picStaticLibrary,
-            alwayslink
+            getPicStaticLibrary(),
+            getAlwayslink()
                 ? ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY
                 : ArtifactCategory.STATIC_LIBRARY,
-            libraryIdentifier,
-            picObjectFiles,
-            picLtoBitcodeFiles,
-            picSharedNonLtoBackends);
+            getLibraryIdentifier(),
+            getPicObjectFiles(),
+            getPicLtoCompilationContext(),
+            getPicSharedNonLtoBackends(),
+            getMustKeepDebug());
     return picStaticLibraryToLink;
   }
 
-  private LibraryToLink getDynamicLibraryToLink() {
-    Preconditions.checkNotNull(dynamicLibrary);
+  LibraryToLink getDynamicLibraryToLink() {
+    Preconditions.checkNotNull(getDynamicLibrary(), this);
     if (dynamicLibraryToLink != null) {
       return dynamicLibraryToLink;
     }
-    if (resolvedSymlinkDynamicLibrary != null) {
+    if (getResolvedSymlinkDynamicLibrary() != null) {
       dynamicLibraryToLink =
           LinkerInputs.solibLibraryToLink(
-              dynamicLibrary, resolvedSymlinkDynamicLibrary, libraryIdentifier);
+              getDynamicLibrary(), getResolvedSymlinkDynamicLibrary(), getLibraryIdentifier());
     } else {
       dynamicLibraryToLink =
           LinkerInputs.newInputLibrary(
-              dynamicLibrary,
+              getDynamicLibrary(),
               ArtifactCategory.DYNAMIC_LIBRARY,
-              libraryIdentifier,
+              getLibraryIdentifier(),
               /* objectFiles */ ImmutableSet.of(),
-              /* ltoBitcodeFiles */ ImmutableMap.of(),
-              /* sharedNonLtoBackends */ ImmutableMap.of());
+              LtoCompilationContext.EMPTY,
+              /* sharedNonLtoBackends */ ImmutableMap.of(),
+              getMustKeepDebug());
     }
     return dynamicLibraryToLink;
   }
 
-  private LibraryToLink getInterfaceLibraryToLink() {
-    Preconditions.checkNotNull(interfaceLibrary);
+  LibraryToLink getInterfaceLibraryToLink() {
+    Preconditions.checkNotNull(getInterfaceLibrary());
     if (interfaceLibraryToLink != null) {
       return interfaceLibraryToLink;
     }
-    if (resolvedSymlinkInterfaceLibrary != null) {
+    if (getResolvedSymlinkInterfaceLibrary() != null) {
       interfaceLibraryToLink =
           LinkerInputs.solibLibraryToLink(
-              interfaceLibrary, resolvedSymlinkInterfaceLibrary, libraryIdentifier);
+              getInterfaceLibrary(), getResolvedSymlinkInterfaceLibrary(), getLibraryIdentifier());
     } else {
       interfaceLibraryToLink =
           LinkerInputs.newInputLibrary(
-              interfaceLibrary,
+              getInterfaceLibrary(),
               ArtifactCategory.INTERFACE_LIBRARY,
-              libraryIdentifier,
+              getLibraryIdentifier(),
               /* objectFiles */ ImmutableSet.of(),
-              /* ltoBitcodeFiles */ ImmutableMap.of(),
-              /* sharedNonLtoBackends */ ImmutableMap.of());
+              LtoCompilationContext.EMPTY,
+              /* sharedNonLtoBackends */ ImmutableMap.of(),
+              getMustKeepDebug());
     }
     return interfaceLibraryToLink;
   }
 
-  private static CcLinkParams.Builder initializeCcLinkParams(
-      ImmutableCollection<String> linkOpts,
-      NestedSet<Artifact> linkstamps,
-      CcCompilationContext ccCompilationContext,
-      Iterable<Artifact> nonCodeInputs) {
-    CcLinkParams.Builder ccLinkParamsBuilder = CcLinkParams.builder();
-    ccLinkParamsBuilder.addLinkOpts(linkOpts);
-    ccLinkParamsBuilder.addLinkstamps(linkstamps, ccCompilationContext);
-    ccLinkParamsBuilder.addNonCodeInputs(nonCodeInputs);
-    return ccLinkParamsBuilder;
-  }
-
   /** Builder for LibraryToLinkWrapper. */
-  public static class Builder {
-    private String libraryIdentifier;
+  @AutoValue.Builder
+  public abstract static class Builder {
+    public abstract Builder setLibraryIdentifier(String libraryIdentifier);
 
-    private Artifact staticLibrary;
-    private Iterable<Artifact> objectFiles;
-    private ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
-    private ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends;
+    public abstract Builder setStaticLibrary(Artifact staticLibrary);
 
-    private Artifact picStaticLibrary;
-    private Iterable<Artifact> picObjectFiles;
-    private ImmutableMap<Artifact, Artifact> picLtoBitcodeFiles;
-    private ImmutableMap<Artifact, LtoBackendArtifacts> picSharedNonLtoBackends;
+    public abstract Builder setObjectFiles(ImmutableList<Artifact> objectFiles);
 
-    private Artifact dynamicLibrary;
-    private Artifact resolvedSymlinkDynamicLibrary;
-    private Artifact interfaceLibrary;
-    private Artifact resolvedSymlinkInterfaceLibrary;
-    private boolean alwayslink;
+    abstract Builder setLtoCompilationContext(LtoCompilationContext ltoCompilationContext);
 
-    private Builder() {}
+    abstract Builder setSharedNonLtoBackends(
+        ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends);
 
-    public Builder setLibraryIdentifier(String libraryIdentifier) {
-      this.libraryIdentifier = libraryIdentifier;
-      return this;
-    }
+    abstract Builder setPicStaticLibrary(Artifact picStaticLibrary);
 
-    public Builder setStaticLibrary(Artifact staticLibrary) {
-      this.staticLibrary = staticLibrary;
-      return this;
-    }
+    abstract Builder setPicObjectFiles(ImmutableList<Artifact> picObjectFiles);
 
-    public Builder setObjectFiles(List<Artifact> objectFiles) {
-      this.objectFiles = objectFiles;
-      return this;
-    }
+    abstract Builder setPicLtoCompilationContext(LtoCompilationContext picLtoCompilationContext);
 
-    public Builder setLtoBitcodeFiles(ImmutableMap<Artifact, Artifact> ltoBitcodeFiles) {
-      this.ltoBitcodeFiles = ltoBitcodeFiles;
-      return this;
-    }
+    abstract Builder setPicSharedNonLtoBackends(
+        ImmutableMap<Artifact, LtoBackendArtifacts> picSharedNonLtoBackends);
 
-    public Builder setSharedNonLtoBackends(
-        ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends) {
-      this.sharedNonLtoBackends = sharedNonLtoBackends;
-      return this;
-    }
+    public abstract Builder setDynamicLibrary(Artifact dynamicLibrary);
 
-    public Builder setPicStaticLibrary(Artifact picStaticLibrary) {
-      this.picStaticLibrary = picStaticLibrary;
-      return this;
-    }
+    abstract Builder setResolvedSymlinkDynamicLibrary(Artifact resolvedSymlinkDynamicLibrary);
 
-    public Builder setPicObjectFiles(List<Artifact> picObjectFiles) {
-      this.picObjectFiles = picObjectFiles;
-      return this;
-    }
+    abstract Builder setInterfaceLibrary(Artifact interfaceLibrary);
 
-    public Builder setPicLtoBitcodeFiles(ImmutableMap<Artifact, Artifact> picLtoBitcodeFiles) {
-      this.picLtoBitcodeFiles = picLtoBitcodeFiles;
-      return this;
-    }
+    abstract Builder setResolvedSymlinkInterfaceLibrary(Artifact resolvedSymlinkInterfaceLibrary);
 
-    public Builder setPicSharedNonLtoBackends(
-        ImmutableMap<Artifact, LtoBackendArtifacts> picSharedNonLtoBackends) {
-      this.picSharedNonLtoBackends = picSharedNonLtoBackends;
-      return this;
-    }
+    public abstract Builder setAlwayslink(boolean alwayslink);
 
-    public Builder setDynamicLibrary(Artifact dynamicLibrary) {
-      this.dynamicLibrary = dynamicLibrary;
-      return this;
-    }
+    public abstract Builder setMustKeepDebug(boolean mustKeepDebug);
 
-    public Builder setResolvedSymlinkDynamicLibrary(Artifact resolvedSymlinkDynamicLibrary) {
-      this.resolvedSymlinkDynamicLibrary = resolvedSymlinkDynamicLibrary;
-      return this;
-    }
+    // Methods just for validation, not to be called externally.
+    abstract LibraryToLinkWrapper autoBuild();
 
-    public Builder setInterfaceLibrary(Artifact interfaceLibrary) {
-      this.interfaceLibrary = interfaceLibrary;
-      return this;
-    }
+    abstract String getLibraryIdentifier();
 
-    public Builder setResolvedSymlinkInterfaceLibrary(Artifact resolvedSymlinkInterfaceLibrary) {
-      this.resolvedSymlinkInterfaceLibrary = resolvedSymlinkInterfaceLibrary;
-      return this;
-    }
+    abstract Artifact getStaticLibrary();
 
-    public Builder setAlwayslink(boolean alwayslink) {
-      this.alwayslink = alwayslink;
-      return this;
-    }
+    abstract ImmutableList<Artifact> getObjectFiles();
+
+    abstract ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
+
+    abstract LtoCompilationContext getLtoCompilationContext();
+
+    abstract Artifact getPicStaticLibrary();
+
+    abstract ImmutableList<Artifact> getPicObjectFiles();
+
+    abstract ImmutableMap<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackends();
+
+    abstract LtoCompilationContext getPicLtoCompilationContext();
+
+    abstract Artifact getDynamicLibrary();
+
+    abstract Artifact getResolvedSymlinkDynamicLibrary();
+
+    abstract Artifact getInterfaceLibrary();
+
+    abstract Artifact getResolvedSymlinkInterfaceLibrary();
 
     public LibraryToLinkWrapper build() {
-      Preconditions.checkNotNull(libraryIdentifier);
+      Preconditions.checkNotNull(getLibraryIdentifier());
       Preconditions.checkState(
-          (objectFiles == null && ltoBitcodeFiles == null && sharedNonLtoBackends == null)
-              || staticLibrary != null);
+          (getObjectFiles() == null
+                  && getLtoCompilationContext() == null
+                  && getSharedNonLtoBackends() == null)
+              || getStaticLibrary() != null);
       Preconditions.checkState(
-          (picObjectFiles == null && picLtoBitcodeFiles == null && picSharedNonLtoBackends == null)
-              || picStaticLibrary != null);
-      Preconditions.checkState(resolvedSymlinkDynamicLibrary == null || dynamicLibrary != null);
-      Preconditions.checkState(resolvedSymlinkInterfaceLibrary == null || interfaceLibrary != null);
-      Preconditions.checkState(!alwayslink || staticLibrary != null || picStaticLibrary != null);
+          (getPicObjectFiles() == null
+                  && getPicLtoCompilationContext() == null
+                  && getPicSharedNonLtoBackends() == null)
+              || getPicStaticLibrary() != null);
+      Preconditions.checkState(
+          getResolvedSymlinkDynamicLibrary() == null || getDynamicLibrary() != null);
+      Preconditions.checkState(
+          getResolvedSymlinkInterfaceLibrary() == null
+              || getResolvedSymlinkInterfaceLibrary() != null);
+      Preconditions.checkState(
+          getStaticLibrary() != null
+              || getPicStaticLibrary() != null
+              || getDynamicLibrary() != null
+              || getInterfaceLibrary() != null);
 
-      return new LibraryToLinkWrapper(
-          libraryIdentifier,
-          staticLibrary,
-          objectFiles,
-          ltoBitcodeFiles,
-          sharedNonLtoBackends,
-          picStaticLibrary,
-          picObjectFiles,
-          picLtoBitcodeFiles,
-          picSharedNonLtoBackends,
-          dynamicLibrary,
-          resolvedSymlinkDynamicLibrary,
-          interfaceLibrary,
-          resolvedSymlinkInterfaceLibrary,
-          alwayslink);
+      return autoBuild();
     }
   }
 }

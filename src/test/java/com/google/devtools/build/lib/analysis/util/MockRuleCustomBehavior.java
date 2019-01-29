@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 
 /**
- * Interface for supporting arbitary custom behavior in mock rule classes.
+ * Interface for supporting arbitrary custom behavior in mock rule classes.
  *
  * <p>See {@link MockRule} for details and usage instructions.
  */

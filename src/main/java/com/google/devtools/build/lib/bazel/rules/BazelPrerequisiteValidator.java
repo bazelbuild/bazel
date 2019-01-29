@@ -135,7 +135,7 @@ public class BazelPrerequisiteValidator
 
   private static boolean isTestOnlyRule(Target target) {
     return (target instanceof Rule)
-        && (NonconfigurableAttributeMapper.of((Rule) target)).has("testonly", Type.BOOLEAN)
-        && (NonconfigurableAttributeMapper.of((Rule) target)).get("testonly", Type.BOOLEAN);
+        && NonconfigurableAttributeMapper.of((Rule) target).has("testonly", Type.BOOLEAN)
+        && NonconfigurableAttributeMapper.of((Rule) target).get("testonly", Type.BOOLEAN);
   }
 }

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -47,8 +46,8 @@ public class SwiftConfiguration extends BuildConfiguration.Fragment
   /** Loads {@link SwiftConfiguration} from build options. */
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
-    public SwiftConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
-        throws InvalidConfigurationException, InterruptedException {
+    public SwiftConfiguration create(BuildOptions buildOptions)
+        throws InvalidConfigurationException {
       SwiftCommandLineOptions options = buildOptions.get(SwiftCommandLineOptions.class);
 
       return new SwiftConfiguration(options);

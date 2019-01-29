@@ -86,10 +86,23 @@ class OptionsParserImpl {
 
   private ArgsPreProcessor argsPreProcessor = args -> args;
 
+  private final String skippedPrefix;
+
   /** Create a new parser object. Do not accept a null OptionsData object. */
   OptionsParserImpl(OptionsData optionsData) {
     Preconditions.checkNotNull(optionsData);
     this.optionsData = optionsData;
+    this.skippedPrefix = null;
+  }
+
+  /**
+   * Creates a new parser object. Do not accept a null OptionsData object. Takes a prefix that
+   * signifies the parser should skip parsing args that begin with that prefix.
+   */
+  OptionsParserImpl(OptionsData optionsData, String skippedPrefix) {
+    Preconditions.checkNotNull(optionsData);
+    this.optionsData = optionsData;
+    this.skippedPrefix = skippedPrefix;
   }
 
   OptionsData getOptionsData() {
@@ -274,7 +287,7 @@ class OptionsParserImpl {
    * values. Options that accumulate multiple values will track them in priority and appearance
    * order.
    */
-  List<String> parse(
+  ResidueAndPriority parse(
       PriorityCategory priorityCat,
       Function<OptionDefinition, String> sourceFunction,
       List<String> args)
@@ -282,33 +295,7 @@ class OptionsParserImpl {
     ResidueAndPriority residueAndPriority =
         parse(nextPriorityPerPriorityCategory.get(priorityCat), sourceFunction, null, null, args);
     nextPriorityPerPriorityCategory.put(priorityCat, residueAndPriority.nextPriority);
-    return residueAndPriority.residue;
-  }
-
-  private static final class ResidueAndPriority {
-    List<String> residue;
-    OptionPriority nextPriority;
-
-    public ResidueAndPriority(List<String> residue, OptionPriority nextPriority) {
-      this.residue = residue;
-      this.nextPriority = nextPriority;
-    }
-  }
-
-  /** Implements {@link OptionsParser#parseArgsAsExpansionOfOption} */
-  List<String> parseArgsAsExpansionOfOption(
-      ParsedOptionDescription optionToExpand,
-      Function<OptionDefinition, String> sourceFunction,
-      List<String> args)
-      throws OptionsParsingException {
-    ResidueAndPriority residueAndPriority =
-        parse(
-            OptionPriority.getChildPriority(optionToExpand.getPriority()),
-            sourceFunction,
-            null,
-            optionToExpand,
-            args);
-    return residueAndPriority.residue;
+    return residueAndPriority;
   }
 
   /**
@@ -327,6 +314,7 @@ class OptionsParserImpl {
       List<String> args)
       throws OptionsParsingException {
     List<String> unparsedArgs = new ArrayList<>();
+    List<String> unparsedPostDoubleDashArgs = new ArrayList<>();
 
     Iterator<String> argsIterator = argsPreProcessor.preProcess(args).iterator();
     while (argsIterator.hasNext()) {
@@ -334,11 +322,16 @@ class OptionsParserImpl {
 
       if (!arg.startsWith("-")) {
         unparsedArgs.add(arg);
-        continue;  // not an option arg
+        continue; // not an option arg
       }
 
-      if (arg.equals("--")) {  // "--" means all remaining args aren't options
-        Iterators.addAll(unparsedArgs, argsIterator);
+      if (skippedPrefix != null && arg.startsWith(skippedPrefix)) {
+        unparsedArgs.add(arg);
+        continue;
+      }
+
+      if (arg.equals("--")) { // "--" means all remaining args aren't options
+        Iterators.addAll(unparsedPostDoubleDashArgs, argsIterator);
         break;
       }
 
@@ -356,7 +349,43 @@ class OptionsParserImpl {
       valueDescription.getValue();
     }
 
-    return new ResidueAndPriority(unparsedArgs, priority);
+    return new ResidueAndPriority(unparsedArgs, unparsedPostDoubleDashArgs, priority);
+  }
+
+  /** A class that stores residue and priority information. */
+  static final class ResidueAndPriority {
+    final List<String> postDoubleDashResidue;
+    final List<String> preDoubleDashResidue;
+    final OptionPriority nextPriority;
+
+    ResidueAndPriority(
+        List<String> preDashResidue, List<String> postDashResidue, OptionPriority nextPriority) {
+      this.preDoubleDashResidue = preDashResidue;
+      this.postDoubleDashResidue = postDashResidue;
+      this.nextPriority = nextPriority;
+    }
+
+    public List<String> getResidue() {
+      List<String> toReturn =
+          new ArrayList<>(preDoubleDashResidue.size() + postDoubleDashResidue.size());
+      toReturn.addAll(preDoubleDashResidue);
+      toReturn.addAll(postDoubleDashResidue);
+      return toReturn;
+    }
+  }
+
+  /** Implements {@link OptionsParser#parseArgsAsExpansionOfOption} */
+  ResidueAndPriority parseArgsAsExpansionOfOption(
+      ParsedOptionDescription optionToExpand,
+      Function<OptionDefinition, String> sourceFunction,
+      List<String> args)
+      throws OptionsParsingException {
+    return parse(
+        OptionPriority.getChildPriority(optionToExpand.getPriority()),
+        sourceFunction,
+        null,
+        optionToExpand,
+        args);
   }
 
   /**
@@ -432,16 +461,15 @@ class OptionsParserImpl {
               optionDefinition.hasImplicitRequirements() ? parsedOption : null,
               optionDefinition.isExpansionOption() ? parsedOption : null,
               expansionBundle.expansionArgs);
-      if (!residueAndPriority.residue.isEmpty()) {
+      if (!residueAndPriority.getResidue().isEmpty()) {
 
-          // Throw an assertion here, because this indicates an error in the definition of this
-          // option's expansion or requirements, not with the input as provided by the user.
-          throw new AssertionError(
-              "Unparsed options remain after processing "
-                  + unconvertedValue
-                  + ": "
-                  + Joiner.on(' ').join(residueAndPriority.residue));
-
+        // Throw an assertion here, because this indicates an error in the definition of this
+        // option's expansion or requirements, not with the input as provided by the user.
+        throw new AssertionError(
+            "Unparsed options remain after processing "
+                + unconvertedValue
+                + ": "
+                + Joiner.on(' ').join(residueAndPriority.getResidue()));
       }
     }
   }

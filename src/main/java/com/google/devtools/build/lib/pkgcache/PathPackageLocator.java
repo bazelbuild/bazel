@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -249,7 +249,7 @@ public class PathPackageLocator implements Serializable {
     AtomicReference<? extends UnixGlob.FilesystemCalls> cache = UnixGlob.DEFAULT_SYSCALLS_REF;
     // TODO(bazel-team): correctness in the presence of changes to the location of the WORKSPACE
     // file.
-    return getFilePath(Label.WORKSPACE_FILE_NAME, cache);
+    return getFilePath(LabelConstants.WORKSPACE_FILE_NAME, cache);
   }
 
   private Path getFilePath(PathFragment suffix,

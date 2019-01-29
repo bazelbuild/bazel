@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkinterface;
 
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -128,6 +130,47 @@ public @interface Param {
    * element of a method, this field has no effect.
    */
   boolean positional() default true;
+
+  /**
+   * If not NONE, the annotated parameter will only be present if the given semantic flag is true.
+   * (If the parameter is disabled, it may not be specified by a user, and the Java method will
+   * always be invoked with the parameter set to its default value.)
+   *
+   * <p>Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
+   * non-NONE.
+   */
+  SkylarkSemantics.FlagIdentifier enableOnlyWithFlag() default FlagIdentifier.NONE;
+
+  /**
+   * If not NONE, the annotated parameter will only be present if the given semantic flag is false.
+   * (If the parameter is disabled, it may not be specified by a user, and the Java method will
+   * always be invoked with the parameter set to its default value.)
+   *
+   * <p>Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
+   * non-NONE.
+   */
+  SkylarkSemantics.FlagIdentifier disableWithFlag() default FlagIdentifier.NONE;
+
+  /**
+   * Value for the parameter when the parameter is "disabled" based on semantic flags. (When the
+   * parameter is disabled, it may not be set from Starlark, but an argument of the given value is
+   * passed to the annotated Java method when invoked.) (See {@link #enableOnlyWithFlag()} and
+   * {@link #disableWithFlag()} for toggling a parameter with semantic flags.
+   *
+   * <p>The parameter value is written as a Skylark expression (for example: "False", "True", "[]",
+   * "None").
+   *
+   * <p>This should be set (non-empty) if and only if the parameter may be disabled with a semantic
+   * flag.
+   *
+   * <p>Note that this is very similar to {@link #defaultValue}; it may be considered "the default
+   * value if no parameter is specified". It is important that this is distinct, however, in cases
+   * where it is desired to have a normally-mandatory parameter toggled by flag. Such a parameter
+   * should have no {@link #defaultValue} set, but should have a sensible {@link
+   * #valueWhenDisabled()} set. ("unbound" may be used in cases where no value would be valid. See
+   * {@link #defaultValue}.)
+   */
+  String valueWhenDisabled() default "";
 
   // TODO(bazel-team): parse the type from a single field in Skylark syntax,
   // and allow a Union as "ThisType or ThatType or NoneType":

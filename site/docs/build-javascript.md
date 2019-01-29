@@ -36,8 +36,8 @@ This document assumes you are already familiar with Bazel and uses the
 to illustrate the recommended configuration. You can use the sample project as a
 starting point and add your own code to it to start building with Bazel.
 
-If you're new to Bazel, take a look at the ["Getting Started"](https://docs.bazel.build/versions/master/getting-started.html)
-material before proceeding.
+If you're new to Bazel, take a look at the ["Getting
+Started"](getting-started.html) material before proceeding.
 
 ## Setting up your environment
 
@@ -46,7 +46,7 @@ following:
 
 ### Step 1: Installing Bazel
 
-If you have not already done so, [Install Bazel](https://docs.bazel.build/versions/master/install.html).
+If you have not already done so, [Install Bazel](install.html).
 
 ### Step 2: Installing iBazel
 
@@ -75,7 +75,7 @@ To use `ibazel`, simply replace `bazel` with `ibazel` in your Bazel commands.
 ### Step 3: Configuring the `bazel.rc` file
 
 Any Bazel build flag or option that can be placed on the command line can also
-be set in the project's [`bazel.rc` file](https://docs.bazel.build/versions/master/user-manual.html#bazelrc)
+be set in the project's [`bazel.rc` file](https://docs.bazel.build/guide.html#bazelrc)
 so that it is applied every time Bazel builds or tests the project.
 
 Based on how you want to share Bazel settings across your project and team(s),
@@ -165,7 +165,7 @@ the `--config=ci` argument to your Bazel/iBazel commands.
 
 ## Building JavaScript
 
-Use the <code>[rules_nodejs](https://github.com/bazelbuild/rules_nodejs)</code>
+Use the [`rules_nodejs`](https://github.com/bazelbuild/rules_nodejs)
 rules to build NodeJS applications and execute JavaScript code within Bazel. You
 can execute JavaScript tools in the Bazel toolchain, binary programs, or tests.
 The NodeJS rules add the NodeJS runtime to your Bazel project.
@@ -182,7 +182,7 @@ Most notable NodeJS rules include:
 
 ## Building TypeScript
 
-Use the <code>[rules_typescript](https://github.com/bazelbuild/rules_typescript)</code>
+Use the [`rules_typescript`](https://github.com/bazelbuild/rules_typescript)
 rules to build JavaScript outputs from TypeScript inputs.
 
 To set up your Bazel project for building TypeScript inputs, do the following:

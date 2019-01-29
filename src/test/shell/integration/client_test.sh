@@ -20,18 +20,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 
-function set_up() {
-  write_default_bazelrc
-  # Print client log statements to stderr so they get picked up by the test log
-  # in the event of a failure.
-  add_to_bazelrc "startup --client_debug"
-  add_to_bazelrc "startup --nobatch"
-}
-
-function tear_down() {
-  bazel --nobatch shutdown
-}
-
 #### TESTS #############################################################
 
 function test_client_debug() {
@@ -129,6 +117,9 @@ function test_no_arguments() {
 
 
 function test_max_idle_secs() {
+  # Remove when https://github.com/bazelbuild/bazel/issues/6773 is fixed.
+  bazel shutdown
+
   local server_pid1=$(bazel --max_idle_secs=1 info server_pid 2>$TEST_log)
   sleep 5
   local server_pid2=$(bazel info server_pid 2>$TEST_log)

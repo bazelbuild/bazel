@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
 
 /** Implementation of the {@code cc_libc_top_alias} rule. */
-public class CcLibcTopAlias extends CommonAliasRule {
+public class CcLibcTopAlias extends CommonAliasRule<CppConfiguration> {
 
   public CcLibcTopAlias() {
     super(
@@ -31,6 +31,6 @@ public class CcLibcTopAlias extends CommonAliasRule {
     return LabelLateBoundDefault.fromTargetConfiguration(
         CppConfiguration.class,
         null,
-        (rules, attributes, cppConfig) -> cppConfig.getSysrootLabel());
+        (rules, attributes, cppConfig) -> cppConfig.getLibcTopLabel());
   }
 }

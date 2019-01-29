@@ -108,8 +108,8 @@ public class PrepareDepsOfPatternValue implements SkyValue {
     // subdirectory exclusion) is only acceptable because all the use cases for query universe
     // preloading involve short (<10 items) pattern sequences.
     Iterable<TargetPatternKey> combinedTargetPatternKeys =
-        TargetPatternValue.combineNegativeTargetsBelowDirectoryPatterns(
-            targetPatternKeysBuilder.build());
+        TargetPatternValue.combineTargetsBelowDirectoryWithNegativePatterns(
+            targetPatternKeysBuilder.build(), /*excludeSingleTargets=*/ false);
     for (TargetPatternKey targetPatternKey : combinedTargetPatternKeys) {
       if (targetPatternKey.isNegative()
           && !targetPatternKey

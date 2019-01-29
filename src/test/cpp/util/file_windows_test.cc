@@ -156,6 +156,10 @@ TEST_F(FileWindowsTest, TestIsDirectory) {
   ASSERT_EQ(0, mkdir(dir1.c_str()));
   ASSERT_TRUE(IsDirectory(dir1));
 
+  wstring wtmpdir(GetTestTmpDirW());
+  EXPECT_TRUE(CreateDummyFile(wtmpdir + L"\\dummy.txt"));
+  ASSERT_FALSE(IsDirectory(tmpdir + "\\dummy.txt"));
+
   // Verify that IsDirectory works for a junction.
   string junc1(JoinPath(tmpdir, "junc1"));
   CREATE_JUNCTION(junc1, dir1);
@@ -293,6 +297,15 @@ TEST_F(FileWindowsTest, TestMakeCanonical) {
   string dircanon(MakeCanonical(foo.c_str()));
   string symcanon(MakeCanonical(symfoo.c_str()));
   string expected("directory\\subdirectory\\foo.txt");
+  ASSERT_NE(symcanon, "");
+  ASSERT_EQ(symcanon.find(expected), symcanon.size() - expected.size());
+  ASSERT_EQ(dircanon, symcanon);
+  // Assert the canonical path of "subdirectory" via the real path and via sym2.
+  // The latter contains at least two junction components, shortened paths, and
+  // mixed casing.
+  dircanon = MakeCanonical(dir2.c_str());
+  symcanon = MakeCanonical(sym2.c_str());
+  expected = "directory\\subdirectory";
   ASSERT_NE(symcanon, "");
   ASSERT_EQ(symcanon.find(expected), symcanon.size() - expected.size());
   ASSERT_EQ(dircanon, symcanon);

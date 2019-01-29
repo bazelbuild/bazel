@@ -74,4 +74,10 @@ public final class SkylarkTypeTest {
     assertThat(inter.includes(combo)).isTrue();
     assertThat(inter.includes(SkylarkType.INT)).isFalse();
   }
+
+  @Test
+  public void testStringPairTuple() {
+    assertThat(SkylarkType.intersection(SkylarkType.STRING_PAIR, SkylarkType.TUPLE))
+        .isEqualTo(SkylarkType.STRING_PAIR);
+  }
 }

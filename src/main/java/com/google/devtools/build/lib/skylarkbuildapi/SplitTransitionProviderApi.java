@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-/**
- * Interface for a type representing a split configuration transition.
- */
-public interface SplitTransitionProviderApi {
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+
+/** Interface for a type representing a split configuration transition. */
+public interface SplitTransitionProviderApi extends SkylarkValue {
   // TODO(cparsons): Expose this explicitly to the build API.
 }

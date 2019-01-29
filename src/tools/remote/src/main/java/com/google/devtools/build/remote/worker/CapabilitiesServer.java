@@ -49,7 +49,7 @@ final class CapabilitiesServer extends CapabilitiesImplBase {
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunction(df)
-                    .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.ALLOWED)
+                    .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.DISALLOWED)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .setMaxBatchTotalSizeBytes(CasServer.MAX_BATCH_SIZE_BYTES)

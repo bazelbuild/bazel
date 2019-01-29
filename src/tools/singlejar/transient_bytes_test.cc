@@ -134,7 +134,7 @@ TEST_F(TransientBytesTest, AppendBytes) {
   transient_bytes_->Append(kBytesSmall);
   EXPECT_EQ(strlen(kBytesSmall), transient_bytes_->data_size());
   std::ostringstream out;
-  out << *transient_bytes_.get();
+  out << *transient_bytes_;
   EXPECT_STREQ(kBytesSmall, out.str().c_str());
   out.flush();
 
@@ -143,7 +143,7 @@ TEST_F(TransientBytesTest, AppendBytes) {
     ASSERT_EQ((i + 1) * strlen(kBytesSmall), transient_bytes_->data_size());
   }
 
-  out << *transient_bytes_.get();
+  out << *transient_bytes_;
   std::string out_string = out.str();
   size_t size = strlen(kBytesSmall);
   for (size_t pos = 0; pos < kIter * size; pos += size) {

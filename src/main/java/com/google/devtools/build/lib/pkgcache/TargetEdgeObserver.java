@@ -45,8 +45,7 @@ public interface TargetEdgeObserver {
    * @param to a label reference in the rule, which does not correspond to a valid target.
    * @param e the corresponding exception thrown
    */
-  void missingEdge(@Nullable Target target, Label to, NoSuchThingException e)
-      throws InterruptedException;
+  void missingEdge(@Nullable Target target, Label to, NoSuchThingException e);
 
   /**
    * Called when a node is discovered. May be called

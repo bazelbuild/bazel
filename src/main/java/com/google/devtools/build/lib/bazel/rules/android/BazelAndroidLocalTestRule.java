@@ -121,8 +121,8 @@ ${IMPLICIT_OUTPUTS}
 
 <p>
 To use Robolectric with <code>android_local_test</code>, add
-<a href="https://github.com/robolectric/robolectric/tree/master/bazel">Robolectric's repository</a>
-to your <code>WORKSPACE</code> file:
+<a href="https://github.com/robolectric/robolectric-bazel/tree/master/bazel">Robolectric's
+repository</a> to your <code>WORKSPACE</code> file:
 <pre class="code">
 http_archive(
     name = "robolectric",
@@ -165,7 +165,6 @@ android_library(
 </pre>
 
 <!-- #END_BLAZE_RULE --> */
-
 
 /* <!-- #BLAZE_RULE(android_local_test).IMPLICIT_OUTPUTS -->
 <ul>

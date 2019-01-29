@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.repository;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Rule;
@@ -64,8 +64,10 @@ public class WorkspaceAttributeMapper {
     Object value = rule.getAttributeContainer().getAttr(checkNotNull(attributeName));
     if (value instanceof SelectorList) {
       String message;
-      if (rule.getLocation().getPath().getBaseName().equals(
-          Label.WORKSPACE_FILE_NAME.getPathString())) {
+      if (rule.getLocation()
+          .getPath()
+          .getBaseName()
+          .equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString())) {
         message = "select() cannot be used in WORKSPACE files";
       } else {
         message = "select() cannot be used in macros called from WORKSPACE files";

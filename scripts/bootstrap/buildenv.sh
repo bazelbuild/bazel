@@ -51,26 +51,6 @@ JAVA_VERSION=${JAVA_VERSION:-1.8}
 BAZELRC=${BAZELRC:-"/dev/null"}
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 
-MACHINE_TYPE="$(uname -m)"
-MACHINE_IS_64BIT='no'
-if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' -o "${MACHINE_TYPE}" = 's390x' -o "${MACHINE_TYPE}" = 'aarch64' ]; then
-  MACHINE_IS_64BIT='yes'
-fi
-
-MACHINE_IS_ARM='no'
-if [ "${MACHINE_TYPE}" = 'arm' -o "${MACHINE_TYPE}" = 'armv7l' -o "${MACHINE_TYPE}" = 'aarch64' ]; then
-  MACHINE_IS_ARM='yes'
-fi
-
-MACHINE_IS_Z='no'
-if [ "${MACHINE_TYPE}" = 's390x' ]; then
-  MACHINE_IS_Z='yes'
-fi
-
-if [ "${MACHINE_TYPE}" = 'ppc64' -o "${MACHINE_TYPE}" = 'ppc64le' ]; then
-  MACHINE_IS_64BIT='yes'
-fi
-
 PATHSEP=":"
 case "${PLATFORM}" in
 linux)

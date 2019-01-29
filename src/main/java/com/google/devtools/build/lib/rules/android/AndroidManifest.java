@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -220,7 +221,10 @@ public class AndroidManifest {
       ResourceDependencies resourceDeps,
       Map<String, String> manifestValues,
       @Nullable String manifestMerger) {
-    Map<Artifact, Label> mergeeManifests = getMergeeManifests(resourceDeps.getResourceContainers());
+    Map<Artifact, Label> mergeeManifests =
+        getMergeeManifests(
+            resourceDeps.getResourceContainers(),
+            dataContext.getAndroidConfig().getManifestMergerOrder());
 
     Artifact newManifest;
     if (useLegacyMerging(errorConsumer, dataContext.getAndroidConfig(), manifestMerger)) {
@@ -272,15 +276,23 @@ public class AndroidManifest {
   }
 
   private static Map<Artifact, Label> getMergeeManifests(
-      Iterable<ValidatedAndroidResources> transitiveData) {
-    ImmutableSortedMap.Builder<Artifact, Label> builder =
-        ImmutableSortedMap.orderedBy(Artifact.EXEC_PATH_COMPARATOR);
+      Iterable<ValidatedAndroidResources> transitiveData,
+      AndroidConfiguration.ManifestMergerOrder manifestMergerOrder) {
+    ImmutableMap.Builder<Artifact, Label> builder = new ImmutableMap.Builder<>();
     for (ValidatedAndroidResources d : transitiveData) {
       if (d.isManifestExported()) {
         builder.put(d.getManifest(), d.getLabel());
       }
     }
-    return builder.build();
+    switch (manifestMergerOrder) {
+      case ALPHABETICAL:
+        return ImmutableSortedMap.copyOf(builder.build(), Artifact.EXEC_PATH_COMPARATOR);
+      case ALPHABETICAL_BY_CONFIGURATION:
+        return ImmutableSortedMap.copyOf(builder.build(), Artifact.ROOT_RELATIVE_PATH_COMPARATOR);
+      case DEPENDENCY:
+        return builder.build();
+    }
+    throw new AssertionError(manifestMergerOrder);
   }
 
   public Artifact getManifest() {

@@ -8,7 +8,8 @@ title: Testing
 There are several different approaches to testing Starlark code in Bazel. This
 page gathers the current best practices and frameworks by use case.
 
-<!-- [TOC] -->
+* ToC
+{:toc}
 
 
 ## For testing rules

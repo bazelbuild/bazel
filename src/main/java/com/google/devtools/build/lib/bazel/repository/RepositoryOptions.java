@@ -114,7 +114,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "If list of repository rules for which the hash of the output directory should be"
               + " verified, provided a file is specified by"
-              + " --experimental_respository_hash_file.")
+              + " --experimental_repository_hash_file.")
   public List<String> experimentalVerifyRepositoryRules;
 
   @Option(
@@ -122,7 +122,7 @@ public class RepositoryOptions extends OptionsBase {
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      help = "If non-empty read the specifed resolved file instead of the WORKSPACE file")
+      help = "If non-empty read the specified resolved file instead of the WORKSPACE file")
   public String experimentalResolvedFileInsteadOfWorkspace;
 
   /**

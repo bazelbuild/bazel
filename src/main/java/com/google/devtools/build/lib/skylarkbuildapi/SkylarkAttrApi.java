@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -181,14 +182,16 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false)
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   Descriptor intAttribute(
       Integer defaultInt,
       String doc,
       Boolean mandatory,
       SkylarkList<?> values,
       FuncallExpression ast,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
@@ -228,19 +231,22 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false)
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor stringAttribute(
       String defaultString,
       String doc,
       Boolean mandatory,
       SkylarkList<?> values,
       FuncallExpression ast,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
       name = "label",
-      doc = "Creates a schema for a label attribute. This is a dependency attribute."
+      doc =
+          "Creates a schema for a label attribute. This is a dependency attribute."
               + DEPENDENCY_ATTR_TEXT
               + "<p>In addition to ordinary source files, this kind of attribute is often used to "
               + "refer to a tool -- for example, a compiler. Such tools are considered to be "
@@ -355,7 +361,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ASPECTS_ARG_DOC),
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor labelAttribute(
       Object defaultO,
       String doc,
@@ -369,7 +376,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Object cfg,
       SkylarkList<?> aspects,
       FuncallExpression ast,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
@@ -413,7 +421,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false)
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor stringListAttribute(
       Boolean mandatory,
       Boolean nonEmpty,
@@ -421,7 +430,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
       SkylarkList<?> defaultList,
       String doc,
       FuncallExpression ast,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
@@ -465,7 +475,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
             positional = false)
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor intListAttribute(
       Boolean mandatory,
       Boolean nonEmpty,
@@ -473,7 +484,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
       SkylarkList<?> defaultList,
       String doc,
       FuncallExpression ast,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
@@ -573,7 +585,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ASPECTS_ARG_DOC),
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor labelListAttribute(
       Boolean allowEmpty,
       Object defaultList,
@@ -587,7 +600,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Object cfg,
       SkylarkList<?> aspects,
       FuncallExpression ast,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
@@ -689,7 +703,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = ASPECTS_ARG_DOC)
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
       Object defaultList,
@@ -703,7 +718,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Object cfg,
       SkylarkList<?> aspects,
       FuncallExpression ast,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
@@ -736,16 +752,20 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = MANDATORY_DOC)
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor boolAttribute(
-      Boolean defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
+      Boolean defaultO,
+      String doc,
+      Boolean mandatory,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
       name = "output",
-      doc =
-          "Creates a schema for an output (label) attribute."
-              + OUTPUT_ATTR_TEXT,
+      doc = "Creates a schema for an output (label) attribute." + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -757,9 +777,9 @@ public interface SkylarkAttrApi extends SkylarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = "<b><code>default<code> is deprecated for <code>attr.output</code>. Use "
-                + "Starlark macros to set the default for <code>output<code> and "
-                + "<code>output_list</code> attributes. <p>" + DEFAULT_DOC),
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT,
+            valueWhenDisabled = "None",
+            doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
             type = String.class,
@@ -776,16 +796,20 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = MANDATORY_DOC)
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor outputAttribute(
-      Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
+      Object defaultO,
+      String doc,
+      Boolean mandatory,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
       name = "output_list",
-      doc =
-          "Creates a schema for a list-of-outputs attribute."
-              + OUTPUT_ATTR_TEXT,
+      doc = "Creates a schema for a list-of-outputs attribute." + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
             name = ALLOW_EMPTY_ARG,
@@ -803,9 +827,9 @@ public interface SkylarkAttrApi extends SkylarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            doc = "<b><code>default<code> is deprecated for <code>attr.output_list</code>. Use "
-                + "Starlark macros to set the default for <code>output<code> and "
-                + "<code>output_list</code> attributes. <p>" + DEFAULT_DOC),
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_OUTPUT_ATTR_DEFAULT,
+            valueWhenDisabled = "None",
+            doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
             type = String.class,
@@ -829,7 +853,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = NON_EMPTY_DOC)
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor outputListAttribute(
       Boolean allowEmpty,
       Object defaultList,
@@ -837,7 +862,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Boolean mandatory,
       Boolean nonEmpty,
       FuncallExpression ast,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
@@ -885,7 +911,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = NON_EMPTY_DOC)
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,
       SkylarkDict<?, ?> defaultO,
@@ -893,7 +920,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Boolean mandatory,
       Boolean nonEmpty,
       FuncallExpression ast,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
@@ -941,7 +969,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
             doc = NON_EMPTY_DOC)
       },
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor stringListDictAttribute(
       Boolean allowEmpty,
       SkylarkDict<?, ?> defaultO,
@@ -949,7 +978,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
       Boolean mandatory,
       Boolean nonEmpty,
       FuncallExpression ast,
-      Environment env)
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   @SkylarkCallable(
@@ -982,9 +1012,15 @@ public interface SkylarkAttrApi extends SkylarkValue {
       },
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_ATTR_LICENSE,
       useAst = true,
-      useEnvironment = true)
+      useEnvironment = true,
+      useContext = true)
   public Descriptor licenseAttribute(
-      Object defaultO, String doc, Boolean mandatory, FuncallExpression ast, Environment env)
+      Object defaultO,
+      String doc,
+      Boolean mandatory,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
       throws EvalException;
 
   /** An attribute descriptor. */

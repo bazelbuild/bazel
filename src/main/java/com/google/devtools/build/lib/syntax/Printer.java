@@ -663,9 +663,8 @@ public class Printer {
     }
   }
 
-
-  /** A printer that breaks lines beteen the entries of lists, with proper indenting. */
- public static class PrettyPrinter extends BasePrinter {
+  /** A printer that breaks lines between the entries of lists, with proper indenting. */
+  public static class PrettyPrinter extends BasePrinter {
     static final int BASE_INDENT = 4;
     private int indent;
 

@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -142,6 +144,21 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
       if (rootInfo.type.isFile()) {
         return resultForFileRoot(traversal.root.asRootedPath(), rootInfo);
+      } else if (rootInfo.type.isDirectory() && rootInfo.metadata instanceof TreeArtifactValue) {
+        final TreeArtifactValue value = (TreeArtifactValue) rootInfo.metadata;
+        ImmutableList.Builder<RecursiveFilesystemTraversalValue> list = ImmutableList.builder();
+        for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry
+            : value.getChildValues().entrySet()) {
+          RootedPath path =
+              RootedPath.toRootedPath(
+                  traversal.root.asRootedPath().getRoot(), entry.getKey().getPath());
+          list.add(resultForFileRoot(
+              path,
+              // TreeArtifact can't have symbolic inside. So the assumption for FileType.FILE
+              // is always true.
+              new FileInfo(FileType.FILE, entry.getValue(), path, null)));
+        }
+        return resultForDirectory(traversal, rootInfo, list.build());
       }
 
       // Otherwise the root is a directory or a symlink to one.
@@ -229,7 +246,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   private static FileInfo lookUpFileInfo(Environment env, TraversalRequest traversal)
       throws MissingDepException, IOException, InterruptedException {
     if (traversal.isRootGenerated) {
-      FileArtifactValue fsVal = null;
+      SkyValue fsVal = null;
       if (traversal.root.getOutputArtifact() != null) {
         Artifact artifact = traversal.root.getOutputArtifact();
         SkyKey artifactKey = ArtifactSkyKey.key(artifact, true);
@@ -239,16 +256,19 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         }
 
         if (value instanceof FileArtifactValue) {
-          fsVal = (FileArtifactValue) value;
+          fsVal = value;
+        } else if (value instanceof TreeArtifactValue) {
+          fsVal = value;
         } else {
           return NON_EXISTENT_FILE_INFO;
         }
       }
-
       RootedPath realPath = traversal.root.asRootedPath();
       if (traversal.strictOutputFiles) {
         Preconditions.checkNotNull(fsVal, "Strict Fileset output tree has null FileArtifactValue");
-        return new FileInfo(FileType.FILE, fsVal, realPath, null);
+        return new FileInfo(
+            (fsVal instanceof TreeArtifactValue ? FileType.DIRECTORY : FileType.FILE),
+            fsVal, realPath, null);
       } else {
         // FileArtifactValue does not currently track symlinks. If it did, we could potentially
         // remove some of the filesystem operations we're doing here.

@@ -73,15 +73,17 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -169,6 +171,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.PrintStream;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -184,6 +187,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -241,6 +245,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected BuildDriver buildDriver;
 
+  private final Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit;
+
   // AtomicReferences are used here as mutable boxes shared with value builders.
   private final AtomicBoolean showLoadingProgress = new AtomicBoolean();
   protected final AtomicReference<UnixGlob.FilesystemCalls> syscalls =
@@ -290,9 +296,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
       new SkyframeIncrementalBuildMonitor();
 
-  private MutableSupplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments =
-      new MutableSupplier<>();
-
   private final ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes;
   private final PathFragment additionalBlacklistedPackagePrefixesFile;
 
@@ -315,6 +318,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
   @Nullable private final NonexistentFileReceiver nonexistentFileReceiver;
+  private final MutableSupplier<BigInteger> nonceVersion = new MutableSupplier<>();
 
   /** An {@link ArtifactResolverSupplier} that supports setting of an {@link ArtifactFactory}. */
   public static class MutableArtifactFactorySupplier implements ArtifactResolverSupplier {
@@ -339,18 +343,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     @Override
     public ArtifactPathResolver createPathResolverForArtifactValues(
-        ActionInputMap actionInputMap, Map<Artifact, Collection<Artifact>> expandedArtifacts) {
+        ActionInputMap actionInputMap,
+        Map<Artifact, Collection<Artifact>> expandedArtifacts,
+        Iterable<Artifact> filesets) {
       Preconditions.checkState(shouldCreatePathResolverForArtifactValues());
       return outputService.createPathResolverForArtifactValues(
           directories.getExecRoot().asFragment(),
+          directories.getRelativeOutputPath(),
           fileSystem,
           getPathEntries(),
           actionInputMap,
-          expandedArtifacts);
+          expandedArtifacts,
+          filesets);
     }
   }
 
   protected SkyframeExecutor(
+      Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit,
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
       FileSystem fileSystem,
@@ -374,6 +383,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       @Nullable NonexistentFileReceiver nonexistentFileReceiver) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
+    this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;
     this.evaluatorSupplier = evaluatorSupplier;
     this.pkgFactory = pkgFactory;
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
@@ -434,13 +444,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction());
     map.put(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, new ClientEnvironmentFunction(clientEnv));
     map.put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction());
-    map.put(FileStateValue.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper));
+    map.put(FileStateValue.FILE_STATE, newFileStateFunction());
     map.put(SkyFunctions.DIRECTORY_LISTING_STATE, newDirectoryListingStateFunction());
     map.put(SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS,
         new FileSymlinkCycleUniquenessFunction());
     map.put(SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
         new FileSymlinkInfiniteExpansionUniquenessFunction());
-    map.put(FileValue.FILE, newFileFunction());
+    map.put(FileValue.FILE, new FileFunction(pkgLocator, nonexistentFileReceiver));
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     map.put(
         SkyFunctions.PACKAGE_LOOKUP,
@@ -506,7 +516,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             shouldUnblockCpuWorkWhenFetchingDeps,
             defaultBuildOptions,
-            configuredTargetProgress));
+            configuredTargetProgress,
+            nonceVersion));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
@@ -514,7 +525,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ruleClassProvider,
             skylarkImportLookupFunctionForInlining,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
-            defaultBuildOptions));
+            defaultBuildOptions,
+            nonceVersion));
     map.put(
         SkyFunctions.LOAD_SKYLARK_ASPECT,
         new ToplevelSkylarkAspectFunction(skylarkImportLookupFunctionForInlining));
@@ -525,14 +537,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.BUILD_CONFIGURATION,
         new BuildConfigurationFunction(directories, ruleClassProvider, defaultBuildOptions));
-    map.put(
-        SkyFunctions.CONFIGURATION_FRAGMENT,
-        new ConfigurationFragmentFunction(configurationFragments, ruleClassProvider));
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction());
     map.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     map.put(
         SkyFunctions.WORKSPACE_FILE,
-        new WorkspaceFileFunction(ruleClassProvider, pkgFactory, directories));
+        new WorkspaceFileFunction(
+            ruleClassProvider, pkgFactory, directories, skylarkImportLookupFunctionForInlining));
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     map.put(
         SkyFunctions.TARGET_COMPLETION,
@@ -578,8 +588,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return false;
   }
 
-  protected SkyFunction newFileFunction() {
-    return new FileFunction(pkgLocator, nonexistentFileReceiver);
+  protected SkyFunction newFileStateFunction() {
+    return new FileStateFunction(tsgm, externalFilesHelper);
   }
 
   protected SkyFunction newDirectoryListingStateFunction() {
@@ -618,6 +628,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     lastConcurrencyLevel = concurrencyLevel;
     perBuildSyscallCache = newPerBuildSyscallCache(concurrencyLevel);
     return perBuildSyscallCache;
+  }
+
+  /** Do not use except in subclasses. */
+  protected void setNonceVersion(BigInteger nonceVersion) {
+    this.nonceVersion.set(nonceVersion);
   }
 
  @ThreadCompatible
@@ -716,6 +731,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             emittedEventState,
             tracksStateForIncrementality());
     buildDriver = getBuildDriver();
+    skyframeExecutorConsumerOnInit.accept(this);
   }
 
   /**
@@ -777,6 +793,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Clear any configured target data stored outside Skyframe. */
   public void handleConfiguredTargetChange() {
+    logger.info("Dropping configured target data");
     skyframeBuildView.clearInvalidatedConfiguredTargets();
     skyframeBuildView.clearLegacyData();
   }
@@ -828,13 +845,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /** Computes statistics on heap-resident rules and aspects. */
   public abstract List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler);
-
-  /** Removes ConfigurationFragmentValues from the cache. */
-  @VisibleForTesting
-  public void resetConfigurationCollectionForTesting() {
-    memoizingEvaluator.delete(
-        SkyFunctionName.functionIsIn(ImmutableSet.of(SkyFunctions.CONFIGURATION_FRAGMENT)));
-  }
 
   /**
    * Decides if graph edges should be stored during this evaluation and checks if the state from the
@@ -1297,14 +1307,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Sets the factories for all configuration fragments known to the build.
-   */
-  public void setConfigurationFragmentFactories(
-      List<ConfigurationFragmentFactory> configurationFragmentFactories) {
-    this.configurationFragments.set(ImmutableList.copyOf(configurationFragmentFactories));
-  }
-
-  /**
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
    * result.
    */
@@ -1389,7 +1391,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
-              .setNumThreads(options.getOptions(BuildRequestOptions.class).getJobs())
+              .setNumThreads(options.getOptions(BuildRequestOptions.class).jobs)
               .setEventHander(reporter)
               .build();
       return buildDriver.evaluate(
@@ -1430,7 +1432,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return evaluate(
           testKeys,
           /*keepGoing=*/ options.getOptions(KeepGoingOption.class).keepGoing,
-          /*numThreads=*/ options.getOptions(BuildRequestOptions.class).getJobs(),
+          /*numThreads=*/ options.getOptions(BuildRequestOptions.class).jobs,
           reporter);
     } finally {
       progressReceiver.executionProgressReceiver = null;
@@ -1475,12 +1477,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>If a requested configured target is in error, the corresponding value is omitted from the
    * returned list.
+   *
+   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
+   *     transitions.
    */
   @ThreadSafety.ThreadSafe
   public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
-      Iterable<Dependency> keys) {
+      Iterable<Dependency> keys)
+      throws TransitionException {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
 
@@ -1491,12 +1497,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>If a requested configured target is in error, the corresponding value is omitted from the
    * returned list.
+   *
+   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
+   *     transitions.
    */
   @ThreadSafety.ThreadSafe
   public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfigurationValue.Key originalConfig,
-      Iterable<Dependency> keys) {
+      Iterable<Dependency> keys)
+      throws TransitionException {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
 
@@ -1508,12 +1518,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>If a requested configured target is in error, the corresponding value is omitted from the
    * returned list.
+   *
+   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
+   *     transitions.
    */
   @ThreadSafety.ThreadSafe
   public ImmutableMultimap<Dependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfigurationValue.Key originalConfig,
-      Iterable<Dependency> keys) {
+      Iterable<Dependency> keys)
+      throws TransitionException {
     return getConfiguredTargetMapForTesting(
         eventHandler, getConfiguration(eventHandler, originalConfig), keys);
   }
@@ -1525,13 +1539,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * <p>For use for legacy support and tests calling through {@code BuildView} only.
    *
    * <p>If a requested configured target is in error, the corresponding value is omitted from the
-   * returned list.
+   * returned list except...
+   *
+   * @throws TransitionException if there is an issue resolving a starlark-defined transition.
    */
   @ThreadSafety.ThreadSafe
   private ImmutableMultimap<Dependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
-      Iterable<Dependency> keys) {
+      Iterable<Dependency> keys)
+      throws TransitionException {
     checkActive();
 
     Multimap<Dependency, BuildConfiguration> configs;
@@ -1562,9 +1579,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     EvaluationResult<SkyValue> result = evaluateSkyKeys(eventHandler, skyKeys);
-    for (Map.Entry<SkyKey, ErrorInfo> entry : result.errorMap().entrySet()) {
-      reportCycles(eventHandler, entry.getValue().getCycleInfo(), entry.getKey());
-    }
 
     ImmutableMultimap.Builder<Dependency, ConfiguredTargetAndData> cts =
         ImmutableMultimap.builder();
@@ -1642,7 +1656,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       aliasPackageValues = evaluateSkyKeys(eventHandler, aliasPackagesToFetch);
       keysToProcess = aliasKeysToRedo;
     }
-
+    Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier =
+        () ->
+            configs.values().stream()
+                .collect(
+                    Collectors.toMap(
+                        BuildConfigurationValue::key, java.util.function.Function.identity()));
+    // We ignore the return value here because tests effectively run with --keep_going, and the
+    // loading-phase-error bit is only needed if we're constructing a SkyframeAnalysisResult.
+    SkyframeBuildView.processErrors(
+        result,
+        configurationLookupSupplier,
+        this,
+        eventHandler,
+        /*keepGoing=*/ true,
+        /*eventBus=*/ null);
     return cts.build();
   }
 
@@ -1695,9 +1723,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Prepare the Skyframe inputs.
     // TODO(gregce): support trimmed configs.
     ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> allFragments =
-        configurationFragments
-            .get()
-            .stream()
+        ruleClassProvider.getConfigurationFragments().stream()
             .map(factory -> factory.creates())
             .collect(
                 ImmutableSortedSet.toImmutableSortedSet(BuildConfiguration.lexicalFragmentSorter));
@@ -1746,11 +1772,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * needed by their transitive closures. Else unconditionally includes all fragments.
    *
    * <p>Skips targets with loading phase errors.
+   *
+   * @throws TransitionException if there was a problem resolving Starlark-defined configuration
+   *     transitions.
    */
   // Keep this in sync with {@link PrepareAnalysisPhaseFunction#getConfigurations}.
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
   public Multimap<Dependency, BuildConfiguration> getConfigurations(
-      ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<Dependency> keys) {
+      ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<Dependency> keys)
+      throws TransitionException {
     Multimap<Dependency, BuildConfiguration> builder =
         ArrayListMultimap.<Dependency, BuildConfiguration>create();
     Set<Dependency> depsToEvaluate = new HashSet<>();
@@ -1807,11 +1837,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (depFragments != null) {
         for (BuildOptions toOptions : ConfigurationResolver.applyTransition(
             fromOptions, key.getTransition(), depFragments, ruleClassProvider, true)) {
+          StarlarkTransition.postProcessStarlarkTransitions(eventHandler, key.getTransition());
           configSkyKeys.add(
               BuildConfigurationValue.key(
                   depFragments,
                   BuildOptions.diffForReconstruction(defaultBuildOptions, toOptions)));
         }
+        ImmutableList<ConfigurationTransition> transitions =
+            ComposingTransition.decomposeTransition(key.getTransition());
+        transitions.stream()
+            .filter(t -> t instanceof StarlarkTransition)
+            .forEach(t -> ((StarlarkTransition) t).replayOn(eventHandler));
       }
     }
     EvaluationResult<SkyValue> configsResult =
@@ -1915,13 +1951,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return result.getConfiguration();
   }
 
-  /**
-   * Returns a particular configured target.
-   */
+  /** Returns a particular configured target. */
   @VisibleForTesting
   @Nullable
   public ConfiguredTarget getConfiguredTargetForTesting(
-      ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration) {
+      ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration)
+      throws TransitionException {
     return getConfiguredTargetForTesting(eventHandler, label, configuration, NoTransition.INSTANCE);
   }
 
@@ -1932,7 +1967,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       Label label,
       BuildConfiguration configuration,
-      ConfigurationTransition transition) {
+      ConfigurationTransition transition)
+      throws TransitionException {
     ConfiguredTargetAndData configuredTargetAndData =
         getConfiguredTargetAndDataForTesting(eventHandler, label, configuration, transition);
     return configuredTargetAndData == null ? null : configuredTargetAndData.getConfiguredTarget();
@@ -1944,7 +1980,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler,
       Label label,
       BuildConfiguration configuration,
-      ConfigurationTransition transition) {
+      ConfigurationTransition transition)
+      throws TransitionException {
     return Iterables.getFirst(
         getConfiguredTargetsForTesting(
             eventHandler,
@@ -1960,7 +1997,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   @Nullable
   public ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
-      ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration) {
+      ExtendedEventHandler eventHandler, Label label, BuildConfiguration configuration)
+      throws TransitionException {
     return getConfiguredTargetAndDataForTesting(
         eventHandler, label, configuration, NoTransition.INSTANCE);
   }
@@ -2277,7 +2315,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         tsgm);
   }
 
-  protected void syncPackageLoading(
+  public void syncPackageLoading(
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
       SkylarkSemanticsOptions skylarkSemanticsOptions,
@@ -2286,15 +2324,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm)
       throws AbruptExitException {
-    preparePackageLoading(
-        pathPackageLocator,
-        packageCacheOptions,
-        skylarkSemanticsOptions,
-        defaultsPackageContents,
-        commandId,
-        clientEnv,
-        tsgm);
-    setDeletedPackages(packageCacheOptions.getDeletedPackages());
+    try (SilentCloseable c = Profiler.instance().profile("preparePackageLoading")) {
+      preparePackageLoading(
+          pathPackageLocator,
+          packageCacheOptions,
+          skylarkSemanticsOptions,
+          defaultsPackageContents,
+          commandId,
+          clientEnv,
+          tsgm);
+    }
+    try (SilentCloseable c = Profiler.instance().profile("setDeletedPackages")) {
+      setDeletedPackages(packageCacheOptions.getDeletedPackages());
+    }
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateTransientErrors();
@@ -2334,6 +2376,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new ActionArtifactCycleReporter(packageManager),
         new ConfiguredTargetCycleReporter(packageManager),
         new TestSuiteCycleReporter(packageManager),
+        new RegisteredToolchainsCycleReporter(),
         // TODO(ulfjack): The SkylarkModuleCycleReporter swallows previously reported cycles
         // unconditionally! Is that intentional?
         new SkylarkModuleCycleReporter());
@@ -2369,6 +2412,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public abstract void deleteOldNodes(long versionWindowForDirtyGc);
 
+  @Nullable
+  public PackageProgressReceiver getPackageProgressReceiver() {
+    return packageProgress;
+  }
+
   public TargetPatternPhaseValue loadTargetPatterns(
       ExtendedEventHandler eventHandler,
       List<String> targetPatterns,
@@ -2403,13 +2451,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // set as being in error.
         eventHandler.post(PatternExpandingError.failed(targetPatterns, exc.getMessage()));
       } else {
+        Exception e = Preconditions.checkNotNull(errorInfo.getException());
+
         // TargetPatternPhaseFunction never directly throws. Thus, the only way
         // evalResult.hasError() && keepGoing can hold is if there are cycles, which is handled
         // above.
-        Preconditions.checkState(!keepGoing);
+        Preconditions.checkState(!keepGoing, e.getMessage());
+
         // Following SkyframeTargetPatternEvaluator, we convert any exception into a
         // TargetParsingException.
-        Exception e = Preconditions.checkNotNull(errorInfo.getException());
         exc =
             (e instanceof TargetParsingException)
                 ? (TargetParsingException) e
@@ -2437,9 +2487,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throws InvalidConfigurationException, InterruptedException {
     FragmentClassSet allFragments =
         FragmentClassSet.of(
-            configurationFragments
-                .get()
-                .stream()
+            ruleClassProvider.getConfigurationFragments().stream()
                 .map(factory -> factory.creates())
                 .collect(
                     ImmutableSortedSet.toImmutableSortedSet(

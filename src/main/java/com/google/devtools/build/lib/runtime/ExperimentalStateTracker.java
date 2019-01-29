@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
@@ -257,7 +258,7 @@ class ExperimentalStateTracker {
   void actionStarted(ActionStartedEvent event) {
     Action action = event.getAction();
     String name = action.getPrimaryOutput().getPath().getPathString();
-    Long nanoStartTime = event.getNanoTimeStart();
+    long nanoStartTime = event.getNanoTimeStart();
 
     String status = notStartedActionStatus.remove(name);
     boolean nowExecuting = status != null;

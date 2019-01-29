@@ -32,7 +32,7 @@ public interface Named {
     }
   }
 
-  /** Class whose base class implementes {@link #name}. */
+  /** Class whose base class implements {@link #name}. */
   public static class ExplicitName extends ExplicitNameBase implements Named {
     public ExplicitName(String name) {
       super(name);

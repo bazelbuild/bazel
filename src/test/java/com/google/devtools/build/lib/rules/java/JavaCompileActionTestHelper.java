@@ -15,90 +15,89 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
-import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorpath;
 
 import com.google.devtools.build.buildjar.OptionsParser;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import java.util.List;
 import java.util.Set;
 
+// TODO(djasper): Investigate removing this class and moving the functions to JavaCompileAction.
 /**
  * A collection of utilities for extracting the values of command-line options passed to JavaBuilder
  * from a Java compilation action , for testing.
  */
 public final class JavaCompileActionTestHelper {
 
-  public static Set<String> getDirectJars(SpawnAction javac) throws Exception {
+  public static Set<String> getDirectJars(JavaCompileAction javac) throws Exception {
     return getOptions(javac).directJars();
   }
 
-  public static List<String> getProcessorNames(SpawnAction javac) throws Exception {
+  public static List<String> getProcessorNames(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getProcessorNames();
   }
 
-  public static List<String> getProcessorPath(SpawnAction javac) throws Exception {
+  public static List<String> getProcessorPath(JavaCompileAction javac) throws Exception {
     return getProcessorpath(javac);
   }
 
-  public static List<String> getProcessorpath(SpawnAction javac) throws Exception {
+  public static List<String> getProcessorpath(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getProcessorPath();
   }
 
-  public static List<String> getJavacOpts(SpawnAction javac) throws Exception {
+  public static List<String> getJavacOpts(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getJavacOpts();
   }
 
-  public static List<String> getSourceFiles(SpawnAction javac) throws Exception {
+  public static List<String> getSourceFiles(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getSourceFiles();
   }
 
-  public static List<String> getSourceJars(SpawnAction javac) throws Exception {
+  public static List<String> getSourceJars(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getSourceJars();
   }
 
-  public static StrictDepsMode getStrictJavaDepsMode(SpawnAction javac) throws Exception {
+  public static StrictDepsMode getStrictJavaDepsMode(JavaCompileAction javac) throws Exception {
     String strictJavaDeps = getOptions(javac).getStrictJavaDeps();
     return strictJavaDeps != null ? StrictDepsMode.valueOf(strictJavaDeps) : StrictDepsMode.OFF;
   }
 
-  public static List<String> getClasspath(SpawnAction javac) throws Exception {
+  public static List<String> getClasspath(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getClassPath();
   }
 
-  public static Set<String> getCompileTimeDependencyArtifacts(SpawnAction javac) throws Exception {
+  public static Set<String> getCompileTimeDependencyArtifacts(JavaCompileAction javac)
+      throws Exception {
     return getOptions(javac).getDepsArtifacts();
   }
 
-  public static String getFixDepsTool(SpawnAction javac) throws Exception {
+  public static String getFixDepsTool(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getFixDepsTool();
   }
 
-  public static List<String> getBootClassPath(SpawnAction javac) throws Exception {
+  public static List<String> getBootClassPath(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getBootClassPath();
   }
 
-  public static List<String> getSourcePathEntries(SpawnAction javac) throws Exception {
+  public static List<String> getSourcePathEntries(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getSourcePath();
   }
 
-  public static List<String> getBootclasspath(SpawnAction javac) throws Exception {
+  public static List<String> getBootclasspath(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getBootClassPath();
   }
 
-  public static List<String> getExtdir(SpawnAction javac) throws Exception {
+  public static List<String> getExtdir(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getExtClassPath();
   }
 
   /** Returns the JavaBuilder command line, up to the main class or deploy jar. */
-  public static List<String> getJavacCommand(SpawnAction action) throws Exception {
+  public static List<String> getJavacCommand(JavaCompileAction action) throws Exception {
     List<String> args = action.getCommandLines().allArguments();
     return args.subList(0, mainClassIndex(args));
   }
 
   /** Returns the JavaBuilder options. */
-  public static List<String> getJavacArguments(SpawnAction action) throws Exception {
+  public static List<String> getJavacArguments(JavaCompileAction action) throws Exception {
     List<String> args = action.getCommandLines().allArguments();
     return args.subList(mainClassIndex(args) + 1, args.size());
   }
@@ -118,7 +117,7 @@ public final class JavaCompileActionTestHelper {
     throw new IllegalStateException(args.toString());
   }
 
-  private static OptionsParser getOptions(SpawnAction javac) throws Exception {
+  private static OptionsParser getOptions(JavaCompileAction javac) throws Exception {
     checkArgument(
         javac.getMnemonic().equals("Javac"),
         "expected a Javac action, was %s",

@@ -85,9 +85,7 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
     }
   }
 
-  /**
-   * Add statistics accumulated in another PhaseStatistics object to this one.
-   */
+  /** Add statistics accumulated in another PhaseStatistics object to this one. */
   public void add(PhaseStatistics other) {
     Preconditions.checkArgument(
         phase == other.phase, "Should not combine statistics from different phases");
@@ -107,6 +105,17 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
     }
   }
 
+  /** Helper method to sum up long values within an {@link EnumMap}. */
+  private static <T extends Enum<T>> void add(EnumMap<T, Long> map, T key, long value) {
+    long previous;
+    if (map.containsKey(key)) {
+      previous = map.get(key);
+    } else {
+      previous = 0;
+    }
+    map.put(key, previous + value);
+  }
+
   public ProfilePhase getProfilePhase() {
     return phase;
   }
@@ -123,28 +132,22 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
     return taskCounts.isEmpty();
   }
 
-  /**
-   * @return true if the phase was not executed at all, false otherwise
-   */
+  /** @return true if the phase was not executed at all, false otherwise */
   public boolean wasExecuted() {
     return wasExecuted;
+  }
+
+  /** @return true if a task of the given {@link ProfilerTask} type was executed in this phase */
+  public boolean wasExecuted(ProfilerTask taskType) {
+    Long count = taskCounts.get(taskType);
+    return count != null && count != 0;
   }
 
   public long getPhaseDurationNanos() {
     return phaseDurationNanos;
   }
 
-  /**
-   * @return true if a task of the given {@link ProfilerTask} type was executed in this phase
-   */
-  public boolean wasExecuted(ProfilerTask taskType) {
-    Long count = taskCounts.get(taskType);
-    return count != null && count != 0;
-  }
-
-  /**
-   * @return the sum of all task durations of the given type
-   */
+  /** @return the sum of all task durations of the given type */
   public long getTotalDurationNanos(ProfilerTask taskType) {
     Long duration = taskDurations.get(taskType);
     if (duration == null) {
@@ -205,19 +208,6 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
     return Iterators.filter(
         taskCounts.keySet().iterator(),
         taskType -> getTotalDurationNanos(taskType) > 0 && wasExecuted(taskType));
-  }
-
-  /**
-   * Helper method to sum up long values within an {@link EnumMap}.
-   */
-  private static <T extends Enum<T>> void add(EnumMap<T, Long> map, T key, long value) {
-    long previous;
-    if (map.containsKey(key)) {
-      previous = map.get(key);
-    } else {
-      previous = 0;
-    }
-    map.put(key, previous + value);
   }
 }
 

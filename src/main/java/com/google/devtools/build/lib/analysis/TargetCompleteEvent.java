@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -152,8 +152,8 @@ public final class TargetCompleteEvent
         isTest
             ? targetAndData.getConfiguredTarget().getProvider(TestProvider.class).getTestParams()
             : null;
-    InstrumentedFilesProvider instrumentedFilesProvider =
-        targetAndData.getConfiguredTarget().getProvider(InstrumentedFilesProvider.class);
+    InstrumentedFilesInfo instrumentedFilesProvider =
+        targetAndData.getConfiguredTarget().get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
     if (instrumentedFilesProvider == null) {
       this.baselineCoverageArtifacts = null;
     } else {
@@ -173,8 +173,15 @@ public final class TargetCompleteEvent
           ConfiguredAttributeMapper.of(
               (Rule) targetAndData.getTarget(),
               ((RuleConfiguredTarget) targetAndData.getConfiguredTarget()).getConfigConditions());
-      // Every rule (implicitly) has a "tags" attribute.
-      this.tags = attributes.get("tags", Type.STRING_LIST);
+      // Every build rule (implicitly) has a "tags" attribute. However other rule configured targets
+      // are repository rules (which don't have a tags attribute); morevoer, thanks to the virtual
+      // "external" package, they are user visible as targets and can create a completed event as
+      // well.
+      if (attributes.has("tags", Type.STRING_LIST)) {
+        this.tags = attributes.get("tags", Type.STRING_LIST);
+      } else {
+        this.tags = ImmutableList.of();
+      }
     }
   }
 

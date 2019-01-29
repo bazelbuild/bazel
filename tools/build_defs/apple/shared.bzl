@@ -38,9 +38,6 @@ DARWIN_EXECUTION_REQUIREMENTS = {"requires-darwin": ""}
 
 See :func:`apple_action`."""
 
-XCRUNWRAPPER_LABEL = "//external:xcrunwrapper"
-"""The label for xcrunwrapper tool."""
-
 def label_scoped_path(ctx, path):
     """Return the path scoped to target's label."""
     return ctx.label.name + "/" + path.lstrip("/")

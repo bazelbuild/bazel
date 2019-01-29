@@ -16,6 +16,7 @@ pkg_rpm(
         "//scripts/packages:bazel.bazelrc",
         "//scripts/packages:without-jdk/bazel",
         "//scripts/packages:without-jdk/bazel-real",
+        "//scripts/zsh_completion:_bazel",
     ],
     spec_file = "bazel.spec",
     version_file = "//scripts/packages:version.txt",

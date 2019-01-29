@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 
 /**
  * Provides access to information about Java rules. Every Java-related target provides
@@ -37,62 +40,78 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 public interface JavaSkylarkApiProviderApi<FileT extends FileApi> {
 
   @SkylarkCallable(
-    name = "source_jars",
-    doc = "Returns the Jars containing Java source files for the target.",
-    structField = true
-  )
-  public NestedSet<FileT> getSourceJars();
+      name = "source_jars",
+      doc = "Returns the Jars containing Java source files for the target.",
+      useSkylarkSemantics = true,
+      useLocation = true,
+      structField = true)
+  public NestedSet<FileT> getSourceJars(Location location, SkylarkSemantics semantics)
+      throws EvalException;
 
   @SkylarkCallable(
-    name = "transitive_deps",
-    doc = "Returns the transitive set of Jars required to build the target.",
-    structField = true
-  )
-  public NestedSet<FileT> getTransitiveDeps();
+      name = "transitive_deps",
+      doc = "Returns the transitive set of Jars required to build the target.",
+      useSkylarkSemantics = true,
+      useLocation = true,
+      structField = true)
+  public NestedSet<FileT> getTransitiveDeps(Location location, SkylarkSemantics semantics)
+      throws EvalException;
 
   @SkylarkCallable(
-    name = "transitive_runtime_deps",
-    doc = "Returns the transitive set of Jars required on the target's runtime classpath.",
-    structField = true
-  )
-  public NestedSet<FileT> getTransitiveRuntimeDeps();
+      name = "transitive_runtime_deps",
+      doc = "Returns the transitive set of Jars required on the target's runtime classpath.",
+      useSkylarkSemantics = true,
+      useLocation = true,
+      structField = true)
+  public NestedSet<FileT> getTransitiveRuntimeDeps(Location location, SkylarkSemantics semantics)
+      throws EvalException;
 
   @SkylarkCallable(
-    name = "transitive_source_jars",
-    doc =
-        "Returns the Jars containing Java source files for the target and all of its transitive "
-            + "dependencies.",
-    structField = true
-  )
-  public NestedSet<FileT> getTransitiveSourceJars();
+      name = "transitive_source_jars",
+      doc =
+          "Returns the Jars containing Java source files for the target and all of its transitive "
+              + "dependencies.",
+      useSkylarkSemantics = true,
+      useLocation = true,
+      structField = true)
+  public NestedSet<FileT> getTransitiveSourceJars(Location location, SkylarkSemantics semantics)
+      throws EvalException;
 
   @SkylarkCallable(
-    name = "outputs",
-    doc = "Returns information about outputs of this Java target.",
-    structField = true
-  )
-  public JavaRuleOutputJarsProviderApi<?> getOutputJars();
+      name = "outputs",
+      doc = "Returns information about outputs of this Java target.",
+      useSkylarkSemantics = true,
+      useLocation = true,
+      structField = true)
+  public JavaRuleOutputJarsProviderApi<?> getOutputJars(
+      Location location, SkylarkSemantics semantics) throws EvalException;
 
   @SkylarkCallable(
-    name = "transitive_exports",
-    structField = true,
-    doc = "Returns transitive set of labels that are being exported from this rule."
-  )
-  public NestedSet<Label> getTransitiveExports();
+      name = "transitive_exports",
+      structField = true,
+      useSkylarkSemantics = true,
+      useLocation = true,
+      doc = "Returns transitive set of labels that are being exported from this rule.")
+  public NestedSet<Label> getTransitiveExports(Location location, SkylarkSemantics semantics)
+      throws EvalException;
 
   @SkylarkCallable(
-    name = "annotation_processing",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns information about annotation processing for this Java target."
-  )
-  public JavaAnnotationProcessingApi<?> getGenJarsProvider();
+      name = "annotation_processing",
+      structField = true,
+      allowReturnNones = true,
+      useSkylarkSemantics = true,
+      useLocation = true,
+      doc = "Returns information about annotation processing for this Java target.")
+  public JavaAnnotationProcessingApi<?> getGenJarsProvider(
+      Location location, SkylarkSemantics semantics) throws EvalException;
 
   @SkylarkCallable(
-    name = "compilation_info",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns compilation information for this Java target."
-  )
-  public JavaCompilationInfoProviderApi<?> getCompilationInfoProvider();
+      name = "compilation_info",
+      structField = true,
+      allowReturnNones = true,
+      useSkylarkSemantics = true,
+      useLocation = true,
+      doc = "Returns compilation information for this Java target.")
+  public JavaCompilationInfoProviderApi<?> getCompilationInfoProvider(
+      Location location, SkylarkSemantics semantics) throws EvalException;
 }

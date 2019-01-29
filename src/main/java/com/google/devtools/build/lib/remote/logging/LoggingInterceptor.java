@@ -63,6 +63,8 @@ public class LoggingInterceptor implements ClientInterceptor {
       return new WaitExecutionHandler();
     } else if (method == ActionCacheGrpc.getGetActionResultMethod()) {
       return new GetActionResultHandler();
+    } else if (method == ActionCacheGrpc.getUpdateActionResultMethod()) {
+      return new UpdateActionResultHandler();
     } else if (method == ContentAddressableStorageGrpc.getFindMissingBlobsMethod()) {
       return new FindMissingBlobsHandler();
     } else if (method == ByteStreamGrpc.getReadMethod()) {

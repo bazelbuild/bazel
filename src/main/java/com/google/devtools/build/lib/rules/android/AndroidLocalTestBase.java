@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -38,7 +39,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
-import com.google.devtools.build.lib.rules.android.DataBinding.DataBindingContext;
+import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
+import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -106,7 +108,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             StampedAndroidManifest.getManifestValues(ruleContext),
-            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
+            AndroidAaptVersion.chooseTargetAaptVersion(ruleContext),
+            ruleContext.getExpander().withDataExecLocations().tokenized("nocompress_extensions"));
 
     attributesBuilder.addRuntimeClassPathEntry(resourceApk.getResourceJavaClassJar());
 
@@ -156,7 +159,10 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     String testClass =
         getAndCheckTestClass(ruleContext, ImmutableList.copyOf(attributesBuilder.getSourceFiles()));
     getAndCheckTestSupport(ruleContext);
-    javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
+    if (Whitelist.hasWhitelist(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")
+        && !Whitelist.isAvailable(ruleContext, "multiple_proto_rule_types_in_deps_whitelist")) {
+      javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
+    }
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -265,7 +271,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         mainClass,
         originalMainClass,
         filesToBuildBuilder,
-        javaExecutable);
+        javaExecutable,
+        /* createCoverageMetadataJar= */ true);
 
     Artifact oneVersionOutputArtifact = null;
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
@@ -491,6 +498,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
                 + ".java' and package name doesn't include 'java' or 'javatests'. "
                 + "You might want to rename the rule or add a 'test_class' "
                 + "attribute.)");
+        testClass = "";
       }
     }
     return testClass;
@@ -507,7 +515,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       ResourceDependencies resourceDeps,
       AssetDependencies assetDeps,
       Map<String, String> manifestValues,
-      AndroidAaptVersion aaptVersion)
+      AndroidAaptVersion aaptVersion,
+      List<String> noCompressExtensions)
       throws InterruptedException {
 
     StampedAndroidManifest stamped =
@@ -528,7 +537,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             resources,
             assets,
             resourceDeps,
-            assetDeps)
+            assetDeps,
+            noCompressExtensions)
         .generateRClass(dataContext, aaptVersion);
   }
 

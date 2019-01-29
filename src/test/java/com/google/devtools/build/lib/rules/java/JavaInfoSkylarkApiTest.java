@@ -594,6 +594,41 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void buildHelperCreateJavaInfoPlugins() throws Exception {
+    ruleBuilder().build();
+    scratch.file("java/test/lib.jar");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  export = ':export',",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'plugin_dep',",
+        "    srcs = [ 'ProcessorDep.java'])",
+        "java_plugin(name = 'plugin',",
+        "    srcs = ['AnnotationProcessor.java'],",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [ ':plugin_dep' ])",
+        "java_library(",
+        "  name = 'export',",
+        "  exported_plugins = [ ':plugin'],",
+        ")",
+        "my_rule(name = 'my_skylark_rule',",
+        "        output_jar = 'my_skylark_rule_lib.jar',",
+        "        dep_exports = [':export']",
+        ")");
+    assertNoEvents();
+
+    assertThat(
+            fetchJavaInfo().getProvider(JavaPluginInfoProvider.class).plugins().processorClasses())
+        .containsExactly("com.google.process.stuff");
+  }
+
+  @Test
   public void buildHelperCreateJavaInfoWithOutputJarAndStampJar() throws Exception {
     if (legacyJavaInfoConstructor) {
       // Unsupported mode, don't test this

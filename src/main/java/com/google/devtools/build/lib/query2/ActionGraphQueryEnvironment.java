@@ -31,7 +31,10 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.ActionGraphProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.Callback;
+import com.google.devtools.build.lib.query2.engine.InputsFunction;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
+import com.google.devtools.build.lib.query2.engine.MnemonicFunction;
+import com.google.devtools.build.lib.query2.engine.OutputsFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -58,9 +61,11 @@ import javax.annotation.Nullable;
 public class ActionGraphQueryEnvironment
     extends PostAnalysisQueryEnvironment<ConfiguredTargetValue> {
 
-  public static final ImmutableList<QueryFunction> AQUERY_FUNCTIONS = ImmutableList.of();
+  public static final ImmutableList<QueryFunction> AQUERY_FUNCTIONS = populateAqueryFunctions();
   public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
   AqueryOptions aqueryOptions;
+
+  private AqueryActionFilter actionFilters;
   private final KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
       configuredTargetKeyExtractor;
   private final ConfiguredTargetValueAccessor accessor;
@@ -96,7 +101,7 @@ public class ActionGraphQueryEnvironment
                     : ((BuildConfigurationValue) graph.getValue(element.getConfigurationKey()))
                         .getConfiguration());
           } catch (InterruptedException e) {
-            throw new IllegalStateException("Interruption unexpected in configured query");
+            throw new IllegalStateException("Interruption unexpected in configured query", e);
           }
         };
     this.accessor =
@@ -131,6 +136,10 @@ public class ActionGraphQueryEnvironment
     return ImmutableList.copyOf(QueryEnvironment.DEFAULT_QUERY_FUNCTIONS);
   }
 
+  private static ImmutableList<QueryFunction> populateAqueryFunctions() {
+    return ImmutableList.of(new InputsFunction(), new OutputsFunction(), new MnemonicFunction());
+  }
+
   @Override
   public ConfiguredTargetValueAccessor getAccessor() {
     return accessor;
@@ -148,11 +157,23 @@ public class ActionGraphQueryEnvironment
           PackageManager packageManager) {
     return ImmutableList.of(
         new ActionGraphProtoOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, skyframeExecutor, accessor, OutputType.BINARY),
+            eventHandler,
+            aqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            OutputType.BINARY,
+            actionFilters),
         new ActionGraphProtoOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, skyframeExecutor, accessor, OutputType.TEXT),
+            eventHandler,
+            aqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            OutputType.TEXT,
+            actionFilters),
         new ActionGraphTextOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, skyframeExecutor, accessor));
+            eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters));
   }
 
   @Override
@@ -235,7 +256,7 @@ public class ActionGraphQueryEnvironment
           : ((BuildConfigurationValue) graph.getValue(target.getConfigurationKey()))
               .getConfiguration();
     } catch (InterruptedException e) {
-      throw new IllegalStateException("Unexpected interruption during aquery");
+      throw new IllegalStateException("Unexpected interruption during aquery", e);
     }
   }
 
@@ -311,5 +332,9 @@ public class ActionGraphQueryEnvironment
         configuredTargetKeyExtractor,
         ConfiguredTargetValue.class,
         SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
+  }
+
+  public void setActionFilters(AqueryActionFilter actionFilters) {
+    this.actionFilters = actionFilters;
   }
 }

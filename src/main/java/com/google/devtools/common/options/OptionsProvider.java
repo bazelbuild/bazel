@@ -22,17 +22,19 @@ import javax.annotation.Nullable;
  * a specific class, but not e.g. the residue any other information pertaining to the command line.
  */
 public interface OptionsProvider {
-  public static final OptionsProvider EMPTY = new OptionsProvider() {
-    @Override @Nullable
-    public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
-      return null;
-    }
+  public static final OptionsProvider EMPTY =
+      new OptionsProvider() {
+        @Override
+        @Nullable
+        public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
+          return null;
+        }
 
-    @Override
-    public Map<String, Object> getSkylarkOptions() {
-      return ImmutableMap.of();
-    }
-  };
+        @Override
+        public Map<String, Object> getStarlarkOptions() {
+          return ImmutableMap.of();
+        }
+      };
 
   /**
    * Returns the options instance for the given {@code optionsClass}, that is,
@@ -44,13 +46,13 @@ public interface OptionsProvider {
   @Nullable <O extends OptionsBase> O getOptions(Class<O> optionsClass);
 
   /**
-   * Returns the skylark options in a name:value map.
+   * Returns the starlark options in a name:value map.
    *
    * <p>These follow the basics of the option syntax, --<name>=<value> but are parsed and stored
    * differently than native options based on <name> starting with "//". This is a sufficient
-   * demarcation between skylark flags and native flags for now since all skylark flags are targets
-   * and are identified by their package path. But in the future when we implement short names for
-   * skylark options, this will need to change.
+   * demarcation between starlark flags and native flags for now since all starlark flags are
+   * targets and are identified by their package path. But in the future when we implement short
+   * names for starlark options, this will need to change.
    */
-  Map<String, Object> getSkylarkOptions();
+  Map<String, Object> getStarlarkOptions();
 }

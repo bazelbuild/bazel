@@ -57,10 +57,6 @@ cc_library(
     name = "malloc",
 )
 
-cc_library(
-    name = "stl",
-)
-
 filegroup(
     name = "grep-includes",
     srcs = ["grep-includes.sh"],
@@ -91,17 +87,17 @@ cc_toolchain_suite(
         "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
         "darwin|compiler": ":cc-compiler-darwin",
         "freebsd|compiler": ":cc-compiler-freebsd",
-        "local|compiler": ":cc-compiler-local-local",
+        "local|compiler": ":cc-compiler-local",
         "x64_windows|compiler": ":cc-compiler-x64_windows",
         "x64_windows_msvc|compiler": ":cc-compiler-x64_windows_msvc",
         "ppc|compiler": ":cc-compiler-ppc",
-        "k8": ":cc-compiler-local-k8",
-        "piii": ":cc-compiler-local-piii",
-        "arm": ":cc-compiler-local-arm",
-        "aarch64": ":cc-compiler-local-aarch64",
-        "s390x": ":cc-compiler-local-s390x",
-        "ppc": ":cc-compiler-local-ppc",
-        "ppc64": ":cc-compiler-local-ppc64",
+        "k8": ":cc-compiler-local",
+        "piii": ":cc-compiler-local",
+        "arm": ":cc-compiler-local",
+        "aarch64": ":cc-compiler-local",
+        "s390x": ":cc-compiler-local",
+        "ppc": ":cc-compiler-local",
+        "ppc64": ":cc-compiler-local",
         "darwin": ":cc-compiler-darwin",
         "freebsd": ":cc-compiler-freebsd",
         "armeabi-v7a": ":cc-compiler-armeabi-v7a",
@@ -113,6 +109,8 @@ cc_toolchain_suite(
 cc_toolchain(
     name = "cc-compiler-local",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
@@ -128,10 +126,8 @@ cc_toolchain(
 toolchain(
     name = "cc-toolchain-local",
     exec_compatible_with = [
-        "@bazel_tools//platforms:autoconfigured",
     ],
     target_compatible_with = [
-        "@bazel_tools//platforms:autoconfigured",
     ],
     toolchain = ":cc-compiler-local",
     toolchain_type = ":toolchain_type",
@@ -140,6 +136,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-ppc",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "ppc",
     dwp_files = ":empty",
@@ -167,6 +165,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
@@ -194,6 +194,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-k8",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
@@ -223,6 +225,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-darwin",
     all_files = ":osx_wrapper",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":osx_wrapper",
     cpu = "darwin",
     dwp_files = ":empty",
@@ -252,6 +256,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-freebsd",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
@@ -281,6 +287,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-x64_windows",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
     dwp_files = ":empty",
@@ -310,6 +318,8 @@ toolchain(
 cc_toolchain(
     name = "cc-compiler-x64_windows_msvc",
     all_files = ":every-file-x64_windows",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":compile-x64_windows",
     cpu = "x64_windows",
     dwp_files = ":empty",

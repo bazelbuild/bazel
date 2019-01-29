@@ -25,7 +25,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@code SandboxOptions}. */
 @RunWith(JUnit4.class)
-public final class SandboxOptionsTest extends SandboxTestCase {
+public final class SandboxOptionsTest {
 
   private ImmutableMap.Entry<String, String> pathPair;
 

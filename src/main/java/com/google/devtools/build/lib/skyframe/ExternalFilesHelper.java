@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -183,7 +183,7 @@ public class ExternalFilesHelper {
       return FileType.EXTERNAL;
     }
     if (rootedPath.asPath().startsWith(outputBase)) {
-      Path externalRepoDir = outputBase.getRelative(Label.EXTERNAL_PACKAGE_NAME);
+      Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME);
       if (rootedPath.asPath().startsWith(externalRepoDir)) {
         anyNonOutputExternalFilesSeen = true;
         return FileType.EXTERNAL_REPO;

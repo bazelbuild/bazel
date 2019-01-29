@@ -206,6 +206,14 @@ EOF
   cat > pkgloadingerror/BUILD <<'EOF'
 load("//bzl:bzl.bzl", "x")
 EOF
+  mkdir -p fancyOutput
+  cat > fancyOutput/BUILD <<'EOF'
+genrule(
+  name = "withFancyOutput",
+  outs = ["out.txt"],
+  cmd = "echo $$'\\xF0\\x9F\\x8D\\x83'; echo Hello World > $@",
+)
+EOF
 }
 
 #### TESTS #############################################################
@@ -286,10 +294,16 @@ function test_query_spacing() {
   BAZEL_QUERY_OUTPUT=`bazel query --experimental_ui 'deps(//pkg:true)'`
   echo "$BAZEL_QUERY_OUTPUT" | grep -q -v '^[@/]' \
    && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<" || true
-  if ! is_windows; then
+  if ! $is_windows; then
     echo "$BAZEL_QUERY_OUTPUT" | grep -q $'\r' \
      && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<" || true
   fi
+}
+
+function test_query_progress() {
+  # Verify that some form of progress is reported during bazel query
+  bazel query --experimental_ui 'deps(//pkg:true)' 2> "${TEST_log}"
+  expect_log 'Loading:.*packages loaded'
 }
 
 function test_clean_nobuild {
@@ -471,6 +485,7 @@ function test_error_message_despite_output_limit {
     bazel version
     bazel build --experimental_ui --curses=yes --color=yes \
           --experimental_ui_limit_console_output=10240 \
+          --noexperimental_ui_deduplicate \
           pkg/errorAfterWarning:failing >"${TEST_log}" 2>&1 \
         && fail "expected failure" || :
     expect_log 'This is the error message'
@@ -486,7 +501,9 @@ function test_error_message_despite_output_limit {
     expect_log "dropped.*console"
 }
 
-function test_experimental_ui_attempt_to_print_relative_paths_failing_action() {
+function run_test_attempt_to_print_relative_paths_failing_action() {
+    local ui="$1"
+
     # On the BazelCI Windows environment, `pwd` returns a string that uses a
     # lowercase drive letter and unix-style path separators (e.g. '/c/') with
     # a lowercase drive letter. But internally in Bazel, Path#toString
@@ -499,38 +516,64 @@ function test_experimental_ui_attempt_to_print_relative_paths_failing_action() {
     [[ "$is_windows" == "true" ]] && return 0
 
     bazel clean || fail "${PRODUCT_NAME} clean failed"
+
     bazel build \
-        --experimental_ui \
-        --experimental_ui_attempt_to_print_relative_paths=false \
+        "$ui" \
+        --attempt_to_print_relative_paths=false \
         error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
     expect_log "^ERROR: $(pwd)/error/BUILD:1:1: Executing genrule"
 
     bazel build \
-        --experimental_ui \
-        --experimental_ui_attempt_to_print_relative_paths=true \
+        "$ui" \
+        --attempt_to_print_relative_paths=true \
         error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
     expect_log "^ERROR: error/BUILD:1:1: Executing genrule"
     expect_not_log "$(pwd)/error/BUILD"
 }
 
-function test_experimental_ui_attempt_to_print_relative_paths_package_loading_error() {
+function test_experimental_ui_attempt_to_print_relative_paths_failing_action() {
+  run_test_attempt_to_print_relative_paths_failing_action "--experimental_ui"
+}
+
+function test_noexperimental_ui_attempt_to_print_relative_paths_failing_action() {
+  run_test_attempt_to_print_relative_paths_failing_action "--noexperimental_ui"
+}
+
+function run_test_attempt_to_print_relative_paths_pkg_error() {
+    local ui="$1"
+
     # See the note in the test case above for why this is disabled on Windows.
     # TODO(nharmata): Fix this.
     [[ "$is_windows" == "true" ]] && return 0
 
     bazel clean || fail "${PRODUCT_NAME} clean failed"
+
     bazel build \
-        --experimental_ui \
-        --experimental_ui_attempt_to_print_relative_paths=false \
+        "$ui" \
+        --attempt_to_print_relative_paths=false \
         pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
     expect_log "^ERROR: $(pwd)/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
 
     bazel build \
-        --experimental_ui \
-        --experimental_ui_attempt_to_print_relative_paths=true \
+        "$ui" \
+        --attempt_to_print_relative_paths=true \
         pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
     expect_log "^ERROR: bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
     expect_not_log "$(pwd)/bzl/bzl.bzl"
+}
+
+function test_experimental_ui_attempt_to_print_relative_paths_pkg_error() {
+  run_test_attempt_to_print_relative_paths_pkg_error "--experimental_ui"
+}
+
+function test_noexperimental_ui_attempt_to_print_relative_paths_pkg_error() {
+  run_test_attempt_to_print_relative_paths_pkg_error "--noexperimental_ui"
+}
+
+function test_fancy_symbol_encoding() {
+    bazel build //fancyOutput:withFancyOutput > "${TEST_log}" 2>&1 \
+        || fail "expected success"
+    expect_log $'\xF0\x9F\x8D\x83'
 }
 
 run_suite "Integration tests for ${PRODUCT_NAME}'s experimental UI"

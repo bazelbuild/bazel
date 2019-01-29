@@ -2,7 +2,7 @@
 ## my_rule
 
 <pre>
-my_rule(name, first, second)
+my_rule(<a href="#my_rule-name">name</a>, <a href="#my_rule-first">first</a>, <a href="#my_rule-second">second</a>)
 </pre>
 
 This is my rule. It does stuff.
@@ -15,28 +15,28 @@ This is my rule. It does stuff.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="#my_rule_name">
+    <tr id="my_rule-name">
       <td><code>name</code></td>
       <td>
-        String; required
+        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
         <p>
           A unique name for this target.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_first">
+    <tr id="my_rule-first">
       <td><code>first</code></td>
       <td>
-        Label; required
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
         <p>
           first my_rule doc string
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_second">
+    <tr id="my_rule-second">
       <td><code>second</code></td>
       <td>
-        Dictionary: String -> String; required
+        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
       </td>
     </tr>
   </tbody>

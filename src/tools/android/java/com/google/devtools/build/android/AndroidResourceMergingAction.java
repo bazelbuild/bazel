@@ -303,9 +303,7 @@ public class AndroidResourceMergingAction {
                 tmp.resolve("res_no_binding"),
                 mergedData.getResourceDir(),
                 options.dataBindingInfoOut,
-                packageType,
                 options.packageForR,
-                options.primaryManifest,
                 true);
 
         // For now, try compressing the library resources that we pass to the validator. This takes

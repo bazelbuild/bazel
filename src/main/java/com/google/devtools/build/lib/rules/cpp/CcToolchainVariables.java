@@ -27,14 +27,15 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -65,6 +66,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      * @param variables binding of variable names to their values for a single flag expansion.
      */
     String expand(CcToolchainVariables variables);
+
+    String getString();
   }
 
   /** A plain text chunk of a string (containing no variables). */
@@ -99,6 +102,11 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     public int hashCode() {
       return Objects.hash(text);
+    }
+
+    @Override
+    public String getString() {
+      return text;
     }
   }
 
@@ -138,6 +146,11 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public int hashCode() {
       return Objects.hash(variableName);
     }
+
+    @Override
+    public String getString() {
+      return "%{" + variableName + "}";
+    }
   }
 
   /**
@@ -168,7 +181,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     private final ImmutableList.Builder<StringChunk> chunks = ImmutableList.builder();
     private final ImmutableSet.Builder<String> usedVariables = ImmutableSet.builder();
 
-    public StringValueParser(String value) throws InvalidConfigurationException {
+    public StringValueParser(String value) throws EvalException {
       this.value = value;
       parse();
     }
@@ -186,9 +199,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /**
      * Parses the string.
      *
-     * @throws InvalidConfigurationException if there is a parsing error.
+     * @throws EvalException if there is a parsing error.
      */
-    private void parse() throws InvalidConfigurationException {
+    private void parse() throws EvalException {
       while (current < value.length()) {
         if (atVariableStart()) {
           parseVariableChunk();
@@ -233,9 +246,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /**
      * Parses a variable to be expanded.
      *
-     * @throws InvalidConfigurationException if there is a parsing error.
+     * @throws EvalException if there is a parsing error.
      */
-    private void parseVariableChunk() throws InvalidConfigurationException {
+    private void parseVariableChunk() throws EvalException {
       current = current + 1;
       if (current >= value.length() || value.charAt(current) != '{') {
         abort("expected '{'");
@@ -252,12 +265,19 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     /**
-     * @throws InvalidConfigurationException with the given error text, adding information about
-     * the current position in the string.
+     * @throws EvalException with the given error text, adding information about the current
+     *     position in the string.
      */
-    private void abort(String error) throws InvalidConfigurationException {
-      throw new InvalidConfigurationException("Invalid toolchain configuration: " + error
-          + " at position " + current + " while parsing a flag containing '" + value + "'");
+    private void abort(String error) throws EvalException {
+      throw new EvalException(
+          Location.BUILTIN,
+          "Invalid toolchain configuration: "
+              + error
+              + " at position "
+              + current
+              + " while parsing a flag containing '"
+              + value
+              + "'");
     }
   }
 

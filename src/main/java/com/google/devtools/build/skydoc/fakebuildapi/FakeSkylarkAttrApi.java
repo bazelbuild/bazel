@@ -16,12 +16,13 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor.Type;
+import com.google.devtools.build.skydoc.rendering.AttributeInfo.Type;
 
 /**
  * Fake implementation of {@link SkylarkAttrApi}.
@@ -29,91 +30,194 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor.Type;
 public class FakeSkylarkAttrApi implements SkylarkAttrApi {
 
   @Override
-  public Descriptor intAttribute(Integer defaultInt, String doc, Boolean mandatory,
-      SkylarkList<?> values, FuncallExpression ast, Environment env) throws EvalException {
+  public Descriptor intAttribute(
+      Integer defaultInt,
+      String doc,
+      Boolean mandatory,
+      SkylarkList<?> values,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
+      throws EvalException {
     return new FakeDescriptor(Type.INT, doc, mandatory);
   }
 
   @Override
-  public Descriptor stringAttribute(String defaultString, String doc, Boolean mandatory,
-      SkylarkList<?> values, FuncallExpression ast, Environment env) throws EvalException {
+  public Descriptor stringAttribute(
+      String defaultString,
+      String doc,
+      Boolean mandatory,
+      SkylarkList<?> values,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
+      throws EvalException {
     return new FakeDescriptor(Type.STRING, doc, mandatory);
   }
 
   @Override
-  public Descriptor labelAttribute(Object defaultO, String doc, Boolean executable,
-      Object allowFiles, Object allowSingleFile, Boolean mandatory, SkylarkList<?> providers,
-      Object allowRules, Boolean singleFile, Object cfg, SkylarkList<?> aspects,
-      FuncallExpression ast, Environment env) throws EvalException {
+  public Descriptor labelAttribute(
+      Object defaultO,
+      String doc,
+      Boolean executable,
+      Object allowFiles,
+      Object allowSingleFile,
+      Boolean mandatory,
+      SkylarkList<?> providers,
+      Object allowRules,
+      Boolean singleFile,
+      Object cfg,
+      SkylarkList<?> aspects,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
+      throws EvalException {
     return new FakeDescriptor(Type.LABEL, doc, mandatory);
   }
 
   @Override
-  public Descriptor stringListAttribute(Boolean mandatory, Boolean nonEmpty, Boolean allowEmpty,
-      SkylarkList<?> defaultList, String doc, FuncallExpression ast, Environment env)
+  public Descriptor stringListAttribute(
+      Boolean mandatory,
+      Boolean nonEmpty,
+      Boolean allowEmpty,
+      SkylarkList<?> defaultList,
+      String doc,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
       throws EvalException {
     return new FakeDescriptor(Type.STRING_LIST, doc, mandatory);
   }
 
   @Override
-  public Descriptor intListAttribute(Boolean mandatory, Boolean nonEmpty, Boolean allowEmpty,
-      SkylarkList<?> defaultList, String doc, FuncallExpression ast, Environment env)
+  public Descriptor intListAttribute(
+      Boolean mandatory,
+      Boolean nonEmpty,
+      Boolean allowEmpty,
+      SkylarkList<?> defaultList,
+      String doc,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
       throws EvalException {
     return new FakeDescriptor(Type.INT_LIST, doc, mandatory);
   }
 
   @Override
-  public Descriptor labelListAttribute(Boolean allowEmpty, Object defaultList, String doc,
-      Object allowFiles, Object allowRules, SkylarkList<?> providers, SkylarkList<?> flags,
-      Boolean mandatory, Boolean nonEmpty, Object cfg, SkylarkList<?> aspects,
-      FuncallExpression ast, Environment env) throws EvalException {
+  public Descriptor labelListAttribute(
+      Boolean allowEmpty,
+      Object defaultList,
+      String doc,
+      Object allowFiles,
+      Object allowRules,
+      SkylarkList<?> providers,
+      SkylarkList<?> flags,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      Object cfg,
+      SkylarkList<?> aspects,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
+      throws EvalException {
     return new FakeDescriptor(Type.LABEL_LIST, doc, mandatory);
   }
 
   @Override
-  public Descriptor labelKeyedStringDictAttribute(Boolean allowEmpty, Object defaultList,
-      String doc, Object allowFiles, Object allowRules, SkylarkList<?> providers,
-      SkylarkList<?> flags, Boolean mandatory, Boolean nonEmpty, Object cfg, SkylarkList<?> aspects,
-      FuncallExpression ast, Environment env) throws EvalException {
+  public Descriptor labelKeyedStringDictAttribute(
+      Boolean allowEmpty,
+      Object defaultList,
+      String doc,
+      Object allowFiles,
+      Object allowRules,
+      SkylarkList<?> providers,
+      SkylarkList<?> flags,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      Object cfg,
+      SkylarkList<?> aspects,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
+      throws EvalException {
     return new FakeDescriptor(Type.LABEL_STRING_DICT, doc, mandatory);
   }
 
   @Override
-  public Descriptor boolAttribute(Boolean defaultO, String doc, Boolean mandatory,
-      FuncallExpression ast, Environment env) throws EvalException {
+  public Descriptor boolAttribute(
+      Boolean defaultO,
+      String doc,
+      Boolean mandatory,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
+      throws EvalException {
     return new FakeDescriptor(Type.BOOLEAN, doc, mandatory);
   }
 
   @Override
-  public Descriptor outputAttribute(Object defaultO, String doc, Boolean mandatory,
-      FuncallExpression ast, Environment env) throws EvalException {
+  public Descriptor outputAttribute(
+      Object defaultO,
+      String doc,
+      Boolean mandatory,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
+      throws EvalException {
     return new FakeDescriptor(Type.OUTPUT, doc, mandatory);
   }
 
   @Override
-  public Descriptor outputListAttribute(Boolean allowEmpty, Object defaultList, String doc,
-      Boolean mandatory, Boolean nonEmpty, FuncallExpression ast, Environment env)
+  public Descriptor outputListAttribute(
+      Boolean allowEmpty,
+      Object defaultList,
+      String doc,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
       throws EvalException {
     return new FakeDescriptor(Type.OUTPUT_LIST, doc, mandatory);
   }
 
   @Override
-  public Descriptor stringDictAttribute(Boolean allowEmpty, SkylarkDict<?, ?> defaultO, String doc,
-      Boolean mandatory, Boolean nonEmpty, FuncallExpression ast, Environment env)
+  public Descriptor stringDictAttribute(
+      Boolean allowEmpty,
+      SkylarkDict<?, ?> defaultO,
+      String doc,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
       throws EvalException {
     return new FakeDescriptor(Type.STRING_DICT, doc, mandatory);
   }
 
   @Override
-  public Descriptor stringListDictAttribute(Boolean allowEmpty, SkylarkDict<?, ?> defaultO,
-      String doc, Boolean mandatory, Boolean nonEmpty, FuncallExpression ast, Environment env)
+  public Descriptor stringListDictAttribute(
+      Boolean allowEmpty,
+      SkylarkDict<?, ?> defaultO,
+      String doc,
+      Boolean mandatory,
+      Boolean nonEmpty,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
       throws EvalException {
     return new FakeDescriptor(Type.STRING_LIST_DICT, doc, mandatory);
   }
 
   @Override
-  public Descriptor licenseAttribute(Object defaultO, String doc, Boolean mandatory,
-      FuncallExpression ast, Environment env) throws EvalException {
+  public Descriptor licenseAttribute(
+      Object defaultO,
+      String doc,
+      Boolean mandatory,
+      FuncallExpression ast,
+      Environment env,
+      StarlarkContext context)
+      throws EvalException {
     return new FakeDescriptor(Type.LICENSE, doc, mandatory);
   }
 

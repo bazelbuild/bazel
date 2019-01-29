@@ -59,12 +59,18 @@ fi
 
 #### HELPER FUNCTIONS ##################################################
 
+if ! type try_with_timeout >&/dev/null; then
+  # Bazel's testenv.sh defines try_with_timeout but the Google-internal version
+  # uses a different testenv.sh.
+  function try_with_timeout() { $* ; }
+fi
+
 function set_up() {
     cd ${WORKSPACE_DIR}
 }
 
 function tear_down() {
-    bazel shutdown
+  try_with_timeout bazel shutdown
 }
 
 # Looks for the last occurrence of a log message in a log file.
@@ -95,12 +101,9 @@ function assert_cache_stats() {
 
   local java_log
   java_log="$(bazel info server_log 2>/dev/null)" || fail "bazel info failed"
-  local last="$(grep "CacheFileDigestsModule" "${java_log}")"
-  [ -n "${last}" ] || fail "Could not find cache stats in log"
-  if ! echo "${last}" | grep -q "${metric}=${exp_value}"; then
-    echo "Last cache stats: ${last}" >>"${TEST_log}"
-    fail "${metric} was not ${exp_value}"
-  fi
+  grep "CacheFileDigestsModule" "${java_log}" >"${TEST_log}"
+  [ -s "${TEST_log}" ] || fail "Could not find cache stats in log"
+  expect_log "${metric}=${exp_value}"
 }
 
 #### TESTS #############################################################
@@ -251,41 +254,6 @@ function test_cache_computed_file_digests_ui() {
       "Digests cache not reenabled"
 }
 
-function do_threading_default_auto_test() {
-  local context="${1}"; shift
-  local flag_name="${1}"; shift
-
-  local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg" || fail "could not create \"$pkg\""
-
-  mkdir -p $pkg/package || fail "mkdir failed"
-  echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >$pkg/package/BUILD
-  echo "int foo(void) { return 0; }" >$pkg/package/foo.cc
-
-  # The default value of the flag under test is only read if it is not set
-  # explicitly.  Do not use a bazelrc here as it would break the test.
-  local java_log
-  java_log="$(bazel --nomaster_bazelrc --bazelrc=/dev/null info server_log \
-      2>/dev/null)" || fail "bazel info should work"
-  bazel --nomaster_bazelrc --bazelrc=/dev/null build $pkg/package:foo \
-      >>"${TEST_log}" 2>&1 || fail "Should build"
-
-  assert_last_log \
-      "${context}" \
-      "Flag \"${flag_name}\" was set to \"auto\"" \
-      "${java_log}" \
-      "--${flag_name} was not set to auto by default"
-}
-
-function test_jobs_default_auto() {
-  do_threading_default_auto_test "BuildRequest" "jobs"
-}
-
-function test_loading_phase_threads_default_auto() {
-  do_threading_default_auto_test "LoadingPhaseThreadsOption" \
-      "loading_phase_threads"
-}
-
 function test_analysis_warning_cached() {
   mkdir -p "foo" "bar" || fail "Could not create directories"
   cat > foo/BUILD <<'EOF' || fail "foo/BUILD"
@@ -309,5 +277,35 @@ EOF
   expect_log "WARNING: .*: foo warning"
 }
 
+function test_max_open_file_descriptors() {
+  echo "nfiles: hard $(ulimit -H -n), soft $(ulimit -S -n)"
+
+  local exp_nfiles="$(ulimit -H -n)"
+  if [[ "$(uname -s)" == Darwin && "${exp_nfiles}" == unlimited ]]; then
+    exp_nfiles="$(/usr/sbin/sysctl -n kern.maxfilesperproc)"
+  elif "${is_windows}"; then
+    # We do not implement the resources unlimiting feature on Windows at
+    # the moment... so just expect the soft limit to remain unchanged.
+    exp_nfiles="$(ulimit -S -n)"
+  fi
+  echo "Will expect soft nfiles to be ${exp_nfiles}"
+
+  mkdir -p "pkg" || fail "Could not create directory"
+  cat > pkg/BUILD <<'EOF' || fail "Could not create test file"
+genrule(
+    name = "nfiles",
+    outs = ["nfiles-soft"],
+    cmd = "mkdir -p pkg && ulimit -S -n >$(location nfiles-soft)",
+)
+EOF
+  bazel build //pkg:nfiles >& "${TEST_log}" || fail "Expected success"
+  local soft="$(cat bazel-genfiles/pkg/nfiles-soft)"
+
+  # Make sure that the soft limit was raised to the expected hard value.
+  # Our code doesn't touch the hard limit (even in the case "unlimited" case
+  # handled above) and that's OK: if we were able to set the soft limit to a
+  # high value, the hard limit must already be the same or higher.
+  assert_equals "${exp_nfiles}" "${soft}"
+}
 
 run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."

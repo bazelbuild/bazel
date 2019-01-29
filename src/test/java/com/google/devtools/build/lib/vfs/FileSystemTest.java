@@ -1021,7 +1021,7 @@ public abstract class FileSystemTest {
       xEmptyDirectory.renameTo(xNonEmptyDirectory);
       fail();
     } catch (IOException e) {
-      assertThat(e).hasMessageThat().endsWith(" (Directory not empty)");
+      assertThat(e).hasMessageThat().containsMatch("\\((File exists|Directory not empty)\\)$");
     }
   }
 
@@ -1340,7 +1340,7 @@ public abstract class FileSystemTest {
     try {
       xNothing.stat();
       fail("Expected IOException");
-    } catch(IOException e) {
+    } catch (IOException e) {
       // Do nothing.
     }
   }

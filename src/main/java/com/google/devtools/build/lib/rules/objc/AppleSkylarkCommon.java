@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
@@ -236,12 +238,19 @@ public class AppleSkylarkCommon
 
   @Override
   public StructImpl linkMultiArchBinary(
-      SkylarkRuleContextApi skylarkRuleContextApi, Environment environment)
+      SkylarkRuleContextApi skylarkRuleContextApi,
+      SkylarkList<String> extraLinkopts,
+      SkylarkList<? extends FileApi> extraLinkInputs,
+      Environment environment)
       throws EvalException, InterruptedException {
     SkylarkRuleContext skylarkRuleContext = (SkylarkRuleContext) skylarkRuleContextApi;
     try {
       RuleContext ruleContext = skylarkRuleContext.getRuleContext();
-      AppleBinaryOutput appleBinaryOutput = AppleBinary.linkMultiArchBinary(ruleContext);
+      AppleBinaryOutput appleBinaryOutput =
+          AppleBinary.linkMultiArchBinary(
+              ruleContext,
+              extraLinkopts.getImmutableList(),
+              SkylarkList.castList(extraLinkInputs, Artifact.class, "extra_link_inputs"));
       return createAppleBinaryOutputSkylarkStruct(appleBinaryOutput, environment);
     } catch (RuleErrorException | ActionConflictException exception) {
       throw new EvalException(null, exception);

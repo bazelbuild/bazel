@@ -54,6 +54,17 @@ public class AggregatedCriticalPath {
     return criticalPathComponents;
   }
 
+  public String getNewStringSummary() {
+    Duration overheadTime =
+        aggregatedSpawnMetrics.totalTime().minus(aggregatedSpawnMetrics.executionWallTime());
+    return
+        String.format(
+            "Critical path %.2fs (setup %.2fs, action wall time %.2fs)",
+            totalTime.toMillis() / 1000.0,
+            overheadTime.toMillis() / 1000.0,
+            aggregatedSpawnMetrics.executionWallTime().toMillis() / 1000.0);
+  }
+
   @Override
   public String toString() {
     return toString(false, true);

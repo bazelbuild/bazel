@@ -420,7 +420,7 @@ public class DataResourceXml implements DataResource {
 
   @Override
   public String asConflictString() {
-    return source.asConflictString();
+    return xml.asConflictStringWith(source);
   }
 
   @Override

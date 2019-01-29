@@ -100,5 +100,10 @@ public final class CreateIncSymlinkAction extends AbstractAction {
   public String getMnemonic() {
     return "Symlink";
   }
+
+  @Override
+  public boolean mayInsensitivelyPropagateInputs() {
+    return true;
+  }
 }
 

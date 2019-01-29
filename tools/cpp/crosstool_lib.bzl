@@ -178,7 +178,7 @@ def get_features_to_appear_first(platform):
         simple_feature(
             "force_pic_flags",
             ["c++-link-executable"],
-            ["-pie"],
+            [_force_pic_flag(platform)],
             expand_if_all_available = ["force_pic"],
         ),
         simple_feature(
@@ -311,6 +311,16 @@ def _runtime_library_directory_flag(platform):
         return "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}"
     elif _is_darwin(platform):
         return "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}"
+    elif _is_msvc(platform):
+        fail("todo")
+    else:
+        fail("Unsupported platform: " + platform)
+
+def _force_pic_flag(platform):
+    if _is_linux(platform):
+        return "-pie"
+    elif _is_darwin(platform):
+        return "-Wl,-pie"
     elif _is_msvc(platform):
         fail("todo")
     else:

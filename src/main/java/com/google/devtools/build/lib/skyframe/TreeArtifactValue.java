@@ -24,11 +24,17 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.BigIntegerFingerprint;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -38,7 +44,7 @@ import javax.annotation.Nullable;
  * {@link TreeFileArtifact}s.
  */
 @AutoCodec
-class TreeArtifactValue implements SkyValue {
+public class TreeArtifactValue implements SkyValue {
   private static final Function<Artifact, PathFragment> PARENT_RELATIVE_PATHS =
       new Function<Artifact, PathFragment>() {
         @Override
@@ -49,6 +55,7 @@ class TreeArtifactValue implements SkyValue {
 
   private final byte[] digest;
   private final Map<TreeFileArtifact, FileArtifactValue> childData;
+  private BigInteger valueFingerprint;
 
   @AutoCodec.VisibleForSerialization
   TreeArtifactValue(byte[] digest, Map<TreeFileArtifact, FileArtifactValue> childData) {
@@ -95,6 +102,16 @@ class TreeArtifactValue implements SkyValue {
 
   Map<TreeFileArtifact, FileArtifactValue> getChildValues() {
     return childData;
+  }
+
+  @Override
+  public BigInteger getValueFingerprint() {
+    if (valueFingerprint == null) {
+      BigIntegerFingerprint fp = new BigIntegerFingerprint();
+      fp.addBytes(digest);
+      valueFingerprint = fp.getFingerprint();
+    }
+    return valueFingerprint;
   }
 
   @Override
@@ -184,12 +201,14 @@ class TreeArtifactValue implements SkyValue {
   private static void explodeDirectory(Path treeArtifactPath,
       PathFragment pathToExplode, ImmutableSet.Builder<PathFragment> valuesBuilder)
       throws IOException {
-    for (Path subpath : treeArtifactPath.getRelative(pathToExplode).getDirectoryEntries()) {
-      PathFragment canonicalSubpathFragment = pathToExplode.getChild(subpath.getBaseName());
-      if (subpath.isDirectory()) {
-        explodeDirectory(treeArtifactPath,
-            pathToExplode.getChild(subpath.getBaseName()), valuesBuilder);
-      } else if (subpath.isSymbolicLink()) {
+    Path dir = treeArtifactPath.getRelative(pathToExplode);
+    Collection<Dirent> dirents = dir.readdir(Symlinks.NOFOLLOW);
+    for (Dirent dirent : dirents) {
+      PathFragment canonicalSubpathFragment = pathToExplode.getChild(dirent.getName());
+      if (dirent.getType() == Type.DIRECTORY) {
+        explodeDirectory(treeArtifactPath, canonicalSubpathFragment, valuesBuilder);
+      } else if (dirent.getType() == Type.SYMLINK) {
+        Path subpath = dir.getRelative(dirent.getName());
         PathFragment linkTarget = subpath.readSymbolicLinkUnchecked();
         valuesBuilder.add(canonicalSubpathFragment);
         if (linkTarget.isAbsolute()) {
@@ -214,22 +233,24 @@ class TreeArtifactValue implements SkyValue {
             throw new IOException(errorMessage);
           }
         }
-      } else if (subpath.isFile()) {
+      } else if (dirent.getType() == Type.FILE) {
         valuesBuilder.add(canonicalSubpathFragment);
       } else {
         // We shouldn't ever reach here.
+        Path subpath = dir.getRelative(dirent.getName());
         throw new IllegalStateException("Could not determine type of file " + subpath);
       }
     }
   }
 
   /**
-   * Recursively get all child files in a directory
-   * (excluding child directories themselves, but including all files in them).
-   * @throws IOException if there is any problem reading or validating outputs under the given
-   *     tree artifact.
+   * Recursively get all child files in a directory (excluding child directories themselves, but
+   * including all files in them).
+   *
+   * @throws IOException if there is any problem reading or validating outputs under the given tree
+   *     artifact.
    */
-  static Set<PathFragment> explodeDirectory(Path treeArtifactPath) throws IOException {
+  public static Set<PathFragment> explodeDirectory(Path treeArtifactPath) throws IOException {
     ImmutableSet.Builder<PathFragment> explodedDirectory = ImmutableSet.builder();
     explodeDirectory(treeArtifactPath, PathFragment.EMPTY_FRAGMENT, explodedDirectory);
     return explodedDirectory.build();

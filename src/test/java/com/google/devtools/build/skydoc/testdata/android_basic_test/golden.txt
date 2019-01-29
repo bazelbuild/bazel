@@ -2,7 +2,7 @@
 ## android_related_rule
 
 <pre>
-android_related_rule(name, first, fourth, second, third)
+android_related_rule(<a href="#android_related_rule-name">name</a>, <a href="#android_related_rule-first">first</a>, <a href="#android_related_rule-fourth">fourth</a>, <a href="#android_related_rule-second">second</a>, <a href="#android_related_rule-third">third</a>)
 </pre>
 
 This rule does android-related things.
@@ -15,37 +15,37 @@ This rule does android-related things.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="#android_related_rule_name">
+    <tr id="android_related_rule-name">
       <td><code>name</code></td>
       <td>
-        String; required
+        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
         <p>
           A unique name for this target.
         </p>
       </td>
     </tr>
-    <tr id="#android_related_rule_first">
+    <tr id="android_related_rule-first">
       <td><code>first</code></td>
       <td>
-        Label; required
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
       </td>
     </tr>
-    <tr id="#android_related_rule_fourth">
+    <tr id="android_related_rule-fourth">
       <td><code>fourth</code></td>
       <td>
         Boolean; optional
       </td>
     </tr>
-    <tr id="#android_related_rule_second">
+    <tr id="android_related_rule-second">
       <td><code>second</code></td>
       <td>
-        Dictionary: String -> String; required
+        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
       </td>
     </tr>
-    <tr id="#android_related_rule_third">
+    <tr id="android_related_rule-third">
       <td><code>third</code></td>
       <td>
-        Label; required
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
       </td>
     </tr>
   </tbody>

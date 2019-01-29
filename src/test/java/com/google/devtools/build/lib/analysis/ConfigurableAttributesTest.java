@@ -19,9 +19,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment.TargetProviderEnvironment;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -326,75 +323,6 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     getConfiguredTarget("//java/hello:hello");
     assertContainsEvent(
         "Label '//java/hello:a.java' is duplicated in the 'srcs' attribute of rule 'hello'");
-  }
-
-  /**
-   * Tests that {@link RedirectChaser} doesn't support configured attribute instances, and
-   * triggers an appropriate error upon finding them.
-   */
-  @Test
-  public void redirectChaser() throws Exception {
-    writeConfigRules();
-    useConfiguration("--test_arg=a");
-    scratch.file("java/hello/BUILD",
-        "alias(",
-            "name = 'good_base',",
-            "actual = ':good_redirect')",
-        "alias(",
-            "name = 'good_redirect',",
-            "actual = ':actual_content')",
-        "filegroup(",
-            "name = 'actual_content',",
-            "srcs = ['a.txt', 'b.txt'])",
-        "alias(",
-            "name = 'bad_base',",
-            "actual = ':bad_redirect')",
-        "alias(",
-            "name = 'bad_redirect',",
-            "actual = select({",
-        "        '//conditions:a': ':actual_content',",
-        "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': ':actual_content',",
-        "    }))",
-        "genrule(",
-        "    name = 'non_filegroup_target',",
-        "    srcs = [ 'whatever' ],",
-        "    outs = [ 'whateverelse' ],",
-        "    cmd = 'true')",
-        "alias(",
-        "   name = 'base_non_filegroup_target',",
-        "   actual = ':non_filegroup_target')"
-        );
-    ConfigurationEnvironment env =
-        new TargetProviderEnvironment(getSkyframeExecutor().getPackageManager(), reporter);
-
-    // Legal case:
-    assertThat(
-            RedirectChaser.followRedirects(
-                    env, Label.parseAbsolute("//java/hello:good_base", ImmutableMap.of()), "srcs")
-                .toString())
-        .isEqualTo("//java/hello:actual_content");
-
-    // Legal case:
-    assertThat(
-            RedirectChaser.followRedirects(
-                    env,
-                    Label.parseAbsolute(
-                        "//java/hello:base_non_filegroup_target", ImmutableMap.of()),
-                    "srcs")
-                .toString())
-        .isEqualTo("//java/hello:non_filegroup_target");
-
-    // Illegal case:
-    try {
-      RedirectChaser.followRedirects(
-          env, Label.parseAbsolute("//java/hello:bad_base", ImmutableMap.of()), "srcs");
-      fail("Expected RedirectChaser to fail on a sequence with configurable 'srcs' values");
-    } catch (InvalidConfigurationException e) {
-      // Expected failure..
-      assertThat(e)
-          .hasMessageThat()
-          .isEqualTo("The value of 'actual' cannot be configuration-dependent");
-    }
   }
 
   /**

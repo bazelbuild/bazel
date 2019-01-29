@@ -28,7 +28,7 @@ add_to_bazelrc "build --experimental_build_event_upload_strategy=local"
 set -e
 
 function set_up() {
-  create_new_workspace
+  setup_skylib_support
 
   mkdir -p pkg
   touch pkg/somesourcefile
@@ -232,7 +232,7 @@ done
 
 function test_basic() {
   # Basic properties of the event stream
-  # - a completed target explicity requested should be reported
+  # - a completed target explicitly requested should be reported
   # - after success the stream should close naturally, without any
   #   reports about aborted events
   # - the command line is reported in structured and unstructured form

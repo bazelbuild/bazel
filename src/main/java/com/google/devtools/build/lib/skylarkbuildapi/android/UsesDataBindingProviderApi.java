@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 public interface UsesDataBindingProviderApi<T extends FileApi> extends StructApi {
 
   /** Name of this info object. */
-  public static String NAME = "UsesDataBindingInfo";
+  String NAME = "UsesDataBindingInfo";
 
   /**
    * Returns the metadata outputs from this rule's annotation processing that describe how it

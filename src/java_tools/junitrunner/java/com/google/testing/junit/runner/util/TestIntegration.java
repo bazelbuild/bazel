@@ -193,9 +193,10 @@ public class TestIntegration {
     }
 
     /**
-     * Sets the name of the icon. This is optional; if not set it will instead use the value
-     * pased to {@link #setIconUrl(String)}.
-     * @param  iconName name of the icon.
+     * Sets the name of the icon. This is optional; if not set it will instead use the value passed
+     * to {@link #setIconUrl(String)}.
+     *
+     * @param iconName name of the icon.
      * @return Builder
      */
     public Builder setIconName(String iconName) {

@@ -215,6 +215,8 @@ public abstract class AbstractAction implements Action, ActionApi {
    */
   @Override
   public synchronized void updateInputs(Iterable<Artifact> inputs) {
+    Preconditions.checkState(
+        discoversInputs(), "Can't update inputs unless discovering: %s %s", this, inputs);
     this.inputs = CollectionUtils.makeImmutable(inputs);
     inputsDiscovered = true;
   }
@@ -579,7 +581,7 @@ public abstract class AbstractAction implements Action, ActionApi {
 
   @Override
   public SkylarkDict<String, String> getEnv() {
-    return SkylarkDict.copyOf(null, env.getFixedEnv());
+    return SkylarkDict.copyOf(null, env.getFixedEnv().toMap());
   }
 
   @Override

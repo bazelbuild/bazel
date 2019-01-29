@@ -19,10 +19,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
@@ -31,13 +34,18 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link SandboxfsSandboxedSpawn}. */
 @RunWith(JUnit4.class)
-public class SandboxfsSandboxedSpawnTest extends SandboxTestCase {
+public class SandboxfsSandboxedSpawnTest {
+  private Path testRoot;
   private Path workspaceDir;
   private Path outerDir;
   private SandboxfsProcess sandboxfs;
 
   @Before
   public final void setupTestDirs() throws IOException {
+    FileSystem fileSystem = new InMemoryFileSystem();
+    testRoot = fileSystem.getPath(TestUtils.tmpDir());
+    testRoot.createDirectoryAndParents();
+
     workspaceDir = testRoot.getRelative("workspace");
     workspaceDir.createDirectory();
     outerDir = testRoot.getRelative("scratch");
@@ -104,8 +112,8 @@ public class SandboxfsSandboxedSpawnTest extends SandboxTestCase {
 
   @Test
   public void testCopyOutputs() throws Exception {
-    // These tests are very simple because we just rely on SandboxedSpawnTest.testMoveOutputs to
-    // properly verify all corner cases.
+    // These tests are very simple because we just rely on
+    // AbstractContainerizingSandboxedSpawnTest.testMoveOutputs to properly verify all corner cases.
     PathFragment outputFile = PathFragment.create("very/output.txt");
 
     SandboxedSpawn spawn =
@@ -130,14 +138,15 @@ public class SandboxfsSandboxedSpawnTest extends SandboxTestCase {
   }
 
   @Test
-  public void testSymlinksAreNotExposed() throws Exception {
+  public void testSymlinksAreKeptAsIs() throws Exception {
     Path helloTxt = workspaceDir.getRelative("dir1/hello.txt");
     helloTxt.getParentDirectory().createDirectory();
     FileSystemUtils.createEmptyFile(helloTxt);
 
     Path linkToHello = workspaceDir.getRelative("dir2/link-to-hello");
     linkToHello.getParentDirectory().createDirectory();
-    linkToHello.createSymbolicLink(PathFragment.create("../dir1/hello.txt"));
+    PathFragment linkTarget = PathFragment.create("../dir1/hello.txt");
+    linkToHello.createSymbolicLink(linkTarget);
 
     // Ensure that the symlink we have created has a relative target, as otherwise we wouldn't
     // exercise the functionality we are trying to test.
@@ -158,9 +167,6 @@ public class SandboxfsSandboxedSpawnTest extends SandboxTestCase {
     Path execRoot = spawn.getSandboxExecRoot();
 
     assertThat(execRoot.getRelative("such/input.txt").isSymbolicLink()).isTrue();
-    // We expect the target of the input file to be the final target of the input in use, not the
-    // intermediate symlink we specified. Otherwise, the exposed symlink in the sandbox would be
-    // broken because its relative target is not transitively exposed.
-    assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks()).isEqualTo(helloTxt);
+    assertThat(execRoot.getRelative("such/input.txt").readSymbolicLink()).isEqualTo(linkTarget);
   }
 }

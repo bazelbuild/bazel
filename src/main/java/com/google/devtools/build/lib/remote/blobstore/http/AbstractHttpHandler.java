@@ -90,7 +90,11 @@ abstract class AbstractHttpHandler<T extends HttpObject> extends SimpleChannelIn
   }
 
   protected String constructHost(URI uri) {
-    return uri.getHost() + ":" + uri.getPort();
+    boolean includePort =
+        (uri.getPort() > 0)
+            && ((uri.getScheme().equals("http") && uri.getPort() != 80)
+                || (uri.getScheme().equals("https") && uri.getPort() != 443));
+    return uri.getHost() + (includePort ? ":" + uri.getPort() : "");
   }
 
   @Override

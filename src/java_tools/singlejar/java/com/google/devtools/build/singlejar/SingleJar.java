@@ -76,6 +76,7 @@ public class SingleJar {
 
   /** Indicates whether to set all timestamps to a fixed value. */
   private boolean normalize = false;
+  private boolean checkDesugarDeps = false;
   private OutputMode outputMode = OutputMode.FORCE_STORED;
 
   /** Whether to include build-data.properties file */
@@ -159,7 +160,7 @@ public class SingleJar {
     }
 
     // finally add generic information
-    // TODO(bazel-team) do we need to resolve the path to be absolute or canonical?
+    // TODO(b/28294322): do we need to resolve the path to be absolute or canonical?
     properties.put("build.target", outputJar);
     if (mainClass != null) {
       properties.put("main.class", mainClass);
@@ -180,7 +181,7 @@ public class SingleJar {
 
     ZipCombiner combiner = null;
     try (OutputStream out = fileSystem.getOutputStream(outputJar)) {
-      combiner = new ZipCombiner(outputMode, createEntryFilter(normalize, allowedPaths), out);
+      combiner = new ZipCombiner(outputMode, createEntryFilterHelper(), out);
       if (launcherBin != null) {
         combiner.prependExecutable(fileSystem.getInputStream(launcherBin));
       }
@@ -258,6 +259,31 @@ public class SingleJar {
       }
     }
     return 0;
+  }
+
+  private ZipEntryFilter createEntryFilterHelper() {
+    ZipEntryFilter result = createEntryFilter(normalize, allowedPaths);
+    if (checkDesugarDeps) {
+      // Invocation is done through reflection so that this code will work in bazel open source
+      // as well. SingleJar is used for bootstrap and thus can not depend on protos (used in
+      // Java8DesugarDepsJarEntryFilter).
+      try {
+        return (ZipEntryFilter)
+            Class.forName("com.google.devtools.build.singlejar.Java8DesugarDepsJarEntryFilter")
+                .getConstructor(ZipEntryFilter.class).newInstance(result);
+      } catch (ReflectiveOperationException e) {
+        throw new IllegalStateException("Couldn't instantiate desugar deps checker", e);
+      }
+    } else {
+      return (filename, callback) -> {
+        if ("META-INF/desugar_deps".equals(filename)) {
+          callback.skip();  // We never want these files in the output
+        } else {
+          result.accept(filename, callback);
+        }
+      };
+    }
+
   }
 
   protected ZipEntryFilter createEntryFilter(boolean normalize, PathFilter allowedPaths) {
@@ -348,6 +374,8 @@ public class SingleJar {
       } else if (arg.equals("--java_launcher")) {
         launcherBin = getArgument(args, i, arg);
         i++;
+      } else if (arg.equals("--check_desugar_deps")) {
+        checkDesugarDeps = true;
       } else {
         throw new IOException("unknown option : '" + arg + "'");
       }

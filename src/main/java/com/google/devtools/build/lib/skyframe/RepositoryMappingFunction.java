@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
@@ -32,7 +32,7 @@ public class RepositoryMappingFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    SkyKey externalPackageKey = PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+    SkyKey externalPackageKey = PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
     if (env.valuesMissing()) {
       return null;
@@ -56,7 +56,7 @@ public class RepositoryMappingFunction implements SkyFunction {
   private class RepositoryMappingFunctionException extends SkyFunctionException {
     RepositoryMappingFunctionException() {
       super(
-          new BuildFileContainsErrorsException(Label.EXTERNAL_PACKAGE_IDENTIFIER),
+          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
           Transience.PERSISTENT);
     }
   }

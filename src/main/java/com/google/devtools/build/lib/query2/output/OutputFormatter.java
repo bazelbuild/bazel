@@ -187,7 +187,7 @@ public abstract class OutputFormatter implements Serializable {
    * <p>The benefit of using a streamed formatter is that we can save the potentially expensive
    * subgraph extraction step before presenting the query results and that depending on the query
    * environment used, it can be more memory performant, as it does not aggregate all the data
-   * before writting in the output.
+   * before writing in the output.
    */
   public interface StreamedFormatter {
     /** Specifies options to be used by subsequent calls to {@link #createStreamCallback}. */

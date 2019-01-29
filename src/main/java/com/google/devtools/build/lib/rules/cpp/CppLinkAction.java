@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -504,21 +503,5 @@ public final class CppLinkAction extends AbstractAction
   @Override
   public Iterable<Artifact> getMandatoryInputs() {
     return mandatoryInputs;
-  }
-
-  /** Determines whether or not this link should output a symbol counts file. */
-  public static boolean enableSymbolsCounts(
-      CppConfiguration cppConfiguration,
-      boolean supportsGoldLinker,
-      boolean fake,
-      LinkTargetType linkType) {
-    return cppConfiguration.getSymbolCounts()
-        && supportsGoldLinker
-        && linkType == LinkTargetType.EXECUTABLE
-        && !fake;
-  }
-
-  public static PathFragment symbolCountsFileName(PathFragment binaryName) {
-    return binaryName.replaceName(binaryName.getBaseName() + ".sc");
   }
 }

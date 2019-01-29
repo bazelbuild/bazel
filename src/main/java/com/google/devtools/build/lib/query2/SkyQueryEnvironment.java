@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.pkgcache.FilteringPolicies.NO_FILTER;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Function;
@@ -42,6 +43,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -583,7 +585,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         from, to, targets -> getFwdDeps(targets, context), Target::getLabel);
   }
 
-  private <R> ListenableFuture<R> safeSubmit(Callable<R> callable) {
+  protected final <R> ListenableFuture<R> safeSubmit(Callable<R> callable) {
     try {
       return executor.submit(callable);
     } catch (RejectedExecutionException e) {
@@ -724,13 +726,24 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           reportBuildFileError(owner, exn.getMessage());
           return Futures.immediateFuture(null);
         };
-    ListenableFuture<Void> evalFuture = patternToEval.evalAsync(
-        resolver,
-        blacklistedSubdirectoriesToExclude,
-        additionalSubdirectoriesToExclude,
-        callback,
-        QueryException.class,
-        executor);
+    Callback<Target> filteredCallback = callback;
+    if (!targetPatternKey.getPolicy().equals(NO_FILTER)) {
+      filteredCallback =
+          targets ->
+              callback.process(
+                  Iterables.filter(
+                      targets,
+                      target ->
+                          targetPatternKey.getPolicy().shouldRetain(target, /*explicit=*/ false)));
+    }
+    ListenableFuture<Void> evalFuture =
+        patternToEval.evalAsync(
+            resolver,
+            blacklistedSubdirectoriesToExclude,
+            additionalSubdirectoriesToExclude,
+            filteredCallback,
+            QueryException.class,
+            executor);
     return QueryTaskFutureImpl.ofDelegate(
         Futures.catchingAsync(
             evalFuture,
@@ -1014,13 +1027,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private static Iterable<SkyKey> getPkgLookupKeysForFile(PathFragment originalFileFragment,
       PathFragment currentPathFragment) {
     if (originalFileFragment.equals(currentPathFragment)
-        && originalFileFragment.equals(Label.WORKSPACE_FILE_NAME)) {
+        && originalFileFragment.equals(LabelConstants.WORKSPACE_FILE_NAME)) {
       // TODO(mschaller): this should not be checked at runtime. These are constants!
       Preconditions.checkState(
-          Label.WORKSPACE_FILE_NAME.getParentDirectory().equals(PathFragment.EMPTY_FRAGMENT),
-          Label.WORKSPACE_FILE_NAME);
+          LabelConstants.WORKSPACE_FILE_NAME
+              .getParentDirectory()
+              .equals(PathFragment.EMPTY_FRAGMENT),
+          LabelConstants.WORKSPACE_FILE_NAME);
       return ImmutableList.of(
-          PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER),
+          PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
           PackageLookupValue.key(PackageIdentifier.createInMainRepo(PathFragment.EMPTY_FRAGMENT)));
     }
     PathFragment parentPathFragment = currentPathFragment.getParentDirectory();
@@ -1032,8 +1047,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   /**
    * Returns FileStateValue keys for which there may be relevant (from the perspective of {@link
-   * #getRBuildFiles}) FileStateValues in the graph corresponding to the given
-   * {@code pathFragments}, which are assumed to be file paths.
+   * #getRBuildFiles}) FileStateValues in the graph corresponding to the given {@code
+   * pathFragments}, which are assumed to be file paths.
    *
    * <p>To do this, we emulate the {@link ContainingPackageLookupFunction} logic: for each given
    * file path, we look for the nearest ancestor directory (starting with its parent directory), if
@@ -1042,8 +1057,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    *
    * <p>Note that there may not be nodes in the graph corresponding to the returned SkyKeys.
    */
-  Collection<SkyKey> getFileStateKeysForFileFragments(Iterable<PathFragment> pathFragments)
-      throws InterruptedException {
+  protected Collection<SkyKey> getFileStateKeysForFileFragments(
+      Iterable<PathFragment> pathFragments) throws InterruptedException {
     Set<SkyKey> result = new HashSet<>();
     Multimap<PathFragment, PathFragment> currentToOriginal = ArrayListMultimap.create();
     for (PathFragment pathFragment : pathFragments) {
@@ -1217,13 +1232,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     public void processOutput(Iterable<Target> partialResult)
         throws IOException, InterruptedException {
       ImmutableList<Target> uniquifiedTargets = uniquifier.unique(partialResult);
+      Iterable<Target> toProcess = null;
       synchronized (pendingLock) {
         Preconditions.checkNotNull(pending, "Reuse of the callback is not allowed");
         pending.addAll(uniquifiedTargets);
         if (pending.size() >= batchThreshold) {
-          callback.processOutput(pending);
+          toProcess = pending;
           pending = new ArrayList<>();
         }
+      }
+      if (toProcess != null) {
+        callback.processOutput(toProcess);
       }
     }
 

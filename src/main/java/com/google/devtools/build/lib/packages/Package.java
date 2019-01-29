@@ -20,14 +20,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -51,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -245,7 +249,7 @@ public class Package {
    */
   public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
       RepositoryName repository) {
-    if (!packageIdentifier.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
+    if (!packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       throw new UnsupportedOperationException("Can only access the external package repository"
           + "mappings from the //external package");
     }
@@ -265,7 +269,7 @@ public class Package {
    */
   public ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
       getExternalPackageRepositoryMappings() {
-    if (!packageIdentifier.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
+    if (!packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       throw new UnsupportedOperationException(
           "Can only access the external package repository"
               + "mappings from the //external package");
@@ -739,8 +743,9 @@ public class Package {
 
   public static Builder newExternalPackageBuilder(
       Builder.Helper helper, RootedPath workspacePath, String runfilesPrefix) {
-    Builder b = new Builder(helper.createFreshPackage(
-        Label.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix));
+    Builder b =
+        new Builder(
+            helper.createFreshPackage(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix));
     b.setFilename(workspacePath);
     return b;
   }
@@ -825,7 +830,7 @@ public class Package {
     private License defaultLicense = License.NO_LICENSE;
     private Set<License.DistributionType> defaultDistributionSet = License.DEFAULT_DISTRIB;
 
-    private Map<String, Target> targets = new HashMap<>();
+    private Map<String, Target> targets = new LinkedHashMap<>();
     private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
 
     private ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
@@ -848,6 +853,8 @@ public class Package {
      * package itself.
      */
     private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
+
+    private final Interner<ImmutableList<?>> listInterner = BlazeInterners.newStrongInterner();
 
     private boolean alreadyBuilt = false;
 
@@ -875,7 +882,7 @@ public class Package {
 
     /** Determine if we are in the WORKSPACE file or not */
     boolean isWorkspace() {
-      return pkg.getPackageIdentifier().equals(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+      return pkg.getPackageIdentifier().equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     }
 
     String getPackageWorkspaceName() {
@@ -929,6 +936,10 @@ public class Package {
     /** Get the repository mapping for this package */
     ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
       return this.repositoryMapping;
+    }
+
+    Interner<ImmutableList<?>> getListInterner() {
+      return listInterner;
     }
 
     /** Sets the name of this package's BUILD file. */
@@ -1641,7 +1652,7 @@ public class Package {
         Package input,
         CodedOutputStream codedOut)
         throws IOException, SerializationException {
-      context.checkClassExplicitlyAllowed(Package.class);
+      context.checkClassExplicitlyAllowed(Package.class, input);
       PackageCodecDependencies codecDeps = context.getDependency(PackageCodecDependencies.class);
       codecDeps.getPackageSerializer().serialize(context, input, codedOut);
     }

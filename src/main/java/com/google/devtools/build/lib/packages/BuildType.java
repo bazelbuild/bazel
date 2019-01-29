@@ -308,7 +308,7 @@ public final class BuildType {
     public Map<Label, ValueT> convert(Object x, Object what, Object context)
         throws ConversionException {
       Map<Label, ValueT> result = super.convert(x, what, context);
-      // The input is known to be a map because super.convert succeded; otherwise, a
+      // The input is known to be a map because super.convert succeeded; otherwise, a
       // ConversionException would have been thrown.
       Map<?, ?> input = (Map<?, ?>) x;
 

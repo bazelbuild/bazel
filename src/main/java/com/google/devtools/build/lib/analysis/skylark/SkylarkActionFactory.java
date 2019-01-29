@@ -242,13 +242,11 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
     } else if (executableUnchecked instanceof String) {
       builder.setExecutable(PathFragment.create((String) executableUnchecked));
+    } else if (executableUnchecked instanceof FilesToRunProvider) {
+      builder.setExecutable((FilesToRunProvider) executableUnchecked);
     } else {
-      throw new EvalException(
-          null,
-          "expected file or string for "
-              + "executable but got "
-              + EvalUtils.getDataTypeName(executableUnchecked)
-              + " instead");
+      // Should have been verified by Starlark before this function is called
+      throw new IllegalStateException();
     }
     registerSpawnAction(
         outputs,
@@ -434,17 +432,30 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     builder.addOutputs(outputs.getContents(Artifact.class, "outputs"));
 
     if (toolsUnchecked != Runtime.UNBOUND) {
-      final Iterable<Artifact> toolsIterable;
+      @SuppressWarnings("unchecked")
+      Iterable<Object> toolsIterable;
       if (toolsUnchecked instanceof SkylarkList) {
-        toolsIterable = ((SkylarkList) toolsUnchecked).getContents(Artifact.class, "tools");
+        toolsIterable = ((SkylarkList<Object>) toolsUnchecked).getContents(Object.class, "tools");
       } else {
-        toolsIterable = ((SkylarkNestedSet) toolsUnchecked).getSet(Artifact.class);
+        toolsIterable = ((SkylarkNestedSet) toolsUnchecked).getSet(Object.class);
       }
-      for (Artifact artifact : toolsIterable) {
-        builder.addInput(artifact);
-        FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
-        if (provider != null) {
-          builder.addTool(provider);
+      for (Object toolUnchecked : toolsIterable) {
+        if (toolUnchecked instanceof Artifact) {
+          Artifact artifact = (Artifact) toolUnchecked;
+          builder.addInput(artifact);
+          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
+          if (provider != null) {
+            builder.addTool(provider);
+          }
+        } else if (toolUnchecked instanceof FilesToRunProvider) {
+          builder.addTool((FilesToRunProvider) toolUnchecked);
+        } else {
+          throw new EvalException(
+              null,
+              "expected value of type 'File or FilesToRunProvider' for "
+                  + "a member of parameter 'tools' but got "
+                  + EvalUtils.getDataTypeName(toolUnchecked)
+                  + " instead");
         }
       }
     } else {

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** A provider of information about this target's manifest. */
 public class AndroidManifestInfo extends NativeInfo implements AndroidManifestInfoApi<Artifact> {
-  private static final String SKYLARK_NAME = "AndroidManifestInfo";
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
       FunctionSignature.WithValues.create(
@@ -45,7 +44,7 @@ public class AndroidManifestInfo extends NativeInfo implements AndroidManifestIn
               SkylarkType.BOOL)); // exports_manifest
 
   public static final NativeProvider<AndroidManifestInfo> PROVIDER =
-      new NativeProvider<AndroidManifestInfo>(AndroidManifestInfo.class, SKYLARK_NAME, SIGNATURE) {
+      new NativeProvider<AndroidManifestInfo>(AndroidManifestInfo.class, NAME, SIGNATURE) {
         @Override
         public AndroidManifestInfo createInstanceFromSkylark(
             Object[] args, Environment env, Location loc) {

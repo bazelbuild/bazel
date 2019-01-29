@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/native/windows/file.h"
+#include "src/main/native/windows/util.h"
 #include "src/test/cpp/util/windows_test_util.h"
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/zip.h"
@@ -36,9 +37,17 @@ namespace {
 using bazel::tools::test_wrapper::FileInfo;
 using bazel::tools::test_wrapper::ZipEntryPaths;
 using bazel::tools::test_wrapper::testing::TestOnly_AsMixedPath;
+using bazel::tools::test_wrapper::testing::TestOnly_CdataEncodeBuffer;
+using bazel::tools::test_wrapper::testing::TestOnly_CdataEscapeAndAppend;
+using bazel::tools::test_wrapper::testing::TestOnly_CreateTee;
+using bazel::tools::test_wrapper::testing::
+    TestOnly_CreateUndeclaredOutputsAnnotations;
+using bazel::tools::test_wrapper::testing::
+    TestOnly_CreateUndeclaredOutputsManifest;
 using bazel::tools::test_wrapper::testing::TestOnly_CreateZip;
 using bazel::tools::test_wrapper::testing::TestOnly_GetEnv;
 using bazel::tools::test_wrapper::testing::TestOnly_GetFileListRelativeTo;
+using bazel::tools::test_wrapper::testing::TestOnly_GetMimeType;
 using bazel::tools::test_wrapper::testing::TestOnly_ToZipEntryPaths;
 
 class TestWrapperWindowsTest : public ::testing::Test {
@@ -78,16 +87,18 @@ void CompareFileInfos(std::vector<FileInfo> actual,
       << __FILE__ << "(" << line << "): assertion failed here";
   std::sort(actual.begin(), actual.end(),
             [](const FileInfo& a, const FileInfo& b) {
-              return a.rel_path > b.rel_path;
+              return a.RelativePath() > b.RelativePath();
             });
   std::sort(expected.begin(), expected.end(),
             [](const FileInfo& a, const FileInfo& b) {
-              return a.rel_path > b.rel_path;
+              return a.RelativePath() > b.RelativePath();
             });
   for (std::vector<FileInfo>::size_type i = 0; i < actual.size(); ++i) {
-    ASSERT_EQ(actual[i].rel_path, expected[i].rel_path)
+    ASSERT_EQ(actual[i].RelativePath(), expected[i].RelativePath())
         << __FILE__ << "(" << line << "): assertion failed here; index: " << i;
-    ASSERT_EQ(actual[i].size, expected[i].size)
+    ASSERT_EQ(actual[i].Size(), expected[i].Size())
+        << __FILE__ << "(" << line << "): assertion failed here; index: " << i;
+    ASSERT_EQ(actual[i].IsDirectory(), expected[i].IsDirectory())
         << __FILE__ << "(" << line << "): assertion failed here; index: " << i;
   }
 }
@@ -145,10 +156,15 @@ TEST_F(TestWrapperWindowsTest, TestGetFileListRelativeTo) {
   std::vector<FileInfo> actual;
   ASSERT_TRUE(TestOnly_GetFileListRelativeTo(root, &actual));
 
-  std::vector<FileInfo> expected = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+  std::vector<FileInfo> expected = {FileInfo(L"foo"),
+                                    FileInfo(L"foo\\sub"),
+                                    FileInfo(L"foo\\sub\\file1", 0),
+                                    FileInfo(L"foo\\sub\\file2", 5),
+                                    FileInfo(L"foo\\file1", 3),
+                                    FileInfo(L"foo\\file2", 6),
+                                    FileInfo(L"foo\\junc"),
+                                    FileInfo(L"foo\\junc\\file1", 0),
+                                    FileInfo(L"foo\\junc\\file2", 5)};
   COMPARE_FILE_INFOS(actual, expected);
 
   // Assert traversal of "foo" -- should include all files, but now with paths
@@ -157,34 +173,59 @@ TEST_F(TestWrapperWindowsTest, TestGetFileListRelativeTo) {
   ASSERT_TRUE(
       TestOnly_GetFileListRelativeTo((root + L"\\foo").c_str(), &actual));
 
-  expected = {{L"sub\\file1", 0}, {L"sub\\file2", 5},  {L"file1", 3},
-              {L"file2", 6},      {L"junc\\file1", 0}, {L"junc\\file2", 5}};
+  expected = {FileInfo(L"sub"),
+              FileInfo(L"sub\\file1", 0),
+              FileInfo(L"sub\\file2", 5),
+              FileInfo(L"file1", 3),
+              FileInfo(L"file2", 6),
+              FileInfo(L"junc"),
+              FileInfo(L"junc\\file1", 0),
+              FileInfo(L"junc\\file2", 5)};
+  COMPARE_FILE_INFOS(actual, expected);
+
+  // Assert traversal limited to the current directory (depth of 0).
+  actual.clear();
+  ASSERT_TRUE(TestOnly_GetFileListRelativeTo(root, &actual, 0));
+  expected = {FileInfo(L"foo")};
+  COMPARE_FILE_INFOS(actual, expected);
+
+  // Assert traversal limited to depth of 1.
+  actual.clear();
+  ASSERT_TRUE(TestOnly_GetFileListRelativeTo(root, &actual, 1));
+  expected = {FileInfo(L"foo"), FileInfo(L"foo\\sub"),
+              FileInfo(L"foo\\file1", 3), FileInfo(L"foo\\file2", 6),
+              FileInfo(L"foo\\junc")};
   COMPARE_FILE_INFOS(actual, expected);
 }
 
 TEST_F(TestWrapperWindowsTest, TestToZipEntryPaths) {
   // Pretend we already acquired a file list. The files don't have to exist.
   std::wstring root = L"c:\\nul\\root";
-  std::vector<FileInfo> files = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+  std::vector<FileInfo> files = {FileInfo(L"foo"),
+                                 FileInfo(L"foo\\sub"),
+                                 FileInfo(L"foo\\sub\\file1", 0),
+                                 FileInfo(L"foo\\sub\\file2", 5),
+                                 FileInfo(L"foo\\file1", 3),
+                                 FileInfo(L"foo\\file2", 6),
+                                 FileInfo(L"foo\\junc"),
+                                 FileInfo(L"foo\\junc\\file1", 0),
+                                 FileInfo(L"foo\\junc\\file2", 5)};
 
   ZipEntryPaths actual;
   ASSERT_TRUE(TestOnly_ToZipEntryPaths(root, files, &actual));
-  ASSERT_EQ(actual.Size(), 6);
+  ASSERT_EQ(actual.Size(), 9);
 
   std::vector<const char*> expected_abs_paths = {
-      "c:/nul/root/foo/sub/file1",  "c:/nul/root/foo/sub/file2",
-      "c:/nul/root/foo/file1",      "c:/nul/root/foo/file2",
-      "c:/nul/root/foo/junc/file1", "c:/nul/root/foo/junc/file2",
-  };
+      "c:/nul/root/foo/",          "c:/nul/root/foo/sub/",
+      "c:/nul/root/foo/sub/file1", "c:/nul/root/foo/sub/file2",
+      "c:/nul/root/foo/file1",     "c:/nul/root/foo/file2",
+      "c:/nul/root/foo/junc/",     "c:/nul/root/foo/junc/file1",
+      "c:/nul/root/foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.AbsPathPtrs(), expected_abs_paths);
 
   std::vector<const char*> expected_entry_paths = {
-      "foo/sub/file1", "foo/sub/file2",  "foo/file1",
-      "foo/file2",     "foo/junc/file1", "foo/junc/file2",
-  };
+      "foo/",      "foo/sub/",  "foo/sub/file1",  "foo/sub/file2", "foo/file1",
+      "foo/file2", "foo/junc/", "foo/junc/file1", "foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.EntryPathPtrs(), expected_entry_paths);
 }
 
@@ -193,26 +234,31 @@ TEST_F(TestWrapperWindowsTest, TestToZipEntryPathsLongPathRoot) {
   // Assert that the root is allowed to have the `\\?\` prefix, but the zip
   // entry paths won't have it.
   std::wstring root = L"\\\\?\\c:\\nul\\unc";
-  std::vector<FileInfo> files = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+  std::vector<FileInfo> files = {FileInfo(L"foo"),
+                                 FileInfo(L"foo\\sub"),
+                                 FileInfo(L"foo\\sub\\file1", 0),
+                                 FileInfo(L"foo\\sub\\file2", 5),
+                                 FileInfo(L"foo\\file1", 3),
+                                 FileInfo(L"foo\\file2", 6),
+                                 FileInfo(L"foo\\junc"),
+                                 FileInfo(L"foo\\junc\\file1", 0),
+                                 FileInfo(L"foo\\junc\\file2", 5)};
 
   ZipEntryPaths actual;
   ASSERT_TRUE(TestOnly_ToZipEntryPaths(root, files, &actual));
-  ASSERT_EQ(actual.Size(), 6);
+  ASSERT_EQ(actual.Size(), 9);
 
   std::vector<const char*> expected_abs_paths = {
-      "c:/nul/unc/foo/sub/file1",  "c:/nul/unc/foo/sub/file2",
-      "c:/nul/unc/foo/file1",      "c:/nul/unc/foo/file2",
-      "c:/nul/unc/foo/junc/file1", "c:/nul/unc/foo/junc/file2",
-  };
+      "c:/nul/unc/foo/",          "c:/nul/unc/foo/sub/",
+      "c:/nul/unc/foo/sub/file1", "c:/nul/unc/foo/sub/file2",
+      "c:/nul/unc/foo/file1",     "c:/nul/unc/foo/file2",
+      "c:/nul/unc/foo/junc/",     "c:/nul/unc/foo/junc/file1",
+      "c:/nul/unc/foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.AbsPathPtrs(), expected_abs_paths);
 
   std::vector<const char*> expected_entry_paths = {
-      "foo/sub/file1", "foo/sub/file2",  "foo/file1",
-      "foo/file2",     "foo/junc/file1", "foo/junc/file2",
-  };
+      "foo/",      "foo/sub/",  "foo/sub/file1",  "foo/sub/file2", "foo/file1",
+      "foo/file2", "foo/junc/", "foo/junc/file1", "foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.EntryPathPtrs(), expected_entry_paths);
 }
 
@@ -235,8 +281,10 @@ class InMemoryExtractor : public devtools_ijar::ZipExtractorProcessor {
                const devtools_ijar::u1* data, const size_t size) override {
     extracted_->push_back({});
     extracted_->back().path = filename;
-    extracted_->back().data.reset(new devtools_ijar::u1[size]);
-    memcpy(extracted_->back().data.get(), data, size);
+    if (size > 0) {
+      extracted_->back().data.reset(new devtools_ijar::u1[size]);
+      memcpy(extracted_->back().data.get(), data, size);
+    }
     extracted_->back().size = size;
   }
 
@@ -260,10 +308,15 @@ TEST_F(TestWrapperWindowsTest, TestCreateZip) {
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\foo\\file2", "foobar"));
   CREATE_JUNCTION(root + L"\\foo\\junc", root + L"\\foo\\sub");
 
-  std::vector<FileInfo> file_list = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+  std::vector<FileInfo> file_list = {FileInfo(L"foo"),
+                                     FileInfo(L"foo\\sub"),
+                                     FileInfo(L"foo\\sub\\file1", 0),
+                                     FileInfo(L"foo\\sub\\file2", 5),
+                                     FileInfo(L"foo\\file1", 3),
+                                     FileInfo(L"foo\\file2", 6),
+                                     FileInfo(L"foo\\junc"),
+                                     FileInfo(L"foo\\junc\\file1", 0),
+                                     FileInfo(L"foo\\junc\\file2", 5)};
 
   ASSERT_TRUE(TestOnly_CreateZip(root, file_list, root + L"\\x.zip"));
 
@@ -278,26 +331,274 @@ TEST_F(TestWrapperWindowsTest, TestCreateZip) {
   EXPECT_NE(zip.get(), nullptr);
   EXPECT_EQ(zip->ProcessAll(), 0);
 
-  EXPECT_EQ(extracted.size(), 6);
+  EXPECT_EQ(extracted.size(), 9);
 
-  EXPECT_EQ(extracted[0].path, std::string("foo/sub/file1"));
-  EXPECT_EQ(extracted[1].path, std::string("foo/sub/file2"));
-  EXPECT_EQ(extracted[2].path, std::string("foo/file1"));
-  EXPECT_EQ(extracted[3].path, std::string("foo/file2"));
-  EXPECT_EQ(extracted[4].path, std::string("foo/junc/file1"));
-  EXPECT_EQ(extracted[5].path, std::string("foo/junc/file2"));
+  EXPECT_EQ(extracted[0].path, std::string("foo/"));
+  EXPECT_EQ(extracted[1].path, std::string("foo/sub/"));
+  EXPECT_EQ(extracted[2].path, std::string("foo/sub/file1"));
+  EXPECT_EQ(extracted[3].path, std::string("foo/sub/file2"));
+  EXPECT_EQ(extracted[4].path, std::string("foo/file1"));
+  EXPECT_EQ(extracted[5].path, std::string("foo/file2"));
+  EXPECT_EQ(extracted[6].path, std::string("foo/junc/"));
+  EXPECT_EQ(extracted[7].path, std::string("foo/junc/file1"));
+  EXPECT_EQ(extracted[8].path, std::string("foo/junc/file2"));
 
   EXPECT_EQ(extracted[0].size, 0);
-  EXPECT_EQ(extracted[1].size, 5);
-  EXPECT_EQ(extracted[2].size, 3);
-  EXPECT_EQ(extracted[3].size, 6);
-  EXPECT_EQ(extracted[4].size, 0);
-  EXPECT_EQ(extracted[5].size, 5);
+  EXPECT_EQ(extracted[1].size, 0);
+  EXPECT_EQ(extracted[2].size, 0);
+  EXPECT_EQ(extracted[3].size, 5);
+  EXPECT_EQ(extracted[4].size, 3);
+  EXPECT_EQ(extracted[5].size, 6);
+  EXPECT_EQ(extracted[6].size, 0);
+  EXPECT_EQ(extracted[7].size, 0);
+  EXPECT_EQ(extracted[8].size, 5);
 
-  EXPECT_EQ(memcmp(extracted[1].data.get(), "hello", 5), 0);
-  EXPECT_EQ(memcmp(extracted[2].data.get(), "foo", 3), 0);
-  EXPECT_EQ(memcmp(extracted[3].data.get(), "foobar", 6), 0);
-  EXPECT_EQ(memcmp(extracted[5].data.get(), "hello", 5), 0);
+  EXPECT_EQ(memcmp(extracted[3].data.get(), "hello", 5), 0);
+  EXPECT_EQ(memcmp(extracted[4].data.get(), "foo", 3), 0);
+  EXPECT_EQ(memcmp(extracted[5].data.get(), "foobar", 6), 0);
+  EXPECT_EQ(memcmp(extracted[8].data.get(), "hello", 5), 0);
+}
+
+TEST_F(TestWrapperWindowsTest, TestGetMimeType) {
+  // As of 2018-11-08, TestOnly_GetMimeType looks up the MIME type from the
+  // registry under `HKCR\<extension>\Content Type`, e.g.
+  // 'HKCR\.bmp\Content Type`.
+  // Bazel's CI machines run Windows Server 2016 Core, whose registry contains
+  // the Content Type for .ico and .bmp but not for common types such as .txt,
+  // hence the file types we choose to test for.
+  EXPECT_EQ(TestOnly_GetMimeType("foo.ico"), std::string("image/x-icon"));
+  EXPECT_EQ(TestOnly_GetMimeType("foo.bmp"), std::string("image/bmp"));
+  EXPECT_EQ(TestOnly_GetMimeType("foo"),
+            std::string("application/octet-stream"));
+}
+
+TEST_F(TestWrapperWindowsTest, TestUndeclaredOutputsManifest) {
+  // Pretend we already acquired a file list. The files don't have to exist.
+  // Assert that the root is allowed to have the `\\?\` prefix, but the zip
+  // entry paths won't have it.
+  std::vector<FileInfo> files = {FileInfo(L"foo"),
+                                 FileInfo(L"foo\\sub"),
+                                 FileInfo(L"foo\\sub\\file1.ico", 0),
+                                 FileInfo(L"foo\\sub\\file2.bmp", 5),
+                                 FileInfo(L"foo\\file2", 6)};
+
+  std::string content;
+  ASSERT_TRUE(TestOnly_CreateUndeclaredOutputsManifest(files, &content));
+  ASSERT_EQ(content, std::string("foo/sub/file1.ico\t0\timage/x-icon\n"
+                                 "foo/sub/file2.bmp\t5\timage/bmp\n"
+                                 "foo/file2\t6\tapplication/octet-stream\n"));
+}
+
+TEST_F(TestWrapperWindowsTest, TestCreateUndeclaredOutputsAnnotations) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+
+  // Create a directory structure to parse.
+  std::wstring root = tmpdir + L"\\tmp" + WLINE;
+  EXPECT_TRUE(CreateDirectoryW(root.c_str(), NULL));
+  EXPECT_TRUE(CreateDirectoryW((root + L"\\foo").c_str(), NULL));
+  EXPECT_TRUE(CreateDirectoryW((root + L"\\bar.part").c_str(), NULL));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a.part", "Hello a"));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\b.txt", "Hello b"));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\c.part", "Hello c"));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\foo\\d.part", "Hello d"));
+  EXPECT_TRUE(
+      blaze_util::CreateDummyFile(root + L"\\bar.part\\e.part", "Hello e"));
+
+  std::wstring annot = root + L"\\x.annot";
+  ASSERT_TRUE(TestOnly_CreateUndeclaredOutputsAnnotations(root, annot));
+
+  HANDLE h = CreateFileW(annot.c_str(), GENERIC_READ,
+                         FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
+                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  ASSERT_NE(h, INVALID_HANDLE_VALUE);
+  char content[100];
+  DWORD read;
+  bool success = ReadFile(h, content, 100, &read, NULL) != FALSE;
+  CloseHandle(h);
+  EXPECT_TRUE(success);
+  ASSERT_EQ(std::string(content, read), std::string("Hello aHello c"));
+}
+
+TEST_F(TestWrapperWindowsTest, TestTee) {
+  HANDLE read1_h, write1_h;
+  EXPECT_TRUE(CreatePipe(&read1_h, &write1_h, NULL, 0));
+  bazel::windows::AutoHandle read1(read1_h), write1(write1_h);
+  HANDLE read2_h, write2_h;
+  EXPECT_TRUE(CreatePipe(&read2_h, &write2_h, NULL, 0));
+  bazel::windows::AutoHandle read2(read2_h), write2(write2_h);
+  HANDLE read3_h, write3_h;
+  EXPECT_TRUE(CreatePipe(&read3_h, &write3_h, NULL, 0));
+  bazel::windows::AutoHandle read3(read3_h), write3(write3_h);
+
+  std::unique_ptr<bazel::tools::test_wrapper::Tee> tee;
+  EXPECT_TRUE(TestOnly_CreateTee(&read1, &write2, &write3, &tee));
+
+  DWORD written, read;
+  char content[100];
+
+  EXPECT_TRUE(WriteFile(write1, "hello", 5, &written, NULL));
+  EXPECT_EQ(written, 5);
+  EXPECT_TRUE(ReadFile(read2, content, 100, &read, NULL));
+  EXPECT_EQ(read, 5);
+  EXPECT_EQ(std::string(content, read), "hello");
+  EXPECT_TRUE(ReadFile(read3, content, 100, &read, NULL));
+  EXPECT_EQ(read, 5);
+  EXPECT_EQ(std::string(content, read), "hello");
+
+  EXPECT_TRUE(WriteFile(write1, "foo", 3, &written, NULL));
+  EXPECT_EQ(written, 3);
+  EXPECT_TRUE(ReadFile(read2, content, 100, &read, NULL));
+  EXPECT_EQ(read, 3);
+  EXPECT_EQ(std::string(content, read), "foo");
+  EXPECT_TRUE(ReadFile(read3, content, 100, &read, NULL));
+  EXPECT_EQ(read, 3);
+  EXPECT_EQ(std::string(content, read), "foo");
+
+  write1 = INVALID_HANDLE_VALUE;  // closes handle so the Tee thread can exit
+}
+
+void AssertCdataEncodeBuffer(
+    int line, const std::string& input, const std::string& expected_output,
+    const std::vector<DWORD>& expected_cdata_end_indices) {
+  ASSERT_EQ(input.size(), expected_output.size());
+
+  std::unique_ptr<uint8_t[]> mutable_buffer(new uint8_t[input.size()]);
+  memcpy(mutable_buffer.get(), input.c_str(), input.size());
+
+  std::vector<DWORD> cdata_ends;
+  EXPECT_TRUE(TestOnly_CdataEncodeBuffer(mutable_buffer.get(), input.size(),
+                                         &cdata_ends));
+  for (int i = 0; i < input.size(); ++i) {
+    EXPECT_EQ(mutable_buffer[i], static_cast<uint8_t>(expected_output[i]))
+        << "FAILED(in line " << line << "): mismatch at index " << i;
+  }
+
+  EXPECT_EQ(cdata_ends, expected_cdata_end_indices);
+}
+
+TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferCdataEndings) {
+  AssertCdataEncodeBuffer(
+      __LINE__,
+      // === Input ===
+      // CDATA end sequence, followed by some arbitrary octet.
+      "]]>x"
+      // CDATA end sequence twice.
+      "]]>]]>x"
+      // CDATA end sequence at the end of the string.
+      "]]>",
+
+      // === Expected output ===
+      // "]]>" sequences are left alone but their position is stored in
+      "]]>x"
+      "]]>]]>x"
+      "]]>",
+
+      // === Expected CDATA end positions ===
+      {0, 4, 7, 11});
+}
+
+TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferSingleOctets) {
+  AssertCdataEncodeBuffer(__LINE__,
+                          // === Input ===
+                          // Legal single-octets.
+                          "AB\x9\xA\xD\x20\x7F"
+                          // Illegal single-octets.
+                          "\x8\xB\xC\x1F\x80\xFF"
+                          "x",
+
+                          // === Expected output ===
+                          // Legal single-octets.
+                          "AB\x9\xA\xD\x20\x7F"
+                          // Illegal single-octets.
+                          "??????"
+                          "x",
+                          {});
+}
+
+TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferDoubleOctets) {
+  // Legal range: [\xc0-\xdf][\x80-\xbf]
+  AssertCdataEncodeBuffer(
+      __LINE__,
+      "x"
+      // Legal double-octet sequences.
+      "\xC0\x80"
+      "\xDE\xB0"
+      "\xDF\xBF"
+      // Illegal double-octet sequences, first octet is bad, second is good.
+      "\xBF\x80"  // each are matched as single bad octets
+      "\xE0\x80"
+      // Illegal double-octet sequences, first octet is good, second is bad.
+      "\xC0\x7F"  // 0x7F is legal as a single-octet, retained
+      "\xDF\xC0"  // 0xC0 starts a legal two-octet sequence...
+      // Illegal double-octet sequences, both octets bad.
+      "\xBF\xFF"  // ...and 0xBF finishes that sequence
+      "x",
+
+      // === Expected output ===
+      "x"
+      // Legal double-octet sequences.
+      "\xC0\x80"
+      "\xDE\xB0"
+      "\xDF\xBF"
+      // Illegal double-octet sequences, first octet is bad, second is good.
+      "??"
+      "??"
+      // Illegal double-octet sequences, first octet is good, second is bad.
+      "?\x7F"  // 0x7F is legal as a single-octet, retained
+      "?\xC0"  // 0xC0 starts a legal two-octet sequence...
+      // Illegal double-octet sequences, both octets bad.
+      "\xBF?"  // ...and 0xBF finishes that sequence
+      "x",
+      {});
+}
+
+TEST_F(TestWrapperWindowsTest, TestCdataEscapeAndAppend) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+
+  // Create a directory structure to parse.
+  std::wstring root = tmpdir + L"\\tmp" + WLINE;
+  EXPECT_TRUE(CreateDirectoryW(root.c_str(), NULL));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a",
+                                          "AB\xA\xC\xD"
+                                          "]]>"
+                                          "]]]>"
+                                          "\xC0\x80"
+                                          "a"
+                                          "\xED\x9F\xBF"
+                                          "b"
+                                          "\xEF\xBF\xB0"
+                                          "c"
+                                          "\xF7\xB0\x80\x81"
+                                          "d"
+                                          "]]>"));
+
+  ASSERT_TRUE(TestOnly_CdataEscapeAndAppend(root + L"\\a", root + L"\\b"));
+
+  HANDLE h = CreateFileW((root + L"\\b").c_str(), GENERIC_READ,
+                         FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
+                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  ASSERT_NE(h, INVALID_HANDLE_VALUE);
+  char content[200];
+  DWORD read;
+  bool success = ReadFile(h, content, 200, &read, NULL) != FALSE;
+  CloseHandle(h);
+  EXPECT_TRUE(success);
+
+  ASSERT_EQ(std::string(content, read),
+            "AB\xA?\xD"
+            "]]>]]&gt;<![CDATA["
+            "]]]>]]&gt;<![CDATA["
+            "\xC0\x80"
+            "a"
+            "\xED\x9F\xBF"
+            "b"
+            "\xEF\xBF\xB0"
+            "c"
+            "\xF7\xB0\x80\x81"
+            "d"
+            "]]>]]&gt;<![CDATA[");
 }
 
 }  // namespace

@@ -1,0 +1,122 @@
+## check_sources
+
+<pre>
+check_sources(<a href="#check_sources-name">name</a>, <a href="#check_sources-required_param">required_param</a>, <a href="#check_sources-bool_param">bool_param</a>, <a href="#check_sources-srcs">srcs</a>, <a href="#check_sources-string_param">string_param</a>, <a href="#check_sources-int_param">int_param</a>, <a href="#check_sources-dict_param">dict_param</a>, <a href="#check_sources-struct_param">struct_param</a>)
+</pre>
+
+Runs some checks on the given source files.
+
+This rule runs checks on a given set of source files.
+Use `bazel build` to run the check.
+
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="check_sources-name">
+      <td><code>name</code></td>
+      <td>
+        required.
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
+    <tr id="check_sources-required_param">
+      <td><code>required_param</code></td>
+      <td>
+        required.
+        <p>
+          Use your imagination.
+        </p>
+      </td>
+    </tr>
+    <tr id="check_sources-bool_param">
+      <td><code>bool_param</code></td>
+      <td>
+        optional. default is <code>True</code>
+      </td>
+    </tr>
+    <tr id="check_sources-srcs">
+      <td><code>srcs</code></td>
+      <td>
+        optional. default is <code>[]</code>
+        <p>
+          Source files to run the checks against.
+        </p>
+      </td>
+    </tr>
+    <tr id="check_sources-string_param">
+      <td><code>string_param</code></td>
+      <td>
+        optional. default is <code>""</code>
+      </td>
+    </tr>
+    <tr id="check_sources-int_param">
+      <td><code>int_param</code></td>
+      <td>
+        optional. default is <code>2</code>
+        <p>
+          Your favorite number.
+        </p>
+      </td>
+    </tr>
+    <tr id="check_sources-dict_param">
+      <td><code>dict_param</code></td>
+      <td>
+        optional. default is <code>{}</code>
+      </td>
+    </tr>
+    <tr id="check_sources-struct_param">
+      <td><code>struct_param</code></td>
+      <td>
+        optional.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+## undocumented_function
+
+<pre>
+undocumented_function(<a href="#undocumented_function-a">a</a>, <a href="#undocumented_function-b">b</a>, <a href="#undocumented_function-c">c</a>)
+</pre>
+
+
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="undocumented_function-a">
+      <td><code>a</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+    <tr id="undocumented_function-b">
+      <td><code>b</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+    <tr id="undocumented_function-c">
+      <td><code>c</code></td>
+      <td>
+        required.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

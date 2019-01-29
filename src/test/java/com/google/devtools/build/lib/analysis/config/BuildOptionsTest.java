@@ -19,8 +19,10 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.common.options.OptionsParser;
+import java.util.AbstractMap;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -185,8 +188,8 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void optionsDiff_sameSkylarkOptions() throws Exception {
-    String flagName = "//foo/flag";
+  public void optionsDiff_sameStarlarkOptions() throws Exception {
+    Label flagName = Label.parseAbsoluteUnchecked("//foo/flag");
     String flagValue = "value";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
     BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
@@ -195,8 +198,8 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void optionsDiff_differentSkylarkOptions() throws Exception {
-    String flagName = "//bar/flag";
+  public void optionsDiff_differentStarlarkOptions() throws Exception {
+    Label flagName = Label.parseAbsoluteUnchecked("//bar/flag");
     String flagValueOne = "valueOne";
     String flagValueTwo = "valueTwo";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValueOne));
@@ -205,17 +208,17 @@ public class BuildOptionsTest {
     OptionsDiff diff = BuildOptions.diff(one, two);
 
     assertThat(diff.areSame()).isFalse();
-    assertThat(diff.getSkylarkFirstForTesting().keySet())
-        .isEqualTo(diff.getSkylarkSecondForTesting().keySet());
-    assertThat(diff.getSkylarkFirstForTesting().keySet()).containsExactly(flagName);
-    assertThat(diff.getSkylarkFirstForTesting().values()).containsExactly(flagValueOne);
-    assertThat(diff.getSkylarkSecondForTesting().values()).containsExactly(flagValueTwo);
+    assertThat(diff.getStarlarkFirstForTesting().keySet())
+        .isEqualTo(diff.getStarlarkSecondForTesting().keySet());
+    assertThat(diff.getStarlarkFirstForTesting().keySet()).containsExactly(flagName);
+    assertThat(diff.getStarlarkFirstForTesting().values()).containsExactly(flagValueOne);
+    assertThat(diff.getStarlarkSecondForTesting().values()).containsExactly(flagValueTwo);
   }
 
   @Test
-  public void optionsDiff_extraSkylarkOptions() throws Exception {
-    String flagNameOne = "//extra/flag/one";
-    String flagNameTwo = "//extra/flag/two";
+  public void optionsDiff_extraStarlarkOptions() throws Exception {
+    Label flagNameOne = Label.parseAbsoluteUnchecked("//extra/flag/one");
+    Label flagNameTwo = Label.parseAbsoluteUnchecked("//extra/flag/two");
     String flagValue = "foo";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagNameOne, flagValue));
     BuildOptions two = BuildOptions.of(ImmutableMap.of(flagNameTwo, flagValue));
@@ -223,14 +226,14 @@ public class BuildOptionsTest {
     OptionsDiff diff = BuildOptions.diff(one, two);
 
     assertThat(diff.areSame()).isFalse();
-    assertThat(diff.getExtraSkylarkOptionsFirstForTesting()).containsExactly(flagNameOne);
-    assertThat(diff.getExtraSkylarkOptionsSecondForTesting().entrySet())
+    assertThat(diff.getExtraStarlarkOptionsFirstForTesting()).containsExactly(flagNameOne);
+    assertThat(diff.getExtraStarlarkOptionsSecondForTesting().entrySet())
         .containsExactly(Maps.immutableEntry(flagNameTwo, flagValue));
   }
 
   @Test
-  public void applyDiff_sameSkylarkOptions() throws Exception {
-    String flagName = "//foo/flag";
+  public void applyDiff_sameStarlarkOptions() throws Exception {
+    Label flagName = Label.parseAbsoluteUnchecked("//foo/flag");
     String flagValue = "value";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
     BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
@@ -246,8 +249,8 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void applyDiff_differentSkylarkOptions() throws Exception {
-    String flagName = "//bar/flag";
+  public void applyDiff_differentStarlarkOptions() throws Exception {
+    Label flagName = Label.parseAbsoluteUnchecked("//bar/flag");
     String flagValueOne = "valueOne";
     String flagValueTwo = "valueTwo";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValueOne));
@@ -260,9 +263,9 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void applyDiff_extraSkylarkOptions() throws Exception {
-    String flagNameOne = "//extra/flag/one";
-    String flagNameTwo = "//extra/flag/two";
+  public void applyDiff_extraStarlarkOptions() throws Exception {
+    Label flagNameOne = Label.parseAbsoluteUnchecked("//extra/flag/one");
+    Label flagNameTwo = Label.parseAbsoluteUnchecked("//extra/flag/two");
     String flagValue = "foo";
     BuildOptions one = BuildOptions.of(ImmutableMap.of(flagNameOne, flagValue));
     BuildOptions two = BuildOptions.of(ImmutableMap.of(flagNameTwo, flagValue));
@@ -326,5 +329,16 @@ public class BuildOptionsTest {
     assertThat(TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)))
         .isEqualTo(
             TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)));
+  }
+
+  @Test
+  public void testMultiValueOptionImmutability() throws Exception {
+    BuildOptions options =
+        BuildOptions.of(TEST_OPTIONS, OptionsParser.newOptionsParser(TEST_OPTIONS));
+    BuildConfiguration.Options coreOptions = options.get(Options.class);
+    assertThrows(
+        UnsupportedOperationException.class,
+        () ->
+            coreOptions.commandLineBuildVariables.add(new AbstractMap.SimpleEntry<>("foo", "bar")));
   }
 }

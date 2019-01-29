@@ -168,7 +168,7 @@ public class BuiltinFunction extends BaseFunction {
 
     // Last but not least, actually make an inner call to the function with the resolved arguments.
     try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.SKYLARK_BUILTIN_FN, getName())) {
+        Profiler.instance().profile(ProfilerTask.STARLARK_BUILTIN_FN, getName())) {
       env.enterScope(this, SHARED_LEXICAL_FRAME_FOR_BUILTIN_FUNCTION_CALLS, ast, env.getGlobals());
       return invokeMethod.invoke(this, args);
     } catch (InvocationTargetException x) {
@@ -246,26 +246,6 @@ public class BuiltinFunction extends BaseFunction {
     super.configure(annotation);
   }
 
-  // finds the method and makes it accessible (which is needed to find it, and later to use it)
-  protected Method findMethod(final String name) {
-    Method found = null;
-    for (Method method : this.getClass().getDeclaredMethods()) {
-      method.setAccessible(true);
-      if (name.equals(method.getName())) {
-        if (found != null) {
-          throw new IllegalArgumentException(String.format(
-              "function %s has more than one method named %s", getName(), name));
-        }
-        found = method;
-      }
-    }
-    if (found == null) {
-      throw new NoSuchElementException(String.format(
-          "function %s doesn't have a method named %s", getName(), name));
-    }
-    return found;
-  }
-
   /** Configure the reflection mechanism */
   @Override
   protected void configure() {
@@ -279,9 +259,7 @@ public class BuiltinFunction extends BaseFunction {
       throw new IllegalStateException(
           String.format(
               "bad argument count for %s: method has %s arguments, type list has %s",
-              getName(),
-              innerArgumentCount,
-              parameterTypes.length));
+              getName(), innerArgumentCount, parameterTypes.length));
     }
 
     if (enforcedArgumentTypes != null) {
@@ -289,14 +267,18 @@ public class BuiltinFunction extends BaseFunction {
         SkylarkType enforcedType = enforcedArgumentTypes.get(i);
         if (enforcedType != null) {
           Class<?> parameterType = parameterTypes[i];
-          String msg = String.format(
-              "fun %s(%s), param %s, enforcedType: %s (%s); parameterType: %s",
-              getName(), signature, signature.getSignature().getNames().get(i),
-              enforcedType, enforcedType.getType(), parameterType);
+          String msg =
+              String.format(
+                  "fun %s(%s), param %s, enforcedType: %s (%s); parameterType: %s",
+                  getName(),
+                  signature,
+                  signature.getSignature().getNames().get(i),
+                  enforcedType,
+                  enforcedType.getType(),
+                  parameterType);
           if (enforcedType instanceof SkylarkType.Simple
               || enforcedType instanceof SkylarkFunctionType) {
-            Preconditions.checkArgument(
-                enforcedType.getType() == parameterType, msg);
+            Preconditions.checkArgument(enforcedType.getType() == parameterType, msg);
             // No need to enforce Simple types on the Skylark side, the JVM will do it for us.
             enforcedArgumentTypes.set(i, null);
           } else if (enforcedType instanceof SkylarkType.Combination) {
@@ -314,9 +296,12 @@ public class BuiltinFunction extends BaseFunction {
     if (returnType != null) {
       Class<?> type = returnType;
       Class<?> methodReturnType = invokeMethod.getReturnType();
-      Preconditions.checkArgument(type == methodReturnType,
+      Preconditions.checkArgument(
+          type == methodReturnType,
           "signature for function %s says it returns %s but its invoke method returns %s",
-          getName(), returnType, methodReturnType);
+          getName(),
+          returnType,
+          methodReturnType);
     }
   }
 
@@ -326,14 +311,34 @@ public class BuiltinFunction extends BaseFunction {
   public void configure(BuiltinFunction.Factory factory) {
     // this function must not be configured yet, but the factory must be
     Preconditions.checkState(!isConfigured());
-    Preconditions.checkState(factory.isConfigured(),
-        "function factory is not configured for %s", getName());
+    Preconditions.checkState(
+        factory.isConfigured(), "function factory is not configured for %s", getName());
 
     this.paramDoc = factory.getParamDoc();
     this.signature = factory.getSignature();
     this.extraArgs = factory.getExtraArgs();
     this.objectType = factory.getObjectType();
     configure();
+  }
+
+  // finds the method and makes it accessible (which is needed to find it, and later to use it)
+  protected Method findMethod(final String name) {
+    Method found = null;
+    for (Method method : this.getClass().getDeclaredMethods()) {
+      method.setAccessible(true);
+      if (name.equals(method.getName())) {
+        if (found != null) {
+          throw new IllegalArgumentException(
+              String.format("function %s has more than one method named %s", getName(), name));
+        }
+        found = method;
+      }
+    }
+    if (found == null) {
+      throw new NoSuchElementException(
+          String.format("function %s doesn't have a method named %s", getName(), name));
+    }
+    return found;
   }
 
   /**

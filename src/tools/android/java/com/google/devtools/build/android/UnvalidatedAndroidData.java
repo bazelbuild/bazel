@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.core.VariantType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -137,9 +136,7 @@ class UnvalidatedAndroidData extends UnvalidatedAndroidDirectories {
               databindingResourceRoot,
               resource,
               metadataWorkingDirectory,
-              VariantType.LIBRARY,
               packagePath,
-              manifest,
               false));
     }
 

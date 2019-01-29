@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsValue;
@@ -46,7 +47,8 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
   public ConstraintValueInfo linuxConstraint;
   public ConstraintValueInfo macConstraint;
 
-  public Label testToolchainType;
+  public Label testToolchainTypeLabel;
+  public ToolchainTypeInfo testToolchainType;
 
   protected static IterableSubject assertToolchainLabels(
       RegisteredToolchainsValue registeredToolchainsValue) {
@@ -66,7 +68,7 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
   protected static List<Label> collectToolchainLabels(
       List<DeclaredToolchainInfo> toolchains, @Nullable PackageIdentifier packageRoot) {
     return toolchains.stream()
-        .map((toolchain -> toolchain.toolchainLabel()))
+        .map(toolchain -> toolchain.toolchainLabel())
         .filter(label -> filterLabel(packageRoot, label))
         .collect(Collectors.toList());
   }
@@ -174,7 +176,8 @@ public abstract class ToolchainTestCase extends SkylarkTestCase {
         ImmutableList.of("//constraints:linux"),
         "bar");
 
-    testToolchainType = makeLabel("//toolchain:test_toolchain");
+    testToolchainTypeLabel = makeLabel("//toolchain:test_toolchain");
+    testToolchainType = ToolchainTypeInfo.create(testToolchainTypeLabel);
   }
 
   protected EvaluationResult<RegisteredToolchainsValue> requestToolchainsFromSkyframe(

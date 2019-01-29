@@ -44,11 +44,10 @@ public class XmlWriterTest {
     String utf8String = "z\u0080\u0800\u010000"; // 1+2+3+4 bytes
     xmlWriter.writeCharacters(utf8String);
     xmlWriter.close();
-    
+
     // Note: assertHasContents() reads the bytes of the outputStream as a UTF-8 string
-    assertHasContents("<?xml version='1.0' encoding='UTF-8'?>",
-        "<String>" + utf8String,
-        "</String>");
+    assertHasContents(
+        "<?xml version='1.0' encoding='UTF-8'?>", "<String>" + utf8String + "</String>");
   }
 
   @Test
@@ -119,10 +118,8 @@ public class XmlWriterTest {
     xmlWriter.startElement("Child");
     xmlWriter.close();
 
-    assertHasContents("<?xml version='1.0' encoding='UTF-8'?>",
-        "<Root childCount='1'>",
-        "  <Child />",
-        "</Root>");
+    assertHasContents(
+        "<?xml version='1.0' encoding='UTF-8'?>", "<Root childCount='1'>", "  <Child /></Root>");
   }
 
   @Test
@@ -134,10 +131,8 @@ public class XmlWriterTest {
     xmlWriter.writeAttribute("name", "value");
     xmlWriter.close();
 
-    assertHasContents("<?xml version='1.0' encoding='UTF-8'?>",
-        "<Root>",
-        "  <Child name='value' />",
-        "</Root>");
+    assertHasContents(
+        "<?xml version='1.0' encoding='UTF-8'?>", "<Root>", "  <Child name='value' /></Root>");
   }
   
   @Test
@@ -150,12 +145,11 @@ public class XmlWriterTest {
     xmlWriter.writeCharacters("some text\nmore text");
     xmlWriter.close();
 
-    assertHasContents("<?xml version='1.0' encoding='UTF-8'?>",
+    assertHasContents(
+        "<?xml version='1.0' encoding='UTF-8'?>",
         "<Root>",
         "  <Child>some text",
-        "more text",
-        "  </Child>",
-        "</Root>");
+        "more text</Child></Root>");
   }
 
   @Test
@@ -168,11 +162,8 @@ public class XmlWriterTest {
     xmlWriter.writeCharacters("foo]]>bar");
     xmlWriter.close();
 
-    assertHasContents("<?xml version='1.0' encoding='UTF-8'?>",
-        "<Root>",
-        "  <Child>foo]]&gt;bar",
-        "  </Child>",
-        "</Root>");
+    assertHasContents(
+        "<?xml version='1.0' encoding='UTF-8'?>", "<Root>", "  <Child>foo]]&gt;bar</Child></Root>");
   }
   
   @Test
@@ -185,12 +176,11 @@ public class XmlWriterTest {
     xmlWriter.startElement("Grandchild");
     xmlWriter.close();
 
-    assertHasContents("<?xml version='1.0' encoding='UTF-8'?>",
+    assertHasContents(
+        "<?xml version='1.0' encoding='UTF-8'?>",
         "<Root>",
         "  <Child name='value'>",
-        "    <Grandchild />",
-        "  </Child>",
-        "</Root>");
+        "    <Grandchild /></Child></Root>");
   }
 
   @Test
@@ -205,11 +195,11 @@ public class XmlWriterTest {
     xmlWriter.writeAttribute("name", "Kyle");
     xmlWriter.close();
 
-    assertHasContents("<?xml version='1.0' encoding='UTF-8'?>",
+    assertHasContents(
+        "<?xml version='1.0' encoding='UTF-8'?>",
         "<Parent>",
         "  <Child name='Deanna' />",
-        "  <Child name='Kyle' />",
-        "</Parent>");
+        "  <Child name='Kyle' /></Parent>");
   }
 
   @Test

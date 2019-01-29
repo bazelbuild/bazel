@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A {@link RecursivePackageProvider} backed by an {@link Environment}. Its methods may throw {@link
@@ -52,9 +53,21 @@ public final class EnvironmentBackedRecursivePackageProvider
     extends AbstractRecursivePackageProvider {
 
   private final Environment env;
+  private final AtomicBoolean encounteredPackageErrors = new AtomicBoolean(false);
 
   EnvironmentBackedRecursivePackageProvider(Environment env) {
     this.env = env;
+  }
+
+  /**
+   * Whether any of the calls to {@link #getPackage}, {@link #getTarget}, {@link #bulkGetPackages},
+   * or {@link #getPackagesUnderDirectory} encountered a package in error.
+   *
+   * <p>The client of {@link EnvironmentBackedRecursivePackageProvider} may want to check this. See
+   * comments in {@link #getPackage} for details.
+   */
+  boolean encounteredPackageErrors() {
+    return encounteredPackageErrors.get();
   }
 
   @Override
@@ -77,7 +90,11 @@ public final class EnvironmentBackedRecursivePackageProvider
         Preconditions.checkState(env.valuesMissing(), "Should have thrown for %s", packageName);
         throw new MissingDepException();
       } catch (BuildFileContainsErrorsException e) {
-        // Expected.
+        // If this is a keep_going build, then the user of this RecursivePackageProvider has two
+        // options for handling the "package in error" case. The user must either inspect the
+        // package returned by this method, or else determine whether any errors have been seen via
+        // the "encounteredPackageErrors" method.
+        encounteredPackageErrors.set(true);
       }
     }
     return pkgValue.getPackage();
@@ -107,6 +124,7 @@ public final class EnvironmentBackedRecursivePackageProvider
       return packageLookupValue.packageExists();
     } catch (NoSuchPackageException | InconsistentFilesystemException e) {
       env.getListener().handle(Event.error(e.getMessage()));
+      encounteredPackageErrors.set(true);
       return false;
     }
   }

@@ -72,7 +72,7 @@ misleading alias to point both targets to one guava library, then the BUILD file
 ## `.bazelrc`
 
 For project-specific options, use the configuration file `_your-workspace_/.bazelrc` (see
-[bazelrc format](https://docs.bazel.build/user-manual.html#bazelrc)).
+[bazelrc format](https://docs.bazel.build/guide.html#bazelrc)).
 
 If you want to support per-user options for your project that you **do not** want to check
 into source control, include the line

@@ -214,8 +214,6 @@ public final class PrintActionCommand implements BlazeCommand {
             return null;
           }
         } else {
-          // TODO(rbraunstein): If a source is a member of a genrule and a cc_library don't
-          // trigger this
           env.getReporter().handle(Event.error(
               null, configuredTarget + " is not a supported target kind"));
           return null;

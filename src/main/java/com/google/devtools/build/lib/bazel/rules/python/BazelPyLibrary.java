@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.python;
 import com.google.devtools.build.lib.rules.python.PyLibrary;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
 
-/**
- * Implementation of the {@code py_library} rule for Bazel.
- */
+/** Bazel-specific implementation of the {@code py_library}. */
 public class BazelPyLibrary extends PyLibrary {
   @Override
   protected PythonSemantics createSemantics() {

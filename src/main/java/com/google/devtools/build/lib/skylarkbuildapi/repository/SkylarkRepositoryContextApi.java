@@ -78,8 +78,19 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   public RepositoryPathApi<?> path(Object path) throws EvalException, InterruptedException;
 
   @SkylarkCallable(
+      name = "report_progress",
+      doc = "Updates the progress status for the fetching of this repository",
+      parameters = {
+        @Param(
+            name = "status",
+            allowedTypes = {@ParamType(type = String.class)},
+            doc = "string describing the current status of the fetch progress")
+      })
+  public void reportProgress(String status);
+
+  @SkylarkCallable(
       name = "symlink",
-      doc = "Create a symlink on the filesystem.",
+      doc = "Creates a symlink on the filesystem.",
       useLocation = true,
       parameters = {
         @Param(
@@ -104,7 +115,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
 
   @SkylarkCallable(
       name = "file",
-      doc = "Generate a file in the repository directory with the provided content.",
+      doc = "Generates a file in the repository directory with the provided content.",
       useLocation = true,
       parameters = {
         @Param(
@@ -134,7 +145,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   @SkylarkCallable(
       name = "template",
       doc =
-          "Generate a new file using a <code>template</code>. Every occurrence in "
+          "Generates a new file using a <code>template</code>. Every occurrence in "
               + "<code>template</code> of a key of <code>substitutions</code> will be replaced by "
               + "the corresponding value. The result is written in <code>path</code>. An optional"
               + "<code>executable</code> argument (default to true) can be set to turn on or off"
@@ -246,7 +257,9 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
 
   @SkylarkCallable(
       name = "download",
-      doc = "Download a file to the output path for the provided url.",
+      doc =
+          "Downloads a file to the output path for the provided url and returns a struct containing"
+              + " a hash of the file with the field <code>sha256</code>.",
       useLocation = true,
       parameters = {
         @Param(
@@ -276,8 +289,8 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                 "the expected SHA-256 hash of the file downloaded."
                     + " This must match the SHA-256 hash of the file downloaded. It is a security"
                     + " risk to omit the SHA-256 as remote files can change. At best omitting this"
-                    + " field will make your build non-hermetic. It is optional to make"
-                    + " development easier but should be set before shipping."),
+                    + " field will make your build non-hermetic. It is optional to make development"
+                    + " easier but should be set before shipping."),
         @Param(
             name = "executable",
             type = Boolean.class,
@@ -285,13 +298,16 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             named = true,
             doc = "set the executable flag on the created file, false by default."),
       })
-  public void download(
+  public StructApi download(
       Object url, Object output, String sha256, Boolean executable, Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "download_and_extract",
-      doc = "Download a file to the output path for the provided url, and extract it.",
+      doc =
+          "Downloads a file to the output path for the provided url, extracts it, and returns"
+              + " a struct containing a hash of the downloaded file with the field"
+              + " <code>sha256</code>.",
       useLocation = true,
       parameters = {
         @Param(
@@ -323,11 +339,11 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                 "the expected SHA-256 hash of the file downloaded."
                     + " This must match the SHA-256 hash of the file downloaded. It is a security"
                     + " risk to omit the SHA-256 as remote files can change. At best omitting this"
-                    + " field will make your build non-hermetic. It is optional to make"
-                    + " development easier but should be set before shipping."
+                    + " field will make your build non-hermetic. It is optional to make development"
+                    + " easier but should be set before shipping."
                     + " If provided, the repository cache will first be checked for a file with the"
-                    + " given hash; a download will only be attempted, if the file was not found"
-                    + " in the cache. After a successful download, the file will be added to the"
+                    + " given hash; a download will only be attempted if the file was not found in"
+                    + " the cache. After a successful download, the file will be added to the"
                     + " cache."),
         @Param(
             name = "type",
@@ -336,10 +352,10 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
             named = true,
             doc =
                 "the archive type of the downloaded file."
-                    + " By default, the archive type is determined from the file extension of the"
-                    + " URL. If the file has no extension, you can explicitly specify either"
-                    + " \"zip\", \"jar\", \"war\", \"tar.gz\", \"tgz\", \"tar.bz2\", or \"tar.xz\""
-                    + " here."),
+                    + " By default, the archive type is determined from the file extension of"
+                    + " the URL."
+                    + " If the file has no extension, you can explicitly specify either \"zip\","
+                    + " \"jar\", \"war\", \"tar.gz\", \"tgz\", \"tar.bz2\", or \"tar.xz\" here."),
         @Param(
             name = "stripPrefix",
             type = String.class,
@@ -352,7 +368,7 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
                     + " <code>build_file</code>, this field can be used to strip it from extracted"
                     + " files."),
       })
-  public void downloadAndExtract(
+  public StructApi downloadAndExtract(
       Object url, Object output, String sha256, String type, String stripPrefix, Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
 }

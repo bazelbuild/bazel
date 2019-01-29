@@ -19,10 +19,6 @@ cc_library(
     name = "malloc",
 )
 
-cc_library(
-    name = "stl",
-)
-
 filegroup(
     name = "empty",
     srcs = [],
@@ -61,13 +57,12 @@ cc_toolchain_suite(
             arch if arch != "armeabi-v7a" else "stub_armeabi-v7a"
         ),
         all_files = ":osx_tools_" + arch,
+        ar_files = ":empty",
+        as_files = ":empty",
         compiler_files = ":osx_tools_" + arch,
-        cpu = arch,
         dwp_files = ":empty",
-        dynamic_runtime_libs = [":empty"],
         linker_files = ":osx_tools_" + arch,
         objcopy_files = ":empty",
-        static_runtime_libs = [":empty"],
         strip_files = ":osx_tools_" + arch,
         supports_param_files = 0,
     )
@@ -78,9 +73,6 @@ cc_toolchain_suite(
     toolchain(
         name = "cc-toolchain-" + arch,
         exec_compatible_with = [
-            # This toolchain will only work with the local autoconfigured
-            # platforms.
-            "@bazel_tools//platforms:autoconfigured",
             # TODO(katre): add autodiscovered constraints for host CPU and OS.
         ],
         target_compatible_with = [

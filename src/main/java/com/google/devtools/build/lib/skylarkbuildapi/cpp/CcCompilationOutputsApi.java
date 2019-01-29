@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -27,12 +27,12 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
     category = SkylarkModuleCategory.BUILTIN,
     documented = false,
     doc = "Helper class containing CC compilation outputs.")
-public interface CcCompilationOutputsApi {
+public interface CcCompilationOutputsApi<FileT extends FileApi> {
   @SkylarkCallable(
       name = "object_files",
       documented = false,
       parameters = {
         @Param(name = "use_pic", doc = "use_pic", positional = false, named = true),
       })
-  SkylarkList<Artifact> getSkylarkObjectFiles(boolean usePic);
+  SkylarkList<FileT> getSkylarkObjectFiles(boolean usePic);
 }

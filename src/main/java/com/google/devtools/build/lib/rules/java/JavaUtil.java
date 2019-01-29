@@ -58,6 +58,10 @@ public final class JavaUtil {
     return FileSystemUtils.removeExtension(path.getBaseName());
   }
 
+  /** Java source roots, used to relativize resource paths and infer main_class values. */
+  public static final ImmutableSet<String> KNOWN_SOURCE_ROOTS =
+      ImmutableSet.of("java", "javatests", "src", "testsrc");
+
   /**
    * Finds the index of the segment in a Java path fragment that precedes the source root. Starts
    * from the first "java" or "javatests" or "src" or "testsrc" segment. If the found item was
@@ -74,7 +78,7 @@ public final class JavaUtil {
     if (path.isAbsolute()) {
       throw new IllegalArgumentException("path must not be absolute: '" + path + "'");
     }
-    int rootIndex = path.getFirstSegment(ImmutableSet.of("java", "javatests", "src", "testsrc"));
+    int rootIndex = path.getFirstSegment(KNOWN_SOURCE_ROOTS);
     if (rootIndex < 0) {
       return rootIndex;
     }

@@ -74,7 +74,8 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
     HeaderThinning headerThinning = new HeaderThinning(getPotentialHeaders(expectedHeaders));
     writeToHeadersListFile(action, "objc/a.pch", "objc/b.h", "objc/c", "objc/d.hpp");
 
-    Iterable<Artifact> headersFound = headerThinning.determineAdditionalInputs(null, action, null);
+    Iterable<Artifact> headersFound =
+        headerThinning.determineAdditionalInputs(null, action, null, null);
     assertThat(headersFound).containsExactlyElementsIn(expectedHeaders);
   }
 
@@ -88,7 +89,7 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
     writeToHeadersListFile(action, "objc/a.h", "objc/b.h", "objc/c.h");
 
     try {
-      headerThinning.determineAdditionalInputs(null, action, null);
+      headerThinning.determineAdditionalInputs(null, action, null, null);
       fail("Exception was not thrown");
     } catch (ExecException e) {
       assertThat(e).hasMessageThat().containsMatch("(objc/c.h)");
@@ -105,7 +106,8 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
     HeaderThinning headerThinning = new HeaderThinning(getPotentialHeaders(expectedHeaders));
     writeToHeadersListFile(action, "objc/a.h", "tree/dir/c.h");
 
-    Iterable<Artifact> headersFound = headerThinning.determineAdditionalInputs(null, action, null);
+    Iterable<Artifact> headersFound =
+        headerThinning.determineAdditionalInputs(null, action, null, null);
     assertThat(headersFound).containsExactlyElementsIn(expectedHeaders);
   }
 

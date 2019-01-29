@@ -352,11 +352,11 @@ public final class AspectCollection {
   }
 
   /**
-   * Signals an inconsistency on aspect path: an aspect occurs twice on the path and
-   * the second occurrence sees a different set of aspects.
+   * Signals an inconsistency on aspect path: an aspect occurs twice on the path and the second
+   * occurrence sees a different set of aspects.
    *
-   * {@link #getAspect()} is the aspect occuring twice, and {@link #getPreviousAspect()}
-   * is the aspect that the second occurrence sees but the first does not.
+   * <p>{@link #getAspect()} is the aspect occurring twice, and {@link #getPreviousAspect()} is the
+   * aspect that the second occurrence sees but the first does not.
    */
   public static class AspectCycleOnPathException extends Exception {
 

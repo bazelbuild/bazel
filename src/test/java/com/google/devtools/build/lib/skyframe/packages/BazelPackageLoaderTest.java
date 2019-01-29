@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.skyframe.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -143,6 +145,21 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
     assertNoEvents(goodPkg.getEvents());
+    assertNoEvents(handler.getEvents());
+  }
+
+  @Test
+  public void buildDotBazelForSubpackageCheckDuringGlobbing() throws Exception {
+    file("a/BUILD", "filegroup(name = 'fg', srcs = glob(['sub/a.txt']))");
+    file("a/sub/a.txt");
+    file("a/sub/BUILD.bazel");
+
+    PackageLoader pkgLoader = newPackageLoader();
+    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("a"));
+    Package aPkg = pkgLoader.loadPackage(pkgId);
+    assertThat(aPkg.containsErrors()).isFalse();
+    assertThrows(NoSuchTargetException.class, () -> aPkg.getTarget("sub/a.txt"));
+    assertNoEvents(aPkg.getEvents());
     assertNoEvents(handler.getEvents());
   }
 }

@@ -731,6 +731,11 @@ public final class RuleContext extends TargetContext
     return getUniqueDirectoryArtifact(uniqueDirectorySuffix, relative, getBinOrGenfilesDirectory());
   }
 
+  @Override
+  public Artifact getUniqueDirectoryArtifact(String uniqueDirectorySuffix, PathFragment relative) {
+    return getUniqueDirectoryArtifact(uniqueDirectorySuffix, relative, getBinOrGenfilesDirectory());
+  }
+
   /**
    * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
    * clashes with artifacts created by other rules.

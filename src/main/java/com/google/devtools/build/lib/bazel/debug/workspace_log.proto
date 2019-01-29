@@ -81,9 +81,9 @@ message OsEvent {
 // Information on "symlink" event in repository_ctx.
 message SymlinkEvent {
   // path to which the symlink will point to
-  string from = 1;
+  string target = 1;
   // path of the symlink
-  string to = 2;
+  string path = 2;
 }
 
 // Information on "template" event in repository_ctx.

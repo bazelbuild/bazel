@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.repository;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
@@ -43,16 +45,17 @@ public class ExternalPackageUtil {
    */
   @Nullable
   private static List<Rule> getRules(
-      Environment env, boolean returnFirst, Function<Package, Iterable<Rule>> selector)
+      Environment env, boolean returnFirst, Function<Package, List<Rule>> selector)
       throws ExternalPackageException, InterruptedException {
-    SkyKey packageLookupKey = PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+    SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
     if (packageLookupValue == null) {
       return null;
     }
-    RootedPath workspacePath = packageLookupValue.getRootedPath(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+    RootedPath workspacePath =
+        packageLookupValue.getRootedPath(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
 
-    List<Rule> rules = ImmutableList.of();
+    List<Rule> rules = returnFirst ? ImmutableList.of() : Lists.newArrayList();
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
     do {
       WorkspaceFileValue value = (WorkspaceFileValue) env.getValue(workspaceKey);
@@ -64,15 +67,16 @@ public class ExternalPackageUtil {
         Event.replayEventsOn(env.getListener(), externalPackage.getEvents());
         throw new ExternalPackageException(
             new BuildFileContainsErrorsException(
-                Label.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
+                LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
             Transience.PERSISTENT);
       }
-      Iterable<Rule> results = selector.apply(externalPackage);
-      if (results != null) {
-        rules = ImmutableList.copyOf(results);
-        if (returnFirst && !rules.isEmpty()) {
-          return ImmutableList.of(Iterables.getFirst(results, null));
+      List<Rule> results = selector.apply(externalPackage);
+      if (results != null && !results.isEmpty()) {
+        if (returnFirst) {
+          // assert expected non null value explicitly for possible future callers
+          return ImmutableList.of(Preconditions.checkNotNull(results.get(0)));
         }
+        rules.addAll(results);
       }
       workspaceKey = value.next();
     } while (workspaceKey != null);
@@ -89,10 +93,10 @@ public class ExternalPackageUtil {
         getRules(
             env,
             true,
-            new Function<Package, Iterable<Rule>>() {
+            new Function<Package, List<Rule>>() {
               @Nullable
               @Override
-              public Iterable<Rule> apply(Package externalPackage) {
+              public List<Rule> apply(Package externalPackage) {
                 Rule rule = externalPackage.getRule(ruleName);
                 if (rule == null) {
                   return null;

@@ -15,16 +15,19 @@
 package com.google.devtools.build.remote.worker;
 
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
-import com.google.devtools.common.options.Converters.RangeConverter;
+import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
+import java.util.logging.Logger;
 
 /** Options for remote worker. */
 public class RemoteWorkerOptions extends OptionsBase {
+  private static final Logger logger = Logger.getLogger(RemoteWorkerOptions.class.getName());
+
   @Option(
     name = "listen_port",
     defaultValue = "8080",
@@ -121,17 +124,20 @@ public class RemoteWorkerOptions extends OptionsBase {
   public boolean sandboxingBlockNetwork;
 
   @Option(
-    name = "jobs",
-    defaultValue = "auto",
-    converter = JobsConverter.class,
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "The maximum number of concurrent jobs to run. \"auto\" means to use a reasonable value"
-            + " derived from the machine's hardware profile (e.g. the number of processors)."
-            + " Values above " + MAX_JOBS + " are not allowed."
-  )
+      name = "jobs",
+      defaultValue = "auto",
+      converter = JobsConverter.class,
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The maximum number of concurrent jobs to run. Takes "
+              + ResourceConverter.FLAG_SYNTAX
+              + ". \"auto\" means to use a reasonable value"
+              + " derived from the machine's hardware profile (e.g. the number of processors)."
+              + " Values less than 1 or above "
+              + MAX_JOBS
+              + " are not allowed.")
   public int jobs;
 
   @Option(
@@ -148,25 +154,34 @@ public class RemoteWorkerOptions extends OptionsBase {
 
   private static final int MAX_JOBS = 16384;
 
-  /** Converter for jobs: [0, MAX_JOBS] or "auto". */
-  public static class JobsConverter extends RangeConverter {
+  /**
+   * Converter for jobs. Takes {@value FLAG_SYNTAX}. Values must be between 1 and {@value MAX_JOBS}.
+   * Values higher than {@value MAX_JOBS} will be set to {@value MAX_JOBS}.
+   */
+  public static class JobsConverter extends ResourceConverter {
     public JobsConverter() {
-      super(0, MAX_JOBS);
+      super(
+          () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
+          1,
+          MAX_JOBS);
     }
 
     @Override
-    public Integer convert(String input) throws OptionsParsingException {
-      if (input.equals("auto")) {
-        int autoJobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
-        return Math.min(autoJobs, MAX_JOBS);
-      } else {
-        return super.convert(input);
+    public int checkAndLimit(int value) throws OptionsParsingException {
+      if (value < minValue) {
+        throw new OptionsParsingException(
+            String.format("Value '(%d)' must be at least %d.", value, minValue));
       }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "\"auto\" or " + super.getTypeDescription();
+      if (value > maxValue) {
+        logger.warning(
+            String.format(
+                "Flag remoteWorker \"jobs\" ('%d') was set too high. "
+                    + "This is a result of passing large values to --local_resources or --jobs. "
+                    + "Using '%d' jobs",
+                value, maxValue));
+        value = maxValue;
+      }
+      return value;
     }
   }
 }

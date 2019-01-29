@@ -146,13 +146,14 @@ public class SerializationContextTest {
         new SerializationContext(ObjectCodecRegistry.newBuilder().build(), ImmutableMap.of())
             .getMemoizingContext();
     underTest.addExplicitlyAllowedClass(String.class);
-    underTest.checkClassExplicitlyAllowed(String.class);
+    underTest.checkClassExplicitlyAllowed(String.class, "str");
     assertThrows(
-        SerializationException.class, () -> underTest.checkClassExplicitlyAllowed(Integer.class));
+        SerializationException.class,
+        () -> underTest.checkClassExplicitlyAllowed(Integer.class, 0));
     // Explicitly registered classes do not carry over to a new context.
     assertThrows(
         SerializationException.class,
-        () -> underTest.getNewMemoizingContext().checkClassExplicitlyAllowed(String.class));
+        () -> underTest.getNewMemoizingContext().checkClassExplicitlyAllowed(String.class, "str"));
   }
 
   @Test

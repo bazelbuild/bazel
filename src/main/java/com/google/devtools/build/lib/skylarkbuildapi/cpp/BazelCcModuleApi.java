@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
@@ -32,24 +31,25 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 // TODO(b/111365281): Add experimental field once it's available.
 public interface BazelCcModuleApi<
+        FileT extends FileApi,
+        SkylarkRuleContextT extends SkylarkRuleContextApi,
         CcToolchainProviderT extends CcToolchainProviderApi,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationInfoT extends CompilationInfoApi,
         CcCompilationContextT extends CcCompilationContextApi,
         CcCompilationOutputsT extends CcCompilationOutputsApi,
         LinkingInfoT extends LinkingInfoApi,
-        CcLinkingInfoT extends CcLinkingInfoApi,
-        CcToolchainVariablesT extends CcToolchainVariablesApi,
-        LibraryToLinkT extends LibraryToLinkApi,
-        CcLinkParamsT extends CcLinkParamsApi,
-        CcSkylarkInfoT extends CcSkylarkInfoApi>
+        LinkingContextT extends CcLinkingContextApi,
+        LibraryToLinkWrapperT extends LibraryToLinkWrapperApi,
+        CcToolchainVariablesT extends CcToolchainVariablesApi>
     extends CcModuleApi<
         CcToolchainProviderT,
         FeatureConfigurationT,
+        CcCompilationContextT,
+        LinkingContextT,
+        LibraryToLinkWrapperT,
         CcToolchainVariablesT,
-        LibraryToLinkT,
-        CcLinkParamsT,
-        CcSkylarkInfoT> {
+        SkylarkRuleContextT> {
 
   @SkylarkCallable(
       name = "compile",
@@ -118,11 +118,11 @@ public interface BazelCcModuleApi<
             type = SkylarkList.class)
       })
   CompilationInfoT compile(
-      SkylarkRuleContext skylarkRuleContext,
+      SkylarkRuleContextT skylarkRuleContext,
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
-      SkylarkList<Artifact> sources,
-      SkylarkList<Artifact> headers,
+      SkylarkList<FileT> sources,
+      SkylarkList<FileT> headers,
       Object skylarkIncludes,
       Object skylarkCopts,
       SkylarkList<CcCompilationContextT> ccCompilationContexts)
@@ -170,12 +170,12 @@ public interface BazelCcModuleApi<
             }),
         @Param(
             name = "dynamic_library",
-            doc = "Dynamic library artifact.",
+            doc = "Dynamic library file.",
             positional = false,
             named = true,
             defaultValue = "None",
             noneable = true,
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Artifact.class)}),
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = FileApi.class)}),
         @Param(
             name = "linking_contexts",
             doc = "linking_context instances affecting linking, e.g. from dependencies",
@@ -192,13 +192,13 @@ public interface BazelCcModuleApi<
             defaultValue = "False"),
       })
   LinkingInfoT link(
-      SkylarkRuleContext skylarkRuleContext,
+      SkylarkRuleContextT skylarkRuleContext,
       FeatureConfigurationT skylarkFeatureConfiguration,
       CcToolchainProviderT skylarkCcToolchainProvider,
       CcCompilationOutputsT ccCompilationOutputs,
       Object skylarkLinkopts,
       Object dynamicLibrary,
-      SkylarkList<CcLinkingInfoT> skylarkCcLinkingInfos,
+      SkylarkList<LinkingContextT> skylarkCcLinkingContexts,
       boolean neverLink)
       throws InterruptedException, EvalException;
 }

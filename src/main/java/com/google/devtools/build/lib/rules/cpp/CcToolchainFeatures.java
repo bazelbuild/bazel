@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
@@ -28,9 +29,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SingleVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringChunk;
@@ -38,12 +39,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueP
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -111,6 +111,14 @@ public class CcToolchainFeatures implements Serializable {
 
     public Flag(ImmutableList<StringChunk> chunks) {
       this.chunks = chunks;
+    }
+
+    String getString() {
+      return Joiner.on("")
+          .join(
+              chunks.stream()
+                  .map(chunk -> chunk.getString())
+                  .collect(ImmutableList.toImmutableList()));
     }
 
     /** Expand this flag into a single new entry in {@code commandLine}. */
@@ -197,7 +205,7 @@ public class CcToolchainFeatures implements Serializable {
     private final String key;
     private final ImmutableList<StringChunk> valueChunks;
 
-    private EnvEntry(CToolchain.EnvEntry envEntry) throws InvalidConfigurationException {
+    private EnvEntry(CToolchain.EnvEntry envEntry) throws EvalException {
       this.key = envEntry.getKey();
       StringValueParser parser = new StringValueParser(envEntry.getValue());
       this.valueChunks = parser.getChunks();
@@ -207,6 +215,18 @@ public class CcToolchainFeatures implements Serializable {
     public EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
       this.key = key;
       this.valueChunks = valueChunks;
+    }
+
+    String getKey() {
+      return key;
+    }
+
+    String getValue() {
+      return Joiner.on("")
+          .join(
+              valueChunks.stream()
+                  .map(stringChunk -> stringChunk.getString())
+                  .collect(ImmutableList.toImmutableList()));
     }
 
     /**
@@ -252,6 +272,14 @@ public class CcToolchainFeatures implements Serializable {
       this.variable = variable;
       this.value = value;
     }
+
+    String getVariable() {
+      return variable;
+    }
+
+    String getValue() {
+      return value;
+    }
   }
 
   /**
@@ -270,7 +298,7 @@ public class CcToolchainFeatures implements Serializable {
     private final String expandIfFalse;
     private final VariableWithValue expandIfEqual;
 
-    private FlagGroup(CToolchain.FlagGroup flagGroup) throws InvalidConfigurationException {
+    private FlagGroup(CToolchain.FlagGroup flagGroup) throws EvalException {
       ImmutableList.Builder<Expandable> expandables = ImmutableList.builder();
       Collection<String> flags = flagGroup.getFlagList();
       Collection<CToolchain.FlagGroup> groups = flagGroup.getFlagGroupList();
@@ -432,6 +460,34 @@ public class CcToolchainFeatures implements Serializable {
           expandIfFalse,
           expandIfEqual);
     }
+
+    ImmutableList<Expandable> getExpandables() {
+      return expandables;
+    }
+
+    String getIterateOverVariable() {
+      return iterateOverVariable;
+    }
+
+    ImmutableSet<String> getExpandIfAllAvailable() {
+      return expandIfAllAvailable;
+    }
+
+    ImmutableSet<String> getExpandIfNoneAvailable() {
+      return expandIfNoneAvailable;
+    }
+
+    String getExpandIfTrue() {
+      return expandIfTrue;
+    }
+
+    String getExpandIfFalse() {
+      return expandIfFalse;
+    }
+
+    VariableWithValue getExpandIfEqual() {
+      return expandIfEqual;
+    }
   }
 
   private static boolean isWithFeaturesSatisfied(
@@ -464,15 +520,12 @@ public class CcToolchainFeatures implements Serializable {
     private final ImmutableSet<WithFeatureSet> withFeatureSets;
     private final ImmutableList<FlagGroup> flagGroups;
 
-    private FlagSet(CToolchain.FlagSet flagSet) throws InvalidConfigurationException {
+    private FlagSet(CToolchain.FlagSet flagSet) throws EvalException {
       this(flagSet, ImmutableSet.copyOf(flagSet.getActionList()));
     }
 
-    /**
-     * Constructs a FlagSet for the given set of actions.
-     */
-    private FlagSet(CToolchain.FlagSet flagSet, ImmutableSet<String> actions)
-        throws InvalidConfigurationException {
+    /** Constructs a FlagSet for the given set of actions. */
+    private FlagSet(CToolchain.FlagSet flagSet, ImmutableSet<String> actions) throws EvalException {
       this.actions = actions;
       this.expandIfAllAvailable = ImmutableSet.copyOf(flagSet.getExpandIfAllAvailableList());
       ImmutableSet.Builder<WithFeatureSet> featureSetBuilder = ImmutableSet.builder();
@@ -538,6 +591,22 @@ public class CcToolchainFeatures implements Serializable {
     public int hashCode() {
       return Objects.hash(actions, expandIfAllAvailable, withFeatureSets, flagGroups);
     }
+
+    ImmutableSet<String> getActions() {
+      return actions;
+    }
+
+    ImmutableSet<String> getExpandIfAllAvailable() {
+      return expandIfAllAvailable;
+    }
+
+    ImmutableSet<WithFeatureSet> getWithFeatureSets() {
+      return withFeatureSets;
+    }
+
+    ImmutableList<FlagGroup> getFlagGroups() {
+      return flagGroups;
+    }
   }
 
   /**
@@ -598,7 +667,7 @@ public class CcToolchainFeatures implements Serializable {
     private final ImmutableList<EnvEntry> envEntries;
     private final ImmutableSet<WithFeatureSet> withFeatureSets;
 
-    private EnvSet(CToolchain.EnvSet envSet) throws InvalidConfigurationException {
+    private EnvSet(CToolchain.EnvSet envSet) throws EvalException {
       this.actions = ImmutableSet.copyOf(envSet.getActionList());
       ImmutableList.Builder<EnvEntry> builder = ImmutableList.builder();
       for (CToolchain.EnvEntry envEntry : envSet.getEnvEntryList()) {
@@ -621,6 +690,18 @@ public class CcToolchainFeatures implements Serializable {
       this.actions = actions;
       this.envEntries = envEntries;
       this.withFeatureSets = withFeatureSets;
+    }
+
+    ImmutableSet<String> getActions() {
+      return actions;
+    }
+
+    ImmutableList<EnvEntry> getEnvEntries() {
+      return envEntries;
+    }
+
+    ImmutableSet<WithFeatureSet> getWithFeatureSets() {
+      return withFeatureSets;
     }
 
     /**
@@ -692,7 +773,7 @@ public class CcToolchainFeatures implements Serializable {
     private final ImmutableList<String> implies;
     private final ImmutableList<String> provides;
 
-    Feature(CToolchain.Feature feature) throws InvalidConfigurationException {
+    Feature(CToolchain.Feature feature) throws EvalException {
       this.name = feature.getName();
       ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
       for (CToolchain.FlagSet flagSet : feature.getFlagSetList()) {
@@ -776,6 +857,14 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
 
+    ImmutableList<FlagSet> getFlagSets() {
+      return flagSets;
+    }
+
+    ImmutableList<EnvSet> getEnvSets() {
+      return envSets;
+    }
+
     @Override
     public boolean equals(@Nullable Object object) {
       if (this == object) {
@@ -845,7 +934,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /** Returns the path to this action's tool relative to the provided crosstool path. */
-    public String getToolPathString(PathFragment ccToolchainPath) {
+    String getToolPathString(PathFragment ccToolchainPath) {
       return ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
     }
 
@@ -860,8 +949,12 @@ public class CcToolchainFeatures implements Serializable {
      * Returns a set of {@link WithFeatureSet} instances used to decide whether to use this tool
      * given a set of enabled features.
      */
-    public ImmutableSet<WithFeatureSet> getWithFeatureSetSets() {
+    ImmutableSet<WithFeatureSet> getWithFeatureSetSets() {
       return withFeatureSetSets;
+    }
+
+    PathFragment getToolPathFragment() {
+      return toolPathFragment;
     }
   }
 
@@ -902,7 +995,7 @@ public class CcToolchainFeatures implements Serializable {
     private final boolean enabled;
     private final ImmutableList<String> implies;
 
-    ActionConfig(CToolchain.ActionConfig actionConfig) throws InvalidConfigurationException {
+    ActionConfig(CToolchain.ActionConfig actionConfig) throws EvalException {
       this.configName = actionConfig.getConfigName();
       this.actionName = actionConfig.getActionName();
       this.tools =
@@ -922,8 +1015,8 @@ public class CcToolchainFeatures implements Serializable {
       ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
       for (CToolchain.FlagSet flagSet : actionConfig.getFlagSetList()) {
         if (!flagSet.getActionList().isEmpty()) {
-          throw new InvalidConfigurationException(
-              String.format(FLAG_SET_WITH_ACTION_ERROR, configName));
+          throw new EvalException(
+              Location.BUILTIN, String.format(FLAG_SET_WITH_ACTION_ERROR, configName));
         }
 
         flagSetBuilder.add(new FlagSet(flagSet, ImmutableSet.of(actionName)));
@@ -1037,6 +1130,14 @@ public class CcToolchainFeatures implements Serializable {
     public int hashCode() {
       return Objects.hash(configName, actionName, enabled, tools, flagSets, implies);
     }
+
+    ImmutableList<Tool> getTools() {
+      return tools;
+    }
+
+    ImmutableList<FlagSet> getFlagSets() {
+      return flagSets;
+    }
   }
 
   /** A description of how artifacts of a certain type are named. */
@@ -1047,8 +1148,7 @@ public class CcToolchainFeatures implements Serializable {
     private final String prefix;
     private final String extension;
 
-    ArtifactNamePattern(CToolchain.ArtifactNamePattern artifactNamePattern)
-        throws InvalidConfigurationException {
+    ArtifactNamePattern(CToolchain.ArtifactNamePattern artifactNamePattern) throws EvalException {
 
       ArtifactCategory foundCategory = null;
       for (ArtifactCategory artifactCategory : ArtifactCategory.values()) {
@@ -1057,7 +1157,8 @@ public class CcToolchainFeatures implements Serializable {
         }
       }
       if (foundCategory == null) {
-        throw new InvalidConfigurationException(
+        throw new EvalException(
+            Location.BUILTIN,
             String.format(
                 "Invalid toolchain configuration: Artifact category %s not recognized",
                 artifactNamePattern.getCategoryName()));
@@ -1065,7 +1166,8 @@ public class CcToolchainFeatures implements Serializable {
 
       String extension = artifactNamePattern.getExtension();
       if (!foundCategory.getAllowedExtensions().contains(extension)) {
-        throw new InvalidConfigurationException(
+        throw new EvalException(
+            Location.BUILTIN,
             String.format(
                 "Unrecognized file extension '%s', allowed extensions are %s,"
                     + " please check artifact_name_pattern configuration for %s in your CROSSTOOL.",
@@ -1349,7 +1451,7 @@ public class CcToolchainFeatures implements Serializable {
 
   /**
    * A cache of feature selection results, so we do not recalculate the feature selection for all
-   * actions.
+   * actions. This may not be initialized on deserialization.
    */
   private transient LoadingCache<ImmutableSet<String>, FeatureConfiguration> configurationCache =
       buildConfigurationCache();
@@ -1361,12 +1463,12 @@ public class CcToolchainFeatures implements Serializable {
    *
    * @param ccToolchainConfigInfo the toolchain information as specified by the user.
    * @param ccToolchainPath location of the cc_toolchain.
-   * @throws InvalidConfigurationException if the configuration has logical errors.
+   * @throws EvalException if the configuration has logical errors.
    */
   @VisibleForTesting
   public CcToolchainFeatures(
       CcToolchainConfigInfo ccToolchainConfigInfo, PathFragment ccToolchainPath)
-      throws InvalidConfigurationException {
+      throws EvalException {
     // Build up the feature/action config graph.  We refer to features/action configs as
     // 'selectables'.
     // First, we build up the map of name -> selectables in one pass, so that earlier selectables
@@ -1459,11 +1561,12 @@ public class CcToolchainFeatures implements Serializable {
   }
 
   private static void checkForActivatableDups(Iterable<CrosstoolSelectable> selectables)
-      throws InvalidConfigurationException {
+      throws EvalException {
     Collection<String> names = new HashSet<>();
     for (CrosstoolSelectable selectable : selectables) {
       if (!names.add(selectable.getName())) {
-        throw new InvalidConfigurationException(
+        throw new EvalException(
+            Location.BUILTIN,
             "Invalid toolchain configuration: feature or "
                 + "action config '"
                 + selectable.getName()
@@ -1473,25 +1576,18 @@ public class CcToolchainFeatures implements Serializable {
   }
 
   private static void checkForActionNameDups(Iterable<ActionConfig> actionConfigs)
-      throws InvalidConfigurationException {
+      throws EvalException {
     Collection<String> actionNames = new HashSet<>();
     for (ActionConfig actionConfig : actionConfigs) {
       if (!actionNames.add(actionConfig.getActionName())) {
-        throw new InvalidConfigurationException(
+        throw new EvalException(
+            Location.BUILTIN,
             "Invalid toolchain configuration: multiple action "
                 + "configs for action '"
                 + actionConfig.getActionName()
                 + "'");
       }
     }
-  }
-
-  /**
-   * Assign an empty cache after default-deserializing all non-transient members.
-   */
-  private void readObject(ObjectInputStream in) throws ClassNotFoundException, IOException {
-    in.defaultReadObject();
-    this.configurationCache = buildConfigurationCache();
   }
 
   /** @return an empty {@code FeatureConfiguration} cache. */
@@ -1518,10 +1614,16 @@ public class CcToolchainFeatures implements Serializable {
    *
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
+   *
+   * <p>If multiple threads call this method we may do additional work in initializing the cache.
+   * This reinitialization is benign.
    */
   public FeatureConfiguration getFeatureConfiguration(ImmutableSet<String> requestedSelectables)
       throws CollidingProvidesException {
     try {
+      if (configurationCache == null) {
+        configurationCache = buildConfigurationCache();
+      }
       return configurationCache.get(requestedSelectables);
     } catch (ExecutionException e) {
       Throwables.throwIfInstanceOf(e.getCause(), CollidingProvidesException.class);
@@ -1564,14 +1666,18 @@ public class CcToolchainFeatures implements Serializable {
 
   /**
    * @return the selectable with the given {@code name}.s
-   *
-   * @throws InvalidConfigurationException if no selectable with the given name was configured.
+   * @throws EvalException if no selectable with the given name was configured.
    */
   private CrosstoolSelectable getActivatableOrFail(String name, String reference)
-      throws InvalidConfigurationException {
+      throws EvalException {
     if (!selectablesByName.containsKey(name)) {
-      throw new InvalidConfigurationException("Invalid toolchain configuration: feature '" + name
-          + "', which is referenced from feature '" + reference + "', is not defined.");
+      throw new EvalException(
+          Location.BUILTIN,
+          "Invalid toolchain configuration: feature '"
+              + name
+              + "', which is referenced from feature '"
+              + reference
+              + "', is not defined.");
     }
     return selectablesByName.get(name);
   }
@@ -1588,10 +1694,10 @@ public class CcToolchainFeatures implements Serializable {
   /**
    * Returns the artifact selected by the toolchain for the given action type and action category.
    *
-   * @throws InvalidConfigurationException if the category is not supported by the action config.
+   * @throws EvalException if the category is not supported by the action config.
    */
   String getArtifactNameForCategory(ArtifactCategory artifactCategory, String outputName)
-      throws InvalidConfigurationException {
+      throws EvalException {
     PathFragment output = PathFragment.create(outputName);
 
     ArtifactNamePattern patternForCategory = null;
@@ -1601,7 +1707,8 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
     if (patternForCategory == null) {
-      throw new InvalidConfigurationException(
+      throw new EvalException(
+          Location.BUILTIN,
           String.format(
               MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName()));
     }
@@ -1613,10 +1720,10 @@ public class CcToolchainFeatures implements Serializable {
   /**
    * Returns the artifact name extension selected by the toolchain for the given artifact category.
    *
-   * @throws InvalidConfigurationException if the category is not supported by the action config.
+   * @throws EvalException if the category is not supported by the action config.
    */
   String getArtifactNameExtensionForCategory(ArtifactCategory artifactCategory)
-      throws InvalidConfigurationException {
+      throws EvalException {
     ArtifactNamePattern patternForCategory = null;
     for (ArtifactNamePattern artifactNamePattern : artifactNamePatterns) {
       if (artifactNamePattern.getArtifactCategory() == artifactCategory) {
@@ -1624,7 +1731,8 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
     if (patternForCategory == null) {
-      throw new InvalidConfigurationException(
+      throw new EvalException(
+          Location.BUILTIN,
           String.format(
               MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName()));
     }

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildSetting;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
@@ -72,6 +74,7 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -172,6 +175,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                 .cfg(HostTransition.INSTANCE)
                 .singleArtifact()
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_wrapper")))
+        .add(
+            attr("$xml_writer", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .singleArtifact()
+                .value(labelCache.getUnchecked(toolsRepository + "//tools/test:xml_writer")))
         .add(
             attr("$test_runtime", LABEL_LIST)
                 .cfg(HostTransition.INSTANCE)
@@ -274,26 +282,21 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
+      Object cfg,
       FuncallExpression ast,
-      Environment funcallEnv)
+      Environment funcallEnv,
+      StarlarkContext context)
       throws EvalException, ConversionException {
     SkylarkUtils.checkLoadingOrWorkspacePhase(funcallEnv, "rule", ast.getLocation());
 
-    if (analysisTest != Runtime.UNBOUND
-        && !funcallEnv.getSemantics().experimentalAnalysisTestingImprovements()) {
-      throw new EvalException(
-          ast.getLocation(),
-          "analysis_test parameter is experimental and not available for "
-              + "general use. It is subject to change at any time. It may be enabled by specifying "
-              + "--experimental_analysis_testing_improvements");
-    }
+    BazelStarlarkContext bazelContext = (BazelStarlarkContext) context;
     // analysis_test=true implies test=true.
     test |= Boolean.TRUE.equals(analysisTest);
 
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
     RuleClass parent =
         test
-            ? getTestBaseRule(SkylarkUtils.getToolsRepository(funcallEnv))
+            ? getTestBaseRule(bazelContext.getToolsRepository())
             : (executable ? binaryBaseRule : baseRule);
 
     // We'll set the name later, pass the empty string for now.
@@ -323,7 +326,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       if (implicitOutputs instanceof BaseFunction) {
         BaseFunction func = (BaseFunction) implicitOutputs;
         SkylarkCallbackFunction callback =
-            new SkylarkCallbackFunction(func, ast, funcallEnv.getSemantics());
+            new SkylarkCallbackFunction(func, ast, funcallEnv.getSemantics(), context);
         builder.setImplicitOutputsFunction(
             new SkylarkImplicitOutputsFunctionWithCallback(callback, ast.getLocation()));
       } else {
@@ -349,21 +352,28 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             hostFragments.getContents(String.class, "host_fragments"));
     builder.setConfiguredTargetFunction(implementation);
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
-        funcallEnv.getGlobals().getTransitiveLabel(),
-        funcallEnv.getTransitiveContentHashCode());
+        funcallEnv.getGlobals().getLabel(), funcallEnv.getTransitiveContentHashCode());
     builder.addRequiredToolchains(
         collectToolchainLabels(
             toolchains.getContents(String.class, "toolchains"), ast.getLocation()));
+
+    if (!buildSetting.equals(Runtime.NONE) && !cfg.equals(Runtime.NONE)) {
+      throw new EvalException(
+          ast.getLocation(),
+          "Build setting rules cannot use the `cfg` param to apply transitions to themselves.");
+    }
     if (!buildSetting.equals(Runtime.NONE)) {
-      if (funcallEnv.getSemantics().experimentalBuildSettingApi()) {
-        builder.setBuildSetting((BuildSetting) buildSetting);
-      } else {
+      builder.setBuildSetting((BuildSetting) buildSetting);
+    }
+    if (!cfg.equals(Runtime.NONE)) {
+      if (!(cfg instanceof StarlarkDefinedConfigTransition)) {
         throw new EvalException(
             ast.getLocation(),
-            "build_setting parameter is experimental and not available for "
-                + "general use. It is subject to change at any time. It may be enabled by "
-                + "specifying --experimental_build_setting_api");
+            "`cfg` must be set to a transition object initialized by the transition() function.");
       }
+      StarlarkDefinedConfigTransition starlarkDefinedConfigTransition =
+          (StarlarkDefinedConfigTransition) cfg;
+      builder.cfg(new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition));
     }
 
     for (Object o : providesArg) {
@@ -658,17 +668,63 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         throw new EvalException(definitionLocation, "Invalid rule class name '" + ruleClassName
             + "', test rule class names must end with '_test' and other rule classes must not");
       }
+      boolean hasStarlarkDefinedTransition = false;
+      boolean hasFunctionTransitionWhitelist = false;
       for (Pair<String, SkylarkAttr.Descriptor> attribute : attributes) {
         String name = attribute.getFirst();
         SkylarkAttr.Descriptor descriptor = attribute.getSecond();
 
-        addAttribute(definitionLocation, builder, descriptor.build(name));
+        Attribute attr = descriptor.build(name);
 
+        hasStarlarkDefinedTransition |= attr.hasStarlarkDefinedTransition();
+        if (attr.hasAnalysisTestTransition() && !builder.isAnalysisTest()) {
+          throw new EvalException(
+              location,
+              "Only rule definitions with analysis_test=True may have attributes with "
+                  + "analysis_test_transition transitions");
+        }
         // Check for existence of the function transition whitelist attribute.
+        // TODO(b/121385274): remove when we stop whitelisting starlark transitions
         if (name.equals(FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME)) {
+          if (!BuildType.isLabelType(attr.getType())) {
+            throw new EvalException(
+                location, "_whitelist_function_transition attribute must be a label type");
+          }
+          if (attr.getDefaultValueUnchecked() == null) {
+            throw new EvalException(
+                location, "_whitelist_function_transition attribute must have a default value");
+          }
+          if (!attr.getDefaultValueUnchecked()
+              .equals(FunctionSplitTransitionWhitelist.WHITELIST_LABEL)) {
+            throw new EvalException(
+                location,
+                "_whitelist_function_transition attribute does not have the expected value "
+                    + FunctionSplitTransitionWhitelist.WHITELIST_LABEL);
+          }
+          hasFunctionTransitionWhitelist = true;
           builder.setHasFunctionTransitionWhitelist();
         }
+        addAttribute(definitionLocation, builder, attr);
       }
+      // TODO(b/121385274): remove when we stop whitelisting starlark transitions
+      if (hasStarlarkDefinedTransition) {
+        if (!hasFunctionTransitionWhitelist) {
+          throw new EvalException(
+              location,
+              String.format(
+                  "Use of function-based split transition without whitelist: %s %s",
+                  builder.getRuleDefinitionEnvironmentLabel(), builder.getType()));
+        }
+      } else {
+        if (hasFunctionTransitionWhitelist) {
+          throw new EvalException(
+              location,
+              String.format(
+                  "Unused function-based split transition whitelist: %s %s",
+                  builder.getRuleDefinitionEnvironmentLabel(), builder.getType()));
+        }
+      }
+
       try {
         this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);
       } catch (IllegalArgumentException | IllegalStateException ex) {
@@ -697,21 +753,27 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
 
   @Override
   public Label label(
-      String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
+      String labelString,
+      Boolean relativeToCallerRepository,
+      Location loc,
+      Environment env,
+      StarlarkContext context)
       throws EvalException {
-    Label parentLabel = null;
+
+    BazelStarlarkContext bazelStarlarkContext = (BazelStarlarkContext) context;
+
+    Label parentLabel;
     if (relativeToCallerRepository) {
       parentLabel = env.getCallerLabel();
     } else {
-      parentLabel = env.getGlobals().getTransitiveLabel();
+      parentLabel = env.getGlobals().getLabel();
     }
     try {
       if (parentLabel != null) {
         LabelValidator.parseAbsoluteLabel(labelString);
-        // TODO(dannark): pass the environment here
         labelString =
             parentLabel
-                .getRelativeWithRemapping(labelString, ImmutableMap.of())
+                .getRelativeWithRemapping(labelString, bazelStarlarkContext.getRepoMapping())
                 .getUnambiguousCanonicalForm();
       }
       return labelCache.get(labelString);

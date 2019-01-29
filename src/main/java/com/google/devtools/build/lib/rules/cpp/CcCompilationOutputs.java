@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -28,6 +27,8 @@ import java.util.Set;
 
 /** A structured representation of the compilation outputs of a C++ rule. */
 public class CcCompilationOutputs implements CcCompilationOutputsApi {
+  public static final CcCompilationOutputs EMPTY = new CcCompilationOutputs.Builder().build();
+
   /**
    * All .o files built by the target.
    */
@@ -39,10 +40,10 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
   private final ImmutableList<Artifact> picObjectFiles;
 
   /**
-   * Maps all .o bitcode files coming from a ThinLTO C(++) compilation under our control to the
-   * corresponding minimized bitcode files that can be used for the LTO indexing step.
+   * Maps all .o bitcode files coming from a ThinLTO C(++) compilation under our control to
+   * information needed by the LTO indexing and backend steps.
    */
-  private final ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
+  private final LtoCompilationContext ltoCompilationContext;
 
   /**
    * All .dwo files built by the target, corresponding to .o outputs.
@@ -67,14 +68,14 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
   private CcCompilationOutputs(
       ImmutableList<Artifact> objectFiles,
       ImmutableList<Artifact> picObjectFiles,
-      ImmutableMap<Artifact, Artifact> ltoBitcodeFiles,
+      LtoCompilationContext ltoCompilationContext,
       ImmutableList<Artifact> dwoFiles,
       ImmutableList<Artifact> picDwoFiles,
       NestedSet<Artifact> temps,
       ImmutableList<Artifact> headerTokenFiles) {
     this.objectFiles = objectFiles;
     this.picObjectFiles = picObjectFiles;
-    this.ltoBitcodeFiles = ltoBitcodeFiles;
+    this.ltoCompilationContext = ltoCompilationContext;
     this.dwoFiles = dwoFiles;
     this.picDwoFiles = picDwoFiles;
     this.temps = temps;
@@ -102,9 +103,9 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
     return SkylarkList.createImmutable(getObjectFiles(usePic));
   }
 
-  /** Returns unmodifiable map of bitcode object files resulting from compilation. */
-  public ImmutableMap<Artifact, Artifact> getLtoBitcodeFiles() {
-    return ltoBitcodeFiles;
+  /** Returns information about bitcode object files resulting from compilation. */
+  public LtoCompilationContext getLtoCompilationContext() {
+    return ltoCompilationContext;
   }
 
   /**
@@ -149,7 +150,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
   public static final class Builder {
     private final Set<Artifact> objectFiles = new LinkedHashSet<>();
     private final Set<Artifact> picObjectFiles = new LinkedHashSet<>();
-    private final ImmutableMap.Builder<Artifact, Artifact> ltoBitcodeFiles = ImmutableMap.builder();
+    private final LtoCompilationContext.Builder ltoCompilationContext =
+        new LtoCompilationContext.Builder();
     private final Set<Artifact> dwoFiles = new LinkedHashSet<>();
     private final Set<Artifact> picDwoFiles = new LinkedHashSet<>();
     private final NestedSetBuilder<Artifact> temps = NestedSetBuilder.stableOrder();
@@ -159,7 +161,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
       return new CcCompilationOutputs(
           ImmutableList.copyOf(objectFiles),
           ImmutableList.copyOf(picObjectFiles),
-          ltoBitcodeFiles.build(),
+          ltoCompilationContext.build(),
           ImmutableList.copyOf(dwoFiles),
           ImmutableList.copyOf(picDwoFiles),
           temps.build(),
@@ -173,7 +175,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
       this.picDwoFiles.addAll(outputs.picDwoFiles);
       this.temps.addTransitive(outputs.temps);
       this.headerTokenFiles.addAll(outputs.headerTokenFiles);
-      this.ltoBitcodeFiles.putAll(outputs.ltoBitcodeFiles);
+      this.ltoCompilationContext.addAll(outputs.ltoCompilationContext);
       return this;
     }
 
@@ -202,8 +204,14 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi {
       return this;
     }
 
-    public Builder addLtoBitcodeFile(Artifact fullBitcode, Artifact ltoIndexingBitcode) {
-      ltoBitcodeFiles.put(fullBitcode, ltoIndexingBitcode);
+    public Builder addLtoBitcodeFile(
+        Artifact fullBitcode, Artifact ltoIndexingBitcode, ImmutableList<String> copts) {
+      ltoCompilationContext.addBitcodeFile(fullBitcode, ltoIndexingBitcode, copts);
+      return this;
+    }
+
+    public Builder addLtoCompilationContext(LtoCompilationContext ltoCompilationContext) {
+      this.ltoCompilationContext.addAll(ltoCompilationContext);
       return this;
     }
 

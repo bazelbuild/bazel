@@ -26,9 +26,9 @@ import javax.annotation.Nullable;
  */
 public final class ChainedFunction implements SkyFunction {
   @Nullable private final SkyValue value;
-  @Nullable private final CountDownLatch notifyStart;
+  private final Runnable notifyStart;
   @Nullable private final CountDownLatch waitToFinish;
-  @Nullable private final CountDownLatch notifyFinish;
+  private final Runnable notifyFinish;
   private final boolean waitForException;
   private final Iterable<SkyKey> deps;
 
@@ -37,6 +37,22 @@ public final class ChainedFunction implements SkyFunction {
       @Nullable CountDownLatch notifyStart,
       @Nullable CountDownLatch waitToFinish,
       @Nullable CountDownLatch notifyFinish,
+      boolean waitForException,
+      @Nullable SkyValue value,
+      Iterable<SkyKey> deps) {
+    this(
+        makeRunnable(notifyStart),
+        waitToFinish,
+        makeRunnable(notifyFinish),
+        waitForException,
+        value,
+        deps);
+  }
+
+  private ChainedFunction(
+      Runnable notifyStart,
+      @Nullable CountDownLatch waitToFinish,
+      Runnable notifyFinish,
       boolean waitForException,
       @Nullable SkyValue value,
       Iterable<SkyKey> deps) {
@@ -53,9 +69,7 @@ public final class ChainedFunction implements SkyFunction {
   public SkyValue compute(SkyKey key, SkyFunction.Environment env) throws GenericFunctionException,
       InterruptedException {
     try {
-      if (notifyStart != null) {
-        notifyStart.countDown();
-      }
+      notifyStart.run();
       if (waitToFinish != null) {
         TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
             waitToFinish, key + " timed out waiting to finish");
@@ -77,18 +91,20 @@ public final class ChainedFunction implements SkyFunction {
       }
       return value;
     } finally {
-      if (notifyFinish != null) {
-        notifyFinish.countDown();
-      }
+      notifyFinish.run();
     }
+  }
+
+  private static Runnable makeRunnable(@Nullable CountDownLatch latch) {
+    return latch != null ? latch::countDown : () -> {};
   }
 
   /** Builder for {@link ChainedFunction} objects. */
   public static class Builder {
     @Nullable private SkyValue value;
-    @Nullable private CountDownLatch notifyStart;
+    Runnable notifyStart = makeRunnable(null);
     @Nullable private CountDownLatch waitToFinish;
-    @Nullable private CountDownLatch notifyFinish;
+    private Runnable notifyFinish = makeRunnable(null);
     private boolean waitForException;
     private Iterable<SkyKey> deps = ImmutableList.of();
 
@@ -97,7 +113,7 @@ public final class ChainedFunction implements SkyFunction {
       return this;
     }
 
-    public Builder setNotifyStart(CountDownLatch notifyStart) {
+    public Builder setNotifyStart(Runnable notifyStart) {
       this.notifyStart = notifyStart;
       return this;
     }
@@ -107,7 +123,7 @@ public final class ChainedFunction implements SkyFunction {
       return this;
     }
 
-    public Builder setNotifyFinish(CountDownLatch notifyFinish) {
+    public Builder setNotifyFinish(Runnable notifyFinish) {
       this.notifyFinish = notifyFinish;
       return this;
     }

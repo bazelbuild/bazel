@@ -154,8 +154,9 @@ public class FilesystemValueCheckerTest {
             TestRuleClassProvider.getRuleClassProvider(),
             TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
                 .builder(directories)
-                .build(TestRuleClassProvider.getRuleClassProvider()),
-            directories));
+                .build(TestRuleClassProvider.getRuleClassProvider(), fs),
+            directories,
+            /*skylarkImportLookupFunctionForInlining=*/ null));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
 
     differencer = new SequencedRecordingDifferencer();

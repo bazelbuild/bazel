@@ -44,7 +44,8 @@ public class StandaloneModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     // TODO(ulfjack): Move this to another module.
-    builder.addActionContextProvider(new DummyIncludeScanningContextProvider(env));
+    builder.addActionContext(new DummyCppIncludeExtractionContext(env));
+    builder.addActionContext(new DummyCppIncludeScanningContext());
 
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     Path testTmpRoot =

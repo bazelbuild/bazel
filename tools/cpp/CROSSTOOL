@@ -1,527 +1,1239 @@
 major_version: "local"
 minor_version: ""
-
 toolchain {
+  toolchain_identifier: "stub_armeabi-v7a"
+  host_system_name: "armeabi-v7a"
+  target_system_name: "armeabi-v7a"
+  target_cpu: "armeabi-v7a"
+  target_libc: "armeabi-v7a"
+  compiler: "compiler"
   abi_version: "armeabi-v7a"
   abi_libc_version: "armeabi-v7a"
+  tool_path {
+    name: "ar"
+    path: "/bin/false"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "/bin/false"
+  }
+  tool_path {
+    name: "cpp"
+    path: "/bin/false"
+  }
+  tool_path {
+    name: "dwp"
+    path: "/bin/false"
+  }
+  tool_path {
+    name: "gcc"
+    path: "/bin/false"
+  }
+  tool_path {
+    name: "gcov"
+    path: "/bin/false"
+  }
+  tool_path {
+    name: "ld"
+    path: "/bin/false"
+  }
+  tool_path {
+    name: "nm"
+    path: "/bin/false"
+  }
+  tool_path {
+    name: "objcopy"
+    path: "/bin/false"
+  }
+  tool_path {
+    name: "objdump"
+    path: "/bin/false"
+  }
+  tool_path {
+    name: "strip"
+    path: "/bin/false"
+  }
   builtin_sysroot: ""
-  compiler: "compiler"
-  host_system_name: "armeabi-v7a"
-  needsPic: true
-  supports_gold_linker: false
-  supports_incremental_linker: false
-  supports_fission: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: false
-  supports_start_end_lib: false
-  target_libc: "armeabi-v7a"
-  target_cpu: "armeabi-v7a"
-  target_system_name: "armeabi-v7a"
-  toolchain_identifier: "stub_armeabi-v7a"
-
-  tool_path { name: "ar" path: "/bin/false" }
-  tool_path { name: "compat-ld" path: "/bin/false" }
-  tool_path { name: "cpp" path: "/bin/false" }
-  tool_path { name: "dwp" path: "/bin/false" }
-  tool_path { name: "gcc" path: "/bin/false" }
-  tool_path { name: "gcov" path: "/bin/false" }
-  tool_path { name: "ld" path: "/bin/false" }
-
-  tool_path { name: "nm" path: "/bin/false" }
-  tool_path { name: "objcopy" path: "/bin/false" }
-  tool_path { name: "objdump" path: "/bin/false" }
-  tool_path { name: "strip" path: "/bin/false" }
-  linking_mode_flags { mode: DYNAMIC }
+  feature {
+    name: "supports_dynamic_linker"
+    enabled: true
+  }
+  feature {
+    name: "supports_pic"
+    enabled: true
+  }
 }
-
 toolchain {
+  toolchain_identifier: "local_linux"
+  host_system_name: "local"
+  target_system_name: "local"
+  target_cpu: "local"
+  target_libc: "local"
+  compiler: "compiler"
   abi_version: "local"
   abi_libc_version: "local"
-  builtin_sysroot: ""
-  compiler: "compiler"
-  host_system_name: "local"
-  needsPic: true
-  supports_gold_linker: false
-  supports_incremental_linker: false
-  supports_fission: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: false
-  supports_start_end_lib: false
-  target_libc: "local"
-  target_cpu: "local"
-  target_system_name: "local"
-  toolchain_identifier: "local_linux"
-
-  tool_path { name: "ar" path: "/usr/bin/ar" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/gcc" }
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-
-  # TODO(bazel-team): In theory, the path here ought to exactly match the path
-  # used by gcc. That works because bazel currently doesn't track files at
-  # absolute locations and has no remote execution, yet. However, this will need
-  # to be fixed, maybe with auto-detection?
+  tool_path {
+    name: "ar"
+    path: "/usr/bin/ar"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "/usr/bin/ld"
+  }
+  tool_path {
+    name: "cpp"
+    path: "/usr/bin/cpp"
+  }
+  tool_path {
+    name: "dwp"
+    path: "/usr/bin/dwp"
+  }
+  tool_path {
+    name: "gcc"
+    path: "/usr/bin/gcc"
+  }
+  tool_path {
+    name: "gcov"
+    path: "/usr/bin/gcov"
+  }
+  tool_path {
+    name: "ld"
+    path: "/usr/bin/ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "/usr/bin/nm"
+  }
+  tool_path {
+    name: "objcopy"
+    path: "/usr/bin/objcopy"
+  }
+  tool_path {
+    name: "objdump"
+    path: "/usr/bin/objdump"
+  }
+  tool_path {
+    name: "strip"
+    path: "/usr/bin/strip"
+  }
   cxx_builtin_include_directory: "/usr/lib/gcc/"
   cxx_builtin_include_directory: "/usr/local/include"
   cxx_builtin_include_directory: "/usr/include"
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-
-  # C(++) compiles invoke the compiler (as that is the one knowing where
-  # to find libraries), but we provide LD so other rules can invoke the linker.
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-
-  # Anticipated future default.
-  unfiltered_cxx_flag: "-no-canonical-prefixes"
-  unfiltered_cxx_flag: "-fno-canonical-system-headers"
-
-  # Make C++ compilation deterministic. Use linkstamping instead of these
-  # compiler symbols.
-  unfiltered_cxx_flag: "-Wno-builtin-macro-redefined"
-  unfiltered_cxx_flag: "-D__DATE__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIMESTAMP__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
-
-  # Security hardening on by default.
-  # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
-  # We need to undef it before redefining it as some distributions now have
-  # it enabled by default.
-  compiler_flag: "-U_FORTIFY_SOURCE"
-  compiler_flag: "-D_FORTIFY_SOURCE=1"
-  compiler_flag: "-fstack-protector"
-  linker_flag: "-Wl,-z,relro,-z,now"
-
-  # Enable coloring even if there's no attached terminal. Bazel removes the
-  # escape sequences if --nocolor is specified. This isn't supported by gcc
-  # on Ubuntu 14.04.
-  # compiler_flag: "-fcolor-diagnostics"
-
-  # All warnings are enabled. Maybe enable -Werror as well?
-  compiler_flag: "-Wall"
-  # Enable a few more warnings that aren't part of -Wall.
-  compiler_flag: "-Wunused-but-set-parameter"
-  # But disable some that are problematic.
-  compiler_flag: "-Wno-free-nonheap-object" # has false positives
-
-  # Keep stack frames for debugging, even in opt mode.
-  compiler_flag: "-fno-omit-frame-pointer"
-
-  # Anticipated future default.
-  linker_flag: "-no-canonical-prefixes"
-  # Have gcc return the exit code from ld.
-  linker_flag: "-pass-exit-codes"
-  # Gold linker only? Can we enable this by default?
-  # linker_flag: "-Wl,--warn-execstack"
-  # linker_flag: "-Wl,--detect-odr-violations"
-
-  compilation_mode_flags {
-    mode: DBG
-    # Enable debug symbols.
-    compiler_flag: "-g"
-  }
-  compilation_mode_flags {
-    mode: OPT
-
-    # No debug symbols.
-    # Maybe we should enable https://gcc.gnu.org/wiki/DebugFission for opt or
-    # even generally? However, that can't happen here, as it requires special
-    # handling in Bazel.
-    compiler_flag: "-g0"
-
-    # Conservative choice for -O
-    # -O3 can increase binary size and even slow down the resulting binaries.
-    # Profile first and / or use FDO if you need better performance than this.
-    compiler_flag: "-O2"
-
-    # Disable assertions
-    compiler_flag: "-DNDEBUG"
-
-    # Removal of unused code and data at link time (can this increase binary size in some cases?).
-    compiler_flag: "-ffunction-sections"
-    compiler_flag: "-fdata-sections"
-    linker_flag: "-Wl,--gc-sections"
-  }
-  linking_mode_flags { mode: DYNAMIC }
-}
-
-toolchain {
-  abi_version: "local"
-  abi_libc_version: "local"
   builtin_sysroot: ""
-  compiler: "compiler"
-  host_system_name: "local"
-  needsPic: true
-  target_libc: "macosx"
-  target_cpu: "darwin"
-  target_system_name: "local"
+  feature {
+    name: "default_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-U_FORTIFY_SOURCE"
+        flag: "-D_FORTIFY_SOURCE=1"
+        flag: "-fstack-protector"
+        flag: "-Wall"
+        flag: "-Wunused-but-set-parameter"
+        flag: "-Wno-free-nonheap-object"
+        flag: "-fno-omit-frame-pointer"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-g"
+      }
+      with_feature {
+        feature: "dbg"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-g0"
+        flag: "-O2"
+        flag: "-DNDEBUG"
+        flag: "-ffunction-sections"
+        flag: "-fdata-sections"
+      }
+      with_feature {
+        feature: "opt"
+      }
+    }
+    flag_set {
+      action: "linkstamp-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-std=c++0x"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-lstdc++"
+        flag: "-Wl,-z,relro,-z,now"
+        flag: "-no-canonical-prefixes"
+        flag: "-pass-exit-codes"
+      }
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-Wl,--gc-sections"
+      }
+      with_feature {
+        feature: "opt"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "supports_dynamic_linker"
+    enabled: true
+  }
+  feature {
+    name: "supports_pic"
+    enabled: true
+  }
+  feature {
+    name: "objcopy_embed_flags"
+    flag_set {
+      action: "objcopy_embed_data"
+      flag_group {
+        flag: "-I"
+        flag: "binary"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "opt"
+  }
+  feature {
+    name: "dbg"
+  }
+  feature {
+    name: "user_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "sysroot"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-no-canonical-prefixes"
+        flag: "-fno-canonical-system-headers"
+        flag: "-Wno-builtin-macro-redefined"
+        flag: "-D__DATE__=\"redacted\""
+        flag: "-D__TIMESTAMP__=\"redacted\""
+        flag: "-D__TIME__=\"redacted\""
+      }
+    }
+    enabled: true
+  }
+  action_config {
+    config_name: "objcopy_embed_data"
+    action_name: "objcopy_embed_data"
+    tool {
+      tool_path: "/usr/bin/objcopy"
+    }
+    enabled: true
+  }
+}
+toolchain {
   toolchain_identifier: "local_darwin"
-
-  tool_path { name: "ar" path: "/usr/bin/libtool" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "osx_cc_wrapper.sh" }
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-  linker_flag: "-undefined"
-  linker_flag: "dynamic_lookup"
-  linker_flag: "-headerpad_max_install_names"
-  # TODO(ulfjack): This is wrong on so many levels. Figure out a way to auto-detect the proper
-  # setting from the local compiler, and also how to make incremental builds correct.
-  cxx_builtin_include_directory: "/"
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-
-  # Anticipated future default.
-  unfiltered_cxx_flag: "-no-canonical-prefixes"
-
-  # Make C++ compilation deterministic. Use linkstamping instead of these
-  # compiler symbols.
-  unfiltered_cxx_flag: "-Wno-builtin-macro-redefined"
-  unfiltered_cxx_flag: "-D__DATE__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIMESTAMP__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
-
-  # Security hardening on by default.
-  # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
-  compiler_flag: "-D_FORTIFY_SOURCE=1"
-  compiler_flag: "-fstack-protector"
-
-  # Enable coloring even if there's no attached terminal. Bazel removes the
-  # escape sequences if --nocolor is specified.
-  compiler_flag: "-fcolor-diagnostics"
-
-  # All warnings are enabled. Maybe enable -Werror as well?
-  compiler_flag: "-Wall"
-  # Enable a few more warnings that aren't part of -Wall.
-  compiler_flag: "-Wthread-safety"
-  compiler_flag: "-Wself-assign"
-
-  # Keep stack frames for debugging, even in opt mode.
-  compiler_flag: "-fno-omit-frame-pointer"
-
-  # Anticipated future default.
-  linker_flag: "-no-canonical-prefixes"
-
-  compilation_mode_flags {
-    mode: DBG
-    # Enable debug symbols.
-    compiler_flag: "-g"
-  }
-  compilation_mode_flags {
-    mode: OPT
-    # No debug symbols.
-    # Maybe we should enable https://gcc.gnu.org/wiki/DebugFission for opt or even generally?
-    # However, that can't happen here, as it requires special handling in Bazel.
-    compiler_flag: "-g0"
-
-    # Conservative choice for -O
-    # -O3 can increase binary size and even slow down the resulting binaries.
-    # Profile first and / or use FDO if you need better performance than this.
-    compiler_flag: "-O2"
-
-    # Disable assertions
-    compiler_flag: "-DNDEBUG"
-
-    # Removal of unused code and data at link time (can this increase binary size in some cases?).
-    compiler_flag: "-ffunction-sections"
-    compiler_flag: "-fdata-sections"
-  }
-  linking_mode_flags { mode: DYNAMIC }
-}
-
-toolchain {
+  host_system_name: "local"
+  target_system_name: "local"
+  target_cpu: "darwin"
+  target_libc: "macosx"
+  compiler: "compiler"
   abi_version: "local"
   abi_libc_version: "local"
+  tool_path {
+    name: "ar"
+    path: "/usr/bin/libtool"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "/usr/bin/ld"
+  }
+  tool_path {
+    name: "cpp"
+    path: "/usr/bin/cpp"
+  }
+  tool_path {
+    name: "dwp"
+    path: "/usr/bin/dwp"
+  }
+  tool_path {
+    name: "gcc"
+    path: "osx_cc_wrapper.sh"
+  }
+  tool_path {
+    name: "gcov"
+    path: "/usr/bin/gcov"
+  }
+  tool_path {
+    name: "ld"
+    path: "/usr/bin/ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "/usr/bin/nm"
+  }
+  tool_path {
+    name: "objcopy"
+    path: "/usr/bin/objcopy"
+  }
+  tool_path {
+    name: "objdump"
+    path: "/usr/bin/objdump"
+  }
+  tool_path {
+    name: "strip"
+    path: "/usr/bin/strip"
+  }
+  cxx_builtin_include_directory: "/"
   builtin_sysroot: ""
-  compiler: "compiler"
-  host_system_name: "local"
-  needsPic: true
-  supports_gold_linker: false
-  supports_incremental_linker: false
-  supports_fission: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: false
-  supports_start_end_lib: false
-  target_libc: "local"
-  target_cpu: "freebsd"
-  target_system_name: "local"
+  feature {
+    name: "default_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-D_FORTIFY_SOURCE=1"
+        flag: "-fstack-protector"
+        flag: "-fcolor-diagnostics"
+        flag: "-Wall"
+        flag: "-Wthread-safety"
+        flag: "-Wself-assign"
+        flag: "-fno-omit-frame-pointer"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-g"
+      }
+      with_feature {
+        feature: "dbg"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-g0"
+        flag: "-O2"
+        flag: "-DNDEBUG"
+        flag: "-ffunction-sections"
+        flag: "-fdata-sections"
+      }
+      with_feature {
+        feature: "opt"
+      }
+    }
+    flag_set {
+      action: "linkstamp-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-std=c++0x"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-lstdc++"
+        flag: "-undefined"
+        flag: "dynamic_lookup"
+        flag: "-headerpad_max_install_names"
+        flag: "-no-canonical-prefixes"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "supports_dynamic_linker"
+    enabled: true
+  }
+  feature {
+    name: "supports_pic"
+    enabled: true
+  }
+  feature {
+    name: "objcopy_embed_flags"
+    flag_set {
+      action: "objcopy_embed_data"
+      flag_group {
+        flag: "-I"
+        flag: "binary"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "dbg"
+  }
+  feature {
+    name: "opt"
+  }
+  feature {
+    name: "user_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "sysroot"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-no-canonical-prefixes"
+        flag: "-Wno-builtin-macro-redefined"
+        flag: "-D__DATE__=\"redacted\""
+        flag: "-D__TIMESTAMP__=\"redacted\""
+        flag: "-D__TIME__=\"redacted\""
+      }
+    }
+    enabled: true
+  }
+  action_config {
+    config_name: "objcopy_embed_data"
+    action_name: "objcopy_embed_data"
+    tool {
+      tool_path: "/usr/bin/objcopy"
+    }
+    enabled: true
+  }
+}
+toolchain {
   toolchain_identifier: "local_freebsd"
-
-  tool_path { name: "ar" path: "/usr/bin/ar" }
-  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
-  tool_path { name: "cpp" path: "/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "/usr/bin/dwp" }
-  tool_path { name: "gcc" path: "/usr/bin/clang" }
-  cxx_flag: "-std=c++0x"
-  linker_flag: "-lstdc++"
-
-  # TODO(bazel-team): In theory, the path here ought to exactly match the path
-  # used by gcc. That works because bazel currently doesn't track files at
-  # absolute locations and has no remote execution, yet. However, this will need
-  # to be fixed, maybe with auto-detection?
+  host_system_name: "local"
+  target_system_name: "local"
+  target_cpu: "freebsd"
+  target_libc: "local"
+  compiler: "compiler"
+  abi_version: "local"
+  abi_libc_version: "local"
+  tool_path {
+    name: "ar"
+    path: "/usr/bin/ar"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "/usr/bin/ld"
+  }
+  tool_path {
+    name: "cpp"
+    path: "/usr/bin/cpp"
+  }
+  tool_path {
+    name: "dwp"
+    path: "/usr/bin/dwp"
+  }
+  tool_path {
+    name: "gcc"
+    path: "/usr/bin/clang"
+  }
+  tool_path {
+    name: "gcov"
+    path: "/usr/bin/gcov"
+  }
+  tool_path {
+    name: "ld"
+    path: "/usr/bin/ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "/usr/bin/nm"
+  }
+  tool_path {
+    name: "objcopy"
+    path: "/usr/bin/objcopy"
+  }
+  tool_path {
+    name: "objdump"
+    path: "/usr/bin/objdump"
+  }
+  tool_path {
+    name: "strip"
+    path: "/usr/bin/strip"
+  }
   cxx_builtin_include_directory: "/usr/lib/clang"
   cxx_builtin_include_directory: "/usr/local/include"
   cxx_builtin_include_directory: "/usr/include"
-  tool_path { name: "gcov" path: "/usr/bin/gcov" }
-
-  # C(++) compiles invoke the compiler (as that is the one knowing where
-  # to find libraries), but we provide LD so other rules can invoke the linker.
-  tool_path { name: "ld" path: "/usr/bin/ld" }
-
-  tool_path { name: "nm" path: "/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  tool_path { name: "objdump" path: "/usr/bin/objdump" }
-  tool_path { name: "strip" path: "/usr/bin/strip" }
-
-  # Anticipated future default.
-  unfiltered_cxx_flag: "-no-canonical-prefixes"
-
-  # Make C++ compilation deterministic. Use linkstamping instead of these
-  # compiler symbols.
-  unfiltered_cxx_flag: "-Wno-builtin-macro-redefined"
-  unfiltered_cxx_flag: "-D__DATE__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIMESTAMP__=\"redacted\""
-  unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
-
-  # Security hardening on by default.
-  # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
-  # We need to undef it before redefining it as some distributions now have
-  # it enabled by default.
-  compiler_flag: "-U_FORTIFY_SOURCE"
-  compiler_flag: "-D_FORTIFY_SOURCE=1"
-  compiler_flag: "-fstack-protector"
-  linker_flag: "-Wl,-z,relro,-z,now"
-
-  # Enable coloring even if there's no attached terminal. Bazel removes the
-  # escape sequences if --nocolor is specified. This isn't supported by gcc
-  # on Ubuntu 14.04.
-  # compiler_flag: "-fcolor-diagnostics"
-
-  # All warnings are enabled. Maybe enable -Werror as well?
-  compiler_flag: "-Wall"
-  # Enable a few more warnings that aren't part of -Wall.
-  #compiler_flag: "-Wunused-but-set-parameter"
-  # But disable some that are problematic.
-  #compiler_flag: "-Wno-free-nonheap-object" # has false positives
-
-  # Keep stack frames for debugging, even in opt mode.
-  compiler_flag: "-fno-omit-frame-pointer"
-
-  # Anticipated future default.
-  linker_flag: "-no-canonical-prefixes"
-  # Have gcc return the exit code from ld.
-  #linker_flag: "-pass-exit-codes"
-  # Stamp the binary with a unique identifier.
-  # Gold linker only? Can we enable this by default?
-  # linker_flag: "-Wl,--warn-execstack"
-  # linker_flag: "-Wl,--detect-odr-violations"
-
-  compilation_mode_flags {
-    mode: DBG
-    # Enable debug symbols.
-    compiler_flag: "-g"
+  builtin_sysroot: ""
+  feature {
+    name: "default_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-U_FORTIFY_SOURCE"
+        flag: "-D_FORTIFY_SOURCE=1"
+        flag: "-fstack-protector"
+        flag: "-Wall"
+        flag: "-fno-omit-frame-pointer"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-g"
+      }
+      with_feature {
+        feature: "dbg"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-g0"
+        flag: "-O2"
+        flag: "-DNDEBUG"
+        flag: "-ffunction-sections"
+        flag: "-fdata-sections"
+      }
+      with_feature {
+        feature: "opt"
+      }
+    }
+    flag_set {
+      action: "linkstamp-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-std=c++0x"
+      }
+    }
+    enabled: true
   }
-  compilation_mode_flags {
-    mode: OPT
-
-    # No debug symbols.
-    # Maybe we should enable https://gcc.gnu.org/wiki/DebugFission for opt or
-    # even generally? However, that can't happen here, as it requires special
-    # handling in Bazel.
-    compiler_flag: "-g0"
-
-    # Conservative choice for -O
-    # -O3 can increase binary size and even slow down the resulting binaries.
-    # Profile first and / or use FDO if you need better performance than this.
-    compiler_flag: "-O2"
-
-    # Disable assertions
-    compiler_flag: "-DNDEBUG"
-
-    # Removal of unused code and data at link time (can this increase binary size in some cases?).
-    compiler_flag: "-ffunction-sections"
-    compiler_flag: "-fdata-sections"
-    linker_flag: "-Wl,--gc-sections"
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-lstdc++"
+        flag: "-Wl,-z,relro,-z,now"
+        flag: "-no-canonical-prefixes"
+      }
+    }
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-Wl,--gc-sections"
+      }
+      with_feature {
+        feature: "opt"
+      }
+    }
+    enabled: true
   }
-  linking_mode_flags { mode: DYNAMIC }
+  feature {
+    name: "supports_dynamic_linker"
+    enabled: true
+  }
+  feature {
+    name: "supports_pic"
+    enabled: true
+  }
+  feature {
+    name: "objcopy_embed_flags"
+    flag_set {
+      action: "objcopy_embed_data"
+      flag_group {
+        flag: "-I"
+        flag: "binary"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "opt"
+  }
+  feature {
+    name: "dbg"
+  }
+  feature {
+    name: "user_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "sysroot"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+        expand_if_all_available: "sysroot"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-no-canonical-prefixes"
+        flag: "-Wno-builtin-macro-redefined"
+        flag: "-D__DATE__=\"redacted\""
+        flag: "-D__TIMESTAMP__=\"redacted\""
+        flag: "-D__TIME__=\"redacted\""
+      }
+    }
+    enabled: true
+  }
+  action_config {
+    config_name: "objcopy_embed_data"
+    action_name: "objcopy_embed_data"
+    tool {
+      tool_path: "/usr/bin/objcopy"
+    }
+    enabled: true
+  }
 }
-
 toolchain {
+  toolchain_identifier: "local_windows_mingw"
+  host_system_name: "local"
+  target_system_name: "local"
+  target_cpu: "x64_windows"
+  target_libc: "local"
+  compiler: "windows_mingw"
   abi_version: "local"
   abi_libc_version: "local"
-  builtin_sysroot: ""
-  compiler: "windows_mingw"
-  host_system_name: "local"
-  needsPic: false
-  target_libc: "local"
-  target_cpu: "x64_windows"
-  target_system_name: "local"
-  toolchain_identifier: "local_windows_mingw"
-
-  tool_path { name: "ar" path: "C:/mingw/bin/ar" }
-  tool_path { name: "compat-ld" path: "C:/mingw/bin/ld" }
-  tool_path { name: "cpp" path: "C:/mingw/bin/cpp" }
-  tool_path { name: "dwp" path: "C:/mingw/bin/dwp" }
-  tool_path { name: "gcc" path: "C:/mingw/bin/gcc" }
-  cxx_flag: "-std=c++0x"
-  # TODO(bazel-team): In theory, the path here ought to exactly match the path
-  # used by gcc. That works because bazel currently doesn't track files at
-  # absolute locations and has no remote execution, yet. However, this will need
-  # to be fixed, maybe with auto-detection?
+  tool_path {
+    name: "ar"
+    path: "C:/mingw/bin/ar"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "C:/mingw/bin/ld"
+  }
+  tool_path {
+    name: "cpp"
+    path: "C:/mingw/bin/cpp"
+  }
+  tool_path {
+    name: "dwp"
+    path: "C:/mingw/bin/dwp"
+  }
+  tool_path {
+    name: "gcc"
+    path: "C:/mingw/bin/gcc"
+  }
+  tool_path {
+    name: "gcov"
+    path: "C:/mingw/bin/gcov"
+  }
+  tool_path {
+    name: "ld"
+    path: "C:/mingw/bin/ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "C:/mingw/bin/nm"
+  }
+  tool_path {
+    name: "objcopy"
+    path: "C:/mingw/bin/objcopy"
+  }
+  tool_path {
+    name: "objdump"
+    path: "C:/mingw/bin/objdump"
+  }
+  tool_path {
+    name: "strip"
+    path: "C:/mingw/bin/strip"
+  }
   cxx_builtin_include_directory: "C:/mingw/include"
   cxx_builtin_include_directory: "C:/mingw/lib/gcc"
-  tool_path { name: "gcov" path: "C:/mingw/bin/gcov" }
-  tool_path { name: "ld" path: "C:/mingw/bin/ld" }
-  tool_path { name: "nm" path: "C:/mingw/bin/nm" }
-  tool_path { name: "objcopy" path: "C:/mingw/bin/objcopy" }
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  tool_path { name: "objdump" path: "C:/mingw/bin/objdump" }
-  tool_path { name: "strip" path: "C:/mingw/bin/strip" }
-  linking_mode_flags { mode: DYNAMIC }
-}
-
-toolchain {
-  abi_version: "local"
-  abi_libc_version: "local"
   builtin_sysroot: ""
-  compiler: "windows_msys64_mingw64"
-  host_system_name: "local"
-  needsPic: false
-  target_libc: "local"
-  target_cpu: "x64_windows"
-  target_system_name: "local"
+  feature {
+    name: "default_compile_flags"
+    flag_set {
+      action: "linkstamp-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-std=c++0x"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "supports_dynamic_linker"
+    enabled: true
+  }
+  feature {
+    name: "objcopy_embed_flags"
+    flag_set {
+      action: "objcopy_embed_data"
+      flag_group {
+        flag: "-I"
+        flag: "binary"
+      }
+    }
+    enabled: true
+  }
+  action_config {
+    config_name: "objcopy_embed_data"
+    action_name: "objcopy_embed_data"
+    tool {
+      tool_path: "C:/mingw/bin/objcopy"
+    }
+    enabled: true
+  }
+}
+toolchain {
   toolchain_identifier: "local_windows_msys64_mingw64"
-
-  tool_path { name: "ar" path: "C:/tools/msys64/mingw64/bin/ar" }
-  tool_path { name: "compat-ld" path: "C:/tools/msys64/mingw64/bin/ld" }
-  tool_path { name: "cpp" path: "C:/tools/msys64/mingw64/bin/cpp" }
-  tool_path { name: "dwp" path: "C:/tools/msys64/mingw64/bin/dwp" }
-  tool_path { name: "gcc" path: "C:/tools/msys64/mingw64/bin/gcc" }
-  cxx_flag: "-std=c++0x"
-  # TODO(bazel-team): In theory, the path here ought to exactly match the path
-  # used by gcc. That works because bazel currently doesn't track files at
-  # absolute locations and has no remote execution, yet. However, this will need
-  # to be fixed, maybe with auto-detection?
-  cxx_builtin_include_directory: "C:/tools/msys64/mingw64/x86_64-w64-mingw32/include"
-  tool_path { name: "gcov" path: "C:/tools/msys64/mingw64/bin/gcov" }
-  tool_path { name: "ld" path: "C:/tools/msys64/mingw64/bin/ld" }
-  tool_path { name: "nm" path: "C:/tools/msys64/mingw64/bin/nm" }
-  tool_path { name: "objcopy" path: "C:/tools/msys64/mingw64/bin/objcopy" }
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  tool_path { name: "objdump" path: "C:/tools/msys64/mingw64/bin/objdump" }
-  tool_path { name: "strip" path: "C:/tools/msys64/mingw64/bin/strip" }
-  linking_mode_flags { mode: DYNAMIC }
-}
-
-toolchain {
+  host_system_name: "local"
+  target_system_name: "local"
+  target_cpu: "x64_windows"
+  target_libc: "local"
+  compiler: "windows_msys64_mingw64"
   abi_version: "local"
   abi_libc_version: "local"
+  tool_path {
+    name: "ar"
+    path: "C:/tools/msys64/mingw64/bin/ar"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "C:/tools/msys64/mingw64/bin/ld"
+  }
+  tool_path {
+    name: "cpp"
+    path: "C:/tools/msys64/mingw64/bin/cpp"
+  }
+  tool_path {
+    name: "dwp"
+    path: "C:/tools/msys64/mingw64/bin/dwp"
+  }
+  tool_path {
+    name: "gcc"
+    path: "C:/tools/msys64/mingw64/bin/gcc"
+  }
+  tool_path {
+    name: "gcov"
+    path: "C:/tools/msys64/mingw64/bin/gcov"
+  }
+  tool_path {
+    name: "ld"
+    path: "C:/tools/msys64/mingw64/bin/ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "C:/tools/msys64/mingw64/bin/nm"
+  }
+  tool_path {
+    name: "objcopy"
+    path: "C:/tools/msys64/mingw64/bin/objcopy"
+  }
+  tool_path {
+    name: "objdump"
+    path: "C:/tools/msys64/mingw64/bin/objdump"
+  }
+  tool_path {
+    name: "strip"
+    path: "C:/tools/msys64/mingw64/bin/strip"
+  }
+  cxx_builtin_include_directory: "C:/tools/msys64/mingw64/x86_64-w64-mingw32/include"
   builtin_sysroot: ""
-  compiler: "windows_clang"
-  host_system_name: "local"
-  needsPic: false
-  target_libc: "local"
-  target_cpu: "x64_windows"
-  target_system_name: "local"
+  feature {
+    name: "default_compile_flags"
+    flag_set {
+      action: "linkstamp-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-std=c++0x"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "supports_dynamic_linker"
+    enabled: true
+  }
+  feature {
+    name: "objcopy_embed_flags"
+    flag_set {
+      action: "objcopy_embed_data"
+      flag_group {
+        flag: "-I"
+        flag: "binary"
+      }
+    }
+    enabled: true
+  }
+  action_config {
+    config_name: "objcopy_embed_data"
+    action_name: "objcopy_embed_data"
+    tool {
+      tool_path: "C:/tools/msys64/mingw64/bin/objcopy"
+    }
+    enabled: true
+  }
+}
+toolchain {
   toolchain_identifier: "local_windows_clang"
-
-  tool_path { name: "ar" path: "C:/mingw/bin/ar" }
-  tool_path { name: "compat-ld" path: "C:/Program Files (x86)/LLVM/bin/ld" }
-  tool_path { name: "cpp" path: "C:/Program Files (x86)/LLVM/bin/cpp" }
-  tool_path { name: "dwp" path: "C:/Program Files (x86)/LLVM/bin/dwp" }
-  tool_path { name: "gcc" path: "C:/Program Files (x86)/LLVM/bin/clang" }
-  cxx_flag: "-std=c++0x"
-  # TODO(bazel-team): In theory, the path here ought to exactly match the path
-  # used by gcc. That works because bazel currently doesn't track files at
-  # absolute locations and has no remote execution, yet. However, this will need
-  # to be fixed, maybe with auto-detection?
+  host_system_name: "local"
+  target_system_name: "local"
+  target_cpu: "x64_windows"
+  target_libc: "local"
+  compiler: "windows_clang"
+  abi_version: "local"
+  abi_libc_version: "local"
+  tool_path {
+    name: "ar"
+    path: "C:/mingw/bin/ar"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "C:/Program Files (x86)/LLVM/bin/ld"
+  }
+  tool_path {
+    name: "cpp"
+    path: "C:/Program Files (x86)/LLVM/bin/cpp"
+  }
+  tool_path {
+    name: "dwp"
+    path: "C:/Program Files (x86)/LLVM/bin/dwp"
+  }
+  tool_path {
+    name: "gcc"
+    path: "C:/Program Files (x86)/LLVM/bin/clang"
+  }
+  tool_path {
+    name: "gcov"
+    path: "C:/Program Files (x86)/LLVM/bin/gcov"
+  }
+  tool_path {
+    name: "ld"
+    path: "C:/Program Files (x86)/LLVM/bin/ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "C:/Program Files (x86)/LLVM/bin/nm"
+  }
+  tool_path {
+    name: "objcopy"
+    path: "C:/Program Files (x86)/LLVM/bin/objcopy"
+  }
+  tool_path {
+    name: "objdump"
+    path: "C:/Program Files (x86)/LLVM/bin/objdump"
+  }
+  tool_path {
+    name: "strip"
+    path: "C:/Program Files (x86)/LLVM/bin/strip"
+  }
   cxx_builtin_include_directory: "/usr/lib/gcc/"
   cxx_builtin_include_directory: "/usr/local/include"
   cxx_builtin_include_directory: "/usr/include"
-  tool_path { name: "gcov" path: "C:/Program Files (x86)/LLVM/bin/gcov" }
-  tool_path { name: "ld" path: "C:/Program Files (x86)/LLVM/bin/ld" }
-  tool_path { name: "nm" path: "C:/Program Files (x86)/LLVM/bin/nm" }
-  tool_path { name: "objcopy" path: "C:/Program Files (x86)/LLVM/bin/objcopy" }
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  tool_path { name: "objdump" path: "C:/Program Files (x86)/LLVM/bin/objdump" }
-  tool_path { name: "strip" path: "C:/Program Files (x86)/LLVM/bin/strip" }
-  linking_mode_flags { mode: DYNAMIC }
+  builtin_sysroot: ""
+  feature {
+    name: "default_compile_flags"
+    flag_set {
+      action: "linkstamp-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-std=c++0x"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "supports_dynamic_linker"
+    enabled: true
+  }
+  feature {
+    name: "objcopy_embed_flags"
+    flag_set {
+      action: "objcopy_embed_data"
+      flag_group {
+        flag: "-I"
+        flag: "binary"
+      }
+    }
+    enabled: true
+  }
+  action_config {
+    config_name: "objcopy_embed_data"
+    action_name: "objcopy_embed_data"
+    tool {
+      tool_path: "C:/Program Files (x86)/LLVM/bin/objcopy"
+    }
+    enabled: true
+  }
 }
-
 toolchain {
+  toolchain_identifier: "local_windows_msys64"
+  host_system_name: "local"
+  target_system_name: "local"
+  target_cpu: "x64_windows"
+  target_libc: "local"
+  compiler: "windows_msys64"
   abi_version: "local"
   abi_libc_version: "local"
-  builtin_sysroot: ""
-  compiler: "windows_msys64"
-  host_system_name: "local"
-  needsPic: false
-  target_libc: "local"
-  target_cpu: "x64_windows"
-  target_system_name: "local"
-  toolchain_identifier: "local_windows_msys64"
-
-  tool_path { name: "ar" path: "C:/tools/msys64/usr/bin/ar" }
-  tool_path { name: "compat-ld" path: "C:/tools/msys64/usr/bin/ld" }
-  tool_path { name: "cpp" path: "C:/tools/msys64/usr/bin/cpp" }
-  tool_path { name: "dwp" path: "C:/tools/msys64/usr/bin/dwp" }
-  # Use gcc instead of g++ so that C will compile correctly.
-  tool_path { name: "gcc" path: "C:/tools/msys64/usr/bin/gcc" }
-  cxx_flag: "-std=gnu++0x"
-  linker_flag: "-lstdc++"
-  # TODO(bazel-team): In theory, the path here ought to exactly match the path
-  # used by gcc. That works because bazel currently doesn't track files at
-  # absolute locations and has no remote execution, yet. However, this will need
-  # to be fixed, maybe with auto-detection?
+  tool_path {
+    name: "ar"
+    path: "C:/tools/msys64/usr/bin/ar"
+  }
+  tool_path {
+    name: "compat-ld"
+    path: "C:/tools/msys64/usr/bin/ld"
+  }
+  tool_path {
+    name: "cpp"
+    path: "C:/tools/msys64/usr/bin/cpp"
+  }
+  tool_path {
+    name: "dwp"
+    path: "C:/tools/msys64/usr/bin/dwp"
+  }
+  tool_path {
+    name: "gcc"
+    path: "C:/tools/msys64/usr/bin/gcc"
+  }
+  tool_path {
+    name: "gcov"
+    path: "C:/tools/msys64/usr/bin/gcov"
+  }
+  tool_path {
+    name: "ld"
+    path: "C:/tools/msys64/usr/bin/ld"
+  }
+  tool_path {
+    name: "nm"
+    path: "C:/tools/msys64/usr/bin/nm"
+  }
+  tool_path {
+    name: "objcopy"
+    path: "C:/tools/msys64/usr/bin/objcopy"
+  }
+  tool_path {
+    name: "objdump"
+    path: "C:/tools/msys64/usr/bin/objdump"
+  }
+  tool_path {
+    name: "strip"
+    path: "C:/tools/msys64/usr/bin/strip"
+  }
   cxx_builtin_include_directory: "C:/tools/msys64/"
   cxx_builtin_include_directory: "/usr/"
-  tool_path { name: "gcov" path: "C:/tools/msys64/usr/bin/gcov" }
-  tool_path { name: "ld" path: "C:/tools/msys64/usr/bin/ld" }
-  tool_path { name: "nm" path: "C:/tools/msys64/usr/bin/nm" }
-  tool_path { name: "objcopy" path: "C:/tools/msys64/usr/bin/objcopy" }
-  objcopy_embed_flag: "-I"
-  objcopy_embed_flag: "binary"
-  tool_path { name: "objdump" path: "C:/tools/msys64/usr/bin/objdump" }
-  tool_path { name: "strip" path: "C:/tools/msys64/usr/bin/strip" }
-  linking_mode_flags { mode: DYNAMIC }
+  builtin_sysroot: ""
+  feature {
+    name: "default_compile_flags"
+    flag_set {
+      action: "linkstamp-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-std=gnu++0x"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-lstdc++"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "supports_dynamic_linker"
+    enabled: true
+  }
+  feature {
+    name: "objcopy_embed_flags"
+    flag_set {
+      action: "objcopy_embed_data"
+      flag_group {
+        flag: "-I"
+        flag: "binary"
+      }
+    }
+    enabled: true
+  }
+  action_config {
+    config_name: "objcopy_embed_data"
+    action_name: "objcopy_embed_data"
+    tool {
+      tool_path: "C:/tools/msys64/usr/bin/objcopy"
+    }
+    enabled: true
+  }
 }
-
 toolchain {
   toolchain_identifier: "vc_14_0_x64"
   host_system_name: "local"
   target_system_name: "local"
-
+  target_cpu: "x64_windows_msvc"
+  target_libc: "msvcrt140"
+  compiler: "cl"
   abi_version: "local"
   abi_libc_version: "local"
-  target_cpu: "x64_windows_msvc"
-  compiler: "cl"
-  target_libc: "msvcrt140"
-  default_python_version: "python2.7"
-  cxx_builtin_include_directory: "C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/INCLUDE"
-  cxx_builtin_include_directory: "C:/Program Files (x86)/Windows Kits/10/include/"
-  cxx_builtin_include_directory: "C:/Program Files (x86)/Windows Kits/8.1/include/"
-  cxx_builtin_include_directory: "C:/Program Files (x86)/GnuWin32/include/"
-  cxx_builtin_include_directory: "C:/python_27_amd64/files/include"
   tool_path {
     name: "ar"
     path: "wrapper/bin/msvc_link.bat"
@@ -558,290 +1270,308 @@ toolchain {
     name: "strip"
     path: "wrapper/bin/msvc_nop.bat"
   }
-  supports_gold_linker: false
-  supports_start_end_lib: false
-  supports_interface_shared_objects: false
-  supports_incremental_linker: false
-  supports_normalizing_ar: true
-  needsPic: false
-
-  compiler_flag: "-m64"
-  compiler_flag: "/D__inline__=__inline"
-  # TODO(pcloudy): Review those flags below, they should be defined by cl.exe
-  compiler_flag: "/DCOMPILER_MSVC"
-
-  # Don't pollute with GDI macros in windows.h.
-  compiler_flag: "/DNOGDI"
-  # Don't define min/max macros in windows.h.
-  compiler_flag: "/DNOMINMAX"
-  compiler_flag: "/DPRAGMA_SUPPORTED"
-  # Platform defines.
-  compiler_flag: "/D_WIN32_WINNT=0x0601"
-  # Turn off warning messages.
-  compiler_flag: "/D_CRT_SECURE_NO_DEPRECATE"
-  compiler_flag: "/D_CRT_SECURE_NO_WARNINGS"
-  compiler_flag: "/D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS"
-  # Use math constants (M_PI, etc.) from the math library
-  compiler_flag: "/D_USE_MATH_DEFINES"
-
-  # Useful options to have on for compilation.
-  # Suppress startup banner.
-  compiler_flag: "/nologo"
-  # Increase the capacity of object files to 2^32 sections.
-  compiler_flag: "/bigobj"
-  # Allocate 500MB for precomputed headers.
-  compiler_flag: "/Zm500"
-  # Use unsigned char by default.
-  compiler_flag: "/J"
-  # Use function level linking.
-  compiler_flag: "/Gy"
-  # Use string pooling.
-  compiler_flag: "/GF"
-  # Warning level 3 (could possibly go to 4 in the future).
-  compiler_flag: "/W3"
-  # Catch both asynchronous (structured) and synchronous (C++) exceptions.
-  compiler_flag: "/EHsc"
-
-  # Globally disabled warnings.
-  # Don't warn about elements of array being be default initialized.
-  compiler_flag: "/wd4351"
-  # Don't warn about no matching delete found.
-  compiler_flag: "/wd4291"
-  # Don't warn about diamond inheritance patterns.
-  compiler_flag: "/wd4250"
-  # Don't warn about insecure functions (e.g. non _s functions).
-  compiler_flag: "/wd4996"
-
-  linker_flag: "-m64"
-  # Stop passing -frandom-seed option
+  cxx_builtin_include_directory: "C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC/INCLUDE"
+  cxx_builtin_include_directory: "C:/Program Files (x86)/Windows Kits/10/include/"
+  cxx_builtin_include_directory: "C:/Program Files (x86)/Windows Kits/8.1/include/"
+  cxx_builtin_include_directory: "C:/Program Files (x86)/GnuWin32/include/"
+  cxx_builtin_include_directory: "C:/python_27_amd64/files/include"
   feature {
-    name: 'random_seed'
+    name: "default_link_flags"
+    flag_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "-m64"
+      }
+    }
+    enabled: true
   }
-
+  feature {
+    name: "random_seed"
+  }
+  feature {
+    name: "default_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "-m64"
+        flag: "/D__inline__=__inline"
+        flag: "/DCOMPILER_MSVC"
+        flag: "/DNOGDI"
+        flag: "/DNOMINMAX"
+        flag: "/DPRAGMA_SUPPORTED"
+        flag: "/D_WIN32_WINNT=0x0601"
+        flag: "/D_CRT_SECURE_NO_DEPRECATE"
+        flag: "/D_CRT_SECURE_NO_WARNINGS"
+        flag: "/D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS"
+        flag: "/D_USE_MATH_DEFINES"
+        flag: "/nologo"
+        flag: "/bigobj"
+        flag: "/Zm500"
+        flag: "/J"
+        flag: "/Gy"
+        flag: "/GF"
+        flag: "/W3"
+        flag: "/EHsc"
+        flag: "/wd4351"
+        flag: "/wd4291"
+        flag: "/wd4250"
+        flag: "/wd4996"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "/DDEBUG=1"
+        flag: "-g"
+        flag: "/Od"
+        flag: "-Xcompilation-mode=dbg"
+      }
+      with_feature {
+        feature: "dbg"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "/DNDEBUG"
+        flag: "/Od"
+        flag: "-Xcompilation-mode=fastbuild"
+      }
+      with_feature {
+        feature: "fastbuild"
+      }
+    }
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "linkstamp-compile"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "lto-backend"
+      action: "clif-match"
+      flag_group {
+        flag: "/DNDEBUG"
+        flag: "/O2"
+        flag: "-Xcompilation-mode=opt"
+      }
+      with_feature {
+        feature: "opt"
+      }
+    }
+    enabled: true
+  }
+  feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "/I%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "/I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "/I%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "/DEPENDENCY_FILE"
+        flag: "%{dependency_file}"
+        expand_if_all_available: "dependency_file"
+      }
+    }
+  }
+  feature {
+    name: "user_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      flag_group {
+        flag: "%{user_compile_flags}"
+        iterate_over: "user_compile_flags"
+        expand_if_all_available: "user_compile_flags"
+      }
+    }
+  }
+  feature {
+    name: "sysroot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      flag_group {
+        flag: "--sysroot=%{sysroot}"
+        iterate_over: "sysroot"
+        expand_if_all_available: "sysroot"
+      }
+    }
+  }
+  feature {
+    name: "unfiltered_compile_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      flag_group {
+        flag: "%{unfiltered_compile_flags}"
+        iterate_over: "unfiltered_compile_flags"
+        expand_if_all_available: "unfiltered_compile_flags"
+      }
+    }
+  }
+  feature {
+    name: "compiler_output_flags"
+    flag_set {
+      action: "assemble"
+      flag_group {
+        flag: "/Fo%{output_file}"
+        flag: "/Zi"
+        expand_if_all_available: "output_file"
+        expand_if_none_available: "output_assembly_file"
+        expand_if_none_available: "output_preprocess_file"
+      }
+    }
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      flag_group {
+        flag: "/Fo%{output_file}"
+        expand_if_all_available: "output_file"
+        expand_if_none_available: "output_assembly_file"
+        expand_if_none_available: "output_preprocess_file"
+      }
+      flag_group {
+        flag: "/Fa%{output_file}"
+        expand_if_all_available: "output_file"
+        expand_if_all_available: "output_assembly_file"
+      }
+      flag_group {
+        flag: "/P"
+        flag: "/Fi%{output_file}"
+        expand_if_all_available: "output_file"
+        expand_if_all_available: "output_preprocess_file"
+      }
+    }
+  }
+  feature {
+    name: "compiler_input_flags"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      flag_group {
+        flag: "/c"
+        flag: "%{source_file}"
+        expand_if_all_available: "source_file"
+      }
+    }
+  }
+  feature {
+    name: "dbg"
+  }
+  feature {
+    name: "fastbuild"
+  }
+  feature {
+    name: "opt"
+  }
   action_config {
-    config_name: 'c-compile'
-    action_name: 'c-compile'
+    config_name: "c-compile"
+    action_name: "c-compile"
     tool {
-      tool_path: 'wrapper/bin/msvc_cl.bat'
+      tool_path: "wrapper/bin/msvc_cl.bat"
     }
-    implies: 'compiler_input_flags'
-    implies: 'compiler_output_flags'
-    implies: 'legacy_compile_flags'
-    implies: 'user_compile_flags'
-    implies: 'sysroot'
-    implies: 'unfiltered_compile_flags'
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+    implies: "default_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
   }
-
   action_config {
-    config_name: 'c++-compile'
-    action_name: 'c++-compile'
+    config_name: "c++-compile"
+    action_name: "c++-compile"
     tool {
-      tool_path: 'wrapper/bin/msvc_cl.bat'
+      tool_path: "wrapper/bin/msvc_cl.bat"
     }
-    implies: 'compiler_input_flags'
-    implies: 'compiler_output_flags'
-    implies: 'legacy_compile_flags'
-    implies: 'user_compile_flags'
-    implies: 'sysroot'
-    implies: 'unfiltered_compile_flags'
-  }
-
-  # TODO(b/65151735): Remove legacy_compile_flags feature when legacy fields are
-  # not used in this crosstool
-  feature {
-    name: 'legacy_compile_flags'
-    flag_set {
-      expand_if_all_available: 'legacy_compile_flags'
-      action: 'assemble'
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-header-parsing'
-      action: 'c++-module-compile'
-      action: 'c++-module-codegen'
-      flag_group {
-        iterate_over: 'legacy_compile_flags'
-        flag: '%{legacy_compile_flags}'
-      }
-    }
-  }
-
-  feature {
-    name: 'include_paths'
-    flag_set {
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-header-parsing'
-      action: 'c++-module-compile'
-      flag_group {
-        iterate_over: 'quote_include_paths'
-        flag: '/I%{quote_include_paths}'
-      }
-      flag_group {
-        iterate_over: 'include_paths'
-        flag: '/I%{include_paths}'
-      }
-      flag_group {
-        iterate_over: 'system_include_paths'
-        flag: '/I%{system_include_paths}'
-      }
-    }
-  }
-
-  feature {
-    name: 'dependency_file'
-    flag_set {
-      action: 'assemble'
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-module-compile'
-      action: 'c++-header-parsing'
-      expand_if_all_available: 'dependency_file'
-      flag_group {
-        flag: '/DEPENDENCY_FILE'
-        flag: '%{dependency_file}'
-      }
-    }
-  }
-
-  feature {
-    name: 'user_compile_flags'
-    flag_set {
-      expand_if_all_available: 'user_compile_flags'
-      action: 'assemble'
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-header-parsing'
-      action: 'c++-module-compile'
-      action: 'c++-module-codegen'
-      flag_group {
-        iterate_over: 'user_compile_flags'
-        flag: '%{user_compile_flags}'
-      }
-    }
-  }
-
-  feature {
-    name: 'sysroot'
-    flag_set {
-      expand_if_all_available: 'sysroot'
-      action: 'assemble'
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-header-parsing'
-      action: 'c++-module-compile'
-      action: 'c++-module-codegen'
-      action: 'c++-link-executable'
-      action: 'c++-link-dynamic-library'
-      action: 'c++-link-nodeps-dynamic-library'
-      flag_group {
-        iterate_over: 'sysroot'
-        flag: '--sysroot=%{sysroot}'
-      }
-    }
-  }
-
-  feature {
-    name: 'unfiltered_compile_flags'
-    flag_set {
-      expand_if_all_available: 'unfiltered_compile_flags'
-      action: 'assemble'
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-header-parsing'
-      action: 'c++-module-compile'
-      action: 'c++-module-codegen'
-      flag_group {
-        iterate_over: 'unfiltered_compile_flags'
-        flag: '%{unfiltered_compile_flags}'
-      }
-    }
-  }
-
-  feature {
-    name: 'compiler_output_flags'
-    flag_set {
-      action: 'assemble'
-      flag_group {
-        expand_if_all_available: 'output_file'
-        expand_if_none_available: 'output_assembly_file'
-        expand_if_none_available: 'output_preprocess_file'
-        flag: '/Fo%{output_file}'
-        flag: '/Zi'
-      }
-    }
-    flag_set {
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-header-parsing'
-      action: 'c++-module-compile'
-      action: 'c++-module-codegen'
-      flag_group {
-        expand_if_all_available: 'output_file'
-        expand_if_none_available: 'output_assembly_file'
-        expand_if_none_available: 'output_preprocess_file'
-        flag: '/Fo%{output_file}'
-      }
-      flag_group {
-        expand_if_all_available: 'output_file'
-        expand_if_all_available: 'output_assembly_file'
-        flag: '/Fa%{output_file}'
-      }
-      flag_group {
-        expand_if_all_available: 'output_file'
-        expand_if_all_available: 'output_preprocess_file'
-        flag: '/P'
-        flag: '/Fi%{output_file}'
-      }
-    }
-  }
-
-  feature {
-    name: 'compiler_input_flags'
-    flag_set {
-      action: 'assemble'
-      action: 'preprocess-assemble'
-      action: 'c-compile'
-      action: 'c++-compile'
-      action: 'c++-header-parsing'
-      action: 'c++-module-compile'
-      action: 'c++-module-codegen'
-      flag_group {
-        expand_if_all_available: 'source_file'
-        flag: '/c'
-        flag: '%{source_file}'
-      }
-    }
-  }
-
-  compilation_mode_flags {
-    mode: DBG
-    compiler_flag: "/DDEBUG=1"
-    # This will signal the wrapper that we are doing a debug build, which sets
-    # some internal state of the toolchain wrapper. It is intentionally a "-"
-    # flag to make this very obvious.
-    compiler_flag: "-g"
-    compiler_flag: "/Od"
-    compiler_flag: "-Xcompilation-mode=dbg"
-  }
-
-  compilation_mode_flags {
-    mode: FASTBUILD
-    compiler_flag: "/DNDEBUG"
-    compiler_flag: "/Od"
-    compiler_flag: "-Xcompilation-mode=fastbuild"
-  }
-
-  compilation_mode_flags {
-    mode: OPT
-    compiler_flag: "/DNDEBUG"
-    compiler_flag: "/O2"
-    compiler_flag: "-Xcompilation-mode=opt"
+    implies: "compiler_input_flags"
+    implies: "compiler_output_flags"
+    implies: "default_compile_flags"
+    implies: "user_compile_flags"
+    implies: "sysroot"
+    implies: "unfiltered_compile_flags"
   }
 }

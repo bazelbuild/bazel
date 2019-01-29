@@ -154,7 +154,8 @@ public final class CompileOneDependencyTransformer {
 
     // TODO(djasper): Check whether parse_headers is disabled and just return if not.
     // If the rule has source targets, return it.
-    if (!RawAttributeMapper.of(result).getMergedValues("srcs", BuildType.LABEL_LIST).isEmpty()) {
+    if (result.getRuleClassObject().hasAttr("srcs", BuildType.LABEL_LIST)
+        && !RawAttributeMapper.of(result).getMergedValues("srcs", BuildType.LABEL_LIST).isEmpty()) {
       return result;
     }
 

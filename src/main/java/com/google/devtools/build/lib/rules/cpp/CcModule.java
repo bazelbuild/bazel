@@ -22,23 +22,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
-import com.google.devtools.build.lib.rules.cpp.CcModule.CcSkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
@@ -52,30 +48,35 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithV
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Locale;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for C++ support. */
@@ -83,10 +84,11 @@ public class CcModule
     implements CcModuleApi<
         CcToolchainProvider,
         FeatureConfiguration,
+        CcCompilationContext,
+        CcLinkingContext,
+        LibraryToLinkWrapper,
         CcToolchainVariables,
-        LibraryToLink,
-        CcLinkParams,
-        CcSkylarkInfo> {
+        SkylarkRuleContext> {
 
   private enum RegisterActions {
     ALWAYS,
@@ -123,25 +125,6 @@ public class CcModule
     }
   }
 
-  /**
-   * C++ Skylark rules should have this provider so that native rules can depend on them. This will
-   * eventually go away once b/73921130 is fixed.
-   */
-  @Immutable
-  @AutoCodec
-  public static final class CcSkylarkInfo extends NativeInfo implements CcSkylarkInfoApi {
-    public static final ObjectCodec<CcSkylarkInfo> CODEC = new CcModule_CcSkylarkInfo_AutoCodec();
-
-    public static final NativeProvider<CcSkylarkInfo> PROVIDER =
-        new NativeProvider<CcSkylarkInfo>(CcSkylarkInfo.class, "CcSkylarkInfo") {};
-
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    CcSkylarkInfo() {
-      super(PROVIDER);
-    }
-  }
-
   @Override
   public Provider getCcToolchainProvider() {
     return ToolchainInfo.PROVIDER;
@@ -167,6 +150,11 @@ public class CcModule
   @Override
   public boolean isEnabled(FeatureConfiguration featureConfiguration, String featureName) {
     return featureConfiguration.isEnabled(featureName);
+  }
+
+  @Override
+  public boolean actionIsEnabled(FeatureConfiguration featureConfiguration, String actionName) {
+    return featureConfiguration.actionIsConfigured(actionName);
   }
 
   @Override
@@ -250,7 +238,6 @@ public class CcModule
         /* thinltoParamFile= */ null,
         /* thinltoMergedObjectFile= */ null,
         mustKeepDebug,
-        /* symbolCounts= */ null,
         ccToolchainProvider,
         featureConfiguration,
         useTestOnlyFlags,
@@ -260,7 +247,7 @@ public class CcModule
         /* interfaceLibraryOutput= */ null,
         /* ltoOutputRootPrefix= */ null,
         convertFromNoneable(defFile, /* defaultValue= */ null),
-        /* fdoProvider= */ null,
+        /* fdoContext= */ null,
         asStringNestedSet(runtimeLibrarySearchDirectories),
         /* librariesToLink= */ null,
         asStringNestedSet(librarySearchDirectories),
@@ -329,193 +316,207 @@ public class CcModule
     }
   }
 
+  /**
+   * This method returns a {@link LibraryToLinkWrapper} object that will be used to contain linking
+   * artifacts and information for a single library that will later be used by a linking action.
+   *
+   * @param actionsObject SkylarkActionFactory
+   * @param featureConfigurationObject FeatureConfiguration
+   * @param staticLibraryObject Artifact
+   * @param picStaticLibraryObject Artifact
+   * @param dynamicLibraryObject Artifact
+   * @param interfaceLibraryObject Artifact
+   * @param alwayslink boolean
+   * @return
+   * @throws EvalException
+   * @throws InterruptedException
+   */
   @Override
-  public LibraryToLink createLibraryLinkerInput(
-      SkylarkRuleContext skylarkRuleContext, Artifact library, String skylarkArtifactCategory)
+  public LibraryToLinkWrapper createLibraryLinkerInput(
+      Object actionsObject,
+      Object featureConfigurationObject,
+      Object ccToolchainProviderObject,
+      Object staticLibraryObject,
+      Object picStaticLibraryObject,
+      Object dynamicLibraryObject,
+      Object interfaceLibraryObject,
+      boolean alwayslink,
+      Location location,
+      Environment environment)
       throws EvalException, InterruptedException {
-    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
-    ArtifactCategory artifactCategory =
-        ArtifactCategory.fromString(
-            skylarkArtifactCategory,
-            skylarkRuleContext.getRuleContext().getRule().getLocation(),
-            "artifact_category");
-    return LinkerInputs.opaqueLibraryToLink(
-        library, artifactCategory, CcLinkingOutputs.libraryIdentifierOf(library));
+    SkylarkActionFactory skylarkActionFactory =
+        nullIfNone(actionsObject, SkylarkActionFactory.class);
+    FeatureConfiguration featureConfiguration =
+        nullIfNone(featureConfigurationObject, FeatureConfiguration.class);
+    CcToolchainProvider ccToolchainProvider =
+        nullIfNone(ccToolchainProviderObject, CcToolchainProvider.class);
+    Artifact staticLibrary = nullIfNone(staticLibraryObject, Artifact.class);
+    Artifact picStaticLibrary = nullIfNone(picStaticLibraryObject, Artifact.class);
+    Artifact dynamicLibrary = nullIfNone(dynamicLibraryObject, Artifact.class);
+    Artifact interfaceLibrary = nullIfNone(interfaceLibraryObject, Artifact.class);
+
+    Artifact notNullArtifactForIdentifier = null;
+    if (staticLibrary != null) {
+      notNullArtifactForIdentifier = staticLibrary;
+    } else if (picStaticLibrary != null) {
+      notNullArtifactForIdentifier = picStaticLibrary;
+    } else if (dynamicLibrary != null) {
+      notNullArtifactForIdentifier = dynamicLibrary;
+    } else if (interfaceLibrary != null) {
+      notNullArtifactForIdentifier = interfaceLibrary;
+    } else {
+      throw new EvalException(location, "Must pass at least one artifact");
+    }
+
+    Artifact resolvedSymlinkDynamicLibrary = null;
+    Artifact resolvedSymlinkInterfaceLibrary = null;
+    if (!featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
+      if (dynamicLibrary != null) {
+        resolvedSymlinkDynamicLibrary = dynamicLibrary;
+        dynamicLibrary =
+            SolibSymlinkAction.getDynamicLibrarySymlink(
+                /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
+                    location, skylarkActionFactory),
+                /* actionConstructionContext= */ skylarkActionFactory
+                    .getActionConstructionContext(),
+                ccToolchainProvider.getSolibDirectory(),
+                dynamicLibrary,
+                /* preserveName= */ true,
+                /* prefixConsumer= */ true,
+                /* configuration= */ null);
+      }
+      if (interfaceLibrary != null) {
+        resolvedSymlinkInterfaceLibrary = interfaceLibrary;
+        interfaceLibrary =
+            SolibSymlinkAction.getDynamicLibrarySymlink(
+                /* actionRegistry= */ skylarkActionFactory.asActionRegistry(
+                    location, skylarkActionFactory),
+                /* actionConstructionContext= */ skylarkActionFactory
+                    .getActionConstructionContext(),
+                ccToolchainProvider.getSolibDirectory(),
+                interfaceLibrary,
+                /* preserveName= */ true,
+                /* prefixConsumer= */ true,
+                /* configuration= */ null);
+      }
+    }
+    if (staticLibrary == null
+        && picStaticLibrary == null
+        && dynamicLibrary == null
+        && interfaceLibrary == null) {
+      throw new EvalException(
+          location,
+          "Must pass at least one of the following parameters: static_library, pic_static_library, "
+              + "dynamic_library and interface_library.");
+    }
+    return LibraryToLinkWrapper.builder()
+        .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(notNullArtifactForIdentifier))
+        .setStaticLibrary(staticLibrary)
+        .setPicStaticLibrary(picStaticLibrary)
+        .setDynamicLibrary(dynamicLibrary)
+        .setResolvedSymlinkDynamicLibrary(resolvedSymlinkDynamicLibrary)
+        .setInterfaceLibrary(interfaceLibrary)
+        .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
+        .setAlwayslink(alwayslink)
+        .build();
   }
 
   @Override
-  public LibraryToLink createSymlinkLibraryLinkerInput(
-      SkylarkRuleContext skylarkRuleContext, CcToolchainProvider ccToolchain, Artifact library) {
-    Artifact dynamicLibrarySymlink =
-        SolibSymlinkAction.getDynamicLibrarySymlink(
-            /* actionRegistry= */ skylarkRuleContext.getRuleContext(),
-            /* actionConstructionContext= */ skylarkRuleContext.getRuleContext(),
-            ccToolchain.getSolibDirectory(),
-            library,
-            /* preserveName= */ true,
-            /* prefixConsumer= */ true,
-            skylarkRuleContext.getRuleContext().getConfiguration());
-    return LinkerInputs.solibLibraryToLink(
-        dynamicLibrarySymlink, library, CcLinkingOutputs.libraryIdentifierOf(library));
+  public CcInfo mergeCcInfos(SkylarkList<CcInfoApi> ccInfos) throws EvalException {
+    return CcInfo.merge(ccInfos.getContents(CcInfo.class, /* description= */ null));
   }
 
   @Override
-  public CcLinkParams createCcLinkParams(
-      SkylarkRuleContext skylarkRuleContext,
-      Object skylarkLibrariesToLink,
-      Object skylarkDynamicLibrariesForRuntime,
-      Object skylarkUserLinkFlags)
-      throws EvalException, InterruptedException {
-    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
-
-    SkylarkNestedSet librariesToLink = convertFromNoneable(skylarkLibrariesToLink, null);
-    SkylarkNestedSet dynamicLibrariesForRuntime =
-        convertFromNoneable(skylarkDynamicLibrariesForRuntime, null);
-    SkylarkNestedSet userLinkFlags = convertFromNoneable(skylarkUserLinkFlags, null);
-
-    CcLinkParams.Builder builder = CcLinkParams.builder();
-    if (librariesToLink != null) {
-      builder.addLibraries(librariesToLink.toCollection(LibraryToLink.class));
-    }
-    if (dynamicLibrariesForRuntime != null) {
-      builder.addDynamicLibrariesForRuntime(
-          dynamicLibrariesForRuntime.toCollection(Artifact.class));
-    }
-    if (userLinkFlags != null) {
-      builder.addLinkOpts(userLinkFlags.toCollection(String.class));
-    }
-    return builder.build();
-  }
-
-  @Override
-  public CcSkylarkInfo createCcSkylarkInfo(Object skylarkRuleContextObject)
-      throws EvalException, InterruptedException {
-    SkylarkRuleContext skylarkRuleContext =
-        convertFromNoneable(skylarkRuleContextObject, /* defaultValue= */ null);
-    if (skylarkRuleContext != null) {
-      CcCommon.checkRuleWhitelisted(skylarkRuleContext);
-    }
-    return new CcSkylarkInfo();
-  }
-
-  @SkylarkCallable(
-      name = "merge_cc_infos",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "cc_infos",
-            doc = "cc_infos to be merged.",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class)
-      })
-  public CcInfo mergeCcInfos(SkylarkList<CcInfo> ccInfos) {
-    return CcInfo.merge(ccInfos);
-  }
-
-  @SkylarkCallable(
-      name = "create_compilation_context",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            type = SkylarkRuleContextApi.class,
-            doc = "The rule context."),
-        @Param(
-            name = "headers",
-            doc = "the set of headers needed to compile this target",
-            positional = false,
-            named = true,
-            defaultValue = "depset([])",
-            type = SkylarkNestedSet.class),
-        @Param(
-            name = "system_includes",
-            doc =
-                "set of  search paths for headers file referenced by angle brackets, i.e. "
-                    + "<header>.They can be either relative to the exec root or absolute",
-            positional = false,
-            named = true,
-            defaultValue = "depset([])",
-            type = SkylarkNestedSet.class),
-        @Param(
-            name = "defines",
-            doc = "the set of defines needed to compile this target. Each define is a string",
-            positional = false,
-            named = true,
-            defaultValue = "depset([])",
-            type = SkylarkNestedSet.class)
-      })
   public CcCompilationContext createCcCompilationContext(
-      SkylarkRuleContext skylarkRuleContext,
-      SkylarkNestedSet headers,
-      SkylarkNestedSet systemIncludes,
-      SkylarkNestedSet defines)
-      throws EvalException, InterruptedException {
-    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
+      Object headers, Object systemIncludes, Object includes, Object quoteIncludes, Object defines)
+      throws EvalException {
     CcCompilationContext.Builder ccCompilationContext =
         new CcCompilationContext.Builder(/* ruleContext= */ null);
-    ccCompilationContext.addDeclaredIncludeSrcs(headers.getSet(Artifact.class));
+    ccCompilationContext.addDeclaredIncludeSrcs(
+        toNestedSetOfArtifacts(headers, "headers").getSet(Artifact.class));
     ccCompilationContext.addSystemIncludeDirs(
-        systemIncludes.getSet(String.class).toList().stream()
+        toNestedSetOfStrings(systemIncludes, "system_includes").getSet(String.class).toList()
+            .stream()
             .map(x -> PathFragment.create(x))
             .collect(ImmutableList.toImmutableList()));
-    ccCompilationContext.addDefines(defines.getSet(String.class));
+    ccCompilationContext.addIncludeDirs(
+        toNestedSetOfStrings(includes, "includes").getSet(String.class).toList().stream()
+            .map(x -> PathFragment.create(x))
+            .collect(ImmutableList.toImmutableList()));
+    ccCompilationContext.addQuoteIncludeDirs(
+        toNestedSetOfStrings(quoteIncludes, "quote_includes").getSet(String.class).toList().stream()
+            .map(x -> PathFragment.create(x))
+            .collect(ImmutableList.toImmutableList()));
+    ccCompilationContext.addDefines(toNestedSetOfStrings(defines, "defines").getSet(String.class));
     return ccCompilationContext.build();
   }
 
-  @SkylarkCallable(
-      name = "create_linking_context",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            type = SkylarkRuleContextApi.class,
-            doc = "The rule context."),
-        @Param(
-            name = "static_mode_params_for_dynamic_library",
-            positional = false,
-            named = true,
-            type = CcLinkParams.class,
-            doc = "Parameters for linking a dynamic library statically."),
-        @Param(
-            name = "static_mode_params_for_executable",
-            doc = "Parameters for linking an executable statically",
-            positional = false,
-            named = true,
-            type = CcLinkParams.class),
-        @Param(
-            name = "dynamic_mode_params_for_dynamic_library",
-            doc = "Parameters for linking a dynamic library dynamically",
-            positional = false,
-            named = true,
-            type = CcLinkParams.class),
-        @Param(
-            name = "dynamic_mode_params_for_executable",
-            doc = "Parameters for linking an executable dynamically",
-            positional = false,
-            named = true,
-            type = CcLinkParams.class)
-      })
-  public CcLinkingInfo createCcLinkingInfo(
-      SkylarkRuleContext skylarkRuleContext,
-      CcLinkParams staticModeParamsForDynamicLibrary,
-      CcLinkParams staticModeParamsForExecutable,
-      CcLinkParams dynamicModeParamsForDynamicLibrary,
-      CcLinkParams dynamicModeParamsForExecutable)
+  private static SkylarkNestedSet toNestedSetOfArtifacts(Object obj, String fieldName)
+      throws EvalException {
+    if (obj == Runtime.UNBOUND) {
+      return SkylarkNestedSet.of(SkylarkType.STRING, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    } else {
+      return SkylarkType.cast(
+          obj,
+          SkylarkNestedSet.class,
+          Artifact.class,
+          Location.BUILTIN,
+          "'%s' argument must be a depset of artifacts",
+          fieldName);
+    }
+  }
+
+  private static SkylarkNestedSet toNestedSetOfStrings(Object obj, String fieldName)
+      throws EvalException {
+    if (obj == Runtime.UNBOUND) {
+      return SkylarkNestedSet.of(SkylarkType.STRING, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    } else {
+      return SkylarkType.cast(
+          obj,
+          SkylarkNestedSet.class,
+          String.class,
+          Location.BUILTIN,
+          "'%s' argument must be a depset of strings",
+          fieldName);
+    }
+  }
+
+  @Override
+  public CcLinkingContext createCcLinkingInfo(
+      Object librariesToLinkObject,
+      Object userLinkFlagsObject,
+      Location location,
+      Environment environment)
       throws EvalException, InterruptedException {
-    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder
-        .setStaticModeParamsForDynamicLibrary(staticModeParamsForDynamicLibrary)
-        .setStaticModeParamsForExecutable(staticModeParamsForExecutable)
-        .setDynamicModeParamsForDynamicLibrary(dynamicModeParamsForDynamicLibrary)
-        .setDynamicModeParamsForExecutable(dynamicModeParamsForExecutable);
-    return ccLinkingInfoBuilder.build();
+    @SuppressWarnings("unchecked")
+    SkylarkList<LibraryToLinkWrapper> librariesToLink =
+        nullIfNone(librariesToLinkObject, SkylarkList.class);
+    @SuppressWarnings("unchecked")
+    SkylarkList<String> userLinkFlags = nullIfNone(userLinkFlagsObject, SkylarkList.class);
+
+    if (librariesToLink != null || userLinkFlags != null) {
+      CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
+      if (librariesToLink != null) {
+        ccLinkingContextBuilder.addLibraries(
+            NestedSetBuilder.wrap(Order.LINK_ORDER, librariesToLink.getImmutableList()));
+      }
+      if (userLinkFlags != null) {
+        ccLinkingContextBuilder.addUserLinkFlags(
+            NestedSetBuilder.wrap(
+                Order.LINK_ORDER,
+                ImmutableList.of(
+                    CcLinkingContext.LinkOptions.of(userLinkFlags.getImmutableList()))));
+      }
+      return ccLinkingContextBuilder.build();
+    }
+
+    throw new EvalException(location, "Must pass libraries_to_link, user_link_flags or both.");
+  }
+
+  // TODO(b/65151735): Remove when cc_flags is entirely from features.
+  @Override
+  public String legacyCcFlagsMakeVariable(CcToolchainProvider ccToolchain) {
+    return ccToolchain.getLegacyCcFlagsMakeVariable();
   }
 
   protected static CompilationInfo compile(
@@ -541,7 +542,7 @@ public class CcModule
         convertFromNoneable(skylarkFeatureConfiguration, null);
     Pair<List<Artifact>, List<Artifact>> separatedHeadersAndSources =
         separateSourcesFromHeaders(sources);
-    FdoProvider fdoProvider = ccToolchainProvider.getFdoProvider();
+    FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     // TODO(plf): Need to flatten the nested set to convert the Strings to PathFragment. This could
     // be avoided if path fragments are ever added to Skylark or in the C++ code we take Strings
     // instead of PathFragments.
@@ -553,7 +554,7 @@ public class CcModule
                 featureConfiguration,
                 CcCompilationHelper.SourceCategory.CC,
                 ccToolchainProvider,
-                fdoProvider)
+                fdoContext)
             .addPublicHeaders(headers)
             .addIncludeDirs(
                 includeDirs.stream()
@@ -610,7 +611,7 @@ public class CcModule
       Object skylarkLinkopts,
       boolean shouldCreateStaticLibraries,
       Object dynamicLibrary,
-      SkylarkList<CcLinkingInfo> skylarkCcLinkingInfos,
+      SkylarkList<CcLinkingContext> skylarkCcLinkingContexts,
       boolean neverLink)
       throws InterruptedException, EvalException, InterruptedException {
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
@@ -618,7 +619,7 @@ public class CcModule
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfiguration featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    FdoProvider fdoProvider = ccToolchainProvider.getFdoProvider();
+    FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     NestedSet<String> linkopts =
         convertSkylarkListOrNestedSetToNestedSet(skylarkLinkopts, String.class);
     CcLinkingHelper helper =
@@ -627,21 +628,28 @@ public class CcModule
                 cppSemantics,
                 featureConfiguration,
                 ccToolchainProvider,
-                fdoProvider,
+                fdoContext,
                 ruleContext.getConfiguration())
             .addLinkopts(linkopts)
             .setShouldCreateStaticLibraries(shouldCreateStaticLibraries)
             .setLinkerOutputArtifact(convertFromNoneable(dynamicLibrary, null))
-            .addCcLinkingInfos(skylarkCcLinkingInfos)
+            .addCcLinkingContexts(skylarkCcLinkingContexts)
             .setNeverLink(neverLink);
     try {
       CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
+      ImmutableList.Builder<LibraryToLinkWrapper> libraryToLinkWrapperBuilder =
+          ImmutableList.builder();
       if (!ccCompilationOutputs.isEmpty()) {
         ccLinkingOutputs = helper.link(ccCompilationOutputs);
+        if (!neverLink) {
+          libraryToLinkWrapperBuilder.add(
+              LibraryToLinkWrapper.convertLinkOutputsToLibraryToLinkWrapper(ccLinkingOutputs));
+        }
       }
-      CcLinkingInfo ccLinkingInfo =
-          helper.buildCcLinkingInfo(ccLinkingOutputs, CcCompilationContext.EMPTY);
-      return new LinkingInfo(ccLinkingInfo, ccLinkingOutputs);
+      CcLinkingContext ccLinkingContext =
+          helper.buildCcLinkingContextFromLibraryToLinkWrappers(
+              libraryToLinkWrapperBuilder.build(), CcCompilationContext.EMPTY);
+      return new LinkingInfo(ccLinkingContext, ccLinkingOutputs);
     } catch (RuleErrorException e) {
       throw new EvalException(ruleContext.getRule().getLocation(), e);
     }
@@ -742,157 +750,7 @@ public class CcModule
         @Param(name = "abi_version", positional = false, type = String.class, named = true),
         @Param(name = "abi_libc_version", positional = false, type = String.class, named = true),
         @Param(
-            name = "supports_gold_linker",
-            positional = false,
-            defaultValue = "False",
-            type = Boolean.class,
-            named = true),
-        @Param(
-            name = "supports_start_end_lib",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
-            name = "supports_interface_shared_objects",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
-            name = "supports_embedded_runtimes",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
-            name = "static_runtime_filegroup",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "dynamic_runtime_filegroup",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "supports_fission",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
-            name = "supports_dsym",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
-            name = "needs_pic",
-            positional = false,
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true),
-        @Param(
             name = "tool_paths",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "compiler_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "cxx_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "unfiltered_cxx_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "linker_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "dynamic_library_linker_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "test_only_linker_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "objcopy_embed_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "ld_embed_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "compilation_mode_compiler_flags",
-            positional = false,
-            named = true,
-            defaultValue = "{}",
-            type = SkylarkDict.class),
-        @Param(
-            name = "compilation_mode_cxx_flags",
-            positional = false,
-            named = true,
-            defaultValue = "{}",
-            type = SkylarkDict.class),
-        @Param(
-            name = "compilation_mode_linker_flags",
-            positional = false,
-            named = true,
-            defaultValue = "{}",
-            type = SkylarkDict.class),
-        @Param(
-            name = "mostly_static_linking_mode_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "dynamic_linking_mode_flags",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            noneable = true,
-            allowedTypes = {
-              @ParamType(type = SkylarkList.class),
-              @ParamType(type = NoneType.class)
-            }),
-        @Param(
-            name = "fully_static_linking_mode_flags",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "mostly_static_libraries_linking_mode_flags",
             positional = false,
             named = true,
             defaultValue = "[]",
@@ -905,13 +763,6 @@ public class CcModule
             type = SkylarkList.class),
         @Param(
             name = "builtin_sysroot",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "default_libc_top",
             positional = false,
             noneable = true,
             defaultValue = "None",
@@ -939,34 +790,9 @@ public class CcModule
       String compiler,
       String abiVersion,
       String abiLibcVersion,
-      Boolean supportsGoldLinker,
-      Boolean supportsStartEndLib,
-      Boolean supportsInterfaceSharedObjects,
-      Boolean supportsEmbeddedRuntimes,
-      Object staticRuntimesFilegroup,
-      Object dynamicRuntimesFilegroup,
-      Boolean supportsFission,
-      Boolean supportsDsym,
-      Boolean needsPic,
       SkylarkList<Object> toolPaths,
-      SkylarkList<String> compilerFlags,
-      SkylarkList<String> cxxFlags,
-      SkylarkList<String> unfilteredCxxFlags,
-      SkylarkList<String> linkerFlags,
-      SkylarkList<String> dynamicLibraryLinkerFlags,
-      SkylarkList<String> testOnlyLinkerFlags,
-      SkylarkList<String> objcopyEmbedFlags,
-      SkylarkList<String> ldEmbedFlags,
-      Object compilationModeCompilerFlagsUnchecked,
-      Object compilationModeCxxFlagsUnchecked,
-      Object compilationModeLinkerFlagsUnchecked,
-      SkylarkList<String> mostlyStaticLinkingModeFlags,
-      Object dynamicLinkingModeFlags,
-      SkylarkList<String> fullyStaticLinkingModeFlags,
-      SkylarkList<String> mostlyStaticLibrariesLinkingModeFlags,
       SkylarkList<Object> makeVariables,
       Object builtinSysroot,
-      Object defaultLibcTop,
       Object ccTargetOs)
       throws InvalidConfigurationException, EvalException {
 
@@ -975,47 +801,185 @@ public class CcModule
     if (!config.enableCcToolchainConfigInfoFromSkylark()) {
       throw new InvalidConfigurationException("Creating a CcToolchainConfigInfo is not enabled.");
     }
-    if (!skylarkRuleContext.getConfiguration().disableLateBoundOptionDefaults()
-        || !config.disableMakeVariables()) {
-      throw new InvalidConfigurationException(
-          "--incompatible_disable_late_bound_option_defaults and "
-              + "--incompatible_disable_cc_configuration_make_variables must be set to true in "
-              + "order to configure the C++ toolchain from Starlark.");
-    }
+
+    CToolchain.Builder cToolchain = CToolchain.newBuilder();
 
     ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
     for (Object feature : features) {
       featureBuilder.add(featureFromSkylark((SkylarkInfo) feature));
     }
+    ImmutableList<Feature> featureList = featureBuilder.build();
+    cToolchain.addAllFeature(
+        featureList.stream()
+            .map(feature -> CcToolchainConfigInfo.featureToProto(feature))
+            .collect(ImmutableList.toImmutableList()));
+
+    ImmutableSet<String> featureNames =
+        featureList.stream()
+            .map(feature -> feature.getName())
+            .collect(ImmutableSet.toImmutableSet());
 
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (Object actionConfig : actionConfigs) {
       actionConfigBuilder.add(actionConfigFromSkylark((SkylarkInfo) actionConfig));
     }
+    ImmutableList<ActionConfig> actionConfigList = actionConfigBuilder.build();
+    cToolchain.addAllActionConfig(
+        actionConfigList.stream()
+            .map(actionConfig -> CcToolchainConfigInfo.actionConfigToProto(actionConfig))
+            .collect(ImmutableList.toImmutableList()));
 
     ImmutableList.Builder<ArtifactNamePattern> artifactNamePatternBuilder = ImmutableList.builder();
     for (Object artifactNamePattern : artifactNamePatterns) {
       artifactNamePatternBuilder.add(
           artifactNamePatternFromSkylark((SkylarkInfo) artifactNamePattern));
     }
+    cToolchain.addAllArtifactNamePattern(
+        artifactNamePatternBuilder.build().stream()
+            .map(
+                artifactNamePattern ->
+                    CToolchain.ArtifactNamePattern.newBuilder()
+                        .setCategoryName(
+                            artifactNamePattern.getArtifactCategory().getCategoryName())
+                        .setPrefix(artifactNamePattern.getPrefix())
+                        .setExtension(artifactNamePattern.getExtension())
+                        .build())
+            .collect(ImmutableList.toImmutableList()));
+    getLegacyArtifactNamePatterns(artifactNamePatternBuilder);
 
+    // Pairs (toolName, toolPath)
     ImmutableList.Builder<Pair<String, String>> toolPathPairs = ImmutableList.builder();
     for (Object toolPath : toolPaths) {
-      toolPathPairs.add(toolPathFromSkylark((SkylarkInfo) toolPath));
+      Pair<String, String> toolPathPair = toolPathFromSkylark((SkylarkInfo) toolPath);
+      toolPathPairs.add(toolPathPair);
+      cToolchain.addToolPath(
+          ToolPath.newBuilder()
+              .setName(toolPathPair.getFirst())
+              .setPath(toolPathPair.getSecond())
+              .build());
+    }
+    ImmutableList<Pair<String, String>> toolPathList = toolPathPairs.build();
+
+    if (!featureNames.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
+      String gccToolPath = "DUMMY_GCC_TOOL";
+      String linkerToolPath = "DUMMY_LINKER_TOOL";
+      String arToolPath = "DUMMY_AR_TOOL";
+      String stripToolPath = "DUMMY_STRIP_TOOL";
+      for (Pair<String, String> tool : toolPathList) {
+        if (tool.first.equals(CppConfiguration.Tool.GCC.getNamePart())) {
+          gccToolPath = tool.second;
+          linkerToolPath =
+              skylarkRuleContext
+                  .getRuleContext()
+                  .getLabel()
+                  .getPackageIdentifier()
+                  .getPathUnderExecRoot()
+                  .getRelative(PathFragment.create(tool.second))
+                  .getPathString();
+        }
+        if (tool.first.equals(CppConfiguration.Tool.AR.getNamePart())) {
+          arToolPath = tool.second;
+        }
+        if (tool.first.equals(CppConfiguration.Tool.STRIP.getNamePart())) {
+          stripToolPath = tool.second;
+        }
+      }
+
+      ImmutableList.Builder<Feature> legacyFeaturesBuilder = ImmutableList.builder();
+      // TODO(b/30109612): Remove fragile legacyCompileFlags shuffle once there are no legacy
+      // crosstools.
+      // Existing projects depend on flags from legacy toolchain fields appearing first on the
+      // compile command line. 'legacy_compile_flags' feature contains all these flags, and so it
+      // needs to appear before other features from {@link CppActionConfigs}.
+      if (featureNames.contains(CppRuleClasses.LEGACY_COMPILE_FLAGS)) {
+        Feature legacyCompileFlags =
+            featureList.stream()
+                .filter(feature -> feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
+                .findFirst()
+                .get();
+        if (legacyCompileFlags != null) {
+          legacyFeaturesBuilder.add(legacyCompileFlags);
+        }
+      }
+      if (featureNames.contains(CppRuleClasses.DEFAULT_COMPILE_FLAGS)) {
+        Feature defaultCompileFlags =
+            featureList.stream()
+                .filter(feature -> feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
+                .findFirst()
+                .get();
+        if (defaultCompileFlags != null) {
+          legacyFeaturesBuilder.add(defaultCompileFlags);
+        }
+      }
+
+      CppPlatform platform = targetLibc.equals("macos") ? CppPlatform.MAC : CppPlatform.LINUX;
+      for (CToolchain.Feature feature :
+          CppActionConfigs.getLegacyFeatures(
+              platform,
+              featureNames,
+              linkerToolPath,
+              /* supportsEmbeddedRuntimes= */ false,
+              /* supportsInterfaceSharedLibraries= */ false)) {
+        legacyFeaturesBuilder.add(new Feature(feature));
+      }
+      legacyFeaturesBuilder.addAll(
+          featureList.stream()
+              .filter(feature -> !feature.getName().equals(CppRuleClasses.LEGACY_COMPILE_FLAGS))
+              .filter(feature -> !feature.getName().equals(CppRuleClasses.DEFAULT_COMPILE_FLAGS))
+              .collect(ImmutableList.toImmutableList()));
+      for (CToolchain.Feature feature :
+          CppActionConfigs.getFeaturesToAppearLastInFeaturesList(featureNames)) {
+        legacyFeaturesBuilder.add(new Feature(feature));
+      }
+
+      featureList = legacyFeaturesBuilder.build();
+
+      ImmutableList.Builder<ActionConfig> legacyActionConfigBuilder = ImmutableList.builder();
+      for (CToolchain.ActionConfig actionConfig :
+          CppActionConfigs.getLegacyActionConfigs(
+              platform,
+              gccToolPath,
+              arToolPath,
+              stripToolPath,
+              /* supportsInterfaceSharedLibraries= */ false)) {
+        legacyActionConfigBuilder.add(new ActionConfig(actionConfig));
+      }
+      legacyActionConfigBuilder.addAll(actionConfigList);
+      actionConfigList = legacyActionConfigBuilder.build();
     }
 
     ImmutableList.Builder<Pair<String, String>> makeVariablePairs = ImmutableList.builder();
     for (Object makeVariable : makeVariables) {
-      makeVariablePairs.add(makeVariableFromSkylark((SkylarkInfo) makeVariable));
+      Pair<String, String> makeVariablePair = makeVariableFromSkylark((SkylarkInfo) makeVariable);
+      makeVariablePairs.add(makeVariablePair);
+      cToolchain.addMakeVariable(
+          CrosstoolConfig.MakeVariable.newBuilder()
+              .setName(makeVariablePair.getFirst())
+              .setValue(makeVariablePair.getSecond())
+              .build());
     }
 
-    SkylarkList<String> dynamicModeFlags =
-        convertFromNoneable(dynamicLinkingModeFlags, /* defaultValue= */ null);
-    boolean hasDynamicLinkingModeFlags = dynamicModeFlags != null;
+    cToolchain
+        .addAllCxxBuiltinIncludeDirectory(cxxBuiltInIncludeDirectories)
+        .setToolchainIdentifier(toolchainIdentifier)
+        .setHostSystemName(hostSystemName)
+        .setTargetSystemName(targetSystemName)
+        .setTargetCpu(targetCpu)
+        .setTargetLibc(targetLibc)
+        .setCompiler(compiler)
+        .setAbiVersion(abiVersion)
+        .setAbiLibcVersion(abiLibcVersion);
+
+    if (convertFromNoneable(ccTargetOs, /* defaultValue= */ null) != null) {
+      cToolchain.setCcTargetOs((String) ccTargetOs);
+    }
+    if (convertFromNoneable(builtinSysroot, /* defaultValue= */ null) != null) {
+      cToolchain.setBuiltinSysroot((String) builtinSysroot);
+    }
 
     return new CcToolchainConfigInfo(
-        actionConfigBuilder.build(),
-        featureBuilder.build(),
+        actionConfigList,
+        featureList,
         artifactNamePatternBuilder.build(),
         ImmutableList.copyOf(cxxBuiltInIncludeDirectories),
         toolchainIdentifier,
@@ -1026,39 +990,35 @@ public class CcModule
         compiler,
         abiVersion,
         abiLibcVersion,
-        supportsGoldLinker,
-        supportsStartEndLib,
-        supportsInterfaceSharedObjects,
-        supportsEmbeddedRuntimes,
-        convertFromNoneable(staticRuntimesFilegroup, /* defaultValue= */ ""),
-        convertFromNoneable(dynamicRuntimesFilegroup, /* defaultValue= */ ""),
-        supportsFission,
-        supportsDsym,
-        needsPic,
-        toolPathPairs.build(),
-        ImmutableList.copyOf(compilerFlags),
-        ImmutableList.copyOf(cxxFlags),
-        ImmutableList.copyOf(unfilteredCxxFlags),
-        ImmutableList.copyOf(linkerFlags),
-        ImmutableList.copyOf(dynamicLibraryLinkerFlags),
-        ImmutableList.copyOf(testOnlyLinkerFlags),
-        ImmutableList.copyOf(objcopyEmbedFlags),
-        ImmutableList.copyOf(ldEmbedFlags),
-        getCompilationModeFlagsFromSkylark(
-            compilationModeCompilerFlagsUnchecked, "compilation_mode_compiler_flags"),
-        getCompilationModeFlagsFromSkylark(
-            compilationModeCxxFlagsUnchecked, "compilation_mode_cxx_flags"),
-        getCompilationModeFlagsFromSkylark(
-            compilationModeLinkerFlagsUnchecked, "compilation_mode_linker_flags"),
-        ImmutableList.copyOf(mostlyStaticLinkingModeFlags),
-        hasDynamicLinkingModeFlags ? ImmutableList.copyOf(dynamicModeFlags) : ImmutableList.of(),
-        ImmutableList.copyOf(fullyStaticLinkingModeFlags),
-        ImmutableList.copyOf(mostlyStaticLibrariesLinkingModeFlags),
+        /* supportsStartEndLib= */ false,
+        /* supportsInterfaceSharedLibraries= */ false,
+        /* supportsEmbeddedRuntimes= */ false,
+        /* staticRuntimesFilegroup= */ "",
+        /* dynamicRuntimesFilegroup= */ "",
+        /* supportsFission */ false,
+        /* needsPic= */ false,
+        toolPathList,
+        /* compilerFlags= */ ImmutableList.of(),
+        /* cxxFlags= */ ImmutableList.of(),
+        /* unfilteredCxxFlags= */ ImmutableList.of(),
+        /* linkerFlags= */ ImmutableList.of(),
+        /* dynamicLibraryLinkerFlags= */ ImmutableList.of(),
+        /* testOnlyLinkerFlags= */ ImmutableList.of(),
+        /* objcopyEmbedFlags= */ ImmutableList.of(),
+        /* ldEmbedFlags= */ ImmutableList.of(),
+        /* compilationModeCompilerFlags= */ ImmutableMap.of(),
+        /* compilationModeCxxFlags= */ ImmutableMap.of(),
+        /* compilationModeLinkerFlags= */ ImmutableMap.of(),
+        /* mostlyStaticLinkingModeFlags= */ ImmutableList.of(),
+        /* dynamicLinkingModeFlags= */ ImmutableList.of(),
+        /* fullyStaticLinkingModeFlags= */ ImmutableList.of(),
+        /* mostlyStaticLibrariesLinkingModeFlags= */ ImmutableList.of(),
         makeVariablePairs.build(),
         convertFromNoneable(builtinSysroot, /* defaultValue= */ ""),
-        convertFromNoneable(defaultLibcTop, /* defaultValue= */ ""),
+        /* defaultLibcTop= */ "",
         convertFromNoneable(ccTargetOs, /* defaultValue= */ ""),
-        hasDynamicLinkingModeFlags);
+        /* hasDynamicLinkingModeFlags= */ false,
+        cToolchain.build().toString());
   }
 
   /** Checks whether the {@link SkylarkInfo} is of the required type. */
@@ -1088,20 +1048,26 @@ public class CcModule
           "A feature must either have a nonempty 'name' field or be enabled.");
     }
 
-    if (!name.matches("^[_a-z+\\-]*$")) {
+    if (!name.matches("^[_a-z0-9+\\-\\.]*$")) {
       throw new EvalException(
           featureStruct.getCreationLoc(),
           String.format(
-              "A feature's name must consist solely of lowercase ASCII letters, '_', '+', and '-', "
-                  + "got '%s'",
+              "A feature's name must consist solely of lowercase ASCII letters, digits, '.', "
+                  + "'_', '+', and '-', got '%s'",
               name));
     }
 
     ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
     ImmutableList<SkylarkInfo> flagSets =
         getSkylarkProviderListFromSkylarkField(featureStruct, "flag_sets");
-    for (SkylarkInfo flagSet : flagSets) {
-      flagSetBuilder.add(flagSetFromSkylark(flagSet));
+    for (SkylarkInfo flagSetObject : flagSets) {
+      FlagSet flagSet = flagSetFromSkylark(flagSetObject, /* actionName= */ null);
+      if (flagSet.getActions().isEmpty()) {
+        throw new EvalException(
+            flagSetObject.getCreationLoc(),
+            "A flag_set that belongs to a feature must have nonempty 'actions' parameter.");
+      }
+      flagSetBuilder.add(flagSet);
     }
 
     ImmutableList.Builder<EnvSet> envSetBuilder = ImmutableList.builder();
@@ -1323,13 +1289,18 @@ public class CcModule
 
   /** Creates a {@link FlagSet} from a {@link SkylarkInfo}. */
   @VisibleForTesting
-  static FlagSet flagSetFromSkylark(SkylarkInfo flagSetStruct)
+  static FlagSet flagSetFromSkylark(SkylarkInfo flagSetStruct, String actionName)
       throws InvalidConfigurationException, EvalException {
     checkRightProviderType(flagSetStruct, "flag_set");
     ImmutableSet<String> actions = getStringSetFromSkylarkProviderField(flagSetStruct, "actions");
-    if (actions.isEmpty()) {
-      throw new EvalException(
-          flagSetStruct.getCreationLoc(), "'actions' field of flag_set must be a nonempty list.");
+    // if we are creating a flag set for an action_config, we need to propagate the name of the
+    // action to its flag_set.action_names
+    if (actionName != null) {
+      if (!actions.isEmpty()) {
+        throw new EvalException(
+            Location.BUILTIN, String.format(ActionConfig.FLAG_SET_WITH_ACTION_ERROR, actionName));
+      }
+      actions = ImmutableSet.of(actionName);
     }
     ImmutableList.Builder<FlagGroup> flagGroupsBuilder = ImmutableList.builder();
     ImmutableList<SkylarkInfo> flagGroups =
@@ -1387,12 +1358,12 @@ public class CcModule
           actionConfigStruct.getCreationLoc(),
           "The 'action_name' field of action_config must be a nonempty string.");
     }
-    if (!actionName.matches("^[_a-z+\\-]*$")) {
+    if (!actionName.matches("^[_a-z0-9+\\-\\.]*$")) {
       throw new EvalException(
           actionConfigStruct.getCreationLoc(),
           String.format(
-              "An action_config's name must consist solely of lowercase ASCII letters, '_', '+', "
-                  + "and '-', got '%s'",
+              "An action_config's name must consist solely of lowercase ASCII letters, digits, "
+                  + "'.', '_', '+', and '-', got '%s'",
               actionName));
     }
 
@@ -1409,7 +1380,7 @@ public class CcModule
     ImmutableList<SkylarkInfo> flagSets =
         getSkylarkProviderListFromSkylarkField(actionConfigStruct, "flag_sets");
     for (SkylarkInfo flagSet : flagSets) {
-      flagSetBuilder.add(flagSetFromSkylark(flagSet));
+      flagSetBuilder.add(flagSetFromSkylark(flagSet, actionName));
     }
 
     ImmutableList<String> implies =
@@ -1509,20 +1480,38 @@ public class CcModule
         .collect(ImmutableList.toImmutableList());
   }
 
-  private static ImmutableMap<CompilationMode, ImmutableList<String>>
-      getCompilationModeFlagsFromSkylark(Object compilationModeFlags, String field)
-          throws EvalException {
-    Map<String, SkylarkList> compilationModeLinkerFlagsMap =
-        SkylarkDict.castSkylarkDictOrNoneToDict(
-            compilationModeFlags, String.class, SkylarkList.class, field);
-    ImmutableMap.Builder<CompilationMode, ImmutableList<String>> compilationModeFlagsBuilder =
-        ImmutableMap.builder();
-    for (Entry<String, SkylarkList> entry : compilationModeLinkerFlagsMap.entrySet()) {
-      compilationModeFlagsBuilder.put(
-          CompilationMode.valueOf(entry.getKey()),
-          ImmutableList.copyOf(
-              convertSkylarkListOrNestedSetToList(entry.getValue(), String.class)));
+  private static void getLegacyArtifactNamePatterns(
+      ImmutableList.Builder<ArtifactNamePattern> patterns) {
+    Set<ArtifactCategory> definedCategories = new HashSet<>();
+    for (ArtifactNamePattern pattern : patterns.build()) {
+      try {
+        definedCategories.add(
+            ArtifactCategory.valueOf(
+                pattern.getArtifactCategory().getCategoryName().toUpperCase(Locale.ENGLISH)));
+      } catch (IllegalArgumentException e) {
+        // Invalid category name, will be detected later.
+        continue;
+      }
     }
-    return compilationModeFlagsBuilder.build();
+
+    for (ArtifactCategory category : ArtifactCategory.values()) {
+      if (!definedCategories.contains(category)
+          && category.getDefaultPrefix() != null
+          && category.getDefaultExtension() != null) {
+        patterns.add(
+            new ArtifactNamePattern(
+                category, category.getDefaultPrefix(), category.getDefaultExtension()));
+      }
+    }
+  }
+
+  @Nullable
+  private static <T> T nullIfNone(Object object, Class<T> type) {
+    return object != Runtime.NONE ? type.cast(object) : null;
+  }
+
+  @Override
+  public boolean isCcToolchainResolutionEnabled(SkylarkRuleContext skylarkRuleContext) {
+    return CppHelper.useToolchainResolution(skylarkRuleContext.getRuleContext());
   }
 }

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /** Options for remote execution and distributed caching. */
@@ -76,12 +77,13 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteCache;
 
   @Option(
-    name = "remote_timeout",
-    defaultValue = "60",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The maximum number of seconds to wait for remote execution and cache calls."
-  )
+      name = "remote_timeout",
+      defaultValue = "60",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The maximum number of seconds to wait for remote execution and cache calls. For the "
+              + "REST cache, this is both the connect and the read timeout.")
   public int remoteTimeout;
 
   @Option(
@@ -235,6 +237,32 @@ public final class RemoteOptions extends OptionsBase {
   public String experimentalRemoteGrpcLog;
 
   @Option(
+      name = "incompatible_remote_symlinks",
+      defaultValue = "false",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, Bazel will represent symlinks in action outputs "
+              + "in the remote caching/execution protocol as such. The "
+              + "current behavior is for remote caches/executors to follow "
+              + "symlinks and represent them as files. See #6631 for details.")
+  public boolean incompatibleRemoteSymlinks;
+
+  @Option(
+      name = "build_event_upload_max_threads",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The number of threads used to do build event uploads. Capped at 1000.")
+  public int buildEventUploadMaxThreads;
+
+  @Deprecated
+  @Option(
       name = "remote_allow_symlink_upload",
       defaultValue = "true",
       category = "remote",
@@ -242,9 +270,56 @@ public final class RemoteOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "If true, upload action symlink outputs to the remote cache. "
-              + "The remote cache currently doesn't support symlinks, "
-              + "so symlink outputs are converted into regular files. "
               + "If this option is not enabled, "
               + "cachable actions that output symlinks will fail.")
   public boolean allowSymlinkUpload;
+
+  @Option(
+      name = "remote_result_cache_priority",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The relative priority of remote actions to be stored in remote cache. "
+              + "The semantics of the particular priority values are server-dependent.")
+  public int remoteResultCachePriority;
+
+  @Option(
+      name = "remote_execution_priority",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The relative priority of actions to be executed remotely. "
+              + "The semantics of the particular priority values are server-dependent.")
+  public int remoteExecutionPriority;
+
+  @Option(
+      name = "remote_default_platform_properties",
+      oldName = "host_platform_remote_properties_override",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Set the default platform properties to be set for the remote execution API, "
+              + "if the execution platform does not already set remote_execution_properties. "
+              + "This value will also be used if the host platform is selected as the execution "
+              + "platform for remote execution.")
+  public String remoteDefaultPlatformProperties;
+
+  @Option(
+      name = "remote_verify_downloads",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, Bazel will compute the hash sum of all remote downloads and "
+              + " discard the remotely cached values if they don't match the expected value.")
+  public boolean remoteVerifyDownloads;
+
+  // The below options are not configurable by users, only tests.
+  // This is part of the effort to reduce the overall number of flags.
+
+  /** The maximum size of an outbound message sent via a gRPC channel. */
+  public int maxOutboundMessageSize = 1024 * 1024;
 }

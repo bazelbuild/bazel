@@ -46,16 +46,16 @@ public class LineNumberTable implements Serializable {
     this(computeLinestart(buffer), path, buffer.length);
   }
 
-  @AutoCodec.Instantiator
-  static LineNumberTable createForSerialization(
-      int[] linestart, PathFragment path, int bufferLength) {
-    return LINE_NUMBER_TABLE_INTERNER.intern(new LineNumberTable(linestart, path, bufferLength));
-  }
-
   LineNumberTable(int[] linestart, PathFragment path, int bufferLength) {
     this.linestart = linestart;
     this.path = path;
     this.bufferLength = bufferLength;
+  }
+
+  @AutoCodec.Instantiator
+  static LineNumberTable createForSerialization(
+      int[] linestart, PathFragment path, int bufferLength) {
+    return LINE_NUMBER_TABLE_INTERNER.intern(new LineNumberTable(linestart, path, bufferLength));
   }
 
   static LineNumberTable create(char[] buffer, PathFragment path) {

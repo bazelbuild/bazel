@@ -136,7 +136,6 @@ function __create_release_commit() {
     echo
     echo
     cat "${changelog_path}"
-    echo
   } >> ${tmpfile}
   mv "${tmpfile}" "${changelog_path}"
   git add "${changelog_path}"

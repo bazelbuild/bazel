@@ -64,14 +64,6 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
     enqueueing(skyKey, false);
   }
 
-  /**
-   * Called when a node was requested to be enqueued but wasn't because either an interrupt or
-   * an error (in nokeep_going mode) had occurred.
-   */
-  protected void enqueueAfterError(SkyKey skyKey) {
-    enqueueing(skyKey, true);
-  }
-
   private void enqueueing(SkyKey skyKey, boolean afterError) {
     // We unconditionally add the key to the set of in-flight nodes even if evaluation is never
     // scheduled, because we still want to remove the previously created NodeEntry from the graph.
@@ -89,6 +81,14 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
         progressReceiver.enqueueing(skyKey);
       }
     }
+  }
+
+  /**
+   * Called when a node was requested to be enqueued but wasn't because either an interrupt or an
+   * error (in nokeep_going mode) had occurred.
+   */
+  protected void enqueueAfterError(SkyKey skyKey) {
+    enqueueing(skyKey, true);
   }
 
   @Override

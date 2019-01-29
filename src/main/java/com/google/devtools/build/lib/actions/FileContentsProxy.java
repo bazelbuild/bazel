@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 import java.io.Serializable;
@@ -74,6 +75,11 @@ public final class FileContentsProxy implements Serializable {
   @Override
   public int hashCode() {
     return Objects.hash(ctime, nodeId);
+  }
+
+  void addToFingerprint(BigIntegerFingerprint fp) {
+    fp.addLong(ctime);
+    fp.addLong(nodeId);
   }
 
   @Override

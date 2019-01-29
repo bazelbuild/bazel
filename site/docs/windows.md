@@ -90,6 +90,18 @@ To build C++ targets, you need:
     The first command sets the path to Visual Studio (BAZEL\_V<b>S</b>), the other
     sets the path to Visual C++ (BAZEL\_V<b>C</b>).
 
+    For Visual Studio 2017, with a default install, instead you might want
+
+    ```
+    set BAZEL_VS=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools
+    ```
+
+    or
+
+     ```
+    set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC
+    ```
+
 *   The [Windows
     SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).
 

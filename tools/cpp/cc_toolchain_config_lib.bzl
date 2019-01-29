@@ -293,7 +293,7 @@ FlagSetInfo = provider(fields = [
 ])
 
 def flag_set(
-        actions,
+        actions = [],
         with_features = [],
         flag_groups = []):
     """ A set of flags to be expanded in the command line for specific actions.
@@ -312,7 +312,7 @@ def flag_set(
     Returns:
         A FlagSetInfo provider.
     """
-    _check_is_nonempty_list(actions, "actions", "flag_set")
+    _check_right_type(actions, [], "actions", "flag_set")
     _check_right_type(with_features, [], "with_features", "flag_set")
     _check_right_type(flag_groups, [], "flag_groups", "flag_set")
     return FlagSetInfo(
@@ -460,7 +460,7 @@ ActionConfigInfo = provider(fields = [
 
 def action_config(
         action_name,
-        enabled = True,
+        enabled = False,
         tools = [],
         flag_sets = [],
         implies = []):

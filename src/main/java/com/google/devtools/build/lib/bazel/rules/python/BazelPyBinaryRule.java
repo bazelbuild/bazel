@@ -41,7 +41,7 @@ public final class BazelPyBinaryRule implements RuleDefinition {
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
         .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
-        .cfg(PyRuleClasses.DEFAULT_PYTHON_VERSION_TRANSITION)
+        .cfg(PyRuleClasses.VERSION_TRANSITION)
         .add(
             attr("$zipper", LABEL)
                 .cfg(HostTransition.INSTANCE)

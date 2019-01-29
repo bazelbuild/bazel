@@ -121,6 +121,14 @@ final class ZipTester {
     return ((d << 24) | (c << 16) | (b << 8) | a) & 0xffffffffL;
   }
 
+  private long getUnsignedInt(byte[] source, int offset) {
+    int a = source[offset + 0] & 0xff;
+    int b = source[offset + 1] & 0xff;
+    int c = source[offset + 2] & 0xff;
+    int d = source[offset + 3] & 0xff;
+    return ((d << 24) | (c << 16) | (b << 8) | a) & 0xffffffffL;
+  }
+
   private void readFully(byte[] buffer, String action) throws IOException {
     for (int i = 0; i < buffer.length; i++) {
       buffer[i] = (byte) readByte(action);
@@ -137,14 +145,6 @@ final class ZipTester {
     int a = source[offset + 0] & 0xff;
     int b = source[offset + 1] & 0xff;
     return (b << 8) | a;
-  }
-
-  private long getUnsignedInt(byte[] source, int offset) {
-    int a = source[offset + 0] & 0xff;
-    int b = source[offset + 1] & 0xff;
-    int c = source[offset + 2] & 0xff;
-    int d = source[offset + 3] & 0xff;
-    return ((d << 24) | (c << 16) | (b << 8) | a) & 0xffffffffL;
   }
 
   private class DeflateInputStream extends InputStream {
@@ -188,7 +188,7 @@ final class ZipTester {
     }
 
     @Override
-    public int read(byte b[], int off, int len) throws IOException {
+    public int read(byte[] b, int off, int len) throws IOException {
       if (inflater.finished()) {
         return -1;
       }

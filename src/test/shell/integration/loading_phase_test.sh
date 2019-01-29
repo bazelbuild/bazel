@@ -65,12 +65,18 @@ TEST_stderr=$(dirname $TEST_log)/stderr
 
 #### HELPER FUNCTIONS ##################################################
 
+if ! type try_with_timeout >&/dev/null; then
+  # Bazel's testenv.sh defines try_with_timeout but the Google-internal version
+  # uses a different testenv.sh.
+  function try_with_timeout() { $* ; }
+fi
+
 function set_up() {
     cd ${WORKSPACE_DIR}
 }
 
 function tear_down() {
-    bazel shutdown
+  try_with_timeout bazel shutdown
 }
 
 #### TESTS #############################################################
@@ -153,7 +159,7 @@ function test_bazelrc_option() {
     local -r pkg="${FUNCNAME}"
     mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-    if [[ "$(realpath "${bazelrc}")" != "$(realpath ".${PRODUCT_NAME}rc")" ]]; then
+    if [[ "$(get_real_path "${bazelrc}")" != "$(get_real_path ".${PRODUCT_NAME}rc")" ]]; then
       cp "${bazelrc}" ".${PRODUCT_NAME}rc"
     fi
 
@@ -369,6 +375,21 @@ function test_incompatible_disallow_load_labels_to_cross_package_boundaries() {
 
   bazel query "$pkg/foo:BUILD" >& "$TEST_log" || fail "Expected success"
   expect_log "//$pkg/foo:BUILD"
+}
+
+function test_package_loading_errors_in_target_parsing() {
+  mkdir bad || fail "mkdir failed"
+  echo "nope" > bad/BUILD || fail "echo failed"
+
+  for keep_going in "--keep_going" "--nokeep_going"
+  do
+    for target_pattern in "//bad:BUILD" "//bad:all" "//bad/..."
+    do
+      bazel build --nobuild "$target_pattern" >& "$TEST_log" \
+        && fail "Expected failure"
+      expect_log "Build did NOT complete successfully"
+    done
+  done
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

@@ -122,7 +122,8 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
     if (optionDefinition.hasImplicitRequirements()) {
       throw new IllegalArgumentException(prefix + "must not use the implicitRequirements field");
     }
-    if (!optionDefinition.getOldOptionName().equals(defaultString)) {
+    if (!optionDefinition.getOldOptionName().equals(defaultString)
+        && !optionDefinition.getOldOptionName().startsWith("experimental_")) {
       throw new IllegalArgumentException(prefix + "must not use the oldName field");
     }
 

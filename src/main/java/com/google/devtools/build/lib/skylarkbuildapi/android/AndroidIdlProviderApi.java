@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi {
 
   /** Name of this info object. */
-  public static final String NAME = "AndroidIdlInfo";
+  String NAME = "AndroidIdlInfo";
 
   /** The set of IDL import roots need for compiling the IDL sources in the transitive closure. */
   @SkylarkCallable(

@@ -14,22 +14,23 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkParamsApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkWrapperApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -38,17 +39,17 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 /** Fake implementation of {@link CcModuleApi}. */
 public class FakeCcModule
     implements BazelCcModuleApi<
+        FileApi,
+        SkylarkRuleContextApi,
         CcToolchainProviderApi,
         FeatureConfigurationApi,
         CompilationInfoApi,
         CcCompilationContextApi,
         CcCompilationOutputsApi,
         LinkingInfoApi,
-        CcLinkingInfoApi,
-        CcToolchainVariablesApi,
-        LibraryToLinkApi,
-        CcLinkParamsApi,
-        CcSkylarkInfoApi> {
+        CcLinkingContextApi,
+        LibraryToLinkWrapperApi,
+        CcToolchainVariablesApi> {
 
   @Override
   public ProviderApi getCcToolchainProvider() {
@@ -69,6 +70,11 @@ public class FakeCcModule
 
   @Override
   public boolean isEnabled(FeatureConfigurationApi featureConfiguration, String featureName) {
+    return false;
+  }
+
+  @Override
+  public boolean actionIsEnabled(FeatureConfigurationApi featureConfiguration, String actionName) {
     return false;
   }
 
@@ -110,41 +116,58 @@ public class FakeCcModule
   }
 
   @Override
-  public LibraryToLinkApi createLibraryLinkerInput(
-      SkylarkRuleContext skylarkRuleContext, Artifact library, String skylarkArtifactCategory)
-      throws EvalException, InterruptedException {
+  public LibraryToLinkWrapperApi createLibraryLinkerInput(
+      Object actions,
+      Object featureConfiguration,
+      Object ccToolchainProvider,
+      Object staticLibrary,
+      Object picStaticLibrary,
+      Object dynamicLibrary,
+      Object interfaceLibrary,
+      boolean alwayslink,
+      Location location,
+      Environment environment) {
     return null;
   }
 
   @Override
-  public LibraryToLinkApi createSymlinkLibraryLinkerInput(
-      SkylarkRuleContext skylarkRuleContext, CcToolchainProviderApi ccToolchain, Artifact library) {
+  public CcLinkingContextApi createCcLinkingInfo(
+      Object librariesToLinkObject,
+      Object userLinkFlagsObject,
+      Location location,
+      Environment environment) {
     return null;
   }
 
   @Override
-  public CcLinkParamsApi createCcLinkParams(
-      SkylarkRuleContext skylarkRuleContext,
-      Object skylarkLibrariesToLink,
-      Object skylarkDynamicLibrariesForRuntime,
-      Object skylarkUserLinkFlags)
-      throws EvalException, InterruptedException {
+  public CcInfoApi mergeCcInfos(SkylarkList<CcInfoApi> ccInfos) {
     return null;
   }
 
   @Override
-  public CcSkylarkInfoApi createCcSkylarkInfo(Object skylarkRuleContextObject)
-      throws EvalException, InterruptedException {
+  public CcCompilationContextApi createCcCompilationContext(
+      Object headers, Object systemIncludes, Object includes, Object quoteIncludes, Object defines)
+      throws EvalException {
     return null;
+  }
+
+  @Override
+  public String legacyCcFlagsMakeVariable(CcToolchainProviderApi ccToolchain) {
+    return "";
+  }
+
+  @Override
+  public boolean isCcToolchainResolutionEnabled(SkylarkRuleContextApi ruleContext) {
+    return false;
   }
 
   @Override
   public CompilationInfoApi compile(
-      SkylarkRuleContext skylarkRuleContext,
+      SkylarkRuleContextApi skylarkRuleContext,
       FeatureConfigurationApi skylarkFeatureConfiguration,
       CcToolchainProviderApi skylarkCcToolchainProvider,
-      SkylarkList<Artifact> sources,
-      SkylarkList<Artifact> headers,
+      SkylarkList<FileApi> sources,
+      SkylarkList<FileApi> headers,
       Object skylarkIncludes,
       Object skylarkCopts,
       SkylarkList<CcCompilationContextApi> ccCompilationContexts) {
@@ -153,13 +176,13 @@ public class FakeCcModule
 
   @Override
   public LinkingInfoApi link(
-      SkylarkRuleContext skylarkRuleContext,
+      SkylarkRuleContextApi skylarkRuleContext,
       FeatureConfigurationApi skylarkFeatureConfiguration,
       CcToolchainProviderApi skylarkCcToolchainProvider,
       CcCompilationOutputsApi ccCompilationOutputs,
       Object skylarkLinkopts,
       Object dynamicLibrary,
-      SkylarkList<CcLinkingInfoApi> skylarkCcLinkingInfos,
+      SkylarkList<CcLinkingContextApi> skylarkCcLinkingContexts,
       boolean neverLink) {
     return null;
   }

@@ -143,6 +143,37 @@ public class BinaryFormatFileTransportTest {
   }
 
   @Test
+  public void testCancelledUpload() throws Exception {
+    Path file1 = Mockito.mock(Path.class);
+    when(file1.getBaseName()).thenReturn("foo");
+    BuildEvent event1 = new WithLocalFilesEvent(ImmutableList.of(file1));
+
+    BuildEventArtifactUploader uploader =
+        Mockito.spy(
+            new BuildEventArtifactUploader() {
+              @Override
+              public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+                return Futures.immediateCancelledFuture();
+              }
+
+              @Override
+              public void shutdown() {}
+            });
+
+    File output = tmp.newFile();
+    BinaryFormatFileTransport transport =
+        new BinaryFormatFileTransport(output.getAbsolutePath(), defaultOpts, uploader, (e) -> {});
+    transport.sendBuildEvent(event1, artifactGroupNamer);
+    transport.close().get();
+
+    assertThat(transport.writer.pendingWrites).isEmpty();
+    try (InputStream in = new FileInputStream(output)) {
+      assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isNull();
+      assertThat(in.available()).isEqualTo(0);
+    }
+  }
+
+  @Test
   public void testWriteWhenFileClosed() throws Exception {
     File output = tmp.newFile();
 

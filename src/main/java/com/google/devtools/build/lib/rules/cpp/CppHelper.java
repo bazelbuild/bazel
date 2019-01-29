@@ -43,10 +43,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -55,11 +52,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -106,19 +104,6 @@ public class CppHelper {
 
   public static TransitiveInfoCollection mallocForTarget(RuleContext ruleContext) {
     return mallocForTarget(ruleContext, "malloc");
-  }
-
-  /**
-   * Returns true if this target should obtain c++ make variables from the toolchain instead of from
-   * the configuration.
-   */
-  public static boolean shouldUseToolchainForMakeVariables(RuleContext ruleContext) {
-    Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
-    return (ruleContext.getConfiguration().getOptions().get(Options.class).makeVariableSource
-            == MakeVariableSource.TOOLCHAIN)
-        && (ruleContext
-            .getFragment(PlatformConfiguration.class)
-            .isToolchainTypeEnabled(toolchainType));
   }
 
   /**
@@ -259,7 +244,7 @@ public class CppHelper {
   public static NestedSet<Artifact> getGcovFilesIfNeeded(
       RuleContext ruleContext, CcToolchainProvider toolchain) {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return toolchain.getCoverage();
+      return toolchain.getCoverageFiles();
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -285,7 +270,7 @@ public class CppHelper {
    * for non C++ rules that link against the C++ runtime.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
-      RuleContext ruleContext) {
+      RuleContext ruleContext) throws RuleErrorException {
     CcToolchainProvider defaultToolchain =
         getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
     if (defaultToolchain == null) {
@@ -293,7 +278,7 @@ public class CppHelper {
     }
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
-    return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
+    return defaultToolchain.getDynamicRuntimeLinkInputs(ruleContext, featureConfiguration);
   }
 
   /**
@@ -301,7 +286,7 @@ public class CppHelper {
    * for non C++ rules that link against the C++ runtime.
    */
   public static NestedSet<Artifact> getDefaultCcToolchainStaticRuntimeInputs(
-      RuleContext ruleContext) {
+      RuleContext ruleContext) throws RuleErrorException {
     CcToolchainProvider defaultToolchain =
         getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
     if (defaultToolchain == null) {
@@ -309,7 +294,7 @@ public class CppHelper {
     }
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain);
-    return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
+    return defaultToolchain.getStaticRuntimeLinkInputs(ruleContext, featureConfiguration);
   }
 
   /**
@@ -350,10 +335,7 @@ public class CppHelper {
       RuleContext ruleContext, TransitiveInfoCollection dep) {
 
     Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
-    if (toolchainType != null
-        && ruleContext
-            .getFragment(PlatformConfiguration.class)
-            .isToolchainTypeEnabled(toolchainType)) {
+    if (toolchainType != null && useToolchainResolution(ruleContext)) {
       return getToolchainFromPlatformConstraints(ruleContext, toolchainType);
     }
     return getToolchainFromCrosstoolTop(ruleContext, dep);
@@ -397,29 +379,41 @@ public class CppHelper {
     final Function<TransitiveInfoCollection, Runfiles> runfilesForLinkingDynamically =
         input -> {
           CcInfo provider = input.get(CcInfo.PROVIDER);
-          return provider == null
-              ? Runfiles.EMPTY
-              : new Runfiles.Builder(ruleContext.getWorkspaceName())
-                  .addTransitiveArtifacts(
-                      provider
-                          .getCcLinkingInfo()
-                          .getDynamicModeParamsForExecutable()
-                          .getDynamicLibrariesForRuntime())
-                  .build();
+          if (provider == null) {
+            return Runfiles.EMPTY;
+          } else {
+            // Cannot add libraries directly because the nested set has link order.
+            NestedSet<Artifact> dynamicLibrariesForRuntime =
+                NestedSetBuilder.<Artifact>stableOrder()
+                    .addAll(
+                        provider
+                            .getCcLinkingContext()
+                            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false))
+                    .build();
+            return new Runfiles.Builder(ruleContext.getWorkspaceName())
+                .addTransitiveArtifacts(dynamicLibrariesForRuntime)
+                .build();
+          }
         };
 
     final Function<TransitiveInfoCollection, Runfiles> runfilesForLinkingStatically =
         input -> {
           CcInfo provider = input.get(CcInfo.PROVIDER);
-          return provider == null
-              ? Runfiles.EMPTY
-              : new Runfiles.Builder(ruleContext.getWorkspaceName())
-                  .addTransitiveArtifacts(
-                      provider
-                          .getCcLinkingInfo()
-                          .getStaticModeParamsForExecutable()
-                          .getDynamicLibrariesForRuntime())
-                  .build();
+          if (provider == null) {
+            return Runfiles.EMPTY;
+          } else {
+            // Cannot add libraries directly because the nested set has link order.
+            NestedSet<Artifact> dynamicLibrariesForRuntime =
+                NestedSetBuilder.<Artifact>stableOrder()
+                    .addAll(
+                        provider
+                            .getCcLinkingContext()
+                            .getDynamicLibrariesForRuntime(/* linkingStatically= */ true))
+                    .build();
+            return new Runfiles.Builder(ruleContext.getWorkspaceName())
+                .addTransitiveArtifacts(dynamicLibrariesForRuntime)
+                .build();
+          }
         };
     return linkingStatically ? runfilesForLinkingStatically : runfilesForLinkingDynamically;
   }
@@ -490,9 +484,10 @@ public class CppHelper {
    * Emits a warning on the rule if there are identical linkstamp artifacts with different {@code
    * CcCompilationContext}s.
    */
-  public static void checkLinkstampsUnique(RuleErrorConsumer listener, CcLinkParams linkParams) {
+  public static void checkLinkstampsUnique(
+      RuleErrorConsumer listener, Iterable<Linkstamp> linkstamps) {
     Map<Artifact, NestedSet<Artifact>> result = new LinkedHashMap<>();
-    for (Linkstamp pair : linkParams.getLinkstamps()) {
+    for (Linkstamp pair : linkstamps) {
       Artifact artifact = pair.getArtifact();
       if (result.containsKey(artifact)) {
         listener.ruleWarning("rule inherits the '" + artifact.toDetailString()
@@ -506,13 +501,17 @@ public class CppHelper {
   // CcCommonConfiguredTarget.noCoptsMatches().
 
   /** Returns whether binaries must be compiled with position independent code. */
-  public static boolean usePicForBinaries(RuleContext ruleContext, CcToolchainProvider toolchain) {
+  public static boolean usePicForBinaries(
+      RuleContext ruleContext,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
     CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
     if (CcCommon.noCoptsMatches("-fPIC", ruleContext)) {
       return false;
     }
     return config.forcePic()
-        || (toolchain.toolchainNeedsPic() && config.getCompilationMode() != CompilationMode.OPT);
+        || (toolchain.usePicForDynamicLibraries(featureConfiguration)
+            && config.getCompilationMode() != CompilationMode.OPT);
   }
 
   /**
@@ -620,13 +619,17 @@ public class CppHelper {
 
   /** Returns the FDO build subtype. */
   public static String getFdoBuildStamp(
-      RuleContext ruleContext, FdoProvider fdoProvider, FeatureConfiguration featureConfiguration) {
+      RuleContext ruleContext, FdoContext fdoContext, FeatureConfiguration featureConfiguration) {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    if (fdoProvider.getFdoMode() == FdoMode.AUTO_FDO) {
-      return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "AFDO" : null;
-    }
-    if (fdoProvider.getFdoMode() == FdoMode.XBINARY_FDO) {
-      return featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO) ? "XFDO" : null;
+    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
+    if (branchFdoProfile != null) {
+
+      if (branchFdoProfile.isAutoFdo()) {
+        return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "AFDO" : null;
+      }
+      if (branchFdoProfile.isAutoXBinaryFdo()) {
+        return featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO) ? "XFDO" : null;
+      }
     }
     if (cppConfiguration.isFdo()) {
       return "FDO";
@@ -674,7 +677,7 @@ public class CppHelper {
     Action[] stripAction =
         new SpawnAction.Builder()
             .addInput(input)
-            .addTransitiveInputs(toolchain.getStrip())
+            .addTransitiveInputs(toolchain.getStripFiles())
             .addOutput(output)
             .useDefaultShellEnvironment()
             .setExecutable(
@@ -719,7 +722,7 @@ public class CppHelper {
       throws RuleErrorException {
     try {
       return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
-    } catch (InvalidConfigurationException e) {
+    } catch (EvalException e) {
       ruleContext.throwWithRuleError(e.getMessage());
       throw new IllegalStateException("Should not be reached");
     }
@@ -798,27 +801,35 @@ public class CppHelper {
    * Returns true if the build implied by the given config and toolchain uses --start-lib/--end-lib
    * ld options.
    */
-  public static boolean useStartEndLib(CppConfiguration config, CcToolchainProvider toolchain) {
-    return config.startEndLibIsRequested() && toolchain.supportsStartEndLib();
+  public static boolean useStartEndLib(
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
+    return config.startEndLibIsRequested() && toolchain.supportsStartEndLib(featureConfiguration);
   }
 
   /**
    * Returns the type of archives being used by the build implied by the given config and toolchain.
    */
   public static Link.ArchiveType getArchiveType(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    return useStartEndLib(config, toolchain)
+      CppConfiguration config,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
+    return useStartEndLib(config, toolchain, featureConfiguration)
         ? Link.ArchiveType.START_END_LIB
         : Link.ArchiveType.REGULAR;
   }
 
   /**
    * Returns true if interface shared objects should be used in the build implied by the given
-   * config and toolchain.
+   * cppConfiguration and toolchain.
    */
-  public static boolean useInterfaceSharedObjects(
-      CppConfiguration config, CcToolchainProvider toolchain) {
-    return toolchain.supportsInterfaceSharedObjects() && config.getUseInterfaceSharedObjects();
+  public static boolean useInterfaceSharedLibraries(
+      CppConfiguration cppConfiguration,
+      CcToolchainProvider toolchain,
+      FeatureConfiguration featureConfiguration) {
+    return toolchain.supportsInterfaceSharedLibraries(featureConfiguration)
+        && cppConfiguration.getUseInterfaceSharedLibraries();
   }
 
   public static CcNativeLibraryProvider collectNativeCcLibraries(
@@ -830,5 +841,30 @@ public class CppHelper {
       result.addTransitive(dep.getTransitiveCcNativeLibraries());
     }
     return new CcNativeLibraryProvider(result.build());
+  }
+
+  public static void checkProtoLibrariesInDeps(RuleContext ruleContext,
+      Iterable<TransitiveInfoCollection> deps) {
+    for (TransitiveInfoCollection dep : deps) {
+      if (dep.get(ProtoInfo.PROVIDER) != null && dep.get(CcInfo.PROVIDER) == null) {
+        ruleContext.attributeError("deps",
+            String.format("proto_library '%s' does not produce output for C++", dep.getLabel()));
+      }
+    }
+  }
+
+  static boolean useToolchainResolution(RuleContext ruleContext) {
+    CppOptions cppOptions =
+        Preconditions.checkNotNull(
+            ruleContext.getConfiguration().getOptions().get(CppOptions.class));
+
+    if (cppOptions.enableCcToolchainResolution) {
+      return true;
+    }
+
+    // TODO(https://github.com/bazelbuild/bazel/issues/7260): Remove this and the flag.
+    PlatformConfiguration platformConfig =
+        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
+    return platformConfig.isToolchainTypeEnabled(getToolchainTypeFromRuleClass(ruleContext));
   }
 }

@@ -20,13 +20,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * {@link OutputStream} suitably synchronized for producer-consumer use cases.
- * The method {@link #readAndReset()} allows to read the bytes accumulated so far
- * and simultaneously truncate precisely the bytes read. Moreover, upon such a reset
- * the amount of memory retained is reset to a small constant. This is a difference
- * with resecpt to the behaviour of the standard classes {@link ByteArrayOutputStream}
- * which only resets the index but keeps the array. This difference matters, as we need
- * to support output peeks without retaining this ammount of memory for the rest of the
+ * {@link OutputStream} suitably synchronized for producer-consumer use cases. The method {@link
+ * #readAndReset()} allows to read the bytes accumulated so far and simultaneously truncate
+ * precisely the bytes read. Moreover, upon such a reset the amount of memory retained is reset to a
+ * small constant. This is a difference with resecpt to the behaviour of the standard classes {@link
+ * ByteArrayOutputStream} which only resets the index but keeps the array. This difference matters,
+ * as we need to support output peeks without retaining this amount of memory for the rest of the
  * build.
  *
  * <p>This class is expected to be used with the {@link BuildEventStreamer}.

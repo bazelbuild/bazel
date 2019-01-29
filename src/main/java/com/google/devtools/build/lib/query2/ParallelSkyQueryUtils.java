@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
@@ -168,7 +169,18 @@ public class ParallelSkyQueryUtils {
       Callback<Target> callback) throws QueryException, InterruptedException {
     Uniquifier<SkyKey> keyUniquifier = env.createSkyKeyUniquifier();
     RBuildFilesVisitor visitor =
-        new RBuildFilesVisitor(env, keyUniquifier, context, callback);
+        new RBuildFilesVisitor(
+            env,
+            keyUniquifier,
+            context,
+            callback,
+            /*rdepFilter=*/ rdep ->
+                // Packages may depend on the existence of subpackages, but these edges aren't
+                // relevant to rbuildfiles. They may also depend on files transitively through
+                // globs, but these cannot be included in load statements and so we don't traverse
+                // through these either.
+                !rdep.functionName().equals(SkyFunctions.PACKAGE_LOOKUP)
+                    && !rdep.functionName().equals(SkyFunctions.GLOB));
     visitor.visitAndWaitForCompletion(env.getFileStateKeysForFileFragments(fileIdentifiers));
   }
 

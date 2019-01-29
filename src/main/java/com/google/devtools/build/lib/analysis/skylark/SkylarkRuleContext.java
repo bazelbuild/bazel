@@ -50,7 +50,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -576,6 +576,8 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     return ruleContext.getHostConfiguration();
   }
 
+  // TODO(juliexxia): special-case label-typed build settings so they return the providers of the
+  // target represented by the label instead of the actual label.
   @Override
   @Nullable
   public Object getBuildSettingValue() throws EvalException {
@@ -586,13 +588,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
               "attempting to access 'build_setting_value' of non-build setting %s",
               ruleLabelCanonicalName));
     }
-    ImmutableMap<String, Object> skylarkFlagSettings =
-        ruleContext.getConfiguration().getOptions().getSkylarkOptions();
+    ImmutableMap<Label, Object> skylarkFlagSettings =
+        ruleContext.getConfiguration().getOptions().getStarlarkOptions();
 
     Type<?> buildSettingType =
         ruleContext.getRule().getRuleClassObject().getBuildSetting().getType();
-    if (skylarkFlagSettings.containsKey(ruleLabelCanonicalName)) {
-      return skylarkFlagSettings.get(ruleLabelCanonicalName);
+    if (skylarkFlagSettings.containsKey(ruleContext.getLabel())) {
+      return skylarkFlagSettings.get(ruleContext.getLabel());
     } else {
       return ruleContext
           .attributes()
@@ -611,7 +613,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       return InstrumentedFilesCollector.shouldIncludeLocalSources(ruleContext);
     }
     TransitiveInfoCollection target = (TransitiveInfoCollection) targetUnchecked;
-    return (target.getProvider(InstrumentedFilesProvider.class) != null)
+    return (target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR) != null)
         && InstrumentedFilesCollector.shouldIncludeLocalSources(config, target);
   }
 
@@ -1069,6 +1071,18 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     return Tuple.<Object>of(
         MutableList.copyOf(env, inputs),
         MutableList.copyOf(env, argv),
+        helper.getToolsRunfilesSuppliers());
+  }
+
+  @Override
+  public Tuple<Object> resolveTools(SkylarkList tools) throws ConversionException, EvalException {
+    checkMutable("resolve_tools");
+    CommandHelper helper =
+        CommandHelper.builder(getRuleContext())
+            .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
+            .build();
+    return Tuple.<Object>of(
+        SkylarkNestedSet.of(Artifact.class, helper.getResolvedTools()),
         helper.getToolsRunfilesSuppliers());
   }
 

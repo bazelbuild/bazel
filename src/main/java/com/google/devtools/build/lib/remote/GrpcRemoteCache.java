@@ -20,7 +20,7 @@ import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheBlockingStub;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
-import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageBlockingStub;
+import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageFutureStub;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
@@ -32,6 +32,8 @@ import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -42,7 +44,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.CallCredentials;
+import io.grpc.Context;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
@@ -61,8 +63,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
@@ -71,6 +75,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   private final ReferenceCountedChannel channel;
   private final RemoteRetrier retrier;
   private final ByteStreamUploader uploader;
+  private final int maxMissingBlobsDigestsPerMessage;
 
   private AtomicBoolean closed = new AtomicBoolean();
 
@@ -87,10 +92,30 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     this.channel = channel;
     this.retrier = retrier;
     this.uploader = uploader;
+    maxMissingBlobsDigestsPerMessage = computeMaxMissingBlobsDigestsPerMessage();
+    Preconditions.checkState(
+        maxMissingBlobsDigestsPerMessage > 0, "Error: gRPC message size too small.");
   }
 
-  private ContentAddressableStorageBlockingStub casBlockingStub() {
-    return ContentAddressableStorageGrpc.newBlockingStub(channel)
+  private int computeMaxMissingBlobsDigestsPerMessage() {
+    final int overhead =
+        FindMissingBlobsRequest.newBuilder()
+            .setInstanceName(options.remoteInstanceName)
+            .build()
+            .getSerializedSize();
+    final int tagSize =
+        FindMissingBlobsRequest.newBuilder()
+                .addBlobDigests(Digest.getDefaultInstance())
+                .build()
+                .getSerializedSize()
+            - FindMissingBlobsRequest.getDefaultInstance().getSerializedSize();
+    // We assume all non-empty digests have the same size. This is true for fixed-length hashes.
+    final int digestSize = digestUtil.compute(new byte[] {1}).getSerializedSize() + tagSize;
+    return (options.maxOutboundMessageSize - overhead) / digestSize;
+  }
+
+  private ContentAddressableStorageFutureStub casFutureStub() {
+    return ContentAddressableStorageGrpc.newFutureStub(channel)
         .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
         .withCallCredentials(credentials)
         .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
@@ -123,25 +148,56 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     return options.remoteCache != null;
   }
 
+  private ListenableFuture<FindMissingBlobsResponse> getMissingDigests(
+      FindMissingBlobsRequest request) throws IOException, InterruptedException {
+    Context ctx = Context.current();
+    return retrier.executeAsync(() -> ctx.call(() -> casFutureStub().findMissingBlobs(request)));
+  }
+
   private ImmutableSet<Digest> getMissingDigests(Iterable<Digest> digests)
       throws IOException, InterruptedException {
-    FindMissingBlobsRequest.Builder request =
-        FindMissingBlobsRequest.newBuilder()
-            .setInstanceName(options.remoteInstanceName)
-            .addAllBlobDigests(digests);
-    if (request.getBlobDigestsCount() == 0) {
+    if (Iterables.isEmpty(digests)) {
       return ImmutableSet.of();
     }
-    FindMissingBlobsResponse response =
-        retrier.execute(() -> casBlockingStub().findMissingBlobs(request.build()));
-    return ImmutableSet.copyOf(response.getMissingBlobDigestsList());
+    // Need to potentially split the digests into multiple requests.
+    FindMissingBlobsRequest.Builder requestBuilder =
+        FindMissingBlobsRequest.newBuilder().setInstanceName(options.remoteInstanceName);
+    List<ListenableFuture<FindMissingBlobsResponse>> callFutures = new ArrayList<>();
+    for (Digest digest : digests) {
+      requestBuilder.addBlobDigests(digest);
+      if (requestBuilder.getBlobDigestsCount() == maxMissingBlobsDigestsPerMessage) {
+        callFutures.add(getMissingDigests(requestBuilder.build()));
+        requestBuilder.clearBlobDigests();
+      }
+    }
+    if (requestBuilder.getBlobDigestsCount() > 0) {
+      callFutures.add(getMissingDigests(requestBuilder.build()));
+    }
+    ImmutableSet.Builder<Digest> result = ImmutableSet.builder();
+    try {
+      for (ListenableFuture<FindMissingBlobsResponse> callFuture : callFutures) {
+        result.addAll(callFuture.get().getMissingBlobDigestsList());
+      }
+    } catch (ExecutionException e) {
+      Throwable cause = e.getCause();
+      Throwables.propagateIfInstanceOf(cause, IOException.class);
+      throw new RuntimeException(cause);
+    }
+    return result.build();
   }
 
   /**
-   * Upload enough of the tree metadata and data into remote cache so that the entire tree can be
-   * reassembled remotely using the root digest.
+   * Ensures that the tree structure of the inputs, the input files themselves, and the command are
+   * available in the remote cache, such that the tree can be reassembled and executed on another
+   * machine given the root digest.
+   *
+   * <p>The cache may check whether files or parts of the tree structure are already present, and do
+   * not need to be uploaded again.
+   *
+   * <p>Note that this method is only required for remote execution, not for caching itself.
+   * However, remote execution uses a cache to store input files, and that may be a separate
+   * end-point from the executor itself, so the functionality lives here.
    */
-  @Override
   public void ensureInputsPresent(
       TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
       throws IOException, InterruptedException {
@@ -199,7 +255,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     }
     resourceName += "blobs/" + digestUtil.toString(digest);
 
-    HashingOutputStream hashOut = digestUtil.newHashingOutputStream(out);
+    @Nullable
+    HashingOutputStream hashOut =
+        options.remoteVerifyDownloads ? digestUtil.newHashingOutputStream(out) : null;
     SettableFuture<Void> outerF = SettableFuture.create();
     bsAsyncStub()
         .read(
@@ -208,7 +266,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
               @Override
               public void onNext(ReadResponse readResponse) {
                 try {
-                  readResponse.getData().writeTo(hashOut);
+                  readResponse.getData().writeTo(hashOut != null ? hashOut : out);
                 } catch (IOException e) {
                   outerF.setException(e);
                   // Cancel the call.
@@ -229,21 +287,14 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
 
               @Override
               public void onCompleted() {
-                String expectedHash = digest.getHash();
-                String actualHash = DigestUtil.hashCodeToString(hashOut.hash());
-                if (!expectedHash.equals(actualHash)) {
-                  String msg =
-                      String.format(
-                          "Expected hash '%s' does not match received hash '%s'.",
-                          expectedHash, actualHash);
-                  outerF.setException(new IOException(msg));
-                } else {
-                  try {
-                    out.flush();
-                    outerF.set(null);
-                  } catch (IOException e) {
-                    outerF.setException(e);
+                try {
+                  if (hashOut != null) {
+                    verifyContents(digest, hashOut);
                   }
+                  out.flush();
+                  outerF.set(null);
+                } catch (IOException e) {
+                  outerF.setException(e);
                 }
               }
             });
@@ -257,23 +308,23 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       Command command,
       Path execRoot,
       Collection<Path> files,
-      FileOutErr outErr,
-      boolean uploadAction)
+      FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
-    upload(execRoot, actionKey, action, command, files, outErr, uploadAction, result);
-    if (!uploadAction) {
-      return;
+    upload(execRoot, actionKey, action, command, files, outErr, result);
+    try {
+      retrier.execute(
+          () ->
+              acBlockingStub()
+                  .updateActionResult(
+                      UpdateActionResultRequest.newBuilder()
+                          .setInstanceName(options.remoteInstanceName)
+                          .setActionDigest(actionKey.getDigest())
+                          .setActionResult(result)
+                          .build()));
+    } catch (StatusRuntimeException e) {
+      throw new IOException(e);
     }
-    retrier.execute(
-        () ->
-            acBlockingStub()
-                .updateActionResult(
-                    UpdateActionResultRequest.newBuilder()
-                        .setInstanceName(options.remoteInstanceName)
-                        .setActionDigest(actionKey.getDigest())
-                        .setActionResult(result)
-                        .build()));
   }
 
   void upload(
@@ -283,15 +334,17 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       Command command,
       Collection<Path> files,
       FileOutErr outErr,
-      boolean uploadAction,
       ActionResult.Builder result)
       throws ExecException, IOException, InterruptedException {
     UploadManifest manifest =
-        new UploadManifest(digestUtil, result, execRoot, options.allowSymlinkUpload);
+        new UploadManifest(
+            digestUtil,
+            result,
+            execRoot,
+            options.incompatibleRemoteSymlinks,
+            options.allowSymlinkUpload);
     manifest.addFiles(files);
-    if (uploadAction) {
-      manifest.addAction(actionKey, action, command);
-    }
+    manifest.addAction(actionKey, action, command);
 
     List<Chunker> filesToUpload = new ArrayList<>();
 
@@ -370,12 +423,12 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
                           .setInstanceName(options.remoteInstanceName)
                           .setActionDigest(actionKey.getDigest())
                           .build()));
-    } catch (RetryException e) {
-      if (RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)) {
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
         // Return null to indicate that it was a cache miss.
         return null;
       }
-      throw e;
+      throw new IOException(e);
     }
   }
 }

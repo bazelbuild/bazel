@@ -1874,11 +1874,16 @@ grep lambda $(location subclass_disassembled.txt) > $(location subclass_lambda_s
     ],
 )
 
-sh_test(
-    name = "desugar_deps_consistent_test",
+_SINGLEJAR_IMPLS = {
+    "singlejar": "//src/tools/singlejar:singlejar_local",
+    "JavaSingleJar": "//src/java_tools/singlejar:SingleJar",
+}
+
+[sh_test(
+    name = "desugar_deps_consistent_%s_test" % label,
     srcs = ["desugar_deps_consistency_test.sh"],
     args = [
-        "$(location //src/tools/singlejar:singlejar_local)",
+        "$(location %s)" % singlejar,
         "$(location @bazel_tools//tools/jdk:jar)",
         "$(location :testdata_desugared_default_methods.jar)",
         "$(location :separate_java8_desugared_default_methods.jar)",
@@ -1888,19 +1893,19 @@ sh_test(
         ":guava_at_head_desugared.jar",
         ":separate_java8_desugared_default_methods.jar",
         ":testdata_desugared_default_methods.jar",
-        "//src/tools/singlejar:singlejar_local",
+        singlejar,
         "@bazel_tools//tools/jdk:jar",
     ],
     tags = ["no_windows"],
-)
+) for label, singlejar in _SINGLEJAR_IMPLS.items()]
 
 # Tests that deps checking fails due to missing default method: libseparate_java8.jar defines
 # default methods which testdata_desugared_default_methods.jar assumes have been moved to companion.
-sh_test(
-    name = "desugar_deps_missing_fail_test",
+[sh_test(
+    name = "desugar_deps_missing_%s_fail_test" % label,
     srcs = ["desugar_deps_consistency_test.sh"],
     args = [
-        "$(location //src/tools/singlejar:singlejar_local)",
+        "$(location %s)" % singlejar,
         "$(location @bazel_tools//tools/jdk:jar)",
         "$(location :testdata_desugared_default_methods.jar)",
         "$(location :libseparate_java8.jar)",
@@ -1910,36 +1915,36 @@ sh_test(
         ":guava_at_head_desugared.jar",
         ":libseparate_java8.jar",
         ":testdata_desugared_default_methods.jar",
-        "//src/tools/singlejar:singlejar_local",
+        singlejar,
         "@bazel_tools//tools/jdk:jar",
     ],
     tags = ["no_windows"],
-)
+) for label, singlejar in _SINGLEJAR_IMPLS.items()]
 
 # Regression test for b/68049457 with deps checking failing due to missing static method:
 # b68049457_caller_desugared.jar assumes presence of companion class that's missing (in fact,
 # the whole Jar is missing, similar to neverlink situations).
-sh_test(
-    name = "desugar_deps_b68049457_fail_test",
+[sh_test(
+    name = "desugar_deps_b68049457_%s_fail_test" % label,
     srcs = ["desugar_deps_consistency_test.sh"],
     args = [
-        "$(location //src/tools/singlejar:singlejar_local)",
+        "$(location %s)" % singlejar,
         "$(location @bazel_tools//tools/jdk:jar)",
         "$(location :b68049457_caller_desugared.jar)",
     ],
     data = [
         ":b68049457_caller_desugared.jar",
-        "//src/tools/singlejar:singlejar_local",
+        singlejar,
         "@bazel_tools//tools/jdk:jar",
     ],
     tags = ["no_windows"],
-)
+) for label, singlejar in _SINGLEJAR_IMPLS.items()]
 
-sh_test(
-    name = "desugar_deps_missed_default_method_fail_test",
+[sh_test(
+    name = "desugar_deps_missed_default_method_%s_fail_test" % label,
     srcs = ["desugar_deps_consistency_test.sh"],
     args = [
-        "$(location //src/tools/singlejar:singlejar_local)",
+        "$(location %s)" % singlejar,
         "$(location @bazel_tools//tools/jdk:jar)",
         "$(location :testdata_desugared_with_missing_dep.jar)",
         "$(location :separate_java8_desugared_default_methods.jar)",
@@ -1949,30 +1954,30 @@ sh_test(
         ":guava_at_head_desugared.jar",
         ":separate_java8_desugared_default_methods.jar",
         ":testdata_desugared_with_missing_dep.jar",
-        "//src/tools/singlejar:singlejar_local",
+        singlejar,
         "@bazel_tools//tools/jdk:jar",
     ],
     tags = ["no_windows"],
-)
+) for label, singlejar in _SINGLEJAR_IMPLS.items()]
 
 # Tests that any Jar entry starting with j$/ causes singlejar to fail when run
 # with --check_desugar_deps.  This is a backstop against such entries being
 # included in deploy.jars.
-sh_test(
-    name = "bad_entry_jar_fail_test",
+[sh_test(
+    name = "bad_entry_jar_%s_fail_test" % label,
     srcs = ["desugar_deps_consistency_test.sh"],
     args = [
-        "$(location //src/tools/singlejar:singlejar_local)",
+        "$(location %s)" % singlejar,
         "$(location @bazel_tools//tools/jdk:jar)",
         "$(location :mock_bad_entry_jar)",
     ],
     data = [
         ":mock_bad_entry_jar",
-        "//src/tools/singlejar:singlejar_local",
+        singlejar,
         "@bazel_tools//tools/jdk:jar",
     ],
     tags = ["no_windows"],
-)
+) for label, singlejar in _SINGLEJAR_IMPLS.items()]
 
 genrule(
     name = "desugar_testdata_with_missing_dep",

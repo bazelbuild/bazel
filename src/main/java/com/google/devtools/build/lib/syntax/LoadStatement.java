@@ -14,34 +14,53 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
-import java.util.Map;
+import java.io.Serializable;
+import java.util.List;
 
 /** Syntax node for an import statement. */
 public final class LoadStatement extends Statement {
 
-  private final ImmutableMap<Identifier, String> symbolMap;
+  /**
+   * Binding represents a binding in a load statement. load("...", local = "orig")
+   *
+   * <p>If there's no alias, a single Identifier can be used for both local and orig.
+   */
+  public static final class Binding implements Serializable {
+    private final Identifier local;
+    private final Identifier orig;
+
+    public Identifier getLocalName() {
+      return local;
+    }
+
+    public Identifier getOriginalName() {
+      return orig;
+    }
+
+    public Binding(Identifier localName, Identifier originalName) {
+      this.local = localName;
+      this.orig = originalName;
+    }
+  }
+
+  private final ImmutableList<Binding> bindings;
   private final StringLiteral imp;
 
   /**
    * Constructs an import statement.
    *
-   * <p>{@code symbols} maps a symbol to the original name under which it was defined in
-   * the bzl file that should be loaded. If aliasing is used, the value differs from its key's
-   * {@code symbol.getName()}. Otherwise, both values are identical.
+   * <p>{@code symbols} maps a symbol to the original name under which it was defined in the bzl
+   * file that should be loaded. If aliasing is used, the value differs from its key's {@code
+   * symbol.getName()}. Otherwise, both values are identical.
    */
-  public LoadStatement(StringLiteral imp, Map<Identifier, String> symbolMap) {
+  public LoadStatement(StringLiteral imp, List<Binding> bindings) {
     this.imp = imp;
-    this.symbolMap = ImmutableMap.copyOf(symbolMap);
+    this.bindings = ImmutableList.copyOf(bindings);
   }
 
-  public ImmutableMap<Identifier, String> getSymbolMap() {
-    return symbolMap;
-  }
-
-  public ImmutableList<Identifier> getSymbols() {
-    return symbolMap.keySet().asList();
+  public ImmutableList<Binding> getBindings() {
+    return bindings;
   }
 
   public StringLiteral getImport() {
@@ -53,15 +72,16 @@ public final class LoadStatement extends Statement {
     printIndent(buffer, indentLevel);
     buffer.append("load(");
     imp.prettyPrint(buffer);
-    for (Identifier symbol : symbolMap.keySet()) {
+    for (Binding binding : bindings) {
       buffer.append(", ");
-      String origName = symbolMap.get(symbol);
-      if (origName.equals(symbol.getName())) {
+      Identifier local = binding.getLocalName();
+      String origName = binding.getOriginalName().getName();
+      if (origName.equals(local.getName())) {
         buffer.append('"');
-        symbol.prettyPrint(buffer);
+        local.prettyPrint(buffer);
         buffer.append('"');
       } else {
-        symbol.prettyPrint(buffer);
+        local.prettyPrint(buffer);
         buffer.append("=\"");
         buffer.append(origName);
         buffer.append('"');

@@ -28,7 +28,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -45,6 +44,7 @@ import io.grpc.ServerInterceptors;
 import io.grpc.ServerServiceDefinition;
 import io.grpc.Status;
 import io.grpc.Status.Code;
+import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
@@ -417,8 +417,7 @@ public class ByteStreamUploaderTest {
     try {
       uploader.uploadBlob(chunker, true);
       fail("Should have thrown an exception.");
-    } catch (RetryException e) {
-      assertThat(e.getAttempts()).isEqualTo(2);
+    } catch (IOException e) {
       assertThat(RemoteRetrierUtils.causedByStatus(e, Code.INTERNAL)).isTrue();
     }
 
@@ -516,7 +515,7 @@ public class ByteStreamUploaderTest {
     try {
       uploader.uploadBlob(chunker, true);
       fail("Should have thrown an exception.");
-    } catch (RetryException e) {
+    } catch (IOException e) {
       assertThat(e).hasCauseThat().isInstanceOf(RejectedExecutionException.class);
     }
 
@@ -594,9 +593,86 @@ public class ByteStreamUploaderTest {
     try {
       uploader.uploadBlob(chunker, true);
       fail("Should have thrown an exception.");
-    } catch (RetryException e) {
+    } catch (IOException e) {
       assertThat(numCalls.get()).isEqualTo(1);
     }
+
+    withEmptyMetadata.detach(prevContext);
+  }
+
+  @Test
+  public void failedUploadsShouldNotDeduplicate() throws Exception {
+    Context prevContext = withEmptyMetadata.attach();
+    RemoteRetrier retrier =
+        new RemoteRetrier(
+            () -> Retrier.RETRIES_DISABLED, (e) -> false, retryService, Retrier.ALLOW_ALL_CALLS);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME, new ReferenceCountedChannel(channel), null, 3, retrier);
+
+    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    new Random().nextBytes(blob);
+
+    Chunker chunker = Chunker.builder(DIGEST_UTIL).setInput(blob).setChunkSize(CHUNK_SIZE).build();
+
+    AtomicInteger numUploads = new AtomicInteger();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          boolean failRequest = true;
+
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            numUploads.incrementAndGet();
+            return new StreamObserver<WriteRequest>() {
+              long nextOffset = 0;
+
+              @Override
+              public void onNext(WriteRequest writeRequest) {
+                if (failRequest) {
+                  streamObserver.onError(Status.UNKNOWN.asException());
+                  failRequest = false;
+                } else {
+                  nextOffset += writeRequest.getData().size();
+                  boolean lastWrite = blob.length == nextOffset;
+                  assertThat(writeRequest.getFinishWrite()).isEqualTo(lastWrite);
+                }
+              }
+
+              @Override
+              public void onError(Throwable throwable) {
+                fail("onError should never be called.");
+              }
+
+              @Override
+              public void onCompleted() {
+                assertThat(nextOffset).isEqualTo(blob.length);
+
+                WriteResponse response =
+                    WriteResponse.newBuilder().setCommittedSize(nextOffset).build();
+                streamObserver.onNext(response);
+                streamObserver.onCompleted();
+              }
+            };
+          }
+        });
+
+    StatusRuntimeException expected = null;
+    try {
+      // This should fail
+      uploader.uploadBlob(chunker, true);
+    } catch (IOException e) {
+      if (e.getCause() instanceof StatusRuntimeException) {
+        expected = (StatusRuntimeException) e.getCause();
+      }
+    }
+    assertThat(expected).isNotNull();
+    assertThat(Status.fromThrowable(expected).getCode()).isEqualTo(Code.UNKNOWN);
+    // This should trigger an upload.
+    uploader.uploadBlob(chunker, false);
+
+    assertThat(numUploads.get()).isEqualTo(2);
+
+    blockUntilInternalStateConsistent(uploader);
 
     withEmptyMetadata.detach(prevContext);
   }

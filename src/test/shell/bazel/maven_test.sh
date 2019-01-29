@@ -26,6 +26,10 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
+function tear_down() {
+  shutdown_server
+}
+
 function setup_zoo() {
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
@@ -46,10 +50,6 @@ public class BallPit {
     }
 }
 EOF
-}
-
-function tear_down() {
-  shutdown_server
 }
 
 function test_maven_jar() {
@@ -91,6 +91,7 @@ EOF
 
 # Same as test_maven_jar, except omit sha1 implying "we don't care".
 function test_maven_jar_no_sha1() {
+  setup_zoo
   serve_artifact com.example.carnivore carnivore 1.23
 
   cat > WORKSPACE <<EOF
@@ -108,6 +109,7 @@ EOF
 
 # makes sure both jar and srcjar are downloaded
 function test_maven_jar_downloads() {
+  setup_zoo
   serve_artifact com.example.carnivore carnivore 1.23
 
   cat > WORKSPACE <<EOF

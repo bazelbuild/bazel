@@ -112,7 +112,7 @@ public class ConfiguredTargetQueryEnvironment
                     : ((BuildConfigurationValue) graph.getValue(element.getConfigurationKey()))
                         .getConfiguration());
           } catch (InterruptedException e) {
-            throw new IllegalStateException("Interruption unexpected in configured query");
+            throw new IllegalStateException("Interruption unexpected in configured query", e);
           }
         };
   }
@@ -388,7 +388,7 @@ public class ConfiguredTargetQueryEnvironment
           : ((BuildConfigurationValue) graph.getValue(target.getConfigurationKey()))
               .getConfiguration();
     } catch (InterruptedException e) {
-      throw new IllegalStateException("Unexpected interruption during configured target query");
+      throw new IllegalStateException("Unexpected interruption during configured target query", e);
     }
   }
 

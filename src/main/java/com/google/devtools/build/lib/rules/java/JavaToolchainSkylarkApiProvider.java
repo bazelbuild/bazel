@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Iterator;
 
@@ -34,7 +34,7 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider
   /** The name of the field in Skylark used to access this class. */
   public static final String NAME = "java_toolchain";
 
-  /** @return the input Java language level */
+  /** Returns the input Java language level */
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
   @Override
   public String getSourceVersion() {
@@ -48,7 +48,7 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider
     return JAVA_SPECIFICATION_VERSION.value();
   }
 
-  /** @return the target Java language level */
+  /** Returns the target Java language level */
   // TODO(cushon): remove this API; it bakes a deprecated detail of the javac API into Bazel
   @Override
   public String getTargetVersion() {
@@ -62,26 +62,35 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider
     return JAVA_SPECIFICATION_VERSION.value();
   }
 
-  /** @return The {@link Artifact} of the javac jar */
+  /** Returns the {@link Artifact} of the javac jar */
   @Override
   public Artifact getJavacJar() {
     JavaToolchainProvider javaToolchainProvider = JavaToolchainProvider.from(getInfo());
     return javaToolchainProvider.getJavac();
   }
 
-  /** @return The {@link Artifact} of the SingleJar deploy jar */
-  @SkylarkCallable(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
+  /** Returns the {@link Artifact} of the SingleJar deploy jar */
+  @Override
   public Artifact getSingleJar() {
     return JavaToolchainProvider.from(getInfo()).getSingleJar();
   }
 
-  /** @return The bootclass path entries */
-  @SkylarkCallable(
-      name = "bootclasspath",
-      doc = "The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.",
-      structField = true)
+  /** Returns the bootclass path entries */
+  @Override
   public SkylarkNestedSet getBootclasspath() {
     return SkylarkNestedSet.of(
         Artifact.class, JavaToolchainProvider.from(getInfo()).getBootclasspath());
+  }
+
+  /** Returns the JVM options */
+  @Override
+  public SkylarkList<String> getJvmOptions() {
+    return SkylarkList.createImmutable(JavaToolchainProvider.from(getInfo()).getJvmOptions());
+  }
+
+  /** Returns the compilation tools */
+  @Override
+  public SkylarkNestedSet getTools() {
+    return SkylarkNestedSet.of(Artifact.class, JavaToolchainProvider.from(getInfo()).getTools());
   }
 }

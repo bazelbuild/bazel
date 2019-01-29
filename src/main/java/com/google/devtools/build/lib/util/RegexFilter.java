@@ -130,11 +130,13 @@ public final class RegexFilter {
     return inclusionPattern.matcher(value).find();
   }
 
-  String getInclusionRegex() {
+  @Nullable
+  public String getInclusionRegex() {
     return inclusionPattern == null ? null : inclusionPattern.pattern();
   }
 
-  String getExclusionRegex() {
+  @Nullable
+  public String getExclusionRegex() {
     return exclusionPattern == null ? null : exclusionPattern.pattern();
   }
 

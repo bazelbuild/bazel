@@ -75,7 +75,7 @@ public final class TestActionBuilder {
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
   private ExecutionInfo executionRequirements;
-  private InstrumentedFilesProvider instrumentedFiles;
+  private InstrumentedFilesInfo instrumentedFiles;
   private int explicitShardCount;
   private Map<String, String> extraEnv;
 
@@ -125,8 +125,7 @@ public final class TestActionBuilder {
     return this;
   }
 
-  public TestActionBuilder setInstrumentedFiles(
-      @Nullable InstrumentedFilesProvider instrumentedFiles) {
+  public TestActionBuilder setInstrumentedFiles(@Nullable InstrumentedFilesInfo instrumentedFiles) {
     this.instrumentedFiles = instrumentedFiles;
     return this;
   }
@@ -167,19 +166,6 @@ public final class TestActionBuilder {
       @Override public int getNumberOfShards(boolean isLocal, int shardCountFromAttr,
           boolean testShardingCompliant, TestSize testSize) {
         return Math.max(shardCountFromAttr, 0);
-      }
-    },
-
-    EXPERIMENTAL_HEURISTIC {
-      @Override public int getNumberOfShards(boolean isLocal, int shardCountFromAttr,
-          boolean testShardingCompliant, TestSize testSize) {
-        if (shardCountFromAttr >= 0) {
-          return shardCountFromAttr;
-        }
-        if (isLocal || !testShardingCompliant) {
-          return 0;
-        }
-        return testSize.getDefaultShards();
       }
     },
 
@@ -242,9 +228,11 @@ public final class TestActionBuilder {
             : ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
 
     inputsBuilder.add(testActionExecutable);
-    Artifact testXmlGeneratorScript =
-        ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
-    inputsBuilder.add(testXmlGeneratorScript);
+    Artifact testXmlGeneratorExecutable =
+        isUsingTestWrapperInsteadOfTestSetupScript
+            ? ruleContext.getHostPrerequisiteArtifact("$xml_writer")
+            : ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
+    inputsBuilder.add(testXmlGeneratorExecutable);
 
     Artifact collectCoverageScript = null;
     TreeMap<String, String> extraTestEnv = new TreeMap<>();
@@ -379,7 +367,7 @@ public final class TestActionBuilder {
                 inputs,
                 testActionExecutable,
                 isUsingTestWrapperInsteadOfTestSetupScript,
-                testXmlGeneratorScript,
+                testXmlGeneratorExecutable,
                 collectCoverageScript,
                 testLog,
                 cacheStatus,

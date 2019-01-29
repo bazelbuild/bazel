@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
@@ -83,11 +82,7 @@ public class CrosstoolConfigurationHelper {
         CrosstoolConfig.CrosstoolRelease.newBuilder()
             .setMajorVersion("12")
             .setMinorVersion("0")
-            .setDefaultTargetCpu(defaultCpu())
-            .addDefaultToolchain(
-                DefaultCpuToolchain.newBuilder()
-                    .setCpu(defaultCpu())
-                    .setToolchainIdentifier(defaultCpu() + "-toolchain"));
+            .setDefaultTargetCpu(defaultCpu());
     CrosstoolConfig.CToolchain.Builder toolchainBuilder = newIncompleteToolchain();
     toolchainBuilder
         .setToolchainIdentifier(defaultCpu() + "-toolchain")
@@ -99,8 +94,10 @@ public class CrosstoolConfigurationHelper {
         .setAbiVersion("gcc-3.4")
         .setAbiLibcVersion("2.3.2")
         // add a submessage that implies support for '.so' files
-        .addLinkingModeFlags(CrosstoolConfig.LinkingModeFlags.newBuilder()
-            .setMode(CrosstoolConfig.LinkingMode.DYNAMIC))
+        .addFeature(
+            CrosstoolConfig.CToolchain.Feature.newBuilder()
+                .setName(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER)
+                .setEnabled(true))
         .addCxxBuiltinIncludeDirectory("/include/directory");
     builder.addToolchain(toolchainBuilder);
     return builder.build();

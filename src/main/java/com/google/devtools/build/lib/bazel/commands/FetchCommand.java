@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -43,13 +44,12 @@ import java.util.EnumSet;
 
 /** Fetches external repositories. Which is so fetch. */
 @Command(
-  name = FetchCommand.NAME,
-  options = {PackageCacheOptions.class, KeepGoingOption.class},
-  help = "resource:fetch.txt",
-  shortDescription = "Fetches external repositories that are prerequisites to the targets.",
-  allowResidue = true,
-  completion = "label"
-)
+    name = FetchCommand.NAME,
+    options = {PackageCacheOptions.class, KeepGoingOption.class, LoadingPhaseThreadsOption.class},
+    help = "resource:fetch.txt",
+    shortDescription = "Fetches external repositories that are prerequisites to the targets.",
+    allowResidue = true,
+    completion = "label")
 public final class FetchCommand implements BlazeCommand {
   // TODO(kchodorow): add an option to force-fetch targets, even if they're already downloaded.
   // TODO(kchodorow): this would be a great time to check for difference and invalidate the upward
@@ -95,13 +95,14 @@ public final class FetchCommand implements BlazeCommand {
     String query = Joiner.on(" union ").join(labelsToLoad.build());
     query = "deps(" + query + ")";
 
+    LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     AbstractBlazeQueryEnvironment<Target> queryEnv =
         QueryCommand.newQueryEnvironment(
             env,
             options.getOptions(KeepGoingOption.class).keepGoing,
             false,
             Lists.<String>newArrayList(),
-            200,
+            threadsOption.threads,
             EnumSet.noneOf(Setting.class));
 
     // 1. Parse query:

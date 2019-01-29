@@ -105,7 +105,7 @@ public class BuildFileAST extends ASTNode {
           imports.add(SkylarkImports.create(str, /* repositoryMapping= */ ImmutableMap.of()));
         } catch (SkylarkImportSyntaxException e) {
           throw new IllegalStateException(
-              "Cannot create SkylarkImport for '" + str + "'. This is an internal error.");
+              "Cannot create SkylarkImport for '" + str + "'. This is an internal error.", e);
         }
       }
     }

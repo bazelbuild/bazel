@@ -22,10 +22,6 @@ cc_library(
     name = "malloc",
 )
 
-cc_library(
-    name = "stl",
-)
-
 filegroup(
     name = "empty",
     srcs = [],
@@ -58,13 +54,12 @@ cc_toolchain(
     name = "cc-compiler-%{name}",
     toolchain_identifier = "%{cc_toolchain_identifier}",
     all_files = ":compiler_deps",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":compiler_deps",
-    cpu = "%{name}",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":compiler_deps",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = %{supports_param_files},
 )
@@ -72,8 +67,6 @@ cc_toolchain(
 toolchain(
     name = "cc-toolchain-%{name}",
     exec_compatible_with = [
-        # This toolchain will only work with the local autoconfigured platforms.
-        "@bazel_tools//platforms:autoconfigured",
         # TODO(katre): add autodiscovered constraints for host CPU and OS.
     ],
     target_compatible_with = [
@@ -88,13 +81,12 @@ cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     toolchain_identifier = "stub_armeabi-v7a",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
 )
@@ -112,3 +104,8 @@ toolchain(
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
+# Target that can provide the CC_FLAGS variable based on the current
+# cc_toolchain.
+load("@bazel_tools//tools/cpp:cc_flags_supplier.bzl", "cc_flags_supplier")
+
+cc_flags_supplier(name = "cc_flags")

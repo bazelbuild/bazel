@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.LanguageDependentFragment;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -50,7 +49,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -95,42 +93,43 @@ public final class CcCompilationHelper {
       ImmutableMap.Builder<String, String> variablesBuilder,
       CppCompileActionBuilder builder,
       FeatureConfiguration featureConfiguration,
-      FdoProvider fdoProvider) {
-
-    if (fdoProvider != null && fdoProvider.getPrefetchHintsArtifact() != null) {
+      FdoContext fdoContext,
+      String fdoInstrument) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       variablesBuilder.put(
-          CompileBuildVariables.FDO_PREFETCH_HINTS_PATH.getVariableName(),
-          fdoProvider.getPrefetchHintsArtifact().getExecPathString());
+          CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
     }
 
     // FDO is disabled -> do nothing.
-    if (fdoProvider.getFdoInstrument() == null
-        && fdoProvider.getFdoMode() == FdoMode.OFF) {
+    Preconditions.checkNotNull(fdoContext);
+    if (!fdoContext.hasArtifacts()) {
       return;
     }
 
-    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
+    if (fdoContext.getPrefetchHintsArtifact() != null) {
       variablesBuilder.put(
-          CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(),
-          fdoProvider.getFdoInstrument());
+          CompileBuildVariables.FDO_PREFETCH_HINTS_PATH.getVariableName(),
+          fdoContext.getPrefetchHintsArtifact().getExecPathString());
     }
 
+    Iterable<Artifact> auxiliaryInputs = getAuxiliaryFdoInputs(fdoContext);
+    builder.addMandatoryInputs(auxiliaryInputs);
+
+    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // Optimization phase
-    if (fdoProvider.getFdoMode() != FdoMode.OFF) {
-      Iterable<Artifact> auxiliaryInputs = getAuxiliaryFdoInputs(fdoProvider);
-      builder.addMandatoryInputs(auxiliaryInputs);
+    if (branchFdoProfile != null) {
       if (!Iterables.isEmpty(auxiliaryInputs)) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
             || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
           variablesBuilder.put(
               CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
-              fdoProvider.getProfileArtifact().getExecPathString());
+              branchFdoProfile.getProfileArtifact().getExecPathString());
         }
         if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
-          if (fdoProvider.getFdoMode() == FdoMode.LLVM_FDO) {
+          if (branchFdoProfile.isLlvmFdo()) {
             variablesBuilder.put(
                 CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
-                fdoProvider.getProfileArtifact().getExecPathString());
+                branchFdoProfile.getProfileArtifact().getExecPathString());
           }
         }
       }
@@ -138,16 +137,16 @@ public final class CcCompilationHelper {
   }
 
   /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  private static Iterable<Artifact> getAuxiliaryFdoInputs(FdoProvider fdoProvider) {
+  private static Iterable<Artifact> getAuxiliaryFdoInputs(FdoContext fdoContext) {
     ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
 
-    if (fdoProvider.getPrefetchHintsArtifact() != null) {
-      auxiliaryInputs.add(fdoProvider.getPrefetchHintsArtifact());
+    if (fdoContext.getPrefetchHintsArtifact() != null) {
+      auxiliaryInputs.add(fdoContext.getPrefetchHintsArtifact());
     }
-
+    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // If --fdo_optimize was not specified, we don't have any additional inputs.
-    if (fdoProvider.getFdoMode() != FdoMode.OFF) {
-      auxiliaryInputs.add(fdoProvider.getProfileArtifact());
+    if (branchFdoProfile != null) {
+      auxiliaryInputs.add(branchFdoProfile.getProfileArtifact());
     }
 
     return auxiliaryInputs.build();
@@ -261,8 +260,6 @@ public final class CcCompilationHelper {
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
   private final List<CppModuleMap> additionalCppModuleMaps = new ArrayList<>();
   private final LinkedHashMap<Artifact, CppSource> compilationUnitSources = new LinkedHashMap<>();
-  private final List<Artifact> objectFiles = new ArrayList<>();
-  private final List<Artifact> picObjectFiles = new ArrayList<>();
   private ImmutableList<String> copts = ImmutableList.of();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
@@ -284,7 +281,7 @@ public final class CcCompilationHelper {
 
   private final FeatureConfiguration featureConfiguration;
   private final CcToolchainProvider ccToolchain;
-  private final FdoProvider fdoProvider;
+  private final FdoContext fdoContext;
   private boolean useDeps = true;
   private boolean generateModuleMap = true;
   private String purpose = null;
@@ -305,7 +302,7 @@ public final class CcCompilationHelper {
    * @param featureConfiguration activated features and action configs for the build
    * @param sourceCatagory the candidate source types for the build
    * @param ccToolchain the C++ toolchain provider for the build
-   * @param fdoProvider the C++ FDO optimization support provider for the build
+   * @param fdoContext the C++ FDO optimization support provider for the build
    */
   public CcCompilationHelper(
       RuleContext ruleContext,
@@ -313,14 +310,14 @@ public final class CcCompilationHelper {
       FeatureConfiguration featureConfiguration,
       SourceCategory sourceCatagory,
       CcToolchainProvider ccToolchain,
-      FdoProvider fdoProvider) {
+      FdoContext fdoContext) {
     this(
         ruleContext,
         semantics,
         featureConfiguration,
         sourceCatagory,
         ccToolchain,
-        fdoProvider,
+        fdoContext,
         ruleContext.getConfiguration());
   }
 
@@ -332,7 +329,7 @@ public final class CcCompilationHelper {
    * @param featureConfiguration activated features and action configs for the build
    * @param sourceCatagory the candidate source types for the build
    * @param ccToolchain the C++ toolchain provider for the build
-   * @param fdoProvider the C++ FDO optimization support provider for the build
+   * @param fdoContext the C++ FDO optimization support provider for the build
    * @param configuration the configuration that gives the directory of output artifacts
    */
   public CcCompilationHelper(
@@ -341,23 +338,23 @@ public final class CcCompilationHelper {
       FeatureConfiguration featureConfiguration,
       SourceCategory sourceCatagory,
       CcToolchainProvider ccToolchain,
-      FdoProvider fdoProvider,
+      FdoContext fdoContext,
       BuildConfiguration configuration) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.sourceCategory = Preconditions.checkNotNull(sourceCatagory);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
-    this.fdoProvider = Preconditions.checkNotNull(fdoProvider);
+    this.fdoContext = Preconditions.checkNotNull(fdoContext);
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration =
         Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
     setGenerateNoPicAction(
-        !ccToolchain.usePicForDynamicLibraries()
-            || !CppHelper.usePicForBinaries(ruleContext, ccToolchain));
+        !ccToolchain.usePicForDynamicLibraries(featureConfiguration)
+            || !CppHelper.usePicForBinaries(ruleContext, ccToolchain, featureConfiguration));
     setGeneratePicAction(
-        ccToolchain.usePicForDynamicLibraries()
-            || CppHelper.usePicForBinaries(ruleContext, ccToolchain));
+        ccToolchain.usePicForDynamicLibraries(featureConfiguration)
+            || CppHelper.usePicForBinaries(ruleContext, ccToolchain, featureConfiguration));
   }
 
   /**
@@ -367,15 +364,15 @@ public final class CcCompilationHelper {
    * @param semantics CppSemantics for the build
    * @param featureConfiguration activated features and action configs for the build
    * @param ccToolchain the C++ toolchain provider for the build
-   * @param fdoProvider the C++ FDO optimization support provider for the build
+   * @param fdoContext the C++ FDO optimization support provider for the build
    */
   public CcCompilationHelper(
       RuleContext ruleContext,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
-      FdoProvider fdoProvider) {
-    this(ruleContext, semantics, featureConfiguration, SourceCategory.CC, ccToolchain, fdoProvider);
+      FdoContext fdoContext) {
+    this(ruleContext, semantics, featureConfiguration, SourceCategory.CC, ccToolchain, fdoContext);
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -574,34 +571,6 @@ public final class CcCompilationHelper {
     return ImmutableSet.copyOf(this.compilationUnitSources.values());
   }
 
-  /**
-   * Add the corresponding files as linker inputs for no-PIC links. If the corresponding files are
-   * compiled with PIC, the final link may or may not fail. Note that the final link may not happen
-   * here, if {@code --start_end_lib} is enabled, but instead at any binary that transitively
-   * depends on the current rule.
-   */
-  public CcCompilationHelper addObjectFiles(Iterable<Artifact> objectFiles) {
-    for (Artifact objectFile : objectFiles) {
-      Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(objectFile.getFilename()));
-    }
-    Iterables.addAll(this.objectFiles, objectFiles);
-    return this;
-  }
-
-  /**
-   * Add the corresponding files as linker inputs for PIC links. If the corresponding files are not
-   * compiled with PIC, the final link may or may not fail. Note that the final link may not happen
-   * here, if {@code --start_end_lib} is enabled, but instead at any binary that transitively
-   * depends on the current rule.
-   */
-  public CcCompilationHelper addPicObjectFiles(Iterable<Artifact> picObjectFiles) {
-    for (Artifact objectFile : objectFiles) {
-      Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(objectFile.getFilename()));
-    }
-    Iterables.addAll(this.picObjectFiles, picObjectFiles);
-    return this;
-  }
-
   public CcCompilationHelper setCopts(Iterable<String> copts) {
     this.copts = ImmutableList.copyOf(copts);
     return this;
@@ -635,17 +604,6 @@ public final class CcCompilationHelper {
   public CcCompilationHelper addCcCompilationContexts(
       Iterable<CcCompilationContext> ccCompilationContexts) {
     Iterables.addAll(this.ccCompilationContexts, Preconditions.checkNotNull(ccCompilationContexts));
-    return this;
-  }
-
-  /**
-   * Adds the given precompiled files to this helper. Shared and static libraries are added as
-   * compilation prerequisites, and object files are added as pic or no-PIC object files
-   * respectively.
-   */
-  public CcCompilationHelper addPrecompiledFiles(PrecompiledFiles precompiledFiles) {
-    addObjectFiles(precompiledFiles.getObjectFiles(false));
-    addPicObjectFiles(precompiledFiles.getObjectFiles(true));
     return this;
   }
 
@@ -713,9 +671,7 @@ public final class CcCompilationHelper {
   }
 
   /**
-   * Disables checking that the deps actually are C++ rules. By default, the {@link #compile} method
-   * uses {@link LanguageDependentFragment.Checker#depSupportsLanguage} to check that all deps
-   * provide C++ providers.
+   * Disables checking that the deps actually are C++ rules.
    */
   public CcCompilationHelper setCheckDepsGenerateCpp(boolean checkDepsGenerateCpp) {
     this.checkDepsGenerateCpp = checkDepsGenerateCpp;
@@ -792,11 +748,7 @@ public final class CcCompilationHelper {
    */
   public CompilationInfo compile() throws RuleErrorException {
     if (checkDepsGenerateCpp) {
-      for (LanguageDependentFragment dep :
-          AnalysisUtils.getProviders(deps, LanguageDependentFragment.class)) {
-        LanguageDependentFragment.Checker.depSupportsLanguage(
-            ruleContext, dep, CppRuleClasses.LANGUAGE, "deps");
-      }
+      CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
     }
 
     if (!generatePicAction && !generateNoPicAction) {
@@ -812,15 +764,6 @@ public final class CcCompilationHelper {
 
     // Create compile actions (both PIC and no-PIC).
     CcCompilationOutputs ccOutputs = createCcCompileActions();
-    if (!objectFiles.isEmpty() || !picObjectFiles.isEmpty()) {
-      // Merge the pre-compiled object files into the compiler outputs.
-      ccOutputs =
-          new CcCompilationOutputs.Builder()
-              .merge(ccOutputs)
-              .addObjectFiles(objectFiles)
-              .addPicObjectFiles(picObjectFiles)
-              .build();
-    }
 
     DwoArtifactsCollector dwoArtifacts =
         DwoArtifactsCollector.transitiveCollector(
@@ -837,7 +780,7 @@ public final class CcCompilationHelper {
     outputGroups.put(OutputGroupInfo.TEMP_FILES, ccOutputs.getTemps());
     if (emitCompileProviders) {
       boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-      boolean usePic = ccToolchain.usePicForDynamicLibraries();
+      boolean usePic = ccToolchain.usePicForDynamicLibraries(featureConfiguration);
       outputGroups.put(
           OutputGroupInfo.FILES_TO_COMPILE,
           ccOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
@@ -1184,17 +1127,23 @@ public final class CcCompilationHelper {
         !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
   }
 
+  private static CcInfo getStlDependency(RuleContext ruleContext) {
+    if (ruleContext.attributes().has("$stl", BuildType.LABEL)) {
+      return ruleContext.getPrerequisite("$stl", Mode.TARGET, CcInfo.PROVIDER);
+    } else {
+      return null;
+    }
+  }
+
   private Iterable<CppModuleMap> collectModuleMaps() {
     // Cpp module maps may be null for some rules. We filter the nulls out at the end.
     List<CppModuleMap> result =
         ccCompilationContexts.stream()
             .map(CPP_DEPS_TO_MODULES)
             .collect(toCollection(ArrayList::new));
-    if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
-      CcInfo stl = ruleContext.getPrerequisite(":stl", Mode.TARGET, CcInfo.PROVIDER);
-      if (stl != null) {
-        result.add(stl.getCcCompilationContext().getCppModuleMap());
-      }
+    CcInfo stl = getStlDependency(ruleContext);
+    if (stl != null) {
+      result.add(stl.getCcCompilationContext().getCppModuleMap());
     }
 
     if (ccToolchain != null) {
@@ -1499,7 +1448,7 @@ public final class CcCompilationHelper {
     flagsBuilder.addAll(config.getCopts());
 
     if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
-      flagsBuilder.addAll(config.getCOptions());
+      flagsBuilder.addAll(config.getConlyopts());
     }
 
     if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
@@ -1510,6 +1459,16 @@ public final class CcCompilationHelper {
     }
 
     return flagsBuilder.build();
+  }
+
+  private ImmutableList<String> getCopts(Artifact sourceFile, Label sourceLabel) {
+    ImmutableList.Builder<String> coptsList = ImmutableList.builder();
+    coptsList.addAll(getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()));
+    coptsList.addAll(copts);
+    if (sourceFile != null && sourceLabel != null) {
+      coptsList.addAll(collectPerFileCopts(sourceFile, sourceLabel));
+    }
+    return coptsList.build();
   }
 
   private CcToolchainVariables setupCompileBuildVariables(
@@ -1523,12 +1482,6 @@ public final class CcCompilationHelper {
       Artifact ltoIndexingFile,
       ImmutableMap<String, String> additionalBuildVariables) {
     Artifact sourceFile = builder.getSourceFile();
-    ImmutableList.Builder<String> userCompileFlags = ImmutableList.builder();
-    userCompileFlags.addAll(getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()));
-    userCompileFlags.addAll(copts);
-    if (sourceFile != null && sourceLabel != null) {
-      userCompileFlags.addAll(collectPerFileCopts(sourceFile, sourceLabel));
-    }
     String dotdFileExecPath = null;
     if (builder.getDotdFile() != null) {
       dotdFileExecPath = builder.getDotdFile().getSafeExecPath().getPathString();
@@ -1537,7 +1490,11 @@ public final class CcCompilationHelper {
     allAdditionalBuildVariables.putAll(additionalBuildVariables);
     if (ccRelativeName != null) {
       configureFdoBuildVariables(
-          allAdditionalBuildVariables, builder, featureConfiguration, fdoProvider);
+          allAdditionalBuildVariables,
+          builder,
+          featureConfiguration,
+          fdoContext,
+          cppConfiguration.getFdoInstrument());
     }
     return CompileBuildVariables.setupVariablesOrReportRuleError(
         ruleContext,
@@ -1549,11 +1506,11 @@ public final class CcCompilationHelper {
         toPathString(dwoFile),
         toPathString(ltoIndexingFile),
         ImmutableList.of(),
-        userCompileFlags.build(),
+        getCopts(builder.getSourceFile(), sourceLabel),
         cppModuleMap,
         usePic,
         builder.getTempOutputFile(),
-        CppHelper.getFdoBuildStamp(ruleContext, fdoProvider, featureConfiguration),
+        CppHelper.getFdoBuildStamp(ruleContext, fdoContext, featureConfiguration),
         dotdFileExecPath,
         ImmutableList.copyOf(variablesExtensions),
         allAdditionalBuildVariables.build(),
@@ -1799,7 +1756,8 @@ public final class CcCompilationHelper {
           result.addPicObjectFile(picAction.getOutputFile());
 
           if (bitcodeOutput) {
-            result.addLtoBitcodeFile(picAction.getOutputFile(), ltoIndexingFile);
+            result.addLtoBitcodeFile(
+                picAction.getOutputFile(), ltoIndexingFile, getCopts(sourceArtifact, sourceLabel));
           }
         }
         if (dwoFile != null) {
@@ -1864,7 +1822,8 @@ public final class CcCompilationHelper {
         if (addObject) {
           result.addObjectFile(objectFile);
           if (bitcodeOutput) {
-            result.addLtoBitcodeFile(objectFile, ltoIndexingFile);
+            result.addLtoBitcodeFile(
+                objectFile, ltoIndexingFile, getCopts(sourceArtifact, sourceLabel));
           }
         }
         if (noPicDwoFile != null) {
@@ -2081,26 +2040,20 @@ public final class CcCompilationHelper {
 
   /**
    * Merges the STL and toolchain contexts into context builder. The STL is automatically determined
-   * using the ":stl" attribute.
+   * using the "$stl" (or, historically, ":stl") attribute.
    */
   private static void mergeToolchainDependentCcCompilationContext(
       RuleContext ruleContext,
       CcToolchainProvider toolchain,
       CcCompilationContext.Builder ccCompilationContextBuilder) {
-    if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
-      TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
-      if (stl != null) {
-        CcInfo ccInfo = stl.get(CcInfo.PROVIDER);
-        CcCompilationContext ccCompilationContext =
-            ccInfo != null ? ccInfo.getCcCompilationContext() : null;
-        if (ccCompilationContext == null) {
-          ruleContext.ruleError(
-              "Unable to merge the STL '" + stl.getLabel() + "' and toolchain contexts");
-          return;
-        }
+    CcInfo stl = getStlDependency(ruleContext);
+    if (stl != null) {
+      CcCompilationContext ccCompilationContext = stl.getCcCompilationContext();
+      if (ccCompilationContext != null) {
         ccCompilationContextBuilder.mergeDependentCcCompilationContext(ccCompilationContext);
       }
     }
+
     if (toolchain != null) {
       ccCompilationContextBuilder.mergeDependentCcCompilationContext(
           toolchain.getCcCompilationContext());

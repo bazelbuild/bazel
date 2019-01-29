@@ -20,7 +20,7 @@ MyInfo = provider(
     },
 )
 
-my_info = MyInfo(foo="x", bar="y")
+my_info = MyInfo(foo = "x", bar = "y")
 
 my_rule = rule(
     implementation = my_rule_impl,
@@ -28,7 +28,8 @@ my_rule = rule(
     attrs = {
         "src": attr.label(
             doc = "The source file.",
-            allow_files = [".bzl"]),
+            allow_files = [".bzl"],
+        ),
         "deps": attr.label_list(
             doc = """
 A list of dependencies.
@@ -36,16 +37,19 @@ These dependencies better provide MyInfo!
 ...or else.
 """,
             providers = [MyInfo],
-            allow_files = False),
+            allow_files = False,
+        ),
         "tool": attr.label(
             doc = "The location of the tool to use.",
             allow_files = True,
-            default = Label("//foo/bar/baz:target",),
+            default = Label("//foo/bar/baz:target"),
             cfg = "host",
-            executable = True),
+            executable = True,
+        ),
         "out": attr.output(
             doc = "The output file.",
-            mandatory = True),
+            mandatory = True,
+        ),
         "extra_arguments": attr.string_list(default = []),
-    }
+    },
 )

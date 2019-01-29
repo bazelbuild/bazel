@@ -21,7 +21,7 @@ import java.util.Collection;
  *
  * <p>When objects that are naturally organised in a directed acyclic graph are sent sequentially
  * over some channel, the graph-structure needs to represented in some way. We chose the
- * representation that each node knows its immediate sucessor nodes (rather than its predecessors)
+ * representation that each node knows its immediate successor nodes (rather than its predecessors)
  * to suit the * properties of the event stream: new parents of a node might be discovered late,
  * e.g., if a test suite is only expanded after one of its tests is already finished as it was also
  * needed for another target.

@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
@@ -129,7 +129,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
                   ruleContext,
                   childToolchainConfig,
                   protosToAvoid,
-                  ImmutableList.<ProtoSourcesProvider>of(),
+                  ImmutableList.<ProtoInfo>of(),
                   objcProtoProviders,
                   ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders),
                   childToolchain)
@@ -154,7 +154,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               .subtractSubtrees(
                   cpuToObjcAvoidDepsMap.get(childCpu),
                   cpuToCcAvoidDepsMap.get(childCpu).stream()
-                      .map(CcInfo::getCcLinkingInfo)
+                      .map(CcInfo::getCcLinkingContext)
                       .collect(ImmutableList.toImmutableList()));
 
       librariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureLibrary());
@@ -174,7 +174,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               objcProvider,
               intermediateArtifacts.strippedSingleArchitectureLibrary(),
               childToolchain,
-              childToolchain.getFdoProvider())
+              childToolchain.getFdoContext())
           .validateAttributes();
       ruleContext.assertNoErrors();
 

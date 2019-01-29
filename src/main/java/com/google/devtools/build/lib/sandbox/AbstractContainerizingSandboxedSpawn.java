@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -25,12 +26,20 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 
 /**
  * Implements the general flow of a sandboxed spawn that uses a container directory to build an
  * execution root for a spawn.
  */
 public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedSpawn {
+
+  private static final Logger logger =
+      Logger.getLogger(AbstractContainerizingSandboxedSpawn.class.getName());
+
+  private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
+
   private final Path sandboxPath;
   private final Path sandboxExecRoot;
   private final List<String> arguments;
@@ -129,9 +138,52 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
 
   protected abstract void copyFile(Path source, Path target) throws IOException;
 
+  /**
+   * Moves all given outputs from a root to another.
+   *
+   * <p>This is a support function to help with the implementation of {@link #copyOutputs(Path)}.
+   *
+   * @param outputs outputs to move as relative paths to a root
+   * @param sourceRoot source directory from which to resolve outputs
+   * @param targetRoot target directory to which to move the resolved outputs from the source
+   * @throws IOException if any of the moves fails
+   */
+  static void moveOutputs(SandboxOutputs outputs, Path sourceRoot, Path targetRoot)
+      throws IOException {
+    for (PathFragment output : Iterables.concat(outputs.files(), outputs.dirs())) {
+      Path source = sourceRoot.getRelative(output);
+      Path target = targetRoot.getRelative(output);
+      if (source.isFile() || source.isSymbolicLink()) {
+        // Ensure the target directory exists in the target. The directories for the action outputs
+        // have already been created, but the spawn outputs may be different from the overall action
+        // outputs. This is the case for test actions.
+        target.getParentDirectory().createDirectoryAndParents();
+        if (FileSystemUtils.moveFile(source, target).equals(MoveResult.FILE_COPIED)) {
+          if (warnedAboutMovesBeingCopies.compareAndSet(false, true)) {
+            logger.warning(
+                "Moving files out of the sandbox (e.g. from "
+                    + source
+                    + " to "
+                    + target
+                    + ") had to be done with a file copy, which is detrimental to performance; are "
+                    + " the two trees in different file systems?");
+          }
+        }
+      } else if (source.isDirectory()) {
+        try {
+          source.renameTo(target);
+        } catch (IOException e) {
+          // Failed to move directory directly, thus move it recursively.
+          target.createDirectory();
+          FileSystemUtils.moveTreesBelow(source, target);
+        }
+      }
+    }
+  }
+
   @Override
   public void copyOutputs(Path execRoot) throws IOException {
-    SandboxedSpawn.moveOutputs(outputs, sandboxExecRoot, execRoot);
+    moveOutputs(outputs, sandboxExecRoot, execRoot);
   }
 
   @Override

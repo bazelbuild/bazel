@@ -32,7 +32,8 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
             + "you will be broken when it is removed.",
     documented = false)
 public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi {
-  String PROVIDER_NAME = "AndroidProguardInfo";
+  /** The name of the provider for this info object. */
+  String NAME = "AndroidProguardInfo";
 
   @SkylarkCallable(
       name = "local_proguard_specs",
@@ -51,7 +52,7 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
   public interface Provider<F extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(
-        name = PROVIDER_NAME,
+        name = NAME,
         doc = "The <code>AndroidProguardInfo</code> constructor.",
         documented = false,
         parameters = {

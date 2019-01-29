@@ -18,9 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -89,6 +89,13 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           com.google.devtools.build.lib.syntax.Environment.builder(mutability)
               .setSemantics(skylarkSemantics)
               .setEventHandler(env.getListener())
+              // The fetch phase does not need the tools repository or the fragment map because
+              // it happens before analysis.
+              .setStarlarkContext(
+                  new BazelStarlarkContext(
+                      /* toolsRepository = */ null,
+                      /* fragmentNameToClass = */ null,
+                      rule.getPackage().getRepositoryMapping()))
               .build();
       SkylarkRepositoryContext skylarkRepositoryContext =
           new SkylarkRepositoryContext(
@@ -128,9 +135,11 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               /*kwargs=*/ ImmutableMap.of(),
               null,
               buildEnv);
-      if (retValue != Runtime.NONE) {
-        env.getListener()
-            .handle(Event.info("Repository rule '" + rule.getName() + "' returned: " + retValue));
+      RepositoryResolvedEvent resolved =
+          new RepositoryResolvedEvent(
+              rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue);
+      if (resolved.isNewInformationReturned()) {
+        env.getListener().handle(Event.debug(resolved.getMessage()));
       }
 
       String ruleClass =
@@ -138,25 +147,16 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       if (verificationRules.contains(ruleClass)) {
         String expectedHash = resolvedHashes.get(rule.getName());
         if (expectedHash != null) {
-          try {
-            String actualHash = outputDirectory.getDirectoryDigest();
-            if (!expectedHash.equals(actualHash)) {
-              throw new RepositoryFunctionException(
-                  new IOException(
-                      rule + " failed to create a directory with expected hash " + expectedHash),
-                  Transience.PERSISTENT);
-            }
-          } catch (IOException e) {
+          String actualHash = resolved.getDirectoryDigest();
+          if (!expectedHash.equals(actualHash)) {
             throw new RepositoryFunctionException(
-                new IOException("Rule failed to produce a directory with computable hash", e),
+                new IOException(
+                    rule + " failed to create a directory with expected hash " + expectedHash),
                 Transience.PERSISTENT);
           }
         }
       }
-      env.getListener()
-          .post(
-              new RepositoryResolvedEvent(
-                  rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue));
+      env.getListener().post(resolved);
     } catch (EvalException e) {
       if (e.getCause() instanceof RepositoryMissingDependencyException) {
         // A dependency is missing, cleanup and returns null
@@ -177,7 +177,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
           new IOException(rule + " must create a directory"), Transience.TRANSIENT);
     }
 
-    if (!outputDirectory.getRelative(Label.WORKSPACE_FILE_NAME).exists()) {
+    if (!outputDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME).exists()) {
       createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
     }
 

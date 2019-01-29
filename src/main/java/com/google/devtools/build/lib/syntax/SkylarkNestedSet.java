@@ -132,7 +132,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       SkylarkType lastInsertedType = null;
       // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
       for (Object object : (SkylarkList) item) {
-        SkylarkType elemType = SkylarkType.of(object.getClass());
+        SkylarkType elemType = SkylarkType.of(object);
         contentType = getTypeAfterInsert(contentType, elemType, lastInsertedType, loc);
         lastInsertedType = elemType;
         checkImmutable(object, loc);
@@ -194,7 +194,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
       SkylarkType depsetType, SkylarkType itemType, SkylarkType lastInsertedType, Location loc)
       throws EvalException {
     if (lastInsertedType != null && lastInsertedType.equals(itemType)) {
-      // Fast path, type shoudln't have changed, so no need to check.
+      // Fast path, type shouldn't have changed, so no need to check.
       // TODO(bazel-team): Make skylark type checking less expensive.
       return depsetType;
     }
@@ -205,15 +205,27 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
           loc, String.format("depsets cannot contain items of type '%s'", itemType));
     }
 
-    // Check compatible.
     SkylarkType resultType = SkylarkType.intersection(depsetType, itemType);
-    if (resultType == SkylarkType.BOTTOM) {
+
+    // New depset type should follow the following rules:
+    // 1. Only empty depsets may be of type TOP.
+    // 2. If the previous depset type fully contains the new item type, then the depset type is
+    //    retained.
+    // 3. If the item type fully contains the old depset type, then the depset type becomes the
+    //    item type. (The depset type becomes less strict.)
+    // 4. Otherwise, the insert is invalid.
+    if (depsetType == SkylarkType.TOP) {
+      return resultType;
+    } else if (resultType.equals(itemType)) {
+      return depsetType;
+    } else if (resultType.equals(depsetType)) {
+      return itemType;
+    } else {
       throw new EvalException(
           loc,
           String.format(
               "cannot add an item of type '%s' to a depset of '%s'", itemType, depsetType));
     }
-    return resultType;
   }
 
   /**
@@ -391,7 +403,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
      * elements and transitive sets.
      */
     public Builder addDirect(Object direct) throws EvalException {
-      SkylarkType elemType = SkylarkType.of(direct.getClass());
+      SkylarkType elemType = SkylarkType.of(direct);
       contentType = getTypeAfterInsert(contentType, elemType, lastInsertedType, location);
       lastInsertedType = elemType;
       builder.add(direct);

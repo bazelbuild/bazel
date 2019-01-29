@@ -32,7 +32,7 @@ function write_py_files() {
   echo "py_binary(name = 'binary', srcs = ['binary.py'])" > py/BUILD
   echo "py_test(name = 'test', srcs = ['test.py'])" >> py/BUILD
 
-  echo "print 'Hello, Python World!'" >py/py.py
+  echo "print('Hello, Python World!')" >py/py.py
   chmod +x py/py.py
 
   ln -sf py.py py/binary.py

@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -47,7 +49,10 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
+      ConfiguredTargetAndData ctadBase,
+      RuleContext ruleContext,
+      AspectParameters parameters,
+      String toolsRepository)
       throws ActionConflictException {
     if (!JavaCommon.getConstraints(ruleContext).contains("android")
         && !ruleContext.getRule().getRuleClass().startsWith("android_")) {
@@ -67,15 +72,18 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
       deps.addAll(ruleContext.getPrerequisites(attribute, Mode.TARGET));
     }
 
+    NestedSetBuilder<Artifact> runtimeJars = NestedSetBuilder.naiveLinkOrder();
+    runtimeJars.addAll(JavaInfo.getJavaInfo(ctadBase.getConfiguredTarget()).getDirectRuntimeJars());
+    AndroidLibraryResourceClassJarProvider provider =
+        AndroidLibraryResourceClassJarProvider.getProvider(ctadBase.getConfiguredTarget());
+    if (provider != null) {
+      runtimeJars.addTransitive(provider.getResourceClassJars());
+    }
     return new ConfiguredAspect.Builder(this, parameters, ruleContext)
         .addProvider(
             AndroidNeverLinkLibrariesProvider.create(
                 AndroidCommon.collectTransitiveNeverlinkLibraries(
-                    ruleContext,
-                    deps,
-                    JavaInfo.getJavaInfo(ctadBase
-                        .getConfiguredTarget())
-                        .getDirectRuntimeJars())))
+                    ruleContext, deps, runtimeJars.build())))
         .build();
   }
 
@@ -88,6 +96,10 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
 
     return builder
         .requireSkylarkProviders(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+        .requireSkylarkProviders(
+            SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()),
+            SkylarkProviderIdentifier.forKey(
+                AndroidLibraryResourceClassJarProvider.PROVIDER.getKey()))
         .requiresConfigurationFragments()
         .build();
   }

@@ -29,13 +29,14 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * A class storing a rule attribute documentation along with some meta information.
- * The class provides functionality to compute the ancestry level of this attribute's
- * generator rule definition class compared to other rule definition classes.
+ * A class storing a rule attribute documentation along with some meta information. The class
+ * provides functionality to compute the ancestry level of this attribute's generator rule
+ * definition class compared to other rule definition classes.
  *
  * <p>Warning, two RuleDocumentationAttribute objects are equal based on only the attributeName.
  */
-public class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribute> {
+public class RuleDocumentationAttribute
+    implements Comparable<RuleDocumentationAttribute>, Cloneable {
 
   private static final ImmutableMap<Type<?>, String> TYPE_DESC =
       ImmutableMap.<Type<?>, String>builder()
@@ -70,6 +71,7 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
   private Set<String> flags;
   private Attribute attribute;
 
+
   /**
    * Creates common RuleDocumentationAttribute such as deps or data.
    * These attribute docs have no definitionClass or htmlDocumentation (it's in the BE header).
@@ -102,6 +104,12 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
     this.startLineCnt = startLineCnt;
     this.flags = flags;
     this.commonType = commonType;
+    this.fileName = fileName;
+  }
+
+  @Override
+  protected Object clone() throws CloneNotSupportedException {
+    return super.clone();
   }
 
   /**
@@ -116,6 +124,11 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
    */
   public String getAttributeName() {
     return attributeName;
+  }
+
+  /** Returns the file name where the rule attribute is defined. */
+  public String getFileName() {
+    return fileName;
   }
 
   /**
@@ -160,12 +173,12 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
       return "";
     }
     String prefix = "; default is ";
-    Object value = attribute.getDefaultValueForTesting();
+    Object value = attribute.getDefaultValueUnchecked();
     if (value instanceof Boolean) {
-      return prefix + ((Boolean) value ? "1" : "0");
+      return prefix + ((Boolean) value ? "True" : "False");
     } else if (value instanceof Integer) {
       return prefix + String.valueOf(value);
-    } else if (value instanceof String && !(((String) value).isEmpty())) {
+    } else if (value instanceof String && !((String) value).isEmpty()) {
       return prefix + "\"" + value + "\"";
     } else if (value instanceof TriState) {
       switch((TriState) value) {

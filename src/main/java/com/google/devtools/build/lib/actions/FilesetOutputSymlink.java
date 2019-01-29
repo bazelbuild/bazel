@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.math.BigInteger;
 
 /** Definition of a symlink in the output tree of a Fileset rule. */
 @AutoValue
@@ -73,6 +75,15 @@ public abstract class FilesetOutputSymlink {
           "FilesetOutputSymlink(%s -> %s | metadataHash=%s)",
           getName().getPathString(), getTargetPath().getPathString(), getMetadata());
     }
+  }
+
+  public BigInteger getFingerprint() {
+    return new BigIntegerFingerprint()
+        .addPath(getName())
+        .addPath(getTargetPath())
+        .addBoolean(isGeneratedTarget())
+        .addBoolean(isRelativeToExecRoot())
+        .getFingerprint();
   }
 
   @VisibleForTesting

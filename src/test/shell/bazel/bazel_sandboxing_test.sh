@@ -168,11 +168,14 @@ EOF
   cat << 'EOF' >> examples/genrule/datafile
 this is a datafile
 EOF
-  cat << 'EOF' >> examples/genrule/tool.sh
+  # The workspace name is initialized in testenv.sh; use that var rather than
+  # hardcoding it here. The extra sed pass is so we can selectively expand that
+  # one var while keeping the rest of the heredoc literal.
+  cat | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" >> examples/genrule/tool.sh << 'EOF'
 #!/bin/sh
 
 set -e
-cp $(dirname $0)/tool.runfiles/__main__/examples/genrule/datafile $1
+cp $(dirname $0)/tool.runfiles/{{WORKSPACE_NAME}}/examples/genrule/datafile $1
 echo "Tools work!"
 EOF
   chmod +x examples/genrule/tool.sh
@@ -605,104 +608,6 @@ EOF
   expect_not_log "Use --sandbox_debug to see verbose messages from the sandbox"
   # This will appear a lot in the sandbox failure details.
   expect_log "/sandbox/"  # Part of the path to the sandbox location.
-}
-
-function test_sandbox_mount_customized_path () {
-  if ! [ "${PLATFORM-}" = "linux" -a \
-    "$(cat /dev/null /etc/*release | grep 'DISTRIB_CODENAME=' | sed 's/^.*=//')" = "trusty" ]; then
-    echo "Skipping test: the toolchain used in this test is only supported on trusty."
-    return 0
-  fi
-
-  # Create BUILD file
-  cat > BUILD <<'EOF'
-package(default_visibility = ["//visibility:public"])
-
-cc_binary(
-    name = "hello-world",
-    srcs = ["hello-world.cc"],
-)
-EOF
-
-  # Create cc file
-  cat > hello-world.cc << 'EOF'
-#include <iostream>
-int main(int argc, char** argv) {
-  std::cout << "Hello, world!" << std::endl;
-  return 0;
-}
-EOF
-
-  # Create WORKSPACE file
-  cat > WORKSPACE <<'EOF'
-local_repository(
-  name = 'x86_64_unknown_linux_gnu',
-  path = './downloaded_toolchain',
-)
-EOF
-
-  # Define the mount source and target.
-  source="${TEST_TMPDIR}/workspace/downloaded_toolchain/x86_64-unknown-linux-gnu/sysroot/lib64/ld-2.19.so"
-  target_root="${TEST_SRCDIR}/mount_targets"
-  target_folder="${target_root}/x86_64-unknown-linux-gnu/sysroot/lib64"
-  target="${target_folder}/ld-2.19.so"
-
-  # Unpack the toolchain.
-  mkdir downloaded_toolchain
-  tar -xf ${TEST_SRCDIR}/mount_path_toolchain/file/mount_path_toolchain.tar.gz -C ./downloaded_toolchain
-  chmod -R 0755 downloaded_toolchain
-
-  # Create an empty WORKSPACE file for the local repository.
-  touch downloaded_toolchain/WORKSPACE
-
-  # Replace the target_root_placeholder with the actual target_root
-  sed -i "s|target_root_placeholder|$target_root|g" downloaded_toolchain/CROSSTOOL
-  sed -i "s|name = 'cc-compiler-k8',|name = 'cc-compiler-k8', toolchain_identifier = 'linux_gnu_x86',|g" downloaded_toolchain/BUILD
-  sed -i "s/k8|gcc/k8/g" downloaded_toolchain/BUILD
-
-  # Prepare the bazel command flags
-  flags="--crosstool_top=@x86_64_unknown_linux_gnu//:toolchain --host_crosstool_top=@bazel_tools//tools/cpp:toolchain --verbose_failures --spawn_strategy=sandboxed"
-  flags="${flags} --sandbox_add_mount_pair=${source}:${target}"
-
-  # Execute the bazel build command without creating the target. Should fail.
-  bazel clean --expunge &> $TEST_log
-  bazel build $flags //:hello-world &> $TEST_log && fail "Should fail"
-  expect_log "Bazel only supports bind mounting on top of existing files/directories."
-
-  # Create the mount target manually as Bazel does not create target paths
-  mkdir -p ${target_folder}
-  touch ${target}
-
-  # Execute bazel build command again. Should build.
-  bazel clean --expunge &> $TEST_log
-  bazel build $flags //:hello-world &> $TEST_log || fail "Should build"
-
-  # Remove the mount target folder as Bazel does not do the cleanup
-  rm -rf ${target_root}/x86_64-unknown-linux-gnu
-
-  # Assert that output binary exists
-  test -f bazel-bin/hello-world || fail "output not found"
-
-  # Use linux_sandbox binary to run bazel-bin/hello-world binary in the sandbox environment
-  # First, no path mounting. The execution should fail.
-  echo "Run the binary bazel-bin/hello-world without mounting the path"
-  $linux_sandbox -D -- bazel-bin/hello-world &> $TEST_log || code=$?
-  expect_log "child exited normally with exitcode 1"
-
-  # Second, with path mounting. The execution should succeed.
-  echo "Run the binary bazel-bin/hello-world with mounting the path"
-  # Create the mount target manually as sandbox binary does not create target paths
-  mkdir -p ${target_folder}
-  touch ${target}
-  $linux_sandbox -D \
-  -M ${source} \
-  -m ${target} \
-  -- bazel-bin/hello-world &> $TEST_log || code=$?
-  expect_log "Hello, world!"
-  expect_log "child exited normally with exitcode 0"
-
-  # Remove the mount target folder as sandbox binary does not do the cleanup
-  rm -rf ${target_root}/x86_64-unknown-linux-gnu
 }
 
 function test_experimental_symlinked_sandbox_uses_expanded_tree_artifacts_in_runfiles_tree() {

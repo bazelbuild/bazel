@@ -16,6 +16,7 @@ java_test(
     resources = [":ProcessorTestFiles"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:annotation_preprocessor",
         "//third_party:compile_testing",

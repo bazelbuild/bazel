@@ -141,7 +141,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
     }
 
     @Override
-    public Map<String, Object> getSkylarkOptions() {
+    public Map<String, Object> getStarlarkOptions() {
       return ImmutableMap.of();
     }
   }

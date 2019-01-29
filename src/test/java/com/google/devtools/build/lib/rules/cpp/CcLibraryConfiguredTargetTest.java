@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -31,8 +30,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -124,6 +122,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   public void checkWrongExtensionInArtifactNamePattern(
       String categoryName, ImmutableList<String> correctExtensions) throws Exception {
+    reporter.removeHandler(failFastHandler);
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(
@@ -138,20 +137,15 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 + "   prefix: ''"
                 + "   extension: '.wrong_ext'"
                 + "}");
-
-    try {
-      useConfiguration();
-      fail("Should fail");
-    } catch (InvalidConfigurationException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              String.format(
-                  "Unrecognized file extension '.wrong_ext', allowed "
-                     + "extensions are %s, please check artifact_name_pattern configuration for %s "
-                     + "in your CROSSTOOL.",
-                  StringUtil.joinEnglishList(correctExtensions, "or", "'"), categoryName));
-    }
+    useConfiguration();
+    getConfiguredTarget(
+        ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain");
+    assertContainsEvent(
+        String.format(
+            "Unrecognized file extension '.wrong_ext', allowed "
+                + "extensions are %s, please check artifact_name_pattern configuration for "
+                + "%s in your CROSSTOOL.",
+            StringUtil.joinEnglishList(correctExtensions, "or", "'"), categoryName));
   }
 
   @Test
@@ -218,9 +212,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(
             hello
                 .get(CcInfo.PROVIDER)
-                .getCcLinkingInfo()
-                .getDynamicModeParamsForExecutable()
-                .getDynamicLibrariesForRuntime())
+                .getCcLinkingContext()
+                .getDynamicLibrariesForRuntime(/* linkingStatically= */ false))
         .containsExactly(implSharedObjectLink);
   }
 
@@ -228,10 +221,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testFilesToBuildWithoutDSO() throws Exception {
     CrosstoolConfig.CrosstoolRelease.Builder release = CrosstoolConfig.CrosstoolRelease.newBuilder()
         .mergeFrom(CrosstoolConfigurationHelper.simpleCompleteToolchainProto());
-    release.getToolchainBuilder(0)
+    release
+        .getToolchainBuilder(0)
         .setTargetCpu("k8")
         .setCompiler("compiler")
-        .clearLinkingModeFlags();
+        // To remove "supports_dynamic_linker" feature
+        .clearFeature();
 
     scratch.file("crosstool/BUILD",
         "cc_toolchain_suite(",
@@ -250,8 +245,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
-        "    static_runtime_libs = [':empty'],",
-        "    dynamic_runtime_libs = [':empty'],",
         "    all_files = ':empty',",
         "    licenses = ['unencumbered'])");
     scratch.file("crosstool/CROSSTOOL", TextFormat.printToString(release));
@@ -284,22 +277,15 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(
             hello
                 .get(CcInfo.PROVIDER)
-                .getCcLinkingInfo()
-                .getDynamicModeParamsForExecutable()
-                .getDynamicLibrariesForRuntime())
+                .getCcLinkingContext()
+                .getDynamicLibrariesForRuntime(/* linkingStatically= */ false))
         .containsExactly(implSharedObjectLink);
   }
 
   @Test
   public void testEmptyLinkopts() throws Exception {
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    assertThat(
-            hello
-                .get(CcInfo.PROVIDER)
-                .getCcLinkingInfo()
-                .getDynamicModeParamsForExecutable()
-                .getLinkopts()
-                .isEmpty())
+    assertThat(hello.get(CcInfo.PROVIDER).getCcLinkingContext().getUserLinkFlags().isEmpty())
         .isTrue();
   }
 
@@ -587,16 +573,16 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
     useConfiguration("--cpu=k8");
     ConfiguredTarget x =
+
         scratchConfiguredTarget(
             "foo",
             "x",
             "package(features = ['header_modules'])",
             "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'])",
             "cc_library(name = 'y', hdrs = ['y.h'])");
-    assertThat(
-            ActionsTestUtil.baseNamesOf(
-                getOutputGroup(x, OutputGroupInfo.COMPILATION_PREREQUISITES)))
-        .isEqualTo("y.h y.cppmap stl.cppmap crosstool.cppmap x.cppmap y.pic.pcm x.cc");
+    assertThat(ActionsTestUtil.baseArtifactNames(
+        getOutputGroup(x, OutputGroupInfo.COMPILATION_PREREQUISITES)))
+        .containsAllOf("y.h", "y.cppmap", "crosstool.cppmap", "x.cppmap", "y.pic.pcm", "x.cc");
   }
 
   @Test
@@ -613,7 +599,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "cc_library(name = 'x', srcs = ['x.cc'])");
     assertThat(
             ActionsTestUtil.baseArtifactNames(
-                x.getProvider(InstrumentedFilesProvider.class).getInstrumentationMetadataFiles()))
+                x.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR).getInstrumentationMetadataFiles()))
         .containsExactly("x.pic.gcno");
   }
 
@@ -1016,9 +1002,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration();
     writeSimpleCcLibrary();
     CppModuleMapAction action = getCppModuleMapAction("//module:map");
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getDependencyArtifacts())).containsExactly(
-        "stl.cppmap",
-        "crosstool.cppmap");
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getDependencyArtifacts()))
+        .contains("crosstool.cppmap");
     assertThat(artifactsToStrings(action.getPrivateHeaders()))
         .containsExactly("src module/a.h");
     assertThat(action.getPublicHeaders()).isEmpty();
@@ -1285,7 +1270,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths();
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1302,7 +1287,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-I/somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths();
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1319,7 +1304,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths();
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1336,7 +1321,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths();
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1391,14 +1376,15 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'])");
 
-    Iterable<Artifact> libraries =
-        LinkerInputs.toNonSolibArtifacts(
-            target
-                .get(CcInfo.PROVIDER)
-                .getCcLinkingInfo()
-                .getStaticModeParamsForDynamicLibrary()
-                .getLibraries());
-    assertThat(artifactsToStrings(libraries)).contains("bin a/libfoo.a");
+    LibraryToLinkWrapper library =
+        Iterables.getOnlyElement(target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries());
+    Artifact libraryToUse = library.getPicStaticLibrary();
+    if (libraryToUse == null) {
+      // We may get either a static library or pic static library depending on platform.
+      libraryToUse = library.getStaticLibrary();
+    }
+    assertThat(libraryToUse).isNotNull();
+    assertThat(artifactsToStrings(ImmutableList.of(libraryToUse))).contains("bin a/libfoo.a");
   }
 
   @Test
@@ -1407,32 +1393,21 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "foo", "cc_library(name = 'foo', srcs = ['libfoo.so'])");
 
-    Iterable<Artifact> libraries =
-        LinkerInputs.toNonSolibArtifacts(
-            target
-                .get(CcInfo.PROVIDER)
-                .getCcLinkingInfo()
-                .getStaticModeParamsForDynamicLibrary()
-                .getLibraries());
-    assertThat(artifactsToStrings(libraries)).doesNotContain("bin a/libfoo.a");
-    assertThat(artifactsToStrings(libraries)).contains("src a/libfoo.so");
+    LibraryToLinkWrapper library =
+        Iterables.getOnlyElement(target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries());
+    assertThat(library.getStaticLibrary()).isNull();
+    assertThat(artifactsToStrings(ImmutableList.of(library.getResolvedSymlinkDynamicLibrary())))
+        .contains("src a/libfoo.so");
   }
 
   @Test
-  public void onlyAddOneWrappedLibraryWithSameLibraryIdentifierToLinkParams() throws Exception {
+  public void onlyAddOneWrappedLibraryWithSameLibraryIdentifierToLibraries() throws Exception {
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "a", "foo", "cc_library(name = 'foo', srcs = ['libfoo.lo', 'libfoo.so'])");
 
-    Iterable<Artifact> libraries =
-        LinkerInputs.toNonSolibArtifacts(
-            target
-                .get(CcInfo.PROVIDER)
-                .getCcLinkingInfo()
-                .getStaticModeParamsForDynamicLibrary()
-                .getLibraries());
-    assertThat(artifactsToStrings(libraries)).doesNotContain("src a/libfoo.so");
-    assertThat(artifactsToStrings(libraries)).contains("src a/libfoo.lo");
+    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toList())
+        .hasSize(1);
   }
 
   @Test
@@ -1447,9 +1422,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Iterable<Artifact> libraries =
         target
             .get(CcInfo.PROVIDER)
-            .getCcLinkingInfo()
-            .getDynamicModeParamsForDynamicLibrary()
-            .getDynamicLibrariesForRuntime();
+            .getCcLinkingContext()
+            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
     assertThat(artifactsToStrings(libraries)).doesNotContain("bin a/libfoo.ifso");
     assertThat(artifactsToStrings(libraries)).contains("bin a/libfoo.so");
   }
@@ -1462,9 +1436,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Iterable<Artifact> libraries =
         target
             .get(CcInfo.PROVIDER)
-            .getCcLinkingInfo()
-            .getDynamicModeParamsForDynamicLibrary()
-            .getDynamicLibrariesForRuntime();
+            .getCcLinkingContext()
+            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
     assertThat(artifactsToStrings(libraries)).doesNotContain("bin _solib_k8/liba_Slibfoo.ifso");
     assertThat(artifactsToStrings(libraries)).contains("bin _solib_k8/liba_Slibfoo.so");
   }
@@ -1478,9 +1451,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Iterable<Artifact> libraries =
         target
             .get(CcInfo.PROVIDER)
-            .getCcLinkingInfo()
-            .getDynamicModeParamsForDynamicLibrary()
-            .getDynamicLibrariesForRuntime();
+            .getCcLinkingContext()
+            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
     assertThat(artifactsToStrings(libraries)).isEmpty();
   }
 
@@ -1506,16 +1478,5 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=parse_headers", "-c", "opt");
     // Should not crash
     scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'])");
-  }
-
-  @Test
-  public void testStlWithAlias() throws Exception {
-    scratch.file("a/BUILD",
-        "cc_library(name='a')",
-        "alias(name='stl', actual=':realstl')",
-        "cc_library(name='realstl')");
-
-    useConfiguration("--experimental_stl=//a:stl");
-    getConfiguredTarget("//a:a");
   }
 }

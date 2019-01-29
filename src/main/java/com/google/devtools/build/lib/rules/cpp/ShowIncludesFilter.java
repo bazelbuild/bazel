@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
@@ -35,13 +34,15 @@ import java.util.Collections;
  * <p>Also suppress the basename of source file, which is printed unconditionally by MSVC compiler,
  * there is no way to turn it off.
  */
-public class ShowIncludesFilter implements FileOutErr.OutputFilter {
+public class ShowIncludesFilter {
 
   private FilterShowIncludesOutputStream filterShowIncludesOutputStream;
   private final String sourceFileName;
+  private final String workspaceName;
 
-  public ShowIncludesFilter(String sourceFileName) {
+  public ShowIncludesFilter(String sourceFileName, String workspaceName) {
     this.sourceFileName = sourceFileName;
+    this.workspaceName = workspaceName;
   }
 
   /**
@@ -55,10 +56,13 @@ public class ShowIncludesFilter implements FileOutErr.OutputFilter {
     private static final int NEWLINE = '\n';
     private static final String SHOW_INCLUDES_PREFIX = "Note: including file:";
     private final String sourceFileName;
+    private final String execRootSuffix;
 
-    public FilterShowIncludesOutputStream(OutputStream out, String sourceFileName) {
+    public FilterShowIncludesOutputStream(
+        OutputStream out, String sourceFileName, String workspaceName) {
       super(out);
       this.sourceFileName = sourceFileName;
+      this.execRootSuffix = "execroot\\" + workspaceName + "\\";
     }
 
     @Override
@@ -67,7 +71,12 @@ public class ShowIncludesFilter implements FileOutErr.OutputFilter {
       if (b == NEWLINE) {
         String line = buffer.toString(StandardCharsets.UTF_8.name());
         if (line.startsWith(SHOW_INCLUDES_PREFIX)) {
-          dependencies.add(line.substring(SHOW_INCLUDES_PREFIX.length()).trim());
+          line = line.substring(SHOW_INCLUDES_PREFIX.length()).trim();
+          int index = line.indexOf(execRootSuffix);
+          if (index != -1) {
+            line = line.substring(index + execRootSuffix.length());
+          }
+          dependencies.add(line);
         } else if (!line.trim().equals(sourceFileName)) {
           buffer.writeTo(out);
         }
@@ -93,10 +102,9 @@ public class ShowIncludesFilter implements FileOutErr.OutputFilter {
     }
   }
 
-  @Override
   public FilterOutputStream getFilteredOutputStream(OutputStream outputStream) {
     filterShowIncludesOutputStream =
-        new FilterShowIncludesOutputStream(outputStream, sourceFileName);
+        new FilterShowIncludesOutputStream(outputStream, sourceFileName, workspaceName);
     return filterShowIncludesOutputStream;
   }
 

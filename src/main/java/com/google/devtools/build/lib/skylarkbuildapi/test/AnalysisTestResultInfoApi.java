@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
@@ -38,21 +37,18 @@ public interface AnalysisTestResultInfoApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "success",
-      doc = "If true, then the analysis-phase test represented by this target passed. If "
-          + "false, the test failed.",
+      doc =
+          "If true, then the analysis-phase test represented by this target passed. If "
+              + "false, the test failed.",
       documented = false,
-      structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS
-  )
+      structField = true)
   public Boolean getSuccess();
 
   @SkylarkCallable(
       name = "message",
       doc = "A descriptive message containing information about the test and its success/failure.",
       documented = false,
-      structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS
-  )
+      structField = true)
   public String getMessage();
 
   /** Provider class for {@link AnalysisTestResultInfoApi} objects. */
@@ -63,21 +59,24 @@ public interface AnalysisTestResultInfoApi extends SkylarkValue {
         name = "AnalysisTestResultInfo",
         doc = "The <code>AnalysisTestResultInfo</code> constructor.",
         parameters = {
-            @Param(
-                name = "success",
-                type = Boolean.class,
-                named = true,
-                doc = "If true, then the analysis-phase test represented by this target should "
-                    + "pass. If false, the test should fail."),
-            @Param(
-                name = "message",
-                type = String.class,
-                named = true,
-                doc = "A descriptive message containing information about the test and its "
-                    + "success/failure.")},
-        selfCall = true,
-        enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS)
-    @SkylarkConstructor(objectType = AnalysisTestResultInfoApi.class,
+          @Param(
+              name = "success",
+              type = Boolean.class,
+              named = true,
+              doc =
+                  "If true, then the analysis-phase test represented by this target should "
+                      + "pass. If false, the test should fail."),
+          @Param(
+              name = "message",
+              type = String.class,
+              named = true,
+              doc =
+                  "A descriptive message containing information about the test and its "
+                      + "success/failure.")
+        },
+        selfCall = true)
+    @SkylarkConstructor(
+        objectType = AnalysisTestResultInfoApi.class,
         receiverNameForDoc = "AnalysisTestResultInfo")
     public AnalysisTestResultInfoApi testResultInfo(Boolean success, String message);
   }

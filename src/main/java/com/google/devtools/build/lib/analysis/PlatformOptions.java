@@ -23,83 +23,81 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
 /** Command-line options for platform-related configuration. */
 public class PlatformOptions extends FragmentOptions {
+
+  // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
+  // directly.
+  public static final Label LEGACY_DEFAULT_HOST_PLATFORM =
+      Label.parseAbsoluteUnchecked("@bazel_tools//platforms:host_platform");
+  public static final Label DEFAULT_HOST_PLATFORM =
+      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+  public static final Label LEGACY_DEFAULT_TARGET_PLATFORM =
+      Label.parseAbsoluteUnchecked("@bazel_tools//platforms:target_platform");
+
   @Option(
-    name = "host_platform",
-    oldName = "experimental_host_platform",
-    converter = BuildConfiguration.EmptyToNullLabelConverter.class,
-    defaultValue = "@bazel_tools//platforms:host_platform",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {
-      OptionEffectTag.AFFECTS_OUTPUTS,
-      OptionEffectTag.CHANGES_INPUTS,
-      OptionEffectTag.LOADING_AND_ANALYSIS
-    },
-    help = "The label of a platform rule that describes the host system."
-  )
+      name = "host_platform",
+      oldName = "experimental_host_platform",
+      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help = "The label of a platform rule that describes the host system.")
   public Label hostPlatform;
 
   @Option(
-    name = "host_platform_remote_properties_override",
-    oldName = "experimental_remote_platform_override",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Manually set the remote_execution_properties for the host platform"
-            + " if it is not already set."
-  )
-  public String hostPlatformRemotePropertiesOverride;
-
-  @Option(
-    name = "extra_execution_platforms",
-    converter = CommaSeparatedOptionListConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.EXECUTION},
-    help =
-        "The platforms that are available as execution platforms to run actions. "
-            + "Platforms can be specified by exact target, or as a target pattern. "
-            + "These platforms will be considered before those declared in the WORKSPACE file by "
-            + "register_execution_platforms()."
-  )
+      name = "extra_execution_platforms",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      allowMultiple = true,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The platforms that are available as execution platforms to run actions. "
+              + "Platforms can be specified by exact target, or as a target pattern. "
+              + "These platforms will be considered before those declared in the WORKSPACE file by "
+              + "register_execution_platforms().")
   public List<String> extraExecutionPlatforms;
 
   @Option(
-    name = "platforms",
-    oldName = "experimental_platforms",
-    converter = LabelListConverter.class,
-    defaultValue = "@bazel_tools//platforms:target_platform",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {
-      OptionEffectTag.AFFECTS_OUTPUTS,
-      OptionEffectTag.CHANGES_INPUTS,
-      OptionEffectTag.LOADING_AND_ANALYSIS
-    },
-    help =
-        "The labels of the platform rules describing the target platforms for the current command."
-  )
+      name = "platforms",
+      oldName = "experimental_platforms",
+      converter = LabelListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help =
+          "The labels of the platform rules describing the target platforms for the current "
+              + "command.")
   public List<Label> platforms;
 
   @Option(
-    name = "extra_toolchains",
-    defaultValue = "",
-    converter = CommaSeparatedOptionListConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {
-      OptionEffectTag.AFFECTS_OUTPUTS,
-      OptionEffectTag.CHANGES_INPUTS,
-      OptionEffectTag.LOADING_AND_ANALYSIS
-    },
-    help =
-        "The toolchain rules to be considered during toolchain resolution. "
-            + "Toolchains can be specified by exact target, or as a target pattern. "
-            + "These toolchains will be considered before those declared in the WORKSPACE file by "
-            + "register_toolchains()."
-  )
+      name = "extra_toolchains",
+      defaultValue = "",
+      converter = CommaSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      allowMultiple = true,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      help =
+          "The toolchain rules to be considered during toolchain resolution. "
+              + "Toolchains can be specified by exact target, or as a target pattern. "
+              + "These toolchains will be considered before those declared in the WORKSPACE file "
+              + "by register_toolchains().")
   public List<String> extraToolchains;
 
   @Option(
@@ -133,17 +131,43 @@ public class PlatformOptions extends FragmentOptions {
   public boolean toolchainResolutionDebug;
 
   @Option(
-    name = "enabled_toolchain_types",
-    defaultValue = "",
-    converter = LabelListConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-    help =
-        "Enable toolchain resolution for the given toolchain type, if the rules used support that. "
-            + "This does not directly change the core Blaze machinery, but is a signal to "
-            + "participating rule implementations that toolchain resolution should be used."
-  )
+      name = "enabled_toolchain_types",
+      defaultValue = "",
+      converter = LabelListConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      deprecationWarning =
+          "Use --incompatible_enable_cc_toolchain_resolution to enable toolchain for cc rules. "
+              + "Other rules will define separate flags as needed.",
+      help =
+          "Enable toolchain resolution for the given toolchain type, if the rules used support "
+              + "that. This does not directly change the core Blaze machinery, but is a signal to "
+              + "participating rule implementations that toolchain resolution should be used.")
   public List<Label> enabledToolchainTypes;
+
+  @Option(
+      name = "incompatible_auto_configure_host_platform",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, the host platform will be inherited from @local_config_platforms//:host, "
+              + "instead of being based on the --cpu (and --host_cpu) flags.")
+  public boolean autoConfigureHostPlatform;
+
+  @Option(
+      name = "experimental_use_toolchain_resolution_for_java_rules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.UNKNOWN,
+      help =
+          "If set to true, toolchain resolution will be used to resolve java_toolchain and"
+              + " java_runtime.")
+  public boolean useToolchainResolutionForJavaRules;
 
   @Override
   public PlatformOptions getHost() {
@@ -154,9 +178,9 @@ public class PlatformOptions extends FragmentOptions {
     host.extraExecutionPlatforms = this.extraExecutionPlatforms;
     host.extraToolchains = this.extraToolchains;
     host.enabledToolchainTypes = this.enabledToolchainTypes;
-    host.hostPlatformRemotePropertiesOverride = this.hostPlatformRemotePropertiesOverride;
     host.toolchainResolutionDebug = this.toolchainResolutionDebug;
     host.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
+    host.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
     return host;
   }
 }

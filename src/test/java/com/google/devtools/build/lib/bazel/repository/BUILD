@@ -6,18 +6,11 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
-)
-
-genrule(
-    name = "empty-tarball",
-    outs = ["empty.tar.gz"],
-    cmd = """
-mkdir -p bar-1.2.3
-touch bar-1.2.3/whatever
-tar czf $@ bar-1.2.3
-""",
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )
 
 java_test(
@@ -25,9 +18,7 @@ java_test(
     srcs = glob([
         "**/*.java",
     ]),
-    data = [":empty-tarball"],
     tags = [
-        "no_windows",  # Runfiles aren't supported.
         "rules",
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
@@ -39,6 +30,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/collect",
@@ -78,6 +72,7 @@ test_suite(
     tests = [
         ":windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:all_windows_tests",
     ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )

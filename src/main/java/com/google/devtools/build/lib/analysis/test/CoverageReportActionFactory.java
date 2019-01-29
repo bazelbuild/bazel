@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -46,6 +47,10 @@ public interface CoverageReportActionFactory {
       this.coverageReportAction = coverageReportAction;
     }
 
+    public ActionAnalysisMetadata getCoverageReportAction() {
+      return coverageReportAction;
+    }
+
     public ImmutableList<ActionAnalysisMetadata> getActions() {
       return ImmutableList.of(lcovWriteAction, coverageReportAction);
     }
@@ -56,13 +61,14 @@ public interface CoverageReportActionFactory {
   }
 
   /**
-   * Returns a CoverageReportActionsWrapper. May return null if it's not necessary to create
-   * such Actions based on the input parameters and some other data available to the factory
+   * Returns a CoverageReportActionsWrapper. May return null if it's not necessary to create such
+   * Actions based on the input parameters and some other data available to the factory
    * implementation, such as command line options.
    */
   @Nullable
   CoverageReportActionsWrapper createCoverageReportActionsWrapper(
       EventHandler eventHandler,
+      EventBus eventBus,
       BlazeDirectories directories,
       Collection<ConfiguredTarget> targetsToTest,
       Iterable<Artifact> baselineCoverageArtifacts,

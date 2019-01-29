@@ -583,6 +583,9 @@ public class ZipCombiner implements AutoCloseable {
       if (action.getType() == ActionType.MERGE) {
         ByteArrayOutputStream uncompressed = action.getMergeBuffer();
         action.getStrategy().finish(uncompressed);
+        if (uncompressed.size() == 0 && action.getStrategy().skipEmpty()) {
+          continue;
+        }
 
         ZipFileEntry e = new ZipFileEntry(filename);
         e.setTime(action.getDate() != null ? action.getDate().getTime() : new Date().getTime());

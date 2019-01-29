@@ -34,8 +34,8 @@ enum ZipEntryComparator implements Comparator<ZipEntry> {
   }
 
   /**
-   * Sorts java class names such that outer classes preceed their inner
-   * classes and "package-info" preceeds all other classes in its package.
+   * Sorts java class names such that outer classes precede their inner classes and "package-info"
+   * precedes all other classes in its package.
    *
    * @param a {@code non-null;} first class name
    * @param b {@code non-null;} second class name

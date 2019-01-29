@@ -18,10 +18,11 @@ import static com.google.devtools.build.lib.syntax.Runtime.NONE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -58,7 +59,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -74,7 +74,6 @@ public class WorkspaceFactory {
           "workspace",
           "__embedded_dir__", // serializable so optional
           "__workspace_dir__", // serializable so optional
-          "DEFAULT_SERVER_JAVABASE", // serializable so optional
           "DEFAULT_SYSTEM_JAVABASE", // serializable so optional
           PackageFactory.PKG_CONTEXT);
 
@@ -159,7 +158,7 @@ public class WorkspaceFactory {
     BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(source, localReporter);
     if (buildFileAST.containsErrors()) {
       throw new BuildFileContainsErrorsException(
-          Label.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse " + source.getPath());
+          LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse " + source.getPath());
     }
     execute(buildFileAST, null, skylarkSemantics, localReporter);
   }
@@ -197,6 +196,15 @@ public class WorkspaceFactory {
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(localReporter)
             .setImportedExtensions(importMap)
+            // The workspace environment doesn't need the tools repository or the fragment map
+            // because executing workspace rules happens before analysis and it doesn't need a
+            // repository mapping because calls to the Label constructor in the WORKSPACE file
+            // are, by definition, not in an external repository and so they don't need the mapping
+            .setStarlarkContext(
+                new BazelStarlarkContext(
+                    /* toolsRepository= */ null,
+                    /* fragmentNameToClass= */ null,
+                    ImmutableMap.of()))
             .build();
     SkylarkUtils.setPhase(workspaceEnv, Phase.WORKSPACE);
     addWorkspaceFunctions(workspaceEnv, localReporter);
@@ -334,7 +342,7 @@ public class WorkspaceFactory {
                 }
                 // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
                 // treats references to @name as a separate external repo
-                if (env.getSemantics().experimentalRemapMainRepo()) {
+                if (env.getSemantics().incompatibleRemapMainRepo()) {
                   builder.addRepositoryMappingEntry(
                       RepositoryName.MAIN,
                       RepositoryName.createFromValidStrippedName(name),
@@ -488,33 +496,9 @@ public class WorkspaceFactory {
           // Add an entry in every repository from @<mainRepoName> to "@" to avoid treating
           // @<mainRepoName> as a separate repository. This will be overridden if the main
           // repository has a repo_mapping entry from <mainRepoName> to something.
-          if (env.getSemantics().experimentalRemapMainRepo()) {
-            if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
-              builder.addRepositoryMappingEntry(
-                  RepositoryName.createFromValidStrippedName(externalRepoName),
-                  RepositoryName.createFromValidStrippedName(builder.getPackageWorkspaceName()),
-                  RepositoryName.MAIN);
-            }
-          }
-          if (env.getSemantics().experimentalEnableRepoMapping()) {
-            if (kwargs.containsKey("repo_mapping")) {
-              if (!(kwargs.get("repo_mapping") instanceof Map)) {
-                throw new EvalException(
-                    ast.getLocation(),
-                    "Invalid value for 'repo_mapping': '"
-                        + kwargs.get("repo_mapping")
-                        + "'. Value must be a map.");
-              }
-              @SuppressWarnings("unchecked")
-              Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
-              for (Map.Entry<String, String> e : map.entrySet()) {
-                builder.addRepositoryMappingEntry(
-                    RepositoryName.createFromValidStrippedName(externalRepoName),
-                    RepositoryName.create(e.getKey()),
-                    RepositoryName.create(e.getValue()));
-              }
-            }
-          }
+          WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName, env.getSemantics());
+          WorkspaceFactoryHelper.addRepoMappings(
+              builder, kwargs, externalRepoName, ast.getLocation());
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           Rule rule =
@@ -522,7 +506,7 @@ public class WorkspaceFactory {
                   builder,
                   ruleClass,
                   bindRuleClass,
-                  getFinalKwargs(kwargs, env.getSemantics()),
+                  WorkspaceFactoryHelper.getFinalKwargs(kwargs),
                   ast);
           if (!isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
@@ -536,19 +520,6 @@ public class WorkspaceFactory {
         return NONE;
       }
     };
-  }
-
-  private static Map<String, Object> getFinalKwargs(
-      Map<String, Object> kwargs,
-      SkylarkSemantics semantics) {
-    if (semantics.experimentalEnableRepoMapping()) {
-      // 'repo_mapping' is not an explicit attribute of any rule and so it would
-      // result in a rule error if propagated to the rule factory.
-      return kwargs.entrySet().stream()
-          .filter(x -> !x.getKey().equals("repo_mapping"))
-          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-    return kwargs;
   }
 
   private static ImmutableMap<String, BaseFunction> createWorkspaceFunctions(
@@ -583,7 +554,6 @@ public class WorkspaceFactory {
       if (javaHome.getName().equalsIgnoreCase("jre")) {
         javaHome = javaHome.getParentFile();
       }
-      workspaceEnv.update("DEFAULT_SERVER_JAVABASE", javaHome.toString());
       workspaceEnv.update("DEFAULT_SYSTEM_JAVABASE", getDefaultSystemJavabase());
 
       for (EnvironmentExtension extension : environmentExtensions) {

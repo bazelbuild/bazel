@@ -126,7 +126,7 @@ public class ResourceManager {
   // LocalHostCapacity.getLocalHostCapacity() as an argument.
   private ResourceSet staticResources = null;
 
-  private ResourceSet availableResources = null;
+  @VisibleForTesting public ResourceSet availableResources = null;
 
   // Used amount of CPU capacity (where 1.0 corresponds to the one fully
   // occupied CPU core. Corresponds to the CPU resource definition in the

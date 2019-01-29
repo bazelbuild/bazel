@@ -26,10 +26,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataIn
  */
 public class AndroidBinaryDataInfo extends NativeInfo
     implements AndroidBinaryDataInfoApi<Artifact> {
-  public static final String SKYLARK_NAME = "AndroidBinaryData";
 
   public static final BuiltinProvider<AndroidBinaryDataInfo> PROVIDER =
-      new BuiltinProvider<AndroidBinaryDataInfo>(SKYLARK_NAME, AndroidBinaryDataInfo.class) {};
+      new BuiltinProvider<AndroidBinaryDataInfo>(NAME, AndroidBinaryDataInfo.class) {};
 
   private final Artifact dataApk;
   private final Artifact resourceProguardConfig;

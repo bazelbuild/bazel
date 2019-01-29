@@ -1,14 +1,28 @@
 destination: production
-markdown: redcarpet
-redcarpet:
-  extensions: ["tables"]
+markdown: kramdown
+kramdown:
+  syntax_highlighter: rouge
+  toc_levels: "2,3"
+highlighter: rouge
+
 paginate: 10
-highlighter: pygments
 sass:
   sass_dir: _sass
 gems: [jekyll-paginate]
 
 version: "master"
+
+# This must be kept in sync with //site/script/docs:versions.bzl
+doc_versions:
+  - master
+  - 0.22.0
+  - 0.21.0
+  - 0.20.0
+  - 0.19.2
+  - 0.19.1
+  - 0.18.1
+  - 0.17.2
+  - 0.17.1
 
 main_site_url: https://www.bazel.build
 docs_site_url: "/"

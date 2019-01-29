@@ -1,6 +1,23 @@
 def exercise_the_api():
-    # TODO(juliexxia): This isn't actually where this module would be used.
-    # Move this to the rule definition when the relevant parameter is set up.
-    var5 = config.int(flag = True)
+    _var6 = configuration_field("foo", "bar")
 
 exercise_the_api()
+
+def transition_func(settings):
+    """A no-op transition function."""
+    return settings
+
+my_transition = transition(implementation = transition_func, inputs = [], outputs = [])
+
+def _build_setting_impl(ctx):
+    return []
+
+string_flag = rule(
+    implementation = _build_setting_impl,
+    build_setting = config.string(flag = True),
+)
+
+int_setting = rule(
+    implementation = _build_setting_impl,
+    build_setting = config.int(flag = False),
+)

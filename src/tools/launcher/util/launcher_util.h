@@ -36,7 +36,7 @@ void PrintError(const wchar_t* format, ...) PRINTF_ATTRIBUTE(1, 2);
 // On Windows, if the binary path is foo/bar/bin.exe then return foo/bar/bin
 std::wstring GetBinaryPathWithoutExtension(const std::wstring& binary);
 
-// Add exectuable extension to binary path
+// Add executable extension to binary path
 //
 // On Windows, if the binary path is foo/bar/bin then return foo/bar/bin.exe
 std::wstring GetBinaryPathWithExtension(const std::wstring& binary);

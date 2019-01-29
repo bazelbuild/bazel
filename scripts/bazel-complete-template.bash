@@ -13,45 +13,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-#
-# Bash completion of Bazel commands.
-#
+
 # The template is expanded at build time using tables of commands/options
 # derived from the bazel executable built in the same client; the expansion is
 # written to bazel-complete.bash.
 #
-# Provides command-completion for:
-# - bazel prefix options (e.g. --host_jvm_args)
-# - blaze command-set (e.g. build, test)
-# - blaze command-specific options (e.g. --copts)
-# - values for enum-valued options
-# - package-names, exploring all package-path roots.
-# - targets within packages.
+# Don't use this script directly. Generate the final script with
+# bazel build //scripts:bash_completion instead.
+
+# This script expects a header to be prepended to it that defines the following
+# nullary functions:
+#
+# _bazel_completion_use_query - Has a successful exit code if
+# BAZEL_COMPLETION_USE_QUERY is "true".
+#
+# _bazel_completion_allow_tests_for_run - Has a successful exit code if
+# BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN is "true".
 
 # The package path used by the completion routines.  Unfortunately
 # this isn't necessarily the same as the actual package path used by
 # Bazel, but that's ok.  (It's impossible for us to reliably know what
 # the relevant package-path, so this is just a good guess.  Users can
 # override it if they want.)
-#
-# Don't use it directly. Generate the final script with
-# bazel build //scripts:bash_completion instead.
-#
 : ${BAZEL_COMPLETION_PACKAGE_PATH:=%workspace%}
-
-
-# If true, Bazel query is used for autocompletion.  This is more
-# accurate than the heuristic grep, especially for strangely-formatted
-# BUILD files.  But it can be slower, especially if the Bazel server
-# is busy, and more brittle, if the BUILD file contains serious
-# errors.   This is an experimental feature.
-: ${BAZEL_COMPLETION_USE_QUERY:=false}
-
-
-# If true, Bazel run allows autocompletion for test targets. This is convenient
-# for users who run a lot of tests/benchmarks locally with blaze run.
-: ${BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN:=false}
 
 # Some commands might interfer with the important one, so don't complete them
 : ${BAZEL_IGNORED_COMMAND_REGEX:="__none__"}
@@ -65,8 +49,7 @@
 #  when looking in the the build file.
 #  BAZEL_QUERY_MATCH_PATTERN__* give the pattern for label-*
 #  when using 'bazel query'.
-# _RUNTEST are special case when BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN
-# is on.
+# _RUNTEST is a special case for _bazel_completion_allow_tests_for_run.
 : ${BAZEL_BUILD_MATCH_PATTERN__test:='(.*_test|test_suite)'}
 : ${BAZEL_QUERY_MATCH_PATTERN__test:='(test|test_suite)'}
 : ${BAZEL_BUILD_MATCH_PATTERN__bin:='.*_binary'}
@@ -80,14 +63,14 @@
 # Determine what kind of rules to match, based on command.
 _bazel__get_rule_match_pattern() {
   local var_name pattern
-  if _bazel__is_true "$BAZEL_COMPLETION_USE_QUERY"; then
+  if _bazel_completion_use_query; then
     var_name="BAZEL_QUERY_MATCH_PATTERN"
   else
     var_name="BAZEL_BUILD_MATCH_PATTERN"
   fi
   if [[ "$1" =~ ^label-?([a-z]*)$ ]]; then
     pattern=${BASH_REMATCH[1]:-}
-    if _bazel__is_true "$BAZEL_COMPLETION_ALLOW_TESTS_FOR_RUN"; then
+    if _bazel_completion_allow_tests_for_run; then
       eval "echo \"\${${var_name}_RUNTEST__${pattern}:-\$${var_name}__${pattern}}\""
     else
       eval "echo \"\$${var_name}__${pattern}\""
@@ -212,10 +195,10 @@ _bazel__is_true() {
 # appropriate to the command are printed.  Sets $COMPREPLY array to
 # result.
 #
-# If $BAZEL_COMPLETION_USE_QUERY is true, 'bazel query' is used
-# instead, with the actual Bazel package path;
-# $BAZEL_COMPLETION_PACKAGE_PATH is ignored in this case, since the
-# actual Bazel value is likely to be more accurate.
+# If _bazel_completion_use_query has a successful exit code, 'bazel query' is
+# used instead, with the actual Bazel package path;
+# $BAZEL_COMPLETION_PACKAGE_PATH is ignored in this case, since the actual Bazel
+# value is likely to be more accurate.
 _bazel__expand_rules_in_package() {
   local workspace=$1 displacement=$2 current=$3 label_type=$4
   local package_name=$(echo "$current" | cut -f1 -d:)
@@ -224,7 +207,7 @@ _bazel__expand_rules_in_package() {
 
   result=
   pattern=$(_bazel__get_rule_match_pattern "$label_type")
-  if _bazel__is_true "$BAZEL_COMPLETION_USE_QUERY"; then
+  if _bazel_completion_use_query; then
     package_name=$(echo "$package_name" | tr -d "'\"") # remove quotes
     result=$(${BAZEL} --output_base=/tmp/${BAZEL}-completion-$USER query \
                    --keep_going --noshow_progress \

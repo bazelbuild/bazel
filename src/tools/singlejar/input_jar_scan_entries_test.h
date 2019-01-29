@@ -128,7 +128,7 @@ class InputJarScanEntries : public testing::Test {
   std::unique_ptr<InputJar> input_jar_;
 };
 
-TYPED_TEST_CASE_P(InputJarScanEntries);
+TYPED_TEST_SUITE_P(InputJarScanEntries);
 
 TYPED_TEST_P(InputJarScanEntries, OpenClose) {
   ASSERT_EQ(0, chdir(getenv("TEST_TMPDIR")));
@@ -274,7 +274,7 @@ TYPED_TEST_P(InputJarScanEntries, LotsOfEntries) {
   EXPECT_LE(256 * 256, file_count);
 }
 
-REGISTER_TYPED_TEST_CASE_P(InputJarScanEntries, OpenClose, Basic,
-                           HugeUncompressed, TestZip64, LotsOfEntries);
+REGISTER_TYPED_TEST_SUITE_P(InputJarScanEntries, OpenClose, Basic,
+                            HugeUncompressed, TestZip64, LotsOfEntries);
 
 #endif  // BAZEL_SRC_TOOLS_SINGLEJAR_INPUT_JAR_SCAN_ENTRIES_TEST_H_

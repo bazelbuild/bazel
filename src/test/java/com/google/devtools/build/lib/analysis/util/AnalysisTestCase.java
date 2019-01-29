@@ -13,10 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
@@ -40,6 +45,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -81,6 +87,7 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.Before;
@@ -209,7 +216,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     PackageFactory pkgFactory =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
-            .build(ruleClassProvider);
+            .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor =
         createSkyframeExecutor(pkgFactory, ruleClassProvider.getBuildInfoFactories());
@@ -384,8 +391,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
-    skyframeExecutor.setConfigurationFragmentFactories(
-        ruleClassProvider.getConfigurationFragments());
     analysisResult =
         buildView.update(
             loadingResult,
@@ -440,7 +445,14 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
-    return skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
+    ConfiguredTargetAndData configuredTargetAndData;
+    try {
+      configuredTargetAndData =
+          skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
+    } catch (TransitionException e) {
+      throw new AssertionError(e);
+    }
+    return configuredTargetAndData;
   }
 
   protected Target getTarget(String label) throws InterruptedException {
@@ -485,8 +497,15 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
-    return skyframeExecutor.getConfiguredTargetAndDataForTesting(
-        reporter, parsedLabel, configuration);
+    ConfiguredTargetAndData configuredTargetAndData;
+    try {
+      configuredTargetAndData =
+          skyframeExecutor.getConfiguredTargetAndDataForTesting(
+              reporter, parsedLabel, configuration);
+    } catch (TransitionException e) {
+      throw new AssertionError(e);
+    }
+    return configuredTargetAndData;
   }
 
   protected final BuildConfiguration getConfiguration(TransitiveInfoCollection ct) {
@@ -520,6 +539,25 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected Set<SkyKey> getSkyframeEvaluatedTargetKeys() {
     return buildView.getSkyframeEvaluatedTargetKeysForTesting();
+  }
+
+  protected void assertNumberOfAnalyzedConfigurationsOfTargets(
+      Map<String, Integer> targetsWithCounts) {
+    ImmutableMultiset<Label> actualSet =
+        getSkyframeEvaluatedTargetKeys().stream()
+            .filter(key -> key instanceof ConfiguredTargetKey)
+            .map(key -> ((ConfiguredTargetKey) key).getLabel())
+            .collect(toImmutableMultiset());
+    ImmutableMap<Label, Integer> expected =
+        targetsWithCounts.entrySet().stream()
+            .collect(
+                toImmutableMap(
+                    entry -> Label.parseAbsoluteUnchecked(entry.getKey()),
+                    entry -> entry.getValue()));
+    ImmutableMap<Label, Integer> actual =
+        expected.keySet().stream()
+            .collect(toImmutableMap(label -> label, label -> actualSet.count(label)));
+    assertThat(actual).containsExactlyEntriesIn(expected);
   }
 
   protected String getAnalysisError() {

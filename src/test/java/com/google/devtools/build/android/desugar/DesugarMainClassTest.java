@@ -61,7 +61,7 @@ public class DesugarMainClassTest {
    * LAMBDA_METAFACTORY_DUMPER_PROPERTY} in the command line.
    */
   private void testLambdaDumpDirPassSpecifiedInCmdPass() throws IOException {
-    // The following lambda ensures that the LambdaMetafactory is loaded at the beggining of this
+    // The following lambda ensures that the LambdaMetafactory is loaded at the beginning of this
     // test, so that the dump directory can be registered.
     Supplier<Path> supplier =
         () -> {

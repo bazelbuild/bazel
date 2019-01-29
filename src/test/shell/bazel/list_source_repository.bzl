@@ -41,7 +41,7 @@ genrule(
   visibility = ["//visibility:public"],
   cmd = " | ".join([
     "cat $<",
-    "grep -Ev '^(\\\\.git|out/|output/|bazel-|derived|tools/defaults/BUILD)'",
+    "grep -Ev '^(\\\\.git|.ijwb|out/|output/|bazel-|derived|tools/defaults/BUILD)'",
     "grep -Ev '%s'",
     "sort -u > $@",
   ]),

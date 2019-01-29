@@ -27,7 +27,7 @@ import java.util.List;
 /**
  * Encodes a list of elements, each of which may be null. Unless explicitly specified as the codec,
  * lists will only use this codec if they extend {@link AbstractList} or are one of {@link
- * #RANDOM_ACCESS_TYPE} or {@link #SEQUENTIAL_ACCESS_TYPE} (intented to capture unmodifiable
+ * #RANDOM_ACCESS_TYPE} or {@link #SEQUENTIAL_ACCESS_TYPE} (intended to capture unmodifiable
  * versions of normal lists).
  */
 class NullableListCodec<T> implements ObjectCodec<List<T>> {

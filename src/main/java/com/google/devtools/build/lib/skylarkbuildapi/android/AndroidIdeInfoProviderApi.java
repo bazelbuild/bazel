@@ -44,7 +44,7 @@ public interface AndroidIdeInfoProviderApi<
     extends StructApi {
 
   /** Name of this info object. */
-  public static String NAME = "AndroidIdeInfo";
+  String NAME = "AndroidIdeInfo";
 
   /** Returns the Java package. */
   @SkylarkCallable(name = "java_package", structField = true, doc = "", documented = false)

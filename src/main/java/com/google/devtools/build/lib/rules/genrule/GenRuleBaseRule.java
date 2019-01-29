@@ -23,8 +23,8 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -35,11 +35,8 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ExecutionPlatformConstraintsAllowed;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaImplicitAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.io.Serializable;
 
 /**
  * Rule definition for the genrule rule, intended to be inherited by specific GenRule
@@ -47,6 +44,18 @@ import java.io.Serializable;
  * as a setup script target.
  */
 public class GenRuleBaseRule implements RuleDefinition {
+  public static boolean enableCcToolchain(BuildConfiguration configuration) {
+    CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
+    if (cppConfiguration != null) {
+      return enableCcToolchain(cppConfiguration);
+    }
+    return true;
+  }
+
+  public static boolean enableCcToolchain(CppConfiguration cppConfiguration) {
+    return !cppConfiguration.disableGenruleCcToolchainDependency();
+  }
+
   /**
    * Late-bound dependency on the C++ toolchain <i>iff</i> the genrule has make variables that need
    * that toolchain.
@@ -56,12 +65,16 @@ public class GenRuleBaseRule implements RuleDefinition {
         CppConfiguration.class,
         env.getToolsLabel(CppRuleClasses.CROSSTOOL_LABEL),
         // null guards are needed for LateBoundAttributeTest
-        (rule, attributes, cppConfig) ->
-            attributes != null
-                    && attributes.get("cmd", Type.STRING) != null
-                    && GenRuleBase.requiresCrosstool(attributes.get("cmd", Type.STRING))
-                ? CppRuleClasses.ccToolchainAttribute(env).resolve(rule, attributes, cppConfig)
-                : null);
+        (rule, attributes, cppConfig) -> {
+          if (!enableCcToolchain(cppConfig)) {
+            return null;
+          }
+          return attributes != null
+                  && attributes.get("cmd", Type.STRING) != null
+                  && GenRuleBase.requiresCrosstool(attributes.get("cmd", Type.STRING))
+              ? CppRuleClasses.ccToolchainAttribute(env).resolve(rule, attributes, cppConfig)
+              : null;
+        });
   }
 
   /** Computed dependency on the C++ toolchain type. */
@@ -74,27 +87,6 @@ public class GenRuleBaseRule implements RuleDefinition {
             : null;
       }
     };
-  }
-
-  /**
-   * Late-bound dependency on the host JDK <i>iff</i> the genrule has make variables that need the
-   * host JDK.
-   */
-  public static LabelLateBoundDefault<?> maybeHostJdk(RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromHostConfiguration(
-        JavaConfiguration.class,
-        env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
-        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
-            // null guards are needed for LateBoundAttributeTest
-            (rule, attributes, configuration) -> {
-              if (attributes != null) {
-                String cmd = attributes.get("cmd", Type.STRING);
-                if (cmd != null && GenRuleBase.requiresJdk(cmd)) {
-                  return configuration.getRuntimeLabel();
-                }
-              }
-              return null;
-            });
   }
 
   @Override

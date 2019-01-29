@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -291,8 +292,8 @@ public class PackageFunction implements SkyFunction {
     if (skylarkSemantics == null) {
       return null;
     }
-    RootedPath workspacePath = RootedPath.toRootedPath(
-        packageLookupPath, Label.WORKSPACE_FILE_NAME);
+    RootedPath workspacePath =
+        RootedPath.toRootedPath(packageLookupPath, LabelConstants.WORKSPACE_FILE_NAME);
     SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
     PackageValue workspace = null;
     try {
@@ -308,7 +309,7 @@ public class PackageFunction implements SkyFunction {
     } catch (IOException | EvalException | SkylarkImportFailedException e) {
       throw new PackageFunctionException(
           new NoSuchPackageException(
-              Label.EXTERNAL_PACKAGE_IDENTIFIER,
+              LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
               "Error encountered while dealing with the WORKSPACE file: " + e.getMessage()),
           Transience.PERSISTENT);
     }
@@ -370,7 +371,7 @@ public class PackageFunction implements SkyFunction {
       }
     }
 
-    if (packageId.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
+    if (packageId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       return getExternalPackage(env, packageLookupValue.getRoot());
     }
     WorkspaceNameValue workspaceNameValue =
@@ -548,9 +549,10 @@ public class PackageFunction implements SkyFunction {
    */
   @Nullable
   static SkylarkImportResult fetchImportsFromBuildFile(
-      PathFragment buildFilePath,
+      RootedPath buildFilePath,
       PackageIdentifier packageId,
       BuildFileAST buildFileAST,
+      int workspaceChunk,
       Environment env,
       SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
       throws NoSuchPackageException, InterruptedException {
@@ -574,9 +576,16 @@ public class PackageFunction implements SkyFunction {
     // Look up and load the imports.
     ImmutableCollection<Label> importLabels = importPathMap.values();
     List<SkyKey> importLookupKeys = Lists.newArrayListWithExpectedSize(importLabels.size());
-    boolean inWorkspace = buildFilePath.getBaseName().endsWith("WORKSPACE");
+    boolean inWorkspace = buildFilePath.getRootRelativePath().getBaseName().endsWith("WORKSPACE");
     for (Label importLabel : importLabels) {
-      importLookupKeys.add(SkylarkImportLookupValue.key(importLabel, inWorkspace));
+      int originalChunk =
+          getOriginalWorkspaceChunk(env, buildFilePath, workspaceChunk, importLabel);
+      if (inWorkspace) {
+        importLookupKeys.add(
+            SkylarkImportLookupValue.keyInWorkspace(importLabel, originalChunk, buildFilePath));
+      } else {
+        importLookupKeys.add(SkylarkImportLookupValue.key(importLabel));
+      }
     }
     Map<SkyKey, SkyValue> skylarkImportMap = Maps.newHashMapWithExpectedSize(importPathMap.size());
     boolean valuesMissing = false;
@@ -634,7 +643,16 @@ public class PackageFunction implements SkyFunction {
     for (Map.Entry<String, Label> importEntry : importPathMap.entrySet()) {
       String importString = importEntry.getKey();
       Label importLabel = importEntry.getValue();
-      SkyKey keyForLabel = SkylarkImportLookupValue.key(importLabel, inWorkspace);
+
+      int originalChunk =
+          getOriginalWorkspaceChunk(env, buildFilePath, workspaceChunk, importLabel);
+      SkyKey keyForLabel;
+      if (inWorkspace) {
+        keyForLabel =
+            SkylarkImportLookupValue.keyInWorkspace(importLabel, originalChunk, buildFilePath);
+      } else {
+        keyForLabel = SkylarkImportLookupValue.key(importLabel);
+      }
       SkylarkImportLookupValue importLookupValue =
           (SkylarkImportLookupValue) skylarkImportMap.get(keyForLabel);
       importMap.put(importString, importLookupValue.getEnvironmentExtension());
@@ -642,6 +660,22 @@ public class PackageFunction implements SkyFunction {
     }
 
     return new SkylarkImportResult(importMap, transitiveClosureOfLabels(fileDependencies.build()));
+  }
+
+  private static int getOriginalWorkspaceChunk(
+      Environment env, RootedPath workspacePath, int workspaceChunk, Label importLabel)
+      throws InterruptedException {
+    if (workspaceChunk < 1) {
+      return workspaceChunk;
+    }
+    // If we got here, we are already computing workspaceChunk "workspaceChunk", and so we know
+    // that the value for "workspaceChunk-1" has already been computed so we don't need to check
+    // for nullness
+    SkyKey workspaceFileKey = WorkspaceFileValue.key(workspacePath, workspaceChunk - 1);
+    WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
+    ImmutableMap<String, Integer> importToChunkMap = workspaceFileValue.getImportToChunkMap();
+    String importString = importLabel.toString();
+    return importToChunkMap.getOrDefault(importString, workspaceChunk);
   }
 
   private static ImmutableList<Label> transitiveClosureOfLabels(
@@ -1154,9 +1188,10 @@ public class PackageFunction implements SkyFunction {
         try {
           importResult =
               fetchImportsFromBuildFile(
-                  buildFilePath.getRootRelativePath(),
+                  buildFilePath,
                   packageId,
                   astParseResult.ast,
+                  /* workspaceChunk = */ -1,
                   env,
                   skylarkImportLookupFunctionForInlining);
         } catch (NoSuchPackageException e) {

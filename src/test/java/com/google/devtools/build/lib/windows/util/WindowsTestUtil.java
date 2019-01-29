@@ -22,7 +22,6 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
-import com.google.devtools.build.lib.windows.runfiles.WindowsRunfiles;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -109,10 +108,6 @@ public final class WindowsTestUtil {
       fail("Failed to execute command; cmd: " + cmd);
     }
     assertWithMessage("Command failed: " + cmd).that(p.exitValue()).isEqualTo(0);
-  }
-
-  public static String getRunfile(String runfilesPath) throws IOException {
-    return WindowsRunfiles.getRunfile(runfilesPath);
   }
 
   public Path createVfsPath(FileSystem fs, String path) throws IOException {

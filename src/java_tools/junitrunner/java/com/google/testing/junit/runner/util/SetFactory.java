@@ -165,8 +165,8 @@ public final class SetFactory<T> implements Factory<Set<T>> {
   }
 
   /**
-   * Creates a {@link HashSet} instance, with a high enough "intial capcity" that it <em>should</em>
-   * hold {@code expectedSize} elements without growth.
+   * Creates a {@link HashSet} instance, with a high enough "initial capcity" that it
+   * <em>should</em> hold {@code expectedSize} elements without growth.
    */
   private static <T> HashSet<T> newHashSetWithExpectedSize(int expectedSize) {
     return new HashSet<T>(calculateInitialCapacity(expectedSize));

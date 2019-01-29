@@ -41,7 +41,30 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if is_windows; then
+# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
+# `tr` converts all upper case letters to lower case.
+# `case` matches the result if the `uname | tr` expression to string prefixes
+# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
+# starting with "msys", and "*" matches everything (it's the default case).
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*)
+  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  # Disable MSYS path conversion that converts path-looking command arguments to
+  # Windows paths (even if they arguments are not in fact paths).
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
+
+
+if $is_windows; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
 fi
@@ -61,7 +84,7 @@ EOF
 }
 
 function get_extrepourl() {
-  if is_windows; then
+  if $is_windows; then
     echo "file:///$(cygpath -m $1)"
   else
     echo "file://$1"
@@ -175,7 +198,7 @@ EOF
 
 test_patch_git() {
   EXTREPODIR=`pwd`
-  if is_windows; then
+  if $is_windows; then
     EXTREPODIR="$(cygpath -m ${EXTREPODIR})"
   fi
 
@@ -264,7 +287,7 @@ EOF
 }
 
 test_override_buildfile() {
-  ## Verify that the BUILD file of an external repository can be overriden
+  ## Verify that the BUILD file of an external repository can be overridden
   ## via the http_archive rule.
   EXTREPODIR=`pwd`
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
@@ -322,7 +345,7 @@ EOF
 }
 
 test_override_buildfile_content() {
-  ## Verify that the BUILD file of an external repository can be overriden
+  ## Verify that the BUILD file of an external repository can be overridden
   ## via specified content in the http_archive rule.
   EXTREPODIR=`pwd`
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
@@ -379,10 +402,10 @@ EOF
 }
 
 test_override_buildfile_git() {
-  ## Verify that the BUILD file of an external repository can be overriden
+  ## Verify that the BUILD file of an external repository can be overridden
   ## via the git_repository rule.
   EXTREPODIR=`pwd`
-  if is_windows; then
+  if $is_windows; then
     EXTREPODIR="$(cygpath -m ${EXTREPODIR})"
   fi
 
@@ -447,10 +470,10 @@ EOF
 }
 
 test_override_buildfilecontents_git() {
-  ## Verify that the BUILD file of an external repository can be overriden
+  ## Verify that the BUILD file of an external repository can be overridden
   ## via specified content in the git_repository rule.
   EXTREPODIR=`pwd`
-  if is_windows; then
+  if $is_windows; then
     EXTREPODIR="$(cygpath -m ${EXTREPODIR})"
   fi
 
@@ -514,7 +537,7 @@ EOF
 }
 
 test_build_file_build_bazel() {
-  ## Verify that the BUILD file of an external repository can be overriden
+  ## Verify that the BUILD file of an external repository can be overridden
   ## via the http_archive rule.
   EXTREPODIR=`pwd`
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"

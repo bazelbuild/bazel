@@ -283,6 +283,10 @@ public final class HelpCommand implements BlazeCommand {
     flagBuilder.setName(option.getOptionName());
     flagBuilder.setHasNegativeFlag(option.hasNegativeOption());
     flagBuilder.setDocumentation(option.getHelpText());
+    flagBuilder.setAllowsMultiple(option.allowsMultiple());
+    if (option.getAbbreviation() != '\0') {
+      flagBuilder.setAbbreviation(String.valueOf(option.getAbbreviation()));
+    }
     return flagBuilder;
   }
 

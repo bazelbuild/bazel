@@ -130,7 +130,6 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testWorkspaceMappings() throws Exception {
-    helper.setSkylarkSemantics("--experimental_enable_repo_mapping");
     helper.parse(
         "workspace(name = 'bar')",
         "local_repository(",
@@ -143,7 +142,6 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testMultipleRepositoriesWithMappings() throws Exception {
-    helper.setSkylarkSemantics("--experimental_enable_repo_mapping");
     helper.parse(
         "local_repository(",
         "    name = 'foo',",
@@ -161,7 +159,6 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testMultipleMappings() throws Exception {
-    helper.setSkylarkSemantics("--experimental_enable_repo_mapping");
     helper.parse(
         "local_repository(",
         "    name = 'foo',",
@@ -175,7 +172,6 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testEmptyMappings() throws Exception {
-    helper.setSkylarkSemantics("--experimental_enable_repo_mapping");
     helper.parse(
         "local_repository(",
         "    name = 'foo',",
@@ -187,7 +183,6 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testMappingsNotAMap() throws Exception {
-    helper.setSkylarkSemantics("--experimental_enable_repo_mapping");
     helper.parse(
         "local_repository(",
         "    name = 'foo',",
@@ -195,7 +190,7 @@ public class WorkspaceFactoryTest {
         "    repo_mapping = 1",
         ")");
     assertThat(helper.getParserError())
-        .contains("Invalid value for 'repo_mapping': '1'. Value must be a map.");
+        .contains("Invalid value for 'repo_mapping': '1'. Value must be a dict.");
 
     helper.parse(
         "local_repository(",
@@ -204,12 +199,12 @@ public class WorkspaceFactoryTest {
         "    repo_mapping = 'hello'",
         ")");
     assertThat(helper.getParserError())
-        .contains("Invalid value for 'repo_mapping': 'hello'. Value must be a map.");
+        .contains("Invalid value for 'repo_mapping': 'hello'. Value must be a dict.");
   }
 
   @Test
   public void testImplicitMainRepoRename() throws Exception {
-    helper.setSkylarkSemantics("--experimental_remap_main_repo");
+    helper.setSkylarkSemantics("--incompatible_remap_main_repo");
     helper.parse("workspace(name = 'foo')");
     assertMapping(helper, "@", "@foo", "@");
   }
@@ -230,7 +225,6 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testOverrideImplicitMainRepoRename() throws Exception {
-    helper.setSkylarkSemantics("--experimental_enable_repo_mapping");
     helper.parse(
         "workspace(name = 'bar')",
         "local_repository(",

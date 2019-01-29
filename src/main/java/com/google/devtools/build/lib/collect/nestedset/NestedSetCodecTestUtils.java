@@ -104,8 +104,8 @@ public class NestedSetCodecTestUtils {
       boolean assertSymmetricEquality) {
     return (subject, deserialized) -> {
       if (assertSymmetricEquality) {
-        assertThat(subject).isEqualTo(deserialized);
         assertThat(deserialized).isEqualTo(subject);
+        assertThat(subject).isEqualTo(deserialized);
       }
       assertThat(subject.getOrder()).isEqualTo(deserialized.getOrder());
       assertThat(subject.toSet()).isEqualTo(deserialized.toSet());

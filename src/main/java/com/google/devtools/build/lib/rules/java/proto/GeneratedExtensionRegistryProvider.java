@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public final class GeneratedExtensionRegistryProvider extends NativeInfo
     implements GeneratedExtensionRegistryProviderApi<Artifact> {
 
-  public static final String PROVIDER_NAME = "GeneratedExtensionRegistryProvider";
   public static final Provider PROVIDER = new Provider();
 
   private final Label generatingRuleLabel;
@@ -142,11 +141,11 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
   public static class Provider extends BuiltinProvider<GeneratedExtensionRegistryProvider>
       implements GeneratedExtensionRegistryProviderApi.Provider<Artifact> {
     private Provider() {
-      super(PROVIDER_NAME, GeneratedExtensionRegistryProvider.class);
+      super(NAME, GeneratedExtensionRegistryProvider.class);
     }
 
     public String getName() {
-      return PROVIDER_NAME;
+      return NAME;
     }
 
     @Override

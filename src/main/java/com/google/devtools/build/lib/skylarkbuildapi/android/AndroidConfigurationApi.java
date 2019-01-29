@@ -37,13 +37,6 @@ public interface AndroidConfigurationApi {
   String getCpu();
 
   @SkylarkCallable(
-      name = "use_incremental_native_libs",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useIncrementalNativeLibs();
-
-  @SkylarkCallable(
       name = "use_incremental_dexing",
       structField = true,
       doc = "",
@@ -200,6 +193,13 @@ public interface AndroidConfigurationApi {
 
   @SkylarkCallable(name = "use_databinding_v2", structField = true, doc = "", documented = false)
   boolean useDataBindingV2();
+
+  @SkylarkCallable(
+      name = "android_databinding_use_v3_4_args",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean useDataBindingUpdatedArgs();
 
   @SkylarkCallable(
       name = "persistent_busybox_tools",

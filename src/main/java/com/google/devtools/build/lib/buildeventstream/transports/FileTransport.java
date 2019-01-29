@@ -20,7 +20,6 @@ import static java.lang.String.format;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -49,6 +48,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -67,7 +68,6 @@ abstract class FileTransport implements BuildEventTransport {
 
   private final BuildEventProtocolOptions options;
   private final BuildEventArtifactUploader uploader;
-  private final Consumer<AbruptExitException> exitFunc;
   @VisibleForTesting final SequentialWriter writer;
 
   FileTransport(
@@ -77,7 +77,6 @@ abstract class FileTransport implements BuildEventTransport {
       Consumer<AbruptExitException> exitFunc) {
     this.uploader = uploader;
     this.options = options;
-    this.exitFunc = exitFunc;
     this.writer = new SequentialWriter(path, this::serializeEvent, exitFunc, uploader);
   }
 
@@ -143,12 +142,11 @@ abstract class FileTransport implements BuildEventTransport {
             prevFlush = now;
           }
         }
-      } catch (Exception e) {
-        exitFunc.accept(
-            new AbruptExitException(
-                "Failed to write BEP events to file.", ExitCode.PUBLISH_ERROR, e));
-        pendingWrites.clear();
-        logger.log(Level.SEVERE, "Failed to write BEP events to file.", e);
+      } catch (ExecutionException e) {
+        Throwables.throwIfUnchecked(e.getCause());
+        exitFailure(e);
+      } catch (IOException | InterruptedException | CancellationException e) {
+        exitFailure(e);
       } finally {
         try {
           try {
@@ -164,7 +162,15 @@ abstract class FileTransport implements BuildEventTransport {
       }
     }
 
-    public void closeNow() {
+    private void exitFailure(Throwable e) {
+      exitFunc.accept(
+          new AbruptExitException(
+              "Failed to write BEP events to file.", ExitCode.PUBLISH_ERROR, e));
+      pendingWrites.clear();
+      logger.log(Level.SEVERE, "Failed to write BEP events to file.", e);
+    }
+
+    void closeNow() {
       if (closeFuture.isDone()) {
         return;
       }
@@ -206,11 +212,6 @@ abstract class FileTransport implements BuildEventTransport {
   @Override
   public ListenableFuture<Void> close() {
     return writer.close();
-  }
-
-  @Override
-  public synchronized void closeNow() {
-    writer.closeNow();
   }
 
   /**
@@ -260,23 +261,11 @@ abstract class FileTransport implements BuildEventTransport {
       // same file, so just skip either one
       localFileMap.putIfAbsent(localFile.path, localFile);
     }
-    ListenableFuture<PathConverter> upload = uploader.upload(localFileMap);
-    Futures.addCallback(
-        upload,
-        new FutureCallback<PathConverter>() {
-          @Override
-          public void onSuccess(PathConverter result) {
-            // Intentionally left empty.
-          }
+    return uploader.upload(localFileMap);
+  }
 
-          @Override
-          public void onFailure(Throwable t) {
-            exitFunc.accept(
-                new AbruptExitException(
-                    Throwables.getStackTraceAsString(t), ExitCode.PUBLISH_ERROR, t));
-          }
-        },
-        MoreExecutors.directExecutor());
-    return upload;
+  @Override
+  public BuildEventArtifactUploader getUploader() {
+    return uploader;
   }
 }

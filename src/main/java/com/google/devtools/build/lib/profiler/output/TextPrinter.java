@@ -58,6 +58,12 @@ public abstract class TextPrinter {
     out.println();
   }
 
+  /** print text and a newline */
+  protected void printLn(String text) {
+    out.print(text);
+    printLn();
+  }
+
   /**
    * newline and indent by current indentation level
    */
@@ -73,14 +79,6 @@ public abstract class TextPrinter {
   protected void lnPrint(Object text) {
     lnIndent();
     out.print(text);
-  }
-
-  /**
-   * print text and a newline
-   */
-  protected void printLn(String text) {
-    out.print(text);
-    printLn();
   }
 
   /**

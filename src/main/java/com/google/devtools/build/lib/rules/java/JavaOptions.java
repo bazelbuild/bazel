@@ -85,7 +85,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_toolchain",
-      defaultValue = "@bazel_tools//tools/jdk:toolchain",
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -94,7 +94,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "host_java_toolchain",
-      defaultValue = "@bazel_tools//tools/jdk:toolchain",
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -113,21 +113,8 @@ public class JavaOptions extends FragmentOptions {
   public Label hostJavaBase;
 
   @Option(
-      name = "incompatible_use_remotejdk_as_host_javabase",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If enabled, uses a JDK downloaded from a remote repository instead of the embedded JDK.")
-  public boolean useRemoteJdkAsHostJavaBase;
-
-  @Option(
       name = "incompatible_use_jdk10_as_host_javabase",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
@@ -136,6 +123,18 @@ public class JavaOptions extends FragmentOptions {
       },
       help = "If enabled, the default --host_javabase is JDK 10.")
   public boolean useJDK10AsHostJavaBase;
+
+  @Option(
+      name = "incompatible_use_jdk11_as_host_javabase",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If enabled, the default --host_javabase is JDK 11.")
+  public boolean useJDK11AsHostJavaBase;
 
   @Option(
       name = "javacopt",
@@ -216,14 +215,14 @@ public class JavaOptions extends FragmentOptions {
   public boolean javaDeps;
 
   @Option(
-      name = "java_classpath",
+      name = "experimental_java_classpath",
       allowMultiple = false,
       defaultValue = "javabuilder",
       converter = JavaClasspathModeConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Enables reduced classpaths for Java compilations.",
-      oldName = "experimental_java_classpath")
+      oldName = "java_classpath")
   public JavaClasspathMode javaClasspath;
 
   @Option(
@@ -245,7 +244,7 @@ public class JavaOptions extends FragmentOptions {
   public Void javaTestDebug;
 
   @Option(
-      name = "strict_java_deps",
+      name = "experimental_strict_java_deps",
       allowMultiple = false,
       defaultValue = "default",
       converter = StrictDepsConverter.class,
@@ -254,7 +253,7 @@ public class JavaOptions extends FragmentOptions {
       help =
           "If true, checks that a Java target explicitly declares all directly used "
               + "targets as dependencies.",
-      oldName = "strict_android_deps")
+      oldName = "strict_java_deps")
   public StrictDepsMode strictJavaDeps;
 
   @Option(
@@ -460,24 +459,15 @@ public class JavaOptions extends FragmentOptions {
               + "'strict_deps' attribute.")
   public boolean strictDepsJavaProtos;
 
-  // TODO(twerth): Remove flag after it's turned on globally.
   @Option(
-      name = "experimental_proto_generated_strict_deps",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help = "Enables strict deps mode for the java compilation of proto generated Java code.")
-  public boolean protoGeneratedStrictDeps;
-
-  @Option(
-      name = "experimental_enable_java_proto_exports",
+      name = "disallow_strict_deps_for_jpl",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
-          "Enables exports forwarding for proto_library targets depended on by "
-              + "java_proto_library targets.")
-  public boolean isJavaProtoExportsEnabled;
+          "If set, any java_proto_library or java_mutable_proto_library which sets the "
+              + "strict_deps attribute explicitly will fail to build.")
+  public boolean isDisallowStrictDepsForJpl;
 
   @Option(
       name = "experimental_java_header_compilation_disable_javac_fallback",
@@ -555,6 +545,17 @@ public class JavaOptions extends FragmentOptions {
       help = "Roll-out flag for making java_proto_library propagate CcLinkParamsStore. DO NOT USE.")
   public boolean jplPropagateCcLinkParamsStore;
 
+  @Option(
+      name = "experimental_jlpl_enforce_strict_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help =
+          "Turns on strict deps for all java_lite_proto_libraries even if they set strict_deps=0"
+              + " unless the java_library package disables the feature jpl_strict_deps."
+              + " Used for java_lite_proto_library.strict_deps migration.")
+  public boolean isJlplStrictDepsEnforced;
+
   // Plugins are built using the host config. To avoid cycles we just don't propagate
   // this option to the host config. If one day we decide to use plugins when building
   // host tools, we can improve this by (for example) creating a compiler configuration that is
@@ -583,17 +584,80 @@ public class JavaOptions extends FragmentOptions {
               + "--java_header_compilation is enabled.")
   public boolean requireJavaToolchainHeaderCompilerDirect;
 
+  @Option(
+      name = "incompatible_use_remote_java_toolchain",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If enabled, uses the remote Java tools for the default --java_toolchain. "
+              + "See #7196.")
+  public boolean useRemoteJavaToolchain;
+
+  @Option(
+      name = "incompatible_use_remote_host_java_toolchain",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If enabled, uses the remote Java tools for the default --host_java_toolchain. "
+              + "See #7197.")
+  public boolean useRemoteHostJavaToolchain;
+
+  @Option(
+      name = "incompatible_disallow_resource_jars",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Disables the resource_jars attribute; use java_import and deps or runtime_deps instead.")
+  public boolean disallowResourceJars;
+
   private Label getHostJavaBase() {
     if (hostJavaBase == null) {
+      if (useJDK11AsHostJavaBase) {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk11");
+      }
       if (useJDK10AsHostJavaBase) {
         return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk10");
-      } else if (useRemoteJdkAsHostJavaBase) {
-        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk");
-      } else {
-        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:host_jdk");
       }
+      return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:host_jdk");
     }
     return hostJavaBase;
+  }
+
+  private Label getHostJavaToolchain() {
+    if (hostJavaToolchain == null) {
+      if (useRemoteHostJavaToolchain) {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_toolchain");
+      } else {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:toolchain");
+      }
+    }
+    return hostJavaToolchain;
+  }
+
+  Label getJavaToolchain() {
+    if (javaToolchain == null) {
+      if (useRemoteJavaToolchain) {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_toolchain");
+      } else {
+        return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:toolchain");
+      }
+    }
+    return javaToolchain;
   }
 
   @Override
@@ -604,7 +668,7 @@ public class JavaOptions extends FragmentOptions {
     host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
 
     host.javacOpts = hostJavacOpts;
-    host.javaToolchain = hostJavaToolchain;
+    host.javaToolchain = getHostJavaToolchain();
 
     host.javaLauncher = hostJavaLauncher;
 
@@ -628,10 +692,11 @@ public class JavaOptions extends FragmentOptions {
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
-    host.protoGeneratedStrictDeps = protoGeneratedStrictDeps;
-    host.isJavaProtoExportsEnabled = isJavaProtoExportsEnabled;
+    host.isJlplStrictDepsEnforced = isJlplStrictDepsEnforced;
 
     host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
+
+    host.disallowResourceJars = disallowResourceJars;
 
     return host;
   }
@@ -640,7 +705,7 @@ public class JavaOptions extends FragmentOptions {
   public Map<String, Set<Label>> getDefaultsLabels() {
     Map<String, Set<Label>> result = new HashMap<>();
     result.put("JDK", ImmutableSet.of(javaBase, getHostJavaBase()));
-    result.put("JAVA_TOOLCHAIN", ImmutableSet.of(javaToolchain));
+    result.put("JAVA_TOOLCHAIN", ImmutableSet.of(getJavaToolchain()));
 
     return result;
   }

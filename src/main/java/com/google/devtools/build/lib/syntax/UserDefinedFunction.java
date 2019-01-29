@@ -66,7 +66,8 @@ public class UserDefinedFunction extends BaseFunction {
 
     ImmutableList<String> names = signature.getSignature().getNames();
     LexicalFrame lexicalFrame = LexicalFrame.create(env.mutability(), /*numArgs=*/ names.size());
-    try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.SKYLARK_USER_FN, getName())) {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.STARLARK_USER_FN, getName())) {
       env.enterScope(this, lexicalFrame, ast, definitionGlobals);
 
       // Registering the functions's arguments as variables in the local Environment
@@ -101,7 +102,7 @@ public class UserDefinedFunction extends BaseFunction {
 
   @Override
   public void repr(SkylarkPrinter printer) {
-    Label label = this.definitionGlobals.getTransitiveLabel();
+    Label label = this.definitionGlobals.getLabel();
 
     printer.append("<function " + getName());
     if (label != null) {

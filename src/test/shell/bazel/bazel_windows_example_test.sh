@@ -17,16 +17,55 @@
 # Tests the examples provided in Bazel with MSVC toolchain
 #
 
-if ! type rlocation &> /dev/null; then
-  # We do not care about this test on old Bazel releases.
-  exit 0
+set -euo pipefail
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    if [[ -f "$0.runfiles_manifest" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+    elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+    elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+      export RUNFILES_DIR="$0.runfiles"
+    fi
 fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
 
 # Load the test setup defined in the parent directory
 source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if ! is_windows; then
+# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
+# `tr` converts all upper case letters to lower case.
+# `case` matches the result if the `uname | tr` expression to string prefixes
+# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
+# starting with "msys", and "*" matches everything (it's the default case).
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*)
+  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  # Disable MSYS path conversion that converts path-looking command arguments to
+  # Windows paths (even if they arguments are not in fact paths).
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
+
+if ! "$is_windows"; then
   echo "This test suite requires running on Windows. But now is ${PLATFORM}" >&2
   exit 0
 fi
@@ -34,10 +73,6 @@ fi
 function set_up() {
   copy_examples
   setup_bazelrc
-  cat >>"$TEST_TMPDIR/bazelrc" <<EOF
-# Workaround for https://github.com/bazelbuild/bazel/issues/2983
-startup --host_jvm_args=-Dbazel.windows_unix_root=C:/fake/msys
-EOF
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
 }
@@ -76,6 +111,45 @@ function test_cpp() {
   expect_log "Hello foo"
   assert_test_ok "//examples/cpp:hello-success_test"
   assert_test_fails "//examples/cpp:hello-fail_test"
+}
+
+function test_cpp_with_msys_gcc() {
+  local cpp_pkg=examples/cpp
+  assert_build_output \
+    ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
+    --compiler=msys-gcc
+  assert_build_output \
+    ./bazel-bin/${cpp_pkg}/libhello-lib.so ${cpp_pkg}:hello-lib\
+    --compiler=msys-gcc --output_groups=dynamic_library
+  assert_build ${cpp_pkg}:hello-world --compiler=msys-gcc
+  ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
+    || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
+  expect_log "Hello foo"
+  assert_test_ok "//examples/cpp:hello-success_test" --compiler=msys-gcc
+  assert_test_fails "//examples/cpp:hello-fail_test" --compiler=msys-gcc
+}
+
+function test_cpp_with_mingw_gcc() {
+  local cpp_pkg=examples/cpp
+  ( # /mingw64/bin should be in PATH because during runtime the built binary
+    # depends on some dynamic libraries in this directory.
+  export PATH="/mingw64/bin:$PATH"
+  assert_build_output \
+    ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
+    --compiler=mingw-gcc --experimental_strict_action_env
+  assert_build_output \
+    ./bazel-bin/${cpp_pkg}/libhello-lib.so ${cpp_pkg}:hello-lib\
+    --compiler=mingw-gcc --output_groups=dynamic_library \
+    --experimental_strict_action_env
+  assert_build ${cpp_pkg}:hello-world --compiler=mingw-gcc \
+    --experimental_strict_action_env
+  ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
+    || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
+  expect_log "Hello foo"
+  assert_test_ok "//examples/cpp:hello-success_test" --compiler=mingw-gcc \
+    --experimental_strict_action_env --test_env=PATH
+  assert_test_fails "//examples/cpp:hello-fail_test" --compiler=mingw-gcc \
+    --experimental_strict_action_env --test_env=PATH)
 }
 
 function test_cpp_alwayslink() {
@@ -197,7 +271,7 @@ function test_native_python() {
 }
 
 function test_native_python_with_runfiles() {
-  BUILD_FLAGS="--experimental_enable_runfiles --build_python_zip=0"
+  BUILD_FLAGS="--enable_runfiles --build_python_zip=0"
   bazel build -s --verbose_failures $BUILD_FLAGS //examples/py_native:bin \
     || fail "Failed to build //examples/py_native:bin with runfiles support"
   (

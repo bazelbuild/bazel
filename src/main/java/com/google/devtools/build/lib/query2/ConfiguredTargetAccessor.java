@@ -175,9 +175,9 @@ class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
               .getPackage()
               .getTarget(label.getName());
     } catch (NoSuchTargetException e) {
-      throw new IllegalStateException("Unable to get target from package in accessor.");
+      throw new IllegalStateException("Unable to get target from package in accessor.", e);
     } catch (InterruptedException e2) {
-      throw new IllegalStateException("Thread interrupted in the middle of getting a Target.");
+      throw new IllegalStateException("Thread interrupted in the middle of getting a Target.", e2);
     }
     return target;
   }

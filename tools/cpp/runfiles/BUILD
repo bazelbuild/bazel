@@ -21,6 +21,15 @@ filegroup(
     visibility = ["//tools/cpp:__pkg__"],
 )
 
+# Rewrite the include path for runfiles.h in runfiles_src.cc, and create
+# "generated_runfiles.{h,cc}". These files are renamed to "runfiles.{h,cc}" as
+# part of creating the embedded tools of Bazel.
+#
+# We cannot just check in runfiles_src.{h,cc} as runfiles.{h,cc}, because it'd
+# cause a header check failure on Windows when building targets in the Bazel
+# source tree, if those targets depend on @bazel_tools//tools/cpp/runfiles,
+# because due to lack of sandboxing they would accidentally pick up runfiles.h
+# from //tools/cpp/runfiles.
 genrule(
     name = "srcs_for_embedded_tools",
     srcs = [
@@ -31,6 +40,8 @@ genrule(
         "generated_runfiles.cc",
         "generated_runfiles.h",
     ],
+    # Keep this transformation logic in sync with the
+    # //scripts/bootstrap/compile.sh
     cmd = ("sed " +
            "  's|^#include.*/runfiles_src.h.*|#include \"tools/cpp/runfiles/runfiles.h\"|' " +
            "  $(location runfiles_src.cc) > $(location generated_runfiles.cc) && " +
@@ -42,24 +53,6 @@ cc_library(
     testonly = 1,
     srcs = ["runfiles_src.cc"],
     hdrs = ["runfiles_src.h"],
-)
-
-# As of 2018-10-01, singlejar needs to temporarily use the C++ runfiles library
-# from source, not from @bazel_tools.
-# Nothing else should depend on this target.
-#
-# TODO(laszlocsomor): remove this library after Bazel is released with
-# https://github.com/bazelbuild/bazel/commit/23bc3bee79d8a8b8dc15bbfb6072ec9f965dff96.
-# Once Bazel is released with that patch, do the following:
-# 1. remove this library
-# 2. let Singlejar depend on @bazel_tools//tools/cpp/runfiles
-# 3. change Singlejar's sources to include "tools/cpp/runfiles.h" instead of
-#    "tools/cpp/runfiles_src.h"
-cc_library(
-    name = "runfiles_src_for_singlejar_only",
-    testonly = 1,
-    visibility = ["//src/tools/singlejar:__pkg__"],
-    deps = [":runfiles"],
 )
 
 cc_test(

@@ -32,7 +32,6 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.FutureTask;
 
 /** IncludeScannerSupplier implementation. */
 public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
@@ -77,7 +76,7 @@ public class IncludeScannerSupplierImpl implements IncludeScannerSupplier {
    * Cache of include scan results mapping source paths to sets of scanned inclusions. Shared by all
    * scanner instances.
    */
-  private final ConcurrentMap<Artifact, FutureTask<Collection<Inclusion>>> includeParseCache =
+  private final ConcurrentMap<Artifact, Collection<Inclusion>> includeParseCache =
       new ConcurrentHashMap<>();
 
   /** Map of grepped include files from input (.cc or .h) to a header-grepped file. */

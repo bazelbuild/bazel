@@ -29,7 +29,6 @@ make builds significantly faster.
 * [Disk cache](#disk-cache)
 * [Known Issues](#known-issues)
 * [External Links](#external-links)
-* [Bazel remote execution (in development)](#bazel-remote-execution-in-development)
 
 ## Remote caching overview
 
@@ -333,12 +332,6 @@ You can pass a user-specific path to the `--disk_cache` flag using the `~` alias
 when enabling the disk cache for all developers of a project via the project's
 checked in `.bazelrc` file.
 
-To enable cache hits across different workspaces, use the following flag:
-
-```
-build --experimental_strict_action_env
-```
-
 ## Known issues
 
 **Input file modification during a build**
@@ -353,15 +346,14 @@ build.
 
 **Environment variables leaking into an action**
 
-An action definition contains environment variables. This can be a problem
-for sharing remote cache hits across machines. For example, environments
-with different `$PATH` variables won't share cache hits. You can specify
-`--experimental_strict_action_env` to ensure that that's not the case and
-that only environment variables explicitly whitelisted via `--action_env`
-are included in an action definition. Bazel's Debian/Ubuntu package used
-to install `/etc/bazel.bazelrc` with a whitelist of environment variables
-including `$PATH`. If you are getting fewer cache hits than expected, check
-that your environment doesn't have an old `/etc/bazel.bazelrc` file.
+An action definition contains environment variables. This can be a problem for
+sharing remote cache hits across machines. For example, environments with
+different `$PATH` variables won't share cache hits. Only environment variables
+explicitly whitelisted via `--action_env` are included in an action
+definition. Bazel's Debian/Ubuntu package used to install `/etc/bazel.bazelrc`
+with a whitelist of environment variables including `$PATH`. If you are getting
+fewer cache hits than expected, check that your environment doesn't have an old
+`/etc/bazel.bazelrc` file.
 
 
 **Bazel does not track tools outside a workspace**
@@ -379,8 +371,8 @@ watch [issue #4558] for updates.
 * **Faster Bazel builds with remote caching: a benchmark:** Nicolò Valigi wrote a [blog post](https://nicolovaligi.com/faster-bazel-remote-caching-benchmark.html) in which he benchmarks remote caching in Bazel.
 
 
-[Adapting Rules for Remote Execution](https://docs.bazel.build/versions/master/remote-execution-rules.html)
-[Troubleshooting Remote Execution](https://docs.bazel.build/versions/master/remote-execution-sandbox.html)
+[Adapting Rules for Remote Execution]: https://docs.bazel.build/versions/master/remote-execution-rules.html
+[Troubleshooting Remote Execution]: https://docs.bazel.build/versions/master/remote-execution-sandbox.html
 [WebDAV module]: http://nginx.org/en/docs/http/ngx_http_dav_module.html
 [docker image]: https://hub.docker.com/r/buchgr/bazel-remote-cache/
 [GitHub]: https://github.com/buchgr/bazel-remote/

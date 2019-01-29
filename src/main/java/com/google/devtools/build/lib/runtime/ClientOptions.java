@@ -78,7 +78,7 @@ public class ClientOptions extends OptionsBase {
       try {
         blazeRc = Integer.valueOf(input.substring(0, colonPos));
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException(ERROR_MESSAGE);
+        throw new OptionsParsingException(ERROR_MESSAGE, e);
       }
 
       if (blazeRc < 0) {

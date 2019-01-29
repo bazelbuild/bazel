@@ -20,8 +20,4 @@ java_library(
     name = "annotations_internal",
     srcs = glob(["*.java"]),
     visibility = ["//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:__pkg__"],
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
 )

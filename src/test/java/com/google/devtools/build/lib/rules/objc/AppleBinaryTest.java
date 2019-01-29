@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -1301,8 +1301,8 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         ")");
 
     ConfiguredTarget bundleTarget = getConfiguredTarget("//examples:bundle");
-    InstrumentedFilesProvider instrumentedFilesProvider =
-        bundleTarget.getProvider(InstrumentedFilesProvider.class);
+    InstrumentedFilesInfo instrumentedFilesProvider =
+        bundleTarget.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
     assertThat(instrumentedFilesProvider).isNotNull();
 
     assertThat(Artifact.toRootRelativePaths(instrumentedFilesProvider.getInstrumentedFiles()))

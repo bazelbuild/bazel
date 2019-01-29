@@ -63,8 +63,9 @@ public class SlowZipReader extends ZipReader {
       public int read() throws IOException {
         return in.read();
       }
+
       @Override
-      public int read(byte b[], int off, int len) throws IOException {
+      public int read(byte[] b, int off, int len) throws IOException {
         checkArgument(b != null);
         checkArgument((len >= 0) && (off >= 0));
         checkArgument(len <= b.length - off);
@@ -78,6 +79,7 @@ public class SlowZipReader extends ZipReader {
         b[off] = (byte) value;
         return 1;
       }
+
       @Override
       public long skip(long n) throws IOException {
         return super.skip(1);

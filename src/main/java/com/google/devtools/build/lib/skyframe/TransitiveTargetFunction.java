@@ -126,8 +126,7 @@ public class TransitiveTargetFunction
       EventHandler eventHandler,
       TargetAndErrorIfAny targetAndErrorIfAny,
       Iterable<Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
-          depEntries)
-      throws InterruptedException {
+          depEntries) {
     boolean successfulTransitiveLoading = builder.isSuccessfulTransitiveLoading();
     Target target = targetAndErrorIfAny.getTarget();
     NestedSetBuilder<Label> transitiveRootCauses = builder.getTransitiveRootCauses();
@@ -303,8 +302,7 @@ public class TransitiveTargetFunction
   }
 
   private static void maybeReportErrorAboutMissingEdge(
-      Target target, Label depLabel, NoSuchThingException e, EventHandler eventHandler)
-      throws InterruptedException {
+      Target target, Label depLabel, NoSuchThingException e, EventHandler eventHandler) {
     if (e instanceof NoSuchTargetException) {
       NoSuchTargetException nste = (NoSuchTargetException) e;
       if (depLabel.equals(nste.getLabel())) {

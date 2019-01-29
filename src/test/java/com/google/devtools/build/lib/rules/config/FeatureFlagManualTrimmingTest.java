@@ -94,8 +94,9 @@ public final class FeatureFlagManualTrimmingTest extends SkylarkTestCase {
         ")");
   }
 
-  private ImmutableSortedMap<Label, String> getFlagMapFromConfiguration(BuildConfiguration config) {
-    return config.getOptions().get(ConfigFeatureFlagOptions.class).getFlagValues();
+  private ImmutableSortedMap<Label, String> getFlagMapFromConfiguration(BuildConfiguration config)
+      throws Exception {
+    return FeatureFlagValue.getFlagValues(config.getOptions());
   }
 
   private ImmutableSortedMap<Label, String> getFlagValuesFromOutputFile(Artifact flagDict) {

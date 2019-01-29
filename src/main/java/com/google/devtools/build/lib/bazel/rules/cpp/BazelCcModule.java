@@ -19,15 +19,13 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
-import com.google.devtools.build.lib.rules.cpp.CcModule.CcSkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -41,17 +39,17 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
  */
 public class BazelCcModule extends CcModule
     implements BazelCcModuleApi<
+        Artifact,
+        SkylarkRuleContext,
         CcToolchainProvider,
         FeatureConfiguration,
         CompilationInfo,
         CcCompilationContext,
         CcCompilationOutputs,
         LinkingInfo,
-        CcLinkingInfo,
-        CcToolchainVariables,
-        LibraryToLink,
-        CcLinkParams,
-        CcSkylarkInfo> {
+        CcLinkingContext,
+        LibraryToLinkWrapper,
+        CcToolchainVariables> {
 
   @Override
   public CompilationInfo compile(
@@ -89,7 +87,7 @@ public class BazelCcModule extends CcModule
       CcCompilationOutputs ccCompilationOutputs,
       Object skylarkLinkopts,
       Object dynamicLibrary,
-      SkylarkList<CcLinkingInfo> skylarkCcLinkingInfos,
+      SkylarkList<CcLinkingContext> skylarkCcLinkingContexts,
       boolean neverLink)
       throws InterruptedException, EvalException {
     return BazelCcModule.link(
@@ -101,7 +99,7 @@ public class BazelCcModule extends CcModule
         skylarkLinkopts,
         /* shouldCreateStaticLibraries= */ true,
         dynamicLibrary,
-        skylarkCcLinkingInfos,
+        skylarkCcLinkingContexts,
         neverLink);
   }
 }

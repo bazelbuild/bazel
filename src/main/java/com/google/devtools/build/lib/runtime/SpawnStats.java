@@ -22,22 +22,56 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.concurrent.ThreadSafe;
 
 /** Collects results from SpawnResult. */
 @ThreadSafe
-class SpawnStats {
-  private final ConcurrentHashMultiset<String> runners = ConcurrentHashMultiset.create();
+public class SpawnStats {
   private static final ImmutableList<String> REPORT_FIRST = ImmutableList.of("remote cache hit");
+
+  private final ConcurrentHashMultiset<String> runners = ConcurrentHashMultiset.create();
+  private final AtomicLong totalWallTimeMillis = new AtomicLong();
 
   public void countActionResult(ActionResult actionResult) {
     for (SpawnResult r : actionResult.spawnResults()) {
       countRunnerName(r.getRunnerName());
+      totalWallTimeMillis.addAndGet(r.getMetrics().executionWallTime().toMillis());
     }
   }
 
   public void countRunnerName(String runner) {
     runners.add(runner);
+  }
+
+  public long getTotalWallTimeMillis() {
+    return totalWallTimeMillis.get();
+  }
+
+  /*
+   * Returns a human-readable summary of spawns counted.
+   */
+  public String getSummary() {
+    ResultString result = new ResultString();
+
+    // First report cache results.
+    for (String s : REPORT_FIRST) {
+      int count = runners.setCount(s, 0);
+      if (count > 0) {
+        result.add(s, count);
+      }
+    }
+
+    // Sort the rest alphabetically
+    ArrayList<Multiset.Entry<String>> list = new ArrayList<>(runners.entrySet());
+    Collections.sort(list, Comparator.comparing(e -> e.getElement()));
+
+    for (Multiset.Entry<String> e : list) {
+      result.add(e.getElement(), e.getCount());
+    }
+
+    int total = result.spawnsCount();
+    return total + " process" + (total == 1 ? "" : "es") + result + ".";
   }
 
   private static class ResultString {
@@ -68,31 +102,5 @@ class SpawnStats {
       }
       return ": " + result;
     }
-  }
-
-  /*
-   * Returns a human-readable summary of spawns counted.
-   */
-  public String getSummary() {
-    ResultString result = new ResultString();
-
-    // First report cache results.
-    for (String s : REPORT_FIRST) {
-      int count = runners.setCount(s, 0);
-      if (count > 0) {
-        result.add(s, count);
-      }
-    }
-
-    // Sort the rest alphabetically
-    ArrayList<Multiset.Entry<String>> list = new ArrayList<>(runners.entrySet());
-    Collections.sort(list, Comparator.comparing(e -> e.getElement()));
-
-    for (Multiset.Entry<String> e : list) {
-      result.add(e.getElement(), e.getCount());
-    }
-
-    int total = result.spawnsCount();
-    return total + " process" + (total == 1 ? "" : "es") + result + ".";
   }
 }

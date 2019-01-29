@@ -1,6 +1,6 @@
 # min / max
 
-assert_eq(min("abcdefxyz"), "a")
+assert_eq(min("abcdefxyz".elems()), "a")
 assert_eq(min("test", "xyz"), "test")
 
 assert_eq(min([4, 5], [1]), [1])
@@ -15,7 +15,7 @@ assert_eq(min(5, 2, 3), 2)
 assert_eq(min(1, 1, 1, 1, 1, 1), 1)
 assert_eq(min([1, 1, 1, 1, 1, 1]), 1)
 
-assert_eq(max("abcdefxyz"), "z")
+assert_eq(max("abcdefxyz".elems()), "z")
 assert_eq(max("test", "xyz"), "xyz")
 assert_eq(max("test", "xyz"), "xyz")
 assert_eq(max([1, 2], [5]), [5])

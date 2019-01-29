@@ -57,9 +57,11 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.util.ArrayList;
@@ -136,28 +138,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
     }
 
     /**
-     * Adds mapping of names to values of "Make" variables defined by this configuration.
-     */
-    @SuppressWarnings("unused")
-    public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    }
-
-    /**
      * Returns a fragment of the output directory name for this configuration. The output
      * directory for the whole configuration contains all the short names by all fragments.
      */
     @Nullable
     public String getOutputDirectoryName() {
       return null;
-    }
-
-    /**
-     * Returns { 'option name': 'alternative default' } entries for options where the
-     * "real default" should be something besides the default specified in the {@link Option}
-     * declaration.
-     */
-    public Map<String, Object> lateBoundOptionDefaults() {
-      return ImmutableMap.of();
     }
   }
 
@@ -337,15 +323,20 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * input string.
    */
   public static class Options extends FragmentOptions implements Cloneable {
+    public static final OptionDefinition CPU =
+        OptionsParser.getOptionDefinitionByName(Options.class, "cpu");
+
     @Option(
-      name = "experimental_separate_genfiles_directory",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Whether to have a separate genfiles directory or fold it into the bin directory"
-    )
-    public boolean separateGenfilesDirectory;
+        name = "incompatible_merge_genfiles_directory",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "If true, the genfiles directory is folded into the bin directory.")
+    public boolean mergeGenfilesDirectory;
 
     @Option(
       name = "define",
@@ -597,12 +588,22 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public boolean collectCodeCoverage;
 
     @Option(
-      name = "experimental_java_coverage",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "If true Bazel will use a new way of computing code coverage for java targets."
-    )
+        name = "incompatible_java_coverage",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        oldName = "experimental_java_coverage",
+        help =
+            "If true Bazel will use a new way of computing code coverage for java targets. "
+                + "It allows collecting  coverage for Starlark JVM rules and java_import. "
+                + "Only includes JVM files in the coverage report (e.g. dismisses data files). "
+                + "The report includes the actual path of the files relative to the workspace root "
+                + "instead of the package path (e.g. src/com/google/Action.java instead of "
+                + "com/google/Action.java.")
     public boolean experimentalJavaCoverage;
 
     @Option(
@@ -786,17 +787,16 @@ public class BuildConfiguration implements BuildConfigurationApi {
     )
     public boolean isHost;
 
-    // TODO(cparsons): Make this flag non-experimental when it is fully implemented.
     @Option(
-        name = "experimental_allow_analysis_failures",
+        name = "allow_analysis_failures",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.TESTING,
-        effectTags = { OptionEffectTag.LOADING_AND_ANALYSIS },
-        metadataTags = { OptionMetadataTag.EXPERIMENTAL },
-        help = "If true, an analysis failure of a rule target results in the target's propagation "
-            + "of an instance of AnalysisFailureInfo containing the error description, instead of "
-            + "resulting in a build failure."
-    )
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help =
+            "If true, an analysis failure of a rule target results in the target's propagation "
+                + "of an instance of AnalysisFailureInfo containing the error description, instead "
+                + "of resulting in a build failure.")
     public boolean allowAnalysisFailures;
 
     @Option(
@@ -863,29 +863,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     )
     public Label autoCpuEnvironmentGroup;
 
-    /** The source of make variables for this configuration. */
-    public enum MakeVariableSource {
-      CONFIGURATION,
-      TOOLCHAIN
-    }
-
-    /** Converter for --make_variables_source. */
-    public static class MakeVariableSourceConverter extends EnumConverter<MakeVariableSource> {
-      public MakeVariableSourceConverter() {
-        super(MakeVariableSource.class, "Make variable source");
-      }
-    }
-
-    @Option(
-      name = "make_variables_source",
-      converter = MakeVariableSourceConverter.class,
-      defaultValue = "configuration",
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN}
-    )
-    public MakeVariableSource makeVariableSource;
-
     /** Values for --experimental_dynamic_configs. */
     public enum ConfigsMode {
       /** Only include the configuration fragments each rule needs. */
@@ -894,31 +871,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
       NOTRIM,
     }
 
-    @Option(
-        name = "experimental_use_late_bound_option_defaults",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-        help =
-            "Do not use this flag. Use --incompatible_disable_late_bound_option_defaults instead.")
-    public boolean useLateBoundOptionDefaults;
-
-    @Option(
-        name = "incompatible_disable_late_bound_option_defaults",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help =
-            "When true, Bazel will not allow late bound values read from the CROSSTOOL file "
-                + "to be used in config_settings. The CROSSTOOL field used in this manner is "
-                + "'compiler'. Instead of config_setting(values = {'compiler': 'x'}), "
-                + "config_setting(flag_values = {'@bazel_tools/tools/cpp:compiler': 'x'}) should "
-                + "be used.")
-    public boolean incompatibleDisableLateBoundOptionDefaults;
 
     /**
      * Converter for --experimental_dynamic_configs.
@@ -946,13 +898,13 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public ConfigsMode configsMode;
 
     @Option(
-      name = "experimental_enable_runfiles",
-      defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = { OptionEffectTag.AFFECTS_OUTPUTS },
-      metadataTags = { OptionMetadataTag.EXPERIMENTAL },
-      help = "Enable runfiles; off on Windows, on on other platforms"
-    )
+        name = "enable_runfiles",
+        oldName = "experimental_enable_runfiles",
+        defaultValue = "auto",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "Enable runfiles symlink tree; By default, it's off on Windows, on on other platforms.")
     public TriState enableRunfiles;
 
     @Option(
@@ -993,7 +945,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       host.executionInfoModifier = executionInfoModifier;
       host.commandLineBuildVariables = commandLineBuildVariables;
       host.enforceConstraints = enforceConstraints;
-      host.separateGenfilesDirectory = separateGenfilesDirectory;
+      host.mergeGenfilesDirectory = mergeGenfilesDirectory;
       host.cpu = hostCpu;
 
       // === Runfiles ===
@@ -1125,7 +1077,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private final ArtifactRoot testlogsDirectoryForMainRepository;
   private final ArtifactRoot middlemanDirectoryForMainRepository;
 
-  private final boolean separateGenfilesDirectory;
+  private final boolean mergeGenfilesDirectory;
 
   /**
    * The global "make variables" such as "$(TARGET_CPU)"; these get applied to all rules analyzed in
@@ -1284,7 +1236,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     this.buildOptions = buildOptions.clone();
     this.buildOptionsDiff = buildOptionsDiff;
     this.options = buildOptions.get(Options.class);
-    this.separateGenfilesDirectory = options.separateGenfilesDirectory;
+    this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
     this.mainRepositoryName = mainRepositoryName;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
@@ -1320,16 +1272,9 @@ public class BuildConfiguration implements BuildConfigurationApi {
     this.testEnv = setupTestEnvironment();
 
     this.transitiveOptionDetails =
-        computeOptionsMap(
-            buildOptions,
-            fragments.values(),
-            (options.useLateBoundOptionDefaults
-                && !options.incompatibleDisableLateBoundOptionDefaults));
+        TransitiveOptionDetails.forOptions(buildOptions.getNativeOptions());
 
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
-    for (Fragment fragment : fragments.values()) {
-      fragment.addGlobalMakeVariables(globalMakeEnvBuilder);
-    }
 
     // TODO(configurability-team): Deprecate TARGET_CPU in favor of platforms.
     globalMakeEnvBuilder.put("TARGET_CPU", options.cpu);
@@ -1424,22 +1369,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return transitiveOptionDetails;
   }
 
-  /** Computes and returns the {@link TransitiveOptionDetails} for this configuration. */
-  private static TransitiveOptionDetails computeOptionsMap(
-      BuildOptions buildOptions, Iterable<Fragment> fragments, boolean useLateBoundOptionDefaults) {
-    // Collect from our fragments "alternative defaults" for options where the default
-    // should be something other than what's specified in Option.defaultValue.
-    Map<String, Object> lateBoundDefaults = Maps.newHashMap();
-    if (useLateBoundOptionDefaults) {
-      for (Fragment fragment : fragments) {
-        lateBoundDefaults.putAll(fragment.lateBoundOptionDefaults());
-      }
-    }
-
-    return TransitiveOptionDetails.forOptionsWithDefaults(
-        buildOptions.getNativeOptions(), lateBoundDefaults);
-  }
-
   private String buildMnemonic() {
     // See explanation at declaration for outputRoots.
     String platformSuffix = (options.platformSuffix != null) ? options.platformSuffix : "";
@@ -1508,13 +1437,17 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   public ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
-    if (!separateGenfilesDirectory) {
+    if (mergeGenfilesDirectory) {
       return getBinDirectory(repositoryName);
     }
 
     return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? genfilesDirectoryForMainRepository
         : OutputDirectory.GENFILES.getRoot(outputDirName, directories, mainRepositoryName);
+  }
+
+  public boolean hasSeparateGenfilesDirectory() {
+    return !mergeGenfilesDirectory;
   }
 
   /**
@@ -1603,7 +1536,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   @Override
   public ImmutableMap<String, String> getLocalShellEnvironment() {
-    return actionEnv.getFixedEnv();
+    return actionEnv.getFixedEnv().toMap();
   }
 
   /**
@@ -1621,7 +1554,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * client environment.)
    */
   @Deprecated // Use getActionEnvironment instead.
-  public ImmutableSet<String> getVariableShellEnvironment() {
+  public Iterable<String> getVariableShellEnvironment() {
     return actionEnv.getInheritedEnv();
   }
 
@@ -1646,12 +1579,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * Returns a new, unordered mapping of names to values of "Make" variables defined by this
    * configuration.
    *
-   * <p>This does *not* include package-defined overrides (e.g. vardef)
-   * and so should not be used by the build logic.  This is used only for
-   * the 'info' command.
+   * <p>This does *not* include package-defined overrides (e.g. vardef) and so should not be used by
+   * the build logic. This is used only for the 'info' command.
    *
-   * <p>Command-line definitions of make enviroments override variables defined by
-   * {@code Fragment.addGlobalMakeVariables()}.
+   * <p>Command-line definitions of make environments override variables defined by {@code
+   * Fragment.addGlobalMakeVariables()}.
    */
   public Map<String, String> getMakeEnvironment() {
     Map<String, String> makeEnvironment = new HashMap<>();
@@ -1756,7 +1688,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   @Override
   public ImmutableMap<String, String> getTestEnv() {
-    return testEnv.getFixedEnv();
+    return testEnv.getFixedEnv().toMap();
   }
 
   /**
@@ -1974,8 +1906,4 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return reservedActionMnemonics;
   }
 
-  public boolean disableLateBoundOptionDefaults() {
-    return options.incompatibleDisableLateBoundOptionDefaults
-        || !options.useLateBoundOptionDefaults;
-  }
 }

@@ -1,6 +1,10 @@
 <a name="#${providerName}"></a>
 #[[##]]# ${providerName}
 
+<pre>
+${util.providerSummary($providerName, $providerInfo)}
+</pre>
+
 ${providerInfo.docString}
 
 #if (!$providerInfo.fields.isEmpty())
@@ -13,7 +17,7 @@ ${providerInfo.docString}
   </colgroup>
   <tbody>
 #foreach ($field in $providerInfo.fields)
-    <tr id="#${providerName}_${field.name}">
+    <tr id="${providerName}-${field.name}">
       <td><code>${field.name}</code></td>
       <td>
         <p>${field.docString}</p>

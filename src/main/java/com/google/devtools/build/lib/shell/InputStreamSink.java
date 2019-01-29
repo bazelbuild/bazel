@@ -40,9 +40,8 @@ public final class InputStreamSink {
    */
   private static final byte[] DISCARD = new byte[4096];
 
-  // Supresses default constructor; ensures non-instantiability
-  private InputStreamSink() {
-  }
+  // Suppresses default constructor; ensures non-instantiability
+  private InputStreamSink() {}
 
   /**
    * A {@link Thread} which reads and discards data from an

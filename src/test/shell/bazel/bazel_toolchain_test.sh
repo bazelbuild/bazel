@@ -22,6 +22,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+MACHINE_TYPE="$(uname -m)"
+
 if ! [ "${PLATFORM-}" = "linux" -a "${MACHINE_TYPE}" = "x86_64" ]; then
   echo "Skipping test: linaro toolchain is not supported on this platform"
   exit 0
@@ -33,7 +35,7 @@ cd "${TEST_TMPDIR}/TEMP_TEMP_TEMP"
 
 # Copy the project package here
 # We must use -L here; the files may be symlinks into the source tree, which we
-# could inadvertantly modify below.
+# could inadvertently modify below.
 cp -rL ${testdata_path}/bazel_toolchain_test_data/* .
 
 # Rename WORKSPACE.linaro file to WORKSPACE

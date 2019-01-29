@@ -646,8 +646,8 @@ final class Bundling {
   }
 
   /**
-   * Returns the prefix to be added to all generated artifact names, can be null. This is useful
-   * to disambiguate artifacts for multiple bundles created with different names withing same rule. 
+   * Returns the prefix to be added to all generated artifact names, can be null. This is useful to
+   * disambiguate artifacts for multiple bundles created with different names within same rule.
    */
   public String getArtifactPrefix() {
     return artifactPrefix;

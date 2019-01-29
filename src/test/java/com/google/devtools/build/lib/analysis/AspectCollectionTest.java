@@ -415,10 +415,9 @@ public class AspectCollectionTest {
     }
   }
 
-
   /**
-   * Creates an aspect wiht a class named {@code className} advertizing a provider
-   * {@code className} that requires any of providers {@code requiredAspects}.
+   * Creates an aspect with a class named {@code className} advertizing a provider {@code className}
+   * that requires any of providers {@code requiredAspects}.
    */
   private Aspect createAspect(final String className, String... requiredAspects) {
     ImmutableList.Builder<ImmutableSet<SkylarkProviderIdentifier>> requiredProvidersBuilder =

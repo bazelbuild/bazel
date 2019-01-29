@@ -23,10 +23,9 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMu
 import java.util.List;
 
 /**
- * A buildfiles(x) query expression, which computes the set of BUILD files and
- * subincluded files for each target in set x.  The result is unordered.  This
- * operator is typically used for determinining what files or packages to check
- * out.
+ * A buildfiles(x) query expression, which computes the set of BUILD files and subincluded files for
+ * each target in set x. The result is unordered. This operator is typically used for determining
+ * what files or packages to check out.
  *
  * <pre>expr ::= BUILDFILES '(' expr ')'</pre>
  */

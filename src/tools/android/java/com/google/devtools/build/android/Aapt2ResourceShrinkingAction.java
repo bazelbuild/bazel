@@ -76,6 +76,7 @@ public class Aapt2ResourceShrinkingAction {
           resourcesZip.shrinkUsingProto(
               packages,
               options.shrunkJar,
+              options.rTxt,
               options.proguardMapping,
               options.log,
               scopedTmp.subDirectoryOf("shrunk-resources"))) {
@@ -84,7 +85,7 @@ public class Aapt2ResourceShrinkingAction {
             .writeReportTo(options.log)
             .writeResourcesToZip(options.shrunkResources);
         if (options.rTxtOutput != null) {
-          // Fufill the contract -- however, we do not generate an R.txt from the shrunk
+          // Fulfill the contract -- however, we do not generate an R.txt from the shrunk
           // resources.
           Files.copy(options.rTxt, options.rTxtOutput);
         }

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataContextApi;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Wraps common tools and settings used for working with Android assets, resources, and manifests.
@@ -37,26 +39,30 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataContextA
  * are used in BusyBox actions.
  */
 public class AndroidDataContext implements AndroidDataContextApi {
+
   private final Label label;
   private final ActionConstructionContext actionConstructionContext;
   private final FilesToRunProvider busybox;
   private final AndroidSdkProvider sdk;
   private final boolean persistentBusyboxToolsEnabled;
+  private final boolean useDataBindingV2;
 
   public static AndroidDataContext forNative(RuleContext ruleContext) {
     return makeContext(ruleContext);
   }
 
   public static AndroidDataContext makeContext(RuleContext ruleContext) {
+    AndroidConfiguration androidConfig = ruleContext
+        .getConfiguration()
+        .getFragment(AndroidConfiguration.class);
+
     return new AndroidDataContext(
         ruleContext.getLabel(),
         ruleContext,
         ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST),
-        ruleContext
-            .getConfiguration()
-            .getFragment(AndroidConfiguration.class)
-            .persistentBusyboxTools(),
-        AndroidSdkProvider.fromRuleContext(ruleContext));
+        androidConfig.persistentBusyboxTools(),
+        AndroidSdkProvider.fromRuleContext(ruleContext),
+        androidConfig.useDataBindingV2());
   }
 
   protected AndroidDataContext(
@@ -64,12 +70,14 @@ public class AndroidDataContext implements AndroidDataContextApi {
       ActionConstructionContext actionConstructionContext,
       FilesToRunProvider busybox,
       boolean persistentBusyboxToolsEnabled,
-      AndroidSdkProvider sdk) {
+      AndroidSdkProvider sdk,
+      boolean useDataBindingV2) {
     this.label = label;
     this.persistentBusyboxToolsEnabled = persistentBusyboxToolsEnabled;
     this.actionConstructionContext = actionConstructionContext;
     this.busybox = busybox;
     this.sdk = sdk;
+    this.useDataBindingV2 = useDataBindingV2;
   }
 
   public Label getLabel() {
@@ -111,6 +119,22 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return actionConstructionContext.getUniqueDirectoryArtifact(uniqueDirectorySuffix, relative);
   }
 
+  public Artifact getUniqueDirectoryArtifact(String uniqueDirectorySuffix, PathFragment relative) {
+    return actionConstructionContext.getUniqueDirectoryArtifact(uniqueDirectorySuffix, relative);
+  }
+
+  public PathFragment getUniqueDirectory(PathFragment fragment) {
+    return actionConstructionContext.getUniqueDirectory(fragment);
+  }
+
+  public ArtifactRoot getBinOrGenfilesDirectory() {
+    return actionConstructionContext.getBinOrGenfilesDirectory();
+  }
+
+  public PathFragment getPackageDirectory() {
+    return actionConstructionContext.getPackageDirectory();
+  }
+
   public AndroidConfiguration getAndroidConfig() {
     return actionConstructionContext.getConfiguration().getFragment(AndroidConfiguration.class);
   }
@@ -123,5 +147,9 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   public boolean isPersistentBusyboxToolsEnabled() {
     return persistentBusyboxToolsEnabled;
+  }
+
+  public boolean useDataBindingV2() {
+    return useDataBindingV2;
   }
 }

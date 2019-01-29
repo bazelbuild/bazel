@@ -56,7 +56,7 @@ public class ActionMetadataHandlerTest {
     ActionInput input = ActionInputHelper.fromPath("foo/bar");
     FileArtifactValue metadata = FileArtifactValue.createNormalFile(new byte[] {1,  2, 3}, 10);
     ActionInputMap map = new ActionInputMap(1);
-    map.put(input, metadata);
+    map.putWithNoDepOwner(input, metadata);
     assertThat(map.getMetadata(input)).isEqualTo(metadata);
     ActionMetadataHandler handler = new ActionMetadataHandler(
         map,
@@ -74,7 +74,7 @@ public class ActionMetadataHandlerTest {
     Artifact artifact = new Artifact(path, sourceRoot);
     FileArtifactValue metadata = FileArtifactValue.createNormalFile(new byte[] {1,  2, 3}, 10);
     ActionInputMap map = new ActionInputMap(1);
-    map.put(artifact, metadata);
+    map.putWithNoDepOwner(artifact, metadata);
     ActionMetadataHandler handler = new ActionMetadataHandler(
         map,
         /* missingArtifactsAllowed= */ false,

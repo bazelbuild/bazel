@@ -44,40 +44,40 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 public interface SkylarkNativeModuleApi {
 
   @SkylarkCallable(
-    name = "glob",
-    doc =
-        "Glob returns a list of every file in the current package that:<ul>\n"
-            + "<li>Matches at least one pattern in <code>include</code>.</li>\n"
-            + "<li>Does not match any of the patterns in <code>exclude</code> "
-            + "(default <code>[]</code>).</li></ul>\n"
-            + "If the <code>exclude_directories</code> argument is enabled (set to <code>1</code>),"
-            + " files of type directory will be omitted from the results (default <code>1</code>).",
-    parameters = {
-      @Param(
-        name = "include",
-        type = SkylarkList.class,
-        generic1 = String.class,
-        defaultValue = "[]",
-        doc = "The list of glob patterns to include."
-      ),
-      @Param(
-        name = "exclude",
-        type = SkylarkList.class,
-        generic1 = String.class,
-        defaultValue = "[]",
-        doc = "The list of glob patterns to exclude."
-      ),
-      // TODO(bazel-team): accept booleans as well as integers? (and eventually migrate?)
-      @Param(
-        name = "exclude_directories",
-        type = Integer.class,
-        defaultValue = "1",
-        doc = "A flag whether to exclude directories or not."
-      )
-    },
-    useAst = true,
-    useEnvironment = true
-  )
+      name = "glob",
+      doc =
+          "Glob returns a list of every file in the current package that:<ul>\n"
+              + "<li>Matches at least one pattern in <code>include</code>.</li>\n"
+              + "<li>Does not match any of the patterns in <code>exclude</code> "
+              + "(default <code>[]</code>).</li></ul>\n"
+              + "If the <code>exclude_directories</code> argument is enabled "
+              + "(set to <code>1</code>), files of type directory will be omitted from the "
+              + "results (default <code>1</code>).",
+      parameters = {
+        @Param(
+            name = "include",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            defaultValue = "[]",
+            legacyNamed = true,
+            doc = "The list of glob patterns to include."),
+        @Param(
+            name = "exclude",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            defaultValue = "[]",
+            legacyNamed = true,
+            doc = "The list of glob patterns to exclude."),
+        // TODO(bazel-team): accept booleans as well as integers? (and eventually migrate?)
+        @Param(
+            name = "exclude_directories",
+            type = Integer.class,
+            defaultValue = "1",
+            legacyNamed = true,
+            doc = "A flag whether to exclude directories or not.")
+      },
+      useAst = true,
+      useEnvironment = true)
   public SkylarkList<?> glob(
       SkylarkList<?> include,
       SkylarkList<?> exclude,
@@ -87,37 +87,38 @@ public interface SkylarkNativeModuleApi {
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "existing_rule",
-    doc =
-        "Returns a dictionary representing the attributes of a previously defined target, or "
-            + "<code>None</code> if the target does not exist."
-            + ""
-            + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
-            + "and order-dependent.",
-    parameters = {
-      @Param(name = "name", type = String.class, doc = "The name of the target.")
-    },
-    useAst = true,
-    useEnvironment = true
-  )
+      name = "existing_rule",
+      doc =
+          "Returns a dictionary representing the attributes of a previously defined target, or "
+              + "<code>None</code> if the target does not exist."
+              + ""
+              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
+              + "and order-dependent.</i>",
+      parameters = {
+        @Param(
+            name = "name",
+            type = String.class,
+            legacyNamed = true,
+            doc = "The name of the target.")
+      },
+      useAst = true,
+      useEnvironment = true)
   public Object existingRule(String name, FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "existing_rules",
-    doc =
-        "Returns a dictionary containing all the targets instantiated so far. The map key is the "
-            + "name of the target. The map value is equivalent to the <code>existing_rule</code> "
-            + "output for that target."
-            + ""
-            + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
-            + "and order-dependent.",
-    useAst = true,
-    useEnvironment = true
-  )
+      name = "existing_rules",
+      doc =
+          "Returns a dictionary containing all the targets instantiated so far. The map key is the "
+              + "name of the target. The map value is equivalent to the <code>existing_rule</code> "
+              + "output for that target."
+              + ""
+              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle "
+              + "and order-dependent.</i>",
+      useAst = true,
+      useEnvironment = true)
   public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
-      FuncallExpression ast, Environment env)
-      throws EvalException, InterruptedException;
+      FuncallExpression ast, Environment env) throws EvalException, InterruptedException;
 
   @SkylarkCallable(name = "package_group",
       doc = "This function defines a set of packages and assigns a label to the group. "
@@ -136,22 +137,46 @@ public interface SkylarkNativeModuleApi {
       SkylarkList<?> includes,
       FuncallExpression ast, Environment env) throws EvalException;
 
-  @SkylarkCallable(name = "exports_files",
-    doc = "Specifies a list of files belonging to this package that are exported to other "
-        + "packages but not otherwise mentioned.",
-    parameters = {
-      @Param(name = "srcs", type = SkylarkList.class, generic1 = String.class,
-          doc = "The list of files to export."),
-      // TODO(bazel-team): make it possible to express the precise type ListOf(LabelDesignator)
-      @Param(name = "visibility", type = SkylarkList.class, defaultValue = "None", noneable = true,
-          doc = "A visibility declaration can to be specified. The files will be visible to the "
-              + "targets specified. If no visibility is specified, the files will be visible to "
-              + "every package."),
-      @Param(name = "licenses", type = SkylarkList.class, generic1 = String.class, noneable = true,
-          defaultValue = "None", doc = "Licenses to be specified.")},
-    useAst = true, useEnvironment = true)
-  public Runtime.NoneType exportsFiles(SkylarkList<?> srcs, Object visibility, Object licenses,
-      FuncallExpression ast, Environment env)
+  @SkylarkCallable(
+      name = "exports_files",
+      doc =
+          "Specifies a list of files belonging to this package that are exported to other "
+              + "packages but not otherwise mentioned.",
+      parameters = {
+        @Param(
+            name = "srcs",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            legacyNamed = true,
+            doc = "The list of files to export."),
+        // TODO(bazel-team): make it possible to express the precise type ListOf(LabelDesignator)
+        @Param(
+            name = "visibility",
+            type = SkylarkList.class,
+            defaultValue = "None",
+            noneable = true,
+            legacyNamed = true,
+            doc =
+                "A visibility declaration can to be specified. The files will be visible to the "
+                    + "targets specified. If no visibility is specified, the files will be visible "
+                    + "to every package."),
+        @Param(
+            name = "licenses",
+            type = SkylarkList.class,
+            generic1 = String.class,
+            noneable = true,
+            legacyNamed = true,
+            defaultValue = "None",
+            doc = "Licenses to be specified.")
+      },
+      useAst = true,
+      useEnvironment = true)
+  public Runtime.NoneType exportsFiles(
+      SkylarkList<?> srcs,
+      Object visibility,
+      Object licenses,
+      FuncallExpression ast,
+      Environment env)
       throws EvalException;
 
   @SkylarkCallable(

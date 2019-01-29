@@ -36,9 +36,10 @@ public final class MockProtoSupport {
    * and versions.
    */
   private static void createNetProto2(MockToolsConfig config) throws IOException {
-    config.create("net/proto2/compiler/public/BUILD",
+    config.create(
+        "net/proto2/compiler/public/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "exports_files(['protocol_compiler'])");
+        "sh_binary(name='protocol_compiler', srcs=['protocol_compiler.sh'])");
 
     if (config.isRealFileSystem()) {
       // when using a "real" file system, import the jars and link to ensure compilation

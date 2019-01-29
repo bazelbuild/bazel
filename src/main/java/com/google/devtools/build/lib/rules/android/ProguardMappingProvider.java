@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 public final class ProguardMappingProvider extends NativeInfo
     implements ProguardMappingProviderApi<Artifact> {
 
-  public static final String PROVIDER_NAME = "ProguardMappingInfo";
   public static final Provider PROVIDER = new Provider();
 
   private final Artifact proguardMapping;
@@ -45,7 +44,7 @@ public final class ProguardMappingProvider extends NativeInfo
       implements ProguardMappingProviderApi.Provider<Artifact> {
 
     private Provider() {
-      super(PROVIDER_NAME, ProguardMappingProvider.class);
+      super(NAME, ProguardMappingProvider.class);
     }
 
     @Override

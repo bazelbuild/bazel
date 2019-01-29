@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.importdeps;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -55,12 +54,15 @@ public final class ClassCache implements Closeable {
   private boolean isClosed;
 
   public ClassCache(
-      ImmutableList<Path> bootclasspath,
-      ImmutableList<Path> directClasspath,
-      ImmutableList<Path> regularClasspath,
-      ImmutableList<Path> inputJars)
+      ImmutableSet<Path> bootclasspath,
+      ImmutableSet<Path> directClasspath,
+      ImmutableSet<Path> regularClasspath,
+      ImmutableSet<Path> inputJars,
+      boolean populateMembers)
       throws IOException {
-    lazyClasspath = new LazyClasspath(bootclasspath, directClasspath, regularClasspath, inputJars);
+    lazyClasspath =
+        new LazyClasspath(
+            bootclasspath, directClasspath, regularClasspath, inputJars, populateMembers);
   }
 
   public AbstractClassEntryState getClassState(String internalName) {
@@ -156,7 +158,16 @@ public final class ClassCache implements Closeable {
         }
         ClassInfoBuilder classInfoBuilder =
             new ClassInfoBuilder().setJarPath(classEntry.jarPath).setDirect(classEntry.direct);
-        classReader.accept(classInfoBuilder, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        // Only visit the class if we need to extract its list of members.  If we do visit, skip
+        // code and debug attributes since we just care about finding declarations here.
+        if (lazyClasspath.populateMembers) {
+          classReader.accept(
+              classInfoBuilder,
+              ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        } else {
+          classInfoBuilder.setNames(
+              classReader.getClassName(), classReader.getSuperName(), classReader.getInterfaces());
+        }
 
         ImmutableList<ResolutionFailureChain> resolutionFailureChains =
             resolutionFailureChainsBuilder.build();
@@ -221,19 +232,17 @@ public final class ClassCache implements Closeable {
     private final ClassIndex regularClasspath;
     private final ClassIndex inputJars;
     private final ImmutableList<ClassIndex> orderedClasspath;
+    final boolean populateMembers; // accessed from other inner classes
     private final Closer closer = Closer.create();
 
     public LazyClasspath(
-        ImmutableList<Path> bootclasspath,
-        ImmutableList<Path> directClasspath,
-        ImmutableList<Path> regularClasspath,
-        ImmutableList<Path> inputJars)
+        ImmutableSet<Path> bootclasspath,
+        ImmutableSet<Path> directClasspath,
+        ImmutableSet<Path> regularClasspath,
+        ImmutableSet<Path> inputJars,
+        boolean populateMembers)
         throws IOException {
-      checkArgument(
-          regularClasspath.containsAll(directClasspath),
-          "Some direct deps %s missing from transitive deps %s",
-          directClasspath,
-          regularClasspath);
+      this.populateMembers = populateMembers;
       this.bootclasspath = new ClassIndex("boot classpath", bootclasspath, Predicates.alwaysTrue());
       this.inputJars = new ClassIndex("input jars", inputJars, Predicates.alwaysTrue());
       this.regularClasspath =
@@ -283,7 +292,7 @@ public final class ClassCache implements Closeable {
     private final ImmutableMap<String, LazyClassEntry> classIndex;
     private final Closer closer;
 
-    public ClassIndex(String name, ImmutableList<Path> jarFiles, Predicate<Path> isDirect)
+    public ClassIndex(String name, ImmutableSet<Path> jarFiles, Predicate<Path> isDirect)
         throws IOException {
       this.name = name;
       this.closer = Closer.create();
@@ -319,7 +328,7 @@ public final class ClassCache implements Closeable {
     }
 
     private static ImmutableMap<String, LazyClassEntry> buildClassIndex(
-        ImmutableList<Path> jars, Closer closer, Predicate<Path> isDirect) throws IOException {
+        ImmutableSet<Path> jars, Closer closer, Predicate<Path> isDirect) throws IOException {
       HashMap<String, LazyClassEntry> result = new HashMap<>();
       for (Path jarPath : jars) {
         boolean jarIsDirect = isDirect.test(jarPath);
@@ -367,9 +376,7 @@ public final class ClassCache implements Closeable {
         String signature,
         String superName,
         String[] interfaces) {
-      checkState(internalName == null && superClasses == null, "This visitor is already used.");
-      internalName = name;
-      superClasses = combineWithoutNull(superName, interfaces);
+      setNames(name, superName, interfaces);
     }
 
     @Override
@@ -384,6 +391,12 @@ public final class ClassCache implements Closeable {
         int access, String name, String desc, String signature, String[] exceptions) {
       members.add(MemberInfo.create(name, desc));
       return null;
+    }
+
+    void setNames(String name, String superName, String[] interfaces) {
+      checkState(internalName == null && superClasses == null, "This visitor is already used.");
+      internalName = name;
+      superClasses = combineWithoutNull(superName, interfaces);
     }
 
     public ClassInfoBuilder setJarPath(Path jarPath) {

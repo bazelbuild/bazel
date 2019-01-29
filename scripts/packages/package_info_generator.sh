@@ -63,7 +63,7 @@ else
   echo "# ${release_notes}"  # Make the first line the header
   # Subsection for environment
   echo
-  echo "## Build informations"
+  echo "## Build information"
 fi
 if [ -n "${built_by-}" ]; then
   if [ -n "${build_log}" ]; then

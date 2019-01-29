@@ -42,8 +42,27 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-export MSYS_NO_PATHCONV=1
-export MSYS2_ARG_CONV_EXCL="*"
+# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
+# `tr` converts all upper case letters to lower case.
+# `case` matches the result if the `uname | tr` expression to string prefixes
+# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
+# starting with "msys", and "*" matches everything (it's the default case).
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*)
+  # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  # Disable MSYS path conversion that converts path-looking command arguments to
+  # Windows paths (even if they arguments are not in fact paths).
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
 
 function test_sh_test() {
   mkdir -p a
@@ -85,7 +104,10 @@ function test_extra_action() {
   # Make a program to run on each action that just prints the path to the extra
   # action file. This file is a proto, but I don't want to bother implementing
   # a program that parses the proto here.
-  cat > mypkg/echoer.sh <<'EOF'
+  # The workspace name is initialized in testenv.sh; use that var rather than
+  # hardcoding it here. The extra sed pass is so we can selectively expand that
+  # one var while keeping the rest of the heredoc literal.
+  cat | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" > mypkg/echoer.sh << 'EOF'
 #!/bin/bash
 set -euo pipefail
 # --- begin runfiles.bash initialization ---
@@ -109,7 +131,7 @@ else
 fi
 # --- end runfiles.bash initialization ---
 
-if [[ ! -e "$(rlocation __main__/mypkg/runfile)" ]]; then
+if [[ ! -e "$(rlocation {{WORKSPACE_NAME}}/mypkg/runfile)" ]]; then
   echo "ERROR: Runfile not found" >&2
   exit 1
 fi
@@ -287,29 +309,19 @@ EOF
   local new_tmpdir="$(mktemp -d "${TEST_TMPDIR}/newfancytmpdirXXXXXX")"
   [ -d "${new_tmpdir}" ] || \
     fail "Could not create new temporary directory ${new_tmpdir}"
-  export PATH="$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path"
-  if is_windows; then
+  if $is_windows; then
+    export PATH="$PATH_TO_BAZEL_WRAPPER;/bin;/usr/bin;/random/path;${old_path}"
     local old_tmpdir="${TMP:-}"
     export TMP="${new_tmpdir}"
   else
+    export PATH="$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path"
     local old_tmpdir="${TMPDIR:-}"
     export TMPDIR="${new_tmpdir}"
   fi
-  # shut down to force reload of the environment
-  bazel shutdown
-  bazel build //pkg:test --spawn_strategy=standalone \
+  bazel build //pkg:test --spawn_strategy=standalone --action_env=PATH \
     || fail "Failed to build //pkg:test"
-  if is_windows; then
-    # As of 2018-07-10, Bazel on Windows sets the PATH to
-    # "/usr/bin:/bin:" + $PATH of the Bazel server process.
-    #
-    # MSYS appears to convert path entries in PATH to Windows style when running
-    # a native Windows process such as Bazel, but "cygpath -w /bin" returns
-    # MSYS_ROOT + "\usr\bin".
-    # The point is, the PATH will be quite different from what we expect on
-    # Linux. Therefore only assert that the PATH contains
-    # "$PATH_TO_BAZEL_WRAPPER" and "/random/path", ignore the rest.
-    local -r EXPECTED_PATH=".*:$PATH_TO_BAZEL_WRAPPER:.*:/random/path"
+  if $is_windows; then
+    local -r EXPECTED_PATH="$PATH_TO_BAZEL_WRAPPER:.*/random/path"
     # new_tmpdir is based on $TEST_TMPDIR which is not Unix-style -- convert it.
     local -r EXPECTED_TMP="$(cygpath -u "$new_tmpdir")"
   else
@@ -317,9 +329,9 @@ EOF
     local -r EXPECTED_TMP="$new_tmpdir"
   fi
   assert_contains "PATH=$EXPECTED_PATH" bazel-genfiles/pkg/test.out
-  # Bazel respectes the client environment's TMPDIR.
+  # Bazel respects the client environment's TMPDIR.
   assert_contains "TMPDIR=${EXPECTED_TMP}$" bazel-genfiles/pkg/test.out
-  if is_windows; then
+  if $is_windows; then
     export TMP="${old_tmpdir}"
   else
     export TMPDIR="${old_tmpdir}"

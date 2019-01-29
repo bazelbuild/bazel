@@ -524,8 +524,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
    */
   private void checkValidComputedDefault(Object expectedValue, Attribute computedDefault,
       ImmutableMap<String, Object> attrValueMap) throws Exception {
-    assertThat(computedDefault.getDefaultValueForTesting() instanceof Attribute.ComputedDefault)
-        .isTrue();
+    assertThat(computedDefault.getDefaultValueUnchecked())
+        .isInstanceOf(Attribute.ComputedDefault.class);
     Rule rule = createRule(getRuleClassWithComputedDefault(computedDefault), "myRule",
         attrValueMap, testRuleLocation);
     AttributeMap attributes = RawAttributeMapper.of(rule);
@@ -888,6 +888,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         outputsDefaultExecutable,
         isAnalysisTest,
         /* hasFunctionTransitionWhitelist=*/ false,
+        /* ignorePackageLicenses=*/ false,
         implicitOutputsFunction,
         /*isConfigMatcher=*/ false,
         transitionFactory,

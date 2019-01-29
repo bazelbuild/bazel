@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 
 /**
  * {@link Bootstrap} for skylark objects related to cpp rules.
@@ -23,32 +25,32 @@ import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 public class CcBootstrap implements Bootstrap {
 
   private final BazelCcModuleApi<
+          ? extends FileApi,
+          ? extends SkylarkRuleContextApi,
           ? extends CcToolchainProviderApi,
           ? extends FeatureConfigurationApi,
           ? extends CompilationInfoApi,
           ? extends CcCompilationContextApi,
           ? extends CcCompilationOutputsApi,
           ? extends LinkingInfoApi,
-          ? extends CcLinkingInfoApi,
-          ? extends CcToolchainVariablesApi,
-          ? extends LibraryToLinkApi,
-          ? extends CcLinkParamsApi,
-          ? extends CcSkylarkInfoApi>
+          ? extends CcLinkingContextApi,
+          ? extends LibraryToLinkWrapperApi,
+          ? extends CcToolchainVariablesApi>
       ccModule;
 
   public CcBootstrap(
       BazelCcModuleApi<
+              ? extends FileApi,
+              ? extends SkylarkRuleContextApi,
               ? extends CcToolchainProviderApi,
               ? extends FeatureConfigurationApi,
               ? extends CompilationInfoApi,
               ? extends CcCompilationContextApi,
               ? extends CcCompilationOutputsApi,
               ? extends LinkingInfoApi,
-              ? extends CcLinkingInfoApi,
-              ? extends CcToolchainVariablesApi,
-              ? extends LibraryToLinkApi,
-              ? extends CcLinkParamsApi,
-              ? extends CcSkylarkInfoApi>
+              ? extends CcLinkingContextApi,
+              ? extends LibraryToLinkWrapperApi,
+              ? extends CcToolchainVariablesApi>
           ccModule) {
     this.ccModule = ccModule;
   }

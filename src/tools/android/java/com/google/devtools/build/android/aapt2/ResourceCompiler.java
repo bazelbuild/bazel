@@ -281,7 +281,12 @@ public class ResourceCompiler {
 
       AndroidDataSerializer serializer = AndroidDataSerializer.create();
       final Path resourcesAttributesPath =
-          compiledResourcesOut.resolve(type + "_" + filename + ".attributes");
+          CompilingVisitor.destinationPath(file,
+              compiledResourcesOut).resolve(
+                  type + "_" + filename + ".attributes");
+
+      Preconditions.checkArgument(!Files.exists(resourcesAttributesPath),
+          "%s was already created for another resource.", resourcesAttributesPath);
 
       while (attributeIterator.hasNext()) {
         Attribute attribute = attributeIterator.next();

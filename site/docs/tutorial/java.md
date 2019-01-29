@@ -3,8 +3,7 @@ layout: documentation
 title: Build Tutorial - Java
 ---
 
-Introduction to Bazel: Building a Java Project
-==========
+# Introduction to Bazel: Building a Java Project
 
 In this tutorial, you'll learn the basics of building Java applications with
 Bazel. You will set up your workspace and build a simple Java project that
@@ -24,22 +23,11 @@ In this tutorial you'll learn how to:
 *  Deploy a target
 
 ## Contents
+{:.no_toc}
 
-*  [Before you begin](#before-you-begin)
-   *  [Install Bazel](#install-bazel)
-   *  [Install the JDK](#install-the-jdk)
-   *  [Get the sample project](#get-the-sample-project)
-*  [Build with Bazel](#build-with-bazel)
-   *  [Set up the workspace](#set-up-the-workspace)
-   *  [Understand the BUILD file](#understand-the-build-file)
-   *  [Build the project](#build-the-project)
-   *  [Review the dependency graph](#review-the-dependency-graph)
-*  [Refine your Bazel build](#refine-your-bazel-build)
-   *  [Specify multiple build targets](#specify-multiple-build-targets)
-   *  [Use multiple packages](#use-multiple-packages)
-*  [Use labels to reference targets](#use-labels-to-reference-targets)
-*  [Package a Java target for deployment](#package-a-java-target-for-deployment)
-*  [Further reading](#further-reading)
+* ToC
+{:toc}
+
 
 ## Before you begin
 
@@ -263,8 +251,8 @@ recompiles that file.
 Looking at the dependency graph, you can see that `ProjectRunner` depends on the
 same inputs as it did before, but the structure of the build is different:
 
-![Dependency graph of the target 'ProjectRunner' after adding a dependency]
-(/assets/tutorial_java_02.svg)
+![Dependency graph of the target 'ProjectRunner' after adding a dependency](
+/assets/tutorial_java_02.svg)
 
 You've now built the project with two targets. The `ProjectRunner` target builds
 two source files and depends on one other target (`:greeter`), which builds

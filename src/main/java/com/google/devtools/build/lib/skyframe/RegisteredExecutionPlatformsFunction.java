@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -24,10 +25,15 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -74,7 +80,8 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     // Expand target patterns.
     ImmutableList<Label> platformLabels;
     try {
-      platformLabels = TargetPatternUtil.expandTargetPatterns(env, targetPatterns);
+      platformLabels =
+          TargetPatternUtil.expandTargetPatterns(env, targetPatterns, HasPlatformInfo.create());
       if (env.valuesMissing()) {
         return null;
       }
@@ -103,7 +110,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   public static List<String> getWorkspaceExecutionPlatforms(Environment env)
       throws InterruptedException {
     PackageValue externalPackageValue =
-        (PackageValue) env.getValue(PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER));
+        (PackageValue) env.getValue(PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
     if (externalPackageValue == null) {
       return null;
     }
@@ -203,6 +210,35 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     private RegisteredExecutionPlatformsFunctionException(
         InvalidPlatformException cause, Transience transience) {
       super(cause, transience);
+    }
+  }
+
+  @AutoValue
+  @AutoCodec
+  abstract static class HasPlatformInfo extends FilteringPolicy {
+
+    @Override
+    public boolean shouldRetain(Target target, boolean explicit) {
+      if (explicit) {
+        return true;
+      }
+
+      // If the rule requires platforms, it can't be used as a platform.
+      RuleClass ruleClass = target.getAssociatedRule().getRuleClassObject();
+      if (ruleClass == null) {
+        return false;
+      }
+
+      if (ruleClass.supportsPlatforms()) {
+        return false;
+      }
+
+      return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
+    }
+
+    @AutoCodec.Instantiator
+    static HasPlatformInfo create() {
+      return new AutoValue_RegisteredExecutionPlatformsFunction_HasPlatformInfo();
     }
   }
 }

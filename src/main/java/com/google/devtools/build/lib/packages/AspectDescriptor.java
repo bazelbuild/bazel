@@ -76,11 +76,10 @@ public final class AspectDescriptor {
   }
 
   /**
-   * Creates a presentable description of this aspect, avaliable
-   * to Skylark via "Target.aspects".
+   * Creates a presentable description of this aspect, available to Skylark via "Target.aspects".
    *
-   * The description is designed to be unique for each aspect descriptor,
-   * but not to be parseable.
+   * <p>The description is designed to be unique for each aspect descriptor, but not to be
+   * parseable.
    */
   public String getDescription() {
     if (aspectParameters.isEmpty()) {

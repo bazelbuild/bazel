@@ -196,7 +196,7 @@ public abstract class OptionValueDescription {
         Object newValue = parsedOption.getConvertedValue();
         // Output warnings if there is conflicting options set different values in a way that might
         // not have been obvious to the user, such as through expansions and implicit requirements.
-        if (!effectiveValue.equals(newValue)) {
+        if (effectiveValue != null && !effectiveValue.equals(newValue)) {
           boolean samePriorityCategory =
               parsedOption
                   .getPriority()
@@ -290,17 +290,14 @@ public abstract class OptionValueDescription {
     }
 
     @Override
-    public List<Object> getValue() {
+    public ImmutableList<Object> getValue() {
       // Sort the results by option priority and return them in a new list. The generic type of
       // the list is not known at runtime, so we can't use it here.
-      return optionValues
-          .asMap()
-          .entrySet()
-          .stream()
+      return optionValues.asMap().entrySet().stream()
           .sorted(Comparator.comparing(Map.Entry::getKey))
           .map(Map.Entry::getValue)
           .flatMap(Collection::stream)
-          .collect(Collectors.toList());
+          .collect(ImmutableList.toImmutableList());
     }
 
     @Override

@@ -19,6 +19,7 @@ import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
 
 import com.google.common.io.Resources;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.testing.compile.JavaFileObjects;
 import javax.tools.JavaFileObject;
@@ -140,6 +141,18 @@ public final class SkylarkCallableProcessorTest {
             "Expected parameter index 2 to be the "
                 + Environment.class.getCanonicalName()
                 + " type, matching useEnvironment, but was java.lang.String");
+  }
+
+  @Test
+  public void testContextMissing() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ContextMissing.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Expected parameter index 2 to be the "
+                + StarlarkContext.class.getCanonicalName()
+                + " type, matching useContext, but was java.lang.String");
   }
 
   @Test
@@ -317,6 +330,17 @@ public final class SkylarkCallableProcessorTest {
   }
 
   @Test
+  public void testEnablingAndDisablingFlag_param() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("EnablingAndDisablingFlagParam.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Parameter 'two' has enableOnlyWithFlag and disableWithFlag set. "
+                + "At most one may be set");
+  }
+
+  @Test
   public void testConflictingMethodNames() throws Exception {
     assertAbout(javaSource())
         .that(getFile("ConflictingMethodNames.java"))
@@ -324,5 +348,34 @@ public final class SkylarkCallableProcessorTest {
         .failsToCompile()
         .withErrorContaining("Containing class has more than one method with name "
             + "'conflicting_method' defined");
+  }
+
+  @Test
+  public void testDisabledValueParamNoToggle() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("DisabledValueParamNoToggle.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining("Parameter 'two' has valueWhenDisabled set, but is always enabled");
+  }
+
+  @Test
+  public void testToggledKwargsParam() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ToggledKwargsParam.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining("The extraKeywords parameter may not be toggled by semantic flag");
+  }
+
+  @Test
+  public void testToggledParamNoDisabledValue() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("ToggledParamNoDisabledValue.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Parameter 'two' may be disabled by semantic flag, "
+                + "thus valueWhenDisabled must be set");
   }
 }

@@ -54,6 +54,12 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
+if ! type try_with_timeout >&/dev/null; then
+  # Bazel's testenv.sh defines try_with_timeout but the Google-internal version
+  # uses a different testenv.sh.
+  function try_with_timeout() { $* ; }
+fi
+
 #### TESTS #############################################################
 
 function test_no_rebuild_on_irrelevant_header_change() {
@@ -145,7 +151,7 @@ EOF
 
   bazel build -s //$pkg:a >& $TEST_log || fail "build failed"
   expect_log "Compiling $pkg/a.cc"
-  bazel shutdown >& /dev/null || fail "query failed"
+  try_with_timeout bazel shutdown || fail "shutdown failed"
   bazel build -s //$pkg:a >& $TEST_log || fail "build failed"
   expect_not_log "Compiling $pkg/a.cc"
 }

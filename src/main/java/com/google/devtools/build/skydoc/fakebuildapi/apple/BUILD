@@ -21,6 +21,5 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )

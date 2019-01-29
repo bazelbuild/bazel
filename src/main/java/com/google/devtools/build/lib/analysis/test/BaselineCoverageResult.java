@@ -16,16 +16,15 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
-/**
- * This event is used to notify about a successfully built baseline coverage artifact.
- */
-public class BaselineCoverageResult {
+/** This event is used to notify about a successfully built baseline coverage artifact. */
+public class BaselineCoverageResult implements ExtendedEventHandler.ProgressLike {
 
   private final Artifact baselineCoverageData;
   private final String ownerString;
 
-  public BaselineCoverageResult(Artifact baselineCoverageData, String ownerString) {
+  BaselineCoverageResult(Artifact baselineCoverageData, String ownerString) {
     this.baselineCoverageData = Preconditions.checkNotNull(baselineCoverageData);
     this.ownerString = Preconditions.checkNotNull(ownerString);
   }

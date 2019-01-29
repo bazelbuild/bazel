@@ -32,8 +32,11 @@ def GetWindowsPathWithUNCPrefix(path):
   # os.path.abspath returns a normalized absolute path
   return unicode_prefix + os.path.abspath(path)
 
+def HasWindowsExecutableExtension(path):
+  return path.endswith('.exe') or path.endswith('.com') or path.endswith('.bat')
+
 PYTHON_BINARY = '%python_binary%'
-if IsWindows() and not PYTHON_BINARY.endswith('.exe'):
+if IsWindows() and not HasWindowsExecutableExtension(PYTHON_BINARY):
   PYTHON_BINARY = PYTHON_BINARY + '.exe'
 
 # Find a file in a given search path.
@@ -58,7 +61,8 @@ def FindPythonBinary(module_space):
   elif os.path.isabs(PYTHON_BINARY):
     # Case 2: Absolute path.
     return PYTHON_BINARY
-  elif os.sep in PYTHON_BINARY:
+  # Use normpath() to convert slashes to os.sep on Windows.
+  elif os.sep in os.path.normpath(PYTHON_BINARY):
     # Case 3: Path is relative to the repo root.
     return os.path.join(module_space, PYTHON_BINARY)
   else:

@@ -15,15 +15,12 @@
 package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r18;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkPaths;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /** Generates a CrosstoolRelease proto for the Android NDK. */
 final class AndroidNdkCrosstoolsR18 {
@@ -44,7 +41,6 @@ final class AndroidNdkCrosstoolsR18 {
         .setMajorVersion("android")
         .setMinorVersion("")
         .setDefaultTargetCpu("armeabi")
-        .addAllDefaultToolchain(getDefaultCpuToolchains(stlImpl, clangVersion))
         .addAllToolchain(createToolchains(ndkPaths, stlImpl, hostPlatform, clangVersion))
         .build();
   }
@@ -78,31 +74,5 @@ final class AndroidNdkCrosstoolsR18 {
     }
 
     return toolchains.build();
-  }
-
-  private static ImmutableList<DefaultCpuToolchain> getDefaultCpuToolchains(
-      StlImpl stlImpl, String clangVersion) {
-    // TODO(bazel-team): It would be better to auto-generate this somehow.
-
-    ImmutableMap<String, String> defaultCpus =
-        ImmutableMap.<String, String>builder()
-            // arm
-            .put("armeabi-v7a", "arm-linux-androideabi-clang" + clangVersion + "-v7a")
-            .put("arm64-v8a", "aarch64-linux-android-clang" + clangVersion)
-
-            // x86
-            .put("x86", "x86-clang" + clangVersion)
-            .put("x86_64", "x86_64-clang" + clangVersion)
-            .build();
-
-    ImmutableList.Builder<DefaultCpuToolchain> defaultCpuToolchains = ImmutableList.builder();
-    for (Map.Entry<String, String> defaultCpu : defaultCpus.entrySet()) {
-      defaultCpuToolchains.add(
-          DefaultCpuToolchain.newBuilder()
-              .setCpu(defaultCpu.getKey())
-              .setToolchainIdentifier(defaultCpu.getValue() + "-" + stlImpl.getName())
-              .build());
-    }
-    return defaultCpuToolchains.build();
   }
 }

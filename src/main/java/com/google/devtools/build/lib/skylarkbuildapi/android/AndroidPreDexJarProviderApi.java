@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidPreDexJarProviderApi<FileT extends FileApi> extends StructApi {
   /** Name of this info object. */
-  public static String NAME = "AndroidPreDexJarInfo";
+  String NAME = "AndroidPreDexJarInfo";
 
   /** Returns the jar to be dexed. */
   @SkylarkCallable(name = "pre_dex_jar", structField = true, doc = "", documented = false)

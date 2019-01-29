@@ -32,7 +32,6 @@ import javax.annotation.Nullable;
 public final class AndroidAssetsInfo extends NativeInfo
     implements AndroidAssetsInfoApi<Artifact, ParsedAndroidAssets> {
 
-  public static final String PROVIDER_NAME = "AndroidAssetsInfo";
   public static final Provider PROVIDER = new Provider();
 
   private final Label label;
@@ -154,7 +153,7 @@ public final class AndroidAssetsInfo extends NativeInfo
       implements AndroidAssetsInfoApi.Provider<Artifact, ParsedAndroidAssets> {
 
     private Provider() {
-      super(PROVIDER_NAME, AndroidAssetsInfo.class);
+      super(NAME, AndroidAssetsInfo.class);
     }
 
     @Override

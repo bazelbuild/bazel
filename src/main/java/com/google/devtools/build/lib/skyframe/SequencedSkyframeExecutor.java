@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -105,6 +106,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -137,6 +139,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private Set<String> previousClientEnvironment = ImmutableSet.of();
 
   private SequencedSkyframeExecutor(
+      Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit,
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
       FileSystem fileSystem,
@@ -155,6 +158,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       BuildOptions defaultBuildOptions,
       MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
     super(
+        skyframeExecutorConsumerOnInit,
         evaluatorSupplier,
         pkgFactory,
         fileSystem,
@@ -197,7 +201,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions) {
     return create(
-        InMemoryMemoizingEvaluator.SUPPLIER,
         pkgFactory,
         fileSystem,
         directories,
@@ -213,11 +216,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         buildFilesByPriority,
         actionOnIOExceptionReadingBuildFile,
         defaultBuildOptions,
-        new MutableArtifactFactorySupplier());
+        new MutableArtifactFactorySupplier(),
+        skyframeExecutor -> {});
   }
 
   public static SequencedSkyframeExecutor create(
-      EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
       FileSystem fileSystem,
       BlazeDirectories directories,
@@ -233,10 +236,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
-      MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
+      MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
+      Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit) {
     SequencedSkyframeExecutor skyframeExecutor =
         new SequencedSkyframeExecutor(
-            evaluatorSupplier,
+            skyframeExecutorConsumerOnInit,
+            InMemoryMemoizingEvaluator.SUPPLIER,
             pkgFactory,
             fileSystem,
             directories,
@@ -323,14 +328,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    */
   private static final ImmutableSet<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES =
       ImmutableSet.of(
-          SkyFunctions.AST_FILE_LOOKUP,
           FileStateValue.FILE_STATE,
           FileValue.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.TARGET_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
-          SkyFunctions.WORKSPACE_FILE,
-          SkyFunctions.EXTERNAL_PACKAGE,
           SkyFunctions.TARGET_PATTERN,
           SkyFunctions.TARGET_PATTERN_PHASE);
 
@@ -351,7 +353,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     for (PackageIdentifier deletedPackage : deletedPackages) {
       packagesToInvalidate.add(PackageLookupValue.key(deletedPackage));
     }
-    recordingDiffer.invalidate(packagesToInvalidate);
+    // Exit early if there are no packages to be deleted to avoid iterating over a large map.
+    if (packagesToInvalidate.isEmpty()) {
+      return;
+    }
+    memoizingEvaluator.delete(Predicates.in(packagesToInvalidate));
   }
 
   /**

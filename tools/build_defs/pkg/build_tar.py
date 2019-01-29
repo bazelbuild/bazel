@@ -13,6 +13,7 @@
 # limitations under the License.
 """This tool build tar files from a list of inputs."""
 
+import json
 import os
 import os.path
 import sys
@@ -27,17 +28,18 @@ gflags.MarkFlagAsRequired('output')
 
 gflags.DEFINE_multistring('file', [], 'A file to add to the layer')
 
-gflags.DEFINE_string(
-    'mode', None, 'Force the mode on the added files (in octal).')
+gflags.DEFINE_string('manifest', None,
+                     'JSON manifest of contents to add to the layer')
+
+gflags.DEFINE_string('mode', None,
+                     'Force the mode on the added files (in octal).')
 
 gflags.DEFINE_multistring('empty_file', [], 'An empty file to add to the layer')
 
 gflags.DEFINE_multistring('empty_dir', [], 'An empty dir to add to the layer')
 
-gflags.DEFINE_multistring(
-    'empty_root_dir',
-    [],
-    'An empty dir to add to the layer')
+gflags.DEFINE_multistring('empty_root_dir', [],
+                          'An empty dir to add to the layer')
 
 gflags.DEFINE_multistring('tar', [], 'A tar file to add to the layer')
 
@@ -51,34 +53,34 @@ gflags.RegisterValidator(
     lambda l: all(value.find(':') > 0 for value in l),
     message='--link value should contains a : separator')
 
-gflags.DEFINE_string(
-    'directory', None, 'Directory in which to store the file inside the layer')
+gflags.DEFINE_string('directory', None,
+                     'Directory in which to store the file inside the layer')
 
-gflags.DEFINE_string(
-    'compression', None, 'Compression (`gz` or `bz2`), default is none.')
+gflags.DEFINE_string('compression', None,
+                     'Compression (`gz` or `bz2`), default is none.')
 
 gflags.DEFINE_multistring(
     'modes', None,
     'Specific mode to apply to specific file (from the file argument),'
     ' e.g., path/to/file=0455.')
 
-gflags.DEFINE_multistring('owners', None,
-                          'Specify the numeric owners of individual files, '
-                          'e.g. path/to/file=0.0.')
+gflags.DEFINE_multistring(
+    'owners', None, 'Specify the numeric owners of individual files, '
+    'e.g. path/to/file=0.0.')
 
-gflags.DEFINE_string('owner', '0.0',
-                     'Specify the numeric default owner of all files,'
-                     ' e.g., 0.0')
+gflags.DEFINE_string(
+    'owner', '0.0', 'Specify the numeric default owner of all files,'
+    ' e.g., 0.0')
 
 gflags.DEFINE_string('owner_name', None,
                      'Specify the owner name of all files, e.g. root.root.')
 
-gflags.DEFINE_multistring('owner_names', None,
-                          'Specify the owner names of individual files, e.g. '
-                          'path/to/file=root.root.')
+gflags.DEFINE_multistring(
+    'owner_names', None, 'Specify the owner names of individual files, e.g. '
+    'path/to/file=root.root.')
 
-gflags.DEFINE_string(
-    'root_directory', './', 'Default root directory is named "."')
+gflags.DEFINE_string('root_directory', './',
+                     'Default root directory is named "."')
 
 FLAGS = gflags.FLAGS
 
@@ -96,11 +98,8 @@ class TarFile(object):
     self.root_directory = root_directory
 
   def __enter__(self):
-    self.tarfile = archive.TarFileWriter(
-        self.output,
-        self.compression,
-        self.root_directory
-    )
+    self.tarfile = archive.TarFileWriter(self.output, self.compression,
+                                         self.root_directory)
     return self
 
   def __exit__(self, t, v, traceback):
@@ -112,11 +111,11 @@ class TarFile(object):
     Args:
        f: the file to add to the layer
        destfile: the name of the file in the layer
-       mode: force to set the specified mode, by
-          default the value from the source is taken.
+       mode: force to set the specified mode, by default the value from the
+         source is taken.
        ids: (uid, gid) for the file to set ownership
-       names: (username, groupname) for the file to set ownership.
-    `f` will be copied to `self.directory/destfile` in the layer.
+       names: (username, groupname) for the file to set ownership. `f` will be
+         copied to `self.directory/destfile` in the layer.
     """
     dest = destfile.lstrip('/')  # Remove leading slashes
     if self.directory and self.directory != '/':
@@ -151,9 +150,8 @@ class TarFile(object):
        mode: force to set the specified mode, defaults to 644
        ids: (uid, gid) for the file to set ownership
        names: (username, groupname) for the file to set ownership.
-       kind: type of the file. tarfile.DIRTYPE for directory.
-
-    An empty file will be created as `destfile` in the layer.
+       kind: type of the file. tarfile.DIRTYPE for directory.  An empty file
+         will be created as `destfile` in the layer.
     """
     dest = destfile.lstrip('/')  # Remove leading slashes
     # If mode is unspecified, assume read only
@@ -181,9 +179,8 @@ class TarFile(object):
        destpath: the name of the directory in the layer
        mode: force to set the specified mode, defaults to 644
        ids: (uid, gid) for the file to set ownership
-       names: (username, groupname) for the file to set ownership.
-
-    An empty file will be created as `destfile` in the layer.
+       names: (username, groupname) for the file to set ownership.  An empty
+         file will be created as `destfile` in the layer.
     """
     self.add_empty_file(
         destpath, mode=mode, ids=ids, names=names, kind=tarfile.DIRTYPE)
@@ -195,14 +192,12 @@ class TarFile(object):
        destpath: the name of the directory in the layer
        mode: force to set the specified mode, defaults to 644
        ids: (uid, gid) for the file to set ownership
-       names: (username, groupname) for the file to set ownership.
-
-    An empty directory will be created as `destfile` in the root layer.
+       names: (username, groupname) for the file to set ownership.  An empty
+         directory will be created as `destfile` in the root layer.
     """
     original_root_directory = self.tarfile.root_directory
     self.tarfile.root_directory = destpath
-    self.add_empty_dir(
-        destpath, mode=mode, ids=ids, names=names)
+    self.add_empty_dir(destpath, mode=mode, ids=ids, names=names)
     self.tarfile.root_directory = original_root_directory
 
   def add_tar(self, tar):
@@ -256,6 +251,41 @@ class TarFile(object):
       os.remove(tmpfile[1])
 
 
+def unquote_and_split(arg, c):
+  """Split a string at the first unquoted occurrence of a character.
+
+  Split the string arg at the first unquoted occurrence of the character c.
+  Here, in the first part of arg, the backslash is considered the
+  quoting character indicating that the next character is to be
+  added literally to the first part, even if it is the split character.
+
+  Args:
+    arg: the string to be split
+    c: the character at which to split
+
+  Returns:
+    The unquoted string before the separator and the string after the
+    separator.
+  """
+  head = ''
+  i = 0
+  while i < len(arg):
+    if arg[i] == c:
+      return (head, arg[i + 1:])
+    elif arg[i] == '\\':
+      i += 1
+      if i == len(arg):
+        # dangling quotation symbol
+        return (head, '')
+      else:
+        head += arg[i]
+    else:
+      head += arg[i]
+    i += 1
+  # if we leave the loop, the character c was not found unquoted
+  return (head, '')
+
+
 def main(unused_argv):
   # Parse modes arguments
   default_mode = None
@@ -266,7 +296,7 @@ def main(unused_argv):
   mode_map = {}
   if FLAGS.modes:
     for filemode in FLAGS.modes:
-      (f, mode) = filemode.split('=', 1)
+      (f, mode) = unquote_and_split(filemode, '=')
       if f[0] == '/':
         f = f[1:]
       mode_map[f] = int(mode, 8)
@@ -277,7 +307,7 @@ def main(unused_argv):
   names_map = {}
   if FLAGS.owner_names:
     for file_owner in FLAGS.owner_names:
-      (f, owner) = file_owner.split('=', 1)
+      (f, owner) = unquote_and_split(file_owner, '=')
       (user, group) = owner.split('.', 1)
       if f[0] == '/':
         f = f[1:]
@@ -288,22 +318,18 @@ def main(unused_argv):
   ids_map = {}
   if FLAGS.owners:
     for file_owner in FLAGS.owners:
-      (f, owner) = file_owner.split('=', 1)
+      (f, owner) = unquote_and_split(file_owner, '=')
       (user, group) = owner.split('.', 1)
       if f[0] == '/':
         f = f[1:]
       ids_map[f] = (int(user), int(group))
 
   # Add objects to the tar file
-  with TarFile(
-      FLAGS.output,
-      FLAGS.directory,
-      FLAGS.compression,
-      FLAGS.root_directory
-  ) as output:
+  with TarFile(FLAGS.output, FLAGS.directory, FLAGS.compression,
+               FLAGS.root_directory) as output:
 
     def file_attributes(filename):
-      if filename[0] == '/':
+      if filename.startswith('/'):
         filename = filename[1:]
       return {
           'mode': mode_map.get(filename, default_mode),
@@ -311,8 +337,26 @@ def main(unused_argv):
           'names': names_map.get(filename, default_ownername),
       }
 
+    if FLAGS.manifest:
+      with open(FLAGS.manifest, 'r') as manifest_fp:
+        manifest = json.load(manifest_fp)
+        for f in manifest.get('files', []):
+          output.add_file(f['src'], f['dst'], **file_attributes(f['dst']))
+        for f in manifest.get('empty_files', []):
+          output.add_empty_file(f, **file_attributes(f))
+        for d in manifest.get('empty_dirs', []):
+          output.add_empty_dir(d, **file_attributes(d))
+        for d in manifest.get('empty_root_dirs', []):
+          output.add_empty_root_dir(d, **file_attributes(d))
+        for f in manifest.get('symlinks', []):
+          output.add_link(f['linkname'], f['target'])
+        for tar in manifest.get('tars', []):
+          output.add_tar(tar)
+        for deb in manifest.get('debs', []):
+          output.add_deb(deb)
+
     for f in FLAGS.file:
-      (inf, tof) = f.split('=', 1)
+      (inf, tof) = unquote_and_split(f, '=')
       output.add_file(inf, tof, **file_attributes(tof))
     for f in FLAGS.empty_file:
       output.add_empty_file(f, **file_attributes(f))
@@ -325,7 +369,7 @@ def main(unused_argv):
     for deb in FLAGS.deb:
       output.add_deb(deb)
     for link in FLAGS.link:
-      l = link.split(':', 1)
+      l = unquote_and_split(link, ':')
       output.add_link(l[0], l[1])
 
 
