@@ -200,9 +200,10 @@ class LauncherTest(test_base.TestBase):
                                                           bin_suffix))))
 
     arguments = ['a', 'a b', '"b"', 'C:\\a\\b\\', '"C:\\a b\\c\\"']
+    parenthesized_arguments = ['(%s)' % a for a in arguments]
     exit_code, stdout, stderr = self.RunProgram([bin1] + arguments)
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertEqual(stdout, arguments)
+    self.assertEqual(stdout, parenthesized_arguments)
 
   def testJavaBinaryLauncher(self):
     self.ScratchFile('WORKSPACE')
@@ -248,7 +249,7 @@ class LauncherTest(test_base.TestBase):
         'public class Main {',
         '  public static void main(String[] args) {'
         '    for (String arg : args) {',
-        '      System.out.println(arg);',
+        '      System.out.printf("(%s)%n", arg);',
         '    }'
         '  }',
         '}',
@@ -316,7 +317,7 @@ class LauncherTest(test_base.TestBase):
         'N=${#args[@]}',
         '# Echo each argument',
         'for (( i=0;i<$N;i++)); do',
-        ' echo ${args[${i}]}',
+        ' echo "(${args[${i}]})"',
         'done',
     ])
     os.chmod(foo_sh, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
@@ -389,7 +390,7 @@ class LauncherTest(test_base.TestBase):
     self.ScratchFile('foo/bin.py', [
         'import sys',
         'for arg in sys.argv[1:]:',
-        '  print(arg)',
+        '  print("(%s)" % arg)',
     ])
 
     self._buildAndCheckArgumentPassing('foo', 'bin')
@@ -409,7 +410,7 @@ class LauncherTest(test_base.TestBase):
     ])
     self.ScratchFile('foo/Main.java', [
         'public class Main {',
-        '  public static void main(String[] args) {'
+        '  public static void main(String[] args) {',
         '    System.out.println("helloworld");',
         '  }',
         '}',
@@ -502,7 +503,7 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('local_jdk/bin/java.exe', ''.join(stdout))
 
-    my_tmp_dir = self.ScratchDir('my/temp/dir')
+    my_tmp_dir = self.ScratchDir('my/temp/dir').replace('\\', '/')
     exit_code, stdout, stderr = self.RunProgram(
         [binary, print_cmd], env_add={'TEST_TMPDIR': my_tmp_dir})
     self.AssertExitCode(exit_code, 0, stderr)
@@ -650,6 +651,97 @@ class LauncherTest(test_base.TestBase):
         if len(tokens) == 2 and tokens[0] == entry:
           return
     self.fail('Runfiles manifest "%s" did not contain "%s"' % (manifest, entry))
+
+  def testJvmFlagsFromBuildFile(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [r"""
+java_binary(
+    name = "foo",
+    srcs = ["Main.java"],
+    main_class = "Main",
+    jvm_flags = [
+        '-Darg0=A',
+        '-Darg1="A"',
+        '-Darg2=\'"a"\'',
+        '-Darg3=\'B\'',
+        '-Darg4="\'b\'"',
+        '-Darg5="\\"b\\""',
+        '-Darg6=\'D E\'',
+        '-Darg7=\'"d e"\'',
+        '-Darg8=\'F"G\'',
+        '-Darg9=\'"F"G"\'',
+        '-Darg10=\'C:\\H I\'',
+        '-Darg11=\'"C:\\h i"\'',
+        '-Darg12=\'C:\\J"K\'',
+        '-Darg13=\'"C:\\j"k"\'',
+        '-Darg14=\'C:\\L\\"M\'',
+        '-Darg15=\'"C:\\l\\"m"\'',
+        '-Darg16=\'C:\\N O \'',
+        '-Darg17=\'"C:\\n o "\'',
+        '-Darg18=\'C:\\P Q\\\'',
+        '-Darg19=\'"C:\\p q\\"\'',
+        '-Darg20=\'C:\\R S\\ \'',
+        '-Darg21=\'"C:\\r s\\ "\'',
+        '-Darg22=\'C:\\T\\U\\\'',
+        '-Darg23=\'"C:\\t\\u\\"\'',
+        '-Darg24=\'C:\\V W\\X\\\'',
+        '-Darg25=\'"C:\\v w\\x\\"\'',
+    ],
+)"""])
+    self.ScratchFile('Main.java', ["""
+public class Main {
+  public static void main(String[] args) {
+    for (int i = 0; ; ++i) {
+      String value = System.getProperty("arg" + i);
+      if (value == null) {
+        break;
+      } else {
+        System.out.printf("arg%d=(%s)%n", i, value);
+      }
+    }
+  }
+}"""])
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel(['build', '//:foo'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    if self.IsWindows():
+      foo_path = os.path.abspath(os.path.join(bazel_bin, 'foo.exe'))
+    else:
+      foo_path = os.path.abspath(os.path.join(bazel_bin, 'foo'))
+    exit_code, stdout, stderr = self.RunProgram([foo_path])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertListEqual([
+        "arg0=(A)",
+        "arg1=(A)",
+        "arg2=(\"a\")",
+        "arg3=(B)",
+        "arg4=('b')",
+        "arg5=(\"b\")",
+        "arg6=(D E)",
+        "arg7=(\"d e\")",
+        "arg8=(F\"G)",
+        "arg9=(\"F\"G\")",
+        "arg10=(C:\\H I)",
+        "arg11=(\"C:\\h i\")",
+        "arg12=(C:\\J\"K)",
+        "arg13=(\"C:\\j\"k\")",
+        "arg14=(C:\\L\\\"M)",
+        "arg15=(\"C:\\l\\\"m\")",
+        "arg16=(C:\\N O )",
+        "arg17=(\"C:\\n o \")",
+        "arg18=(C:\\P Q\\)",
+        "arg19=(\"C:\\p q\\\")",
+        "arg20=(C:\\R S\\ )",
+        "arg21=(\"C:\\r s\\ \")",
+        "arg22=(C:\\T\\U\\)",
+        "arg23=(\"C:\\t\\u\\\")",
+        "arg24=(C:\\V W\\X\\)",
+        "arg25=(\"C:\\v w\\x\\\")"], stdout)
+
 
 
 if __name__ == '__main__':

@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
+import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
@@ -265,7 +267,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       List<String> jvmFlags,
       Artifact executable,
       String javaStartClass,
-      String javaExecutable) {
+      String javaExecutable) throws RuleErrorException {
     return createStubAction(
         ruleContext,
         javaCommon,
@@ -288,7 +290,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       String coverageStartClass,
       NestedSetBuilder<Artifact> filesBuilder,
       String javaExecutable,
-      boolean createCoverageMetadataJar) {
+      boolean createCoverageMetadataJar) throws RuleErrorException {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(JavaConfiguration.class));
 
     Preconditions.checkNotNull(jvmFlags);
@@ -399,12 +401,25 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.ofSpaceSeparatedList("%jvm_flags%", jvmFlagsList));
 
     if (OS.getCurrent() == OS.WINDOWS) {
+      // Bash-tokenize the JVM flags. On Linux/macOS tokenization is achieved by embedding the
+      // 'jvmFlags' into the java_binary stub script (which is a Bash script) and letting Bash
+      // tokenize them.
+      List<String> tokenizedJvmFlags = new ArrayList<>(jvmFlagsList.size());
+      for (String s : jvmFlags) {
+        try {
+          ShellUtils.tokenize(tokenizedJvmFlags, s);
+        } catch (ShellUtils.TokenizationException e) {
+          ruleContext.attributeError(
+              "jvm_flags", "Could not Bash-tokenize \"" + s + "\": " + e.getMessage());
+          throw new RuleErrorException();
+        }
+      }
       return createWindowsExeLauncher(
           ruleContext,
           javaExecutable,
           classpath,
           javaStartClass,
-          jvmFlagsList,
+          tokenizedJvmFlags,
           executable);
     }
 
@@ -418,7 +433,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       String javaExecutable,
       NestedSet<Artifact> classpath,
       String javaStartClass,
-      ImmutableList<String> jvmFlags,
+      List<String> bashTokenizedJvmFlags,
       Artifact javaLauncher) {
 
     LaunchInfo launchInfo =
@@ -440,7 +455,13 @@ public class BazelJavaSemantics implements JavaSemantics {
                 "classpath",
                 ";",
                 Iterables.transform(classpath, Artifact.ROOT_RELATIVE_PATH_STRING))
-            .addJoinedValues("jvm_flags", " ", jvmFlags)
+            // TODO(laszlocsomor): joining flags on \t means no flag may contain this character,
+            // otherwise the launcher would split it into two flags. This solution is good enough
+            // because flags typically don't contain tabs, but we can't rule out the possibility
+            // that they do.  Let's find a better way to embed the JVM flags to the launcher, e.g.
+            // by using one jvm_flags entry per flag instead of joining all flags as one jvm_flags
+            // value.
+            .addJoinedValues("jvm_flags", "\t", bashTokenizedJvmFlags)
             .build();
 
     LauncherFileWriteAction.createAndRegister(ruleContext, javaLauncher, launchInfo);

@@ -44,10 +44,11 @@ std::wstring GetBinaryPathWithExtension(const std::wstring& binary);
 // Escape a command line argument.
 //
 // If the argument has space, then we quote it.
-// Escape " to \"
-// Escape \ to \\ if escape_backslash is true
-std::wstring GetEscapedArgument(const std::wstring& argument,
-                                bool escape_backslash);
+// Escape " to \" .
+// Escape \ to \\ .
+std::wstring BashEscapeArg(const std::wstring& argument);
+
+std::wstring CreateProcessEscapeArg(const std::wstring& arg);
 
 // Convert a path to an absolute Windows path with \\?\ prefix.
 // This method will print an error and exit if it cannot convert the path.

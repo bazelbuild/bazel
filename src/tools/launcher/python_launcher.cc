@@ -49,7 +49,7 @@ ExitCode PythonBinaryLauncher::Launch() {
 
   // Escape arguments that has spaces
   for (int i = 1; i < args.size(); i++) {
-    args[i] = GetEscapedArgument(args[i], /*escape_backslash = */ false);
+    args[i] = CreateProcessEscapeArg(args[i]);
   }
 
   return this->LaunchProcess(python_binary, args);

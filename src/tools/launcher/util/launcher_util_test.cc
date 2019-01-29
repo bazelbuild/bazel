@@ -74,22 +74,74 @@ TEST_F(LaunchUtilTest, GetBinaryPathWithExtensionTest) {
   ASSERT_EQ(L"foo.sh.exe", GetBinaryPathWithExtension(L"foo.sh"));
 }
 
-TEST_F(LaunchUtilTest, GetEscapedArgumentTest) {
-  ASSERT_EQ(L"\"\"", GetEscapedArgument(L"", true));
-  ASSERT_EQ(L"foo", GetEscapedArgument(L"foo", true));
-  ASSERT_EQ(L"\"foo bar\"", GetEscapedArgument(L"foo bar", true));
-  ASSERT_EQ(L"\"\\\"foo bar\\\"\"", GetEscapedArgument(L"\"foo bar\"", true));
-  ASSERT_EQ(L"foo\\\\bar", GetEscapedArgument(L"foo\\bar", true));
-  ASSERT_EQ(L"foo\\\"bar", GetEscapedArgument(L"foo\"bar", true));
-  ASSERT_EQ(L"C:\\\\foo\\\\bar\\\\",
-            GetEscapedArgument(L"C:\\foo\\bar\\", true));
+TEST_F(LaunchUtilTest, BashEscapedArgTest) {
+  ASSERT_EQ(L"\"\"", BashEscapeArg(L""));
+  ASSERT_EQ(L"foo", BashEscapeArg(L"foo"));
+  ASSERT_EQ(L"\"foo bar\"", BashEscapeArg(L"foo bar"));
+  ASSERT_EQ(L"\"\\\"foo bar\\\"\"", BashEscapeArg(L"\"foo bar\""));
+  ASSERT_EQ(L"foo\\\\bar", BashEscapeArg(L"foo\\bar"));
+  ASSERT_EQ(L"foo\\\"bar", BashEscapeArg(L"foo\"bar"));
+  ASSERT_EQ(L"C:\\\\foo\\\\bar\\\\", BashEscapeArg(L"C:\\foo\\bar\\"));
   ASSERT_EQ(L"\"C:\\\\foo foo\\\\bar\\\\\"",
-            GetEscapedArgument(L"C:\\foo foo\\bar\\", true));
+            BashEscapeArg(L"C:\\foo foo\\bar\\"));
+}
 
-  ASSERT_EQ(L"foo\\bar", GetEscapedArgument(L"foo\\bar", false));
-  ASSERT_EQ(L"C:\\foo\\bar\\", GetEscapedArgument(L"C:\\foo\\bar\\", false));
-  ASSERT_EQ(L"\"C:\\foo foo\\bar\\\"",
-            GetEscapedArgument(L"C:\\foo foo\\bar\\", false));
+TEST_F(LaunchUtilTest, CreateProcessEscapeArgTest) {
+  ASSERT_EQ(L"\"\"", CreateProcessEscapeArg(L""));
+  ASSERT_EQ(L"\"with\\\"quote\"", CreateProcessEscapeArg(L"with\"quote"));
+  ASSERT_EQ(L"one\\backslash", CreateProcessEscapeArg(L"one\\backslash"));
+  ASSERT_EQ(L"\"one\\ backslash and \\space\"",
+            CreateProcessEscapeArg(L"one\\ backslash and \\space"));
+  ASSERT_EQ(L"two\\\\backslashes",
+            CreateProcessEscapeArg(L"two\\\\backslashes"));
+  ASSERT_EQ(L"\"two\\\\ backslashes \\\\and space\"",
+            CreateProcessEscapeArg(L"two\\\\ backslashes \\\\and space"));
+  ASSERT_EQ(L"\"one\\\\\\\"x\"", CreateProcessEscapeArg(L"one\\\"x"));
+  ASSERT_EQ(L"\"two\\\\\\\\\\\"x\"", CreateProcessEscapeArg(L"two\\\\\"x"));
+  ASSERT_EQ(L"\"a \\ b\"", CreateProcessEscapeArg(L"a \\ b"));
+  ASSERT_EQ(L"\"a \\\\\\\" b\"", CreateProcessEscapeArg(L"a \\\" b"));
+
+  ASSERT_EQ(L"A", CreateProcessEscapeArg(L"A"));
+  ASSERT_EQ(L"\"\\\"a\\\"\"", CreateProcessEscapeArg(L"\"a\""));
+
+  ASSERT_EQ(L"\"B C\"", CreateProcessEscapeArg(L"B C"));
+  ASSERT_EQ(L"\"\\\"b c\\\"\"", CreateProcessEscapeArg(L"\"b c\""));
+
+  ASSERT_EQ(L"\"D\\\"E\"", CreateProcessEscapeArg(L"D\"E"));
+  ASSERT_EQ(L"\"\\\"d\\\"e\\\"\"", CreateProcessEscapeArg(L"\"d\"e\""));
+
+  ASSERT_EQ(L"\"C:\\F G\"", CreateProcessEscapeArg(L"C:\\F G"));
+  ASSERT_EQ(L"\"\\\"C:\\f g\\\"\"", CreateProcessEscapeArg(L"\"C:\\f g\""));
+
+  ASSERT_EQ(L"\"C:\\H\\\"I\"", CreateProcessEscapeArg(L"C:\\H\"I"));
+  ASSERT_EQ(L"\"\\\"C:\\h\\\"i\\\"\"", CreateProcessEscapeArg(L"\"C:\\h\"i\""));
+
+  ASSERT_EQ(L"\"C:\\J\\\\\\\"K\"", CreateProcessEscapeArg(L"C:\\J\\\"K"));
+  ASSERT_EQ(L"\"\\\"C:\\j\\\\\\\"k\\\"\"",
+            CreateProcessEscapeArg(L"\"C:\\j\\\"k\""));
+
+  ASSERT_EQ(L"\"C:\\L M \"", CreateProcessEscapeArg(L"C:\\L M "));
+  ASSERT_EQ(L"\"\\\"C:\\l m \\\"\"",
+            CreateProcessEscapeArg(L"\"C:\\l m \""));
+
+  ASSERT_EQ(L"\"C:\\N O\\\\\"", CreateProcessEscapeArg(L"C:\\N O\\"));
+  ASSERT_EQ(L"\"\\\"C:\\n o\\\\\\\"\"",
+            CreateProcessEscapeArg(L"\"C:\\n o\\\""));
+
+  ASSERT_EQ(L"\"C:\\P Q\\ \"", CreateProcessEscapeArg(L"C:\\P Q\\ "));
+  ASSERT_EQ(L"\"\\\"C:\\p q\\ \\\"\"",
+            CreateProcessEscapeArg(L"\"C:\\p q\\ \""));
+
+  ASSERT_EQ(L"C:\\R\\S\\", CreateProcessEscapeArg(L"C:\\R\\S\\"));
+  ASSERT_EQ(L"\"C:\\R x\\S\\\\\"", CreateProcessEscapeArg(L"C:\\R x\\S\\"));
+  ASSERT_EQ(L"\"\\\"C:\\r\\s\\\\\\\"\"",
+            CreateProcessEscapeArg(L"\"C:\\r\\s\\\""));
+  ASSERT_EQ(L"\"\\\"C:\\r x\\s\\\\\\\"\"",
+            CreateProcessEscapeArg(L"\"C:\\r x\\s\\\""));
+
+  ASSERT_EQ(L"\"C:\\T U\\W\\\\\"", CreateProcessEscapeArg(L"C:\\T U\\W\\"));
+  ASSERT_EQ(L"\"\\\"C:\\t u\\w\\\\\\\"\"",
+            CreateProcessEscapeArg(L"\"C:\\t u\\w\\\""));
 }
 
 TEST_F(LaunchUtilTest, DoesFilePathExistTest) {
