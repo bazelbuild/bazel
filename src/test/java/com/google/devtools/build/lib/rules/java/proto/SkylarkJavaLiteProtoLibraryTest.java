@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelp
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
@@ -318,8 +319,8 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     Artifact jar = Iterables.getOnlyElement(runtimeJars.get("x/libproto_lib-lite.jar"));
     JavaCompileAction action = (JavaCompileAction) getGeneratingAction(jar);
 
-    List<String> commandLine = ImmutableList.copyOf((Iterable<String>) getJavacArguments(action));
-    assertThat(commandLine).contains("-protoMarkerForTest");
+    String commandLine = Joiner.on(' ').join(getJavacArguments(action));
+    assertThat(commandLine).contains("-source 7 -target 7");
   }
 
   @Test
