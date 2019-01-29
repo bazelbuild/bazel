@@ -22,11 +22,11 @@ title: Cquery (configurable query)
   replace <code>query</code> as it does not support all of <code>query</code>'s functions.</p>
 <p>
   <code>cquery</code> achieves configuration awareness by running after the
-  <a href="https://docs.bazel.build/versions/master/skylark/concepts.html#evaluation-model">analysis phase</a>
+  <a href="skylark/concepts.html#evaluation-model">analysis phase</a>
   of a build, unlike traditional <code>query</code>, which runs after the loading phase.</p>
 <p>
   The most common use for <code>cquery</code> is obtaining answers that correctly evaluate
-  <a href="https://docs.bazel.build/versions/master/be/common-definitions.html#configurable-attributes"><code>select()</code></a>
+  <a href="be/common-definitions.html#configurable-attributes"><code>select()</code></a>
   statements in configurable attributes. For example:
 </p>
 
@@ -70,7 +70,7 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 <p>
   Keep in mind that <code>cquery</code> works only on the configured target graph. Because of this,
   it does not have insight into artifacts like build actions nor access to
-  <code><a href="https://docs.bazel.build/versions/master/be/general.html#test_suite">test_suite</a></code>
+  <code><a href="be/general.html#test_suite">test_suite</a></code>
   rules as they are not configured targets.
 </p>
 
@@ -85,7 +85,7 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 <ul>
   <li>
     <b><code>function(...)</code></b> is the function to run on the target. <code>cquery</code>
-    supports most of the same <a href="https://docs.bazel.build/versions/master/query.html#functions">functions</a>
+    supports most of the same <a href="query.html#functions">functions</a>
     as traditional <code>query</code>.
   </li>
   <li><b><code>//target</code></b> is the expression fed to the function. In this example, the
@@ -104,7 +104,7 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 <h2 id='functions'>Functions</h2>
 
 <p>
-  Of the <a href="https://docs.bazel.build/versions/master/query.html#functions" title="list of query functions">set of functions</a>
+  Of the <a href="query.html#functions" title="list of query functions">set of functions</a>
   supported by the traiditional <code>query</code>, <code>cquery</code> supports all but siblings, buildfiles, and tests. The
   functions listed below are <code>cquery</code>-specific.
 </p>
@@ -141,7 +141,7 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 
 <p>
   <code>cquery</code> runs on top of a regular Bazel build and thus inherits the set of
-  <a href="https://docs.bazel.build/versions/master/command-line-reference.html#build-options">options</a>
+  <a href="command-line-reference.html#build-options">options</a>
   available during a build.
 </p>
 
@@ -151,7 +151,7 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 
 <p>
   Often, the dependencies of configured targets go through
-  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">transitions</a>,
+  <a href="skylark/rules.html#configurations">transitions</a>,
   which causes their configuration to differ from their dependent. This flag allows you to query
   a target as if it were built as a dependency or a transitive dependency of another target. For
   example:
@@ -173,7 +173,7 @@ cc_library(
 
 <p>
   Genrules configure their tools in the
-  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">host configuration</a>
+  <a href="skylark/rules.html#configurations">host configuration</a>
   so the following queries would produce the following outputs:
 </p>
 
@@ -231,7 +231,7 @@ cc_library(
   Setting this flag to false filters out all configured targets for which the
   path from the queried target to them crosses a transition between the target
   configuration and the
-  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">host configuration</a>.
+  <a href="skylark/rules.html#configurations">host configuration</a>.
   If the queried target is in a non-host configuration, setting <code>--nohost_deps</code> will
   only return targets that also are in non-host configurations. If the queried
   target is in a host configuration, setting <code>--nohost_deps</code> will only return
@@ -246,7 +246,7 @@ There are other options for exposing the results as well. </p>
 <h3> Transitions </h3>
 
 <p>
-  Configuration <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">transitions</a>
+  Configuration <a href="skylark/rules.html#configurations">transitions</a>
   are used to build targets underneath the top level targets in different configurations than the top
   level targets. For example, a target might impose a transition to the host transition on all
   dependencies in its <code>tools</code> attribute. These are known as attribute transitions.
@@ -271,15 +271,15 @@ There are other options for exposing the results as well. </p>
     hashes and there is no way for the user to input them (and thus to directly
     specify the configuration to query a target in).</li>
   <li>
-    <strong>No support for <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>,
-    <a href="https://docs.bazel.build/versions/master/query.html#output-formats" title="list of query output formats">output
+    <strong>No support for <a href="skylark/aspects.html">aspects</a>,
+    <a href="query.html#output-formats" title="list of query output formats">output
     options</a>, or recursive target patterns (/...).</strong></li>
   <li>
     <strong>Non-deterministic output.</strong> <code>Cquery</code> does not automatically wipe the build
     graph from previous commands and is therefore prone to picking up results
     from past queries. For example, <code>genquery</code> exerts a host transition on its <code>tools</code>
     attribute - that is, it configures its tools in the
-    <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">host configuration</a>.
+    <a href="skylark/rules.html#configurations">host configuration</a>.
     We can see the lingering effects of that transition below.</li>
 </ul>
 
@@ -317,6 +317,6 @@ tool(host_config)
 <h2 id='updates'>Updates</h2>
 
 <p>
-  The Bazel configurability team is continously improving <code>cquery</code>. If you want to
+  The Bazel configurability team is continuously improving <code>cquery</code>. If you want to
   ask questions, stay updated, or get involved, contact juliexxia@google.com
 </p>

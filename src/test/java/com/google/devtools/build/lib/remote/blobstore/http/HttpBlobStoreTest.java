@@ -60,7 +60,6 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.timeout.ReadTimeoutException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -238,18 +237,19 @@ public class HttpBlobStoreTest {
     this.testServer = testServer;
   }
 
-  private HttpBlobStore createHttpBlobStore(ServerChannel serverChannel, int timeoutMillis,
-      int remoteMaxConnections, @Nullable final Credentials creds) throws Exception {
+  private HttpBlobStore createHttpBlobStore(
+      ServerChannel serverChannel, int timeoutSeconds, @Nullable final Credentials creds)
+      throws Exception {
     SocketAddress socketAddress = serverChannel.localAddress();
     if (socketAddress instanceof DomainSocketAddress) {
       DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
       URI uri = new URI("http://localhost");
-      return HttpBlobStore.create(domainSocketAddress, uri, timeoutMillis, remoteMaxConnections,
-          creds);
+      return HttpBlobStore.create(
+          domainSocketAddress, uri, timeoutSeconds, /* remoteMaxConnections= */ 0, creds);
     } else if (socketAddress instanceof InetSocketAddress) {
       InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
       URI uri = new URI("http://localhost:" + inetSocketAddress.getPort());
-      return HttpBlobStore.create(uri, timeoutMillis, remoteMaxConnections, creds);
+      return HttpBlobStore.create(uri, timeoutSeconds, /* remoteMaxConnections= */ 0, creds);
     } else {
       throw new IllegalStateException(
           "unsupported socket address class " + socketAddress.getClass());
@@ -262,14 +262,13 @@ public class HttpBlobStoreTest {
     testServer.stop(server);
 
     Credentials credentials = newCredentials();
-    HttpBlobStore blobStore =
-        createHttpBlobStore(server, 5, 0, credentials);
+    HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
     getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
 
     fail("Exception expected");
   }
 
-  @Test(expected = ReadTimeoutException.class, timeout = 30000)
+  @Test(expected = DownloadTimeoutException.class, timeout = 30000)
   public void timeoutShouldWork_read() throws Exception {
     ServerChannel server = null;
     try {
@@ -284,8 +283,7 @@ public class HttpBlobStoreTest {
               });
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore =
-          createHttpBlobStore(server, 5, 0, credentials);
+      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
       fail("Exception expected");
     } finally {
@@ -308,8 +306,7 @@ public class HttpBlobStoreTest {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore =
-          createHttpBlobStore(server, 30, 0, credentials);
+      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
       getFromFuture(blobStore.get("key", out));
       assertThat(out.toString(Charsets.US_ASCII.name())).isEqualTo("File Contents");
@@ -339,8 +336,7 @@ public class HttpBlobStoreTest {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore =
-          createHttpBlobStore(server, 30, 0, credentials);
+      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       byte[] data = "File Contents".getBytes(Charsets.US_ASCII);
       ByteArrayInputStream in = new ByteArrayInputStream(data);
       blobStore.put("key", data.length, in);
@@ -368,8 +364,7 @@ public class HttpBlobStoreTest {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore =
-          createHttpBlobStore(server, 30, 0, credentials);
+      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       getFromFuture(blobStore.get("key", new ByteArrayOutputStream()));
       fail("Exception expected.");
     } catch (Exception e) {
@@ -396,8 +391,7 @@ public class HttpBlobStoreTest {
       server = testServer.start(new NotAuthorizedHandler(errorType));
 
       Credentials credentials = newCredentials();
-      HttpBlobStore blobStore =
-          createHttpBlobStore(server, 30, 0, credentials);
+      HttpBlobStore blobStore = createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials);
       blobStore.put("key", 1, new ByteArrayInputStream(new byte[]{0}));
       fail("Exception expected.");
     } catch (Exception e) {

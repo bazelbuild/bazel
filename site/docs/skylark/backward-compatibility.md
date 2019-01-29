@@ -1,34 +1,16 @@
 ---
 layout: documentation
-title: Backward Compatibility
+title: Legacy Incompatible Changes List
 ---
 
-# Backward Compatibility
 
-Bazel is still in Beta and new releases may include backward incompatible
-changes. As we make changes and polish the extension mechanism, old features
-may be removed and new features that are not backward compatible may be added.
+# Legacy Incompatible Changes List
 
-Backward incompatible changes are introduced gradually:
+Legacy, partial list of [backward-incompatible changes](../backward-compatibility.md).
 
-1.  The backward incompatible change is introduced behind a flag with its
-    default value set to `false`.
-2.  In a later release, the flag's default value will be set to `true`. You
-    can still use the flag to disable the change.
-3.  Then in a later release, the flag will be removed and you will no longer be
-    able to disable the change.
+Full, authorative list of incompatible changes is [GitHub issues with
+"incompatible-change" label](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+label%3Aincompatible-change)
 
-To check if your code will be compatible with future releases you can:
-
-*   Build your code with the flag `--all_incompatible_changes`. This flag
-    enables all backward incompatible changes, and so you can ensure your code
-    is compatible with upcoming changes.
-*   Use boolean flags to enable/disable specific backward incompatible changes.
-
-## Current backward incompatible changes
-
-The following are the backward incompatible changes that are implemented and
-guarded behind flags in the current release:
 
 General Starlark
 
@@ -37,7 +19,7 @@ General Starlark
 *   [Depset is no longer iterable](#depset-is-no-longer-iterable)
 *   [Depset union](#depset-union)
 *   [String is no longer iterable](#string-is-no-longer-iterable)
-*   [Integer division operator is //](#integer-division-operator-is)
+*   [Integer division operator is //](#integer-division-operator-is-)
 *   [Package name is a function](#package-name-is-a-function)
 *   [FileType is deprecated](#filetype-is-deprecated)
 *   [Static Name Resolution](#static-name-resolution)
@@ -52,8 +34,7 @@ Starlark Rules
 *   [Disallow tools in action inputs](#disallow-tools-in-action-inputs)
 *   [Expand directories in Args](#expand-directories-in-args)
 *   [Disable late bound option defaults](#disable-late-bound-option-defaults)
-*   [Disallow `cfg = "data"`](#disallow-cfg-data)
-*   [Disallow conflicting providers](#disallow-conflicting-providers)
+*   [Disallow `cfg = "data"`](#disallow-cfg--data)
 
 Objc
 
@@ -63,6 +44,7 @@ External repositories
 
 *   [Remove native git repository](#remove-native-git-repository)
 *   [Remove native http archive](#remove-native-http-archive)
+*   [Remove native maven jar](#remove-native-maven-jar)
 
 Java
 
@@ -144,7 +126,7 @@ depset1.union(depset2)  # deprecated
 The recommended solution is to use the `depset` constructor:
 
 ``` python
-depset(transtive = [depset1, depset2])
+depset(transitive = [depset1, depset2])
 ```
 
 See the [`depset documentation`](depsets.md) for more information.
@@ -184,24 +166,8 @@ for i in range(len(my_string)):
 ```
 
 *   Flag: `--incompatible_string_is_not_iterable`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5830](https://github.com/bazelbuild/bazel/issues/5830)
-
-
-### Integer division operator is `//`
-
-Integer division operator is now `//` instead of `/`. This aligns with
-Python 3 and it highlights the fact it is a floor division.
-
-```python
-x = 7 / 2  # deprecated
-
-x = 7 // 2  # x is 3
-```
-
-*   Flag: `--incompatible_disallow_slash_operator`
-*   Default: `false`
-*   Tracking issue: [#5823](https://github.com/bazelbuild/bazel/issues/5823)
 
 
 ### Package name is a function
@@ -216,7 +182,7 @@ Likewise, the magic `REPOSITORY_NAME` variable is replaced by
 same flag.
 
 *   Flag: `--incompatible_package_name_is_a_function`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5827](https://github.com/bazelbuild/bazel/issues/5827)
 
 
@@ -268,16 +234,6 @@ or `add_joined()` instead.
 *   Flag: `--incompatible_disallow_old_style_args_add`
 *   Default: `false`
 *   Tracking issue: [#5822](https://github.com/bazelbuild/bazel/issues/5822)
-
-
-### Python 3 range behavior.
-When set, the result of `range(...)` function is a lazy `range` type instead of
-a `list`. Because of this repetitions using `*` operator are no longer
-supported and `range` slices are also lazy `range` instances.
-
-*   Flag: `--incompatible_range_type`
-*   Default: `true`
-*   Tracking issue: [#5264](https://github.com/bazelbuild/bazel/issues/5264)
 
 
 ### Disable objc provider resources
@@ -393,6 +349,61 @@ parameter, not `url`).
 
 *   Flag: `--incompatible_remove_native_http_archive`
 *   Default: `true`
+
+### Remove native maven jar
+
+When set, the native `maven_jar` rule is disabled. The Starlark version
+
+```python
+load("@bazel_tools//tools/build_defs/repo:java.bzl", "java_import_external")
+```
+
+or the convenience wrapper
+
+```python
+load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
+```
+
+should be used instead. These rules are more reliable and offer additional
+functionality over the native `maven_jar` rule. In addition to downloading
+the jars, they allow defining the jar's dependencies. They also enable
+downloading src-jars.
+
+Given a `WORKSPACE` file that looks like the following:
+
+```python
+maven_jar(
+    name = "truth",
+    artifact = "com.google.truth:truth:0.30",
+    sha1 = "9d591b5a66eda81f0b88cf1c748ab8853d99b18b",
+)
+```
+
+It will need to look like this after updating:
+```python
+load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
+jvm_maven_import_external(
+    name = "truth",
+    artifact = "com.google.truth:truth:0.30",
+    artifact_sha256 = "59721f0805e223d84b90677887d9ff567dc534d7c502ca903c0c2b17f05c116a",
+    server_urls = ["http://central.maven.org/maven2"],
+    licenses = ["notice"],  # Apache 2.0
+)
+```
+
+Notably
+*   the `licenses` attribute is mandatory
+*   sha1 is no longer supported, only sha256 is
+*   the `server_urls` attribute is mandatory. If your `maven_jar` rule
+    did not specify a url then you should use the default server
+    ("http://central.maven.org/maven2"). If your rule did specify a url then
+    keep using that one.
+
+Documentation for the rule is
+[here](https://source.bazel.build/bazel/+/master:tools/build_defs/repo/java.bzl;l=15).
+
+*   Flag: `--incompatible_remove_native_maven_jar`
+*   Default: `false`
 
 ### New-style JavaInfo constructor
 
@@ -542,7 +553,7 @@ for background and examples.
 The proposal is not fully implemented yet.
 
 *   Flag: `--incompatible_static_name_resolution`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5637](https://github.com/bazelbuild/bazel/issues/5637)
 
 
@@ -653,9 +664,9 @@ config_setting(
 ### Disable depsets in C++ toolchain API in user flags
 
 If true, Bazel will no longer accept depsets in `user_compile_flags` for
-[create\_compile\_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_compile_variables),
+[create\_compile\_variables](../skylark/lib/cc_common.html#create_compile_variables),
 and in `user_link_flags` for
-[create\_link\_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_link_variables).
+[create\_link\_variables](../skylark/lib/cc_common.html#create_link_variables).
 Use plain lists instead.
 
 *   Flag: `--incompatible_disable_depset_in_cc_user_flags`
@@ -788,7 +799,7 @@ For Starlark rules using C++ Make Variables:
 ```python
 # Before
 def _impl(ctx):
-    strip = ctx.vars["STRIP"]
+    strip = ctx.var["STRIP"]
     ...
 
 my_rule = rule(
@@ -799,7 +810,7 @@ my_rule = rule(
 
 # After
 def _impl(ctx):
-    strip = ctx.vars["STRIP"]
+    strip = ctx.var["STRIP"]
     ...
 
 my_rule = rule(
@@ -815,6 +826,12 @@ my_rule = rule(
 *   Tracking issue: [#6381](https://github.com/bazelbuild/bazel/issues/6381)
 
 ### Disable legacy C++ configuration API
+
+**You might want to migrate for this flag together with
+`--incompatible_disable_legacy_flags_cc_toolchain_api` in a single go.
+Migration instructions for
+`--incompatible_disable_legacy_cpp_toolchain_skylark_api` use an API that is
+already deprecated by `--incompatible_disable_legacy_flags_cc_toolchain_api`**
 
 This turns off legacy Starlark access to cc toolchain information via the
 `ctx.fragments.cpp` fragment. Instead of declaring dependency on the `ctx.fragments.cpp` using the
@@ -879,6 +896,24 @@ List of all legacy fields and their corresponding `cc_toolchain` alternative:
 | `target_gnu_system_name` |  `target_gnu_system_name` |
 | `unfiltered_compiler_options(unused_arg)` |  `unfiltered_compiler_options(unused_arg)` |
 
+If you use legacy Starlark API on `ctx.host_fragment.cpp`, let us know on
+[the tracking bug for C++ migration to platforms](https://github.com/bazelbuild/bazel/issues/6516)
+about your use case. The current plan is that host fragments will be removed.
+To migrate, add an implicit rule attribute in the host configuration:
+
+```python
+"_host_cc_toolchain": attr.label(
+    cfg = "host",
+    default = Label("//tools/cpp:current_cc_toolchain"),
+),
+```
+
+Then in your rules access the provider using:
+
+```python
+host_cc_toolchain = ctx.attr._host_cc_toolchain[cc_common.CcToolchainInfo]
+```
+
 *   Flag: `--incompatible_disable_legacy_cpp_toolchain_skylark_api`
 *   Default: `false`
 *   Introduced in: `0.18.0`
@@ -897,14 +932,14 @@ We have deprecated the `cc_toolchain` Starlark API returning legacy CROSSTOOL fi
 * mostly\_static\_link\_options
 * unfiltered\_compiler\_options
 
-Use the new API from [cc_common](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html)
+Use the new API from [cc_common](../skylark/lib/cc_common.html)
 
 ```python
 # Before:
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 
 def _impl(ctx):
-    cc_toolchain = find_cc_toolchain(ctx)
+    cc_toolchain = find_cpp_toolchain(ctx)
     compiler_options = (
         cc_toolchain.compiler_options() +
         cc_toolchain.unfiltered_compiler_options([]) +
@@ -928,7 +963,7 @@ load(
 )
 
 def _impl(ctx):
-    cc_toolchain = find_cc_toolchain(ctx)
+    cc_toolchain = find_cpp_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
         cc_toolchain = cc_toolchain,
         requested_features = ctx.features,
@@ -995,20 +1030,9 @@ When `--incompatible_disallow_data_transition=true`, builds using this syntax
 fail with an error.
 
 *   Flag: `--incompatible_disallow_data_transition`
-*   Default: `false`
+*   Default: `true`
 *   Introduced in: `0.16.0`
 *   Tracking issue: [#6153](https://github.com/bazelbuild/bazel/issues/6153)
-
-
-### Disallow conflicting providers
-
-If set to true, disallow rule implementation functions from returning multiple
-instances of the same type of provider. If false, only the last in the list will
-be used.
-
-*   Flag: `incompatible_disallow_conflicting_providers`
-*   Default: `true`
-*   Tracking issue: [#5902](https://github.com/bazelbuild/bazel/issues/5902)
 
 
 ### Load label cannot cross package boundaries

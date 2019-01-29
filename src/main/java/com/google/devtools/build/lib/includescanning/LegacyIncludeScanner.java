@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.includescanning;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -51,13 +49,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -110,7 +104,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
    */
   @ThreadSafety.ThreadSafe
   private class InclusionCache {
-    private final ConcurrentMap<InclusionWithContext, FutureTask<LocateOnPathResult>> cache =
+    private final ConcurrentMap<InclusionWithContext, LocateOnPathResult> cache =
         new ConcurrentHashMap<>();
 
     /**
@@ -126,8 +120,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
     private LocateOnPathResult locateOnPaths(
         InclusionWithContext inclusion,
         Map<PathFragment, Artifact> pathToLegalOutputArtifact,
-        boolean onlyCheckGenerated)
-        throws InterruptedException {
+        boolean onlyCheckGenerated) {
       PathFragment name = inclusion.getInclusion().pathFragment;
 
       // For #include_next directives we start searching on the include path where
@@ -159,7 +152,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
             continue;
           }
         }
-        checkForInterrupt("locate on path", fileFragment);
         if (onlyCheckGenerated && !isRealOutputFile(fileFragment)) {
           continue;
         }
@@ -217,40 +209,26 @@ public class LegacyIncludeScanner implements IncludeScanner {
      * @return a LocateOnPathResult
      */
     public LocateOnPathResult lookup(
-        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact)
-        throws InterruptedException {
-      if (!cache.containsKey(inclusion)) {
-        FutureTask<LocateOnPathResult> task =
-            new FutureTask<>(() -> locateOnPaths(inclusion, pathToLegalOutputArtifact, false));
-        if (cache.putIfAbsent(inclusion, task) == null) {
-          task.run();
-        }
-      }
-      LocateOnPathResult previousValue;
-      try {
-        previousValue = cache.get(inclusion).get();
-        // It is not safe to cache lookups which viewed illegal output files. Their nonexistence do
-        // not imply nonexistence for actions using the same include scanner, but executed later on.
-        // See bug 2097998. For performance reasons, take a small shortcut: only avoid caching when
-        // the path lookup result from locateOnPaths() is empty.
-        if (previousValue.path != null || !previousValue.viewedIllegalOutputFile) {
-          return previousValue;
-        }
-        LocateOnPathResult result = locateOnPaths(inclusion, pathToLegalOutputArtifact, true);
-        if (result.path != null || !result.viewedIllegalOutputFile) {
-          // In this case, the result is now cachable either because a file has been found or
-          // because there are no more illegal output files. This is rare in practice. Avoid
-          // creating a future and modifying the cache in the common case.
-          FutureTask<LocateOnPathResult> task = new FutureTask<>(() -> result);
-          cache.put(inclusion, task);
-          task.run();
-        }
+        InclusionWithContext inclusion, Map<PathFragment, Artifact> pathToLegalOutputArtifact) {
+      LocateOnPathResult result =
+          cache.computeIfAbsent(
+              inclusion, key -> locateOnPaths(key, pathToLegalOutputArtifact, false));
+      // It is not safe to cache lookups which viewed illegal output files. Their nonexistence do
+      // not imply nonexistence for actions using the same include scanner, but executed later on.
+      // See bug 2097998. For performance reasons, take a small shortcut: only avoid caching when
+      // the path lookup result from locateOnPaths() is empty.
+      if (result.path != null || !result.viewedIllegalOutputFile) {
         return result;
-      } catch (ExecutionException e) {
-        Throwable cause = e.getCause();
-        Throwables.propagateIfPossible(cause, InterruptedException.class);
-        throw new AssertionError(cause); // Shouldn't get here.
       }
+
+      result = locateOnPaths(inclusion, pathToLegalOutputArtifact, true);
+      if (result.path != null || !result.viewedIllegalOutputFile) {
+        // In this case, the result is now cachable either because a file has been found or
+        // because there are no more illegal output files. This is rare in practice. Avoid
+        // creating a future and modifying the cache in the common case.
+        cache.put(inclusion, result);
+      }
+      return result;
     }
   }
 
@@ -290,7 +268,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
    * Externally-scoped cache of file path => parsed inclusion set mappings. Saves us from having to
    * parse files more than once, and can be shared by scanners with different search paths.
    */
-  private final ConcurrentMap<Artifact, FutureTask<Collection<Inclusion>>> fileParseCache;
+  private final ConcurrentMap<Artifact, Collection<Inclusion>> fileParseCache;
 
   private final IncludeParser parser;
 
@@ -339,7 +317,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
   LegacyIncludeScanner(
       IncludeParser parser,
       ExecutorService includePool,
-      ConcurrentMap<Artifact, FutureTask<Collection<Inclusion>>> cache,
+      ConcurrentMap<Artifact, Collection<Inclusion>> cache,
       PathExistenceCache pathCache,
       List<PathFragment> quoteIncludePaths,
       List<PathFragment> includePaths,
@@ -467,7 +445,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
     } catch (ExecRuntimeException e) {
       throw e.getRealCause();
     } catch (InterruptedRuntimeException e) {
-      throw (InterruptedException) e.getCause();
+      throw e.getRealCause();
     }
   }
 
@@ -612,29 +590,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
   }
 
   /**
-   * Get a Future's result, unwrapping the underlying exceptions into the appropriate checked type,
-   * if possible.
-   */
-  @VisibleForTesting
-  static <T, E extends Exception, X extends Exception, C extends Exception>
-      T getFutureWithCheckedException(
-          Future<T> future,
-          Class<E> exceptionClassFirst,
-          Class<X> exceptionClassSecond,
-          Class<C> exceptionClassThird)
-          throws InterruptedException, E, X, C {
-    try {
-      return future.get();
-    } catch (ExecutionException e) {
-      Throwable cause = e.getCause();
-      Throwables.propagateIfPossible(cause, exceptionClassFirst, exceptionClassSecond);
-      Throwables.propagateIfPossible(cause, exceptionClassThird);
-      throw new AssertionError(cause); // Shouldn't get here.
-    }
-  }
-
-
-  /**
    * Implements a potentially parallel traversal over source files using a
    * thread pool shared across different IncludeScanner instances.
    */
@@ -694,66 +649,47 @@ public class LegacyIncludeScanner implements IncludeScanner {
         Set<ArtifactWithInclusionContext> visitedInclusions,
         final Artifact grepIncludes)
         throws IOException, ExecException, InterruptedException {
-      Collection<Inclusion> inclusionsFromFuture = null;
-      // While we try to get these inclusions, we may get the results of other threads' attempts,
-      // which failed due to missing dependencies. We can't use those results, since they're
-      // transient. So we loop until either our thread got the missing dependency, in which case we
-      // will be responsible for requesting it, or we get a result.
-      do {
-        boolean ownsTask = false;
-        checkForInterrupt("processing", source);
-        FutureTask<Collection<Inclusion>> existingTask = fileParseCache.get(source);
-        if (existingTask == null) {
-          FutureTask<Collection<Inclusion>> task =
-              new FutureTask<>(
-                  () ->
-                      parser.extractInclusions(
-                          source,
-                          actionExecutionMetadata,
-                          actionExecutionContext,
-                          grepIncludes,
-                          spawnIncludeScannerSupplier.get(),
-                          isRealOutputFile(source.getExecPath())));
+      checkForInterrupt("processing", source);
 
-          existingTask = fileParseCache.putIfAbsent(source, task);
-          if (existingTask == null) {
-            ownsTask = true;
-            // Cache miss.
-            task.run();
-            existingTask = task;
-          }
-        }
-        try {
-          // Get the inclusions for this file, either from cache or by parsing
-          inclusionsFromFuture =
-              getFutureWithCheckedException(
-                  existingTask, IOException.class, ExecException.class, InterruptedException.class);
-        } catch (InterruptedException e) {
-          throw new InterruptedException(
-              "Interrupted while scanning " + source + " for include statements");
-        } catch (CancellationException e) {
-          throw new InterruptedException(
-              "Canceled while scanning " + source + " for include statements: " + e.getMessage());
-        }  catch (IOException e) {
-          throw new IOException(
-              "Error scanning " + source + " for include statements: " + e.getMessage(), e);
-        } catch (MissingDepException e) {
-          // Don't want to cache this.
-          fileParseCache.remove(source, existingTask);
-          if (ownsTask) {
-            // If we didn't get the missing dependency ourselves, just loop and try again.
-            throw e;
-          }
-        }
-      } while (inclusionsFromFuture == null);
-      List<Inclusion> inclusions = new ArrayList<>(inclusionsFromFuture);
+      Collection<Inclusion> inclusions = null;
+      try {
+        inclusions =
+            fileParseCache.computeIfAbsent(
+                source,
+                file -> {
+                  try {
+                    return parser.extractInclusions(
+                        file,
+                        actionExecutionMetadata,
+                        actionExecutionContext,
+                        grepIncludes,
+                        spawnIncludeScannerSupplier.get(),
+                        isRealOutputFile(source.getExecPath()));
+                  } catch (IOException e) {
+                    throw new IORuntimeException(e);
+                  } catch (ExecException e) {
+                    throw new ExecRuntimeException(e);
+                  } catch (InterruptedException e) {
+                    throw new InterruptedRuntimeException(e);
+                  }
+                });
+      } catch (IORuntimeException e) {
+        throw e.getCauseIOException();
+      } catch (ExecRuntimeException e) {
+        throw e.getRealCause();
+      } catch (InterruptedRuntimeException e) {
+        throw e.getRealCause();
+      }
+      Preconditions.checkNotNull(inclusions, source);
+
       // Shuffle the inclusions to get better parallelism. See b/62200470.
-      Collections.shuffle(inclusions, CONSTANT_SEED_RANDOM);
-      // For each inclusion:
-      // - get or locate its target file & recursively process
+      List<Inclusion> shuffledInclusions = new ArrayList<>(inclusions);
+      Collections.shuffle(shuffledInclusions, CONSTANT_SEED_RANDOM);
+
+      // For each inclusion: get or locate its target file & recursively process
       IncludeScannerHelper helper =
           new IncludeScannerHelper(includePaths, quoteIncludePaths, source);
-      for (Inclusion inclusion : inclusions) {
+      for (Inclusion inclusion : shuffledInclusions) {
         findAndProcess(
             helper.createInclusionWithContext(inclusion, contextPathPos, contextKind),
             source,
@@ -784,8 +720,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
         Set<ArtifactWithInclusionContext> visitedInclusions,
         final Artifact grepIncludes)
         throws IOException, ExecException, InterruptedException {
-      FutureTask<Collection<Inclusion>> existingTask = fileParseCache.get(source);
-      if (existingTask != null && existingTask.isDone()) {
+      Collection<Inclusion> cacheResult = fileParseCache.get(source);
+      if (cacheResult != null) {
         process(
             source,
             contextPathPos,

@@ -22,7 +22,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -61,6 +63,7 @@ import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -359,7 +362,7 @@ public final class PackageFactory {
       return this;
     }
 
-    public abstract PackageFactory build(RuleClassProvider ruleClassProvider);
+    public abstract PackageFactory build(RuleClassProvider ruleClassProvider, FileSystem fs);
   }
 
   @VisibleForTesting
@@ -1333,7 +1336,9 @@ public final class PackageFactory {
         newExternalPackageBuilder(
                 RootedPath.toRootedPath(
                     buildFile.getRoot(),
-                    buildFile.getRootRelativePath().getRelative(Label.WORKSPACE_FILE_NAME)),
+                    buildFile
+                        .getRootRelativePath()
+                        .getRelative(LabelConstants.WORKSPACE_FILE_NAME)),
                 "TESTING")
             .build();
     return createPackageForTesting(
@@ -1529,10 +1534,7 @@ public final class PackageFactory {
     return StructProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
   }
 
-  private void buildPkgEnv(
-      Environment pkgEnv,
-      PackageContext context,
-      PackageIdentifier packageId) {
+  private void buildPkgEnv(Environment pkgEnv, PackageContext context) {
     // TODO(bazel-team): remove the naked functions that are redundant with the nativeModule,
     // or if not possible, at least make them straight copies from the native module variant.
     // or better, use a common Environment.Frame for these common bindings
@@ -1569,10 +1571,6 @@ public final class PackageFactory {
     }
 
     pkgEnv.setupDynamic(PKG_CONTEXT, context);
-    if (!pkgEnv.getSemantics().incompatiblePackageNameIsAFunction()) {
-      pkgEnv.setupDynamic(Runtime.PKG_NAME, packageId.getPackageFragment().getPathString());
-      pkgEnv.setupDynamic(Runtime.REPOSITORY_NAME, packageId.getRepository().toString());
-    }
   }
 
   /**
@@ -1619,15 +1617,17 @@ public final class PackageFactory {
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     try (Mutability mutability = Mutability.create("package %s", packageId)) {
+      BazelStarlarkContext starlarkContext =
+          new BazelStarlarkContext(ruleClassProvider.getToolsRepository(), repositoryMapping);
       Environment pkgEnv =
           Environment.builder(mutability)
               .setGlobals(BazelLibrary.GLOBALS)
               .setSemantics(skylarkSemantics)
               .setEventHandler(eventHandler)
               .setImportedExtensions(imports)
+              .setStarlarkContext(starlarkContext)
               .build();
       SkylarkUtils.setPhase(pkgEnv, Phase.LOADING);
-      SkylarkUtils.setToolsRepository(pkgEnv, ruleClassProvider.getToolsRepository());
 
       pkgBuilder.setFilename(buildFilePath)
           .setDefaultVisibility(defaultVisibility)
@@ -1647,7 +1647,7 @@ public final class PackageFactory {
       PackageContext context =
           new PackageContext(
               pkgBuilder, globber, eventHandler, ruleFactory.getAttributeContainerFactory());
-      buildPkgEnv(pkgEnv, context, packageId);
+      buildPkgEnv(pkgEnv, context);
 
       if (!validatePackageIdentifier(packageId, buildFileAST.getLocation(), eventHandler)) {
         pkgBuilder.setContainsErrors();

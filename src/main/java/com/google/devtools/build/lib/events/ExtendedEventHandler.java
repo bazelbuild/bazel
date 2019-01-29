@@ -21,7 +21,7 @@ package com.google.devtools.build.lib.events;
 public interface ExtendedEventHandler extends EventHandler {
 
   /** Interface for declaring events that can be posted via the extended event handler */
-  public interface Postable {}
+  interface Postable {}
 
   /** Post an postable object with more refined information about an important build event */
   void post(Postable obj);
@@ -30,10 +30,10 @@ public interface ExtendedEventHandler extends EventHandler {
    * Interface for declaring postable events that report about progress (as opposed to success or
    * failure) and hence should not be stored and replayed.
    */
-  public interface ProgressLike extends Postable {}
+  interface ProgressLike extends Postable {}
 
   /** Interface for progress events that report about fetching from a remote site */
-  public interface FetchProgress extends ProgressLike {
+  interface FetchProgress extends ProgressLike {
 
     /**
      * The resource that was originally requested and uniquely determines the fetch source. The
@@ -47,5 +47,15 @@ public interface ExtendedEventHandler extends EventHandler {
 
     /** Wether the fetch progress reported about is finished already */
     boolean isFinished();
+  }
+
+  /** Interface for events reporting information to be added to a resolved file. */
+  interface ResolvedEvent extends ProgressLike {
+
+    /** The name of the resolved entity, e.g., the name of an external repository */
+    String getName();
+
+    /** The entry for the list of resolved Information. */
+    Object getResolvedInformation();
   }
 }

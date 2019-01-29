@@ -65,6 +65,11 @@ public class ObjectCodecs {
     return serializeToByteString(subject, this::serializeMemoized);
   }
 
+  public void serializeMemoized(Object subject, CodedOutputStream codedOut)
+      throws SerializationException {
+    serializeImpl(subject, codedOut, serializationContext.getMemoizingContext());
+  }
+
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(Object subject)
       throws SerializationException {
     SerializationContext memoizingContext =
@@ -73,11 +78,6 @@ public class ObjectCodecs {
         serializeToByteString(
             subject, (subj, codedOut) -> serializeImpl(subj, codedOut, memoizingContext));
     return SerializationResult.create(byteString, memoizingContext.createFutureToBlockWritingOn());
-  }
-
-  public void serializeMemoized(Object subject, CodedOutputStream codedOut)
-      throws SerializationException {
-    serializeImpl(subject, codedOut, serializationContext.getMemoizingContext());
   }
 
   public Object deserialize(ByteString data) throws SerializationException {

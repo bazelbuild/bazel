@@ -29,16 +29,17 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -65,12 +66,13 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsProvider;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -86,14 +88,16 @@ import javax.annotation.Nullable;
 public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   /**
-   * Predicate for determining whether the analysis cache should be cleared, given the new set of
-   * build options and the diff from the old set.
+   * Predicate for determining whether the analysis cache should be cleared, given the new and old
+   * value of an option which has changed and the values of the other new options.
    */
   @FunctionalInterface
   public interface OptionsDiffPredicate {
-    public static final OptionsDiffPredicate ALWAYS_INVALIDATE = (diff, options) -> true;
+    public static final OptionsDiffPredicate ALWAYS_INVALIDATE =
+        (options, option, oldValue, newValue) -> true;
 
-    public boolean apply(OptionsDiff diff, BuildOptions newOptions);
+    public boolean apply(
+        BuildOptions newOptions, OptionDefinition option, Object oldValue, Object newValue);
   }
 
   /**
@@ -233,7 +237,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final List<ConfigurationFragmentFactory> configurationFragmentFactories =
         new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
-    private final List<Class<? extends FragmentOptions>> configurationOptions = new ArrayList<>();
+    private final Set<Class<? extends FragmentOptions>> configurationOptions =
+        new LinkedHashSet<>();
 
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final Map<String, RuleDefinition> ruleDefinitionMap = new HashMap<>();
@@ -245,7 +250,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private List<Class<? extends BuildConfiguration.Fragment>> universalFragments =
         new ArrayList<>();
     @Nullable private RuleTransitionFactory trimmingTransitionFactory;
-    private OptionsDiffPredicate shouldInvalidateCacheForDiff =
+    private OptionsDiffPredicate shouldInvalidateCacheForOptionDiff =
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
     private ImmutableList.Builder<Bootstrap> skylarkBootstraps =
@@ -320,43 +325,26 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder addConfigurationOptions(Class<? extends FragmentOptions> configurationOptions) {
-      this.configurationOptions.add(configurationOptions);
-      return this;
-    }
-
     /**
-     * Adds an options class and a corresponding factory. There's usually a 1:1:1 correspondence
-     * between option classes, factories, and fragments, such that the factory depends only on the
-     * options class and creates the fragment. This method provides a convenient way of adding both
-     * the options class and the factory in a single call.
+     * Adds a configuration fragment factory and all build options required by its fragment.
      *
-     * <p>Note that configuration fragments annotated with a Skylark name must have a unique
-     * name; no two different configuration fragments can share the same name.
-     */
-    public Builder addConfig(
-        Class<? extends FragmentOptions> options, ConfigurationFragmentFactory factory) {
-      // Enforce that the factory requires the options.
-      Preconditions.checkState(factory.requiredOptions().contains(options));
-      this.configurationOptions.add(options);
-      this.configurationFragmentFactories.add(factory);
-      return this;
-    }
-
-    public Builder addConfigurationOptions(
-        Collection<Class<? extends FragmentOptions>> optionsClasses) {
-      this.configurationOptions.addAll(optionsClasses);
-      return this;
-    }
-
-    /**
-     * Adds a configuration fragment factory.
-     *
-     * <p>Note that configuration fragments annotated with a Skylark name must have a unique
-     * name; no two different configuration fragments can share the same name.
+     * <p>Note that configuration fragments annotated with a Skylark name must have a unique name;
+     * no two different configuration fragments can share the same name.
      */
     public Builder addConfigurationFragment(ConfigurationFragmentFactory factory) {
+      this.configurationOptions.addAll(factory.requiredOptions());
       configurationFragmentFactories.add(factory);
+      return this;
+    }
+
+    /**
+     * Adds configuration options that aren't required by configuration fragments.
+     *
+     * <p>If {@link #addConfigurationFragment(ConfigurationFragmentFactory)} adds a fragment factory
+     * that also requires these options, this method is redundant.
+     */
+    public Builder addConfigurationOptions(Class<? extends FragmentOptions> configurationOptions) {
+      this.configurationOptions.add(configurationOptions);
       return this;
     }
 
@@ -432,12 +420,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
      * Sets the predicate which determines whether the analysis cache should be invalidated for the
      * given options diff.
      */
-    public Builder setShouldInvalidateCacheForDiff(
-        OptionsDiffPredicate shouldInvalidateCacheForDiff) {
+    public Builder setShouldInvalidateCacheForOptionDiff(
+        OptionsDiffPredicate shouldInvalidateCacheForOptionDiff) {
       Preconditions.checkState(
-          this.shouldInvalidateCacheForDiff.equals(OptionsDiffPredicate.ALWAYS_INVALIDATE),
+          this.shouldInvalidateCacheForOptionDiff.equals(OptionsDiffPredicate.ALWAYS_INVALIDATE),
           "Cache invalidation function was already set");
-      this.shouldInvalidateCacheForDiff = shouldInvalidateCacheForDiff;
+      this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
       return this;
     }
 
@@ -446,10 +434,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
      * the given options diff.
      */
     @VisibleForTesting(/* for testing cache invalidation without relying on prod use */ )
-    public Builder overrideShouldInvalidateCacheForDiffForTesting(
-        OptionsDiffPredicate shouldInvalidateCacheForDiff) {
-      this.shouldInvalidateCacheForDiff = OptionsDiffPredicate.ALWAYS_INVALIDATE;
-      return this.setShouldInvalidateCacheForDiff(shouldInvalidateCacheForDiff);
+    public Builder overrideShouldInvalidateCacheForOptionDiffForTesting(
+        OptionsDiffPredicate shouldInvalidateCacheForOptionDiff) {
+      this.shouldInvalidateCacheForOptionDiff = OptionsDiffPredicate.ALWAYS_INVALIDATE;
+      return this.setShouldInvalidateCacheForOptionDiff(shouldInvalidateCacheForOptionDiff);
     }
 
     private RuleConfiguredTargetFactory createFactory(
@@ -527,7 +515,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(configurationFragmentFactories),
           ImmutableList.copyOf(universalFragments),
           trimmingTransitionFactory,
-          shouldInvalidateCacheForDiff,
+          shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
           skylarkBootstraps.build(),
@@ -600,7 +588,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Nullable private final RuleTransitionFactory trimmingTransitionFactory;
 
   /** The predicate used to determine whether a diff requires the cache to be invalidated. */
-  private final OptionsDiffPredicate shouldInvalidateCacheForDiff;
+  private final OptionsDiffPredicate shouldInvalidateCacheForOptionDiff;
 
   /**
    * Configuration fragments that should be available to all rules even when they don't
@@ -636,7 +624,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
       ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments,
       @Nullable RuleTransitionFactory trimmingTransitionFactory,
-      OptionsDiffPredicate shouldInvalidateCacheForDiff,
+      OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Bootstrap> skylarkBootstraps,
@@ -656,7 +644,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.configurationFragmentFactories = configurationFragments;
     this.universalFragments = universalFragments;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
-    this.shouldInvalidateCacheForDiff = shouldInvalidateCacheForDiff;
+    this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkBootstraps);
     this.reservedActionMnemonics = reservedActionMnemonics;
@@ -725,9 +713,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return trimmingTransitionFactory;
   }
 
-  /** Returns whether the analysis cache should be invalidated for the given options diff. */
-  public boolean shouldInvalidateCacheForDiff(OptionsDiff diff, BuildOptions newOptions) {
-    return shouldInvalidateCacheForDiff.apply(diff, newOptions);
+  /** Returns whether the analysis cache should be invalidated for the given option diff. */
+  public boolean shouldInvalidateCacheForOptionDiff(
+      BuildOptions newOptions, OptionDefinition changedOption, Object oldValue, Object newValue) {
+    return shouldInvalidateCacheForOptionDiff.apply(newOptions, changedOption, oldValue, newValue);
   }
 
   /**
@@ -807,17 +796,19 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       SkylarkSemantics skylarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
-      Map<String, Extension> importMap) {
+      Map<String, Extension> importMap,
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
+    BazelStarlarkContext context =
+        new BazelStarlarkContext(toolsRepository, configurationFragmentMap, repoMapping);
     Environment env =
         Environment.builder(mutability)
             .setGlobals(globals)
             .setSemantics(skylarkSemantics)
             .setEventHandler(eventHandler)
             .setFileContentHashCode(astFileContentHashCode)
+            .setStarlarkContext(context)
             .setImportedExtensions(importMap)
             .build();
-    SkylarkUtils.setToolsRepository(env, toolsRepository);
-    SkylarkUtils.setFragmentMap(env, configurationFragmentMap);
     SkylarkUtils.setPhase(env, Phase.LOADING);
     return env;
   }
@@ -829,14 +820,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       SkylarkSemantics skylarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
-      Map<String, Extension> importMap) {
+      Map<String, Extension> importMap,
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
     return createSkylarkRuleClassEnvironment(
         mutability,
         globals.withLabel(extensionLabel),
         skylarkSemantics,
         eventHandler,
         astFileContentHashCode,
-        importMap);
+        importMap,
+        repoMapping);
   }
 
   @Override

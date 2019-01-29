@@ -20,6 +20,10 @@ symbolic links with a path-hash appended to their original name (foo.o
 becomes foo_{md5sum}.o), then saves the list of symbolic links to another
 file.
 
+The symbolic links are created into the given temporary directory.  There is
+no guarantee that we can write to the directory that contained the inputs to
+this script.
+
 This is to circumvent a bug in the original libtool that arises when two
 input files have the same base name (even if they are in different
 directories).
@@ -31,19 +35,22 @@ import sys
 
 
 def main():
+  outdir = sys.argv[3]
   with open(sys.argv[1]) as obj_file_list:
     with open(sys.argv[2], 'w') as hashed_obj_file_list:
       for line in obj_file_list:
         obj_file_path = line.rstrip('\n')
-        hashed_obj_file_path = '%s_%s.o' % (
-            os.path.splitext(obj_file_path)[0],
+
+        hashed_obj_file_name = '%s_%s.o' % (
+            os.path.basename(os.path.splitext(obj_file_path)[0]),
             hashlib.md5(obj_file_path.encode('utf-8')).hexdigest())
+        hashed_obj_file_path = os.path.join(outdir, hashed_obj_file_name)
 
         hashed_obj_file_list.write(hashed_obj_file_path + '\n')
 
         # Create symlink only if the symlink doesn't exist.
         if not os.path.exists(hashed_obj_file_path):
-          os.symlink(os.path.basename(obj_file_path),
+          os.symlink(os.path.abspath(obj_file_path),
                      hashed_obj_file_path)
 
 

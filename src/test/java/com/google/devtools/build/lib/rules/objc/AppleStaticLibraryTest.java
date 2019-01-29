@@ -407,7 +407,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testAppleSdkIphoneosPlatformEnv() throws Exception {
     RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
-    useConfiguration("--cpu=ios_arm64");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_arm64");
 
     CommandAction action = linkLibAction("//x:x");
 
@@ -733,7 +733,8 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     AssertionError expected =
         assertThrows(AssertionError.class, () ->
             getConfiguredTarget("//examples/apple_skylark:my_target"));
-    assertThat(expected).hasMessageThat()
-        .contains("unexpected keyword 'foo', in call to AppleStaticLibrary");
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("unexpected keyword 'foo', for call to function AppleStaticLibrary");
   }
 }

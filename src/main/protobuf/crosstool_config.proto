@@ -19,7 +19,6 @@ syntax = "proto2";
 // option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.view.config.crosstool";
 
-
 package com.google.devtools.build.lib.view.config.crosstool;
 
 // A description of a toolchain, which includes all the tools generally expected
@@ -37,10 +36,9 @@ package com.google.devtools.build.lib.view.config.crosstool;
 // examples are 'x86_64-unknown-linux-gnu' and 'i686-unknown-cygwin'.
 //
 // The system name is used to determine if a given machine can execute a given
-// exectuable. In particular, it is used to check if the compilation products of
+// executable. In particular, it is used to check if the compilation products of
 // a toolchain can run on the host machine.
 message CToolchain {
-
   // A group of correlated flags. Supports parametrization via variable
   // expansion.
   //
@@ -150,6 +148,9 @@ message CToolchain {
     // unconditionally for every action specified.
     repeated WithFeatureSet with_feature = 3;
 
+    // Deprecated (https://github.com/bazelbuild/bazel/issues/7008) - use
+    // expand_if_all_available in flag_group
+    //
     // A list of build variables that this feature set needs, but which are
     // allowed to not be set. If any of the build variables listed is not
     // set, the feature set will not be expanded.
@@ -351,24 +352,32 @@ message CToolchain {
 
   // Feature flags.
   // TODO(bazel-team): Sink those into 'Feature' instances.
+  // Legacy field, ignored by Bazel.
   optional bool supports_gold_linker = 10 [default = false];
   // Legacy field, ignored by Bazel.
   optional bool supports_thin_archives = 11 [default = false];
+  // Legacy field, use 'supports_start_end_lib' feature instead.
   optional bool supports_start_end_lib = 28 [default = false];
+  // Legacy field, use 'supports_interface_shared_libraries' instead.
   optional bool supports_interface_shared_objects = 32 [default = false];
+  // Legacy field, use 'static_link_cpp_runtimes' feature instead.
   optional bool supports_embedded_runtimes = 40 [default = false];
   // If specified, Blaze finds statically linked / dynamically linked runtime
   // libraries in the declared crosstool filegroup. Otherwise, Blaze
   // looks in "[static|dynamic]-runtime-libs-$TARGET_CPU".
+  // Deprecated, see https://github.com/bazelbuild/bazel/issues/6942
   optional string static_runtimes_filegroup = 45;
+  // Deprecated, see https://github.com/bazelbuild/bazel/issues/6942
   optional string dynamic_runtimes_filegroup = 46;
+  // Legacy field, ignored by Bazel.
   optional bool supports_incremental_linker = 41 [default = false];
-  // This should be true, if the toolchain supports the D flag to ar, which
-  // makes it output normalized archives that don't contain timestamps.
+  // Legacy field, ignored by Bazel.
   optional bool supports_normalizing_ar = 26 [default = false];
+  // Legacy field, use 'per_object_debug_info' feature instead.
   optional bool supports_fission = 43 [default = false];
-  // Can generate dsym debug symbol information.
+  // Legacy field, ignored by Bazel.
   optional bool supports_dsym = 51 [default = false];
+  // Legacy field, use 'supports_pic' feature instead
   optional bool needsPic = 12 [default = false];
 
   // Compiler flags for C/C++/Asm compilation.
@@ -396,7 +405,7 @@ message CToolchain {
   repeated string ar_flag = 47;
   // Legacy field, ignored by Bazel.
   repeated string ar_thin_archives_flag = 48;
-  // Additional compiler flags that are added for cc_plugin rules of type 'gcc'
+  // Legacy field, ignored by Bazel.
   repeated string gcc_plugin_compiler_flag = 34;
 
   // Additional compiler and linker flags depending on the compilation mode.
@@ -405,10 +414,9 @@ message CToolchain {
   // Additional linker flags depending on the linking mode.
   repeated LinkingModeFlags linking_mode_flags = 18;
 
-  // Plugin header directories for gcc and mao plugins. If none are set, the
-  // toolchain does not support plugins. Relative paths are resolved relative
-  // to the configuration file directory.
+  // Legacy field, ignored by Bazel.
   repeated string gcc_plugin_header_directory = 19;
+  // Legacy field, ignored by Bazel.
   repeated string mao_plugin_header_directory = 20;
 
   // Make variables that are made accessible to rules.
@@ -433,15 +441,11 @@ message CToolchain {
   // see the documentation above.
   optional string builtin_sysroot = 24;
 
-  // The location and version of the default Python (in absence of
-  // --python_top and --python_version, respectively. The default
-  // --python_mode is always 'opt'.) For backward compatibility, if these
-  // attributes are not set, Blaze will use the crosstool v11-13 default
-  // values: "/usr/grte/v1" and "python2.4".
+  // Legacy field, ignored by Bazel.
   optional string default_python_top = 29;
+  // Legacy field, ignored by Bazel.
   optional string default_python_version = 30;
-  // Whether to preload swigdeps.so files in py_binaries and PAR files.
-  // This overrides the commandline flag.
+  // Legacy field, ignored by Bazel.
   optional bool python_preload_swigdeps = 42;
 
   // The default GRTE to use. This should be a label, and gets the same
@@ -454,13 +458,11 @@ message CToolchain {
   // This may only be set to a non-empty value if builtin_sysroot is also set!
   optional string default_grte_top = 31;
 
-  // Additional dependencies for Blaze-built .deb packages. All Debian packages
-  // that contain C++ binaries need to have the correct runtime
-  // libraries installed, and those depend on the crosstool version, which is
-  // why they are recorded here.
+  // Legacy field, ignored by Bazel.
   repeated string debian_extra_requires = 33;
 
-  // Unused, for compatibility with things internal to Google.
+  // Legacy field, ignored by Bazel. Only there for compatibility with
+  // things internal to Google.
   optional string cc_target_os = 55;
 
   // Next free id: 56
@@ -509,20 +511,16 @@ message DefaultCpuToolchain {
   required string toolchain_identifier = 2;
 }
 
-// An entire crosstool release, containing the version number, a default target
-// cpu, a default toolchain for each supported cpu type, and a set of
+// An entire crosstool release, containing the version number, and a set of
 // toolchains.
 message CrosstoolRelease {
   // The major and minor version of the crosstool release.
   required string major_version = 1;
   required string minor_version = 2;
 
-  // Deprecated. Used to be the default CPU if not otherwise specified, but it's
-  // not used for that purpose (or anything else) anymore. Please also don't add
-  // new uses of this field.
+  // Legacy field, ignored by Bazel.
   optional string default_target_cpu = 3;
-  // Deprecated: The default toolchain to use for each given cpu.
-  // Use cc_toolchain_suite.toolchains with only cpu specified instead
+  // Legacy field, ignored by Bazel.
   repeated DefaultCpuToolchain default_toolchain = 4;
 
   // All the toolchains in this release.

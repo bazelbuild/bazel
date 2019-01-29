@@ -130,7 +130,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     pkgFactory =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
-            .build(ruleClassProvider);
+            .build(ruleClassProvider, fileSystem);
     AnalysisTestUtil.DummyWorkspaceStatusActionFactory workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
     skyframeExecutor =
@@ -215,7 +215,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         parser.getOptions(TestOptions.class).multiCpus);
 
     skyframeExecutor.handleDiffs(reporter);
-    skyframeExecutor.setConfigurationFragmentFactories(configurationFragmentFactories);
     BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(
         reporter, BuildOptions.of(buildOptionClasses, parser), multiCpu, false);
     return collection;

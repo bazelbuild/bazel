@@ -34,13 +34,21 @@ public final class SkyFunctionName implements Serializable {
   public static final SkyFunctionName FOR_TESTING = SkyFunctionName.createHermetic("FOR_TESTING");
 
   /**
-   * Create a SkyFunctionName identified by {@code name} whose evaluation is non-hermetic (its value
-   * may not be a pure function of its dependencies. Only use this if the evaluation explicitly
-   * consumes data outside of Skyframe, or if the node can be directly invalidated (as opposed to
-   * transitively invalidated).
+   * Creates a SkyFunctionName identified by {@code name} whose evaluation is non-hermetic (its
+   * value may not be a pure function of its dependencies. Only use this if the evaluation
+   * explicitly consumes data outside of Skyframe, or if the node can be directly invalidated (as
+   * opposed to transitively invalidated).
    */
   public static SkyFunctionName createNonHermetic(String name) {
-    return create(name, ShareabilityOfValue.ALWAYS, FunctionHermeticity.NONHERMETIC);
+    return create(name, ShareabilityOfValue.SOMETIMES, FunctionHermeticity.NONHERMETIC);
+  }
+
+  /**
+   * Creates a SkyFunctionName identified by {@code name} whose evaluation is {@linkplain
+   * FunctionHermeticity#SEMI_HERMETIC semi-hermetic}.
+   */
+  public static SkyFunctionName createSemiHermetic(String name) {
+    return create(name, ShareabilityOfValue.SOMETIMES, FunctionHermeticity.SEMI_HERMETIC);
   }
 
   /**
@@ -48,7 +56,7 @@ public final class SkyFunctionName implements Serializable {
    * to be a deterministic function of its dependencies, not doing any external operations).
    */
   public static SkyFunctionName createHermetic(String name) {
-    return create(name, ShareabilityOfValue.ALWAYS, FunctionHermeticity.HERMETIC);
+    return create(name, ShareabilityOfValue.SOMETIMES, FunctionHermeticity.HERMETIC);
   }
 
   public static SkyFunctionName create(
@@ -93,8 +101,7 @@ public final class SkyFunctionName implements Serializable {
 
   @Override
   public String toString() {
-    return name
-        + (shareabilityOfValue.equals(ShareabilityOfValue.ALWAYS) ? "" : " " + shareabilityOfValue);
+    return name + (shareabilityOfValue.equals(ShareabilityOfValue.NEVER) ? " (unshareable)" : "");
   }
 
   @Override

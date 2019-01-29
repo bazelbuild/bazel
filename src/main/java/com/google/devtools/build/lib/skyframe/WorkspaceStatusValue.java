@@ -26,7 +26,6 @@ import com.google.devtools.build.skyframe.SkyKey;
  */
 // TODO(bazel-team): This seems to be superfluous now, but it cannot be removed without making
 // PrecomputedValue public instead of package-private
-@AutoCodec
 public class WorkspaceStatusValue extends BasicActionLookupValue {
   private final Artifact stableArtifact;
   private final Artifact volatileArtifact;
@@ -49,11 +48,6 @@ public class WorkspaceStatusValue extends BasicActionLookupValue {
 
   public Artifact getVolatileArtifact() {
     return volatileArtifact;
-  }
-
-  @AutoCodec.VisibleForSerialization
-  WorkspaceStatusAction getWorkspaceStatusAction() {
-    return (WorkspaceStatusAction) getAction(0);
   }
 
   /** {@link SkyKey} for {@link WorkspaceStatusValue}. */

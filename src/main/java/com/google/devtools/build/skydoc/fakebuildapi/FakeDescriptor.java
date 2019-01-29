@@ -16,6 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi.Descriptor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.skydoc.rendering.AttributeInfo.Type;
 
 /**
  * Fake implementation of {@link Descriptor}.
@@ -45,36 +46,4 @@ public class FakeDescriptor implements Descriptor {
 
   @Override
   public void repr(SkylarkPrinter printer) {}
-
-  /**
-   * Attribute type. For example, an attribute described by attr.label() will be of type LABEL.
-   */
-  public enum Type {
-    INT("Integer"),
-    LABEL("Label"),
-    STRING("String"),
-    STRING_LIST("List of strings"),
-    INT_LIST("List of integers"),
-    LABEL_LIST("List of labels"),
-    BOOLEAN("Boolean"),
-    LICENSE("List of strings"),
-    LABEL_STRING_DICT("Dictionary: Label -> String"),
-    STRING_DICT("Dictionary: String -> String"),
-    STRING_LIST_DICT("Dictionary: String -> List of strings"),
-    OUTPUT("Label"),
-    OUTPUT_LIST("List of labels");
-
-    private final String description;
-
-    Type(String description) {
-      this.description = description;
-    }
-
-    /**
-     * Returns a human-readable string representing this attribute type.
-     */
-    public String getDescription() {
-      return description;
-    }
-  }
 }

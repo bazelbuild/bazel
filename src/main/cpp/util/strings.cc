@@ -336,7 +336,9 @@ static bool UStrToVStr(const std::basic_string<U> &input,
 
   DWORD err = GetLastError();
   if (err != ERROR_INSUFFICIENT_BUFFER) {
-    *win32_error = static_cast<uint32_t>(err);
+    if (win32_error) {
+      *win32_error = static_cast<uint32_t>(err);
+    }
     return false;
   }
 
@@ -351,7 +353,9 @@ static bool UStrToVStr(const std::basic_string<U> &input,
       return true;
     }
   }
-  *win32_error = static_cast<uint32_t>(GetLastError());
+  if (win32_error) {
+    *win32_error = static_cast<uint32_t>(GetLastError());
+  }
   return false;
 }
 

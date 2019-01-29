@@ -17,7 +17,9 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.math.BigInteger;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -42,10 +44,9 @@ public abstract class ArtifactFileMetadata {
    * com.google.devtools.build.lib.skyframe.ActionMetadataHandler#getMetadata}.
    *
    * <p>{@link com.google.devtools.build.lib.skyframe.ActionMetadataHandler#getMetadata} always
-   * checks {@link com.google.devtools.build.lib.skyframe.ActionMetadataHandler#outputArtifactData}
-   * before checking {@link
-   * com.google.devtools.build.lib.skyframe.ActionMetadataHandler#additionalOutputData} so some
-   * placeholder value is needed to allow an injected {@link FileArtifactValue} to be returned.
+   * checks {@link com.google.devtools.build.lib.skyframe.OutputStore#getArtifactData} before
+   * checking {@link com.google.devtools.build.lib.skyframe.OutputStore#getAdditionalOutputData} so
+   * some placeholder value is needed to allow an injected {@link FileArtifactValue} to be returned.
    *
    * <p>Similarly, {@link
    * com.google.devtools.build.lib.skyframe.ActionExecutionValue#getAllFileValues} replaces this
@@ -102,6 +103,20 @@ public abstract class ArtifactFileMetadata {
   public byte[] getDigest() {
     Preconditions.checkState(isFile(), this);
     return realFileStateValue().getDigest();
+  }
+
+  /** Returns a quick fingerprint via a BigInteger */
+  public BigInteger getFingerprint() {
+    BigIntegerFingerprint fp = new BigIntegerFingerprint();
+    fp.addBoolean(exists());
+    fp.addBoolean(isSpecialFile());
+    fp.addBoolean(isDirectory());
+    fp.addBoolean(isFile());
+    if (isFile()) {
+      fp.addLong(getSize());
+      fp.addBytes(getDigest());
+    }
+    return fp.getFingerprint();
   }
 
   public static ArtifactFileMetadata value(
@@ -169,6 +184,17 @@ public abstract class ArtifactFileMetadata {
     public String toString() {
       return realPath + ", " + fileStateValue;
     }
+
+    @Override
+    public BigInteger getFingerprint() {
+      BigInteger original = super.getFingerprint();
+      BigIntegerFingerprint fp = new BigIntegerFingerprint();
+      fp.addBigIntegerOrdered(original);
+      fp.addString(getClass().getCanonicalName());
+      fp.addPath(realPath);
+      fp.addBigIntegerOrdered(fileStateValue.getValueFingerprint());
+      return fp.getFingerprint();
+    }
   }
 
   /**
@@ -183,6 +209,17 @@ public abstract class ArtifactFileMetadata {
     DifferentRealPath(PathFragment realPath, FileStateValue realFileStateValue) {
       this.realPath = Preconditions.checkNotNull(realPath);
       this.realFileStateValue = Preconditions.checkNotNull(realFileStateValue);
+    }
+
+    @Override
+    public BigInteger getFingerprint() {
+      BigInteger original = super.getFingerprint();
+      BigIntegerFingerprint fp = new BigIntegerFingerprint();
+      fp.addBigIntegerOrdered(original);
+      fp.addString(getClass().getCanonicalName());
+      fp.addPath(realPath);
+      fp.addBigIntegerOrdered(realFileStateValue.getValueFingerprint());
+      return fp.getFingerprint();
     }
 
     @Override
@@ -225,6 +262,16 @@ public abstract class ArtifactFileMetadata {
     }
 
     @Override
+    public BigInteger getFingerprint() {
+      BigInteger original = super.getFingerprint();
+      BigIntegerFingerprint fp = new BigIntegerFingerprint();
+      fp.addBigIntegerOrdered(original);
+      fp.addString(getClass().getCanonicalName());
+      fp.addPath(linkTarget);
+      return fp.getFingerprint();
+    }
+
+    @Override
     public boolean isSymlink() {
       return true;
     }
@@ -257,10 +304,18 @@ public abstract class ArtifactFileMetadata {
   }
 
   private static final class PlaceholderFileValue extends ArtifactFileMetadata {
+    private static final BigInteger FINGERPRINT =
+        new BigIntegerFingerprint().addString("PlaceholderFileValue").getFingerprint();
+
     private PlaceholderFileValue() {}
     @Override
     public FileStateValue realFileStateValue() {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public BigInteger getFingerprint() {
+      return FINGERPRINT;
     }
 
     @Override

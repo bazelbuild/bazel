@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
@@ -107,7 +108,7 @@ public class ObjcRuleClasses {
   }
 
   /** Attribute name for a dummy target in a child configuration. */
-  static final String CHILD_CONFIG_ATTR = "child_configuration_dummy";
+  static final String CHILD_CONFIG_ATTR = "$child_configuration_dummy";
 
   /**
    * Returns a {@link IntermediateArtifacts} to be used to compile and link the ObjC source files
@@ -455,11 +456,7 @@ public class ObjcRuleClasses {
                   // removed in the near future. By adding the new rule names here, the migration
                   // path towards the end state is easier, as it will allow breaking the migration
                   // into smaller chunks.
-                  .allowedRuleClasses(
-                      "apple_bundle_import",
-                      "apple_resource_bundle",
-                      "objc_bundle",
-                      "objc_bundle_library")
+                  .allowedRuleClasses("apple_bundle_import", "apple_resource_bundle")
                   .allowedFileTypes())
           .build();
     }
@@ -507,6 +504,7 @@ public class ObjcRuleClasses {
       return builder
           .add(
               attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+                  .mandatoryProviders(CcToolchainProvider.PROVIDER.id())
                   .value(CppRuleClasses.ccToolchainAttribute(env)))
           .add(
               attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
@@ -665,7 +663,7 @@ public class ObjcRuleClasses {
           .add(
               attr("runtime_deps", LABEL_LIST)
                   .direct_compile_time_input()
-                  .allowedRuleClasses("objc_framework")
+                  .mandatoryProviders(AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR.id())
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
           Extra <code>-D</code> flags to pass to the compiler. They should be in
@@ -943,7 +941,7 @@ public class ObjcRuleClasses {
           // values of this rule -- this rule does not currently use the actual info provided by
           // this attribute.
           .add(
-              attr("$" + CHILD_CONFIG_ATTR, LABEL)
+              attr(CHILD_CONFIG_ATTR, LABEL)
                   .cfg(splitTransitionProvider)
                   .value(env.getToolsLabel("//tools/cpp:current_cc_toolchain")))
           /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(deps) -->

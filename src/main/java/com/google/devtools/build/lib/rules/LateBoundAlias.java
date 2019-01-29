@@ -31,11 +31,10 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import java.util.function.Function;
 
@@ -71,24 +70,19 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
   }
 
   /** Rule definition for custom alias rules */
-  public abstract static class CommonAliasRule implements RuleDefinition {
+  public abstract static class CommonAliasRule<FragmentT> implements RuleDefinition {
 
     private static final String ATTRIBUTE_NAME = ":alias";
 
     private final String ruleName;
-    private final Function<
-            RuleDefinitionEnvironment,
-            LateBoundDefault<? extends BuildConfiguration.Fragment, Label>>
+    private final Function<RuleDefinitionEnvironment, LabelLateBoundDefault<FragmentT>>
         labelResolver;
-    private final Class<? extends BuildConfiguration.Fragment> fragmentClass;
+    private final Class<FragmentT> fragmentClass;
 
     public CommonAliasRule(
         String ruleName,
-        Function<
-                RuleDefinitionEnvironment,
-                LateBoundDefault<? extends BuildConfiguration.Fragment, Label>>
-            labelResolver,
-        Class<? extends BuildConfiguration.Fragment> fragmentClass) {
+        Function<RuleDefinitionEnvironment, LabelLateBoundDefault<FragmentT>> labelResolver,
+        Class<FragmentT> fragmentClass) {
       this.ruleName = Preconditions.checkNotNull(ruleName);
       this.labelResolver = Preconditions.checkNotNull(labelResolver);
       this.fragmentClass = Preconditions.checkNotNull(fragmentClass);

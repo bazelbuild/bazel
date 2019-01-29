@@ -188,8 +188,8 @@ class RunfilesTest(test_base.TestBase):
 
     for lang in [("java", "Java"), ("sh", "Bash"), ("cc", "C++")]:
       exit_code, _, stderr = self.RunBazel([
-          "build", "--verbose_failures",
-          "--experimental_enable_runfiles=no", "//bar:bar-" + lang[0]
+          "build", "--verbose_failures", "--enable_runfiles=no",
+          "//bar:bar-" + lang[0]
       ])
       self.AssertExitCode(exit_code, 0, stderr)
 

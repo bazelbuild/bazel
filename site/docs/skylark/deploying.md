@@ -16,24 +16,24 @@ if you feel like your rules belong in the [bazelbuild](https://github.com/bazelb
 organization.
 
 Repository names for Bazel rules are standardized on the following format:
-*<organization>/rules_<name>*.
+`$ORGANIZATION/rules_$NAME`.
 See [examples on GitHub](https://github.com/search?q=rules+bazel&type=Repositories).
 For consistency, you must follow this same format when publishing your Bazel rules.
 
 Make sure to use a descriptive GitHub repository description and `README.md`
 title, example:
 
-* Repository: *bazelbuild/rules_go*
-* Repository description: *"Go rules for Bazel"*
+* Repository name: `bazelbuild/rules_go`
+* Repository description: *Go rules for Bazel*
 * Repository tags: `golang`, `bazel`
-* `README.md` header: *"Go rules for [Bazel](https://bazel.build)"*
+* `README.md` header: *Go rules for [Bazel](https://bazel.build)*
 (note the link to https://bazel.build which will guide users who are unfamiliar
 with Bazel to the right place)
 
 Rules can be grouped either by language (e.g., Scala) or some notion of platform
-(e.g., Android.
+(e.g., Android).
 
-## Rule content
+## Repository content
 
 Every rule repository should have a certain layout so that users can quickly
 understand new rules.
@@ -43,6 +43,7 @@ mockascript language. We would have the following structure:
 
 ```
 .travis.yml
+LICENSE
 README.md
 WORKSPACE
 mockascript/
@@ -61,7 +62,7 @@ examples/
 
 ### README.md
 
-At the top level, there should be a README.md that contains (at least) what
+At the top level, there should be a `README.md` that contains (at least) what
 users will need to copy-paste into their WORKSPACE file to use your rule.
 In general, this will be a `git_repository` pointing to your GitHub repo and
 a macro call that downloads/configures any tools your rule needs. For example,
@@ -119,7 +120,7 @@ script:
 Right now Bazel has to be compiled from source, as Travis does not support a
 version of GCC that works with the precompiled Bazel binaries. Thus, the
 `before_install` steps download the Bazel source, compile it, and "install" the
-Bazel binary in /usr/bin.
+Bazel binary in `/usr/bin`.
 
 If your repository is under the [bazelbuild organization](https://github.com/bazelbuild),
 contact the [bazel-dev](https://groups.google.com/forum/#!forum/bazel-dev) list
@@ -144,8 +145,8 @@ GitHub repository. Getting submit access to Bazel itself is a much more involved
 process.
 
 The downside is a more complicated one-time installation process for our users:
-they have to copy-paste a rule into their WORKSPACE file, as shown in the
-README section above.
+they have to copy-paste a rule into their `WORKSPACE` file, as shown in the
+`README.md` section above.
 
 We used to have all of the rules in the Bazel repository (under
 `//tools/build_rules` or `//tools/build_defs`). We still have a couple rules

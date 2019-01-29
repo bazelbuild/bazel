@@ -23,7 +23,8 @@ shift
 
 out="$(mktemp)"
 if ! "${SINGLEJAR}" --output "${out}" --check_desugar_deps --sources "$@"; then
-  rm "${out}"
+  # If output was generated, clean it up
+  if [ -e "${out}" ]; then rm "${out}"; fi
   case "$0" in
     *_fail_test) echo "Singlejar failed as expected!"; exit 0;;
   esac

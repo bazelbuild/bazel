@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Stream.concat;
 
 import com.google.auto.value.AutoValue;
@@ -74,6 +75,8 @@ class CoreLibrarySupport {
   /** For the collection of definitions of emulated default methods (deterministic iteration). */
   private final Multimap<String, EmulatedMethod> emulatedDefaultMethods =
       LinkedHashMultimap.create();
+  /** Collect move targets we've queried in {@link #getMoveTarget}. */
+  private final Set<String> seenMoveTargets = new LinkedHashSet<>();
 
   public CoreLibrarySupport(
       CoreLibraryRewriter rewriter,
@@ -105,12 +108,12 @@ class CoreLibrarySupport {
     for (String move : memberMoves) {
       List<String> pair = splitter.splitToList(move);
       checkArgument(pair.size() == 2, "Doesn't split as expected: %s", move);
-      checkArgument(pair.get(0).startsWith("java/"), "Unexpected member: %s", move);
       int sep = pair.get(0).indexOf('#');
       checkArgument(sep > 0 && sep == pair.get(0).lastIndexOf('#'), "invalid member: %s", move);
       checkArgument(!isRenamedCoreLibrary(pair.get(0).substring(0, sep)),
           "Original renamed, no need to move it: %s", move);
-      checkArgument(isRenamedCoreLibrary(pair.get(1)), "Target not renamed: %s", move);
+      checkArgument(!pair.get(1).startsWith("java/") || isRenamedCoreLibrary(pair.get(1)),
+          "Core library target not renamed: %s", move);
       checkArgument(!this.excludeFromEmulation.contains(pair.get(0)),
           "Retargeted invocation %s shouldn't overlap with excluded", move);
 
@@ -146,7 +149,11 @@ class CoreLibrarySupport {
 
   @Nullable
   public String getMoveTarget(String owner, String name) {
-    return memberMoves.get(rewriter.unprefix(owner) + '#' + name);
+    String result = memberMoves.get(rewriter.unprefix(owner) + '#' + name);
+    if (result != null) {
+      seenMoveTargets.add(result);
+    }
+    return result;
   }
 
   /**
@@ -300,6 +307,10 @@ class CoreLibrarySupport {
       return clazz;
     }
     return null;
+  }
+
+  public Set<String> seenMoveTargets() {
+    return unmodifiableSet(seenMoveTargets);
   }
 
   public void makeDispatchHelpers(GeneratedClassStore store) {

@@ -88,7 +88,14 @@ def _impl(ctx):
 
     if ctx.attr.is_windows:
         test_bin = ctx.actions.declare_file(ctx.label.name + ".bat")
-        ctx.actions.write(output = test_bin, content = "", is_executable = True)
+
+        # CreateProcessW can launch .bat files directly as long as they are NOT
+        # empty. Therefore we write a .bat file with a comment in it.
+        ctx.actions.write(
+            output = test_bin,
+            content = "@REM dummy",
+            is_executable = True,
+        )
     else:
         test_bin = ctx.actions.declare_file(ctx.label.name + ".sh")
         ctx.actions.write(

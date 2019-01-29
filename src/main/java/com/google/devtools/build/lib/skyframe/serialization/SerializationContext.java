@@ -22,9 +22,9 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Serializer;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
-import com.google.devtools.build.lib.util.BazelCrashUtils;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -164,7 +164,7 @@ public class SerializationContext {
 
         @Override
         public void onFailure(Throwable t) {
-          throw BazelCrashUtils.halt(t);
+          BugReport.handleCrash(t);
         }
       };
 
@@ -190,17 +190,23 @@ public class SerializationContext {
    * com.google.devtools.build.lib.packages.Package} inside {@link
    * com.google.devtools.build.lib.skyframe.PackageValue}.
    */
-  public void checkClassExplicitlyAllowed(Class<?> allowedClass) throws SerializationException {
+  public <T> void checkClassExplicitlyAllowed(Class<T> allowedClass, T objectForDebugging)
+      throws SerializationException {
     if (serializer == null) {
       throw new SerializationException(
-          "Cannot check explicitly allowed class " + allowedClass + " without memoization");
+          "Cannot check explicitly allowed class "
+              + allowedClass
+              + " without memoization ("
+              + objectForDebugging
+              + ")");
     }
     if (!explicitlyAllowedClasses.contains(allowedClass)) {
       throw new SerializationException(
           allowedClass
               + " not explicitly allowed (allowed classes were: "
               + explicitlyAllowedClasses
-              + ")");
+              + ") and object is "
+              + objectForDebugging);
     }
   }
 

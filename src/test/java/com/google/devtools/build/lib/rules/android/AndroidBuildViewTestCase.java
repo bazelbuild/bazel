@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfig
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -215,14 +217,14 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return null;
   }
 
-  protected List<String> getProcessorNames(SpawnAction compileAction) throws Exception {
+  protected List<String> getProcessorNames(JavaCompileAction compileAction) throws Exception {
     return JavaCompileActionTestHelper.getProcessorNames(compileAction);
   }
 
   protected List<String> getProcessorNames(String outputTarget) throws Exception {
     OutputFileConfiguredTarget out = (OutputFileConfiguredTarget)
         getFileConfiguredTarget(outputTarget);
-    SpawnAction compileAction = (SpawnAction) getGeneratingAction(out.getArtifact());
+    JavaCompileAction compileAction = (JavaCompileAction) getGeneratingAction(out.getArtifact());
     return getProcessorNames(compileAction);
   }
 
@@ -245,30 +247,32 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
 
   protected void checkDebugKey(String debugKeyFile, boolean hasDebugKeyTarget) throws Exception {
     ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
-    String defaultKeyStoreFile =
-        ruleClassProvider.getToolsRepository() + "//tools/android:debug_keystore";
+    Label defaultKeyStoreFile =
+        Label.parseAbsoluteUnchecked(
+            ruleClassProvider.getToolsRepository() + "//tools/android:debug_keystore");
+    Label debugKeyFileLabel = Label.parseAbsolute(debugKeyFile, ImmutableMap.of());
 
     if (hasDebugKeyTarget) {
       assertWithMessage("Debug key file target missing.")
-          .that(checkKeyPresence(binary, debugKeyFile, defaultKeyStoreFile))
+          .that(checkKeyPresence(binary, debugKeyFileLabel, defaultKeyStoreFile))
           .isTrue();
     } else {
       assertWithMessage("Debug key file is default, although different target specified.")
-          .that(checkKeyPresence(binary, defaultKeyStoreFile, debugKeyFile))
+          .that(checkKeyPresence(binary, defaultKeyStoreFile, debugKeyFileLabel))
           .isTrue();
     }
   }
 
   private boolean checkKeyPresence(
-      ConfiguredTarget binary, String shouldHaveKey, String shouldNotHaveKey) throws Exception {
+      ConfiguredTarget binary, Label shouldHaveKey, Label shouldNotHaveKey) throws Exception {
     boolean hasKey = false;
     boolean doesNotHaveKey = false;
 
     for (ConfiguredTarget debugKeyTarget : getDirectPrerequisites(binary)) {
-      if (debugKeyTarget.getLabel().toString().equals(shouldHaveKey)) {
+      if (debugKeyTarget.getLabel().equals(shouldHaveKey)) {
         hasKey = true;
       }
-      if (debugKeyTarget.getLabel().toString().equals(shouldNotHaveKey)) {
+      if (debugKeyTarget.getLabel().equals(shouldNotHaveKey)) {
         doesNotHaveKey = true;
       }
     }

@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.Clas
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -610,7 +611,13 @@ public class JavaCommon {
           JavaHelper.getJavaResourcePath(semantics, ruleContext, resource), resource);
     }
 
-    if (ruleContext.attributes().has("resource_jars", BuildType.LABEL_LIST)) {
+    if (ruleContext.attributes().has("resource_jars", BuildType.LABEL_LIST)
+        && ruleContext.getRule().isAttributeValueExplicitlySpecified("resource_jars")) {
+      if (ruleContext.getFragment(JavaConfiguration.class).disallowResourceJars()) {
+        ruleContext.attributeError(
+            "resource_jars",
+            "resource_jars are not supported; use java_import and deps or runtime_deps instead.");
+      }
       javaTargetAttributes.addResourceJars(
           PrerequisiteArtifacts.nestedSet(ruleContext, "resource_jars", Mode.TARGET));
     }
@@ -667,7 +674,13 @@ public class JavaCommon {
       NestedSet<Artifact> filesToBuild,
       @Nullable Artifact classJar) {
     addTransitiveInfoProviders(
-        builder, javaInfoBuilder, filesToBuild, classJar, JAVA_COLLECTION_SPEC);
+        builder,
+        javaInfoBuilder,
+        filesToBuild,
+        classJar,
+        JAVA_COLLECTION_SPEC,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   public void addTransitiveInfoProviders(
@@ -676,31 +689,73 @@ public class JavaCommon {
       NestedSet<Artifact> filesToBuild,
       @Nullable Artifact classJar,
       InstrumentationSpec instrumentationSpec) {
+    addTransitiveInfoProviders(
+        builder,
+        javaInfoBuilder,
+        filesToBuild,
+        classJar,
+        instrumentationSpec,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+  }
+
+  public void addTransitiveInfoProviders(
+      RuleConfiguredTargetBuilder builder,
+      JavaInfo.Builder javaInfoBuilder,
+      NestedSet<Artifact> filesToBuild,
+      @Nullable Artifact classJar,
+      NestedSet<Pair<String, String>> coverageEnvironment,
+      NestedSet<Artifact> coverageSupportFiles) {
+    addTransitiveInfoProviders(
+        builder,
+        javaInfoBuilder,
+        filesToBuild,
+        classJar,
+        JAVA_COLLECTION_SPEC,
+        coverageEnvironment,
+        coverageSupportFiles);
+  }
+
+  public void addTransitiveInfoProviders(
+      RuleConfiguredTargetBuilder builder,
+      JavaInfo.Builder javaInfoBuilder,
+      NestedSet<Artifact> filesToBuild,
+      @Nullable Artifact classJar,
+      InstrumentationSpec instrumentationSpec,
+      NestedSet<Pair<String, String>> coverageEnvironment,
+      NestedSet<Artifact> coverageSupportFiles) {
 
     JavaCompilationInfoProvider compilationInfoProvider = createCompilationInfoProvider();
     JavaExportsProvider exportsProvider = collectTransitiveExports();
 
     builder
-        .add(
-            InstrumentedFilesProvider.class,
-            getInstrumentationFilesProvider(ruleContext, filesToBuild, instrumentationSpec))
+        .addNativeDeclaredProvider(
+            getInstrumentationFilesProvider(
+                ruleContext,
+                filesToBuild,
+                instrumentationSpec,
+                coverageEnvironment,
+                coverageSupportFiles))
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
     javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
     javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
   }
 
-  private static InstrumentedFilesProvider getInstrumentationFilesProvider(
+  private InstrumentedFilesInfo getInstrumentationFilesProvider(
       RuleContext ruleContext,
       NestedSet<Artifact> filesToBuild,
-      InstrumentationSpec instrumentationSpec) {
+      InstrumentationSpec instrumentationSpec,
+      NestedSet<Pair<String, String>> coverageEnvironment,
+      NestedSet<Artifact> coverageSupportFiles) {
+
     return InstrumentedFilesCollector.collect(
         ruleContext,
         instrumentationSpec,
         JAVA_METADATA_COLLECTOR,
         filesToBuild,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        coverageSupportFiles,
+        coverageEnvironment,
         /* withBaselineCoverage= */ !TargetUtils.isTestRule(ruleContext.getTarget()),
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }

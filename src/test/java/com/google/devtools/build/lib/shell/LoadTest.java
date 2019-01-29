@@ -13,12 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
@@ -28,6 +24,11 @@ import java.util.List;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link Command} execution under load.
@@ -66,8 +67,15 @@ public class LoadTest {
 
   @Test
   public void testLoad() throws Throwable {
-    final Command command = new Command(new String[] {"/bin/cat",
-                                        tempFile.getAbsolutePath()});
+    Runfiles runfiles = Runfiles.create();
+    String catBin =
+        "io_bazel/src/test/java/com/google/devtools/build/lib/shell/cat_file";
+    if (OS.getCurrent() == OS.WINDOWS) {
+      catBin += ".exe";
+    }
+    catBin = runfiles.rlocation(catBin);
+
+    final Command command = new Command(new String[] {catBin, tempFile.getAbsolutePath()});
     Thread[] threads = new Thread[10];
     List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<Throwable>());
     for (int i = 0; i < threads.length; i++) {

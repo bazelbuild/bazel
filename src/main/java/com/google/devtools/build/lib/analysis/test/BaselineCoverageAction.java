@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.test;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -90,21 +90,19 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
 
   @Override
   protected void afterWrite(ActionExecutionContext actionExecutionContext) {
-    notifyAboutBaselineCoverage(actionExecutionContext.getEventBus());
+    notifyAboutBaselineCoverage(actionExecutionContext.getEventHandler());
   }
 
   @Override
   public void actionCacheHit(ActionCachedContext context) {
-    notifyAboutBaselineCoverage(context.getEventBus());
+    notifyAboutBaselineCoverage(context.getEventHandler());
   }
 
-  /**
-   * Notify interested parties about new baseline coverage data.
-   */
-  private void notifyAboutBaselineCoverage(EventBus eventBus) {
+  /** Notify interested parties about new baseline coverage data. */
+  private void notifyAboutBaselineCoverage(ExtendedEventHandler eventHandler) {
     Artifact output = Iterables.getOnlyElement(getOutputs());
     String ownerString = Label.print(getOwner().getLabel());
-    eventBus.post(new BaselineCoverageResult(output, ownerString));
+    eventHandler.post(new BaselineCoverageResult(output, ownerString));
   }
 
   /**

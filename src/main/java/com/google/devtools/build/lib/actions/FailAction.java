@@ -41,6 +41,10 @@ public final class FailAction extends AbstractAction {
     return null;
   }
 
+  public String getErrorMessage() {
+    return errorMessage;
+  }
+
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
@@ -54,8 +58,10 @@ public final class FailAction extends AbstractAction {
 
   @Override
   protected String getRawProgressMessage() {
-    return "Building unsupported rule " + getOwner().getLabel()
-        + " located at " + getOwner().getLocation();
+    return "Reporting failed target "
+        + getOwner().getLabel()
+        + " located at "
+        + getOwner().getLocation();
   }
 
   @Override

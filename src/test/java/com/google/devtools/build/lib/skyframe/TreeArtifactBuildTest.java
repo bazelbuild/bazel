@@ -682,6 +682,50 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     }
   }
 
+  @Test
+  public void testRelativeSymlinkTraversingToDirOutsideOfTreeArtifactRejected() throws Exception {
+    // Failure expected
+    StoredEventHandler storingEventHandler = new StoredEventHandler();
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(storingEventHandler);
+
+    final SpecialArtifact out = createTreeArtifact("output");
+
+    // Create a valid directory that can be referenced
+    scratch.dir(out.getRoot().getRoot().getRelative("some/dir").getPathString());
+
+    TreeArtifactTestAction action =
+        new TreeArtifactTestAction(out) {
+          @Override
+          public ActionResult execute(ActionExecutionContext actionExecutionContext) {
+            try {
+              writeFile(out.getPath().getChild("one"), "one");
+              writeFile(out.getPath().getChild("two"), "two");
+              FileSystemUtils.ensureSymbolicLink(
+                  out.getPath().getChild("links").getChild("link"), "../../some/dir");
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+            return ActionResult.EMPTY;
+          }
+        };
+
+    registerAction(action);
+
+    try {
+      buildArtifact(action.getSoleOutput());
+      fail(); // Should have thrown
+    } catch (BuildFailedException e) {
+      List<Event> errors = ImmutableList.copyOf(
+          Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
+      assertThat(errors).hasSize(2);
+      assertThat(errors.get(0).getMessage()).contains(
+          "A TreeArtifact may not contain relative symlinks whose target paths traverse "
+              + "outside of the TreeArtifact");
+      assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
+    }
+  }
+
   // This is more a smoke test than anything, because it turns out that:
   // 1) there is no easy way to turn fast digests on/off for these test cases, and
   // 2) injectDigest() doesn't really complain if you inject bad digests or digests

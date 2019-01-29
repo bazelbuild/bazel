@@ -201,7 +201,7 @@ def _PruneFile(file_queue, reachable_files, objc_file_path, file_open=open,
       file_shutil.copy(input_file, output_file)
     else:
       with file_open(output_file, 'w') as f:
-        # Use a static variable scoped to the source file to supress
+        # Use a static variable scoped to the source file to suppress
         # the "has no symbols" linker warning for empty object files.
         f.write(PRUNED_SRC_CONTENT)
     file_queue.task_done()
@@ -214,7 +214,7 @@ def _DuplicatedFiles(archive_source_file_mapping):
     archive_source_file_mapping: A dict mapping source files to the associated
         archive file that contains them.
   Returns:
-    A list containg files with duplicated base names.
+    A list containing files with duplicated base names.
   """
   duplicated_files = []
   dict_with_duplicates = dict()

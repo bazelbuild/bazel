@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -42,6 +41,8 @@ public class PlatformRule implements RuleDefinition {
     /* <!-- #BLAZE_RULE(platform).NAME -->
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
+        .advertiseProvider(PlatformInfo.class)
+
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(constraint_values) -->
         The combination of constraint choices that this platform comprises. In order for a platform
         to apply to a given environment, the environment must have at least the values in this list.
@@ -93,14 +94,14 @@ public class PlatformRule implements RuleDefinition {
         .add(
             attr(CPU_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.PROVIDER.id()))
+                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                 .undocumented("Should only be used by internal packages."))
         // Undocumented. Indicates to the rule which constraint_values to use for automatic CPU
         // mapping.
         .add(
             attr(OS_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.PROVIDER.id()))
+                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                 .undocumented("Should only be used by internal packages."))
         .build();
   }

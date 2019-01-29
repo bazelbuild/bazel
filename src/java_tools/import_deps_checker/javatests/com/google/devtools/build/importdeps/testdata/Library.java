@@ -61,4 +61,7 @@ public class Library {
   /** A library class for testing. */
   public static class Class11
       implements LibraryInterface.InterfaceFoo, LibraryInterface.InterfaceBar {}
+
+  /** A library class for testing. */
+  public static class Class12 {}
 }

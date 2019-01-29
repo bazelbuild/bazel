@@ -70,7 +70,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
   // CcToolchainProvider. We should use CcCommon.CC_TOOLCHAIN_ATTRIBUTE_NAME, but we didn't want to
   // pollute core with C++ specific constant.
   protected static final ImmutableList<String> DEFAULT_MAKE_VARIABLE_ATTRIBUTES =
-      ImmutableList.of(":cc_toolchain", "toolchains", "$toolchains");
+      ImmutableList.of("toolchains", ":cc_toolchain", "$toolchains");
 
   public ConfigurationMakeVariableContext(
       RuleContext ruleContext, Package pkg, BuildConfiguration configuration) {

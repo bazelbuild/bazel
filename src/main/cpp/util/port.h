@@ -137,7 +137,7 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 
 #ifdef _WIN32
 // TODO(laszlocsomor) 2016-11-28: move pid_t usage out of global_variables.h and
-// whereever else it appears. Find some way to not have to declare a pid_t here,
+// wherever else it appears. Find some way to not have to declare a pid_t here,
 // either by making PID handling platform-independent or some other idea; remove
 // the following typedef afterwards.
 typedef int pid_t;

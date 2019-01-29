@@ -118,6 +118,14 @@ public class RClassGeneratorAction {
     public Path classJarOutput;
 
     @Option(
+        name = "finalFields",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "A boolean to control whether fields get declared as final, defaults to true.")
+    public boolean finalFields;
+
+    @Option(
       name = "targetLabel",
       defaultValue = "null",
       category = "input",
@@ -169,7 +177,7 @@ public class RClassGeneratorAction {
             String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
         // For now, assuming not used for libraries and setting final access for fields.
         fullSymbolValues.writeClassesTo(
-            libSymbolMap, appPackageName, classOutPath, /* finalFields= */ true);
+            libSymbolMap, appPackageName, classOutPath, options.finalFields);
         logger.fine(
             String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       } else if (!options.libraries.isEmpty()) {
@@ -179,7 +187,7 @@ public class RClassGeneratorAction {
         logger.fine(
             String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
         // For now, assuming not used for libraries and setting final access for fields.
-        fullSymbolValues.writeClassesTo(libSymbolMap, null, classOutPath, /* finalFields= */ true);
+        fullSymbolValues.writeClassesTo(libSymbolMap, null, classOutPath, options.finalFields);
         logger.fine(
             String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       } else {

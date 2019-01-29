@@ -35,7 +35,6 @@ import com.google.devtools.build.android.aapt2.ProtoApk.ResourcePackageVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceValueVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceVisitor;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -61,11 +60,16 @@ import org.xml.sax.SAXException;
 public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
 
   private static final Logger logger = Logger.getLogger(ProtoResourceUsageAnalyzer.class.getName());
+  private final Set<String> resourcePackages;
+  private final Path rTxt;
   private final Path mapping;
 
-  public ProtoResourceUsageAnalyzer(Set<String> resourcePackages, Path mapping, Path logFile)
+  public ProtoResourceUsageAnalyzer(
+      Set<String> resourcePackages, Path rTxt, Path mapping, Path logFile)
       throws DOMException, ParserConfigurationException {
     super(resourcePackages, null, null, null, null, null, logFile);
+    this.resourcePackages = resourcePackages;
+    this.rTxt = rTxt;
     this.mapping = mapping;
   }
 
@@ -108,14 +112,19 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
 
     try {
       // TODO(b/112810967): Remove reflection hack.
+      final Method parseResourceTxtFile =
+          ResourceUsageAnalyzer.class.getDeclaredMethod(
+              "parseResourceTxtFile", Path.class, Set.class);
+      parseResourceTxtFile.setAccessible(true);
+      parseResourceTxtFile.invoke(this, rTxt, resourcePackages);
       final Method recordMapping =
           ResourceUsageAnalyzer.class.getDeclaredMethod("recordMapping", Path.class);
       recordMapping.setAccessible(true);
       recordMapping.invoke(this, mapping);
-      recordClassUsages(classes);
-    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+    } catch (ReflectiveOperationException e) {
       throw new RuntimeException(e);
     }
+    recordClassUsages(classes);
 
     // Have to give the model xml attributes with keep and discard urls.
     final NamedNodeMap toolAttributes =

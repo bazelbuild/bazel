@@ -264,7 +264,7 @@ public class AndroidResourceProcessingAction {
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
             "Variant configuration type for packaging the resources."
-                + " Acceptible values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
+                + " Acceptable values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
     public VariantType packageType;
 
     @Option(

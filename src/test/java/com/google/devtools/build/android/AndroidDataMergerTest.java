@@ -592,11 +592,11 @@ public class AndroidDataMergerTest {
                     DataResourceXml.createWithNoNamespace(
                         directRoot.resolve("res/values/strings.xml"),
                         SimpleXmlResourceValue.createWithValue(
-                            SimpleXmlResourceValue.Type.STRING, "no way out")),
+                            SimpleXmlResourceValue.Type.STRING, "wrong way out")),
                     DataResourceXml.createWithNoNamespace(
                         transitiveRoot.resolve("res/values/strings.xml"),
                         SimpleXmlResourceValue.createWithValue(
-                            SimpleXmlResourceValue.Type.STRING, "wrong way out")))
+                            SimpleXmlResourceValue.Type.STRING, "no way out")))
                 .toConflictMessage());
   }
 
@@ -643,11 +643,11 @@ public class AndroidDataMergerTest {
             MergeConflict.of(
                     fullyQualifiedName,
                     DataResourceXml.createWithNoNamespace(
-                        directRoot.resolve("res/values/strings.xml"),
+                        transitiveRoot.resolve("res/values/strings.xml"),
                         SimpleXmlResourceValue.createWithValue(
                             SimpleXmlResourceValue.Type.STRING, "no way out")),
                     DataResourceXml.createWithNoNamespace(
-                        transitiveRoot.resolve("res/values/strings.xml"),
+                        directRoot.resolve("res/values/strings.xml"),
                         SimpleXmlResourceValue.createWithValue(
                             SimpleXmlResourceValue.Type.STRING, "wrong way out")))
                 .toConflictMessage());

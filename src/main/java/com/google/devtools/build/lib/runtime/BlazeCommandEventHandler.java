@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -27,6 +30,7 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -187,6 +191,17 @@ public class BlazeCommandEventHandler implements EventHandler {
     public boolean forceExternalRepositories;
 
     @Option(
+        name = "attempt_to_print_relative_paths",
+        oldName = "experimental_ui_attempt_to_print_relative_paths",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help =
+            "When printing the location part of messages, attempt to use a path relative to the "
+                + "workspace directory or one of the directories specified by --package_path.")
+    public boolean attemptToPrintRelativePaths;
+
+    @Option(
       name = "experimental_ui",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -241,16 +256,6 @@ public class BlazeCommandEventHandler implements EventHandler {
         help = "Make the experimental UI deduplicate messages to have a cleaner scroll-back log.")
     public boolean experimentalUiDeduplicate;
 
-    @Option(
-        name = "experimental_ui_attempt_to_print_relative_paths",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.LOGGING,
-        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-        help =
-            "When printing the location part of messages, attempt to use a path relative to the "
-                + "workspace directory or one of the directories specified by --package_path.")
-    public boolean experimentalUiAttemptToPrintRelativePaths;
-
     public boolean useColor() {
       return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isStderrATty);
     }
@@ -272,7 +277,10 @@ public class BlazeCommandEventHandler implements EventHandler {
 
   protected final boolean showTimestamp;
 
-  public BlazeCommandEventHandler(OutErr outErr, Options eventOptions) {
+  protected final LocationPrinter locationPrinter;
+
+  public BlazeCommandEventHandler(
+      OutErr outErr, Options eventOptions, PathFragment workspacePathFragment) {
     this.outErr = outErr;
     this.errPrintStream = new PrintStream(outErr.getErrorStream(), true);
     if (eventOptions.showProgress) {
@@ -287,6 +295,8 @@ public class BlazeCommandEventHandler implements EventHandler {
     }
     eventMask.add(EventKind.SUBCOMMAND);
     this.showTimestamp = eventOptions.showTimestamp;
+    this.locationPrinter =
+        new LocationPrinter(eventOptions.attemptToPrintRelativePaths, workspacePathFragment);
   }
 
   /** See EventHandler.handle. */
@@ -333,7 +343,7 @@ public class BlazeCommandEventHandler implements EventHandler {
 
     Location location = event.getLocation();
     if (location != null) {
-      buf.append(location.print()).append(": ");
+      buf.append(locationPrinter.getLocationString(location)).append(": ");
     }
 
     buf.append(event.getMessage());
@@ -352,10 +362,14 @@ public class BlazeCommandEventHandler implements EventHandler {
     errPrintStream.println(buf);
 
     if (event.getStdErr() != null) {
-      handle(Event.of(EventKind.STDERR, null, event.getStdErr()));
+      handle(
+          Event.of(
+              EventKind.STDERR, null, event.getStdErr().getBytes(StandardCharsets.ISO_8859_1)));
     }
     if (event.getStdOut() != null) {
-      handle(Event.of(EventKind.STDOUT, null, event.getStdOut()));
+      handle(
+          Event.of(
+              EventKind.STDOUT, null, event.getStdOut().getBytes(StandardCharsets.ISO_8859_1)));
     }
   }
 
@@ -376,5 +390,10 @@ public class BlazeCommandEventHandler implements EventHandler {
    */
   protected String timestamp() {
     return TIMESTAMP_FORMAT.format(ZonedDateTime.now(ZoneId.systemDefault()));
+  }
+
+  @Subscribe
+  public void packageLocatorCreated(PathPackageLocator packageLocator) {
+    locationPrinter.packageLocatorCreated(packageLocator);
   }
 }

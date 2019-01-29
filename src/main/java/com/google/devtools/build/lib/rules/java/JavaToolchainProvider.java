@@ -13,11 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -40,11 +44,28 @@ public class JavaToolchainProvider extends ToolchainInfo {
 
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
-    return from(ruleContext, ":java_toolchain");
+    Label toolchainType =
+        ruleContext.attributes().get(JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
+    return from(ruleContext, toolchainType);
   }
 
-  public static JavaToolchainProvider from(RuleContext ruleContext, String attributeName) {
-    TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite(attributeName, Mode.TARGET);
+  public static JavaToolchainProvider from(RuleContext ruleContext, Label toolchainType) {
+    boolean useToolchainResolutionForJavaRules =
+        ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(PlatformOptions.class)
+            .useToolchainResolutionForJavaRules;
+    if (toolchainType != null && useToolchainResolutionForJavaRules) {
+      ToolchainInfo toolchainInfo =
+          ruleContext.getToolchainContext().forToolchainType(toolchainType);
+      if (toolchainInfo instanceof JavaToolchainProvider) {
+        return (JavaToolchainProvider) toolchainInfo;
+      }
+    }
+
+    TransitiveInfoCollection prerequisite =
+        ruleContext.getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, Mode.TARGET);
     return from(prerequisite, ruleContext);
   }
 

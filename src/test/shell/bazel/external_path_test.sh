@@ -86,7 +86,7 @@ EOF
 
 
 test_local_paths_main () {
-  # Verify that a target in the main repository may refer to a truely source
+  # Verify that a target in the main repository may refer to a truly source
   # file in its own repository by a path relative to the repository root.
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
@@ -101,7 +101,7 @@ test_local_paths_main () {
 }
 
 test_local_paths_remote() {
-  # Verify that a target in an external repository may refer to a truely source
+  # Verify that a target in an external repository may refer to a truly source
   # file in its own repository by a path relative to the root of that repository
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
@@ -128,9 +128,9 @@ EOF
 }
 
 test_lib_paths_main() {
-  # Verify that libaries from the main repostiory can be used via include
+  # Verify that libaries from the main repository can be used via include
   # path relative to their repository root and that they may refer to other
-  # truely source files from the same libary via paths relative to their
+  # truly source files from the same library via paths relative to their
   # repository root.
 
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
@@ -165,7 +165,7 @@ EOF
 test_lib_paths_remote() {
   # Verify that libaries from an external repository can be used via include
   # path relative to their repository root and that they may refer to other
-  # truely source files from the same libary via paths relative to their
+  # truly source files from the same library via paths relative to their
   # repository root.
 
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
@@ -210,7 +210,7 @@ EOF
 test_lib_paths_all_remote() {
   # Verify that libaries from an external repository can be used by another
   # external repository via include path relative to their repository root and
-  # that they may refer to other truely source files from the same libary via
+  # that they may refer to other truly source files from the same library via
   # paths relative to their repository root.
 
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
@@ -263,7 +263,7 @@ EOF
 }
 
 repo_with_local_path_reference() {
-  # create, in the current working directory, a pacakge called
+  # create, in the current working directory, a package called
   # withpath, that contains rule depending on hard-code path relative
   # to the repository root.
   mkdir -p withpath
@@ -326,7 +326,7 @@ EOF
 repo_with_local_implicit_dependencies() {
   # create, in the current working directory, a package called rule
   # that has an implicit dependency on a target in the same repository;
-  # the point here is that this dependency can be named without knowlege
+  # the point here is that this dependency can be named without knowledge
   #  of the repository name.
   mkdir -p rule
   cat > rule/BUILD <<'EOF'

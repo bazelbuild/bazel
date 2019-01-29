@@ -82,6 +82,7 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:errorprone",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",

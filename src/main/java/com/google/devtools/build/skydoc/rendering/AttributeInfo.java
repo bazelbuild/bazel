@@ -21,13 +21,13 @@ public class AttributeInfo {
 
   private final String name;
   private final String docString;
-  private final String typeString;
+  private final Type type;
   private final boolean mandatory;
 
-  public AttributeInfo(String name, String docString, String typeString, boolean mandatory) {
+  public AttributeInfo(String name, String docString, Type type, boolean mandatory) {
     this.name = name;
     this.docString = docString.trim();
-    this.typeString = typeString;
+    this.type = type;
     this.mandatory = mandatory;
   }
 
@@ -42,8 +42,8 @@ public class AttributeInfo {
   }
 
   @SuppressWarnings("unused") // Used by markdown template.
-  public String getTypeString() {
-    return typeString;
+  public Type getType() {
+    return type;
   }
 
   /**
@@ -52,5 +52,38 @@ public class AttributeInfo {
   @SuppressWarnings("unused") // Used by markdown template.
   public String getMandatoryString() {
     return mandatory ? "required" : "optional";
+  }
+
+  /**
+   * Attribute type. For example, an attribute described by attr.label() will be of type LABEL.
+   */
+  public enum Type {
+    NAME("Name"),
+    INT("Integer"),
+    LABEL("Label"),
+    STRING("String"),
+    STRING_LIST("List of strings"),
+    INT_LIST("List of integers"),
+    LABEL_LIST("List of labels"),
+    BOOLEAN("Boolean"),
+    LICENSE("List of strings"),
+    LABEL_STRING_DICT("Dictionary: Label -> String"),
+    STRING_DICT("Dictionary: String -> String"),
+    STRING_LIST_DICT("Dictionary: String -> List of strings"),
+    OUTPUT("Label"),
+    OUTPUT_LIST("List of labels");
+
+    private final String description;
+
+    Type(String description) {
+      this.description = description;
+    }
+
+    /**
+     * Returns a human-readable string representing this attribute type.
+     */
+    public String getDescription() {
+      return description;
+    }
   }
 }

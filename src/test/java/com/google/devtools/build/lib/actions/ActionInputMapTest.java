@@ -96,7 +96,7 @@ public final class ActionInputMapTest {
       Collections.shuffle(data);
       for (int i = 0; i < data.size(); ++i) {
         TestEntry entry = data.get(i);
-        assertThat(map.put(entry.input, entry.metadata)).isTrue();
+        assertThat(map.putWithNoDepOwner(entry.input, entry.metadata)).isTrue();
       }
       assertThat(map.size()).isEqualTo(data.size());
       for (int i = 0; i < data.size(); ++i) {
@@ -107,7 +107,7 @@ public final class ActionInputMapTest {
   }
 
   private boolean put(String execPath, int value) {
-    return map.put(new TestInput(execPath), new TestMetadata(value));
+    return map.putWithNoDepOwner(new TestInput(execPath), new TestMetadata(value));
   }
 
   private void assertContains(String execPath, int value) {

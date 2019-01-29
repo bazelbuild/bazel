@@ -118,7 +118,6 @@ public class SkylarkSemanticsConsistencyTest {
   private static SkylarkSemanticsOptions buildRandomOptions(Random rand) throws Exception {
     return parseOptions(
         // <== Add new options here in alphabetic order ==>
-        "--experimental_analysis_testing_improvements=" + rand.nextBoolean(),
         "--experimental_build_setting_api=" + rand.nextBoolean(),
         "--experimental_cc_skylark_api_enabled_packages="
             + rand.nextDouble()
@@ -126,22 +125,25 @@ public class SkylarkSemanticsConsistencyTest {
             + rand.nextDouble(),
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
         "--experimental_enable_repo_mapping=" + rand.nextBoolean(),
+        "--experimental_java_common_create_provider_enabled_packages="
+            + rand.nextDouble()
+            + ","
+            + rand.nextDouble(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
-        "--experimental_remap_main_repo=" + rand.nextBoolean(),
         "--experimental_starlark_config_transitions=" + rand.nextBoolean(),
+        "--experimental_transition_whitelist_location=" + rand.nextDouble(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
         "--incompatible_disable_deprecated_attr_params=" + rand.nextBoolean(),
         "--incompatible_disable_objc_provider_resources=" + rand.nextBoolean(),
-        "--incompatible_disallow_conflicting_providers=" + rand.nextBoolean(),
         "--incompatible_disallow_data_transition=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
         "--incompatible_disallow_filetype=" + rand.nextBoolean(),
         "--incompatible_disallow_legacy_javainfo=" + rand.nextBoolean(),
+        "--incompatible_disallow_legacy_java_provider=" + rand.nextBoolean(),
         "--incompatible_disallow_load_labels_to_cross_package_boundaries=" + rand.nextBoolean(),
         "--incompatible_disallow_old_style_args_add=" + rand.nextBoolean(),
-        "--incompatible_disallow_slash_operator=" + rand.nextBoolean(),
         "--incompatible_expand_directories=" + rand.nextBoolean(),
         "--incompatible_generate_javacommon_source_jar=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
@@ -150,12 +152,12 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_no_support_tools_in_action_inputs=" + rand.nextBoolean(),
         "--incompatible_no_target_output_group=" + rand.nextBoolean(),
         "--incompatible_no_transitive_loads=" + rand.nextBoolean(),
-        "--incompatible_package_name_is_a_function=" + rand.nextBoolean(),
-        "--incompatible_range_type=" + rand.nextBoolean(),
-        "--incompatible_remove_native_git_repository=" + rand.nextBoolean(),
-        "--incompatible_remove_native_http_archive=" + rand.nextBoolean(),
-        "--incompatible_static_name_resolution=" + rand.nextBoolean(),
+        "--incompatible_remap_main_repo=" + rand.nextBoolean(),
+        "--incompatible_remove_native_maven_jar=" + rand.nextBoolean(),
+        "--incompatible_require_feature_configuration_for_pic=" + rand.nextBoolean(),
+        "--incompatible_strict_argument_ordering=" + rand.nextBoolean(),
         "--incompatible_string_is_not_iterable=" + rand.nextBoolean(),
+        "--incompatible_use_toolchain_providers_in_java_common=" + rand.nextBoolean(),
         "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
   }
 
@@ -166,28 +168,28 @@ public class SkylarkSemanticsConsistencyTest {
   private static SkylarkSemantics buildRandomSemantics(Random rand) {
     return SkylarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
-        .experimentalAnalysisTestingImprovements(rand.nextBoolean())
         .experimentalBuildSettingApi(rand.nextBoolean())
         .experimentalCcSkylarkApiEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalEnableAndroidMigrationApis(rand.nextBoolean())
         .experimentalEnableRepoMapping(rand.nextBoolean())
+        .experimentalJavaCommonCreateProviderEnabledPackages(
+            ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalPlatformsApi(rand.nextBoolean())
-        .experimentalRemapMainRepo(rand.nextBoolean())
         .experimentalStarlarkConfigTransitions(rand.nextBoolean())
+        .experimentalTransitionWhitelistLocation(String.valueOf(rand.nextDouble()))
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
         .incompatibleDisableDeprecatedAttrParams(rand.nextBoolean())
         .incompatibleDisableObjcProviderResources(rand.nextBoolean())
-        .incompatibleDisallowConflictingProviders(rand.nextBoolean())
         .incompatibleDisallowDataTransition(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowFileType(rand.nextBoolean())
         .incompatibleDisallowLegacyJavaInfo(rand.nextBoolean())
+        .incompatibleDisallowLegacyJavaProvider(rand.nextBoolean())
         .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(rand.nextBoolean())
         .incompatibleDisallowOldStyleArgsAdd(rand.nextBoolean())
-        .incompatibleDisallowSlashOperator(rand.nextBoolean())
         .incompatibleExpandDirectories(rand.nextBoolean())
         .incompatibleGenerateJavaCommonSourceJar(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())
@@ -196,12 +198,12 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleNoSupportToolsInActionInputs(rand.nextBoolean())
         .incompatibleNoTargetOutputGroup(rand.nextBoolean())
         .incompatibleNoTransitiveLoads(rand.nextBoolean())
-        .incompatiblePackageNameIsAFunction(rand.nextBoolean())
-        .incompatibleRangeType(rand.nextBoolean())
-        .incompatibleRemoveNativeGitRepository(rand.nextBoolean())
-        .incompatibleRemoveNativeHttpArchive(rand.nextBoolean())
-        .incompatibleStaticNameResolution(rand.nextBoolean())
+        .incompatibleRemapMainRepo(rand.nextBoolean())
+        .incompatibleRemoveNativeMavenJar(rand.nextBoolean())
+        .incompatibleRequireFeatureConfigurationForPic(rand.nextBoolean())
+        .incompatibleStricArgumentOrdering(rand.nextBoolean())
         .incompatibleStringIsNotIterable(rand.nextBoolean())
+        .incompatibleUseToolchainProvidersInJavaCommon(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
         .build();
   }
@@ -213,3 +215,4 @@ public class SkylarkSemanticsConsistencyTest {
     return parser.getOptions(SkylarkSemanticsOptions.class);
   }
 }
+

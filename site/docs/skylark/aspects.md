@@ -5,7 +5,8 @@ title: Aspects
 
 # Aspects
 
-<!-- [TOC] -->
+* ToC
+{:toc}
 
 **Status: Experimental**. We may make breaking changes to the API, but we will
 announce them.
@@ -122,7 +123,6 @@ aspect to all attributes of a rule.
 ### Aspect implementation
 
 ```python
-
 def _print_aspect_impl(target, ctx):
     # Make sure the rule has a srcs attribute.
     if hasattr(ctx.rule.attr, 'srcs'):
@@ -152,7 +152,7 @@ does not provide anything, so it returns an empty list.
 ### Invoking the aspect using the command line
 
 The simplest way to apply an aspect is from the command line using the
-[`--aspects`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--aspects)
+[`--aspects`](../command-line-reference.html#flag--aspects)
 argument. Assuming the rule above were defined in a file named `print.bzl` this:
 
 ```bash

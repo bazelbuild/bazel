@@ -36,8 +36,8 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidLibraryResourceClassJarProviderApi<FileT extends FileApi>
     extends StructApi {
-
-  public static final String NAME = "AndroidLibraryResourceClassJarProvider";
+  /** The name of the provider for this info object. */
+  String NAME = "AndroidLibraryResourceClassJarProvider";
 
   @SkylarkCallable(name = "jars", structField = true, doc = "", documented = false)
   NestedSet<FileT> getResourceClassJars();

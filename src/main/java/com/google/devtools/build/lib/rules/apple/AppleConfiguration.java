@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
@@ -440,7 +439,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
    */
   public static class Loader implements ConfigurationFragmentFactory {
     @Override
-    public AppleConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions) {
+    public AppleConfiguration create(BuildOptions buildOptions) {
       AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
       String cpu = buildOptions.get(BuildConfiguration.Options.class).cpu;
       return AppleConfiguration.create(appleOptions, cpu);

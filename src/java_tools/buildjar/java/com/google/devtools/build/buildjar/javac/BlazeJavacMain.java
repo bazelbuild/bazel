@@ -23,6 +23,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
+import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic.Listener;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
@@ -38,13 +39,11 @@ import java.io.IOError;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import javax.tools.Diagnostic;
 import javax.tools.StandardLocation;
 
@@ -86,7 +85,7 @@ public class BlazeJavacMain {
     setupBlazeJavaCompiler(arguments.plugins(), context);
     BlazeJavacStatistics.Builder builder = context.get(BlazeJavacStatistics.Builder.class);
 
-    boolean ok = false;
+    Status status = Status.ERROR;
     StringWriter errOutput = new StringWriter();
     // TODO(cushon): where is this used when a diagnostic listener is registered? Consider removing
     // it and handling exceptions directly in callers.
@@ -111,16 +110,16 @@ public class BlazeJavacMain {
       fileManager.setContext(context);
       setLocations(fileManager, arguments);
       try {
-        ok = task.call();
+        status = task.call() ? Status.OK : Status.ERROR;
       } catch (PropagatedException e) {
         throw e.getCause();
       }
     } catch (Throwable t) {
       t.printStackTrace(errWriter);
-      ok = false;
+      status = Status.ERROR;
     } finally {
       compiler = (BlazeJavaCompiler) JavaCompiler.instance(context);
-      if (ok) {
+      if (status == Status.OK) {
         // There could be situations where we incorrectly skip Error Prone and the compilation
         // ends up succeeding, e.g., if there are errors that are fixed by subsequent round of
         // annotation processing.  This check ensures that if there were any flow events at all,
@@ -128,13 +127,13 @@ public class BlazeJavacMain {
         // or empty source files.
         if (compiler.skippedFlowEvents() > 0 && compiler.flowEvents() == 0) {
           errWriter.println("Expected at least one FLOW event");
-          ok = false;
+          status = Status.ERROR;
         }
       }
     }
     errWriter.flush();
     return BlazeJavacResult.createFullResult(
-        ok,
+        status,
         filterDiagnostics(diagnostics.build()),
         errOutput.toString(),
         compiler,
@@ -162,14 +161,16 @@ public class BlazeJavacMain {
           "compiler.warn.big.major.version",
           // don't want about incompatible processor source versions when running javac9 on JDK 10
           // TODO(cushon): remove after the next javac update
-          "compiler.warn.proc.processor.incompatible.source.version");
+          "compiler.warn.proc.processor.incompatible.source.version",
+          // https://github.com/bazelbuild/bazel/issues/5985
+          "compiler.warn.unknown.enum.constant",
+          "compiler.warn.unknown.enum.constant.reason");
 
   private static ImmutableList<FormattedDiagnostic> filterDiagnostics(
       ImmutableList<FormattedDiagnostic> diagnostics) {
     boolean werror =
         diagnostics.stream().anyMatch(d -> d.getCode().equals("compiler.err.warnings.and.werror"));
-    return diagnostics
-        .stream()
+    return diagnostics.stream()
         .filter(d -> shouldReportDiagnostic(werror, d))
         // Print errors last to make them more visible.
         .sorted(comparing(FormattedDiagnostic::getKind).reversed())
@@ -220,9 +221,7 @@ public class BlazeJavacMain {
         // otherwise it reports an error:
         // "file should be on source path, or on patch path for module"
         ImmutableList<Path> moduleInfos =
-            arguments
-                .sourceFiles()
-                .stream()
+            arguments.sourceFiles().stream()
                 .filter(f -> f.getFileName().toString().equals("module-info.java"))
                 .collect(toImmutableList());
         if (moduleInfos.size() == 1) {
@@ -270,20 +269,17 @@ public class BlazeJavacMain {
     protected ClassLoader getClassLoader(URL[] urls) {
       return new URLClassLoader(
           urls,
-          new ClassLoader(null) {
+          new ClassLoader(getPlatformClassLoader()) {
             @Override
             protected Class<?> findClass(String name) throws ClassNotFoundException {
-              Class<?> c = Class.forName(name);
               if (name.startsWith("com.google.errorprone.")
+                  || name.startsWith("com.google.common.collect.")
+                  || name.startsWith("com.google.common.base.")
                   || name.startsWith("org.checkerframework.dataflow.")
                   || name.startsWith("com.sun.source.")
                   || name.startsWith("com.sun.tools.")
                   || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
-                return c;
-              }
-              if (c.getClassLoader() == null
-                  || Objects.equals(getClassLoaderName(c.getClassLoader()), "platform")) {
-                return c;
+                return Class.forName(name);
               }
               throw new ClassNotFoundException(name);
             }
@@ -291,19 +287,14 @@ public class BlazeJavacMain {
     }
   }
 
-  // TODO(cushon): remove this use of reflection if Java 9 is released.
-  private static String getClassLoaderName(ClassLoader classLoader) {
-    Method method;
+  public static ClassLoader getPlatformClassLoader() {
     try {
-      method = ClassLoader.class.getMethod("getName");
-    } catch (NoSuchMethodException e) {
-      // ClassLoader#getName doesn't exist in JDK 8 and earlier.
-      return null;
-    }
-    try {
-      return (String) method.invoke(classLoader, new Object[] {});
+      // In JDK 9+, all platform classes are visible to the platform class loader:
+      // https://docs.oracle.com/javase/9/docs/api/java/lang/ClassLoader.html#getPlatformClassLoader--
+      return (ClassLoader) ClassLoader.class.getMethod("getPlatformClassLoader").invoke(null);
     } catch (ReflectiveOperationException e) {
-      throw new LinkageError(e.getMessage(), e);
+      // In earlier releases, set 'null' as the parent to delegate to the boot class loader.
+      return null;
     }
   }
 

@@ -25,14 +25,14 @@ import com.google.devtools.build.lib.syntax.EvalException;
 @Immutable
 public final class AndroidCcLinkParamsProvider extends NativeInfo
     implements AndroidCcLinkParamsProviderApi<CcInfo> {
-  public static final String PROVIDER_NAME = "AndroidCcLinkParamsInfo";
+
   public static final Provider PROVIDER = new Provider();
 
   private final CcInfo ccInfo;
 
   public AndroidCcLinkParamsProvider(CcInfo ccInfo) {
     super(PROVIDER);
-    this.ccInfo = CcInfo.builder().setCcLinkingInfo(ccInfo.getCcLinkingInfo()).build();
+    this.ccInfo = CcInfo.builder().setCcLinkingContext(ccInfo.getCcLinkingContext()).build();
   }
 
   @Override
@@ -44,7 +44,7 @@ public final class AndroidCcLinkParamsProvider extends NativeInfo
   public static class Provider extends BuiltinProvider<AndroidCcLinkParamsProvider>
       implements AndroidCcLinkParamsProviderApi.Provider<CcInfo> {
     private Provider() {
-      super(PROVIDER_NAME, AndroidCcLinkParamsProvider.class);
+      super(NAME, AndroidCcLinkParamsProvider.class);
     }
 
     @Override

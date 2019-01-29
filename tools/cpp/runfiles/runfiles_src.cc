@@ -11,7 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "tools/cpp/runfiles/runfiles_src.h"  // this line is replaced in @bazel_tools
+
+// The "srcs_for_embedded_tools" rule in the same package sets the line below to
+// include runfiles.h from the correct path. Do not modify the line below.
+#include "tools/cpp/runfiles/runfiles_src.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -23,6 +26,7 @@
 #endif  // _WIN32
 
 #include <fstream>
+#include <functional>
 #include <map>
 #include <sstream>
 #include <vector>

@@ -33,7 +33,7 @@
 #include <string.h>
 #include <windows.h>
 #define _diag_msg(prefix, msg, ...) \
-  { fprintf(stderr, prefix msg, __VA_ARGS__); }
+  { fprintf(stderr, prefix msg "\n", __VA_ARGS__); }
 #define _diag_msgx(exit_value, prefix, msg, ...) \
   { \
     _diag_msg(prefix, msg, __VA_ARGS__); \

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Proto that exposes all BUILD and Skylark builtin symboles.
+// Proto that exposes all BUILD and Skylark builtin symbols.
 //
 // The API exporter is used for code completion in Cider.
 

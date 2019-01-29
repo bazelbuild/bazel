@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -82,8 +82,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
       ImmutableSet.of("files", "runfiles", "data_runfiles", "default_runfiles", "executable");
 
   /**
-   * Create a Rule Configured Target from the ruleContext and the ruleImplementation.
-   * Returns null if there were errors during target creation.
+   * Create a Rule Configured Target from the ruleContext and the ruleImplementation. Returns null
+   * if there were errors during target creation.
    */
   @Nullable
   public static ConfiguredTarget buildRule(
@@ -91,7 +91,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
       AdvertisedProviderSet advertisedProviders,
       BaseFunction ruleImplementation,
       Location location,
-      SkylarkSemantics skylarkSemantics)
+      SkylarkSemantics skylarkSemantics,
+      String toolsRepository)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     SkylarkRuleContext skylarkRuleContext = null;
@@ -102,10 +103,21 @@ public final class SkylarkRuleConfiguredTargetUtil {
               .setCallerLabel(ruleContext.getLabel())
               .setSemantics(skylarkSemantics)
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
+              .setStarlarkContext(
+                  new BazelStarlarkContext(
+                      toolsRepository, ruleContext.getTarget().getPackage().getRepositoryMapping()))
               .build(); // NB: loading phase functions are not available: this is analysis already,
       // so we do *not* setLoadingPhase().
 
       RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
+      if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
+        ruleContext.ruleError(
+            "Found reference to a workspace rule in a context where a build"
+                + " rule was expected; probably a reference to a target in that external"
+                + " repository, properly specified as @reponame//path/to/package:target,"
+                + " should have been specified by the requesting rule.");
+        return null;
+      }
       if (ruleClass.hasFunctionTransitionWhitelist()
           && !Whitelist.isAvailable(ruleContext, FunctionSplitTransitionWhitelist.WHITELIST_NAME)) {
           ruleContext.ruleError("Non-whitelisted use of function-base split transition");
@@ -260,14 +272,14 @@ public final class SkylarkRuleConfiguredTargetUtil {
         new InstrumentationSpec(fileTypeSet)
             .withSourceAttributes(sourceAttributes.toArray(new String[0]))
             .withDependencyAttributes(dependencyAttributes.toArray(new String[0]));
-    InstrumentedFilesProvider instrumentedFilesProvider =
+    InstrumentedFilesInfo instrumentedFilesProvider =
         InstrumentedFilesCollector.collect(
             ruleContext,
             instrumentationSpec,
             InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
             /* rootFiles= */ Collections.emptySet(),
             /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
-    builder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
+    builder.addNativeDeclaredProvider(instrumentedFilesProvider);
   }
 
   public static NestedSet<Artifact> convertToOutputGroupValue(Location loc, String outputGroup,
@@ -336,10 +348,9 @@ public final class SkylarkRuleConfiguredTargetUtil {
                     "The value of 'providers' should be a sequence of declared providers");
             Provider.Key providerKey = declaredProvider.getProvider().getKey();
             if (declaredProviders.put(providerKey, declaredProvider) != null) {
-              if (context.getSkylarkSemantics().incompatibleDisallowConflictingProviders()) {
-                context.getRuleContext()
-                    .ruleError("Multiple conflicting returned providers with key " + providerKey);
-              }
+              context
+                  .getRuleContext()
+                  .ruleError("Multiple conflicting returned providers with key " + providerKey);
             }
           }
         }
@@ -360,10 +371,9 @@ public final class SkylarkRuleConfiguredTargetUtil {
                     + "a sequence of declared providers");
         Provider.Key providerKey = declaredProvider.getProvider().getKey();
         if (declaredProviders.put(providerKey, declaredProvider)  != null) {
-          if (context.getSkylarkSemantics().incompatibleDisallowConflictingProviders()) {
-            context.getRuleContext()
-                .ruleError("Multiple conflicting returned providers with key " + providerKey);
-          }
+          context
+              .getRuleContext()
+              .ruleError("Multiple conflicting returned providers with key " + providerKey);
         }
       }
     }

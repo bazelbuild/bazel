@@ -20,7 +20,6 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import io.grpc.Status;
 import io.grpc.StatusException;
-import java.util.function.Function;
 
 /** Interface used to abstract the Stubby and gRPC client implementations. */
 public interface BuildEventServiceClient {
@@ -36,39 +35,49 @@ public interface BuildEventServiceClient {
     void apply(PublishBuildToolEventStreamResponse ack);
   }
 
+  /** A handle to a bidirectional stream. */
+  interface StreamContext {
+
+    /**
+     * The completed status of the stream. The future will never fail, but in case of error will
+     * contain a corresponding status.
+     */
+    ListenableFuture<Status> getStatus();
+
+    /**
+     * Sends an event over the currently open stream. In case of error, this method will fail
+     * silently and report the error via the {@link ListenableFuture} returned by {@link
+     * #getStatus()}.
+     *
+     * <p>This method may block due to flow control.
+     */
+    void sendOverStream(PublishBuildToolEventStreamRequest buildEvent) throws InterruptedException;
+
+    /**
+     * Half closes the currently opened stream. This method does not block. Callers should block on
+     * the future returned by {@link #getStatus()} in order to make sure that all {@code
+     * ackCallback} calls have been received.
+     */
+    void halfCloseStream();
+
+    /**
+     * Closes the currently opened stream with an error. This method does not block. Callers should
+     * block on the future returned by {@link #getStatus()} in order to make sure that all
+     * ackCallback calls have been received. This method is NOOP if the stream was already finished.
+     */
+    void abortStream(Status status);
+  }
+
   /** Makes a blocking RPC call that publishes a {@code lifecycleEvent}. */
   void publish(PublishLifecycleEventRequest lifecycleEvent)
       throws StatusException, InterruptedException;
 
   /**
    * Starts a new stream with the given {@code ackCallback}. Callers must wait on the returned
-   * future in order to guarantee that all callback calls have been received. The returned future
-   * will never fail, but in case of error will contain a corresponding status.
+   * future contained in the {@link StreamContext} in order to guarantee that all callback calls
+   * have been received.
    */
-  ListenableFuture<Status> openStream(AckCallback callback) throws InterruptedException;
-
-  /**
-   * Sends an event over the currently open stream. In case of error, this method will fail silently
-   * and report the error via the {@link ListenableFuture} returned by {@link
-   * #openStream(AckCallback)}.
-   *
-   * <p>This method may block due to flow control.
-   */
-  void sendOverStream(PublishBuildToolEventStreamRequest buildEvent) throws InterruptedException;
-
-  /**
-   * Half closes the currently opened stream. This method does not block. Callers should block on
-   * the future returned by {@link #openStream(Function)} in order to make sure that all {@code
-   * ackCallback} calls have been received.
-   */
-  void halfCloseStream();
-
-  /**
-   * Closes the currently opened stream with error. This method does not block. Callers should block
-   * on the future returned by {@link #openStream(Function)} if in order to make sure that all
-   * ackCallback calls have been received. This method is NOOP if the stream was already finished.
-   */
-  void abortStream(Status status);
+  StreamContext openStream(AckCallback callback) throws InterruptedException;
 
   /**
    * Called once to dispose resources that this client might be holding (such as thread pools). This

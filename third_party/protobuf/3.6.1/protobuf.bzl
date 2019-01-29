@@ -130,7 +130,7 @@ proto_gen = rule(
         "protoc": attr.label(
             cfg = "host",
             executable = True,
-            single_file = True,
+            allow_single_file = True,
             mandatory = True,
         ),
         "plugin": attr.label(
@@ -266,7 +266,7 @@ def internal_gen_well_known_protos_java(srcs):
   Args:
     srcs: the well known protos
   """
-  root = Label("%s//protobuf_java" % (REPOSITORY_NAME)).workspace_root
+  root = Label("%s//protobuf_java" % native.repository_name()).workspace_root
   pkg = PACKAGE_NAME + "/" if PACKAGE_NAME else ""
   if root == "":
     include = " -I%ssrc " % pkg

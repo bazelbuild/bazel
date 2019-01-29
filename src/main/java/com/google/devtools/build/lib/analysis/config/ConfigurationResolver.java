@@ -27,8 +27,11 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
@@ -177,8 +180,7 @@ public final class ConfigurationResolver {
       // provide needed fragments. This unnecessarily drags performance on the critical path (up
       // to 0.5% of total analysis time as profiled over a simple cc_binary).
       if (ctgValue.getConfiguration().trimConfigurations()) {
-        checkForMissingFragments(env, ctgValue, attributeAndLabel.attribute.getName(), dep,
-            depFragments);
+        checkForMissingFragments(env, ctgValue, attributeAndLabel.attribute, dep, depFragments);
       }
 
       boolean sameFragments = depFragments.equals(ctgFragments.fragmentClasses());
@@ -215,6 +217,12 @@ public final class ConfigurationResolver {
         toOptions = applyTransition(ctgOptions, transition, depFragments, ruleClassProvider,
             !sameFragments);
         transitionsMap.put(transitionKey, toOptions);
+      }
+
+      try {
+        StarlarkTransition.postProcessStarlarkTransitions(env.getListener(), transition);
+      } catch (TransitionException e) {
+        throw new ConfiguredTargetFunction.DependencyEvaluationException(e);
       }
 
       // If the transition doesn't change the configuration, trivially re-use the original
@@ -296,6 +304,16 @@ public final class ConfigurationResolver {
     return sortResolvedDeps(originalDeps, resolvedDeps, attributesAndLabels);
   }
 
+  private static void postProcessStarlarkTransitions(
+      SkyFunction.Environment env, ConfigurationTransition transition) {
+    ImmutableList<ConfigurationTransition> transitions =
+        ComposingTransition.decomposeTransition(transition);
+    ExtendedEventHandler eventHandler = env.getListener();
+    transitions.stream()
+        .filter(t -> t instanceof StarlarkTransition)
+        .forEach(t -> ((StarlarkTransition) t).replayOn(eventHandler));
+  }
+
   /**
    * Encapsulates a set of config fragments and a config transition. This can be used to determine
    * the exact build options needed to set a configuration.
@@ -322,6 +340,9 @@ public final class ConfigurationResolver {
       } else if (o == null) {
         return false;
       } else {
+        if (!(o instanceof FragmentsAndTransition)) {
+          return false;
+        }
         FragmentsAndTransition other = (FragmentsAndTransition) o;
         return other.transition.equals(transition) && other.fragments.equals(fragments);
       }
@@ -453,8 +474,11 @@ public final class ConfigurationResolver {
    * Checks the config fragments required by a dep against the fragments in its actual
    * configuration. If any are missing, triggers a descriptive "missing fragments" error.
    */
-  private static void checkForMissingFragments(SkyFunction.Environment env,
-      TargetAndConfiguration ctgValue, String attribute, Dependency dep,
+  private static void checkForMissingFragments(
+      SkyFunction.Environment env,
+      TargetAndConfiguration ctgValue,
+      Attribute attribute,
+      Dependency dep,
       Set<Class<? extends BuildConfiguration.Fragment>> expectedDepFragments)
       throws ConfiguredTargetFunction.DependencyEvaluationException {
     Set<String> ctgFragmentNames = new HashSet<>();
@@ -468,9 +492,13 @@ public final class ConfigurationResolver {
     }
     Set<String> missing = Sets.difference(depFragmentNames, ctgFragmentNames);
     if (!missing.isEmpty()) {
-      String msg = String.format(
-          "%s: dependency %s from attribute \"%s\" is missing required config fragments: %s",
-          ctgValue.getLabel(), dep.getLabel(), attribute, Joiner.on(", ").join(missing));
+      String msg =
+          String.format(
+              "%s: dependency %s from attribute \"%s\" is missing required config fragments: %s",
+              ctgValue.getLabel(),
+              dep.getLabel(),
+              attribute == null ? "(null)" : attribute.getName(),
+              Joiner.on(", ").join(missing));
       env.getListener().handle(Event.error(msg));
       throw new ConfiguredTargetFunction.DependencyEvaluationException(
           new InvalidConfigurationException(msg));
@@ -526,16 +554,17 @@ public final class ConfigurationResolver {
   /**
    * This method allows resolution of configurations outside of a skyfunction call.
    *
-   * Unlike {@link #resolveConfigurations}, this doesn't expect the current context to be evaluating
-   * dependencies of a parent target. So this method is also suitable for top-level targets.
+   * <p>Unlike {@link #resolveConfigurations}, this doesn't expect the current context to be
+   * evaluating dependencies of a parent target. So this method is also suitable for top-level
+   * targets.
    *
-   * Resolution consists of two steps:
+   * <p>Resolution consists of two steps:
    *
    * <ol>
    *   <li>Apply the per-target transitions specified in {@code asDeps}. This can be used, e.g., to
    *       apply {@link RuleTransitionFactory}s over global top-level configurations.
-   *   <li>(Optionally) trim configurations to only the fragments the targets actually need. This
-   *       is triggered by {@link BuildConfiguration.Options#trimConfigurations}.
+   *   <li>(Optionally) trim configurations to only the fragments the targets actually need. This is
+   *       triggered by {@link BuildConfiguration.Options#trimConfigurations}.
    * </ol>
    *
    * <p>Preserves the original input order (but merges duplicate nodes that might occur due to
@@ -547,12 +576,13 @@ public final class ConfigurationResolver {
    * to evaluate and no more (e.g. there's no need for Android settings in a C++ configured target).
    *
    * @param defaultContext the original targets and starting configurations before applying rule
-   *   transitions and trimming. When actual configurations can't be evaluated, these values are
-   *   returned as defaults. See TODO below.
+   *     transitions and trimming. When actual configurations can't be evaluated, these values are
+   *     returned as defaults. See TODO below.
    * @param targetsToEvaluate the inputs repackaged as dependencies, including rule-specific
-   *   transitions
+   *     transitions
    * @param eventHandler the error event handler
    * @param skyframeExecutor the executor used for resolving Skyframe keys
+   * @throws TransitionException if there was an issue applying a Starlark-defined transition
    */
   // TODO(bazel-team): error out early for targets that fail - failed configuration evaluations
   //   should never make it through analysis (and especially not seed ConfiguredTargetValues)
@@ -563,7 +593,8 @@ public final class ConfigurationResolver {
       Iterable<TargetAndConfiguration> defaultContext,
       Multimap<BuildConfiguration, Dependency> targetsToEvaluate,
       ExtendedEventHandler eventHandler,
-      SkyframeExecutor skyframeExecutor) {
+      SkyframeExecutor skyframeExecutor)
+      throws TransitionException {
 
     Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
     for (TargetAndConfiguration targetAndConfig : defaultContext) {
@@ -602,3 +633,4 @@ public final class ConfigurationResolver {
     return result;
   }
 }
+

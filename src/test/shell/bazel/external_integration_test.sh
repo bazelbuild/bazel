@@ -504,16 +504,6 @@ EOF
   diff bazel-genfiles/timestamp first_timestamp || fail "Output was built again"
 }
 
-function test_invalid_rule() {
-  # http_jar with missing URL field.
-  cat > WORKSPACE <<EOF
-http_jar(name = 'endangered', sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
-EOF
-
-  bazel fetch //external:endangered >& $TEST_log && fail "Expected fetch to fail"
-  expect_log "missing value for mandatory attribute 'url' in 'http_jar' rule"
-}
-
 function test_new_remote_repo_with_build_file() {
   do_new_remote_repo_test "build_file"
 }
@@ -1024,7 +1014,7 @@ EOF
 
 
 function test_inherit_build() {
-  # Verify that http_archive can use a BUILD file shiped with the
+  # Verify that http_archive can use a BUILD file shipped with the
   # external archive.
   mkdir ext
   cat > ext/BUILD <<'EOF'
@@ -1105,7 +1095,7 @@ http_archive(
   urls=["file://${EXTREPODIR}/ext.zip"],
 )
 EOF
-  bazel build '@ext//:bar' || fail "expected sucess"
+  bazel build '@ext//:bar' || fail "expected success"
 
   # Simulate going offline by removing the external archive
   rm -f "${EXTREPODIR}/ext.zip"
@@ -1159,7 +1149,7 @@ http_archive(
 EOF
   # Use the external repository once to make sure it is cached.
   bazel build --repository_cache="../cache" '@ext//:bar' \
-      || fail "expected sucess"
+      || fail "expected success"
 
   # Now "go offline" and clean local resources.
   rm -f "${WRKDIR}/ext.zip"
@@ -1174,7 +1164,7 @@ EOF
 
   # Clean again.
   bazel clean --expunge
-  # Even with a different source URL, the cache sould be consulted.
+  # Even with a different source URL, the cache should be consulted.
 
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -1229,7 +1219,7 @@ http_archive(
 )
 EOF
   # Use the external repository once to make sure it is cached.
-  bazel build '@ext//:bar' || fail "expected sucess"
+  bazel build '@ext//:bar' || fail "expected success"
 
   # Now "go offline" and clean local resources.
   rm -f "${WRKDIR}/ext.zip"
@@ -1241,7 +1231,7 @@ EOF
 
   # Clean again.
   bazel clean --expunge
-  # Even with a different source URL, the cache sould be consulted.
+  # Even with a different source URL, the cache should be consulted.
 
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -1287,7 +1277,7 @@ http_archive(
 )
 EOF
   # Use the external repository once to make sure it is cached.
-  bazel build '@ext//:foo' || fail "expected sucess"
+  bazel build '@ext//:foo' || fail "expected success"
 
   # Now "go offline" and clean local resources.
   rm -f "${TOPDIR}/ext.zip"
@@ -1328,11 +1318,11 @@ http_archive(
 )
 EOF
   # Use `--repository_cache` with no path to explicitly disable repository cache
-  bazel build --repository_cache= '@ext//:foo' || fail "expected sucess"
+  bazel build --repository_cache= '@ext//:foo' || fail "expected success"
 
   # make sure, the empty path is not interpreted relative to `pwd`; i.e., we do
   # not expect any new directories generated in the workspace, in particular
-  # none named conent_adressable, which is the directory where the cache puts
+  # none named conent_addressable, which is the directory where the cache puts
   # its artifacts into.
   ls -al | grep content_addressable \
       && fail "Should not interpret empty path as cache directly in the work space" || :
@@ -1388,7 +1378,7 @@ http_archive(
 EOF
   # Use the external repository once to make sure it is cached.
   bazel build --repository_cache="${TOPDIR}/cache}" '@ext//:bar' \
-      || fail "expected sucess"
+      || fail "expected success"
 
   # Now "go offline" and clean local resources.
   rm -f "${TOPDIR}/ext.zip"
@@ -1403,7 +1393,7 @@ EOF
 
   # Clean again.
   bazel clean --expunge
-  # Even with a different source URL, the cache sould be consulted.
+  # Even with a different source URL, the cache should be consulted.
 
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -1678,6 +1668,44 @@ EOF
 
   bazel build //:local \
     && fail "Expected failure due to unsupported symlink" || :
+}
+
+function test_progress_reporting() {
+  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+  cd "${WRKDIR}"
+
+  cat > rule.bzl <<'EOF'
+def _rule_impl(ctx):
+  ctx.report_progress("First action")
+  ctx.execute(["/bin/sh", "-c", "sleep 5"])
+  ctx.report_progress("Second action")
+  ctx.execute(["/bin/sh", "-c", "sleep 5"])
+  ctx.report_progress("Actual files")
+  ctx.file("data", "Hello world")
+  ctx.file("BUILD", "exports_files(['data'])")
+
+with_progress = repository_rule(
+  implementation = _rule_impl,
+  attrs = {},
+)
+EOF
+
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "with_progress")
+with_progress(name="foo")
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "local",
+  srcs = ["@foo//:data"],
+  outs = ["local.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build --curses=yes //:local > "${TEST_log}" 2>&1 \
+      || fail "exepected succes"
+  expect_log "foo.*First action"
+  expect_log "foo.*Second action"
 }
 
 run_suite "external tests"

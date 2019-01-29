@@ -228,4 +228,9 @@ public final class SolibSymlinkAction extends AbstractAction {
   public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
     return false; // Always ignore path prefix conflict for the SolibSymlinkAction.
   }
+
+  @Override
+  public boolean mayInsensitivelyPropagateInputs() {
+    return true;
+  }
 }

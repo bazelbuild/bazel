@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -81,6 +82,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
             EXPORTED_NAME
                 + " = "
                 + Printer.getWorkspacePrettyPrinter().repr(resultBuilder.build()));
+        writer.close();
       } catch (IOException e) {
         logger.warning("IO Error writing to file " + resolvedFile + ": " + e);
       }
@@ -95,7 +97,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
   }
 
   @Subscribe
-  public void repositoryResolved(RepositoryResolvedEvent event) {
+  public void resolved(ResolvedEvent event) {
     if (resolvedValues != null) {
       resolvedValues.put(event.getName(), event.getResolvedInformation());
     }

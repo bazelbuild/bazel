@@ -21,7 +21,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -58,7 +57,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
 
   private static Label getDefaultMallocLabel(Rule rule) {
     return Verify.verifyNotNull(
-        (Label) rule.getRuleClassObject().getAttributeByName("malloc").getDefaultValueForTesting());
+        (Label) rule.getRuleClassObject().getAttributeByName("malloc").getDefaultValueUnchecked());
   }
 
   /**
@@ -269,8 +268,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
     }
 
     @Override
-    public ConfiguredTarget create(RuleContext ruleContext)
-        throws InterruptedException, RuleErrorException, ActionConflictException {
+    public ConfiguredTarget create(RuleContext ruleContext) {
       throw new UnsupportedOperationException();
     }
   }

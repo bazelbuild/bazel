@@ -200,7 +200,7 @@ public final class SingleJarActionBuilder {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof ResourceArgMapFn)) {
         return false;
       }
       ResourceArgMapFn that = (ResourceArgMapFn) o;

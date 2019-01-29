@@ -22,9 +22,13 @@ import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
+import build.bazel.remote.execution.v2.OutputSymlink;
+import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
+import com.google.common.hash.HashingOutputStream;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -34,7 +38,6 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -42,6 +45,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import io.grpc.Context;
 import java.io.ByteArrayOutputStream;
@@ -68,10 +72,6 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     ((SettableFuture<byte[]>) EMPTY_BYTES).set(new byte[0]);
   }
 
-  public static boolean causedByCacheMiss(IOException t) {
-    return t.getCause() instanceof CacheNotFoundException;
-  }
-
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
   private final Retrier retrier;
@@ -81,25 +81,6 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     this.digestUtil = digestUtil;
     this.retrier = retrier;
   }
-
-  /**
-   * Ensures that the tree structure of the inputs, the input files themselves, and the command are
-   * available in the remote cache, such that the tree can be reassembled and executed on another
-   * machine given the root digest.
-   *
-   * <p>The cache may check whether files or parts of the tree structure are already present, and do
-   * not need to be uploaded again.
-   *
-   * <p>Note that this method is only required for remote execution, not for caching itself.
-   * However, remote execution uses a cache to store input files, and that may be a separate
-   * end-point from the executor itself, so the functionality lives here. A pure remote caching
-   * implementation that does not support remote execution may choose not to implement this
-   * function, and throw {@link UnsupportedOperationException} instead. If so, it should be clearly
-   * documented that it cannot be used for remote execution.
-   */
-  public abstract void ensureInputsPresent(
-      TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
-      throws IOException, InterruptedException;
 
   /**
    * Attempts to look up the given action in the remote cache and return its result, if present.
@@ -112,11 +93,10 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       throws IOException, InterruptedException;
 
   /**
-   * Upload the result of a locally executed action to the cache by uploading any necessary files,
-   * stdin / stdout, as well as adding an entry for the given action key to the cache if
-   * uploadAction is true.
+   * Upload the result of a locally executed action to the remote cache.
    *
-   * @throws IOException if the remote cache is unavailable.
+   * @throws IOException if there was an error uploading to the remote cache
+   * @throws ExecException if uploading any of the action outputs is not supported
    */
   abstract void upload(
       DigestUtil.ActionKey actionKey,
@@ -124,8 +104,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       Command command,
       Path execRoot,
       Collection<Path> files,
-      FileOutErr outErr,
-      boolean uploadAction)
+      FileOutErr outErr)
       throws ExecException, IOException, InterruptedException;
 
   /**
@@ -261,7 +240,9 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
           execRoot.getRelative(file.getPath()).delete();
         }
         for (OutputDirectory directory : result.getOutputDirectoriesList()) {
-          FileSystemUtils.deleteTree(execRoot.getRelative(directory.getPath()));
+          // Only delete the directories below the output directories because the output
+          // directories will not be re-created
+          FileSystemUtils.deleteTreesBelow(execRoot.getRelative(directory.getPath()));
         }
         if (outErr != null) {
           outErr.getOutputPath().delete();
@@ -280,6 +261,40 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
             true);
       }
       throw downloadException;
+    }
+
+    // We create the symbolic links after all regular downloads are finished, because dangling
+    // links will not work on Windows.
+    createSymbolicLinks(
+        execRoot,
+        Iterables.concat(
+            result.getOutputFileSymlinksList(), result.getOutputDirectorySymlinksList()));
+  }
+
+  // Creates a local symbolic link. Only relative symlinks are supported.
+  private void createSymbolicLink(Path path, String target) throws IOException {
+    PathFragment targetPath = PathFragment.create(target);
+    if (targetPath.isAbsolute()) {
+      // Error, we do not support absolute symlinks as outputs.
+      throw new IOException(
+          String.format(
+              "Action output %s is a symbolic link to an absolute path %s. "
+                  + "Symlinks to absolute paths in action outputs are not supported.",
+              path, target));
+    }
+    path.createSymbolicLink(targetPath);
+  }
+
+  // Creates symbolic links locally as created remotely by the action. Only relative symbolic
+  // links are supported, because absolute symlinks break action hermeticity.
+  private void createSymbolicLinks(Path execRoot, Iterable<OutputSymlink> symlinks)
+      throws IOException {
+    for (OutputSymlink symlink : symlinks) {
+      Path path = execRoot.getRelative(symlink.getPath());
+      Preconditions.checkNotNull(
+              path.getParentDirectory(), "Failed creating directory and parents for %s", path)
+          .createDirectoryAndParents();
+      createSymbolicLink(path, symlink.getTarget());
     }
   }
 
@@ -323,6 +338,10 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       throws IOException {
     // Ensure that the directory is created here even though the directory might be empty
     path.createDirectoryAndParents();
+
+    for (SymlinkNode symlink : dir.getSymlinksList()) {
+      createSymbolicLink(path.getRelative(symlink.getName()), symlink.getTarget());
+    }
 
     List<FuturePathBooleanTuple> downloads = new ArrayList<>(dir.getFilesCount());
     for (FileNode child : dir.getFilesList()) {
@@ -382,12 +401,13 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
           @Override
           public void onFailure(Throwable t) {
-            outerF.setException(t);
             try {
               out.close();
             } catch (IOException e) {
               // Intentionally left empty. The download already failed, so we can ignore
               // the error on close().
+            } finally {
+              outerF.setException(t);
             }
           }
         },
@@ -433,6 +453,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     private final ActionResult.Builder result;
     private final Path execRoot;
     private final boolean allowSymlinks;
+    private final boolean uploadSymlinks;
     private final Map<Digest, Path> digestToFile;
     private final Map<Digest, Chunker> digestToChunkers;
 
@@ -441,10 +462,15 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
      * builder is populated through a call to {@link #addFile(Digest, Path)}.
      */
     public UploadManifest(
-        DigestUtil digestUtil, ActionResult.Builder result, Path execRoot, boolean allowSymlinks) {
+        DigestUtil digestUtil,
+        ActionResult.Builder result,
+        Path execRoot,
+        boolean uploadSymlinks,
+        boolean allowSymlinks) {
       this.digestUtil = digestUtil;
       this.result = result;
       this.execRoot = execRoot;
+      this.uploadSymlinks = uploadSymlinks;
       this.allowSymlinks = allowSymlinks;
 
       this.digestToFile = new HashMap<>();
@@ -456,26 +482,49 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
      * effect of 1) uploading a {@link Tree} protobuf message from which the whole structure of the
      * directory, including the descendants, can be reconstructed and 2) uploading all the
      * non-directory descendant files.
-     *
-     * <p>Attempting to a upload symlink results in a {@link
-     * com.google.build.lib.actions.ExecException}, since cachable actions shouldn't emit symlinks.
      */
     public void addFiles(Collection<Path> files) throws ExecException, IOException {
       for (Path file : files) {
         // TODO(ulfjack): Maybe pass in a SpawnResult here, add a list of output files to that, and
         // rely on the local spawn runner to stat the files, instead of statting here.
         FileStatus stat = file.statIfFound(Symlinks.NOFOLLOW);
+        // TODO(#6547): handle the case where the parent directory of the output file is an
+        // output symlink.
         if (stat == null) {
           // We ignore requested results that have not been generated by the action.
           continue;
         }
         if (stat.isDirectory()) {
           addDirectory(file);
-        } else if (stat.isFile()) {
+        } else if (stat.isFile() && !stat.isSpecialFile()) {
           Digest digest = digestUtil.compute(file, stat.getSize());
           addFile(digest, file);
-        } else if (allowSymlinks && stat.isSymbolicLink()) {
-          addFile(digestUtil.compute(file), file);
+        } else if (stat.isSymbolicLink() && allowSymlinks) {
+          PathFragment target = file.readSymbolicLink();
+          // Need to resolve the symbolic link to know what to add, file or directory.
+          FileStatus statFollow = file.statIfFound(Symlinks.FOLLOW);
+          if (statFollow == null) {
+            throw new IOException(
+                String.format("Action output %s is a dangling symbolic link to %s ", file, target));
+          }
+          if (statFollow.isSpecialFile()) {
+            illegalOutput(file);
+          }
+          Preconditions.checkState(
+              statFollow.isFile() || statFollow.isDirectory(), "Unknown stat type for %s", file);
+          if (uploadSymlinks && !target.isAbsolute()) {
+            if (statFollow.isFile()) {
+              addFileSymbolicLink(file, target);
+            } else {
+              addDirectorySymbolicLink(file, target);
+            }
+          } else {
+            if (statFollow.isFile()) {
+              addFile(digestUtil.compute(file), file);
+            } else {
+              addDirectory(file);
+            }
+          }
         } else {
           illegalOutput(file);
         }
@@ -518,6 +567,20 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       return digestToChunkers;
     }
 
+    private void addFileSymbolicLink(Path file, PathFragment target) throws IOException {
+      result
+          .addOutputFileSymlinksBuilder()
+          .setPath(file.relativeTo(execRoot).getPathString())
+          .setTarget(target.toString());
+    }
+
+    private void addDirectorySymbolicLink(Path file, PathFragment target) throws IOException {
+      result
+          .addOutputDirectorySymlinksBuilder()
+          .setPath(file.relativeTo(execRoot).getPathString())
+          .setTarget(target.toString());
+    }
+
     private void addFile(Digest digest, Path file) throws IOException {
       result
           .addOutputFilesBuilder()
@@ -552,7 +615,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
         throws ExecException, IOException {
       Directory.Builder b = Directory.newBuilder();
 
-      List<Dirent> sortedDirent = new ArrayList<>(path.readdir(TreeNodeRepository.SYMLINK_POLICY));
+      List<Dirent> sortedDirent = new ArrayList<>(path.readdir(Symlinks.NOFOLLOW));
       sortedDirent.sort(Comparator.comparing(Dirent::getName));
 
       for (Dirent dirent : sortedDirent) {
@@ -562,8 +625,35 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
           Directory dir = computeDirectory(child, tree);
           b.addDirectoriesBuilder().setName(name).setDigest(digestUtil.compute(dir));
           tree.addChildren(dir);
-        } else if (dirent.getType() == Dirent.Type.FILE
-            || (dirent.getType() == Dirent.Type.SYMLINK && allowSymlinks)) {
+        } else if (dirent.getType() == Dirent.Type.SYMLINK && allowSymlinks) {
+          PathFragment target = child.readSymbolicLink();
+          if (uploadSymlinks && !target.isAbsolute()) {
+            // Whether it is dangling or not, we're passing it on.
+            b.addSymlinksBuilder().setName(name).setTarget(target.toString());
+            continue;
+          }
+          // Need to resolve the symbolic link now to know whether to upload a file or a directory.
+          FileStatus statFollow = child.statIfFound(Symlinks.FOLLOW);
+          if (statFollow == null) {
+            throw new IOException(
+                String.format(
+                    "Action output %s is a dangling symbolic link to %s ", child, target));
+          }
+          if (statFollow.isFile() && !statFollow.isSpecialFile()) {
+            Digest digest = digestUtil.compute(child);
+            b.addFilesBuilder()
+                .setName(name)
+                .setDigest(digest)
+                .setIsExecutable(child.isExecutable());
+            digestToFile.put(digest, child);
+          } else if (statFollow.isDirectory()) {
+            Directory dir = computeDirectory(child, tree);
+            b.addDirectoriesBuilder().setName(name).setDigest(digestUtil.compute(dir));
+            tree.addChildren(dir);
+          } else {
+            illegalOutput(child);
+          }
+        } else if (dirent.getType() == Dirent.Type.FILE) {
           Digest digest = digestUtil.compute(child);
           b.addFilesBuilder().setName(name).setDigest(digest).setIsExecutable(child.isExecutable());
           digestToFile.put(digest, child);
@@ -583,6 +673,19 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
                   + "uploaded to a remote cache. "
                   + "Change the file type or use --remote_allow_symlink_upload.",
               what.relativeTo(execRoot), kind));
+    }
+  }
+
+  protected void verifyContents(Digest expected, HashingOutputStream actual) throws IOException {
+    String expectedHash = expected.getHash();
+    String actualHash = DigestUtil.hashCodeToString(actual.hash());
+    if (!expectedHash.equals(actualHash)) {
+      String msg =
+          String.format(
+              "Download an output failed, because the expected hash"
+                  + "'%s' did not match the received hash '%s'.",
+              expectedHash, actualHash);
+      throw new IOException(msg);
     }
   }
 

@@ -206,7 +206,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     int formatFlags = attribute.getFormatFlags();
 
     if (formatFlags != 0xFFFF) {
-      //These flags are defined in AOSP in ResourceTypes.h:ResTable_map
+      // These flags are defined in AOSP in ResourceTypes.h:ResTable_map
       if ((formatFlags & 1 << 0) != 0) {
         formats.put("reference", ReferenceResourceXmlAttrValue.of());
       }
@@ -251,16 +251,13 @@ public class AttrXmlResourceValue implements XmlResourceValue {
         formats.put("flags", FlagResourceXmlAttrValue.of(flags));
       }
       if ((formatFlags & 0xFFFCFF00) != 0) {
-        throw new InvalidProtocolBufferException(
-            "Unexpected format flags: " + formatFlags);
+        throw new InvalidProtocolBufferException("Unexpected format flags: " + formatFlags);
       }
     }
     return of(formats.build());
   }
 
-  /**
-   * Creates a new {@link AttrXmlResourceValue}. Returns null if there are no formats.
-   */
+  /** Creates a new {@link AttrXmlResourceValue}. Returns null if there are no formats. */
   @Nullable
   public static XmlResourceValue from(
       StartElement attr, @Nullable String format, XMLEventReader eventReader)
@@ -814,6 +811,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
   @Override
   public String asConflictStringWith(DataSource source) {
-    return source.asConflictString();
+    return String.format(
+        "%s [format(s): %s]", source.asConflictString(), String.join("|", this.formats.keySet()));
   }
 }

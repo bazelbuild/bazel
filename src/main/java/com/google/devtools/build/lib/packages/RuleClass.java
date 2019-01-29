@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
@@ -27,6 +28,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -616,6 +618,9 @@ public class RuleClass {
      */
     public static final String SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME = "build_setting_default";
 
+    public static final String BUILD_SETTING_DEFAULT_NONCONFIGURABLE =
+        "Build setting defaults are referenced during analysis.";
+
     /** List of required attributes for normal rules, name and type. */
     public static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_NORMAL_RULES =
         ImmutableList.of(attr("tags", Type.STRING_LIST).build());
@@ -642,6 +647,7 @@ public class RuleClass {
     private boolean isAnalysisTest = false;
     private boolean isConfigMatcher = false;
     private boolean hasFunctionTransitionWhitelist = false;
+    private boolean ignorePackageLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private RuleTransitionFactory transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
@@ -777,17 +783,15 @@ public class RuleClass {
                 .nonconfigurable("Used in toolchain resolution")
                 .value(ImmutableList.of()));
       }
-      if (skylark) {
-        assertRuleClassProperStarlarkDefinedTransitionUsage();
-      }
       if (buildSetting != null) {
         Type<?> type = buildSetting.getType();
         Attribute.Builder<?> attrBuilder =
             attr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, type)
-                .nonconfigurable("Build setting defaults are referenced during analysis.")
+                .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE)
                 .mandatory();
         if (BuildType.isLabelType(type)) {
           attrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
+          attrBuilder.allowedRuleClasses(ANY_RULE);
         }
         this.add(attrBuilder);
       }
@@ -805,6 +809,7 @@ public class RuleClass {
           isExecutableSkylark,
           isAnalysisTest,
           hasFunctionTransitionWhitelist,
+          ignorePackageLicenses,
           implicitOutputsFunction,
           isConfigMatcher,
           transitionFactory,
@@ -846,34 +851,6 @@ public class RuleClass {
           "Concrete Starlark rule classes can't have null labels: %s %s",
           ruleDefinitionEnvironmentLabel,
           type);
-    }
-
-    private void assertRuleClassProperStarlarkDefinedTransitionUsage() {
-      boolean hasStarlarkDefinedTransition = false;
-      boolean hasAnalysisTestTransitionAttribute = false;
-      for (Attribute attribute : attributes.values()) {
-        hasStarlarkDefinedTransition |= attribute.hasStarlarkDefinedTransition();
-        hasAnalysisTestTransitionAttribute |= attribute.hasAnalysisTestTransition();
-      }
-
-      if (hasAnalysisTestTransitionAttribute) {
-        Preconditions.checkState(isAnalysisTest,
-            "Only rule definitions with analysis_test=True may have attributes with "
-                + "for_analysis_testing=True");
-      }
-      if (hasStarlarkDefinedTransition) {
-        Preconditions.checkState(
-            hasFunctionTransitionWhitelist,
-            "Use of function based split transition without whitelist: %s %s",
-            ruleDefinitionEnvironmentLabel,
-            type);
-      } else {
-        Preconditions.checkState(
-            !hasFunctionTransitionWhitelist,
-            "Unused function based split transition whitelist: %s %s",
-            ruleDefinitionEnvironmentLabel,
-            type);
-      }
     }
 
       /**
@@ -1181,6 +1158,10 @@ public class RuleClass {
       return this;
     }
 
+    public Label getRuleDefinitionEnvironmentLabel() {
+      return this.ruleDefinitionEnvironmentLabel;
+    }
+
     /**
      * Removes an attribute with the same name from this rule class.
      *
@@ -1209,6 +1190,10 @@ public class RuleClass {
       return this;
     }
 
+    public boolean isAnalysisTest() {
+      return this.isAnalysisTest;
+    }
+
     /**
      * This rule class has the _whitelist_function_transition attribute.  Intended only for Skylark
      * rules.
@@ -1218,13 +1203,27 @@ public class RuleClass {
       return this;
     }
 
+    /** This rule class ignores package-level licenses. */
+    public Builder setIgnorePackageLicenses() {
+      this.ignorePackageLicenses = true;
+      return this;
+    }
+
+    public boolean ignorePackageLicenses() {
+      return this.ignorePackageLicenses;
+    }
+
+    public RuleClassType getType() {
+      return this.type;
+    }
+
     /**
      * Sets the kind of output files this rule creates.
      * DO NOT USE! This only exists to support the non-open-sourced {@code fileset} rule.
      * {@see OutputFile.Kind}.
      */
     public Builder setOutputFileKind(OutputFile.Kind outputFileKind) {
-      this.outputFileKind = outputFileKind;
+      this.outputFileKind = Preconditions.checkNotNull(outputFileKind);
       return this;
     }
 
@@ -1393,6 +1392,7 @@ public class RuleClass {
   private final boolean isAnalysisTest;
   private final boolean isConfigMatcher;
   private final boolean hasFunctionTransitionWhitelist;
+  private final boolean ignorePackageLicenses;
 
   /**
    * A (unordered) mapping from attribute names to small integers indexing into
@@ -1520,6 +1520,7 @@ public class RuleClass {
       boolean isExecutableSkylark,
       boolean isAnalysisTest,
       boolean hasFunctionTransitionWhitelist,
+      boolean ignorePackageLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
       boolean isConfigMatcher,
       RuleTransitionFactory transitionFactory,
@@ -1569,6 +1570,7 @@ public class RuleClass {
     this.isExecutableSkylark = isExecutableSkylark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasFunctionTransitionWhitelist = hasFunctionTransitionWhitelist;
+    this.ignorePackageLicenses = ignorePackageLicenses;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
@@ -1860,7 +1862,11 @@ public class RuleClass {
       throws InterruptedException, CannotPrecomputeDefaultsException {
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
-            rule, pkgBuilder.getRepositoryMapping(), attributeValues, eventHandler);
+            rule,
+            pkgBuilder.getRepositoryMapping(),
+            attributeValues,
+            pkgBuilder.getListInterner(),
+            eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
     populateConfigDependenciesAttribute(rule);
@@ -1881,6 +1887,7 @@ public class RuleClass {
       Rule rule,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       AttributeValues<T> attributeValues,
+      Interner<ImmutableList<?>> listInterner,
       EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
@@ -1907,7 +1914,7 @@ public class RuleClass {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(rule, attr, attributeValue, repositoryMapping);
+              convertFromBuildLangType(rule, attr, attributeValue, repositoryMapping, listInterner);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2080,6 +2087,10 @@ public class RuleClass {
    */
   private static void checkThirdPartyRuleHasLicense(Rule rule,
       Package.Builder pkgBuilder, EventHandler eventHandler) {
+    if (rule.getRuleClassObject().ignorePackageLicenses()) {
+      // A package license is sufficient; ignore rules that don't include it.
+      return;
+    }
     if (isThirdPartyPackage(rule.getLabel().getPackageIdentifier())) {
       License license = rule.getLicense();
       if (license == null) {
@@ -2207,7 +2218,8 @@ public class RuleClass {
       Rule rule,
       Attribute attr,
       Object buildLangValue,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      Interner<ImmutableList<?>> listInterner)
       throws ConversionException {
     LabelConversionContext context = new LabelConversionContext(rule.getLabel(), repositoryMapping);
     Object converted =
@@ -2228,7 +2240,10 @@ public class RuleClass {
         List<? extends Comparable<?>> list = (List<? extends Comparable<?>>) converted;
         converted = Ordering.natural().sortedCopy(list);
       }
-      converted = ImmutableList.copyOf((List<?>) converted);
+      // It's common for multiple rule instances in the same package to have the same value for some
+      // attributes. As a concrete example, consider a package having several 'java_test' instances,
+      // each with the same exact 'tags' attribute value.
+      converted = listInterner.intern(ImmutableList.copyOf((List<?>) converted));
     }
 
     return converted;
@@ -2412,6 +2427,11 @@ public class RuleClass {
     return hasFunctionTransitionWhitelist;
   }
 
+  /** Returns true if this rule class should ignore package-level licenses. */
+  public boolean ignorePackageLicenses() {
+    return ignorePackageLicenses;
+  }
+
   public ImmutableSet<Label> getRequiredToolchains() {
     return requiredToolchains;
   }
@@ -2428,7 +2448,6 @@ public class RuleClass {
     return executionPlatformConstraints;
   }
 
-  @Nullable
   public OutputFile.Kind  getOutputFileKind() {
     return outputFileKind;
   }

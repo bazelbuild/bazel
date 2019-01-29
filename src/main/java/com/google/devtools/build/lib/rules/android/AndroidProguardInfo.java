@@ -51,7 +51,7 @@ public final class AndroidProguardInfo extends NativeInfo
   public static class Provider extends BuiltinProvider<AndroidProguardInfo>
       implements AndroidProguardInfoApi.Provider<Artifact> {
     private Provider() {
-      super(PROVIDER_NAME, AndroidProguardInfo.class);
+      super(NAME, AndroidProguardInfo.class);
     }
 
     @Override

@@ -426,7 +426,7 @@ public final class Profiler {
             && type != ProfilerTask.SKYFUNCTION
             && type != ProfilerTask.ACTION_EXECUTE
             && type != ProfilerTask.ACTION_COMPLETE
-            && !type.isSkylark();
+            && !type.isStarlark();
       }
     },
 

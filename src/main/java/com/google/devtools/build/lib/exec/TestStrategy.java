@@ -258,7 +258,7 @@ public abstract class TestStrategy implements TestActionContext {
   protected void postTestResult(ActionExecutionContext actionExecutionContext, TestResult result)
       throws IOException {
     result.getTestAction().saveCacheStatus(actionExecutionContext, result.getData());
-    actionExecutionContext.getEventBus().post(result);
+    actionExecutionContext.getEventHandler().post(result);
   }
 
   /**

@@ -26,6 +26,26 @@ package com.google.devtools.build.skyframe;
  * build: it just relaxes some of its graph-pruning logic to be more conservative with such nodes.
  */
 public enum FunctionHermeticity {
+
+  /**
+   * A fully hermetic function. If its Skyframe dependencies are unchanged, it will always produce
+   * the same result.
+   */
   HERMETIC,
+
+  /**
+   * A function that is mostly hermetic, but may act non-hermetic in extenuating circumstances such
+   * as when a flag value is changed.
+   *
+   * <p>Nodes produced by this type of function are treated the same as HERMETIC with respect to
+   * versioning and graph pruning. Unlike HERMETIC, however, no error will occur if the function
+   * exhibits nondeterminism.
+   */
+  SEMI_HERMETIC,
+
+  /**
+   * A function that is expected to routinely produce different results even if its Skyframe
+   * dependencies are unchanged.
+   */
   NONHERMETIC
 }

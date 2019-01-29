@@ -18,8 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.asCharSink;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
@@ -38,7 +37,6 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -140,6 +138,15 @@ public class Main {
       help = "Controls the behavior of the checker."
     )
     public CheckingMode checkingMode;
+
+    @Option(
+      name = "check_missing_members",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to check whether referenced fields and methods are defined."
+    )
+    public boolean checkMissingMembers;
   }
 
   /** A randomly picked large exit code to avoid collision with other common exit codes. */
@@ -160,13 +167,14 @@ public class Main {
     int exitCode = 0;
     try (ImportDepsChecker checker =
         new ImportDepsChecker(
-            ImmutableList.copyOf(options.bootclasspath),
+            ImmutableSet.copyOf(options.bootclasspath),
             // Consider everything direct if no direct classpath is given
             options.directClasspath.isEmpty()
-                ? ImmutableList.copyOf(options.fullClasspath)
-                : ImmutableList.copyOf(options.directClasspath),
-            ImmutableList.copyOf(options.fullClasspath),
-            ImmutableList.copyOf(options.inputJars))) {
+                ? ImmutableSet.copyOf(options.fullClasspath)
+                : ImmutableSet.copyOf(options.directClasspath),
+            ImmutableSet.copyOf(options.fullClasspath),
+            ImmutableSet.copyOf(options.inputJars),
+            options.checkMissingMembers)) {
       if (!checker.check() && options.checkingMode != CheckingMode.SILENCE) {
         String result = checker.computeResultOutput(options.ruleLabel);
         checkState(!result.isEmpty(), "The result should NOT be empty.");
@@ -217,13 +225,6 @@ public class Main {
     // checkArgument(
     //     options.jdepsOutput != null, "Invalid value of --jdeps_output: '%s'",
     //     options.jdepsOutput);
-    if (!options.fullClasspath.containsAll(options.directClasspath)) {
-      ArrayList<Path> missing = Lists.newArrayList(options.directClasspath);
-      missing.removeAll(options.fullClasspath);
-      throw new IllegalArgumentException(
-          "--strictdeps must be a subset of --classpath_entry but has additional entries: "
-              + missing);
-    }
 
     return options;
   }

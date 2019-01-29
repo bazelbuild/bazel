@@ -452,7 +452,7 @@ def main():
   parser.add_argument(
       '--src_jars',
       required=False,
-      help='The list of Java source jars containg Java sources to translate.')
+      help='The list of Java source jars containing Java sources to translate.')
   parser.add_argument(
       '--output_gen_source_dir',
       required=False,

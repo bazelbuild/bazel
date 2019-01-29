@@ -32,7 +32,7 @@ class ChainUniquenessUtils {
     int minPos = 0;
     String minString = cycle.get(0).toString();
     for (int i = 1; i < cycle.size(); i++) {
-      // TOOD(bazel-team): Is the toString representation stable enough?
+      // TODO(bazel-team): Is the toString representation stable enough?
       String candidateString = cycle.get(i).toString();
       if (candidateString.compareTo(minString) < 0) {
         minPos = i;

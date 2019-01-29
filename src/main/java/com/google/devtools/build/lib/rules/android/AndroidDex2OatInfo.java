@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 @Immutable
 public final class AndroidDex2OatInfo extends NativeInfo implements AndroidDex2OatInfoApi {
 
-  private static final String SKYLARK_NAME = "AndroidDex2OatInfo";
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
       FunctionSignature.WithValues.create(
           FunctionSignature.of(
@@ -43,7 +42,7 @@ public final class AndroidDex2OatInfo extends NativeInfo implements AndroidDex2O
           /*defaultValues=*/ null,
           /*types=*/ ImmutableList.of(SkylarkType.of(Boolean.class))); // instrumentation_apk
   public static final NativeProvider<AndroidDex2OatInfo> PROVIDER =
-      new NativeProvider<AndroidDex2OatInfo>(AndroidDex2OatInfo.class, SKYLARK_NAME, SIGNATURE) {
+      new NativeProvider<AndroidDex2OatInfo>(AndroidDex2OatInfo.class, NAME, SIGNATURE) {
         @Override
         protected AndroidDex2OatInfo createInstanceFromSkylark(
             Object[] args, Environment env, Location loc) {

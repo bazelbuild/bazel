@@ -254,21 +254,22 @@ public class DeployArchiveBuilder {
     return args;
   }
 
-  /** Computes input artifacts for a deploy archive based on the given attributes. */
-  public static NestedSet<Artifact> getArchiveInputs(JavaTargetAttributes attributes) {
-    return getArchiveInputs(attributes, null);
-  }
-
   private static NestedSet<Artifact> getArchiveInputs(
-      JavaTargetAttributes attributes, @Nullable Function<Artifact, Artifact> derivedJarFunction) {
+      JavaTargetAttributes attributes,
+      Iterable<Artifact> runtimeClasspathForArchive,
+      @Nullable Function<Artifact, Artifact> derivedJarFunction) {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     if (derivedJarFunction != null) {
       inputs.addAll(
-          Streams.stream(attributes.getRuntimeClassPathForArchive())
+          Streams.stream(runtimeClasspathForArchive)
               .map(derivedJarFunction)
               .collect(toImmutableList()));
     } else {
-      attributes.addRuntimeClassPathForArchiveToNestedSet(inputs);
+      if (runtimeClasspathForArchive instanceof NestedSet) {
+        inputs.addTransitive((NestedSet<Artifact>) runtimeClasspathForArchive);
+      } else {
+        inputs.addAll(runtimeClasspathForArchive);
+      }
     }
     // TODO(bazel-team): Remove?  Resources not used as input to singlejar action
     inputs.addAll(attributes.getResources().values());
@@ -292,10 +293,12 @@ public class DeployArchiveBuilder {
 
     Iterable<Artifact> runtimeJars = runtimeJarsBuilder.build();
 
+    Iterable<Artifact> runtimeClasspathForArchive = attributes.getRuntimeClassPathForArchive();
+
     // TODO(kmb): Consider not using getArchiveInputs, specifically because we don't want/need to
     // transform anything but the runtimeClasspath and b/c we currently do it twice here and below
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
-    inputs.addTransitive(getArchiveInputs(attributes, derivedJars));
+    inputs.addTransitive(getArchiveInputs(attributes, runtimeClasspathForArchive, derivedJars));
 
     if (derivedJars != null) {
       inputs.addAll(Streams.stream(runtimeJars).map(derivedJars).collect(toImmutableList()));
@@ -313,11 +316,14 @@ public class DeployArchiveBuilder {
     if (derivedJars != null) {
       runtimeClasspath.addAll(
           Iterables.transform(
-              Iterables.concat(runtimeJars, attributes.getRuntimeClassPathForArchive()),
-              derivedJars));
+              Iterables.concat(runtimeJars, runtimeClasspathForArchive), derivedJars));
     } else {
       runtimeClasspath.addAll(runtimeJars);
-      attributes.addRuntimeClassPathForArchiveToNestedSet(runtimeClasspath);
+      if (runtimeClasspathForArchive instanceof NestedSet) {
+        runtimeClasspath.addTransitive((NestedSet<Artifact>) runtimeClasspathForArchive);
+      } else {
+        runtimeClasspath.addAll(runtimeClasspathForArchive);
+      }
     }
 
     if (launcher != null) {

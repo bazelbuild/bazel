@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
@@ -24,11 +23,13 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -37,8 +38,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.query2.AqueryActionFilter;
+import com.google.devtools.build.lib.query2.AqueryUtils;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -59,15 +63,38 @@ public class ActionGraphDump {
   private final KnownNestedSets knownNestedSets;
   private final KnownAspectDescriptors knownAspectDescriptors;
   private final KnownRuleConfiguredTargets knownRuleConfiguredTargets;
+  private final AqueryActionFilter actionFilters;
   private final boolean includeActionCmdLine;
+  private final boolean includeParamFiles;
 
-  public ActionGraphDump(boolean includeActionCmdLine) {
-    this(/* actionGraphTargets= */ ImmutableList.of("..."), includeActionCmdLine);
+  private Map<String, Iterable<String>> paramFileNameToContentMap;
+
+  public ActionGraphDump(
+      boolean includeActionCmdLine, AqueryActionFilter actionFilters, boolean includeParamFiles) {
+    this(
+        /* actionGraphTargets= */ ImmutableList.of("..."),
+        includeActionCmdLine,
+        actionFilters,
+        includeParamFiles);
   }
 
   public ActionGraphDump(List<String> actionGraphTargets, boolean includeActionCmdLine) {
+    this(
+        actionGraphTargets,
+        includeActionCmdLine,
+        /* actionFilters= */ AqueryActionFilter.emptyInstance(),
+        /* includeParamFiles */ false);
+  }
+
+  public ActionGraphDump(
+      List<String> actionGraphTargets,
+      boolean includeActionCmdLine,
+      AqueryActionFilter actionFilters,
+      boolean includeParamFiles) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
+    this.actionFilters = actionFilters;
+    this.includeParamFiles = includeParamFiles;
 
     knownRuleClassStrings = new KnownRuleClassStrings(actionGraphBuilder);
     knownArtifacts = new KnownArtifacts(actionGraphBuilder);
@@ -92,6 +119,20 @@ public class ActionGraphDump {
 
   private void dumpSingleAction(ConfiguredTarget configuredTarget, ActionAnalysisMetadata action)
       throws CommandLineExpansionException {
+
+    // Store the content of param files.
+    if (includeParamFiles && (action instanceof ParameterFileWriteAction)) {
+      ParameterFileWriteAction parameterFileWriteAction = (ParameterFileWriteAction) action;
+
+      Iterable<String> fileContent = parameterFileWriteAction.getArguments();
+      String paramFileExecPath = action.getPrimaryOutput().getExecPathString();
+      getParamFileNameToContentMap().put(paramFileExecPath, fileContent);
+    }
+
+    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
+      return;
+    }
+
     Preconditions.checkState(configuredTarget instanceof RuleConfiguredTarget);
     RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
     AnalysisProtos.Action.Builder actionBuilder =
@@ -111,7 +152,7 @@ public class ActionGraphDump {
       SpawnAction spawnAction = (SpawnAction) action;
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
-      ImmutableMap<String, String> fixedEnvironment = spawnAction.getEnvironment().getFixedEnv();
+      Map<String, String> fixedEnvironment = spawnAction.getEnvironment().getFixedEnv().toMap();
       for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
         AnalysisProtos.KeyValuePair.Builder keyValuePairBuilder =
             AnalysisProtos.KeyValuePair.newBuilder();
@@ -120,9 +161,27 @@ public class ActionGraphDump {
             .setValue(environmentVariable.getValue());
         actionBuilder.addEnvironmentVariables(keyValuePairBuilder.build());
       }
+    }
 
-      if (includeActionCmdLine) {
-        actionBuilder.addAllArguments(spawnAction.getArguments());
+    if (includeActionCmdLine && action instanceof CommandAction) {
+      CommandAction commandAction = (CommandAction) action;
+      actionBuilder.addAllArguments(commandAction.getArguments());
+    }
+
+    // Include the content of param files in output.
+    if (includeParamFiles) {
+      // Assumption: if an Action takes a params file as an input, it will be used
+      // to provide params to the command.
+      for (Artifact input : action.getInputs()) {
+        String inputFileExecPath = input.getExecPathString();
+        if (getParamFileNameToContentMap().containsKey(inputFileExecPath)) {
+          AnalysisProtos.ParamFile paramFile =
+              AnalysisProtos.ParamFile.newBuilder()
+                  .setExecPath(inputFileExecPath)
+                  .addAllArguments(getParamFileNameToContentMap().get(inputFileExecPath))
+                  .build();
+          actionBuilder.addParamFiles(paramFile);
+        }
       }
     }
 
@@ -141,18 +200,23 @@ public class ActionGraphDump {
       BuildEvent event = actionOwner.getConfiguration();
       actionBuilder.setConfigurationId(knownConfigurations.dataToId(event));
 
-      // store aspect
-      for (AspectDescriptor aspectDescriptor : actionOwner.getAspectDescriptors()) {
+      // Store aspects.
+      // Iterate through the aspect path and dump the aspect descriptors.
+      // In the case of aspect-on-aspect, AspectDescriptors are listed in topological order
+      // of the configured target graph.
+      // e.g. [A, B] would imply that aspect A is applied on top of aspect B.
+      for (AspectDescriptor aspectDescriptor : actionOwner.getAspectDescriptors().reverse()) {
         actionBuilder.addAspectDescriptorIds(knownAspectDescriptors.dataToId(aspectDescriptor));
       }
     }
 
-    // store inputs
+    // Store inputs
     Iterable<Artifact> inputs = action.getInputs();
     if (!(inputs instanceof NestedSet)) {
       inputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs);
     }
     NestedSetView<Artifact> nestedSetView = new NestedSetView<>((NestedSet<Artifact>) inputs);
+
     if (nestedSetView.directs().size() > 0 || nestedSetView.transitives().size() > 0) {
       actionBuilder.addInputDepSetIds(knownNestedSets.dataToId(nestedSetView));
     }
@@ -191,5 +255,13 @@ public class ActionGraphDump {
 
   public ActionGraphContainer build() {
     return actionGraphBuilder.build();
+  }
+
+  /** Lazy initialization of paramFileNameToContentMap. */
+  private Map<String, Iterable<String>> getParamFileNameToContentMap() {
+    if (paramFileNameToContentMap == null) {
+      paramFileNameToContentMap = new HashMap<>();
+    }
+    return paramFileNameToContentMap;
   }
 }

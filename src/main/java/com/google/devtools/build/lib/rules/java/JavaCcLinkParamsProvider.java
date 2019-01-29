@@ -33,7 +33,7 @@ public final class JavaCcLinkParamsProvider extends Info
 
   public JavaCcLinkParamsProvider(CcInfo ccInfo) {
     super(PROVIDER, Location.BUILTIN);
-    this.ccInfo = CcInfo.builder().setCcLinkingInfo(ccInfo.getCcLinkingInfo()).build();
+    this.ccInfo = CcInfo.builder().setCcLinkingContext(ccInfo.getCcLinkingContext()).build();
   }
 
   @Override

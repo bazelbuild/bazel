@@ -113,7 +113,7 @@ public class OutputDirectoryLinksUtils {
       @Override
       public String getLinkName(
           String symlinkPrefix, String productName, String workspaceBaseName) {
-        // TODO(b/35234395): This symlink is created for backwards compatiblity, remove it once
+        // TODO(b/35234395): This symlink is created for backwards compatibility, remove it once
         // we're sure it won't cause any other issues.
         return productName + "-out";
       }

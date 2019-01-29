@@ -30,9 +30,9 @@ public final class CoreRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    builder.setShouldInvalidateCacheForDiff(
-        TestConfiguration.HAVE_OPTIONS_AFFECTING_NON_TEST_TARGETS_CHANGED);
-    builder.addConfig(TestConfiguration.TestOptions.class, new TestConfiguration.Loader());
+    builder.setShouldInvalidateCacheForOptionDiff(
+        TestConfiguration.SHOULD_INVALIDATE_FOR_OPTION_DIFF);
+    builder.addConfigurationFragment(new TestConfiguration.Loader());
     builder.addTrimmingTransitionFactory(new TestTrimmingTransitionFactory());
     builder.addRuleDefinition(new BaseRuleClasses.RootRule());
     builder.addRuleDefinition(new BaseRuleClasses.BaseRule());

@@ -77,10 +77,10 @@ public class GenKeepForCompile implements Opcodes {
       }
       annotationVisitor0.visitEnd();
     }
-    {
+    { // Private method to make sure ijar doesn't ignore those
       methodVisitor =
           classWriter.visitMethod(
-              ACC_PUBLIC | ACC_FINAL | ACC_STATIC,
+              ACC_PRIVATE | ACC_FINAL | ACC_STATIC,
               "customName",
               "(Lfunctions/car/Car;Lkotlin/jvm/functions/Function1;)Ljava/lang/String;",
               "(Lfunctions/car/Car;Lkotlin/jvm/functions/Function1<-Ljava/lang/Integer;Ljava/lang/String;>;)Ljava/lang/String;",

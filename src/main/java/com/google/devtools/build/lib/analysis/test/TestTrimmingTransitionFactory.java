@@ -54,7 +54,7 @@ public final class TestTrimmingTransitionFactory implements RuleTransitionFactor
       BuildOptions.Builder builder = BuildOptions.builder();
       for (FragmentOptions options : originalOptions.getNativeOptions()) {
         if (!(options instanceof TestOptions)) {
-          builder.add(options);
+          builder.addFragmentOptions(options);
         }
       }
       return builder.build();

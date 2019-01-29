@@ -66,4 +66,10 @@ public class RepositoryNameTest {
         .isEqualTo(PathFragment.EMPTY_FRAGMENT);
   }
 
+  @Test
+  public void testGetDefaultCanonicalForm() throws Exception {
+    assertThat(RepositoryName.create("").getDefaultCanonicalForm()).isEqualTo("");
+    assertThat(RepositoryName.create("@").getDefaultCanonicalForm()).isEqualTo("");
+    assertThat(RepositoryName.create("@foo").getDefaultCanonicalForm()).isEqualTo("@foo");
+  }
 }

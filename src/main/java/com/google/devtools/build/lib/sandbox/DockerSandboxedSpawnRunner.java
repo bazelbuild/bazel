@@ -61,7 +61,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   // The name of the container image entry in the Platform proto
   // (see third_party/googleapis/devtools/remoteexecution/*/remote_execution.proto and
-  // experimental_remote_platform_override in
+  // remote_default_platform_properties in
   // src/main/java/com/google/devtools/build/lib/remote/RemoteOptions.java)
   private static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
   private static final String DOCKER_IMAGE_PREFIX = "docker://";
@@ -363,7 +363,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     try {
       cmd.executeAsync(stdIn, stdOut, stdErr, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
     } catch (CommandException e) {
-      throw new UserExecException("Running command " + cmd.toDebugString() + " failed: " + stdErr);
+      throw new UserExecException(
+          "Running command " + cmd.toDebugString() + " failed: " + stdErr, e);
     }
     return stdOut.toString().trim();
   }
@@ -400,7 +401,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         throw new IllegalArgumentException(
             String.format(
                 "Platform %s contained multiple container-image entries, but only one is allowed.",
-                spawn.getExecutionPlatform().label()));
+                spawn.getExecutionPlatform().label()),
+            e);
       }
     } else {
       return Optional.empty();

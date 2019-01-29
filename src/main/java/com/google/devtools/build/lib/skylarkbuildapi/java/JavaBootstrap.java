@@ -23,13 +23,13 @@ import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi.JavaInfoPr
  */
 public class JavaBootstrap implements Bootstrap {
 
-  private final JavaCommonApi<?, ?, ?, ?, ?> javaCommonApi;
+  private final JavaCommonApi<?, ?, ?, ?> javaCommonApi;
   private final JavaInfoProviderApi javaInfoProviderApi;
   private final JavaProtoCommonApi<?, ?, ?> javaProtoCommonApi;
   private final JavaCcLinkParamsProviderApi.Provider<?> javaCcLinkParamsProviderApiProvider;
 
   public JavaBootstrap(
-      JavaCommonApi<?, ?, ?, ?, ?> javaCommonApi,
+      JavaCommonApi<?, ?, ?, ?> javaCommonApi,
       JavaInfoProviderApi javaInfoProviderApi,
       JavaProtoCommonApi<?, ?, ?> javaProtoCommonApi,
       JavaCcLinkParamsProviderApi.Provider<?> javaCcLinkParamsProviderApiProvider) {
@@ -44,6 +44,6 @@ public class JavaBootstrap implements Bootstrap {
     builder.put("java_common", javaCommonApi);
     builder.put("JavaInfo", javaInfoProviderApi);
     builder.put("java_proto_common", javaProtoCommonApi);
-    builder.put("java_cc_link_params_info", javaCcLinkParamsProviderApiProvider);
+    builder.put("JavaCcLinkParamsInfo", javaCcLinkParamsProviderApiProvider);
   }
 }

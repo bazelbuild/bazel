@@ -3,6 +3,8 @@
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 
+exports_files(["jdeps_modules.golden"])
+
 md5_cmd = "set -e -o pipefail && cat $(SRCS) | sort | %s | awk '{ print $$1; }' > $@"
 
 # TODO(bazel-team): find a better way to handle dylib extensions.
@@ -39,7 +41,9 @@ filegroup(
         "//conditions:default": md5_cmd % "md5sum",
     }),
 ) for suffix, embedded_tools_target in {
-    "": [":embedded_tools"],
+    "_jdk_allmodules": [":embedded_tools_jdk_allmodules"],
+    "_jdk_minimal": [":embedded_tools_jdk_minimal"],
+    "_dev_jdk": [":embedded_tools_dev_jdk"],
     "_nojdk": [":embedded_tools_nojdk"],
     "_notools": [],
 }.items()]
@@ -112,80 +116,77 @@ py_binary(
     deps = [":create_embedded_tools_lib"],
 )
 
+# The tools Bazel uses to compile Java.
+# TODO(#6316): Gradually remove the targets here.
+JAVA_TOOLS = [
+    "//third_party/java/jdk/langtools:test-srcs",
+    "//third_party/java/proguard:embedded_tools",
+    "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
+    "//src/tools/singlejar:embedded_tools",
+    "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
+    "//third_party/ijar",
+    "//third_party/ijar:zipper",
+    "//third_party/ijar:embedded_tools",
+    "//third_party/java/jacoco:srcs",
+] + select({
+    "//src/conditions:arm": [],
+    "//conditions:default": [
+        "//src/tools/singlejar:singlejar_local",
+    ],
+})
+
 # TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
 # in Skylark rules on Windows has been released.
 [filegroup(
     name = "embedded_tools" + suffix + "_srcs",
-    srcs = [
-        "BUILD.tools",
-        "//tools:embedded_tools_srcs",
-        "//third_party:gpl-srcs",
-        "//third_party/java/j2objc:embedded_tools_srcs",
-        "//third_party/jarjar:embedded_tools_srcs",
-        "//third_party/java/jdk/langtools:test-srcs",
-        "//third_party/java/proguard:embedded_tools",
-        "//third_party/py/concurrent:srcs",
-        "//third_party/py/gflags:srcs",
-        "//third_party/py/six:srcs",
-        "//src/conditions:embedded_tools",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
-        "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
-        "//src/tools/launcher:srcs",
-        "//src/tools/singlejar:embedded_tools",
-        "//src/main/cpp/util:embedded_tools",
-        "//src/main/native:embedded_tools",
-        "//src/main/protobuf:srcs",
-        "//src/java_tools/buildjar:JavaBuilderDeploy",
-        "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
-        "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:ExperimentalRunner_deploy.jar",
-        "//src/java_tools/junitrunner/java/com/google/testing/coverage:embedded_tools",
-        "//third_party/def_parser:srcs",
-        "//third_party/ijar",
-        "//third_party/ijar:zipper",
-        "//third_party/ijar:embedded_tools",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
-        "//third_party/java/jacoco:srcs",
-        "//third_party/zlib:embedded_tools",
-    ] + select({
-        "//src/conditions:darwin": [
-            ":darwin_tools",
-        ],
-        "//src/conditions:darwin_x86_64": [
-            ":darwin_tools",
-        ],
-        "//conditions:default": [
-            ":dummy_darwin_tools",
-        ],
-    }) + select({
-        # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
-        # is resolved, use cc implementation of singlejar on windows
-        "//src/conditions:windows": [
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
-            "//src/tools/launcher:launcher",
-            "//third_party/def_parser:def_parser",
-        ],
-        "//src/conditions:arm": [
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        ],
-        "//conditions:default": [
-            "//src/tools/singlejar:singlejar_local",
-        ],
-    }) + ([":embedded_jdk"] if (suffix == "") else []),
+    srcs = JAVA_TOOLS + [
+               "BUILD.tools",
+               "//tools:embedded_tools_srcs",
+               "//third_party:gpl-srcs",
+               "//third_party/java/java_tools:java_tools",
+               "//third_party/java/j2objc:embedded_tools_srcs",
+               "//third_party/py/concurrent:srcs",
+               "//third_party/py/gflags:srcs",
+               "//third_party/py/six:srcs",
+               "//src/conditions:embedded_tools",
+               "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
+               "//src/tools/launcher:srcs",
+               "//src/main/cpp/util:embedded_tools",
+               "//src/main/native:embedded_tools",
+               "//src/main/protobuf:srcs",
+               "//third_party/def_parser:srcs",
+               "//third_party/zlib:embedded_tools",
+           ] + select({
+               "//src/conditions:darwin": [
+                   ":darwin_tools",
+               ],
+               "//src/conditions:darwin_x86_64": [
+                   ":darwin_tools",
+               ],
+               "//conditions:default": [
+                   ":dummy_darwin_tools",
+               ],
+           }) + select({
+               "//src/conditions:windows": [
+                   "//src/tools/launcher:launcher",
+                   "//third_party/def_parser:def_parser",
+               ],
+               "//conditions:default": [],
+           }) +
+           jdk,
     visibility = [
         "//src/test:__subpackages__",  # For integration tests
     ],
-) for suffix in [
-    "",
-    "_nojdk",
-]]
+) for suffix, jdk in {
+    "_jdk_allmodules": [":embedded_jdk_allmodules_cached"],
+    "_jdk_minimal": [":embedded_jdk_minimal_cached"],
+    "_dev_jdk": [":embedded_jdk_minimal"],
+    "_nojdk": [],
+}.items()]
 
 rule_size_test(
     name = "embedded_tools_size_test",
-    src = ":embedded_tools_srcs",
+    src = ":embedded_tools_jdk_allmodules_srcs",
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
@@ -194,7 +195,7 @@ rule_size_test(
 )
 
 filegroup(
-    name = "embedded_jdk",
+    name = "embedded_jdk_allmodules_cached",
     srcs = select({
         "//src/conditions:darwin": [
             "@openjdk_macos//file",
@@ -215,36 +216,132 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
+filegroup(
+    name = "embedded_jdk_minimal_cached",
+    srcs = select({
+        "//src/conditions:darwin": [
+            "@openjdk_macos_minimal//file",
+        ],
+        "//src/conditions:darwin_x86_64": [
+            "@openjdk_macos_minimal//file",
+        ],
+        "//src/conditions:windows": [
+            "@openjdk_win_minimal//file",
+        ],
+        "//conditions:default": [
+            "@openjdk_linux_minimal//file",
+        ],
+    }),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
+filegroup(
+    name = "embedded_jdk_vanilla",
+    srcs = select({
+        "//src/conditions:darwin": [
+            "@openjdk_macos_vanilla//file",
+        ],
+        "//src/conditions:darwin_x86_64": [
+            "@openjdk_macos_vanilla//file",
+        ],
+        "//src/conditions:windows": [
+            "@openjdk_win_vanilla//file",
+        ],
+        "//src/conditions:linux_aarch64": [
+            "@openjdk_linux_aarch64_vanilla//file",
+        ],
+        "//conditions:default": [
+            "@openjdk_linux_vanilla//file",
+        ],
+    }),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
+sh_binary(
+    name = "minimize_jdk",
+    srcs = ["minimize_jdk.sh"],
+)
+
+filegroup(
+    name = "embedded_jdk_minimal",
+    srcs = select({
+        "//src/conditions:windows": [
+            ":embedded_jdk_minimal.zip",
+        ],
+        "//conditions:default": [
+            ":embedded_jdk_minimal.tar.gz",
+        ],
+    }),
+)
+
+filegroup(
+    name = "embedded_jdk_allmodules",
+    srcs = select({
+        "//src/conditions:windows": [
+            ":embedded_jdk_allmodules.zip",
+        ],
+        "//conditions:default": [
+            ":embedded_jdk_allmodules.tar.gz",
+        ],
+    }),
+)
+
+[genrule(
+    name = "embedded_jdk_minimal" + suffix,
+    srcs = [
+        ":embedded_jdk_vanilla",
+        ":minimize_jdk.sh",
+        ":jdeps_modules.golden",
+    ],
+    outs = ["minimal_jdk" + suffix],
+    cmd = "$(location :minimize_jdk.sh) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+) for suffix in [
+    ".zip",
+    ".tar.gz",
+]]
+
+[genrule(
+    name = "embedded_jdk_allmodules" + suffix,
+    srcs = [
+        ":embedded_jdk_vanilla",
+        ":minimize_jdk.sh",
+        ":jdeps_modules.golden",
+    ],
+    outs = ["allmodules_jdk" + suffix],
+    cmd = "$(location :minimize_jdk.sh) --allmodules $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+) for suffix in [
+    ".zip",
+    ".tar.gz",
+]]
+
 [srcsfile(
     name = "embedded_tools" + suffix + "_params",
     srcs = [":embedded_tools" + suffix + "_srcs"],
     out = "embedded_tools" + suffix + ".params",
 ) for suffix in [
-    "",
+    "_jdk_allmodules",
+    "_jdk_minimal",
+    "_dev_jdk",
     "_nojdk",
 ]]
 
-genrule(
-    name = "embedded_tools",
+[genrule(
+    name = "embedded_tools" + suffix,
     srcs = [
-        ":embedded_tools_params",
-        ":embedded_tools_srcs",
+        ":embedded_tools" + suffix + "_params",
+        ":embedded_tools" + suffix + "_srcs",
     ],
-    outs = ["embedded_tools.zip"],
-    cmd = "$(location :create_embedded_tools) \"$@\" $(location :embedded_tools_params)",
+    outs = ["embedded_tools" + suffix + ".zip"],
+    cmd = "$(location :create_embedded_tools) \"$@\" $(location :embedded_tools" + suffix + "_params)",
     tools = [":create_embedded_tools"],
-)
-
-genrule(
-    name = "embedded_tools_nojdk",
-    srcs = [
-        ":embedded_tools_nojdk_params",
-        ":embedded_tools_nojdk_srcs",
-    ],
-    outs = ["embedded_tools_nojdk.zip"],
-    cmd = "$(location :create_embedded_tools) \"$@\" $(location :embedded_tools_nojdk_params)",
-    tools = [":create_embedded_tools"],
-)
+) for suffix in [
+    "_jdk_allmodules",
+    "_jdk_minimal",
+    "_dev_jdk",
+    "_nojdk",
+]]
 
 [genrule(
     name = "package-zip" + suffix,
@@ -265,7 +362,9 @@ genrule(
     cmd = "$(location :package-bazel.sh) $@ " + ("" if embed else "''") + " $(SRCS)",
     tools = ["package-bazel.sh"],
 ) for suffix, embed in [
-    ("", True),
+    ("_jdk_allmodules", True),
+    ("_jdk_minimal", True),
+    ("_dev_jdk", True),
     ("_notools", False),
     ("_nojdk", True),
 ]]
@@ -290,9 +389,32 @@ genrule(
         "//src/test:__subpackages__",  # For integration tests
     ],
 ) for suffix in [
-    "",
+    "_jdk_allmodules",
+    "_jdk_minimal",
+    "_dev_jdk",
     "_notools",
     "_nojdk",
+]]
+
+[genrule(
+    name = "bazel-bin" + suffix,
+    srcs = [":bazel-bin" + jdk],
+    outs = ["bazel" + suffix],
+    # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
+    # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
+    # need to remove bazel.exe first, so that cat to bazel won't fail.
+    cmd = "rm -f $@; cp $(location :bazel-bin" + jdk + ") $@",
+    executable = 1,
+    output_to_bindir = 1,
+    visibility = [
+        "//scripts:__pkg__",  # For bash completion generation
+        "//scripts/packages:__pkg__",  # For installer generation
+        "//src/java:__subpackages__",  # For command line reference generation
+        "//src/test:__subpackages__",  # For integration tests
+    ],
+) for suffix, jdk in [
+    ("-dev", "_jdk_allmodules"),
+    ("", "_jdk_minimal"),
 ]]
 
 # Build an executable named `bazel.exe`.

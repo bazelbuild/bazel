@@ -48,6 +48,13 @@ cc_binary(
     deps = [":tw_lib"],
 )
 
+cc_binary(
+    name = "xml",
+    srcs = ["windows/xml_main.cc"],
+    visibility = ["//visibility:private"],
+    deps = [":tw_lib"],
+)
+
 # Test wrapper binary to run tests on Windows.
 # See https://github.com/bazelbuild/bazel/issues/5508
 cc_library(
@@ -72,6 +79,7 @@ cc_library(
             "//src/main/cpp/util:filesystem",
             "//src/main/cpp/util:strings",
             "//src/main/native/windows:lib-file",
+            "//src/main/native/windows:lib-util",
             "//third_party/ijar:zip",
             "@bazel_tools//tools/cpp/runfiles",
         ],
@@ -93,6 +101,7 @@ cc_test(
     ] + select({
         "@bazel_tools//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
+            "//src/main/native/windows:lib-util",
             "//third_party/ijar:zip",
         ],
         "//conditions:default": [],
@@ -113,7 +122,10 @@ filegroup(
         "collect_coverage.sh",
         "collect_cc_coverage.sh",
     ] + glob(["LcovMerger/**"]) + select({
-        "@bazel_tools//src/conditions:windows": ["tw"],
+        "@bazel_tools//src/conditions:windows": [
+            "tw",
+            "xml",
+        ],
         "//conditions:default": [],
     }),
     visibility = ["//tools:__pkg__"],

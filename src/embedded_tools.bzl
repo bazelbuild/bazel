@@ -17,10 +17,10 @@
 def _embedded_tools(ctx):
     # The list of arguments we pass to the script.
     args_file = ctx.actions.declare_file(ctx.label.name + ".params")
-    ctx.file_action(output = args_file, content = "\n".join([f.path for f in ctx.files.srcs]))
+    ctx.actions.write(output = args_file, content = "\n".join([f.path for f in ctx.files.srcs]))
 
     # Action to call the script.
-    ctx.action(
+    ctx.actions.run(
         inputs = ctx.files.srcs,
         outputs = [ctx.outputs.out],
         arguments = [ctx.outputs.out.path, args_file.path],

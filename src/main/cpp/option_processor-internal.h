@@ -26,7 +26,9 @@ namespace blaze {
 namespace internal {
 
 // Returns the deduped set of bazelrc paths (with respect to its canonical form)
-// preserving the original order. The paths that cannot be resolved are
+// preserving the original order.
+// All paths in the result were verified to exist (otherwise their canonical
+// form couldn't have been computed). The paths that cannot be resolved are
 // omitted.
 std::vector<std::string> DedupeBlazercPaths(
     const std::vector<std::string>& paths);

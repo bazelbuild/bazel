@@ -83,6 +83,10 @@ py_binary(
 py_test(
     name = "make_rpm_test",
     srcs = ["make_rpm_test.py"],
+    # rpmbuild is not available in windows
+    tags = [
+        "no_windows",
+    ],
     deps = [
         ":make_rpm",
     ],

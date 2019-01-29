@@ -23,15 +23,16 @@ public interface RuleTransitionFactory {
   /**
    * Generates a transition to be used when entering the given rule.
    *
-   * <p>This cannot be a
-   * {@link com.google.devtools.build.lib.analysis.config.transitions.SplitTransition} because
-   * splits are conceptually a property of the <i>parent<i> rule. In other words, it makes sense for
-   * a parent to say "build my deps in configurations A and B". But it doesn't make sense for a dep
-   * to say "build myself in configurations A and B" if its parent doesn't know how to intelligently
-   * handle the results.
+   * <p>This cannot be a {@link
+   * com.google.devtools.build.lib.analysis.config.transitions.SplitTransition} because splits are
+   * conceptually a property of the <i>parent<i> rule. In other words, it makes sense for a parent
+   * to say "build my deps in configurations A and B". But it doesn't make sense for a dep to say
+   * "build myself in configurations A and B" if its parent doesn't know how to intelligently handle
+   * the results.
    *
-   * <p>If this class determines that no transition should be performed, it should return
-   * {@code NoTransition.INSTANCE}.
+   * <p>If this class determines that no transition should be performed, it should return {@code
+   * NoTransition.INSTANCE}.
    */
+  // TODO(bazel-team): refactor to only take an AttributeMap since that's how it's used anyway.
   PatchTransition buildTransitionFor(Rule rule);
 }

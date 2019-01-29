@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -99,8 +98,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .setRunfilesSupport(runfilesSupport, mainExecutable)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
-        .addProvider(
-            InstrumentedFilesProvider.class,
+        .addNativeDeclaredProvider(
             InstrumentedFilesCollector.collect(
                 ruleContext,
                 new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),

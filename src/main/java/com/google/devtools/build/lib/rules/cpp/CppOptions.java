@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -35,7 +36,6 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -137,6 +137,16 @@ public class CppOptions extends FragmentOptions {
     help = "The C++ compiler to use for compiling the target."
   )
   public String cppCompiler;
+
+  @Option(
+      name = "host_compiler",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      help =
+          "The C++ compiler to use for host compilation. It is ignored if --host_crosstool_top "
+              + "is not set.")
+  public String hostCppCompiler;
 
   // This is different from --platform_suffix in that that one is designed to facilitate the
   // migration to toolchains and this one is designed to eliminate the C++ toolchain identifier
@@ -388,50 +398,40 @@ public class CppOptions extends FragmentOptions {
   public String fdoInstrumentForBuild;
 
   @Option(
-    name = "fdo_optimize",
-    allowMultiple = true,
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Use FDO profile information to optimize compilation. Specify the name "
-            + "of the zip file containing the .gcda file tree, an afdo file containing "
-            + "an auto profile or an xfdo file containing a default cross binary profile. "
-            + "If the multiple profiles passed through the option include xfdo file and "
-            + "other types of profiles, the last profile other than xfdo file will prevail. "
-            + "If the multiple profiles include only xfdo files or don't include any xfdo file, "
-            + "the last profile will prevail. This flag also accepts files specified as labels, "
-            + "for example //foo/bar:file.afdo. Such labels must refer to input files; you may "
-            + "need to add an exports_files directive to the corresponding package to make "
-            + "the file visible to Bazel. It also accepts a raw or an indexed LLVM profile file. "
-            + "This flag will be superseded by fdo_profile rule."
-  )
-  public List<String> fdoProfiles;
+      name = "fdo_optimize",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Use FDO profile information to optimize compilation. Specify the name "
+              + "of the zip file containing the .gcda file tree, or an afdo file containing "
+              + "an auto profile. This flag also accepts files specified as labels, for "
+              + "example //foo/bar:file.afdo. Such labels must refer to input files; you may "
+              + "need to add an exports_files directive to the corresponding package to make "
+              + "the file visible to Bazel. It also accepts a raw or an indexed LLVM profile file. "
+              + "This flag will be superseded by fdo_profile rule.")
+  public String fdoOptimizeForBuild;
 
   /**
    * Returns the --fdo_optimize value if FDO is specified and active for this configuration, the
    * default value otherwise.
    */
   public String getFdoOptimize() {
-    if (fdoProfiles == null) {
-      return null;
-    }
-
-    // Return the last profile in the list that is not a crossbinary profile.
-    String lastXBinaryProfile = null;
-    ListIterator<String> iter = fdoProfiles.listIterator(fdoProfiles.size());
-    while (iter.hasPrevious()) {
-      String profile = iter.previous();
-      if (CppFileTypes.XBINARY_PROFILE.matches(profile)) {
-        lastXBinaryProfile = profile;
-        continue;
-      }
-      return profile;
-    }
-
-    // If crossbinary profile is the only kind of profile in the list, return the last one.
-    return lastXBinaryProfile;
+    return fdoOptimizeForBuild;
   }
+
+  @Option(
+      name = "xbinary_fdo",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      converter = EmptyToNullLabelConverter.class,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Use XbinaryFDO profile information to optimize compilation. Specify the name "
+              + "of default cross binary profile. When the option is used together with "
+              + "--fdo_instrument/--fdo_optimize/--fdo_profile, those options will always "
+              + "prevail as if xbinary_fdo is never specified. ")
+  public Label xfdoProfileLabel;
 
   @Option(
     name = "fdo_prefetch_hints",
@@ -469,19 +469,6 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "If set, use of fdo_absolute_profile_path will raise an error.")
   public boolean enableFdoProfileAbsolutePath;
-
-  @Option(
-    name = "experimental_stl",
-    converter = LabelConverter.class,
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
-    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-    help =
-        "If set, use this label instead of the default STL implementation. "
-            + "This option is EXPERIMENTAL and may go away in a future release."
-  )
-  public Label stl;
 
   @Option(
     name = "save_temps",
@@ -620,17 +607,6 @@ public class CppOptions extends FragmentOptions {
   public Label hostLibcTopLabel;
 
   @Option(
-    name = "output_symbol_counts",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "If enabled, for every C++ binary linked with gold, the number of defined symbols "
-            + "and the number of used symbols per input file is stored in a .sc file."
-  )
-  public boolean symbolCounts;
-
-  @Option(
     name = "experimental_inmemory_dotd_files",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -692,21 +668,6 @@ public class CppOptions extends FragmentOptions {
   public boolean strictSystemIncludes;
 
   @Option(
-      name = "incompatible_disable_cc_configuration_make_variables",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If enabled, the C++ configuration fragment supplies Make variables. This option "
-              + "is used in the migration to remove them in favor of requiring an explicit "
-              + "dependency on the C++ toolchain for rules that use them.")
-  public boolean disableMakeVariables;
-
-  @Option(
     name = "experimental_use_llvm_covmap",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -723,129 +684,97 @@ public class CppOptions extends FragmentOptions {
   public boolean useLLVMCoverageMapFormat;
 
   @Option(
-      name = "incompatible_enable_legacy_cpp_toolchain_skylark_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      name = "incompatible_disable_legacy_crosstool_fields",
+      oldName = "experimental_disable_legacy_crosstool_fields",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "Do not use this flag. Use --incompatible_disable_legacy_cpp_toolchain_skylark_api "
-              + "instead.")
-  public boolean enableLegacyToolchainSkylarkApi;
-
-  @Option(
-      name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "Flag for disabling access to the C++ toolchain API through the ctx.fragments.cpp.")
-  public boolean disableLegacyToolchainSkylarkApi;
-
-  @Option(
-      name = "experimental_disable_legacy_cc_linking_api",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, C++ Starlark API exposing linking flags will be disabled.")
-  public boolean disableLegacyLinkingApi;
-
-  @Option(
-      name = "experimental_disable_legacy_cc_compilation_api",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, C++ Starlark API exposing compilation flags will be disabled.")
-  public boolean disableLegacyCompilationApi;
-
-  @Option(
-      name = "incompatible_disable_legacy_flags_cc_toolchain_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
-              + "CROSSTOOL fields.")
-  public boolean disableLegacyFlagsCcToolchainApi;
-
-  @Option(
-      name = "experimental_disable_linking_mode_flags",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, Bazel will not read crosstool flags from linking_mode_flags field.")
-  public boolean disableLinkingModeFlags;
-
-  @Option(
-      name = "experimental_disable_compilation_mode_flags",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, Bazel will not read crosstool flags from compilation_mode_flags field.")
-  public boolean disableCompilationModeFlags;
-
-  @Option(
-      name = "experimental_disable_legacy_crosstool_fields",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If true, Bazel will not read crosstool flags from legacy crosstool fields (see #5187).")
+          "If true, Bazel will not read crosstool flags from legacy crosstool fields "
+              + "(see https://github.com/bazelbuild/bazel/issues/6861 for migration instructions).")
   public boolean disableLegacyCrosstoolFields;
 
   @Option(
-      name = "experimental_linkopts_in_user_link_flags",
+      name = "incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Bazel will complain when cc_toolchain.cpu and cc_toolchain.compiler attribtues "
+              + "are set "
+              + "(see https://github.com/bazelbuild/bazel/issues/7075 for migration instructions).")
+  public boolean removeCpuCompilerCcToolchainAttributes;
+
+  @Option(
+      name = "incompatible_disable_expand_if_all_available_in_flag_set",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, Bazel will not allow specifying expand_if_all_available in flag_sets"
+              + "(see https://github.com/bazelbuild/bazel/issues/7008 for migration instructions).")
+  public boolean disableExpandIfAllAvailableInFlagSet;
+
+  @Option(
+      name = "incompatible_linkopts_in_user_link_flags",
+      oldName = "experimental_linkopts_in_user_link_flags",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
       help =
           "If true, flags coming from --linkopt Bazel option will appear in user_link_flags "
-              + "crosstool variable.")
+              + "crosstool variable, not in legacy_link_flags.")
   public boolean enableLinkoptsInUserLinkFlags;
 
   @Option(
-      name = "experimental_dont_emit_static_libgcc",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      name = "incompatible_dont_emit_static_libgcc",
+      oldName = "experimental_dont_emit_static_libgcc",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
       help =
           "If true, bazel will not add --static-libgcc to the linking command line, it will be "
               + "the responsibility of the C++ toolchain to append this flag.")
   public boolean disableEmittingStaticLibgcc;
 
   @Option(
-      name = "incompatible_disable_cc_toolchain_label_from_crosstool_proto",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      name = "incompatible_disable_runtimes_filegroups",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If true, Bazel will not use the CROSSTOOL file to select the cc_toolchain label.")
-  public boolean disableCcToolchainFromCrosstool;
+      help =
+          "If true, cc_toolchain.static_runtime_libs and cc_toolchain.dynamic_runtime_libs are "
+              + "replaced by cc_toolchain.static_runtime_lib and cc_toolchain.dynamic_runtime_lib "
+              + "(see https://github.com/bazelbuild/bazel/issues/6942)")
+  public boolean disableRuntimesFilegroups;
 
   @Option(
       name = "experimental_enable_cc_toolchain_config_info",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -866,7 +795,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disable_depset_in_cc_user_flags",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
@@ -880,23 +809,16 @@ public class CppOptions extends FragmentOptions {
   public boolean disableDepsetInUserFlags;
 
   @Option(
-      name = "incompatible_provide_cc_toolchain_info_from_cc_toolchain_suite",
+      name = "experimental_do_not_use_cpu_transformer",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, cc_toolchain will no longer provide CcToolchainInfo when using legacy "
-              + "toolchain selection. CcToolchainInfo will be provided by CcToolchainSuite "
-              + "instead.")
-  public boolean provideCcToolchainInfoFromCcToolchainSuite;
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, cpu transformer is not used for CppConfiguration")
+  public boolean doNotUseCpuTransformer;
 
-  // TODO(--incompatible_disable_systool_from_configration): Deprecate the feature and remove.
   @Option(
-      name = "incompatible_disable_sysroot_from_configuration",
+      name = "incompatible_disable_genrule_cc_toolchain_dependency",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -905,10 +827,35 @@ public class CppOptions extends FragmentOptions {
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "If true, cc_toolchain will no longer determine the sysroot from the CROSSTOOL "
-              + "(default_grte_top property_ during configuration, instead only using the "
-              + "libc_top attribute.")
-  public boolean disableSysrootFromConfiguration;
+          "If true, genrule will no longer automatically depend on the cc toolchain. Specifically, "
+              + "this means that the CC_FLAGS Make variable will not be available without using "
+              + "the new cc_flags_supplier rule.")
+  public boolean disableGenruleCcToolchainDependency;
+
+  @Option(
+      name = "incompatible_disable_legacy_cc_provider",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If true, the legacy provider accessible by 'dep.cc.' is removed. See #7036.")
+  // TODO(b/122328491): Document migration steps. See #7036.
+  public boolean disableLegacyCcProvider;
+
+  @Option(
+      name = "incompatible_enable_cc_toolchain_resolution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If true, cc rules use toolchain resolution to find the cc_toolchain.")
+  public boolean enableCcToolchainResolution;
 
   @Override
   public FragmentOptions getHost() {
@@ -920,9 +867,8 @@ public class CppOptions extends FragmentOptions {
       host.crosstoolTop = crosstoolTop;
     } else {
       host.crosstoolTop = hostCrosstoolTop;
+      host.cppCompiler = hostCppCompiler;
     }
-
-    host.disableMakeVariables = disableMakeVariables;
 
     // hostLibcTop doesn't default to the target's libcTop.
     // Only an explicit command-line option will change it.
@@ -947,13 +893,22 @@ public class CppOptions extends FragmentOptions {
 
     host.useStartEndLib = useStartEndLib;
     host.stripBinaries = StripMode.ALWAYS;
-    host.fdoProfiles = null;
+    host.fdoOptimizeForBuild = null;
     host.fdoProfileLabel = null;
+    host.xfdoProfileLabel = null;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
-    host.disableLegacyToolchainSkylarkApi = disableLegacyToolchainSkylarkApi;
-    host.disableSysrootFromConfiguration = disableSysrootFromConfiguration;
-
+    host.doNotUseCpuTransformer = doNotUseCpuTransformer;
+    host.enableCcToolchainConfigInfoFromSkylark = enableCcToolchainConfigInfoFromSkylark;
+    host.disableGenruleCcToolchainDependency = disableGenruleCcToolchainDependency;
+    host.disableEmittingStaticLibgcc = disableEmittingStaticLibgcc;
+    host.disableDepsetInUserFlags = disableDepsetInUserFlags;
+    host.disableRuntimesFilegroups = disableRuntimesFilegroups;
+    host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
+    host.disableLegacyCcProvider = disableLegacyCcProvider;
+    host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
+    host.disableLegacyCrosstoolFields = disableLegacyCrosstoolFields;
+    host.enableCcToolchainResolution = enableCcToolchainResolution;
     return host;
   }
 

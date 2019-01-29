@@ -291,9 +291,7 @@ public class AndroidResourceProcessor {
             primaryData.getResourceDir().resolveSibling("res_no_binding"),
             primaryData.getResourceDir(),
             dataBindingInfoOut,
-            variantType,
             customPackageForR,
-            androidManifest,
             /* shouldZipDataBindingInfo= */ true);
 
     final Path assetsDir = primaryData.getAssetDir();
@@ -475,21 +473,19 @@ public class AndroidResourceProcessor {
    * <p>Returns the resources directory that aapt should read.
    */
   static Path processDataBindings(
-      Path workingDirectory,
-      Path resourceDir,
+      Path processedResourceOutputDirectory,
+      Path inputResourcesDir,
       Path dataBindingInfoOut,
-      VariantType variantType,
       String packagePath,
-      Path androidManifest,
       boolean shouldZipDataBindingInfo)
       throws IOException {
 
     if (dataBindingInfoOut == null) {
-      return resourceDir;
-    } else if (!Files.isDirectory(resourceDir)) {
+      return inputResourcesDir;
+    } else if (!Files.isDirectory(inputResourcesDir)) {
       // No resources: no data binding needed. Create a dummy file to satisfy declared outputs.
       Files.createFile(dataBindingInfoOut);
-      return resourceDir;
+      return inputResourcesDir;
     }
 
     // Strip the file name (the data binding library automatically adds it back in).
@@ -504,14 +500,14 @@ public class AndroidResourceProcessor {
     // Create a directory for the resources, namespaced with the old resource path
     Path processedResourceDir =
         Files.createDirectories(
-            workingDirectory.resolve(
-                resourceDir.isAbsolute()
-                    ? resourceDir.getRoot().relativize(resourceDir)
-                    : resourceDir));
+            processedResourceOutputDirectory.resolve(
+                inputResourcesDir.isAbsolute()
+                    ? inputResourcesDir.getRoot().relativize(inputResourcesDir)
+                    : inputResourcesDir));
 
     ProcessXmlOptions options = new ProcessXmlOptions();
     options.setAppId(packagePath);
-    options.setResInput(resourceDir.toFile());
+    options.setResInput(inputResourcesDir.toFile());
     options.setResOutput(processedResourceDir.toFile());
     options.setLayoutInfoOutput(dataBindingInfoOut.toFile());
     // Whether or not to aggregate data-bound .xml files into a single .zip.

@@ -36,7 +36,8 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidFeatureFlagSetProviderApi extends StructApi {
 
-  public static final String NAME = "AndroidFeatureFlagSet";
+  /** The name of the provider for this info object. */
+  String NAME = "AndroidFeatureFlagSet";
 
   @SkylarkCallable(
       name = "flags",

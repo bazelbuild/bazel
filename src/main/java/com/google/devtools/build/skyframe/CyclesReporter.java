@@ -69,36 +69,41 @@ public class CyclesReporter {
    */
   public void reportCycles(
       Iterable<CycleInfo> cycles, SkyKey topLevelKey, ExtendedEventHandler eventHandler) {
-    Preconditions.checkNotNull(eventHandler);
+    Preconditions.checkNotNull(eventHandler, "topLevelKey: %s, Cycles %s", topLevelKey, cycles);
     for (CycleInfo cycleInfo : cycles) {
-      boolean alreadyReported = false;
-      if (!cycleDeduper.seen(cycleInfo.getCycle())) {
-        alreadyReported = true;
-      }
-      boolean successfullyReported = false;
-      for (SingleCycleReporter cycleReporter : cycleReporters) {
-        if (cycleReporter.maybeReportCycle(topLevelKey, cycleInfo, alreadyReported, eventHandler)) {
-          successfullyReported = true;
-          break;
-        }
-      }
-      Preconditions.checkState(successfullyReported,
-          printArbitraryCycle(topLevelKey, cycleInfo, alreadyReported));
+      maybeReportCycle(cycleInfo, topLevelKey, eventHandler);
     }
   }
 
-  private String printArbitraryCycle(SkyKey topLevelKey, CycleInfo cycleInfo,
-      boolean alreadyReported) {
-    StringBuilder cycleMessage = new StringBuilder()
-        .append("topLevelKey: " + topLevelKey + "\n")
-        .append("alreadyReported: " + alreadyReported + "\n")
-        .append("path to cycle:\n");
+  private void maybeReportCycle(
+      CycleInfo cycleInfo, SkyKey topLevelKey, ExtendedEventHandler eventHandler) {
+    boolean alreadyReported = !cycleDeduper.seen(cycleInfo.getCycle());
+    for (SingleCycleReporter cycleReporter : cycleReporters) {
+      if (cycleReporter.maybeReportCycle(topLevelKey, cycleInfo, alreadyReported, eventHandler)) {
+        return;
+      }
+    }
+    throw new IllegalStateException(
+        printArbitraryCycle(topLevelKey, cycleInfo, alreadyReported) + "\n" + cycleReporters);
+  }
+
+  private static String printArbitraryCycle(
+      SkyKey topLevelKey, CycleInfo cycleInfo, boolean alreadyReported) {
+    StringBuilder cycleMessage =
+        new StringBuilder()
+            .append("topLevelKey: ")
+            .append(topLevelKey)
+            .append("\n")
+            .append("alreadyReported: ")
+            .append(alreadyReported)
+            .append("\n")
+            .append("path to cycle:\n");
     for (SkyKey skyKey : cycleInfo.getPathToCycle()) {
-      cycleMessage.append(skyKey + "\n");
+      cycleMessage.append(skyKey).append("\n");
     }
     cycleMessage.append("cycle:\n");
     for (SkyKey skyKey : cycleInfo.getCycle()) {
-      cycleMessage.append(skyKey + "\n");
+      cycleMessage.append(skyKey).append("\n");
     }
     return cycleMessage.toString();
   }

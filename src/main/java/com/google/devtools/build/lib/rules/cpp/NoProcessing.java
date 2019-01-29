@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
@@ -29,7 +30,8 @@ public class NoProcessing implements IncludeProcessing {
   public Iterable<Artifact> determineAdditionalInputs(
       @Nullable IncludeScannerSupplier includeScannerSupplier,
       CppCompileAction action,
-      ActionExecutionContext actionExecutionContext)
+      ActionExecutionContext actionExecutionContext,
+      IncludeScanningHeaderData includeScanningHeaderData)
       throws ExecException, InterruptedException {
     return null;
   }

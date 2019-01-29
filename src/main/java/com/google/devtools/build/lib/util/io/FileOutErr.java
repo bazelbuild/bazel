@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -85,16 +84,6 @@ public class FileOutErr extends OutErr {
     // We need this function to duplicate the single new object into both arguments
     // of the super-constructor.
     super(stream, stream);
-  }
-
-  // Set a filter for FileOutputStream
-  public void setOutputFilter(OutputFilter outputFilter) {
-    getFileOutputStream().setFilter(outputFilter);
-  }
-
-  // Set a filter for FileErrorStream
-  public void setErrorFilter(OutputFilter outputFilter) {
-    getFileErrorStream().setFilter(outputFilter);
   }
 
   /**
@@ -249,13 +238,6 @@ public class FileOutErr extends OutErr {
 
     /** Closes and deletes the output. */
     abstract void clear() throws IOException;
-
-    /**
-     * Set a Filter for the output
-     *
-     * @param outputFilter
-     */
-    abstract void setFilter(OutputFilter outputFilter);
   }
 
   /**
@@ -302,10 +284,6 @@ public class FileOutErr extends OutErr {
     }
 
     @Override
-    void setFilter(OutputFilter outputFilter) {}
-
-
-    @Override
     public void write(byte[] b, int off, int len) {
     }
 
@@ -316,11 +294,6 @@ public class FileOutErr extends OutErr {
     @Override
     public void write(byte[] b) {
     }
-  }
-
-  /** An interface to get a filtered output stream from the original one. */
-  public interface OutputFilter {
-    FilterOutputStream getFilteredOutputStream(OutputStream outputStream);
   }
 
   /**
@@ -346,7 +319,6 @@ public class FileOutErr extends OutErr {
     private final Path outputFile;
     private OutputStream outputStream;
     private String error;
-    private OutputFilter outputFilter;
     private boolean mightHaveOutput = false;
 
     protected FileRecordingOutputStream(Path outputFile) {
@@ -379,9 +351,6 @@ public class FileOutErr extends OutErr {
       // you should hold the lock before you invoke this method
       if (outputStream == null) {
         outputStream = outputFile.getOutputStream();
-        if (outputFilter != null) {
-          outputStream = outputFilter.getFilteredOutputStream(outputStream);
-        }
       }
       return outputStream;
     }
@@ -396,11 +365,6 @@ public class FileOutErr extends OutErr {
       outputStream = null;
       outputFile.delete();
       mightHaveOutput = false;
-    }
-
-    @Override
-    void setFilter(OutputFilter outputFilter) {
-      this.outputFilter = outputFilter;
     }
 
     /**

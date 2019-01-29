@@ -22,9 +22,9 @@ import java.util.Map;
 public interface ExecutionInfoSpecifier {
 
   /**
-   * Returns execution data for this action.  This is used to signal hardware requirements to the
-   * execution (ex. "requires-darwin").  This is a workaround to allow execution on platforms other
-   * than that specified by the host configuration.  The ability to choose seperate platforms by
+   * Returns execution data for this action. This is used to signal hardware requirements to the
+   * execution (ex. "requires-darwin"). This is a workaround to allow execution on platforms other
+   * than that specified by the host configuration. The ability to choose separate platforms by
    * action can provide a performance advantage.
    *
    * <p>Restrictions are mapped to arbitrary values (typically "") so as to be consistent with

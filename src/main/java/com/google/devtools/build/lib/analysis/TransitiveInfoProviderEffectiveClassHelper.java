@@ -25,7 +25,7 @@ import java.util.Set;
 
 /**
  * Provides the effective class for the provider. The effective class is inferred as the sole class
- * in the provider's inheritence hierarchy that implements {@link TransitiveInfoProvider} directly.
+ * in the provider's inheritance hierarchy that implements {@link TransitiveInfoProvider} directly.
  * This allows for simple subclasses such as those created by AutoValue, but will fail if there's
  * any ambiguity as to which implementor of the {@link TransitiveInfoProvider} is intended. If the
  * provider implements multiple TransitiveInfoProvider interfaces, prefer the explicit put builder

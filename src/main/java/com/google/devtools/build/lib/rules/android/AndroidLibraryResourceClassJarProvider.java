@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -30,7 +31,6 @@ import javax.annotation.Nonnull;
 public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
     implements AndroidLibraryResourceClassJarProviderApi<Artifact> {
 
-  public static final String PROVIDER_NAME = "AndroidLibraryResourceClassJarProvider";
   public static final Provider PROVIDER = new Provider();
 
   private final NestedSet<Artifact> resourceClassJars;
@@ -45,6 +45,12 @@ public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
     return new AndroidLibraryResourceClassJarProvider(resourceClassJars);
   }
 
+  public static AndroidLibraryResourceClassJarProvider getProvider(
+      TransitiveInfoCollection target) {
+    return (AndroidLibraryResourceClassJarProvider)
+        target.get(AndroidLibraryResourceClassJarProvider.PROVIDER.getKey());
+  }
+
   @Nonnull
   @Override
   public NestedSet<Artifact> getResourceClassJars() {
@@ -56,11 +62,11 @@ public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
       implements AndroidLibraryResourceClassJarProviderApi.Provider<Artifact> {
 
     private Provider() {
-      super(PROVIDER_NAME, AndroidLibraryResourceClassJarProvider.class);
+      super(NAME, AndroidLibraryResourceClassJarProvider.class);
     }
 
     public String getName() {
-      return PROVIDER_NAME;
+      return NAME;
     }
 
     @Override

@@ -14,7 +14,6 @@
 
 package com.google.devtools.common.options;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -22,8 +21,10 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.MoreCollectors;
 import com.google.common.escape.Escaper;
 import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
+import com.google.devtools.common.options.OptionsParserImpl.ResidueAndPriority;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -174,13 +175,28 @@ public class OptionsParser implements OptionsParsingResult {
     return new OptionsParser((OptionsData) optionsData);
   }
 
+  /**
+   * Create a new {@link OptionsParser}, using {@link OpaqueOptionsData} previously returned from
+   * {@link #getOptionsData} and a prefix that signifies the parser should skip parsing args that
+   * begin with that prefix.
+   */
+  public static OptionsParser newOptionsParser(
+      OpaqueOptionsData optionsData, String skippedPrefix) {
+    return new OptionsParser((OptionsData) optionsData, skippedPrefix);
+  }
+
   private final OptionsParserImpl impl;
-  private final List<String> residue = new ArrayList<String>();
+  private List<String> residue = new ArrayList<>();
+  private final List<String> postDoubleDashResidue = new ArrayList<>();
   private boolean allowResidue = true;
-  private Map<String, Object> skylarkOptions = new HashMap<>();
+  private Map<String, Object> starlarkOptions = new HashMap<>();
 
   OptionsParser(OptionsData optionsData) {
     impl = new OptionsParserImpl(optionsData);
+  }
+
+  OptionsParser(OptionsData optionsData, String skippedPrefix) {
+    impl = new OptionsParserImpl(optionsData, skippedPrefix);
   }
 
   /**
@@ -194,13 +210,12 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   @Override
-  public Map<String, Object> getSkylarkOptions() {
-    return skylarkOptions;
+  public Map<String, Object> getStarlarkOptions() {
+    return starlarkOptions;
   }
 
-  @VisibleForTesting
-  public void setSkylarkOptionsForTesting(Map<String, Object> skylarkOptions) {
-    this.skylarkOptions = skylarkOptions;
+  public void setStarlarkOptions(Map<String, Object> starlarkOptions) {
+    this.starlarkOptions = starlarkOptions;
   }
 
   /**
@@ -623,7 +638,9 @@ public class OptionsParser implements OptionsParsingResult {
       throws OptionsParsingException {
     Preconditions.checkNotNull(priority);
     Preconditions.checkArgument(priority != OptionPriority.PriorityCategory.DEFAULT);
-    residue.addAll(impl.parse(priority, sourceFunction, args));
+    ResidueAndPriority residueAndPriority = impl.parse(priority, sourceFunction, args);
+    residue.addAll(residueAndPriority.getResidue());
+    postDoubleDashResidue.addAll(residueAndPriority.postDoubleDashResidue);
     if (!allowResidue && !residue.isEmpty()) {
       String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       throw new OptionsParsingException(errorMsg);
@@ -649,7 +666,10 @@ public class OptionsParser implements OptionsParsingResult {
         optionToExpand.getPriority().getPriorityCategory()
             != OptionPriority.PriorityCategory.DEFAULT,
         "Priority cannot be default, which was specified for arglist " + args);
-    residue.addAll(impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args));
+    ResidueAndPriority residueAndPriority =
+        impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args);
+    residue.addAll(residueAndPriority.getResidue());
+    postDoubleDashResidue.addAll(residueAndPriority.postDoubleDashResidue);
     if (!allowResidue && !residue.isEmpty()) {
       String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       throw new OptionsParsingException(errorMsg);
@@ -687,6 +707,23 @@ public class OptionsParser implements OptionsParsingResult {
   @Override
   public List<String> getResidue() {
     return ImmutableList.copyOf(residue);
+  }
+
+  @Override
+  public List<String> getPreDoubleDashResidue() {
+    return postDoubleDashResidue.isEmpty()
+        ? ImmutableList.copyOf(residue)
+        : residue.stream()
+            .filter(residue -> !postDoubleDashResidue.contains(residue))
+            .collect(Collectors.toList());
+  }
+
+  public List<String> getPostDoubleDashResidue() {
+    return postDoubleDashResidue;
+  }
+
+  public void setResidue(List<String> residue) {
+    this.residue = residue;
   }
 
   /** Returns a list of warnings about problems encountered by previous parse calls. */
@@ -733,6 +770,23 @@ public class OptionsParser implements OptionsParsingResult {
   public static ImmutableList<OptionDefinition> getOptionDefinitions(
       Class<? extends OptionsBase> optionsClass) {
     return OptionsData.getAllOptionDefinitionsForClass(optionsClass);
+  }
+
+  /**
+   * Returns the option with the given name from the given class.
+   *
+   * <p>The preferred way of using this method is as the initializer for a static final field in the
+   * options class which defines the option. This reduces the possibility that another contributor
+   * might change the name of the option without realizing it's used by name elsewhere.
+   *
+   * @throws IllegalArgumentException if there are two or more options with that name.
+   * @throws NoSuchElementException if there are no options with that name.
+   */
+  public static OptionDefinition getOptionDefinitionByName(
+      Class<? extends OptionsBase> optionsClass, String optionName) {
+    return getOptionDefinitions(optionsClass).stream()
+        .filter(definition -> definition.getOptionName().equals(optionName))
+        .collect(MoreCollectors.onlyElement());
   }
 
   /**
@@ -871,3 +925,4 @@ public class OptionsParser implements OptionsParsingResult {
             + "}");
   }
 }
+

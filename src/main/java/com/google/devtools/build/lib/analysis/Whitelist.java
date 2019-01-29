@@ -69,6 +69,18 @@ public final class Whitelist {
         .anyMatch(p -> p.containsPackage(label.getPackageIdentifier()));
   }
 
+  /**
+   * Returns whether the rule from the given rule context has a whitelist by the given name.
+   *
+   * @param ruleContext The rule context to check
+   * @param whitelistName The name of the whitelist to check for.
+   * @return True if the given rule context has the given whitelist.
+   */
+  public static boolean hasWhitelist(RuleContext ruleContext, String whitelistName) {
+    String attributeName = getAttributeNameFromWhitelistName(whitelistName);
+    return ruleContext.isAttrDefined(attributeName, LABEL);
+  }
+
   private static String getAttributeNameFromWhitelistName(String whitelistName) {
     return String.format("$whitelist_%s", whitelistName);
   }

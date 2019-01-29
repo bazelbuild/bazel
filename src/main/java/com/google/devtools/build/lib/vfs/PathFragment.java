@@ -393,7 +393,8 @@ public final class PathFragment
   }
 
   /**
-   * Returns the specified segment of this path; index must be positive and less than numSegments().
+   * Returns the specified segment of this path; index must be non-negative and less than {@code
+   * segmentCount()}.
    *
    * <p>This operation is O(N) on the length of the string.
    */

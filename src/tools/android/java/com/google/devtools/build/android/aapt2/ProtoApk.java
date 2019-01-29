@@ -304,7 +304,7 @@ public class ProtoApk implements Closeable {
       }
       throw new IllegalStateException(
           "Unable to find prefix for "
-              + uri
+              + uri.toStringUtf8()
               + " in [ "
               + namespaceStack.stream()
                   .map(Map::keySet)

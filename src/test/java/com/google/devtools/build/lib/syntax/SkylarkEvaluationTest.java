@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.testutil.TestMode;
@@ -308,15 +309,19 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
 
     @SkylarkCallable(
-      name = "with_extra",
-      documented = false,
-      useLocation = true,
-      useAst = true,
-      useEnvironment = true,
-      useSkylarkSemantics = true
-    )
+        name = "with_extra",
+        documented = false,
+        useLocation = true,
+        useAst = true,
+        useEnvironment = true,
+        useSkylarkSemantics = true,
+        useContext = true)
     public String withExtraInterpreterParams(
-        Location location, FuncallExpression func, Environment env, SkylarkSemantics sem) {
+        Location location,
+        FuncallExpression func,
+        Environment env,
+        SkylarkSemantics sem,
+        StarlarkContext context) {
       return "with_extra("
           + location.getStartLine()
           + ", "
@@ -325,6 +330,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
           + env.isGlobal()
           + ", "
           + (sem != null)
+          + ", "
+          + (context != null)
           + ")";
     }
 
@@ -686,12 +693,15 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testForOnString() throws Exception {
-    new SkylarkTest().setUp("def foo():",
-        "  s = []",
-        "  for i in 'abc':",
-        "    s = s + [i]",
-        "  return s",
-        "s = foo()").testExactOrder("s", "a", "b", "c");
+    new SkylarkTest("--incompatible_string_is_not_iterable=false")
+        .setUp(
+            "def foo():",
+            "  s = []",
+            "  for i in 'abc':",
+            "    s = s + [i]",
+            "  return s",
+            "s = foo()")
+        .testExactOrder("s", "a", "b", "c");
   }
 
   @Test
@@ -1062,16 +1072,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testJavaCallsNoMethodErrorMsg() throws Exception {
     new SkylarkTest()
-        .testIfExactError(
-            "type 'int' has no method bad(string, string, string)", "s = 3.bad('a', 'b', 'c')");
+        .testIfExactError("type 'int' has no method bad()", "s = 3.bad('a', 'b', 'c')");
   }
 
   @Test
   public void testJavaCallWithKwargs() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError(
-            "type 'Mock' has no method isEmpty(string str)", "mock.isEmpty(str='abc')");
+        .testIfExactError("type 'Mock' has no method isEmpty()", "mock.isEmpty(str='abc')");
   }
 
   @Test
@@ -1183,14 +1191,18 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'named' has no default value, in method call "
-                + "with_params(int, bool) of 'Mock'",
+            "parameter 'named' has no default value, for call to "
+                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
+                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
+                + "of 'Mock'",
             "mock.with_params(1, True)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'named' has no default value, in method call with_params(int, bool, bool) "
+            "parameter 'named' has no default value, for call to "
+                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
+                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
                 + "of 'Mock'",
             "mock.with_params(1, True, True)");
     new SkylarkTest()
@@ -1209,15 +1221,19 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "unexpected keyword 'n', in method call with_params(int, bool, bool named, "
-                + "bool posOrNamed, int n) of 'Mock'",
+            "unexpected keyword 'n', for call to "
+                + "method with_params(pos1, pos2 = False, posOrNamed = False, named, "
+                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
+                + "of 'Mock'",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "parameter 'nonNoneable' cannot be None, in method call with_params(int, bool, bool, "
-                + "bool named, bool optionalNamed, NoneType nonNoneable) of 'Mock'",
+            "parameter 'nonNoneable' cannot be None, for call to method "
+                + "with_params(pos1, pos2 = False, posOrNamed = False, named, "
+                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
+                + "of 'Mock'",
             "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
 
     new SkylarkTest()
@@ -1225,8 +1241,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .setUp("")
         .testIfExactError(
             "expected value of type 'string or int or sequence of ints or NoneType' for parameter"
-                + " 'multi', in method call with_params(int, bool, bool named, bool multi)"
-                + " of 'Mock'",
+                + " 'multi', for call to method "
+                + "with_params(pos1, pos2 = False, posOrNamed = False, named, "
+                + "optionalNamed = False, nonNoneable = \"a\", noneable = None, multi = None) "
+                + "of 'Mock'",
             "mock.with_params(1, True, named=True, multi=False)");
 
     // We do not enforce list item parameter type constraints.
@@ -1272,7 +1290,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfErrorContains(
-            "expected value of type 'string' for parameter 'pos', in call to MockFn(int)",
+            "expected value of type 'string' for parameter 'pos', for call to function MockFn(pos)",
             "v = mock(1)");
   }
 
@@ -1304,7 +1322,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("v = mock.with_extra()")
-        .testLookup("v", "with_extra(1, 0, true, true)");
+        .testLookup("v", "with_extra(1, 0, true, true, true)");
   }
 
   @Test
@@ -1785,7 +1803,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testFunctionCallBadOrdering() throws Exception {
     new SkylarkTest()
         .testIfErrorContains(
-            "name 'foo' is not defined",
+            "global variable 'foo' is referenced before assignment.",
             "def func(): return foo() * 2",
             "x = func()",
             "def foo(): return 2");
@@ -1807,7 +1825,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testShadowisNotInitialized() throws Exception {
-    new SkylarkTest("--incompatible_static_name_resolution=true")
+    new SkylarkTest()
         .testIfErrorContains(
             /* error message */ "local variable 'gl' is referenced before assignment",
             "gl = 5",
@@ -1818,34 +1836,13 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testLegacyGlobalVariableNotShadowed() throws Exception {
-    new SkylarkTest("--incompatible_static_name_resolution=false")
-        .setUp(
-            "gl = 5",
-            "def foo():",
-            "    if False: gl = 2",
-            // The legacy behavior is that the global variable is returned.
-            // With --incompatible_static_name_resolution set to true, this becomes an error.
-            "    return gl",
-            "res = foo()")
-        .testLookup("res", 5);
-  }
-
-  @Test
   public void testShadowBuiltin() throws Exception {
-    new SkylarkTest("--incompatible_static_name_resolution=true")
+    new SkylarkTest()
         .testIfErrorContains(
             "global variable 'len' is referenced before assignment",
             "x = len('abc')",
             "len = 2",
             "y = x + len");
-  }
-
-  @Test
-  public void testLegacyShadowBuiltin() throws Exception {
-    new SkylarkTest("--incompatible_static_name_resolution=false")
-        .setUp("x = len('abc')", "len = 2", "y = x + len")
-        .testLookup("y", 5);
   }
 
   @Test
@@ -2207,7 +2204,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testListComprehensionsDoNotLeakVariables() throws Exception {
     checkEvalErrorContains(
-        "name 'a' is not defined",
+        // TODO(laurentlb): This happens because the variable gets undefined after the list
+        // comprehension. We should do better.
+        "local variable 'a' is referenced before assignment.",
         "def foo():",
         "  a = 10",
         "  b = [a for a in range(3)]",
@@ -2224,35 +2223,35 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testLoadStatementWithAbsolutePath() throws Exception {
     checkEvalErrorContains(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
+        "First argument of 'load' must be a label and start with either '//', ':', or '@'",
         "load('/tmp/foo', 'arg')");
   }
 
   @Test
   public void testLoadStatementWithRelativePath() throws Exception {
     checkEvalErrorContains(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
+        "First argument of 'load' must be a label and start with either '//', ':', or '@'",
         "load('foo', 'arg')");
   }
 
   @Test
   public void testLoadStatementWithExternalLabel() throws Exception {
     checkEvalErrorDoesNotContain(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
+        "First argument of 'load' must be a label and start with either '//', ':', or '@'",
         "load('@other//foo.bzl', 'arg')");
   }
 
   @Test
   public void testLoadStatementWithAbsoluteLabel() throws Exception {
     checkEvalErrorDoesNotContain(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
+        "First argument of 'load' must be a label and start with either '//', ':', or '@'",
         "load('//foo.bzl', 'arg')");
   }
 
   @Test
   public void testLoadStatementWithRelativeLabel() throws Exception {
     checkEvalErrorDoesNotContain(
-        "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
+        "First argument of 'load' must be a label and start with either '//', ':', or '@'",
         "load(':foo.bzl', 'arg')");
   }
 
@@ -2262,7 +2261,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
     AnalysisFailureInfo info = AnalysisFailureInfo.forAnalysisFailures(ImmutableList.of(cause));
 
-    new SkylarkTest("--experimental_analysis_testing_improvements=true")
+    new SkylarkTest()
         .update("val", info)
         .setUp(
             "causes = val.causes",
@@ -2270,15 +2269,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "message = causes.to_list()[0].message")
         .testLookup("label", Label.create("test", "test"))
         .testLookup("message", "ErrorMessage");
-
-    new SkylarkTest()
-        .update("val", info)
-        .testIfErrorContains("'AnalysisFailureInfo' has no field 'causes'", "val.causes");
-
-    new SkylarkTest()
-        .update("val", cause)
-        .testIfErrorContains("'AnalysisFailure' has no field 'message'", "val.message")
-        .testIfErrorContains("'AnalysisFailure' has no field 'label'", "val.label");
   }
 
   @Test
@@ -2286,36 +2276,25 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     // This test uses an arbitrary experimental flag to verify this functionality. If this
     // experimental flag were to go away, this test may be updated to use any experimental flag.
     // The flag itself is unimportant to the test.
-    FlagGuardedValue val = FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-        FlagIdentifier.EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS,
-        "foo");
-    String errorMessage = "GlobalSymbol is experimental and thus unavailable with the current "
-        + "flags. It may be enabled by setting --experimental_analysis_testing_improvements";
+    FlagGuardedValue val =
+        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+            FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API, "foo");
+    String errorMessage =
+        "GlobalSymbol is experimental and thus unavailable with the current "
+            + "flags. It may be enabled by setting --experimental_build_setting_api";
 
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--experimental_analysis_testing_improvements=true")
+    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=true")
         .setUp("var = GlobalSymbol")
         .testLookup("var", "foo");
 
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--experimental_analysis_testing_improvements=false")
-        .testIfErrorContains(errorMessage,
-            "var = GlobalSymbol");
+    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=false")
+        .testIfErrorContains(errorMessage, "var = GlobalSymbol");
 
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--experimental_analysis_testing_improvements=false")
-        .testIfErrorContains(errorMessage,
-            "def my_function():",
-            "  var = GlobalSymbol");
+    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=false")
+        .testIfErrorContains(errorMessage, "def my_function():", "  var = GlobalSymbol");
 
-    new SkylarkTest(
-            ImmutableMap.of("GlobalSymbol", val),
-            "--experimental_analysis_testing_improvements=false")
-        .setUp("GlobalSymbol = 'other'",
-            "var = GlobalSymbol")
+    new SkylarkTest(ImmutableMap.of("GlobalSymbol", val), "--experimental_build_setting_api=false")
+        .setUp("GlobalSymbol = 'other'", "var = GlobalSymbol")
         .testLookup("var", "other");
   }
 

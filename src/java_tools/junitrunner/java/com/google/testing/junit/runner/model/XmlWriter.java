@@ -25,7 +25,6 @@ import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 
-
 /**
  * Writer for XML documents. We do not use third-party code, because all
  * java_test rules have the test runner in their run-time classpath.
@@ -139,7 +138,12 @@ public class XmlWriter {
       writer.write(" />");
       inElement = false;
     } else {
-      writer.write(EOL + indentation() + "</");
+      /*
+       * We'd like to add a newline and indentation here, but that makes them part of the element
+       * content, and that might be significant in test outputs, especially those that contain
+       * actual and expected values.
+       */
+      writer.write("</");
       writer.write(elementName);
       writer.write('>');
     }

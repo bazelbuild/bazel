@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.skydoc.rendering;
 
-import com.google.common.base.Joiner;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.exception.MethodInvocationException;
@@ -36,6 +33,8 @@ public class MarkdownRenderer {
       "com/google/devtools/build/skydoc/rendering/templates/rule.vm";
   private static final String PROVIDER_TEMPLATE_FILENAME =
       "com/google/devtools/build/skydoc/rendering/templates/provider.vm";
+  private static final String FUNCTION_TEMPLATE_FILENAME =
+      "com/google/devtools/build/skydoc/rendering/templates/func.vm";
 
   private final VelocityEngine velocityEngine;
 
@@ -56,8 +55,7 @@ public class MarkdownRenderer {
    */
   public String render(String ruleName, RuleInfo ruleInfo) throws IOException {
     VelocityContext context = new VelocityContext();
-    // TODO(cparsons): Attributes in summary form should have links.
-    context.put("summaryform", getSummaryForm(ruleName, ruleInfo));
+    context.put("util", new MarkdownUtil());
     context.put("ruleName", ruleName);
     context.put("ruleInfo", ruleInfo);
 
@@ -76,6 +74,7 @@ public class MarkdownRenderer {
    */
   public String render(String providerName, ProviderInfo providerInfo) throws IOException {
     VelocityContext context = new VelocityContext();
+    context.put("util", new MarkdownUtil());
     context.put("providerName", providerName);
     context.put("providerInfo", providerInfo);
 
@@ -88,10 +87,21 @@ public class MarkdownRenderer {
     return stringWriter.toString();
   }
 
-  private static String getSummaryForm(String ruleName, RuleInfo ruleInfo) {
-    List<String> attributeNames = ruleInfo.getAttributes().stream()
-        .map(attr -> attr.getName())
-        .collect(Collectors.toList());
-    return String.format("%s(%s)", ruleName, Joiner.on(", ").join(attributeNames));
+  /**
+   * Returns a markdown rendering of a user-defined function's documentation for the function info
+   * object.
+   */
+  public String render(UserDefinedFunctionInfo functionInfo) throws IOException {
+    VelocityContext context = new VelocityContext();
+    context.put("util", new MarkdownUtil());
+    context.put("funcInfo", functionInfo);
+
+    StringWriter stringWriter = new StringWriter();
+    try {
+      velocityEngine.mergeTemplate(FUNCTION_TEMPLATE_FILENAME, "UTF-8", context, stringWriter);
+    } catch (ResourceNotFoundException | ParseErrorException | MethodInvocationException e) {
+      throw new IOException(e);
+    }
+    return stringWriter.toString();
   }
 }

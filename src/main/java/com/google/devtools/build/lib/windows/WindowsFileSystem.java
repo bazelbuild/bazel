@@ -27,12 +27,8 @@ import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.DosFileAttributes;
 
 /** File system implementation for Windows. */
@@ -53,22 +49,6 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     // TODO(laszlocsomor): implement this properly, i.e. actually query this information from
     // somewhere (java.nio.Filesystem? System.getProperty? implement JNI method and use WinAPI?).
     return "ntfs";
-  }
-
-  private static java.nio.file.Path getNioPath(String path) {
-    return Paths.get(path);
-  }
-
-  @Override
-  protected InputStream newFileInputStream(String path) throws IOException {
-    return Files.newInputStream(getNioPath(path));
-  }
-
-  @Override
-  protected OutputStream newFileOutputStream(String path, boolean append) throws IOException {
-    return append
-        ? Files.newOutputStream(getNioPath(path), StandardOpenOption.APPEND)
-        : Files.newOutputStream(getNioPath(path));
   }
 
   @Override

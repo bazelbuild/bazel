@@ -4,6 +4,13 @@ title: User Manual
 ---
 <h1>Commands and Options</h1>
 
+<h2 id='target-patterns'>Target Syntax</h2>
+
+Some commands, like <code>build</code> or <code>test</code>, can operate
+on a list of targets. They use a syntax more flexible than labels, which is
+documented in the "<a href="guide.html#target-patterns">Specifying
+targets to build</a>" section of the User's Guide.
+
 <h2>Options</h2>
 
 <p>
@@ -67,7 +74,7 @@ Package path elements may be specified in three formats:
 </ol>
 <p>
   If you use a non-default package path, we recommend that you specify
-  it in your <a href='#bazelrc'>Bazel configuration file</a> for
+  it in your <a href='guide.html#bazelrc'>Bazel configuration file</a> for
   convenience.
 </p>
 <p>
@@ -927,7 +934,7 @@ cores directly from system configuration and will assume 1.0 I/O resource.
 <p>
   When this option is enabled, Bazel will discard the analysis cache
   right before execution starts, thus freeing up additional memory
-  (around 10%) for the <a href="#execution-phase">execution phase</a>.
+  (around 10%) for the <a href="guide.html#execution-phase">execution phase</a>.
   The drawback is that further incremental builds will be slower.
 </p>
 
@@ -1294,7 +1301,7 @@ either to the terminal, or to additional log files.
   regression tests).  In the former case, the result information is
   very useful whereas in the latter case it is less so.  As with all
   options, this can be specified implicitly via
-  the <a href='#bazelrc'><code>.bazelrc</code></a> file.
+  the <a href='guide.html#bazelrc'><code>.bazelrc</code></a> file.
 </p>
 <p>
   The files are printed so as to make it easy to copy and paste the
@@ -1380,10 +1387,13 @@ into binaries ("stamping")</h3>
 <p>Bazel then writes the key-value pairs into two files:</p>
 <ul>
   <li>
-    <code>bazel-out/stable-status.txt</code> contains all keys and values where the key's name
-    starts with <code>STABLE_</code>
+    <code>bazel-out/stable-status.txt</code>
+    contains all keys and values where the key's name starts with <code>STABLE_</code>
   </li>
-  <li><code>bazel-out/volatile-status.txt</code> contains the rest of the keys and their values</li>
+  <li>
+    <code>bazel-out/volatile-status.txt</code>
+    contains the rest of the keys and their values
+  </li>
 </ul>
 
 <p>The contract is:</p>
@@ -1391,10 +1401,11 @@ into binaries ("stamping")</h3>
   <li>
     <p>
       "stable" keys' values should change rarely, if possible. If the contents of
-      <code>stable-status.txt</code> change, it invalidates the actions that depend on them. In
-      other words, if a stable key's value changes, it'll make Bazel rebuild stamped actions.
+    <code>bazel-out/stable-status.txt</code>
+      change, Bazel invalidates the actions that depend on them. In
+      other words, if a stable key's value changes, Bazel will rerun stamped actions.
       Therefore the stable status should not contain things like timestamps, because they change all
-      the time, and would make Bazel rebuild the stamped actions with each build.
+      the time, and would make Bazel rerun stamped actions with each build.
     </p>
     <p>Bazel always outputs the following stable keys:</p>
     <ul>
@@ -1406,11 +1417,13 @@ into binaries ("stamping")</h3>
   <li>
     <p>
       "volatile" keys' values may change often. Bazel expects them to change all the time, like
-      timestamps do, and duly updates the <code>volatile-status.txt</code> file. In order to avoid
-      rebuilding stamped actions all the time though, <b>Bazel pretends that the volatile file never
-      changes</b>. In other words, if the volatile status file is the only one whose contents
-      changed, that will not invalidate actions that depend on it. If other inputs of the actions
-      have changed, then Bazel rebuilds that action, and the action will use the updated volatile
+      timestamps do, and duly updates the
+    <code>bazel-out/stable-status.txt</code>
+      file. In order to avoid
+      rerunning stamped actions all the time though, <b>Bazel pretends that the volatile file never
+      changes</b>. In other words, if the volatile status file is the only file whose contents has
+      changed, Bazel will not invalidate actions that depend on it. If other inputs of the actions
+      have changed, then Bazel reruns that action, and the action will see the updated volatile
       status, but just the volatile status changing alone will not invalidate the action.
     </p>
     <p>Bazel always outputs the following volatile keys:</p>
@@ -1425,7 +1438,7 @@ into binaries ("stamping")</h3>
 
 <p>
   On Linux/macOS you can pass <code class='flag'>--workspace_status_command=/bin/true</code> to
-  disable retrieving workspace status, because <code>true</code> does nothing successfully (exits
+  disable retrieving workspace status, because <code>true</code> does nothing, successfully (exits
   with zero) and prints no output. On Windows you can pass the path of MSYS's <code>true.exe</code>
   for the same effect.
 </p>
@@ -1496,7 +1509,7 @@ echo "STABLE_USER_NAME $USER"
   The platforms that are available as execution platforms to run actions.
   Platforms can be specified by exact target, or as a target pattern. These
   platforms will be considered before those declared in the WORKSPACE file by
-  <a href="https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_execution_platforms">
+  <a href="skylark/lib/globals.html#register_execution_platforms">
   register_execution_platforms()</a>.
 </p>
 
@@ -1505,7 +1518,7 @@ echo "STABLE_USER_NAME $USER"
   The toolchain rules to be considered during toolchain resolution. Toolchains
   can be specified by exact target, or as a target pattern. These toolchains will
   be considered before those declared in the WORKSPACE file by
-  <a href="https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_toolchains">
+     <a href="skylark/lib/globals.html#register_toolchains">
   register_toolchains()</a>.
 </p>
 
@@ -1600,11 +1613,11 @@ echo "STABLE_USER_NAME $USER"
 <p>
   When using Bazel for release builds, the same issues arise as for
   other scripts that perform a build, so you should read
-  the <a href='#scripting'>scripting</a> section of this manual.
+  the <a href='guide.html#scripting'>scripting</a> section of this manual.
   In particular, the following options are strongly recommended:
 </p>
 <ul>
-  <li><a href='#bazelrc'><code class='flag'>--bazelrc=/dev/null</code></a></li>
+  <li><a href='guide.html#bazelrc'><code class='flag'>--bazelrc=/dev/null</code></a></li>
   <li><a href='#flag--keep_state_after_build'><code class='flag'>--nokeep_state_after_build</code></a></li>
 </ul>
 
@@ -1909,7 +1922,7 @@ value, merely warns if Bazel thinks the timeout could be restricted further.
   command that will be executed.
 </p>
 <p>
-  If the first word is a fully qualified label (i.e. starts with
+  If the first word is a fully-qualified label (i.e. starts with
   <code>//</code>) it is built. Then the label is substituted by the
   corresponding executable location that is prepended to the command
   that will be executed along with the other words.
@@ -1955,7 +1968,7 @@ Examples:
 <h4 id="other_options_for_bazel_test">Other options for <code>bazel test</code></h4>
 <p>
   The syntax and the remaining options are exactly like
-  <a href='#build'>bazel build</a>.
+  <a href='guide.html#build'>bazel build</a>.
 </p>
 
 
@@ -2017,7 +2030,7 @@ Examples:
 <h2 id='run'>Running executables with Bazel</h2>
 <p>
   The <code>bazel run</code> command is similar to <code>bazel build</code>, except
-  it is used to build and run a single target.  Here is a typical session:
+  it is used to build <em>and run</em> a single target.  Here is a typical session:
 </p>
 <pre>
   % bazel run -- java/myapp:myapp --arg1 --arg2
@@ -2044,6 +2057,11 @@ Examples:
   Bazel options, but rather as part of the command line for running the binary.
   (The program being run simply says hello and prints out its args.)
 </p>
+
+<p><code>bazel run</code> is similar, but not identical, to directly invoking
+the binary built by Bazel. In particular, this command does not run the target
+in the current working directory. <code>bazel run</code> should not be used if
+the binary's behavior depends on the directory it's invoked in.
 
 <h3>Options for <code>bazel run</code></h3>
 
@@ -2072,8 +2090,8 @@ Examples:
   Bazel includes a query language for asking questions about the
   dependency graph used during the build.  The query language is used
   by two commands: query and cquery. The major difference between the
-  two commands is that query runs after the <a href='#loading-phase'>loading phase</a>
-  and cquery runs after the <a href='#analysis-phase'>analysis phase</a>. These tools are an
+  two commands is that query runs after the <a href='guide.html#loading-phase'>loading phase</a>
+  and cquery runs after the <a href='guide.html#analysis-phase'>analysis phase</a>. These tools are an
   invaluable aid to many software engineering tasks.
 </p>
 <p>
@@ -2125,9 +2143,9 @@ Examples:
 
 <p>
   The tool accepts several command-line options.
-  <code class='flag'>--output</code> selects the output format
-  (<code>proto</code> is the default, use <code>text</code> for human readable
-  output).
+  <code class='flag'>--output</code> selects the output format. The default output format
+  (<code>text</code>) is human-readable, use <code>proto</code> or <code>textproto</code> for
+  machine-readable format.
   Notably, the aquery command runs on top of a regular Bazel build and inherits
   the set of options available during a build.
 </p>
@@ -2138,6 +2156,10 @@ Examples:
   <code>tests</code>.
 </p>
 
+<p>
+  More details on aquery can be found <a href="aquery.html">here</a>.
+</p>
+
 <h2 id='misc'>Miscellaneous Bazel commands and options</h2>
 
 <h3 id='help'>The <code>help</code> command</h3>
@@ -2145,7 +2167,7 @@ Examples:
 <p>
   The <code>help</code> command provides on-line help.  By default, it
   shows a summary of available commands and help topics, as shown in
-  the <a href='#overview'><i>Bazel overview</i></a> section above.
+  the <a href='guide.html#overview'><i>Bazel overview</i></a> section above.
   Specifying an argument displays detailed help for a particular
   topic.  Most topics are Bazel commands, e.g. <code>build</code>
   or <code>query</code>, but there are some additional help topics
@@ -2163,7 +2185,7 @@ Examples:
 <h3 id='shutdown'>The <code>shutdown</code> command</h3>
 
 <p>
-  Bazel server processes (see <a href='#client/server'>Client/server
+  Bazel server processes (see <a href='guide.html#client/server'>Client/server
   implementation</a>) may be stopped by using the <code>shutdown</code>
   command.  This command causes the Bazel server to exit as soon as it
   becomes idle (i.e. after the completion of any builds or other
@@ -2516,10 +2538,10 @@ adb -s deadbeef install ...
 </p>
 <ul>
   <li><code id='flag--dump'>--dump=text</code> displays all gathered data in a
-  <a href='#dump-text-format'>human-readable format</a></li>
+  <a href='guide.html#dump-text-format'>human-readable format</a></li>
   <li><code>--dump=raw</code> displays all gathered data in a
-  <a href='#dump-raw-format'>script-friendly format</a></li>
-  <li><code id='flag--html'>--html</code> generates an <a href='#dump-html-format'>HTML file</a> visualizing the
+  <a href='guide.html#dump-raw-format'>script-friendly format</a></li>
+  <li><code id='flag--html'>--html</code> generates an <a href='guide.html#dump-html-format'>HTML file</a> visualizing the
   actions and rules executed in the build, as well as summary statistics for the build
     <ul>
       <li><code id='flag--html_details'>--html_details</code> adds more fine-grained
@@ -2538,13 +2560,13 @@ adb -s deadbeef install ...
   regular expression
     <ul>
       <li><code id='flag--task_tree_threshold'>--task_tree_threshold</code> skip tasks with duration
-      less than threshhold, in milliseconds. Default is 50ms</li>
+      less than threshold, in milliseconds. Default is 50ms</li>
     </ul>
   </li>
 </ul>
 
 <p>
-  See the section on <a href='#profiling'>Troubleshooting performance by profiling</a> for
+  See the section on <a href='guide.html#profiling'>Troubleshooting performance by profiling</a> for
   format details and usage help.
 
 </p>
@@ -2725,7 +2747,7 @@ adb -s deadbeef install ...
 
 <p>
   Batch mode causes Bazel to not use the standard client/server mode described
-  <a href='#client/server'>above</a>, instead running a bazel java process for a
+  <a href='guide.html#client/server'>above</a>, instead running a bazel java process for a
   single command, which has been used for more predictable semantics with respect
   to signal handling, job control, and environment variable inheritance, and is
   necessary for running bazel in a chroot jail.

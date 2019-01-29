@@ -9,11 +9,9 @@ title: Bazel Query How-To
   trace dependencies in your code.
 </p>
 
-<p>
   For a language details and <code>--output</code> flag details, please see the reference
   manuals, <a href="query.html">Bazel query reference</a> and <a href="cquery.html">Bazel cquery reference</a>.
   You can get help by typing <code>bazel help query</code> or <code>bazel help cquery</code> on the command line.
-</p>
 
 <p>
   To execute a query while ignoring errors such as missing targets, use the
@@ -183,7 +181,7 @@ if you're going to change some code, you might want to know what other code
 you're about to break.  You can use <code>rdeps(u, x)</code> to find the reverse
 dependencies of the targets in <code>x</code> within the transitive closure of <code>u</code>.</p>
 
-Bazel's <a href="https://docs.bazel.build/versions/master/query.html#sky-query">Sky Query</a>
+Bazel's <a href="query.html#sky-query">Sky Query</a>
 supports the <code>allrdeps</code> function which allows you to query rdeps in the entire
 universe of the build.
 <p><a name="Miscellaneous_Uses"></a></p>
@@ -206,7 +204,7 @@ universe of the build.
 
 <h4>What rules are defined in the <code>foo</code> package?</h4>
 
-<pre>bazel query 'kind(rule, foo:all)' --output label_kind</pre>
+<pre>bazel query 'kind(rule, foo:*)' --output label_kind</pre>
 
 <p><a name="What_files_are_generated_by_rule"></a></p>
 

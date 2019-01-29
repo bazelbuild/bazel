@@ -134,8 +134,8 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
         declare(fctName.getName(), fctName.getLocation());
         break;
       case LOAD:
-        for (Identifier id : ((LoadStatement) stmt).getSymbols()) {
-          declare(id.getName(), id.getLocation());
+        for (LoadStatement.Binding binding : ((LoadStatement) stmt).getBindings()) {
+          declare(binding.getLocalName().getName(), binding.getLocalName().getLocation());
         }
         break;
       case CONDITIONAL:
@@ -150,6 +150,18 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   private void collectDefinitions(LValue left) {
     for (Identifier id : left.boundIdentifiers()) {
       declare(id.getName(), id.getLocation());
+    }
+  }
+
+  private void validateLValue(Location loc, Expression expr) {
+    if (expr instanceof IndexExpression) {
+      visit(expr);
+    } else if (expr instanceof ListLiteral) {
+      for (Expression e : ((ListLiteral) expr).getElements()) {
+        validateLValue(loc, e);
+      }
+    } else if (!(expr instanceof Identifier)) {
+      throw new ValidationException(loc, "cannot assign to '" + expr + "'");
     }
   }
 
@@ -169,21 +181,21 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     node.setScope(b.scope);
   }
 
-  private void validateLValue(Location loc, Expression expr) {
-    if (expr instanceof IndexExpression) {
-      visit(expr);
-    } else if (expr instanceof ListLiteral) {
-      for (Expression e : ((ListLiteral) expr).getElements()) {
-        validateLValue(loc, e);
-      }
-    } else if (!(expr instanceof Identifier)) {
-      throw new ValidationException(loc, "cannot assign to '" + expr + "'");
-    }
-  }
-
   @Override
   public void visit(LValue node) {
     validateLValue(node.getLocation(), node.getExpression());
+  }
+
+  @Override
+  public void visit(FuncallExpression node) {
+    super.visit(node);
+    try {
+      if (env.getSemantics().incompatibleStricArgumentOrdering()) {
+        Argument.validateFuncallArguments(node.getArguments());
+      }
+    } catch (Argument.ArgumentException e) {
+      throw new ValidationException(e.getLocation(), e.getMessage());
+    }
   }
 
   @Override

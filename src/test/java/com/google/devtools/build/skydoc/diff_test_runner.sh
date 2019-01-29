@@ -25,7 +25,7 @@ shift 1
 golden_file=$1
 shift 1
 
-DIFF="$(diff ${actual_file} ${golden_file})"
+DIFF="$(diff -u ${actual_file} ${golden_file})"
 
 if [ "$DIFF" != "" ]
 then

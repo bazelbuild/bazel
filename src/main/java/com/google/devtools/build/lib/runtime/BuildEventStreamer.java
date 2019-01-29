@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.events.EventKind.PROGRESS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -29,6 +30,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -66,6 +68,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
+import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -74,10 +77,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -106,13 +111,13 @@ public class BuildEventStreamer implements EventHandler {
   private int progressCount;
   private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
   private OutErrProvider outErrProvider;
-  private AbortReason abortReason = AbortReason.UNKNOWN;
+  private volatile AbortReason abortReason = AbortReason.UNKNOWN;
   // Will be set to true if the build was invoked through "bazel test" or "bazel coverage".
   private boolean isTestCommand;
 
-  // After a BuildCompetingEvent we might expect a whitelisted set of events. If non-null,
-  // the streamer is restricted to only allow those events and fully close after having seen
-  // them.
+  // After #buildComplete is called, contains the set of events that the streamer is expected to
+  // process. The streamer will fully close after seeing them. This field is null until
+  // #buildComplete is called.
   private Set<BuildEventId> finalEventsToCome = null;
 
   // True, if we already closed the stream.
@@ -358,17 +363,30 @@ public class BuildEventStreamer implements EventHandler {
         TimeUnit.SECONDS);
   }
 
-  public boolean isClosed() {
+  public synchronized boolean isClosed() {
     return closed;
   }
 
-  private void close() {
+  public void close() {
+    close(null);
+  }
+
+  public void close(@Nullable AbortReason reason) {
     synchronized (this) {
       if (closed) {
         return;
       }
       closed = true;
+      if (reason != null) {
+        abortReason = reason;
+      }
+
+      if (finalEventsToCome == null) {
+        // This should only happen if there's a crash. Try to clean up as best we can.
+        clearEventsAndPostFinalProgress(null);
+      }
     }
+
 
     ScheduledExecutorService executor = null;
     try {
@@ -394,11 +412,12 @@ public class BuildEventStreamer implements EventHandler {
         }
 
         ScheduledFuture<?> f = bepUploadWaitEvent(executor);
-        // Wait for all transports to close.
-        Futures.allAsList(closeFutures).get();
+        // Wait for all transports to close, ignoring interrupts.
+        Uninterruptibles.getUninterruptibly(Futures.allAsList(closeFutures));
         f.cancel(true);
-      } catch (Exception e) {
-        logger.severe("Failed to close a build event transport: " + e);
+      } catch (ExecutionException e) {
+        logger.log(Level.SEVERE, "Failed to close a build event transport", e);
+        LoggingUtil.logToRemote(Level.SEVERE, "Failed to close a build event transport", e);
       }
     } finally {
       if (executor != null) {
@@ -513,6 +532,10 @@ public class BuildEventStreamer implements EventHandler {
       buildEvent(freedEvent);
     }
 
+    if (event instanceof BuildCompleteEvent && isCrash((BuildCompleteEvent) event)) {
+      abortReason = AbortReason.INTERNAL;
+    }
+
     if (event instanceof BuildCompletingEvent) {
       buildComplete(event);
     }
@@ -526,6 +549,10 @@ public class BuildEventStreamer implements EventHandler {
     if (finalEventsToCome != null && finalEventsToCome.isEmpty()) {
       close();
     }
+  }
+
+  private static boolean isCrash(BuildCompleteEvent event) {
+    return event.getResult().getUnhandledThrowable() != null;
   }
 
   private synchronized BuildEvent flushStdoutStderrEvent(String out, String err) {
@@ -567,7 +594,7 @@ public class BuildEventStreamer implements EventHandler {
     return ImmutableSet.copyOf(transports);
   }
 
-  private void buildComplete(ChainableEvent event) {
+  private synchronized void clearEventsAndPostFinalProgress(ChainableEvent event) {
     clearPendingEvents();
     String out = null;
     String err = null;
@@ -576,11 +603,14 @@ public class BuildEventStreamer implements EventHandler {
       err = outErrProvider.getErr();
     }
     post(ProgressEvent.finalProgressUpdate(progressCount, out, err));
-    clearAnnouncedEvents(event.getChildrenEvents());
+    clearAnnouncedEvents(event == null ? ImmutableList.of() : event.getChildrenEvents());
+  }
+
+  private synchronized void buildComplete(ChainableEvent event) {
+    clearEventsAndPostFinalProgress(event);
 
     finalEventsToCome = new HashSet<>(announcedEvents);
     finalEventsToCome.removeAll(postedEvents);
-
     if (finalEventsToCome.isEmpty()) {
       close();
     }
@@ -600,7 +630,7 @@ public class BuildEventStreamer implements EventHandler {
     if (isTestCommand && event instanceof BuildCompleteEvent) {
       // In case of "bazel test" ignore the BuildCompleteEvent, as it will be followed by a
       // TestingCompleteEvent that contains the correct exit code.
-      return true;
+      return !isCrash((BuildCompleteEvent) event);
     }
 
     if (event instanceof TargetParsingCompleteEvent) {
@@ -624,10 +654,7 @@ public class BuildEventStreamer implements EventHandler {
       // Publish failed actions
       return true;
     }
-    if (event.getAction() instanceof ExtraAction) {
-      return true;
-    }
-    return false;
+    return (event.getAction() instanceof ExtraAction);
   }
 
   private boolean bufferUntilPrerequisitesReceived(BuildEvent event) {

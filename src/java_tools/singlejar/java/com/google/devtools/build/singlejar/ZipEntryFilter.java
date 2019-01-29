@@ -52,6 +52,15 @@ public interface ZipEntryFilter {
      * only called once when no further file of the same name is available.
      */
     void finish(OutputStream out) throws IOException;
+
+    /**
+     * Called after {@link #finish} if no output was written to check if an empty file should be
+     * written.  Returns {@code false} by default.
+     * @return {@code true} to skip empty merge results, {@code false} to write them.
+     */
+    default boolean skipEmpty() {
+      return false;
+    }
   }
 
   /**

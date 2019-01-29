@@ -40,10 +40,7 @@ readonly TMP=$(mktemp -d "${TMPDIR:-/tmp}/tmp.XXXXXXXX")
 readonly OUT_DIR="$TMP/out"
 trap "rm -rf ${TMP}" EXIT
 
-# TODO: Create a variant of this script for cutting versions of documentation
-# for Bazel releases. For that case, consider extracting the Git branch or tag
-# name to be used as the versioned directory name.
-readonly VERSION="master"
+readonly VERSION="${DOC_VERSION:-master}"
 readonly VERSION_DIR="$OUT_DIR/versions/$VERSION"
 
 # Unpacks the base Jekyll tree, Build Encyclopedia, Skylark Library, and
@@ -94,7 +91,6 @@ function unpack_skylark_rule_docs {
   mkdir -p $tmp_dir
   cd "$tmp_dir"
   tar -xf "${SKYLARK_RULE_DOCS}"
-  copy_skylark_rule_doc docker "Docker"
   copy_skylark_rule_doc pkg "Packaging"
 }
 

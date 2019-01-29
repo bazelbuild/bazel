@@ -13,16 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -37,10 +31,8 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -56,22 +48,13 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
   }
 
   @Override
-  protected void invalidVisibilityReferenceHook(TargetAndConfiguration value, Label label) {
-    env.getListener().handle(
-        Event.error(TargetUtils.getLocationMaybe(value.getTarget()), String.format(
-            "Label '%s' in visibility attribute does not refer to a package group", label)));
-  }
-
-  @Override
   protected void invalidPackageGroupReferenceHook(TargetAndConfiguration value, Label label) {
     env.getListener().handle(
         Event.error(TargetUtils.getLocationMaybe(value.getTarget()), String.format(
             "label '%s' does not refer to a package group", label)));
   }
 
-  @Override
-  protected void missingEdgeHook(Target from, Label to, NoSuchThingException e)
-      throws InterruptedException {
+  private void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
     if (e instanceof NoSuchTargetException) {
       NoSuchTargetException nste = (NoSuchTargetException) e;
       if (to.equals(nste.getLabel())) {
@@ -94,32 +77,28 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
   @Nullable
   @Override
   protected Map<Label, Target> getTargets(
-      Iterable<Label> labels,
-      Target fromTarget,
-      NestedSetBuilder<Cause> rootCauses,
-      int labelsSizeHint)
+      Collection<Label> labels, Target fromTarget, NestedSetBuilder<Cause> rootCauses)
       throws InterruptedException {
     Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
         env.getValuesOrThrow(
             Iterables.transform(labels, label -> PackageValue.key(label.getPackageIdentifier())),
             NoSuchPackageException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    if (labels instanceof Collection) {
-      labelsSizeHint = ((Collection<Label>) labels).size();
-    } else if (labelsSizeHint <= 0) {
-      labelsSizeHint = 2 * packages.size();
-    }
+
+    // As per the comment in SkyFunctionEnvironment.getValueOrUntypedExceptions(), we are supposed
+    // to prefer reporting errors to reporting null, we first check for errors in our dependencies.
+    // This, of course, results in some wasted work in case this will need to be restarted later.
+
     // Duplicates can occur, so we can't use ImmutableMap.
-    HashMap<Label, Target> result = Maps.newHashMapWithExpectedSize(labelsSizeHint);
+    HashMap<Label, Target> result = Maps.newHashMapWithExpectedSize(labels.size());
     for (Label label : labels) {
       PackageValue packageValue;
       try {
         packageValue =
-            Preconditions.checkNotNull(
-                (PackageValue) packages.get(PackageValue.key(label.getPackageIdentifier())).get(),
-                label);
+            (PackageValue) packages.get(PackageValue.key(label.getPackageIdentifier())).get();
+        if (packageValue == null) {
+          // Dependency has not been computed yet. There will be a next iteration.
+          continue;
+        }
       } catch (NoSuchPackageException e) {
         rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
         missingEdgeHook(fromTarget, label, e);
@@ -139,31 +118,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
         missingEdgeHook(fromTarget, label, e);
       }
     }
-    return result;
-  }
 
-  @Nullable
-  @Override
-  protected List<BuildConfiguration> getConfigurations(
-      FragmentClassSet fragments,
-      Iterable<BuildOptions> buildOptions,
-      BuildOptions defaultBuildOptions)
-      throws InvalidConfigurationException, InterruptedException {
-    List<SkyKey> keys = new ArrayList<>();
-    for (BuildOptions options : buildOptions) {
-      keys.add(
-          BuildConfigurationValue.key(
-              fragments, BuildOptions.diffForReconstruction(defaultBuildOptions, options)));
-    }
-    Map<SkyKey, ValueOrException<InvalidConfigurationException>> configValues =
-        env.getValuesOrThrow(keys, InvalidConfigurationException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    ImmutableList.Builder<BuildConfiguration> result = ImmutableList.builder();
-    for (SkyKey key : keys) {
-      result.add(((BuildConfigurationValue) configValues.get(key).get()).getConfiguration());
-    }
-    return result.build();
+    return env.valuesMissing() ? null : result;
   }
 }

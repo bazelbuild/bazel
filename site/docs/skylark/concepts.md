@@ -8,8 +8,7 @@ title: Extension Overview
 <!-- [TOC] -->
 
 Bazel extensions are files ending in `.bzl`. Use a
-[load statement](https://docs.bazel.build/versions/master/build-ref.html#load)
-to import a symbol from an extension.
+[load statement](../build-ref.html#load) to import a symbol from an extension.
 
 ## Macros and rules
 

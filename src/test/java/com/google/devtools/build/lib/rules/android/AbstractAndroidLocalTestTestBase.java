@@ -479,8 +479,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends BuildViewTestCase
     assertThat(inputs)
         .containsAllOf(
             "test_resources.jar",
-            "test.jar",
-            "SingleJar_deploy.jar");
+            "test.jar");
   }
 
   public abstract void checkMainClass(

@@ -227,6 +227,30 @@ public final class BlazeOptionHandler {
   }
 
   /**
+   * TODO(bazel-team): When we move BuildConfiguration.Options options to be defined in starlark,
+   * make sure they're not passed in here during {@link #getOptionsResult}.
+   */
+  ExitCode parseStarlarkOptions(CommandEnvironment env, ExtendedEventHandler eventHandler) {
+    // For now, restrict starlark options to commands that already build to ensure that loading
+    // will work. We may want to open this up to other commands in the future. The "info"
+    // and "clean" commands have builds=true set in their annotation but don't actually do any
+    // building (b/120041419).
+    if (!commandAnnotation.builds()
+        || commandAnnotation.name().equals("info")
+        || commandAnnotation.name().equals("clean")) {
+      return ExitCode.SUCCESS;
+    }
+    try {
+      StarlarkOptionsParser.newStarlarkOptionsParser(env, optionsParser, runtime)
+          .parse(commandAnnotation, eventHandler);
+    } catch (OptionsParsingException e) {
+      eventHandler.handle(Event.error(e.getMessage()));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
+    return ExitCode.SUCCESS;
+  }
+
+  /**
    * Parses the options, taking care not to generate any output to outErr, return, or throw an
    * exception.
    *

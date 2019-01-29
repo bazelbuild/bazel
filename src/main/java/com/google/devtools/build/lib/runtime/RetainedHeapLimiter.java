@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;

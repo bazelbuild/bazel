@@ -70,7 +70,7 @@ std::string ConvertPath(const std::string& path) {
         << "ConvertPath(" << path << "): AsWindowsPath failed: " << error;
   }
   std::transform(converted_path.begin(), converted_path.end(),
-                 converted_path.begin(), ::towlower);
+                 converted_path.begin(), ::tolower);
   return converted_path;
 }
 

@@ -189,6 +189,7 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             allowedTypes = {
               @ParamType(type = FileApi.class),
               @ParamType(type = String.class),
+              @ParamType(type = FilesToRunProviderApi.class),
             },
             named = true,
             positional = false,
@@ -199,7 +200,6 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
               @ParamType(type = SkylarkList.class),
               @ParamType(type = SkylarkNestedSet.class),
             },
-            generic1 = FileApi.class,
             defaultValue = "unbound",
             named = true,
             positional = false,
@@ -331,8 +331,8 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             positional = false,
             doc =
                 "List or depset of any tools needed by the action. Tools are inputs with "
-                    + "additional "
-                    + "runfiles that are automatically made available to the action."),
+                    + "additional runfiles that are automatically made available to the action. "
+                    + "The list can contain Files or FilesToRunProvider instances."),
         @Param(
             name = "arguments",
             allowedTypes = {

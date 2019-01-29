@@ -98,8 +98,10 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   /**
    * Returns the list of options written to the parameter file. Don't use this method outside tests
    * - the list is often huge, resulting in significant garbage collection overhead.
+   *
+   * <p>2019-01-10, @leba: Using this method for aquery since it's not performance-critical and the
+   * includeParamFile option is flag-guarded with warning regarding output size to user.
    */
-  @VisibleForTesting
   public Iterable<String> getArguments() throws CommandLineExpansionException {
     Preconditions.checkState(
         !hasInputArtifactToExpand,

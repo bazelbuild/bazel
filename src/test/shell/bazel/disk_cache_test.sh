@@ -40,7 +40,7 @@ genrule(
     cmd = "echo run > $execution_file && cat \$< >\$@",
     srcs = ["$input_file"],
     outs = ["foo.txt"],
-    tags = ["local"],
+    tags = ["no-sandbox"],
 )
 EOF
 

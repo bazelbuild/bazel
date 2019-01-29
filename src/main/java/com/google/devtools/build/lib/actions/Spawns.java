@@ -29,15 +29,18 @@ public final class Spawns {
    * Returns {@code true} if the result of {@code spawn} may be cached.
    */
   public static boolean mayBeCached(Spawn spawn) {
-    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_CACHE);
+    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_CACHE)
+        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL);
   }
 
+  /** Returns whether a Spawn can be executed in a sandbox environment. */
   public static boolean mayBeSandboxed(Spawn spawn) {
     return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LEGACY_NOSANDBOX)
         && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_SANDBOX)
         && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL);
   }
 
+  /** Returns whether a Spawn needs network access in order to run successfully. */
   public static boolean requiresNetwork(Spawn spawn, boolean defaultSandboxDisallowNetwork) {
     if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.BLOCK_NETWORK)) {
       return false;
@@ -49,9 +52,21 @@ public final class Spawns {
     return defaultSandboxDisallowNetwork;
   }
 
+  /**
+   * Returns whether a Spawn claims to support being executed remotely according to its execution
+   * info tags.
+   */
   public static boolean mayBeExecutedRemotely(Spawn spawn) {
     return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL)
         && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE);
+  }
+
+  /**
+   * Returns whether a Spawn claims to support being executed with the persistent worker strategy
+   * according to its execution info tags.
+   */
+  public static boolean supportsWorkers(Spawn spawn) {
+    return "1".equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_WORKERS));
   }
 
   /**

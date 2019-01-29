@@ -56,6 +56,20 @@ fi
 
 add_to_bazelrc "build --package_path=%workspace%"
 
+function assert_only_action_foo() {
+  expect_log_n "^action '" 1 "Expected exactly one action."
+  assert_contains "action.*foo" $1
+  assert_not_contains "action.*wrong_input" $1
+  assert_not_contains "action.*wrong_output" $1
+  assert_not_contains "action.*wrong_mnemonic" $1
+
+  assert_contains "Inputs: \[.*foo_matching_in.java.*\]" $1
+  assert_contains "Outputs: \[.*foo_matching_out.*\]" $1
+  assert_contains "Mnemonic: Genrule" $1
+
+  return 0
+}
+
 function test_basic_aquery() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
@@ -104,13 +118,13 @@ EOF
   cat output >> "$TEST_log"
   assert_contains "action 'Executing genrule //$pkg:bar'" output
   assert_contains "Mnemonic: Genrule" output
-  assert_contains "Owner: //$pkg:bar" output
+  assert_contains "Target: //$pkg:bar" output
   assert_contains "Configuration: .*-fastbuild" output
   # Only check that the inputs/outputs/command line/environment exist, but not
   # their actual contents since that would be too much.
   assert_contains "Inputs: \[" output
   assert_contains "Outputs: \[" output
-  if is_windows; then
+  if $is_windows; then
     assert_contains "Command Line: .*bash\.exe" output
   else
     assert_contains "Command Line: (" output
@@ -185,7 +199,7 @@ EOF
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_contains "Mnemonic: SkylarkAction" output
-  assert_contains "Owner: //$pkg:goo" output
+  assert_contains "Target: //$pkg:goo" output
   assert_contains "Environment: \[.*foo=bar" output
 }
 
@@ -291,6 +305,648 @@ EOF
   assert_contains "AspectDescriptors: \[.*foobar.bzl%bar_aspect.*bar='three'" output
   assert_contains "Outputs: \[.*a.foo_object" output
   assert_contains "Outputs: \[.*a-aspect" output
+}
+
+function test_aquery_all_filters_only_match_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "wrong_input",
+    srcs = ["wrong_input.java"],
+    outs = ["wi_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "wrong_output",
+    srcs = ["wo_matching_in.java"],
+    outs = ["wrong_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+java_library(
+    name = "wrong_mnemonic",
+    srcs = ["wm_matching_in.java"],
+)
+EOF
+
+  QUERY="inputs(
+    '.*matching_in.java', outputs('.*matching_out', mnemonic('Genrule', //$pkg:all)))"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_inputs_filter_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "wrong_input",
+    srcs = ["wrong_input.java"],
+    outs = ["wi_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  QUERY="inputs('.*matching_in.java', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_outputs_filter_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "wrong_output",
+    srcs = ["wo_matching_in.java"],
+    outs = ["wrong_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  QUERY="outputs('.*matching_out', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_mnemonic_filter_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+java_library(
+    name = "wrong_mnemonic",
+    srcs = ["wm_matching_in.java"],
+)
+EOF
+
+  QUERY="mnemonic('.*rule', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_inputs_filter_exact_filename_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "wrong_input",
+    srcs = ["wrong_input.java"],
+    outs = ["wi_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  QUERY="inputs('$pkg/foo_matching_in.java', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_outputs_filter_exact_filename_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "wrong_output",
+    srcs = ["wo_matching_in.java"],
+    outs = ["wrong_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  QUERY="outputs('.*/$pkg/foo_matching_out', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_mnemonic_filter_exact_mnemonic_only_mach_foo() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+java_library(
+    name = "wrong_mnemonic",
+    srcs = ["wm_matching_in.java"],
+)
+EOF
+
+  QUERY="mnemonic('Genrule', //$pkg:all)"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_filters_non_aquery_enclosing_function_query_error() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  QUERY="deps(inputs('.*matching_in.java', outputs('.*matching_out', mnemonic('Genrule', //$pkg:all))))"
+  EXPECTED_LOG="ERROR: aquery filter functions (inputs, outputs, mnemonic) produce actions, and therefore can't be the input of other function types: deps
+${QUERY}"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    && fail "Expected failure"
+  expect_log "${EXPECTED_LOG}"
+}
+
+function test_aquery_filters_chain_inputs_only_match_one() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name='foo',
+    srcs=['foo_matching_in.java'],
+    outs=['foo_matching_out'],
+    cmd='cat $(SRCS) > $(OUTS)'
+)
+
+java_library(
+    name='bar',
+    srcs=['in_bar.java']
+)
+
+genrule(
+    name='foo2',
+    srcs=['foo_matching_in.java_not'],
+    outs=['foo_matching_out2'],
+    cmd='cat $(SRCS) > $(OUTS)'
+)
+EOF
+
+  QUERY="inputs('.*java', inputs('.*foo.*', //$pkg:all))"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_filters_chain_outputs_only_match_one() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name='foo',
+    srcs=['foo_matching_in.java'],
+    outs=['foo_matching_out'],
+    cmd='cat $(SRCS) > $(OUTS)'
+)
+
+genrule(
+    name='foo2',
+    srcs=['foo_matching_in.java'],
+    outs=['foo_matching_out_not'],
+    cmd='cat $(SRCS) > $(OUTS)'
+)
+
+genrule(
+    name='foo3',
+    srcs=['foo_matching_in.java'],
+    outs=['not_matching_out'],
+    cmd='cat $(SRCS) > $(OUTS)'
+)
+EOF
+
+  QUERY="outputs('.*out', outputs('.*foo.*', //$pkg:all))"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_filters_chain_mnemonic_only_match_one() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+java_library(
+    name='foo',
+    srcs=['Foo.java']
+)
+EOF
+
+  # java_library targets generate actions of the following mnemonics:
+  # - Javac
+  # - JavaSourceJar
+  # - Turbine
+  QUERY="mnemonic('Java.*', mnemonic('.*e.*', //$pkg:all))"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  expect_log_n "^action '" 1 "Expected exactly one action."
+  assert_contains "action.*foo" output
+  assert_contains "Inputs: \[.*Foo.java.*\]" output
+  assert_contains "Outputs: \[.*jar\]" output
+  assert_contains "Mnemonic: JavaSourceJar" output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_include_param_file_cc_binary() {
+  if is_darwin; then
+    return 0
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+cc_binary(
+    name='foo',
+    srcs=['foo.cc']
+)
+EOF
+
+  # cc_binary targets write param files and use them in CppLinkActions.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text --include_param_files ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Command Line: " output
+  assert_contains "Params File Content (.*-2.params):" output
+
+  bazel aquery --output=textproto --include_param_files ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_include_param_file_starlark_rule() {
+  if is_darwin; then
+    return 0
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/test_rule.bzl" <<'EOF'
+def _impl(ctx):
+  args = ctx.actions.args()
+  args.add('--param_file_arg')
+  args.set_param_file_format('multiline')
+  args.use_param_file('--param_file=%s', use_always = True)
+  ctx.actions.run(
+    inputs = ctx.files.srcs,
+    outputs = [ctx.outputs.outfile],
+    executable = 'dummy',
+    arguments = ['--non-param-file-flag', args],
+    mnemonic = 'SkylarkAction'
+  )
+
+test_rule = rule(
+  implementation = _impl,
+  attrs = {
+    'srcs': attr.label_list(allow_files=True)
+  },
+  outputs = {
+    'outfile': '{name}.out'
+  },
+)
+EOF
+
+cat > "$pkg/BUILD" <<'EOF'
+load(':test_rule.bzl', 'test_rule')
+test_rule(
+    name='foo',
+    srcs=['foo.java']
+)
+EOF
+
+  # Actions from Starlark rules don't explicitly write out param file,
+  # but includes all arguments (including those in the param file) in the command line.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text --include_param_files ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_not_contains "Params File Content" output
+
+  bazel aquery --output=textproto --include_param_files ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_include_param_file_not_enabled_by_default() {
+  if is_darwin; then
+    return 0
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+cc_binary(
+    name='foo',
+    srcs=['foo.cc']
+)
+EOF
+
+  # cc_binary targets write param files and use them in CppLinkActions.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_not_contains "Params File Content" output
+
+  bazel aquery --output=textproto ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_cpp_action_template_treeartifact_output() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/a.bzl" <<'EOF'
+def _impl(ctx):
+  directory = ctx.actions.declare_directory(ctx.attr.name + "_artifact.cc")
+  ctx.action(
+    inputs = ctx.files.srcs,
+    outputs = [directory],
+    mnemonic = 'MoveTreeArtifact',
+    command = "echo abc",
+  )
+  return [DefaultInfo(files = depset([directory]))]
+
+cc_tree_artifact_files = rule(
+  implementation = _impl,
+  attrs = {
+    'srcs': attr.label_list(allow_files=True),
+  },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load(':a.bzl', 'cc_tree_artifact_files')
+cc_tree_artifact_files(
+    name = 'tree_artifact',
+    srcs = ['a1.cc', 'a2.cc'],
+)
+
+cc_binary(
+    name = 'bin',
+    srcs = ['b1.h', 'b2.cc', ':tree_artifact'],
+)
+EOF
+
+  QUERY="//$pkg:all"
+
+  # Darwin and Windows only produce 1 CppCompileActionTemplate with PIC,
+  # while Linux has both PIC and non-PIC CppCompileActionTemplates
+  if (is_darwin || $is_windows); then
+    expected_num_actions=1
+  else
+    expected_num_actions=2
+  fi
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  expect_log_n "CppCompileActionTemplate compiling .*.cc" $expected_num_actions "Expected exactly $expected_num_actions CppCompileActionTemplates."
+
+  assert_contains "Outputs:.*tree_artifact_artifact (TreeArtifact)\]$" output
+
+  bazel aquery --output=textproto --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_aspect_on_aspect() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/rule.bzl" <<'EOF'
+IntermediateProvider = provider(
+  fields = {
+    'dummy_field': 'dummy field'
+  }
+)
+
+MyBaseRuleProvider = provider(
+  fields = {
+    'dummy_field': 'dummy field'
+  }
+)
+
+def _base_rule_impl(ctx):
+  return [MyBaseRuleProvider(dummy_field = 1)]
+
+base_rule = rule(
+  attrs = {
+    'srcs': attr.label_list(allow_files = True),
+  },
+  implementation = _base_rule_impl
+)
+
+def _intermediate_aspect_imp(target, ctx):
+  if hasattr(ctx.rule.attr, 'srcs'):
+    out = ctx.actions.declare_file('out_jpl_{}'.format(target))
+    ctx.actions.run(
+      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],
+      outputs = [out],
+      executable = 'dummy',
+      mnemonic = 'MyIntermediateAspect'
+    )
+
+  return [IntermediateProvider(dummy_field = 1)]
+
+intermediate_aspect = aspect(
+  attr_aspects = ['deps', 'exports'],
+  required_aspect_providers = [[MyBaseRuleProvider]],
+  provides = [IntermediateProvider],
+  implementation = _intermediate_aspect_imp,
+)
+
+def _int_rule_impl(ctx):
+  return struct()
+
+intermediate_rule = rule(
+  attrs = {
+    'deps': attr.label_list(aspects = [intermediate_aspect]),
+    'srcs': attr.label_list(allow_files = True),
+  },
+  implementation = _int_rule_impl
+)
+
+def _aspect_impl(target, ctx):
+  if hasattr(ctx.rule.attr, 'srcs'):
+    out = ctx.actions.declare_file('out{}'.format(target))
+    ctx.actions.run(
+      inputs = [f for src in ctx.rule.attr.srcs for f in src.files],
+      outputs = [out],
+      executable = 'dummy',
+      mnemonic = 'MyAspect'
+    )
+
+  return [struct()]
+
+my_aspect = aspect(
+  attr_aspects = ['deps', 'exports'],
+  required_aspect_providers = [[IntermediateProvider], [MyBaseRuleProvider]],
+  attrs = {
+    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])
+  },
+  implementation = _aspect_impl,
+)
+
+def _rule_impl(ctx):
+  return struct()
+
+my_rule = rule(
+  attrs = {
+    'deps': attr.label_list(aspects = [my_aspect]),
+    'srcs': attr.label_list(allow_files = True),
+    'aspect_param': attr.string(default = 'x', values = ['x', 'y'])
+  },
+  implementation = _rule_impl
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load(':rule.bzl', 'my_rule', 'intermediate_rule', 'base_rule')
+
+base_rule(
+    name = 'x',
+    srcs = [':x.java'],
+)
+
+intermediate_rule(
+    name = 'int_target',
+    deps = [':x'],
+)
+
+my_rule(
+    name = 'my_target',
+    srcs = ['foo.java'],
+    aspect_param = 'y',
+    deps = [':int_target'],
+)
+EOF
+
+  QUERY="deps(//$pkg:my_target)"
+
+  bazel aquery --output=text --include_aspects ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Mnemonic: MyAspect" output
+  assert_contains "AspectDescriptors: \[.*:rule.bzl%my_aspect(aspect_param='y')" output
+  assert_contains "^.*->.*:rule.bzl%intermediate_aspect()\]$" output
+
+  bazel aquery --output=textproto --include_aspects --noinclude_commandline ${QUERY} > output \
+    2> "$TEST_log" || fail "Expected success"
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

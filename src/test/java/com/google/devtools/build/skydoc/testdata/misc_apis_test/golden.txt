@@ -2,7 +2,7 @@
 ## my_rule
 
 <pre>
-my_rule(name, deps, extra_arguments, out, src, tool)
+my_rule(<a href="#my_rule-name">name</a>, <a href="#my_rule-deps">deps</a>, <a href="#my_rule-extra_arguments">extra_arguments</a>, <a href="#my_rule-out">out</a>, <a href="#my_rule-src">src</a>, <a href="#my_rule-tool">tool</a>)
 </pre>
 
 This rule exercises some of the build API.
@@ -15,19 +15,19 @@ This rule exercises some of the build API.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="#my_rule_name">
+    <tr id="my_rule-name">
       <td><code>name</code></td>
       <td>
-        String; required
+        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
         <p>
           A unique name for this target.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_deps">
+    <tr id="my_rule-deps">
       <td><code>deps</code></td>
       <td>
-        List of labels; optional
+        <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a>; optional
         <p>
           A list of dependencies.
 These dependencies better provide MyInfo!
@@ -35,34 +35,34 @@ These dependencies better provide MyInfo!
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_extra_arguments">
+    <tr id="my_rule-extra_arguments">
       <td><code>extra_arguments</code></td>
       <td>
         List of strings; optional
       </td>
     </tr>
-    <tr id="#my_rule_out">
+    <tr id="my_rule-out">
       <td><code>out</code></td>
       <td>
-        Label; required
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
         <p>
           The output file.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_src">
+    <tr id="my_rule-src">
       <td><code>src</code></td>
       <td>
-        Label; optional
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; optional
         <p>
           The source file.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_tool">
+    <tr id="my_rule-tool">
       <td><code>tool</code></td>
       <td>
-        Label; optional
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; optional
         <p>
           The location of the tool to use.
         </p>
@@ -75,6 +75,10 @@ These dependencies better provide MyInfo!
 <a name="#MyInfo"></a>
 ## MyInfo
 
+<pre>
+MyInfo(<a href="#MyInfo-foo">foo</a>, <a href="#MyInfo-bar">bar</a>)
+</pre>
+
 
 
 ### Fields
@@ -85,16 +89,52 @@ These dependencies better provide MyInfo!
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="#MyInfo_foo">
+    <tr id="MyInfo-foo">
       <td><code>foo</code></td>
       <td>
         <p>Something foo-related.</p>
       </td>
     </tr>
-    <tr id="#MyInfo_bar">
+    <tr id="MyInfo-bar">
       <td><code>bar</code></td>
       <td>
         <p>Something bar-related.</p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+## exercise_the_api
+
+<pre>
+exercise_the_api()
+</pre>
+
+
+
+
+
+## my_rule_impl
+
+<pre>
+my_rule_impl(<a href="#my_rule_impl-ctx">ctx</a>)
+</pre>
+
+
+
+### Parameters
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="my_rule_impl-ctx">
+      <td><code>ctx</code></td>
+      <td>
+        required.
       </td>
     </tr>
   </tbody>

@@ -100,6 +100,11 @@ public final class MiddlemanAction extends AbstractAction {
     return MIDDLEMAN_MNEMONIC;
   }
 
+  @Override
+  public boolean mayInsensitivelyPropagateInputs() {
+    return true;
+  }
+
   /**
    * Creates a new middleman action.
    */

@@ -109,7 +109,7 @@ public class MethodLibrary {
       Iterable<?> items = (args.size() == 1) ? EvalUtils.toIterable(args.get(0), loc, env) : args;
       return maxOrdering.max(items);
     } catch (NoSuchElementException ex) {
-      throw new EvalException(loc, "expected at least one item");
+      throw new EvalException(loc, "expected at least one item", ex);
     }
   }
 
@@ -485,8 +485,8 @@ public class MethodLibrary {
           } catch (NumberFormatException | ArithmeticException e) {
             throw new EvalException(
                 loc,
-                Printer.format(
-                    "invalid literal for int() with base %d: %r", base, stringForErrors));
+                Printer.format("invalid literal for int() with base %d: %r", base, stringForErrors),
+                e);
           }
         }
 
@@ -562,7 +562,7 @@ public class MethodLibrary {
             return tuple;
           } catch (ConversionException e) {
             throw new EvalException(
-                loc, String.format("cannot convert item #%d to a sequence", pos));
+                loc, String.format("cannot convert item #%d to a sequence", pos), e);
           }
         }
       };
@@ -658,8 +658,7 @@ public class MethodLibrary {
           if (step == 0) {
             throw new EvalException(loc, "step cannot be 0");
           }
-          RangeList range = RangeList.of(start, stop, step);
-          return env.getSemantics().incompatibleRangeType() ? range : range.toMutableList(env);
+          return RangeList.of(start, stop, step);
         }
       };
 

@@ -17,6 +17,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/tools/launcher/util/data_parser.h"
 #include "src/tools/launcher/util/launcher_util.h"
@@ -89,7 +90,8 @@ bool LaunchDataParser::ParseLaunchData(LaunchInfo* launch_info,
 bool LaunchDataParser::GetLaunchInfo(const wstring& binary_path,
                                      LaunchInfo* launch_info) {
   unique_ptr<ifstream> binary =
-      make_unique<ifstream>(binary_path, ios::binary | ios::in);
+      make_unique<ifstream>(AsAbsoluteWindowsPath(binary_path.c_str()).c_str(),
+                            ios::binary | ios::in);
   int64_t data_size = ReadDataSize(binary.get());
   if (data_size == 0) {
     PrintError(L"No data appended, cannot launch anything!");

@@ -85,6 +85,10 @@ public final class NoBuildEvent implements BuildEvent {
     return GenericBuildEvent.protoChaining(this).setStarted(started.build()).build();
   }
 
+  /**
+   * Iff true, clients will expect to a receive a separate {@link
+   * com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent}.
+   */
   public boolean separateFinishedEvent() {
     return separateFinishedEvent;
   }

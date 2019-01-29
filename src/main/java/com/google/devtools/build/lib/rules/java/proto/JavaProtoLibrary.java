@@ -46,6 +46,13 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
 
+    if (ruleContext.getFragment(JavaConfiguration.class).isDisallowStrictDepsForJpl()
+        && ruleContext.attributes().has("strict_deps")
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("strict_deps")) {
+      ruleContext.attributeError("strict_deps", "The strict_deps attribute has been removed.");
+      return null;
+    }
+
     Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
         ruleContext.getPrerequisites("deps", TARGET, JavaProtoLibraryAspectProvider.class);
 

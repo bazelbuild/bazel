@@ -254,9 +254,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
 
   private void printStats(TestResultStats stats) {
     TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
-    if ((testSummaryFormat == DETAILED) || (testSummaryFormat == TESTCASE)) {
-      Integer passCount = stats.totalTestCases - stats.totalFailedTestCases;
-      printer.printLn(
+    if (testSummaryFormat == DETAILED || testSummaryFormat == TESTCASE) {
+      int passCount = stats.totalTestCases - stats.totalFailedTestCases;
+      String message =
           String.format(
               "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases",
               passCount > 0 ? AnsiTerminalPrinter.Mode.INFO : "",
@@ -265,7 +265,13 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
               stats.totalFailedTestCases > 0 ? AnsiTerminalPrinter.Mode.ERROR : "",
               stats.totalFailedTestCases,
               AnsiTerminalPrinter.Mode.DEFAULT,
-              stats.totalTestCases));
+              stats.totalTestCases);
+      if (passCount > 0 && stats.totalFailedTestCases == 0 && stats.failedCount > 0) {
+        // It is possible for a target to fail even if all of its test cases pass. To avoid
+        // confusion, we append the following disclaimer.
+        message += "\n(however note that at least one target failed)";
+      }
+      printer.printLn(message);
     }
 
     if (!optionCheckTestsUpToDate()) {

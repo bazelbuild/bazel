@@ -8,7 +8,6 @@ toolchain {
   compiler: "gcc"
   host_system_name: "armeabi-v7a"
   needsPic: true
-  supports_gold_linker: false
   supports_incremental_linker: false
   supports_fission: false
   supports_interface_shared_objects: false
@@ -176,7 +175,6 @@ toolchain {
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
   supports_fission: false
-  supports_gold_linker: false
   supports_incremental_linker: false
   supports_interface_shared_objects: false
   supports_normalizing_ar: false

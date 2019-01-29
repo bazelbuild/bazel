@@ -68,6 +68,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
             actionKeyContext,
             null,
             new FileOutErr(),
+            executor.getEventHandler(),
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
             null,

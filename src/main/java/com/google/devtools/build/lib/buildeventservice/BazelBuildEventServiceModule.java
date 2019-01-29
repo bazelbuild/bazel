@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.buildeventservice;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.ManagedBuildEventServiceGrpcClient;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -28,17 +30,45 @@ import java.util.Set;
 public class BazelBuildEventServiceModule
     extends BuildEventServiceModule<BuildEventServiceOptions> {
 
+  @AutoValue
+  abstract static class BackendConfig {
+    abstract String besBackend();
+
+    abstract AuthAndTLSOptions authAndTLSOptions();
+  }
+
+  private BuildEventServiceClient client;
+  private BackendConfig config;
+
   @Override
   protected Class<BuildEventServiceOptions> optionsClass() {
     return BuildEventServiceOptions.class;
   }
 
   @Override
-  protected BuildEventServiceClient createBesClient(BuildEventServiceOptions besOptions,
-      AuthAndTLSOptions authAndTLSOptions) throws IOException {
-    return new ManagedBuildEventServiceGrpcClient(
-        GoogleAuthUtils.newChannel(besOptions.besBackend, authAndTLSOptions),
-        GoogleAuthUtils.newCallCredentials(authAndTLSOptions));
+  protected BuildEventServiceClient getBesClient(
+      BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
+    BackendConfig newConfig =
+        new AutoValue_BazelBuildEventServiceModule_BackendConfig(
+            besOptions.besBackend, authAndTLSOptions);
+    if (client == null || !Objects.equals(config, newConfig)) {
+      clearBesClient();
+      config = newConfig;
+      client =
+          new ManagedBuildEventServiceGrpcClient(
+              GoogleAuthUtils.newChannel(besOptions.besBackend, authAndTLSOptions),
+              GoogleAuthUtils.newCallCredentials(authAndTLSOptions));
+    }
+    return client;
+  }
+
+  @Override
+  protected void clearBesClient() {
+    if (client != null) {
+      client.shutdown();
+    }
+    this.client = null;
+    this.config = null;
   }
 
   private static final ImmutableSet<String> WHITELISTED_COMMANDS =

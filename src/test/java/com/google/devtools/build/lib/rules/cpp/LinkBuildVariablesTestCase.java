@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -65,22 +66,22 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
     return getCppLinkAction(target, type).getLinkCommandLine().getBuildVariables();
   }
 
-    /**
-   * Creates a CcToolchainFeatures from features described in the given toolchain fragment.
-   */
-  public static CcToolchainFeatures buildFeatures(String... toolchain) throws Exception {
+  /** Creates a CcToolchainFeatures from features described in the given toolchain fragment. */
+  public static CcToolchainFeatures buildFeatures(RuleContext ruleContext, String... toolchain)
+      throws Exception {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
     return new CcToolchainFeatures(
-        CcToolchainConfigInfo.fromToolchain(toolchainBuilder.buildPartial()),
+        CcToolchainConfigInfo.fromToolchain(ruleContext, toolchainBuilder.buildPartial()),
         /* ccToolchainPath= */ PathFragment.EMPTY_FRAGMENT);
   }
 
   /** Returns the value of a given sequence variable in context of the given Variables instance. */
-  protected List<String> getSequenceVariableValue(CcToolchainVariables variables, String variable)
-      throws Exception {
+  protected static List<String> getSequenceVariableValue(
+      RuleContext ruleContext, CcToolchainVariables variables, String variable) throws Exception {
     FeatureConfiguration mockFeatureConfiguration =
         buildFeatures(
+                ruleContext,
                 "feature {",
                 "  name: 'a'",
                 "  flag_set {",
@@ -96,10 +97,11 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
   }
 
   /** Returns the value of a given string variable in context of the given Variables instance. */
-  protected String getVariableValue(CcToolchainVariables variables, String variable)
-      throws Exception {
+  protected static String getVariableValue(
+      RuleContext ruleContext, CcToolchainVariables variables, String variable) throws Exception {
     FeatureConfiguration mockFeatureConfiguration =
         buildFeatures(
+                ruleContext,
                 "feature {",
                 "  name: 'a'",
                 "  flag_set {",

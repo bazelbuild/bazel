@@ -32,7 +32,6 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_OBJECT_FI
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
-import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -108,8 +107,6 @@ public class CppRuleClasses {
           ASSEMBLER))
       .withSourceAttributes("srcs", "hdrs")
       .withDependencyAttributes("deps", "data");
-
-  public static final LibraryLanguage LANGUAGE = new LibraryLanguage("C++");
 
   /** Implicit outputs for cc_binary rules. */
   public static final SafeImplicitOutputsFunction CC_BINARY_STRIPPED =
@@ -227,6 +224,13 @@ public class CppRuleClasses {
   public static final String LEGACY_COMPILE_FLAGS = "legacy_compile_flags";
 
   /**
+   * A string constant for the default_compile_flags feature. If this feature is present in the
+   * toolchain, and the toolchain doesn't specify no_legacy_features, bazel will move
+   * default_compile_flags before other features from {@link CppActionConfigs}.
+   */
+  public static final String DEFAULT_COMPILE_FLAGS = "default_compile_flags";
+
+  /**
    * A string constant for the feature that makes us build per-object debug info files.
    */
   public static final String PER_OBJECT_DEBUG_INFO = "per_object_debug_info";
@@ -238,6 +242,9 @@ public class CppRuleClasses {
    * requested, the "pic" build variable will be defined with an empty string as its value.
    */
   public static final String PIC = "pic";
+
+  /** A string constant for a feature that indicates that the toolchain can produce PIC objects. */
+  public static final String SUPPORTS_PIC = "supports_pic";
 
   /**
    * A string constant for the feature the represents preprocessor defines.
@@ -336,6 +343,12 @@ public class CppRuleClasses {
   public static final String TARGETS_WINDOWS = "targets_windows";
 
   /**
+   * A string constant for a feature that indicates we are using a toolchain building for Windows.
+   */
+  public static final String SUPPORTS_INTERFACE_SHARED_LIBRARIES =
+      "supports_interface_shared_libraries";
+
+  /**
    * A string constant for no_stripping feature, if it's specified, then no strip action config is
    * needed, instead the stripped binary will simply be a symlink (or a copy on Windows) of the
    * original binary.
@@ -381,6 +394,18 @@ public class CppRuleClasses {
 
   /** A string constant for the match-clif action. */
   public static final String MATCH_CLIF = "match_clif";
+
+  /** A string constant for is_cc_fake_binary feature. */
+  public static final String IS_CC_FAKE_BINARY = "is_cc_fake_binary";
+
+  /** A feature marking that the toolchain can use --start-lib/--end-lib flags */
+  public static final String SUPPORTS_START_END_LIB = "supports_start_end_lib";
+
+  /**
+   * A feature marking that the toolchain can produce binaries that load shared libraries at
+   * runtime.
+   */
+  public static final String SUPPORTS_DYNAMIC_LINKER = "supports_dynamic_linker";
 
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.ByteArrayOutputStream;
@@ -36,11 +35,10 @@ public class ShowIncludesFilterTest {
   private ByteArrayOutputStream output;
   private FilterOutputStream filterOutputStream;
   private FileSystem fs;
-  private FileOutErr outErr;
 
   @Before
   public void setUpOutputStreams() throws IOException {
-    showIncludesFilter = new ShowIncludesFilter("foo.cpp");
+    showIncludesFilter = new ShowIncludesFilter("foo.cpp", "__main__");
     output = new ByteArrayOutputStream();
     filterOutputStream = showIncludesFilter.getFilteredOutputStream(output);
     fs = new InMemoryFileSystem();
@@ -95,6 +93,20 @@ public class ShowIncludesFilterTest {
   }
 
   @Test
+  public void testMatchAllOfNotePrefixWithAbsolutePath() throws IOException {
+    // "Note: including file:" is the prefix
+    filterOutputStream.write(
+        getBytes("Note: including file: C:\\tmp\\xxxx\\execroot\\__main__\\bar.h"));
+    filterOutputStream.flush();
+    // flush to output should not work, waiting for newline
+    assertThat(output.toString()).isEmpty();
+    filterOutputStream.write(getBytes("\n"));
+    // It's a match, output should be filtered, dependency on bar.h should be found.
+    assertThat(output.toString()).isEmpty();
+    assertThat(showIncludesFilter.getDependencies()).contains("bar.h");
+  }
+
+  @Test
   public void testMatchSourceFileName() throws IOException {
     filterOutputStream.write(getBytes("foo.cpp\n"));
     // It's a match, output should be filtered, no dependency found.
@@ -111,18 +123,5 @@ public class ShowIncludesFilterTest {
     filterOutputStream.write(getBytes(".h"));
     filterOutputStream.flush();
     assertThat(output.toString()).isEqualTo("foo.h");
-  }
-
-  @Test
-  public void testOnFileOutErr() throws IOException {
-    outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    ShowIncludesFilter showIncludesFilterForStdout = new ShowIncludesFilter("foo.cpp");
-    ShowIncludesFilter showIncludesFilterForStderr = new ShowIncludesFilter("foo.cpp");
-    outErr.setOutputFilter(showIncludesFilterForStdout);
-    outErr.setErrorFilter(showIncludesFilterForStderr);
-    outErr.getOutputStream().write(getBytes("Note: including file: bar1.h\n"));
-    outErr.getErrorStream().write(getBytes("Note: including file: bar2.h\n"));
-    assertThat(showIncludesFilterForStdout.getDependencies()).contains("bar1.h");
-    assertThat(showIncludesFilterForStderr.getDependencies()).contains("bar2.h");
   }
 }

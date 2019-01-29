@@ -66,9 +66,25 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   }
 
   private void writeSimpleExample() throws IOException {
-    scratch.file("foo/BUILD",
-                "cc_library(name = 'foo1', srcs = [ 'foo1.cc' ], hdrs = [ 'foo1.h' ])",
-                "exports_files(['baz/bang'])");
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.actions.do_nothing(mnemonic='Mnemonic')",
+        "  return struct()",
+        "crule_without_srcs = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    'hdrs': attr.label_list(flags = ['DIRECT_COMPILE_TIME_INPUT']),",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'crule_without_srcs')",
+        "cc_library(name = 'foo1', srcs = [ 'foo1.cc' ], hdrs = [ 'foo1.h' ])",
+        "crule_without_srcs(name = 'foo2', hdrs = [ 'foo2.h' ])",
+        "exports_files(['baz/bang'])");
     scratch.file("foo/bar/BUILD",
                 "cc_library(name = 'bar1', alwayslink = 1)",
                 "cc_library(name = 'bar2')",
@@ -141,6 +157,8 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         .containsExactlyElementsIn(labels("@//foo:foo1"));
     assertThat(parseListCompileOneDepRelative("foo1.cc"))
         .containsExactlyElementsIn(labels("@//foo:foo1"));
+    assertThat(parseListCompileOneDep("foo/foo2.h"))
+        .containsExactlyElementsIn(labels("@//foo:foo2"));
   }
 
   /**

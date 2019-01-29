@@ -34,8 +34,11 @@ output_paths = [
     ('*tools/cpp/runfiles/generated_*',
      lambda x: 'tools/cpp/runfiles/' + os.path.basename(x)[len('generated_'):]),
     ('*JavaBuilder*_deploy.jar', lambda x: 'tools/jdk/' + os.path.basename(x)),
+    ('*jarjar_command_deploy.jar',
+     lambda x: 'tools/jdk/jarjar_command_deploy.jar'),
     ('*JacocoCoverage*_deploy.jar',
      lambda x: 'tools/jdk/JacocoCoverage_deploy.jar'),
+    ('*BUILD.pkg', lambda x: 'tools/jdk/BUILD.pkg'),
     ('*turbine_deploy.jar', lambda x: 'tools/jdk/turbine_deploy.jar'),
     ('*turbine_direct*', lambda x: 'tools/jdk/' + os.path.basename(x)),
     ('*javac-9+181-r4173-1.jar',
@@ -46,6 +49,7 @@ output_paths = [
     ('*ExperimentalRunner_deploy.jar',
      lambda x: 'tools/jdk/ExperimentalTestRunner_deploy.jar'),
     ('*Runner_deploy.jar', lambda x: 'tools/jdk/TestRunner_deploy.jar'),
+    ('*singlejar_local.exe', lambda x: 'tools/jdk/singlejar/singlejar.exe'),
     ('*singlejar_local', lambda x: 'tools/jdk/singlejar/singlejar'),
     ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
@@ -65,6 +69,8 @@ output_paths = [
      lambda x: 'tools/objc/' + os.path.basename(x) + '.sh'),
     ('*external/openjdk_*/file/*.tar.gz', lambda x: 'jdk.tar.gz'),
     ('*external/openjdk_*/file/*.zip', lambda x: 'jdk.zip'),
+    ('*src/minimal_jdk.tar.gz', lambda x: 'jdk.tar.gz'),
+    ('*src/minimal_jdk.zip', lambda x: 'jdk.zip'),
     ('*', lambda x: re.sub(r'^.*bazel-out/[^/]*/bin/', '', x, count=1)),
 ]
 

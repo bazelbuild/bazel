@@ -129,8 +129,6 @@ public class InfoCommand implements BlazeCommand {
                 // information is available here.
                 env.setupPackageCache(
                     optionsParsingResult, runtime.getDefaultsPackageContent(optionsParsingResult));
-                env.getSkyframeExecutor()
-                    .setConfigurationFragmentFactories(runtime.getConfigurationFragmentFactories());
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
                 return env.getSkyframeExecutor()
                     .getConfiguration(

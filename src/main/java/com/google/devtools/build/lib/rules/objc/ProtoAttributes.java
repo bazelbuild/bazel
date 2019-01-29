@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
-import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.ArrayList;
 
@@ -238,9 +238,9 @@ final class ProtoAttributes {
   /** Returns the sets of proto files that were added using proto_library dependencies. */
   private NestedSet<Artifact> getProtoDepsSources() {
     NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.stableOrder();
-    Iterable<ProtoSourcesProvider> providers =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class);
-    for (ProtoSourcesProvider provider : providers) {
+    Iterable<ProtoInfo> providers =
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER);
+    for (ProtoInfo provider : providers) {
       artifacts.addTransitive(provider.getTransitiveProtoSources());
     }
     return artifacts.build();

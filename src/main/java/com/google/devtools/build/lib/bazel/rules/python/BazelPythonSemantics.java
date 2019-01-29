@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -128,7 +128,11 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public Artifact createExecutable(
-      RuleContext ruleContext, PyCommon common, CcInfo ccInfo, NestedSet<String> imports)
+      RuleContext ruleContext,
+      PyCommon common,
+      CcInfo ccInfo,
+      NestedSet<String> imports,
+      Runfiles.Builder runfilesBuilder)
       throws InterruptedException {
     String main = common.determineMainExecutableSource(/*withWorkspaceName=*/ true);
     Artifact executable = common.getExecutable();
@@ -218,8 +222,8 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   @Override
-  public void postInitBinary(RuleContext ruleContext, RunfilesSupport runfilesSupport,
-      PyCommon common) throws InterruptedException {
+  public void postInitExecutable(
+      RuleContext ruleContext, RunfilesSupport runfilesSupport, PyCommon common) {
     if (ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
       FilesToRunProvider zipper = ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST);
       Artifact executable = common.getExecutable();
@@ -236,7 +240,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   private static boolean isUnderWorkspace(PathFragment path) {
-    return !path.startsWith(Label.EXTERNAL_PATH_PREFIX);
+    return !path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX);
   }
 
   private static String getZipRunfilesPath(PathFragment path, PathFragment workspaceName) {
@@ -246,7 +250,7 @@ public class BazelPythonSemantics implements PythonSemantics {
       zipRunfilesPath = workspaceName.getRelative(path).toString();
     } else {
       // If the file is in external package, strip "external"
-      zipRunfilesPath = path.relativeTo(Label.EXTERNAL_PATH_PREFIX).toString();
+      zipRunfilesPath = path.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX).toString();
     }
     // We put the whole runfiles tree under the ZIP_RUNFILES_DIRECTORY_NAME directory, by doing this
     // , we avoid the conflict between default workspace name "__main__" and __main__.py file.
@@ -365,7 +369,7 @@ public class BazelPythonSemantics implements PythonSemantics {
                     .collect(ImmutableList.toImmutableList()))
             .build();
 
-    // TODO(plf): return empty CcLinkingInfo.
+    // TODO(plf): return empty CcInfo.
     return CcInfo.merge(ccInfos);
   }
 }

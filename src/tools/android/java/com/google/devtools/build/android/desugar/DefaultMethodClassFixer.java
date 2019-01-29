@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -544,9 +545,17 @@ public class DefaultMethodClassFixer extends ClassVisitor {
           int slot = 0;
           stubMethod.visitVarInsn(Opcodes.ALOAD, slot++); // load the receiver
           Type neededType = Type.getType(bridged);
-          for (Type arg : neededType.getArgumentTypes()) {
-            // TODO(b/73586397): insert downcasts if necessary
+          Type[] neededArgTypes = neededType.getArgumentTypes();
+          Type[] parameterTypes = Type.getArgumentTypes(desc);
+          for (int i = 0; i < neededArgTypes.length; ++i) {
+            Type arg = neededArgTypes[i];
             stubMethod.visitVarInsn(arg.getOpcode(Opcodes.ILOAD), slot);
+            if (!arg.equals(parameterTypes[i])) {
+              checkState(arg.getSort() == Type.ARRAY || arg.getSort() == Type.OBJECT,
+                  "Can't cast parameter %s from in bridge for %s.%s%s to %s",
+                  i, stubbedInterfaceName, name, desc, arg.getClassName());
+              stubMethod.visitTypeInsn(Opcodes.CHECKCAST, arg.getInternalName());
+            }
             slot += arg.getSize();
           }
           // Just call the bridged method directly on the visited class using invokevirtual
@@ -585,22 +594,52 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     @Nullable
     private Method findBridgedMethod(String name, String desc) {
       Type[] paramTypes = Type.getArgumentTypes(desc);
+      Type returnType = Type.getReturnType(desc);
       Class<?> itf = loadFromInternal(stubbedInterfaceName);
       checkArgument(itf.isInterface(), "Should be an interface: %s", stubbedInterfaceName);
-      Method result = null;
+
+      // 1. Find the bridge method we're trying to implement
+      Method bridge = null;
       for (Method m : itf.getDeclaredMethods()) {
-        if (m.isBridge()) {
+        if (m.isBridge()
+            && m.getName().equals(name)
+            && Arrays.equals(paramTypes, Type.getArgumentTypes(m))
+            && returnType.equals(Type.getReturnType(m))) {
+          bridge = m;
+          break;
+        }
+      }
+      checkState(bridge != null, "Couldn't find bridge %s.%s %s", stubbedInterfaceName, name, desc);
+      checkState(bridge.getParameterCount() == paramTypes.length);
+
+      // 2. Try to find the method being bridged
+      Method result = null;
+      next_method:
+      for (Method m : itf.getDeclaredMethods()) {
+        if (m.isBridge() || Modifier.isStatic(m.getModifiers())) {
           continue;
         }
         if (!m.getName().equals(name)) {
           continue;
         }
-        // For now, only support specialized return types (which don't require casts)
-        // TODO(b/73586397): Make this work for other kinds of bridges in core library interfaces
+
         if (Arrays.equals(paramTypes, Type.getArgumentTypes(m))) {
-          checkState(result == null,
-              "Found multiple bridge target %s and %s for descriptor %s", result, m, desc);
-          return result = m;
+          // All argument types match, only return type will differ: this is the method we want
+          return m;
+        } else if (m.getParameterCount() == bridge.getParameterCount()) {
+          for (int i = 0; i < m.getParameterCount(); ++i) {
+            if (!bridge.getParameterTypes()[i].isAssignableFrom(m.getParameterTypes()[i])) {
+              continue next_method;
+            }
+          }
+
+          // All of m's parameter types are subtypes of the bridge's parameter types (or primitives)
+          if (result == null) {
+            result = m;
+          } else {
+            // Bail if we find multiple methods that could be bridged
+            return null;
+          }
         }
       }
       return result;

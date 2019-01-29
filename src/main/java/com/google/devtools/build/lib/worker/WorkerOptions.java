@@ -13,14 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.util.ResourceConverter;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * Options related to worker processes.
@@ -44,18 +49,54 @@ public class WorkerOptions extends OptionsBase {
   )
   public Void experimentalPersistentJavac;
 
+  /**
+   * Defines a resource converter for named values in the form [name=]value, where the value is
+   * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),
+   * the empty string is used as the key. The default value for unspecified mnemonics is {@value
+   * DEFAULT_VALUE}. "auto" currently returns the default.
+   */
+  public static class MultiResourceConverter implements Converter<Entry<String, Integer>> {
+
+    static ResourceConverter valueConverter;
+
+    public static final int DEFAULT_VALUE = 4;
+
+    public MultiResourceConverter() {
+      valueConverter = new ResourceConverter(() -> DEFAULT_VALUE, 0, Integer.MAX_VALUE);
+    }
+
+    @Override
+    public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
+      // TODO(steinman): Make auto value return a reasonable multiplier of host capacity.
+      int pos = input.indexOf('=');
+      if (pos < 0) {
+        return Maps.immutableEntry("", valueConverter.convert(input));
+      }
+      String name = input.substring(0, pos);
+      String value = input.substring(pos + 1);
+      return Maps.immutableEntry(name, valueConverter.convert(value));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "[name=]value, where value is " + ResourceConverter.FLAG_SYNTAX;
+    }
+  }
+
   @Option(
-    name = "worker_max_instances",
-    converter = Converters.NamedIntegersConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "How many instances of a worker process (like the persistent Java compiler) may be "
-            + "launched if you use the 'worker' strategy. May be specified as [name=value] to "
-            + "give a different value per worker mnemonic.",
-    allowMultiple = true
-  )
+      name = "worker_max_instances",
+      converter = MultiResourceConverter.class,
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "How many instances of a worker process (like the persistent Java compiler) may be "
+              + "launched if you use the 'worker' strategy. May be specified as [name=value] to "
+              + "give a different value per worker mnemonic. Takes"
+              + ResourceConverter.FLAG_SYNTAX
+              + ". 'auto' calculates a reasonable default based on machine capacity."
+              + "\"=value\" sets a default for unspecified mnemonics.",
+      allowMultiple = true)
   public List<Map.Entry<String, Integer>> workerMaxInstances;
 
   @Option(
@@ -107,4 +148,5 @@ public class WorkerOptions extends OptionsBase {
     help = "If enabled, workers will be executed in a sandboxed environment."
   )
   public boolean workerSandboxing;
+
 }

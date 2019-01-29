@@ -24,11 +24,12 @@ import re
 import shutil
 import subprocess
 import sys
-from tempfile import mkdtemp
+import tempfile
 
 # pylint: disable=g-direct-third-party-import
 from third_party.py import gflags
 
+gflags.DEFINE_string('rpmbuild', '', 'Path to rpmbuild executable')
 gflags.DEFINE_string('name', '', 'The name of the software being packaged.')
 gflags.DEFINE_string('version', '',
                      'The version of the software being packaged.')
@@ -79,7 +80,7 @@ def Tempdir():
     The full path of the temporary directory.
   """
 
-  dirpath = mkdtemp()
+  dirpath = tempfile.mkdtemp()
 
   def Cleanup():
     shutil.rmtree(dirpath)
@@ -130,6 +131,10 @@ def CopyAndRewrite(input_file, output_file, replacements=None):
       output.write(line)
 
 
+def IsExe(fpath):
+  return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+
 def Which(program):
   """Search for the given program in the PATH.
 
@@ -140,9 +145,6 @@ def Which(program):
     The full path to the program.
   """
 
-  def IsExe(fpath):
-    return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
   for path in os.environ['PATH'].split(os.pathsep):
     filename = os.path.join(path, program)
     if IsExe(filename):
@@ -151,16 +153,23 @@ def Which(program):
   return None
 
 
-class NoRpmbuildFound(Exception):
+class NoRpmbuildFoundError(Exception):
   pass
 
 
-def FindRpmbuild():
+class InvalidRpmbuildError(Exception):
+  pass
+
+
+def FindRpmbuild(rpmbuild_path):
+  if rpmbuild_path:
+    if not IsExe(rpmbuild_path):
+      raise InvalidRpmbuildError('{} is not executable'.format(rpmbuild_path))
+    return rpmbuild_path
   path = Which('rpmbuild')
   if path:
     return path
-  else:
-    raise NoRpmbuildFound()
+  raise NoRpmbuildFoundError()
 
 
 class RpmBuilder(object):
@@ -171,14 +180,14 @@ class RpmBuilder(object):
   TEMP_DIR = 'TMP'
   DIRS = [SOURCE_DIR, BUILD_DIR, TEMP_DIR]
 
-  def __init__(self, name, version, release, arch, debug):
+  def __init__(self, name, version, release, arch, debug, rpmbuild_path):
     self.name = name
     self.version = GetFlagValue(version)
     self.release = GetFlagValue(release)
     self.arch = arch
     self.debug = debug
     self.files = []
-    self.rpmbuild_path = FindRpmbuild()
+    self.rpmbuild_path = FindRpmbuild(rpmbuild_path)
     self.rpm_path = None
 
   def AddFiles(self, paths, root=''):
@@ -236,7 +245,11 @@ class RpmBuilder(object):
         os.path.join(dirname, 'BUILDROOT'),
         self.spec_file,
     ]
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    p = subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env={'LANG': 'C'})
     output = p.communicate()[0]
 
     if p.returncode == 0:
@@ -279,10 +292,10 @@ class RpmBuilder(object):
 def main(argv=()):
   try:
     builder = RpmBuilder(FLAGS.name, FLAGS.version, FLAGS.release, FLAGS.arch,
-                         FLAGS.debug)
+                         FLAGS.debug, FLAGS.rpmbuild)
     builder.AddFiles(argv[1:])
     return builder.Build(FLAGS.spec_file, FLAGS.out_file)
-  except NoRpmbuildFound:
+  except NoRpmbuildFoundError:
     print('ERROR: rpmbuild is required but is not present in PATH')
     return 1
 

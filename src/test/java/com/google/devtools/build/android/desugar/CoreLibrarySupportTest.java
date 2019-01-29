@@ -102,12 +102,15 @@ public class CoreLibrarySupportTest {
             null,
             ImmutableList.of("java/util/Helper"),
             ImmutableList.of(),
-            ImmutableList.of("java/util/Existing#match -> java/util/Helper"),
+            ImmutableList.of(
+                "java/util/Existing#match -> java/util/Helper",
+                "java/util/Existing#unused -> com/google/Unused"),
             ImmutableList.of());
     assertThat(support.getMoveTarget("__/java/util/Existing", "match")).isEqualTo("j$/util/Helper");
     assertThat(support.getMoveTarget("java/util/Existing", "match")).isEqualTo("j$/util/Helper");
     assertThat(support.getMoveTarget("__/java/util/Existing", "matchesnot")).isNull();
     assertThat(support.getMoveTarget("__/java/util/ExistingOther", "match")).isNull();
+    assertThat(support.seenMoveTargets()).containsExactly("j$/util/Helper");
   }
 
   @Test

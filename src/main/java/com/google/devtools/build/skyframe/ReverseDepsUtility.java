@@ -46,8 +46,8 @@ import java.util.Set;
  * may never have their data forcibly consolidated, since their reverse deps will only be retrieved
  * as a whole if they are marked dirty. Thus, we consolidate periodically.
  *
- * <p>{@link InMemoryNodeEntry} manages pending reverse dep operations on a marked-dirty or initally
- * evaluating node itself, using similar logic tuned to those cases, and calls into {@link
+ * <p>{@link InMemoryNodeEntry} manages pending reverse dep operations on a marked-dirty or
+ * initially evaluating node itself, using similar logic tuned to those cases, and calls into {@link
  * #consolidateDataAndReturnNewElements(InMemoryNodeEntry, OpToStoreBare)} when transitioning to
  * done.
  */

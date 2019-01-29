@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
 
 /** Implementation of the {@code cc_toolchain_alias} rule. */
-public class CcHostToolchainAliasRule extends CommonAliasRule {
+public class CcHostToolchainAliasRule extends CommonAliasRule<CppConfiguration> {
 
   public CcHostToolchainAliasRule() {
     super(

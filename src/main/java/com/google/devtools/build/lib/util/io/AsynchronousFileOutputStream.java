@@ -147,7 +147,7 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
   }
 
   /**
-   * Closes the stream without waiting until pending writes are committed, and supressing errors.
+   * Closes the stream without waiting until pending writes are committed, and suppressing errors.
    *
    * <p>Pending writes will still continue asynchronously, but any errors will be ignored.
    */

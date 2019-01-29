@@ -32,8 +32,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
       new Predicate<String>() {
         @Override
         public boolean apply(String label) {
-          return !label.startsWith("@blaze_tools//tools/cpp/stl")
-              && !label.startsWith("@blaze_tools//tools/cpp/link_dynamic_library");
+          return !label.startsWith("@blaze_tools//tools/cpp/link_dynamic_library");
         }
       };
 
@@ -77,7 +76,6 @@ public final class BazelMockCcSupport extends MockCcSupport {
     config.create(
         "/bazel_tools_workspace/tools/cpp/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "cc_library(name = 'stl')",
         "toolchain_type(name = 'toolchain_type')",
         "cc_library(name = 'malloc')",
         "cc_toolchain_suite(",
@@ -108,10 +106,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    cpu = 'local',",
         "    compiler = 'compiler',",
         "    dwp_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'], ",
+        "    dynamic_runtime_lib = ':empty', ",
         "    ar_files = ':empty', as_files = ':empty', linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
-        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_lib = ':empty', strip_files = ':empty',",
         ")",
         "toolchain(name = 'cc-toolchain-local',",
         // Needs to be compatible with all execution environments for tests to work properly.
@@ -128,10 +126,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    cpu = 'k8',",
         "    compiler = 'compiler',",
         "    dwp_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'], ",
+        "    dynamic_runtime_lib = ':empty', ",
         "    ar_files = ':empty', as_files = ':empty', linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
-        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_lib = ':empty', strip_files = ':empty',",
         ")",
         "toolchain(name = 'cc-toolchain-k8',",
         // Needs to be compatible with all execution environments for tests to work properly.
@@ -145,10 +143,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         ")",
         "cc_toolchain(name = 'cc-no-dyn-linker-k8', all_files = ':empty', ",
         "    compiler_files = ':empty', cpu = 'k8', compiler = 'compiler_no_dyn_linker', ",
-        "    dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
+        "    dwp_files = ':empty', dynamic_runtime_lib = ':empty', ",
         "    ar_files = ':empty', as_files = ':empty', linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
-        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_lib = ':empty', strip_files = ':empty',",
         ")",
         "toolchain(name = 'cc-toolchain-no-dyn-linker-k8',",
         // Needs to be compatible with all execution environments for tests to work properly.
@@ -164,10 +162,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    cpu = 'ppc',",
         "    compiler = 'compiler',",
         "    dwp_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'], ",
+        "    dynamic_runtime_lib = ':empty', ",
         "    ar_files = ':empty', as_files = ':empty', linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
-        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_lib = ':empty', strip_files = ':empty',",
         ")",
         "toolchain(name = 'cc-toolchain-ppc',",
         // Needs to be compatible with all execution environments for tests to work properly.
@@ -185,10 +183,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    cpu = 'piii',",
         "    compiler = 'compiler',",
         "    dwp_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'], ",
+        "    dynamic_runtime_lib = ':empty', ",
         "    ar_files = ':empty', as_files = ':empty', linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
-        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_lib = ':empty', strip_files = ':empty',",
         ")",
         "toolchain(name = 'cc-toolchain-piii',",
         // Needs to be compatible with all execution environments for tests to work properly.
@@ -205,10 +203,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    cpu = 'darwin',",
         "    compiler = 'compiler',",
         "    dwp_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'], ",
+        "    dynamic_runtime_lib = ':empty', ",
         "    ar_files = ':empty', as_files = ':empty', linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
-        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_lib = ':empty', strip_files = ':empty',",
         ")",
         "toolchain(name = 'cc-toolchain-darwin',",
         // Needs to be compatible with all execution environments for tests to work properly.
@@ -224,10 +222,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    compiler_files = ':empty',",
         "    cpu = 'darwin',",
         "    compiler = 'compiler_no_dyn_linker',",
-        "    dwp_files = ':empty', dynamic_runtime_libs = [':empty'], ",
+        "    dwp_files = ':empty', dynamic_runtime_lib = ':empty', ",
         "    ar_files = ':empty', as_files = ':empty', linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
-        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_lib = ':empty', strip_files = ':empty',",
         ")",
         "toolchain(name = 'cc-toolchain-no-dyn-linker-darwin',",
         // Needs to be compatible with all execution environments for tests to work properly.
@@ -244,10 +242,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    cpu = 'ios_x86_64',",
         "    compiler = 'compiler',",
         "    dwp_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'], ",
+        "    dynamic_runtime_lib = ':empty', ",
         "    ar_files = ':empty', as_files = ':empty', linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
-        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_lib = ':empty', strip_files = ':empty',",
         ")",
         "toolchain(name = 'cc-toolchain-ios_x86_64',",
         // Needs to be compatible with all execution environments for tests to work properly.
@@ -264,10 +262,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    cpu = 'armeabi-v7a',",
         "    compiler = 'compiler',",
         "    dwp_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'], ",
+        "    dynamic_runtime_lib = ':empty', ",
         "    ar_files = ':empty', as_files = ':empty', linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
-        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_lib = ':empty', strip_files = ':empty',",
         ")",
         "toolchain(name = 'cc-toolchain-armeabi-v7a',",
         // Needs to be compatible with all execution environments for tests to work properly.
@@ -284,10 +282,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    cpu = 'x64_windows',",
         "    compiler = 'windows_msys64',",
         "    dwp_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'], ",
+        "    dynamic_runtime_lib = ':empty', ",
         "    ar_files = ':empty', as_files = ':empty', linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
-        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_lib = ':empty', strip_files = ':empty',",
         ")",
         "toolchain(name = 'cc-toolchain-x64_windows',",
         // Needs to be compatible with all execution environments for tests to work properly.
@@ -304,10 +302,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    cpu = 'x64_windows',",
         "    compiler = 'compiler_no_dyn_linker',",
         "    dwp_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'], ",
+        "    dynamic_runtime_lib = ':empty', ",
         "    ar_files = ':empty', as_files = ':empty', linker_files = ':empty',",
         "    module_map = 'crosstool.cppmap', supports_header_parsing = 1,",
-        "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
+        "    objcopy_files = ':empty', static_runtime_lib = ':empty', strip_files = ':empty',",
         ")",
         "toolchain(name = 'cc-toolchain-no-dyn-linker-x64_windows',",
         // Needs to be compatible with all execution environments for tests to work properly.
@@ -340,8 +338,8 @@ public final class BazelMockCcSupport extends MockCcSupport {
     } else {
       config.create("tools/cpp/link_dynamic_library.sh", "");
     }
-    MockPlatformSupport.setup(config, "/bazel_tools_workspace/platforms");
-    MockPlatformSupport.setup(config, "/bazel_tools_workspace/");
+    MockPlatformSupport.setup(
+        config, "/bazel_tools_workspace/platforms", "/local_config_platform_workspace");
   }
 
   @Override

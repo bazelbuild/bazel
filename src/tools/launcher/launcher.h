@@ -67,9 +67,9 @@ class BinaryLauncherBase {
   // If --print_launcher_command exists in arguments, then we print the full
   // command line instead of launching the real process.
   //
-  // exectuable: the binary to be executed.
-  // arguments:  the command line arguments to be passed to the exectuable,
-  //             it doesn't include the exectuable itself.
+  // executable: the binary to be executed.
+  // arguments:  the command line arguments to be passed to the executable,
+  //             it doesn't include the executable itself.
   //             The arguments are expected to be quoted if having spaces.
   ExitCode LaunchProcess(const std::wstring& executable,
                          const std::vector<std::wstring>& arguments,
@@ -94,7 +94,7 @@ class BinaryLauncherBase {
   // Path to the runfiles directory, if one exists.
   const std::wstring runfiles_dir;
 
-  // The commandline arguments recieved.
+  // The commandline arguments received.
   // The first argument is the path of this launcher itself.
   std::vector<std::wstring> commandline_arguments;
 
@@ -117,9 +117,9 @@ class BinaryLauncherBase {
 
   // Create a command line to be passed to Windows CreateProcessA API.
   //
-  // exectuable: the binary to be executed.
-  // arguments:  the command line arguments to be passed to the exectuable,
-  //             it doesn't include the exectuable itself.
+  // executable: the binary to be executed.
+  // arguments:  the command line arguments to be passed to the executable,
+  //             it doesn't include the executable itself.
   void CreateCommandLine(CmdLine* result, const std::wstring& executable,
                          const std::vector<std::wstring>& arguments) const;
 

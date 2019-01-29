@@ -60,7 +60,10 @@ public class AspectDefinitionTest {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase, RuleContext context, AspectParameters parameters) {
+        ConfiguredTargetAndData ctadBase,
+        RuleContext context,
+        AspectParameters parameters,
+        String toolsRepository) {
       throw new IllegalStateException();
     }
 

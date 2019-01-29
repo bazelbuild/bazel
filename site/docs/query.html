@@ -28,8 +28,7 @@ title: Query Language
 <h3> bazel cquery </h3>
 <p>Traditional bazel query runs on the post-loading phase target graph and therefore
   has no concept of configurations and their related concepts. Notably, this means it does not
-  correctly resolve
-  <a href = "https://docs.bazel.build/versions/master/be/functions.html#select">select statements</a>
+  correctly resolve <a href = "be/functions.html#select">select statements</a>
   and rather returns all possible resolutions of selects. A newer query environment, cquery,
   properly handles configurations but doesn't provide all of the functionality of this original
   query. For more information, see the <a href="cquery.html">Bazel cquery reference</a>.

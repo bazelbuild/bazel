@@ -77,35 +77,6 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-java_import(
-    name = "singlejar_deploy",
-    jars = select({
-        "//src/conditions:windows": ["@bazel_tools//tools/jdk:singlejar"],
-        "//conditions:default": [],
-    }),
-    visibility = ["//visibility:private"],
-)
-
-java_binary(
-    name = "singlejar_javabin",
-    main_class = "com.google.devtools.build.singlejar.SingleJar",
-    runtime_deps = select({
-        "//src/conditions:windows": [":singlejar_deploy"],
-        "//conditions:default": [],
-    }),
-    visibility = ["//visibility:private"],
-)
-
-gen_java_lang_extras_jar_cmd = """
-    $(location %s) \
-        --exclude_build_data \
-        --dont_change_compression \
-        --sources  $(location @bazel_tools//tools/jdk:platformclasspath) \
-        --include_prefixes "java/lang/invoke/" \
-        --include_prefixes "java/lang/annotation/" \
-        --output $@
-    """
-
 # javac needs this Jar to compile lambdas, method references, and type annotations.
 # These classes are not part of the android.jar.
 genrule(
@@ -113,15 +84,16 @@ genrule(
     srcs = [
         "@bazel_tools//tools/jdk:platformclasspath"
     ],
-    tools = select({
-        "//src/conditions:windows": [":singlejar_javabin"],
-        "//conditions:default": ["@bazel_tools//tools/jdk:singlejar"],
-    }),
+    tools = ["@bazel_tools//tools/jdk:singlejar"],
     outs = ["java_lang_extras.jar"],
-    cmd = select({
-        "//src/conditions:windows": gen_java_lang_extras_jar_cmd % ":singlejar_javabin",
-        "//conditions:default": gen_java_lang_extras_jar_cmd % "@bazel_tools//tools/jdk:singlejar",
-    }),
+    cmd = """
+    $(location @bazel_tools//tools/jdk:singlejar) \
+        --exclude_build_data \
+        --dont_change_compression \
+        --sources  $(location @bazel_tools//tools/jdk:platformclasspath) \
+        --include_prefixes "java/lang/invoke/" \
+        --include_prefixes "java/lang/annotation/" \
+        --output $@""",
     visibility = ["//visibility:private"],
 )
 
@@ -201,9 +173,10 @@ genrule(
         --rewrite_core_library_prefix java/util/Spliterator \
         --rewrite_core_library_prefix java/util/StringJoiner \
         --rewrite_core_library_prefix java/util/Tripwire \
+        --rewrite_core_library_prefix java/util/concurrent/ConcurrentHashMap \
+        --rewrite_core_library_prefix java/util/concurrent/DesugarUnsafe \
+        --rewrite_core_library_prefix java/util/concurrent/ThreadLocalRandom \
         --rewrite_core_library_prefix java/util/concurrent/atomic/DesugarAtomic \
-        --retarget_core_library_member "java/util/Arrays#stream->java/util/DesugarArrays" \
-        --retarget_core_library_member "java/util/Arrays#spliterator->java/util/DesugarArrays" \
         --retarget_core_library_member "java/util/LinkedHashSet#spliterator->java/util/DesugarLinkedHashSet" \
         --emulate_core_library_interface java/util/Collection \
         --emulate_core_library_interface java/util/Map \
@@ -347,6 +320,14 @@ alias(
 filegroup(
     name = "debug_keystore",
     srcs = ["bazel_debug.keystore"],
+)
+
+java_binary(
+    name = "exec_binary",
+    main_class = "android.databinding.AndroidDataBinding",
+    runtime_deps = [
+        "//third_party/java/android_databinding:exec",
+    ],
 )
 
 alias(

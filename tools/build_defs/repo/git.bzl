@@ -13,7 +13,7 @@
 # limitations under the License.
 """Rules for cloning external git repositories."""
 
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "update_attrs", "workspace_and_buildfile")
 
 def _clone_or_update(ctx):
     if ((not ctx.attr.tag and not ctx.attr.commit and not ctx.attr.branch) or
@@ -40,6 +40,7 @@ def _clone_or_update(ctx):
             fail("shallow_since not allowed if a branch is specified; --depth=1 will be used for branches")
         shallow = "--shallow-since=%s" % ctx.attr.shallow_since
 
+    ctx.report_progress("Cloning %s of %s" % (ref, ctx.attr.remote))
     if (ctx.attr.verbose):
         print("git.bzl: Cloning or updating %s repository %s using strip_prefix of [%s]" %
               (
@@ -78,6 +79,7 @@ set -ex
 
         ctx.symlink(dest_link, ctx.path("."))
     if ctx.attr.init_submodules:
+        ctx.report_progress("Updating submodules")
         st = ctx.execute([bash_exe, "-c", """
 set -ex
 (   git -C '{directory}' submodule update --init --checkout --force )
@@ -86,6 +88,8 @@ set -ex
         )], environment = ctx.os.environ)
     if st.return_code:
         fail("error updating submodules %s:\n%s" % (ctx.name, st.stderr))
+
+    ctx.report_progress("Recording actual commit")
 
     # After the fact, determine the actual commit and its date
     actual_commit = ctx.execute([
@@ -98,7 +102,7 @@ set -ex
     shallow_date = ctx.execute([
         bash_exe,
         "-c",
-        "(git -C '{directory}' log -n 1 --pretty='format:%cd' --date='format:%Y-%m-%d')".format(
+        "(git -C '{directory}' log -n 1 --pretty='format:%cd' --date=raw)".format(
             directory = ctx.path("."),
         ),
     ]).stdout
@@ -113,15 +117,8 @@ def _remove_dot_git(ctx):
         "rm -rf '{directory}'".format(directory = ctx.path(".git")),
     ])
 
-def _update_commit(orig, keys, override):
-    # Merge the override information into the dict, resulting by taking the
-    # given keys, as well as the name, from orig (if present there).
-    result = {}
-    for key in keys:
-        if getattr(orig, key) != None:
-            result[key] = getattr(orig, key)
-    result["name"] = orig.name
-    result.update(override)
+def _update_git_attrs(orig, keys, override):
+    result = update_attrs(orig, keys, override)
 
     # if we found the actual commit, remove all other means of specifying it,
     # like tag or branch.
@@ -160,13 +157,13 @@ def _new_git_repository_implementation(ctx):
     workspace_and_buildfile(ctx)
     patch(ctx)
     _remove_dot_git(ctx)
-    return _update_commit(ctx.attr, _new_git_repository_attrs.keys(), update)
+    return _update_git_attrs(ctx.attr, _new_git_repository_attrs.keys(), update)
 
 def _git_repository_implementation(ctx):
     update = _clone_or_update(ctx)
     patch(ctx)
     _remove_dot_git(ctx)
-    return _update_commit(ctx.attr, _common_attrs.keys(), update)
+    return _update_git_attrs(ctx.attr, _common_attrs.keys(), update)
 
 new_git_repository = repository_rule(
     implementation = _new_git_repository_implementation,
@@ -176,7 +173,7 @@ new_git_repository = repository_rule(
 
 Clones a Git repository, checks out the specified tag, or commit, and
 makes its targets available for binding. Also determine the id of the
-commit actually checked out and its date, and return a dict with paramters
+commit actually checked out and its date, and return a dict with parameters
 that provide a reproducible version of this rule (which a tag not necessarily
 is).
 
@@ -212,7 +209,7 @@ Args:
   shallow_since: an optional date, not after the specified commit; the
     argument is not allowed if a tag is specified (which allows cloning
     with depth 1). Setting such a date close to the specified commit
-    allows for a more shallow clone of the repository, saving bandwith and
+    allows for a more shallow clone of the repository, saving bandwidth and
     wall-clock time.
 
   init_submodules: Whether to clone submodules in the repository.
@@ -236,7 +233,7 @@ git_repository = repository_rule(
 
 Clones a Git repository, checks out the specified tag, or commit, and
 makes its targets available for binding. Also determine the id of the
-commit actually checked out and its date, and return a dict with paramters
+commit actually checked out and its date, and return a dict with parameters
 that provide a reproducible version of this rule (which a tag not necessarily
 is).
 
@@ -259,7 +256,7 @@ Args:
     the specified commit; the argument is not allowed if a tag is specified
     (which allows cloning with depth 1). Setting such a date close to the
     specified commit allows for a more shallow clone of the repository, saving
-    bandwith and wall-clock time.
+    bandwidth and wall-clock time.
 
   strip_prefix: A directory prefix to strip from the extracted files.
 

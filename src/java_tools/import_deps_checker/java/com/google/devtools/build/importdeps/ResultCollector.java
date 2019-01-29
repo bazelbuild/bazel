@@ -33,8 +33,11 @@ public class ResultCollector {
   private final HashMap<String, IncompleteState> incompleteClasses = new HashMap<>();
   private final HashSet<MissingMember> missingMembers = new HashSet<>();
   private final HashSet<Path> indirectDeps = new HashSet<>();
+  private final boolean checkMissingMembers;
 
-  public ResultCollector() {}
+  public ResultCollector(boolean checkMissingMembers) {
+    this.checkMissingMembers = checkMissingMembers;
+  }
 
   public void addMissingOrIncompleteClass(String internalName, AbstractClassEntryState state) {
     checkArgument(
@@ -65,8 +68,15 @@ public class ResultCollector {
         && indirectDeps.isEmpty();
   }
 
+  /** Returns {@code true} if we want to report missing members, {@code false} otherwise. */
+  public boolean getCheckMissingMembers() {
+    return checkMissingMembers;
+  }
+
   public void addMissingMember(ClassInfo owner, MemberInfo member) {
-    missingMembers.add(MissingMember.create(owner, member));
+    if (checkMissingMembers) {
+      missingMembers.add(MissingMember.create(owner, member));
+    }
   }
 
   public void addIndirectDep(Path indirectDep) {

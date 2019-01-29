@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
 
-/**
- * Implementation of the {@code cc_toolchain_alias} rule.
- */
-public class CcToolchainAliasRule extends CommonAliasRule {
+/** Implementation of the {@code cc_toolchain_alias} rule. */
+public class CcToolchainAliasRule extends CommonAliasRule<CppConfiguration> {
   public CcToolchainAliasRule() {
     super("cc_toolchain_alias", CppRuleClasses::ccToolchainAttribute, CppConfiguration.class);
   }

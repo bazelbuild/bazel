@@ -20,10 +20,6 @@ cc_library(
     name = "malloc",
 )
 
-cc_library(
-    name = "stl",
-)
-
 filegroup(
     name = "empty",
     srcs = [],
@@ -47,13 +43,12 @@ cc_toolchain(
     name = "cc-compiler-x64_windows_msys",
     toolchain_identifier = "msys_x64",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
 )
@@ -77,13 +72,12 @@ cc_toolchain(
     name = "cc-compiler-x64_windows_mingw",
     toolchain_identifier = "msys_x64_mingw",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "x64_windows",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
 )
@@ -107,13 +101,12 @@ cc_toolchain(
     name = "cc-compiler-x64_windows",
     toolchain_identifier = "msvc_x64",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "x64_windows",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
 )
@@ -136,13 +129,12 @@ cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     toolchain_identifier = "stub_armeabi-v7a",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
 )

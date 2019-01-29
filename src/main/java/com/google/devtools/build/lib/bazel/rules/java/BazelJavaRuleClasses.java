@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -91,14 +91,6 @@ public class BazelJavaRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":jvm", LABEL)
-              .value(JavaSemantics.jvmAttribute(env))
-              .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id())
-              .useOutputLicenses())
-          .add(attr(":host_jdk", LABEL)
-              .cfg(HostTransition.INSTANCE)
-              .value(JavaSemantics.hostJdkAttribute(env))
-              .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
           .add(attr("$jacoco_instrumentation", LABEL).cfg(HostTransition.INSTANCE))
           .build();
     }
@@ -108,7 +100,7 @@ public class BazelJavaRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$java_base_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(IjarBaseRule.class)
+          .ancestors(IjarBaseRule.class, JavaRuntimeBaseRule.class)
           .build();
     }
   }
@@ -463,11 +455,12 @@ public class BazelJavaRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$base_java_binary")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(JavaRule.class,
+          .ancestors(
+              JavaRule.class,
               // java_binary and java_test require the crosstool C++ runtime
               // libraries (libstdc++.so, libgcc_s.so).
               // TODO(bazel-team): Add tests for Java+dynamic runtime.
-              BazelCppRuleClasses.CcLinkingRule.class)
+              CcToolchainRequiringRule.class)
           .build();
     }
   }

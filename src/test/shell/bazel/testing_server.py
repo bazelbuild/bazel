@@ -14,18 +14,27 @@
 
 """An HTTP server to use for external repository integration tests."""
 
+# pylint: disable=g-import-not-at-top,g-importing-member
 import base64
-from BaseHTTPServer import BaseHTTPRequestHandler
-import getopt
+try:
+  from http.server import BaseHTTPRequestHandler
+except ImportError:
+  # Python 2.x compatibility hack.
+  from BaseHTTPServer import BaseHTTPRequestHandler
 import os
-import SocketServer
+import os.path
+try:
+  from socketserver import TCPServer
+except ImportError:
+  # Python 2.x compatibility hack.
+  from SocketServer import TCPServer
 import sys
-
-auth = None
 
 
 class Handler(BaseHTTPRequestHandler):
   """Handlers for testing HTTP server."""
+  auth = False
+  valid_header = b'Basic ' + base64.b64encode('foo:bar'.encode('ascii'))
 
   def do_HEAD(self):  # pylint: disable=invalid-name
     self.send_response(200)
@@ -39,49 +48,44 @@ class Handler(BaseHTTPRequestHandler):
     self.end_headers()
 
   def do_GET(self):  # pylint: disable=invalid-name
-    if auth is None:
+    if not self.auth:
       self.do_HEAD()
       self.serve_file()
       return
 
-    foo_bar = base64.b64encode('foo:bar')
-
-    if self.headers.getheader('Authorization') is None:
-      self.do_AUTHHEAD()
-      self.wfile.write('Login required.')
-    elif self.headers.getheader('Authorization') == 'Basic %s' % foo_bar:
+    auth_header = self.headers.get('Authorization', '').encode('ascii')
+    if auth_header == self.valid_header:
       self.do_HEAD()
-      try:
-        self.wfile.write(self.headers.getheader('Authorization'))
-        self.serve_file()
-      except IOError:
-        self.wfile.write('Authorized.')
+      self.serve_file()
     else:
       self.do_AUTHHEAD()
-      self.wfile.write(self.headers.getheader('Authorization'))
-      self.wfile.write('not authenticated')
+      self.wfile.write(b'Login required.')
 
   def serve_file(self):
-    with open(str(os.getcwd()) + self.path) as file_to_serve:
+    with open(os.path.join(os.getcwd(), self.path[1:]), 'rb') as file_to_serve:
       self.wfile.write(file_to_serve.read())
 
 
-if __name__ == '__main__':
-  try:
-    opts, args = getopt.getopt(sys.argv[1:], 'p:a:', ['port=', 'auth='])
-  except getopt.GetoptError:
-    print 'Error parsing args'
-    sys.exit(1)
+def main(argv=None):
+  if argv is None:
+    argv = sys.argv[1:]
 
-  port = 12345
-  for o, a in opts:
-    if o in ('-p', '--port'):
-      port = int(a)
-    if o in ('-a', '--auth'):
-      auth = a
-  httpd = SocketServer.TCPServer(('', port), Handler)
+  if not argv:
+    sys.stderr.write('Usage: testing_server.py port [auth]\n')
+    return 1
+
+  port = int(argv[0])
+  if len(argv) > 1:
+    Handler.auth = True
+
+  httpd = TCPServer(('', port), Handler)
+
   try:
-    print 'Serving forever on %d.' % port
+    sys.stderr.write('Serving forever on %d.\n' % port)
     httpd.serve_forever()
-  except:  # pylint: disable=bare-except
-    print 'Goodbye.'
+  finally:
+    sys.stderr.write('Goodbye.\n')
+
+
+if __name__ == '__main__':
+  sys.exit(main())

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -22,49 +23,49 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 
-/** Wrapper for every C++ linking provider. */
+/** Wrapper for every C++ compilation and linking provider. */
 @SkylarkModule(
-    name = "cc_info",
-    documented = false,
+    name = "CcInfo",
     category = SkylarkModuleCategory.PROVIDER,
-    doc = "Wrapper for every C++ provider")
+    doc = "A provider containing information for C++ compilation and linking.")
 public interface CcInfoApi extends StructApi {
   String NAME = "CcInfo";
 
   @SkylarkCallable(
       name = "compilation_context",
-      documented = false,
-      allowReturnNones = true,
+      doc = "Returns the <code>CompilationContext</code>",
       structField = true)
   CcCompilationContextApi getCcCompilationContext();
 
   @SkylarkCallable(
       name = "linking_context",
-      documented = false,
-      allowReturnNones = true,
+      doc = "Returns the <code>LinkingContext</code>",
       structField = true)
-  CcLinkingInfoApi getCcLinkingInfo();
+  CcLinkingContextApi getCcLinkingContext();
 
-  /** The provider implementing this can construct the AndroidCcLinkParamsInfo provider. */
+  /** The provider implementing this can construct the CcInfo provider. */
   @SkylarkModule(
-      name = "Provider",
+      name = "CcProvider",
       doc =
-          "Do not use this module. It is intended for migration purposes only. If you depend on "
-              + "it, you will be broken when it is removed.",
-      documented = false)
+          "A provider for compilation and linking of C++. This "
+              + "is also a marking provider telling C++ rules that they can depend on the rule "
+              + "with this provider. If it is not intended for the rule to be depended on by C++, "
+              + "the rule should wrap the CcInfo in some other provider.")
   interface Provider extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
         doc = "The <code>CcInfo</code> constructor.",
-        documented = false,
+        useLocation = true,
+        useEnvironment = true,
         parameters = {
           @Param(
               name = "compilation_context",
-              doc = "The CcCompilationContext.",
+              doc = "The <code>CompilationContext</code>.",
               positional = false,
               named = true,
               noneable = true,
@@ -75,18 +76,23 @@ public interface CcInfoApi extends StructApi {
               }),
           @Param(
               name = "linking_context",
-              doc = "The CcLinkingContext.",
+              doc = "The <code>LinkingContext</code>.",
               positional = false,
               named = true,
               noneable = true,
               defaultValue = "None",
               allowedTypes = {
-                @ParamType(type = CcLinkingInfoApi.class),
+                @ParamType(type = CcLinkingContextApi.class),
                 @ParamType(type = NoneType.class)
               })
         },
         selfCall = true)
     @SkylarkConstructor(objectType = CcInfoApi.class, receiverNameForDoc = NAME)
-    CcInfoApi createInfo(Object ccCompilationContext, Object ccLinkingInfo) throws EvalException;
+    CcInfoApi createInfo(
+        Object ccCompilationContext,
+        Object ccLinkingInfo,
+        Location location,
+        Environment environment)
+        throws EvalException;
   }
 }

@@ -98,8 +98,13 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
         return; // Assume all methods of arrays exist by default.
       }
       checkDescriptor(desc);
-      AbstractClassEntryState state = checkInternalName(owner);
 
+      if (!resultCollector.getCheckMissingMembers()) {
+        return;  // No point in doing the expensive stuff below
+      }
+
+      // TODO(kmb): Consider removing this entirely so we don't have to track members at all
+      AbstractClassEntryState state = checkInternalName(owner);
       Optional<ClassInfo> classInfo = state.classInfo();
       if (!classInfo.isPresent()) {
         checkState(state.isMissingState(), "The state should be MissingState. %s", state);
@@ -357,6 +362,18 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
 
     private void checkHandle(Handle handle) {
       checkMember(handle.getOwner(), handle.getName(), handle.getDesc());
+    }
+
+    @Override
+    public void visitLdcInsn(Object value) {
+      if (value instanceof Type) {
+        checkType((Type) value); // Class literals
+      } else if (value instanceof Handle) {
+        checkHandle((Handle) value);
+      } else {
+        checkState(PRIMITIVE_TYPES.contains(value.getClass()));
+      }
+      super.visitLdcInsn(value);
     }
 
     @Override

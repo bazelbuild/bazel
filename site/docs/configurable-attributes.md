@@ -20,14 +20,15 @@ title: Configurable Build Attributes
 * [Rules Compatibility](#rules)
 * [Bazel Query and Cquery](#query)
 * [FAQ](#faq)
-  * [Why doesn't select() work in macros](#macros-select)
+  * [Why doesn't select() work in macros?](#macros-select)
   * [Why does select() always return true?](#boolean-select)
   * [Can I read select() like a dict?](#inspectable-select)
+  * [Why doesn't select() work with bind()?](#bind-select)
 
 &nbsp;
 
-**_Configurable attributes_**, commonly known as [`select()`]
-(be/functions.html#select), is a Bazel feature that lets users toggle the values
+**_Configurable attributes_**, commonly known as [`select()`](
+be/functions.html#select), is a Bazel feature that lets users toggle the values
 of BUILD rule attributes at the command line.
 
 This can be used, for example, for a multiplatform library that automatically
@@ -76,7 +77,7 @@ command line. Specficially, `deps` becomes:
     <td><code>[":arm_lib"]</code></td>
   </tr>
   <tr>
-    <td><code>bazel build //myapp:mybinary --c dbg --cpu=x86</code></td>
+    <td><code>bazel build //myapp:mybinary -c dbg --cpu=x86</code></td>
     <td><code>[":x86_dev_lib"]</code></td>
   </tr>
   <tr>
@@ -198,8 +199,8 @@ Since `config_setting` currently only supports built-in Bazel flags, the level
 of custom conditioning it can support is limited. For example, there's no Bazel
 flag for `IncludeSpecialProjectFeatureX`.
 
-Plans for [truly custom flags]
-(https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
+Plans for [truly custom flags](
+https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
 are underway. In the meantime, [`--define`](user-manual.html#flag--define) is
 the best approach for these purposes.
 `--define` is a bit awkward to use and wasn't originally designed for this
@@ -321,9 +322,8 @@ Without platforms, this might look something like
 bazel build //my_app:my_rocks --define color=white --define texture=smooth --define type=metamorphic
 ```
 
-Platforms are still under development. See the [documentation]
-(https://docs.bazel.build/versions/master/platforms.html) and [roadmap]
-(https://bazel.build/roadmaps/platforms.html) for details.
+Platforms are still under development. See the [documentation](platforms.html)
+and [roadmap](https://bazel.build/roadmaps/platforms.html) for details.
 
 ## Short Keys
 
@@ -512,7 +512,7 @@ one of the following:
 
 ### <a name="selects-with-or"></a>`selects.with_or`
 
-The [Skylib](https://github.com/bazelbuild/bazel-skylib) utility [`selects`]
+The [Skylib](https://github.com/bazelbuild/bazel-skylib) utility [`selects`](
 (https://github.com/bazelbuild/bazel-skylib/blob/master/lib/selects.bzl)
 defines a Starlark macro that emulates `OR` behavior:
 
@@ -644,8 +644,8 @@ select({"foo": "val_with_suffix"}, ...)
 This is for two reasons.
 
 First, macros that need to know which path a `select` will choose *cannot work*
-because macros are evaluated in Bazel's [loading phase]
-(user-manual.html#loading-phase), which occurs before flag values are known.
+because macros are evaluated in Bazel's [loading phase](user-manual.html#loading-phase),
+which occurs before flag values are known.
 This is a core Bazel design restriction that's unlikely to change any time soon.
 
 Second, macros that just need to iterate over *all* `select` paths, while
@@ -653,8 +653,8 @@ technically feasible, lack a coherent UI. Further design is necessary to change
 this.
 
 ## <a name="query"></a>Bazel Query and Cquery
-Bazel `query` operates over Bazel's [loading phase]
-(user-manual.html#loading-phase). This means it doesn't know what command line
+Bazel `query` operates over Bazel's [loading phase](
+user-manual.html#loading-phase). This means it doesn't know what command line
 flags will be applied to a target since those flags aren't evaluated until later
 in the build (during the [analysis phase](user-manual.html#analysis-phase)). So
 the [`query`](query.html) command can't accurately determine which path a
@@ -742,7 +742,7 @@ Instantiate the rule and macro:
 ```python
 # myproject/BUILD
 
-load("//myproject:defx.bzl", "my_custom_bazel_rule")
+load("//myproject:defs.bzl", "my_custom_bazel_rule")
 load("//myproject:defs.bzl", "my_custom_bazel_macro")
 
 my_custom_bazel_rule(
@@ -839,7 +839,7 @@ def my_boolean_macro(boolval):
   print("TRUE" if boolval else "FALSE")
 
 $ cat myproject/BUILD
-load("//myproject:defx.bzl", "my_boolean_macro")
+load("//myproject:defs.bzl", "my_boolean_macro")
 my_boolean_macro(
     boolval = select({
         "//tools/target_cpu:x86": True,
@@ -916,3 +916,46 @@ def selecty_genrule(name, select_cmd):
         cmd = "echo " + cmd_suffix + "> $@",
     )
 ```
+
+## <a name="bind-select"></a>Why doesn't select() work with bind()?
+
+Because [`bind()`](be/workspace.html#bind) is a WORKSPACE rule, not a BUILD rule.
+
+Workspace rules do not have a specific configuration, and aren't evaluated in
+the same way as BUILD rules. Therefore, a `select()` in a `bind()` can't
+actually evaluate to any specific branch.
+
+Instead, you should use [`alias()`](be/general.html#alias), with a `select()` in
+the `actual` attribute, to perform this type of run-time determination. This
+works correctly, since `alias()` is a BUILD rule, and is evaluated with a
+specific configuration.
+
+You can even have a `bind()` target point to an `alias()`, if needed.
+
+```sh
+$ cat WORKSPACE
+workspace(name = "myproject")
+bind(name = "openssl", actual = "//:ssl")
+http_archive(name = "alternative", ...)
+http_archive(name = "boringssl", ...)
+
+$ cat BUILD
+config_setting(
+    name = "alt_ssl",
+    define_values = {
+        "ssl_library": "alternative",
+    },
+)
+
+alias(
+    name = "ssl",
+    actual = select({
+        "//:alt_ssl": "@alternative//:ssl",
+        "//conditions:default": "@boringssl//:ssl",
+    }),
+)
+```
+
+With this setup, you can pass `--define ssl_library=alternative`, and any target
+that depends on either `//:ssl` or `//external:ssl` will see the alternative
+located at `@alternative//:ssl`.

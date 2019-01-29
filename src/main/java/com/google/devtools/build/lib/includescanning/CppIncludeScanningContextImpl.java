@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeScanningContext;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 
 /**
  * Include scanning context implementation.
@@ -40,9 +41,10 @@ public class CppIncludeScanningContextImpl implements CppIncludeScanningContext 
   public Iterable<Artifact> findAdditionalInputs(
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,
-      IncludeProcessing includeProcessing)
+      IncludeProcessing includeProcessing,
+      IncludeScanningHeaderData includeScanningHeaderData)
       throws ExecException, InterruptedException {
     return includeProcessing.determineAdditionalInputs(
-        includeScannerSupplier.get(), action, actionExecutionContext);
+        includeScannerSupplier.get(), action, actionExecutionContext, includeScanningHeaderData);
   }
 }

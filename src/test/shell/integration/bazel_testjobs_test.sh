@@ -127,12 +127,4 @@ function test_local_test_jobs_exceeds_jobs_causes_warning() {
   expect_log 'High value for --local_test_jobs'
 }
 
-function test_negative_local_test_jobs_causes_warning() {
-  create_test_files
-  bazel test --local_test_jobs=-1 --local_resources=10000,10,100 --runs_per_test=10 \
-      //dir:test >& $TEST_log && fail "Expected test failure"
-
-  expect_log 'Invalid parameter for --local_test_jobs'
-}
-
 run_suite "Tests for --local_test_jobs option."

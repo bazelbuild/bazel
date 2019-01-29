@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -45,7 +46,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -62,6 +63,7 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -70,6 +72,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -121,6 +124,13 @@ public class CppCompileAction extends AbstractAction
   // files--such as Clif--may use this mechanism.
   private final ImmutableList<Artifact> additionalIncludeScanningRoots;
   @VisibleForTesting public final CompileCommandLine compileCommandLine;
+
+  /**
+   * The fingerprint of {@link #compileCommandLine}. This is computed lazily so that the command
+   * line is not unnecessarily flattened outside of action execution.
+   */
+  byte[] commandLineKey = null;
+
   private final ImmutableMap<String, String> executionInfo;
   private final String actionName;
 
@@ -226,7 +236,7 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact grepIncludes) {
     super(
         owner,
-        NestedSetBuilder.fromNestedSet(mandatoryInputs).addAll(inputsForInvalidation).build(),
+        createInputsBuilder(mandatoryInputs, inputsForInvalidation).build(),
         CollectionUtils.asSetWithoutNulls(
             outputFile,
             dotdFile == null ? null : dotdFile.artifact(),
@@ -333,6 +343,11 @@ public class CppCompileAction extends AbstractAction
     return Preconditions.checkNotNull(additionalInputs);
   }
 
+  /** Clears the discovered {@link #additionalInputs}. */
+  public void clearAdditionalInputs() {
+    additionalInputs = null;
+  }
+
   @Override
   public boolean discoversInputs() {
     return shouldScanIncludes || needsDotdInputPruning;
@@ -353,14 +368,19 @@ public class CppCompileAction extends AbstractAction
    * #mandatoryInputs}. Thus, even with include scanning turned off, we pretend that we "discover"
    * these headers.
    */
-  private Iterable<Artifact> findUsedHeaders(ActionExecutionContext actionExecutionContext)
+  private Iterable<Artifact> findUsedHeaders(
+      ActionExecutionContext actionExecutionContext, IncludeScanningHeaderData headerData)
       throws ActionExecutionException, InterruptedException {
     Iterable<Artifact> includeScanningResult;
     try {
       includeScanningResult =
           actionExecutionContext
               .getContext(CppIncludeScanningContext.class)
-              .findAdditionalInputs(this, actionExecutionContext, includeProcessing);
+              .findAdditionalInputs(
+                  this,
+                  actionExecutionContext,
+                  includeProcessing,
+                  headerData);
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Include scanning of rule '" + getOwner().getLabel() + "'",
@@ -438,7 +458,20 @@ public class CppCompileAction extends AbstractAction
     Preconditions.checkArgument(!sourceFile.isFileType(CppFileTypes.CPP_MODULE));
 
     if (additionalInputs == null) {
-      additionalInputs = findUsedHeaders(actionExecutionContext);
+      List<String> options = getCompilerOptions();
+      commandLineKey = computeCommandLineKey(options);
+      List<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
+      additionalInputs =
+          findUsedHeaders(
+              actionExecutionContext,
+              ccCompilationContext
+                  .createIncludeScanningHeaderData(usePic, useHeaderModules)
+                  .setSystemIncludeDirs(systemIncludeDirs)
+                  .setCmdlineIncludes(getCmdlineIncludes(options))
+                  .build());
+      if (needsIncludeValidation) {
+        verifyActionIncludePaths(systemIncludeDirs);
+      }
 
       if (!shouldScanIncludes) {
         return additionalInputs;
@@ -509,9 +542,7 @@ public class CppCompileAction extends AbstractAction
     return getOutputFile();
   }
 
-  /**
-   * Returns the path of the c/cc source for gcc.
-   */
+  /** Returns the path of the c/cc source for gcc. */
   public final Artifact getSourceFile() {
     return compileCommandLine.getSourceFile();
   }
@@ -521,10 +552,6 @@ public class CppCompileAction extends AbstractAction
    */
   public Artifact getOutputFile() {
     return outputFile;
-  }
-
-  public IncludeScanningHeaderData getIncludeScanningHeaderData() {
-    return ccCompilationContext.createIncludeScanningHeaderData(usePic, useHeaderModules);
   }
 
   @Override
@@ -574,8 +601,12 @@ public class CppCompileAction extends AbstractAction
     return result.build();
   }
 
-  @Override
-  public List<PathFragment> getSystemIncludeDirs() {
+  @VisibleForTesting
+  List<PathFragment> getSystemIncludeDirs() {
+    return getSystemIncludeDirs(getCompilerOptions());
+  }
+
+  private List<PathFragment> getSystemIncludeDirs(List<String> compilerOptions) {
     // TODO(bazel-team): parsing the command line flags here couples us to gcc-style compiler
     // command lines; use a different way to specify system includes (for example through a
     // system_includes attribute in cc_toolchain); note that that would disallow users from
@@ -583,7 +614,6 @@ public class CppCompileAction extends AbstractAction
     // Currently, this works together with the include_paths features because getCommandLine() will
     // get the system include paths from the {@code CcCompilationContext} instead.
     ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
-    List<String> compilerOptions = getCompilerOptions();
     for (int i = 0; i < compilerOptions.size(); i++) {
       String opt = compilerOptions.get(i);
       if (opt.startsWith("-isystem")) {
@@ -600,10 +630,8 @@ public class CppCompileAction extends AbstractAction
     return result.build();
   }
 
-  @Override
-  public List<String> getCmdlineIncludes() {
+  private List<String> getCmdlineIncludes(List<String> args) {
     ImmutableList.Builder<String> cmdlineIncludes = ImmutableList.builder();
-    List<String> args = getArguments();
     for (Iterator<String> argi = args.iterator(); argi.hasNext();) {
       String arg = argi.next();
       if (arg.equals("-include") && argi.hasNext()) {
@@ -818,7 +846,8 @@ public class CppCompileAction extends AbstractAction
   }
 
   @VisibleForTesting
-  void verifyActionIncludePaths() throws ActionExecutionException {
+  void verifyActionIncludePaths(List<PathFragment> systemIncludeDirs)
+      throws ActionExecutionException {
     ImmutableSet<PathFragment> ignoredDirs = ImmutableSet.copyOf(getValidationIgnoredDirs());
     // We currently do not check the output of:
     // - getQuoteIncludeDirs(): those only come from includes attributes, and are checked in
@@ -827,7 +856,7 @@ public class CppCompileAction extends AbstractAction
     //   to use an absolute system root, in which case the builtin include dirs might be absolute.
 
     Iterable<PathFragment> includePathsToVerify =
-        Iterables.concat(getIncludeDirs(), getSystemIncludeDirs());
+        Iterables.concat(getIncludeDirs(), systemIncludeDirs);
     for (PathFragment includePath : includePathsToVerify) {
       // includePathsToVerify contains all paths that are added as -isystem directive on the command
       // line, most of which are added for include directives in the CcCompilationContext and are
@@ -837,8 +866,8 @@ public class CppCompileAction extends AbstractAction
         continue;
       }
       // One starting ../ is okay for getting to a sibling repository.
-      if (includePath.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
-        includePath = includePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
+      if (includePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+        includePath = includePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
       }
       if (includePath.isAbsolute() || includePath.containsUplevelReferences()) {
         throw new ActionExecutionException(
@@ -908,16 +937,22 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
-  /** Recalculates this action's live input collection, including sources, middlemen. */
+  /**
+   * Recalculates this action's live input collection, including sources, middlemen.
+   *
+   * <p>Can only be called if {@link #discoversInputs}, and must be called after execution in that
+   * case.
+   */
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   @ThreadCompatible
-  public final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
+  final void updateActionInputs(NestedSet<Artifact> discoveredInputs) {
+    Preconditions.checkState(
+        discoversInputs(), "Can't call if not discovering inputs: %s %s", discoveredInputs, this);
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, describe())) {
-      inputs.addTransitive(mandatoryInputs);
-      inputs.addAll(inputsForInvalidation);
-      inputs.addTransitive(discoveredInputs);
-      super.updateInputs(inputs.build());
+      super.updateInputs(
+          createInputsBuilder(mandatoryInputs, inputsForInvalidation)
+              .addTransitive(discoveredInputs)
+              .build());
     }
   }
 
@@ -1027,19 +1062,11 @@ public class CppCompileAction extends AbstractAction
   @Override
   public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addUUID(actionClassId);
-    fp.addStringMap(env.getFixedEnv());
-    fp.addStrings(env.getInheritedEnv());
+    env.addTo(fp);
     fp.addStringMap(compileCommandLine.getEnvironment());
     fp.addStringMap(executionInfo);
 
-    // For the argv part of the cache key, ignore all compiler flags that explicitly denote module
-    // file (.pcm) inputs. Depending on input discovery, some of the unused ones are removed from
-    // the command line. However, these actually don't have an influence on the compile itself and
-    // so ignoring them for the cache key calculation does not affect correctness. The compile
-    // itself is fully determined by the input source files and module maps.
-    // A better long-term solution would be to make the compiler to find them automatically and
-    // never hand in the .pcm files explicitly on the command line in the first place.
-    fp.addStrings(compileCommandLine.getArguments(/* overwrittenVariables= */ null));
+    fp.addBytes(getCommandLineKey());
     actionKeyContext.addNestedSetToFingerprint(fp, ccCompilationContext.getDeclaredIncludeSrcs());
     fp.addInt(0); // mark the boundary between input types
     actionKeyContext.addNestedSetToFingerprint(fp, getMandatoryInputs());
@@ -1062,37 +1089,90 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
+  private byte[] getCommandLineKey() {
+    if (commandLineKey == null) {
+      // For the argv part of the cache key, ignore all compiler flags that explicitly denote module
+      // file (.pcm) inputs. Depending on input discovery, some of the unused ones are removed from
+      // the command line. However, these actually don't have an influence on the compile itself and
+      // so ignoring them for the cache key calculation does not affect correctness. The compile
+      // itself is fully determined by the input source files and module maps.
+      // A better long-term solution would be to make the compiler to find them automatically and
+      // never hand in the .pcm files explicitly on the command line in the first place.
+      commandLineKey = computeCommandLineKey(getCompilerOptions());
+    }
+    return commandLineKey;
+  }
+
+  private byte[] computeCommandLineKey(List<String> compilerOptions) {
+    Fingerprint fp = new Fingerprint();
+    fp.addStrings(compilerOptions);
+    return fp.digestAndReset();
+  }
+
   @Override
   @ThreadCompatible
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    if (needsIncludeValidation) {
-      verifyActionIncludePaths();
-    }
-
     setModuleFileFlags();
     CppCompileActionContext.Reply reply;
-    ShowIncludesFilter showIncludesFilterForStdout = null;
-    ShowIncludesFilter showIncludesFilterForStderr = null;
-    // If parse_showincludes feature is enabled, instead of parsing dotD file we parse the output of
-    // cl.exe caused by /showIncludes option.
-    if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
-      showIncludesFilterForStdout = new ShowIncludesFilter(getSourceFile().getFilename());
-      showIncludesFilterForStderr = new ShowIncludesFilter(getSourceFile().getFilename());
-      actionExecutionContext.getFileOutErr().setOutputFilter(showIncludesFilterForStdout);
-      actionExecutionContext.getFileOutErr().setErrorFilter(showIncludesFilterForStderr);
-    }
 
     if (!shouldScanDotdFiles()) {
       updateActionInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs));
     }
 
+    ActionExecutionContext spawnContext;
+    ShowIncludesFilter showIncludesFilterForStdout;
+    ShowIncludesFilter showIncludesFilterForStderr;
+    if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+      String workspaceName = actionExecutionContext.getExecRoot().getBaseName();
+      showIncludesFilterForStdout =
+          new ShowIncludesFilter(getSourceFile().getFilename(), workspaceName);
+      showIncludesFilterForStderr =
+          new ShowIncludesFilter(getSourceFile().getFilename(), workspaceName);
+      FileOutErr originalOutErr = actionExecutionContext.getFileOutErr();
+      FileOutErr tempOutErr = originalOutErr.childOutErr();
+      spawnContext = actionExecutionContext.withFileOutErr(tempOutErr);
+    } else {
+      spawnContext = actionExecutionContext;
+      showIncludesFilterForStdout = null;
+      showIncludesFilterForStderr = null;
+    }
+
+    // We want the code to be executed in the finally clause, but we need to throw IOException if
+    // it failed, or add the IOException as a suppressed exception if the try block threw an
+    // exception in the first place. Errorprone recommends using AutoCloseable for this.
+    final class Defer implements AutoCloseable {
+      @Override
+      public void close() throws IOException {
+        // If parse_showincludes feature is enabled, instead of parsing dotD file we parse the
+        // output of cl.exe caused by /showIncludes option.
+        if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+          FileOutErr tempOutErr = spawnContext.getFileOutErr();
+          FileOutErr outErr = actionExecutionContext.getFileOutErr();
+          tempOutErr.close();
+          if (tempOutErr.hasRecordedStdout()) {
+            try (InputStream in = tempOutErr.getOutputPath().getInputStream()) {
+              ByteStreams.copy(
+                  in,
+                  showIncludesFilterForStdout.getFilteredOutputStream(outErr.getOutputStream()));
+            }
+          }
+          if (tempOutErr.hasRecordedStderr()) {
+            try (InputStream in = tempOutErr.getErrorPath().getInputStream()) {
+              ByteStreams.copy(
+                  in, showIncludesFilterForStderr.getFilteredOutputStream(outErr.getErrorStream()));
+            }
+          }
+        }
+      }
+    }
+
     List<SpawnResult> spawnResults;
-    try {
+    try (Defer ignored = new Defer()) {
       CppCompileActionResult cppCompileActionResult =
           actionExecutionContext
               .getContext(CppCompileActionContext.class)
-              .execWithReply(this, actionExecutionContext);
+              .execWithReply(this, spawnContext);
       reply = cppCompileActionResult.contextReply();
       spawnResults = cppCompileActionResult.spawnResults();
     } catch (ExecException e) {
@@ -1100,8 +1180,10 @@ public class CppCompileAction extends AbstractAction
           "C++ compilation of rule '" + getOwner().getLabel() + "'",
           actionExecutionContext.getVerboseFailures(),
           this);
+    } catch (IOException e) {
+      throw new ActionExecutionException(e, this, false);
     } finally {
-      additionalInputs = null;
+      clearAdditionalInputs();
     }
     ensureCoverageNotesFilesExist(actionExecutionContext);
 
@@ -1129,9 +1211,17 @@ public class CppCompileAction extends AbstractAction
     }
     reply = null; // Clear in-memory .d files early.
 
-    // Post-execute "include scanning", which modifies the action inputs to match what the compile
-    // action actually used by incorporating the results of .d file parsing.
-    updateActionInputs(discoveredInputs);
+    if (discoversInputs()) {
+      // Post-execute "include scanning", which modifies the action inputs to match what the compile
+      // action actually used by incorporating the results of .d file parsing.
+      updateActionInputs(discoveredInputs);
+    } else {
+      Preconditions.checkState(
+          discoveredInputs.isEmpty(),
+          "Discovered inputs without discovering inputs? %s %s",
+          discoveredInputs,
+          this);
+    }
 
     // hdrs_check: This cannot be switched off for C++ build actions,
     // because doing so would allow for incorrect builds.
@@ -1266,10 +1356,15 @@ public class CppCompileAction extends AbstractAction
   public Iterable<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Iterable<Artifact> discoveredInputs = findUsedHeaders(actionExecutionContext);
-    return Sets.<Artifact>difference(
-        ImmutableSet.<Artifact>copyOf(discoveredInputs),
-        ImmutableSet.<Artifact>copyOf(getInputs()));
+    Iterable<Artifact> discoveredInputs =
+        findUsedHeaders(
+            actionExecutionContext,
+            ccCompilationContext
+                .createIncludeScanningHeaderData(usePic, useHeaderModules)
+                .setSystemIncludeDirs(getSystemIncludeDirs())
+                .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
+                .build());
+    return Sets.difference(ImmutableSet.copyOf(discoveredInputs), ImmutableSet.copyOf(getInputs()));
   }
 
   static String actionNameToMnemonic(String actionName) {
@@ -1400,6 +1495,13 @@ public class CppCompileAction extends AbstractAction
             "%s missing action index for module %s",
             lookupValue,
             module));
+  }
+
+  private static NestedSetBuilder<Artifact> createInputsBuilder(
+      NestedSet<Artifact> mandatoryInputs, Iterable<Artifact> inputsForInvalidation) {
+    return NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(mandatoryInputs)
+        .addAll(inputsForInvalidation);
   }
 
   /**

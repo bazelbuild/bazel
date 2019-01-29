@@ -17,7 +17,7 @@ filegroup(
     srcs = select({
         "//src/conditions:windows": [
             ":zip-bazel-exe",
-            ":zip-bazel-exe_with_jdk",
+            ":zip-bazel-exe_nojdk",
         ],
         "//src/conditions:freebsd": [],
         "//src/conditions:darwin": [
@@ -56,7 +56,7 @@ genrule(
 
 [genrule(
     name = "zip-bazel-exe" + suffix,
-    srcs = ["//src:bazel%s.exe" % suffix],
+    srcs = ["//src:bazel-bin%s.exe" % suffix],
     outs = ["bazel%s.zip" % suffix],
     cmd = "\n".join([
         "tmpdir=$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXX)",
@@ -67,7 +67,7 @@ genrule(
     ]),
 ) for suffix in [
     "",
-    "_with_jdk",
+    "_nojdk",
 ]]
 
 genrule(
@@ -93,7 +93,7 @@ genrule(
 
 genrule(
     name = "rename-bazel-bin-without-jdk",
-    srcs = ["//src:bazel"],
+    srcs = ["//src:bazel_nojdk"],
     outs = ["without-jdk/bazel-real"],
     cmd = "mkdir -p $$(dirname $@); cp $< $@",
 )
@@ -120,6 +120,7 @@ load(":self_extract_binary.bzl", "self_extract_binary")
         ":%s/bazel-real" % kind,
         ":%s/bazel" % kind,
         "//scripts:bash_completion",
+        "//scripts/zsh_completion:_bazel",
     ],
     launcher = ":launcher_bin.sh",
 ) for kind in ("with-jdk", "without-jdk")]

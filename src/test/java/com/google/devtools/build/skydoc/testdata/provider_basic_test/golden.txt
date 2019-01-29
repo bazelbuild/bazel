@@ -1,12 +1,9 @@
-<a name="#MyPoorlyDocumentedInfo"></a>
-## MyPoorlyDocumentedInfo
-
-
-
-
-
 <a name="#MyFooInfo"></a>
 ## MyFooInfo
+
+<pre>
+MyFooInfo(<a href="#MyFooInfo-bar">bar</a>, <a href="#MyFooInfo-baz">baz</a>)
+</pre>
 
 Stores information about a foo.
 
@@ -18,13 +15,13 @@ Stores information about a foo.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="#MyFooInfo_bar">
+    <tr id="MyFooInfo-bar">
       <td><code>bar</code></td>
       <td>
         <p>(Undocumented)</p>
       </td>
     </tr>
-    <tr id="#MyFooInfo_baz">
+    <tr id="MyFooInfo-baz">
       <td><code>baz</code></td>
       <td>
         <p>(Undocumented)</p>
@@ -34,8 +31,23 @@ Stores information about a foo.
 </table>
 
 
+<a name="#MyPoorlyDocumentedInfo"></a>
+## MyPoorlyDocumentedInfo
+
+<pre>
+MyPoorlyDocumentedInfo()
+</pre>
+
+
+
+
+
 <a name="#MyVeryDocumentedInfo"></a>
 ## MyVeryDocumentedInfo
+
+<pre>
+MyVeryDocumentedInfo(<a href="#MyVeryDocumentedInfo-favorite_food">favorite_food</a>, <a href="#MyVeryDocumentedInfo-favorite_color">favorite_color</a>)
+</pre>
 
 
 A provider with some really neat documentation.
@@ -50,13 +62,13 @@ Look on my works, ye mighty, and despair!
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="#MyVeryDocumentedInfo_favorite_food">
+    <tr id="MyVeryDocumentedInfo-favorite_food">
       <td><code>favorite_food</code></td>
       <td>
         <p>A string representing my favorite food</p>
       </td>
     </tr>
-    <tr id="#MyVeryDocumentedInfo_favorite_color">
+    <tr id="MyVeryDocumentedInfo-favorite_color">
       <td><code>favorite_color</code></td>
       <td>
         <p>A string representing my favorite color</p>

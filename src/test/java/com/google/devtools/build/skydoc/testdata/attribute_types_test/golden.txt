@@ -2,7 +2,7 @@
 ## my_rule
 
 <pre>
-my_rule(name, a, b, c, d, e, f, g, h, i, j, k, l, m)
+my_rule(<a href="#my_rule-name">name</a>, <a href="#my_rule-a">a</a>, <a href="#my_rule-b">b</a>, <a href="#my_rule-c">c</a>, <a href="#my_rule-d">d</a>, <a href="#my_rule-e">e</a>, <a href="#my_rule-f">f</a>, <a href="#my_rule-g">g</a>, <a href="#my_rule-h">h</a>, <a href="#my_rule-i">i</a>, <a href="#my_rule-j">j</a>, <a href="#my_rule-k">k</a>, <a href="#my_rule-l">l</a>, <a href="#my_rule-m">m</a>)
 </pre>
 
 This is my rule. It does stuff.
@@ -15,16 +15,16 @@ This is my rule. It does stuff.
     <col class="col-description" />
   </colgroup>
   <tbody>
-    <tr id="#my_rule_name">
+    <tr id="my_rule-name">
       <td><code>name</code></td>
       <td>
-        String; required
+        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
         <p>
           A unique name for this target.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_a">
+    <tr id="my_rule-a">
       <td><code>a</code></td>
       <td>
         Boolean; required
@@ -33,7 +33,7 @@ This is my rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_b">
+    <tr id="my_rule-b">
       <td><code>b</code></td>
       <td>
         Integer; required
@@ -42,7 +42,7 @@ This is my rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_c">
+    <tr id="my_rule-c">
       <td><code>c</code></td>
       <td>
         List of integers; required
@@ -51,34 +51,34 @@ This is my rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_d">
+    <tr id="my_rule-d">
       <td><code>d</code></td>
       <td>
-        Label; required
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
         <p>
           Some label
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_e">
+    <tr id="my_rule-e">
       <td><code>e</code></td>
       <td>
-        Dictionary: Label -> String; required
+        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: Label -> String</a>; required
         <p>
           Some label_keyed_string_dict
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_f">
+    <tr id="my_rule-f">
       <td><code>f</code></td>
       <td>
-        List of labels; required
+        <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a>; required
         <p>
           Some label_list
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_g">
+    <tr id="my_rule-g">
       <td><code>g</code></td>
       <td>
         List of strings; optional
@@ -87,16 +87,16 @@ This is my rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_h">
+    <tr id="my_rule-h">
       <td><code>h</code></td>
       <td>
-        Label; optional
+        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; optional
         <p>
           Some output
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_i">
+    <tr id="my_rule-i">
       <td><code>i</code></td>
       <td>
         List of labels; optional
@@ -105,7 +105,7 @@ This is my rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_j">
+    <tr id="my_rule-j">
       <td><code>j</code></td>
       <td>
         String; required
@@ -114,16 +114,16 @@ This is my rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_k">
+    <tr id="my_rule-k">
       <td><code>k</code></td>
       <td>
-        Dictionary: String -> String; required
+        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
         <p>
           Some string_dict
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_l">
+    <tr id="my_rule-l">
       <td><code>l</code></td>
       <td>
         List of strings; required
@@ -132,10 +132,10 @@ This is my rule. It does stuff.
         </p>
       </td>
     </tr>
-    <tr id="#my_rule_m">
+    <tr id="my_rule-m">
       <td><code>m</code></td>
       <td>
-        Dictionary: String -> List of strings; optional
+        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> List of strings</a>; optional
         <p>
           Some string_list_dict
         </p>

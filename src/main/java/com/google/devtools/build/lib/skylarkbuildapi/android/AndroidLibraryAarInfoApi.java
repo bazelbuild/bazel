@@ -30,6 +30,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidLibraryAarInfoApi<FileT extends FileApi> extends StructApi {
+
+  /** The name of the provider for this info object. */
+  String NAME = "AndroidLibraryAarInfo";
+
   @SkylarkCallable(
       name = "aar",
       doc = "",

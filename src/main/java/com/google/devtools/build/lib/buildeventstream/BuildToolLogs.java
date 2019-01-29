@@ -22,8 +22,16 @@ import java.util.Collection;
 
 /** Event reporting on statistics about the build. */
 public class BuildToolLogs implements BuildEventWithOrderConstraint {
+  /** These values are posted as byte strings to the BEP. */
   private final Collection<Pair<String, ByteString>> directValues;
+  /**
+   * These values are posted as URIs to the BEP; if these reference files, those are not uploaded.
+   */
   private final Collection<Pair<String, String>> directUris;
+  /**
+   * These values are local files that are uploaded if required, and turned into URIs as part of the
+   * process.
+   */
   private final Collection<Pair<String, Path>> logFiles;
 
   public BuildToolLogs(

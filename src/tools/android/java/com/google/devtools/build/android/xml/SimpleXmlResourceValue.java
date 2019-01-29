@@ -42,8 +42,7 @@ import javax.xml.namespace.QName;
 /**
  * Represents a simple Android resource xml value.
  *
- * <p>
- * There is a class of resources that are simple name/value pairs: string
+ * <p>There is a class of resources that are simple name/value pairs: string
  * (http://developer.android.com/guide/topics/resources/string-resource.html), bool
  * (http://developer.android.com/guide/topics/resources/more-resources.html#Bool), color
  * (http://developer.android.com/guide/topics/resources/more-resources.html#Color), and dimen
@@ -89,7 +88,6 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       this.tagName = tagName;
     }
 
-
     public static Type from(ResourceType resourceType) {
       for (Type valueType : values()) {
         if (valueType.tagName.getLocalPart().equals(resourceType.getName())) {
@@ -101,8 +99,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       throw new IllegalArgumentException(
           String.format(
               "%s resource type not found in available types: %s",
-              resourceType,
-              Arrays.toString(values())));
+              resourceType, Arrays.toString(values())));
     }
   }
 
@@ -124,8 +121,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     return of(Type.ITEM, ImmutableMap.of("type", resourceType.getName(), "format", format), value);
   }
 
-  public static XmlResourceValue itemWithValue(
-      ResourceType resourceType, String value) {
+  public static XmlResourceValue itemWithValue(ResourceType resourceType, String value) {
     return of(Type.ITEM, ImmutableMap.of("type", resourceType.getName()), value);
   }
 
@@ -191,11 +187,11 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
             String.format(";%s,%d,%d", span.getTag(), span.getFirstChar(), span.getLastChar()));
       }
       stringValue = stringBuilder.toString();
-    } else if ((resourceType == ResourceType.COLOR
-        || resourceType == ResourceType.DRAWABLE) && item.hasPrim()) {
+    } else if ((resourceType == ResourceType.COLOR || resourceType == ResourceType.DRAWABLE)
+        && item.hasPrim()) {
       stringValue =
           String.format("#%1$8s", Integer.toHexString(item.getPrim().getData())).replace(' ', '0');
-    } else if (resourceType == ResourceType.INTEGER && item.hasPrim()){
+    } else if (resourceType == ResourceType.INTEGER && item.hasPrim()) {
       stringValue = Integer.toString(item.getPrim().getData());
     } else if (resourceType == ResourceType.BOOL && item.hasPrim()) {
       stringValue = item.getPrim().getData() == 0 ? "false" : "true";
@@ -268,7 +264,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   public XmlResourceValue combineWith(XmlResourceValue value) {
     throw new IllegalArgumentException(this + " is not a combinable resource.");
   }
-  
+
   @Override
   public String asConflictStringWith(DataSource source) {
     if (value != null) {

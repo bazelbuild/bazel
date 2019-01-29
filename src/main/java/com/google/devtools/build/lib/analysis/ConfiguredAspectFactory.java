@@ -28,8 +28,13 @@ public interface ConfiguredAspectFactory {
    * @param context the context of the associated configured target plus all the attributes the
    *     aspect itself has defined
    * @param parameters information from attributes of the rule that have requested this
+   * @param toolsRepository string representing the name of the tools repository such as
+   *     "@bazel_tools"
    */
   ConfiguredAspect create(
-      ConfiguredTargetAndData ctadBase, RuleContext context, AspectParameters parameters)
+      ConfiguredTargetAndData ctadBase,
+      RuleContext context,
+      AspectParameters parameters,
+      String toolsRepository)
       throws ActionConflictException, InterruptedException;
 }

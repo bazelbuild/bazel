@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.skyframe.serialization.UnshareableValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -381,6 +382,13 @@ public class GraphTester {
     @Override
     public int hashCode() {
       throw new UnsupportedOperationException(value + " is incomparable - what are you doing?");
+    }
+  }
+
+  /** An {@linkplain UnshareableValue unshareable} version of {@link StringValue}. */
+  public static final class UnshareableStringValue extends StringValue implements UnshareableValue {
+    public UnshareableStringValue(String value) {
+      super(value);
     }
   }
 

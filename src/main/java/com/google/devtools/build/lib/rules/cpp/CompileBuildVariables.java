@@ -281,7 +281,8 @@ public enum CompileBuildVariables {
     buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), allDefines);
 
     if (usePic) {
-      if (!featureConfiguration.isEnabled(CppRuleClasses.PIC)) {
+      if (!featureConfiguration.isEnabled(CppRuleClasses.PIC)
+          && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
         throw new EvalException(Location.BUILTIN, CcCommon.PIC_CONFIGURATION_ERROR);
       }
       buildVariables.addStringVariable(PIC.getVariableName(), "");

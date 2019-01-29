@@ -74,16 +74,6 @@ public class SimpleCycleDetector implements CycleDetector {
   }
 
   /**
-   * Marker value that we push onto a stack before we push a node's children on. When the marker
-   * value is popped, we know that all the children are finished. We would use null instead, but
-   * ArrayDeque does not permit null elements.
-   */
-  private static final SkyKey CHILDREN_FINISHED = () -> null;
-
-  /** The max number of cycles we will report to the user for a given root, to avoid OOMing. */
-  private static final int MAX_CYCLES = 20;
-
-  /**
    * The algorithm for this cycle detector is as follows. We visit the graph depth-first, keeping
    * track of the path we are currently on. We skip any DONE nodes (they are transitively
    * error-free). If we come to a node already on the path, we immediately construct a cycle. If we
@@ -281,6 +271,16 @@ public class SimpleCycleDetector implements CycleDetector {
         ? getAndCheckDoneForCycle(root, evaluatorContext).getErrorInfo()
         : null;
   }
+
+  /**
+   * Marker value that we push onto a stack before we push a node's children on. When the marker
+   * value is popped, we know that all the children are finished. We would use null instead, but
+   * ArrayDeque does not permit null elements.
+   */
+  private static final SkyKey CHILDREN_FINISHED = () -> null;
+
+  /** The max number of cycles we will report to the user for a given root, to avoid OOMing. */
+  private static final int MAX_CYCLES = 20;
 
   /**
    * Returns the child of this node that is in the cycle that was just found. If the cycle is a

@@ -43,22 +43,20 @@ public class QueryOptions extends CommonQueryOptions {
   public String outputFormat;
 
   @Option(
-    name = "null",
-    defaultValue = "null",
-    expansion = {"--line_terminator_null=true"},
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help = "Whether each format is terminated with \0 instead of newline."
-  )
+      name = "null",
+      defaultValue = "null",
+      expansion = {"--line_terminator_null=true"},
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether each format is terminated with \\0 instead of newline.")
   public Void isNull;
 
   @Option(
-    name = "line_terminator_null",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    help = "Whether each format is terminated with \0 instead of newline."
-  )
+      name = "line_terminator_null",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether each format is terminated with \\0 instead of newline.")
   public boolean lineTerminatorNull;
 
   @Option(

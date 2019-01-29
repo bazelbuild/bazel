@@ -109,7 +109,7 @@ public class ActionCacheCheckerTest {
         action, null, clientEnv, null, metadataHandler);
     if (token != null) {
       // Real action execution would happen here.
-      cacheChecker.afterExecution(action, token, metadataHandler, clientEnv);
+      cacheChecker.updateActionCache(action, token, metadataHandler, clientEnv);
     }
   }
 

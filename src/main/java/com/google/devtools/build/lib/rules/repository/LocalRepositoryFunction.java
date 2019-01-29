@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -44,7 +47,12 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
     PathFragment pathFragment = RepositoryFunction.getTargetPath(rule, directories.getWorkspace());
-    return LocalRepositoryFunction.symlink(outputDirectory, pathFragment, env);
+    RepositoryDirectoryValue.Builder result =
+        LocalRepositoryFunction.symlink(outputDirectory, pathFragment, env);
+    if (result != null) {
+      env.getListener().post(resolve(rule, directories));
+    }
+    return result;
   }
 
   public static RepositoryDirectoryValue.Builder symlink(
@@ -110,5 +118,47 @@ public class LocalRepositoryFunction extends RepositoryFunction {
           Transience.PERSISTENT);
     }
     return value;
+  }
+
+  private static ResolvedEvent resolve(Rule rule, BlazeDirectories directories) {
+    String name = rule.getName();
+    Object pathObj = rule.getAttributeContainer().getAttr("path");
+    String path;
+    if (pathObj instanceof String) {
+      path = (String) pathObj;
+    } else {
+      path = "";
+    }
+    // Find a descrption of the path; there is a case, where we do not(!) want to hard-code
+    // the argument we obtained: if the path is under the embedded binaries root.
+    String pathArg;
+    PathFragment pathFragment = PathFragment.create(path);
+    PathFragment embeddedDir = directories.getEmbeddedBinariesRoot().asFragment();
+    if (pathFragment.isAbsolute() && pathFragment.startsWith(embeddedDir)) {
+      pathArg =
+          "__embedded_dir__ + \"/\" + "
+              + Printer.getPrinter().repr(pathFragment.relativeTo(embeddedDir).toString());
+    } else {
+      pathArg = Printer.getPrinter().repr(path).toString();
+    }
+    String repr =
+        "local_repository(name = " + Printer.getPrinter().repr(name) + ", path = " + pathArg + ")";
+    return new ResolvedEvent() {
+      @Override
+      public String getName() {
+        return name;
+      }
+
+      @Override
+      public Object getResolvedInformation() {
+        return ImmutableMap.<String, Object>builder()
+            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "local_repository")
+            .put(
+                ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
+                ImmutableMap.<String, Object>builder().put("name", name).put("path", path).build())
+            .put(ResolvedHashesFunction.NATIVE, repr)
+            .build();
+      }
+    };
   }
 }

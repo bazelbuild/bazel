@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 @Immutable
 public final class AndroidPreDexJarProvider extends NativeInfo
     implements AndroidPreDexJarProviderApi<Artifact> {
-  public static final String PROVIDER_NAME = "AndroidPreDexJarInfo";
+
   public static final Provider PROVIDER = new Provider();
 
   private final Artifact preDexJar;
@@ -45,7 +45,7 @@ public final class AndroidPreDexJarProvider extends NativeInfo
   public static class Provider extends BuiltinProvider<AndroidPreDexJarProvider>
       implements AndroidPreDexJarProviderApi.Provider<Artifact> {
     private Provider() {
-      super(PROVIDER_NAME, AndroidPreDexJarProvider.class);
+      super(NAME, AndroidPreDexJarProvider.class);
     }
 
     @Override

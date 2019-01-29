@@ -5,10 +5,8 @@ title: Configuring CROSSTOOL
 
 # Configuring CROSSTOOL
 
-*  [Overview](#overview)
-*  [Setting up the build environment](#setting-up-the-build-environment)
-*  [Configuring the C++ toolchain](#configuring-the-c-toolchain)
-
+* ToC
+{:toc}
 
 ## Overview
 
@@ -185,10 +183,8 @@ different order, but the configuration procedure is the same.
         compiler_files = ":empty",
         cpu = "asmjs",
         dwp_files = ":empty",
-        dynamic_runtime_libs = [":empty"],
         linker_files = ":empty",
         objcopy_files = ":empty",
-        static_runtime_libs = [":empty"],
         strip_files = ":empty",
         supports_param_files = 0,
     )
@@ -384,10 +380,8 @@ different order, but the configuration procedure is the same.
        compiler_files = ":all",
        cpu = "asmjs",
        dwp_files = ":empty",
-       dynamic_runtime_libs = [":empty"],
        linker_files = ":all",
        objcopy_files = ":empty",
-       static_runtime_libs = [":empty"],
        strip_files = ":empty",
        supports_param_files = 0,
     )

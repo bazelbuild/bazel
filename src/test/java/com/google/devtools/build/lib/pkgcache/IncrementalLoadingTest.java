@@ -480,7 +480,9 @@ public class IncrementalLoadingTest {
       ConfiguredRuleClassProvider ruleClassProvider = loadingMock.createRuleClassProvider();
       skyframeExecutor =
           SequencedSkyframeExecutor.create(
-              loadingMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider),
+              loadingMock
+                  .getPackageFactoryBuilderForTesting(directories)
+                  .build(ruleClassProvider, fs),
               fs,
               directories,
               actionKeyContext,

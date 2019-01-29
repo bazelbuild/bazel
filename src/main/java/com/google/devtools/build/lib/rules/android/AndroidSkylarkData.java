@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
+import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -92,7 +93,7 @@ public abstract class AndroidSkylarkData
       }
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
-              DataBinding.asDisabledDataBindingContext(),
+              DataBinding.getDisabledDataBindingContext(ctx),
               ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
               AssetDependencies.empty(),
               StampedAndroidManifest.createEmpty(
@@ -373,7 +374,7 @@ public abstract class AndroidSkylarkData
                 AndroidManifest.forAarImport(androidManifestArtifact),
                 ResourceDependencies.fromProviders(
                     getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
-                DataBinding.asDisabledDataBindingContext(),
+                DataBinding.getDisabledDataBindingContext(ctx),
                 aaptVersion);
 
     MergedAndroidAssets mergedAssets =
@@ -400,6 +401,7 @@ public abstract class AndroidSkylarkData
       String aaptVersionString,
       SkylarkDict<String, String> manifestValues,
       SkylarkList<ConfiguredTarget> deps,
+      SkylarkList<String> noCompressExtensions,
       Location location,
       Environment env)
       throws InterruptedException, EvalException {
@@ -419,7 +421,7 @@ public abstract class AndroidSkylarkData
               ctx,
               getAndroidSemantics(),
               errorReporter,
-              DataBinding.asDisabledDataBindingContext(),
+              DataBinding.getDisabledDataBindingContext(ctx),
               rawManifest,
               AndroidResources.from(errorReporter, getFileProviders(resources), "resource_files"),
               AndroidAssets.from(
@@ -433,7 +435,8 @@ public abstract class AndroidSkylarkData
               AssetDependencies.fromProviders(
                   getProviders(deps, AndroidAssetsInfo.PROVIDER), /* neverlink = */ false),
               manifestValues,
-              AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString));
+              AndroidAaptVersion.chooseTargetAaptVersion(ctx, errorReporter, aaptVersionString),
+              noCompressExtensions);
 
       ImmutableMap.Builder<Provider, NativeInfo> builder = ImmutableMap.builder();
       builder.putAll(getNativeInfosFrom(resourceApk, ctx.getLabel()));

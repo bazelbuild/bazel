@@ -14,6 +14,7 @@
 
 import os
 import unittest
+import zipfile
 
 from src.test.py.bazel import test_base
 
@@ -84,6 +85,24 @@ class TestWrapperTest(test_base.TestBase):
         '    srcs = ["testargs.bat"],',
         '    args = ["foo", "a b", "", "bar"],',
         ')',
+        'py_test(',
+        '    name = "undecl_test",',
+        '    srcs = ["undecl_test.py"],',
+        '    data = ["dummy.ico", "dummy.dat"],',
+        '    deps = ["@bazel_tools//tools/python/runfiles"],',
+        ')',
+        'py_test(',
+        '    name = "annot_test",',
+        '    srcs = ["annot_test.py"],',
+        ')',
+        'py_test(',
+        '    name = "xml_test",',
+        '    srcs = ["xml_test.py"],',
+        ')',
+        'py_test(',
+        '    name = "xml2_test",',
+        '    srcs = ["xml2_test.py"],',
+        ')',
     ])
     self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
     self.ScratchFile('foo/failing.bat', ['@exit /B 1'], executable=True)
@@ -128,6 +147,98 @@ class TestWrapperTest(test_base.TestBase):
             '@echo arg=(%7)',
             '@echo arg=(%8)',
             '@echo arg=(%9)',
+        ],
+        executable=True)
+
+    # A single white pixel as an ".ico" file. /usr/bin/file should identify this
+    # as "image/x-icon".
+    # The MIME type lookup logic of the test wrapper only looks at file names,
+    # but the test-setup.sh calls /usr/bin/file which inspects file contents, so
+    # we need a valid ".ico" file.
+    ico_file = bytearray([
+        0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00,
+        0x18, 0x00, 0x30, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x28, 0x00,
+        0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00,
+        0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00
+    ])
+    # 16 bytes of random data. /usr/bin/file should identify this as
+    # "application/octet-stream".
+    # The MIME type lookup logic of the test wrapper only looks at file names,
+    # but the test-setup.sh calls /usr/bin/file which inspects file contents, so
+    # we need a valid ".ico" file.
+    dat_file = bytearray([
+        0x40, 0x5a, 0x2e, 0x7e, 0x53, 0x86, 0x98, 0x0e, 0x12, 0xc4, 0x92, 0x38,
+        0x27, 0xcd, 0x09, 0xf9
+    ])
+
+    ico_file_path = self.ScratchFile('foo/dummy.ico').replace('/', '\\')
+    dat_file_path = self.ScratchFile('foo/dummy.dat').replace('/', '\\')
+
+    with open(ico_file_path, 'wb') as f:
+      f.write(ico_file)
+
+    with open(dat_file_path, 'wb') as f:
+      f.write(dat_file)
+
+    self.ScratchFile(
+        'foo/undecl_test.py', [
+            'from bazel_tools.tools.python.runfiles import runfiles',
+            'import os',
+            'import shutil',
+            '',
+            'root = os.environ.get("TEST_UNDECLARED_OUTPUTS_DIR")',
+            'os.mkdir(os.path.join(root, "out1"))',
+            'os.mkdir(os.path.join(root, "out2"))',
+            'os.makedirs(os.path.join(root, "empty/sub"))',
+            'r = runfiles.Create()',
+            'shutil.copyfile(r.Rlocation("__main__/foo/dummy.ico"),',
+            '                os.path.join(root, "out1", "data1.ico"))',
+            'shutil.copyfile(r.Rlocation("__main__/foo/dummy.dat"),',
+            '                os.path.join(root, "out2", "data2.dat"))',
+        ],
+        executable=True)
+
+    self.ScratchFile(
+        'foo/annot_test.py', [
+            'import os',
+            'root = os.environ.get("TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR")',
+            'dir1 = os.path.join(root, "out1")',
+            'dir2 = os.path.join(root, "out2.part")',
+            'os.mkdir(dir1)',
+            'os.mkdir(dir2)',
+            'with open(os.path.join(root, "a.part"), "wt") as f:',
+            '  f.write("Hello a")',
+            'with open(os.path.join(root, "b.txt"), "wt") as f:',
+            '  f.write("Hello b")',
+            'with open(os.path.join(root, "c.part"), "wt") as f:',
+            '  f.write("Hello c")',
+            'with open(os.path.join(dir1, "d.part"), "wt") as f:',
+            '  f.write("Hello d")',
+            'with open(os.path.join(dir2, "e.part"), "wt") as f:',
+            '  f.write("Hello e")',
+        ],
+        executable=True)
+
+    self.ScratchFile(
+        'foo/xml_test.py', [
+            'from __future__ import print_function',
+            'import time',
+            'import sys',
+            'print("stdout_line_1")',
+            'print("stdout_line_2")',
+            'time.sleep(2)',
+            'print("stderr_line_1", file=sys.stderr)',
+            'print("stderr_line_2", file=sys.stderr)',
+        ],
+        executable=True)
+
+    self.ScratchFile(
+        'foo/xml2_test.py', [
+            'import os',
+            'with open(os.environ.get("XML_OUTPUT_FILE"), "wt") as f:',
+            '  f.write("leave this")'
         ],
         executable=True)
 
@@ -196,7 +307,7 @@ class TestWrapperTest(test_base.TestBase):
         '-t-',
         '--test_output=all',
         # Ensure Bazel does not create a runfiles tree.
-        '--experimental_enable_runfiles=no',
+        '--enable_runfiles=no',
         flag,
     ])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -291,9 +402,152 @@ class TestWrapperTest(test_base.TestBase):
         actual.append(str(line[len('arg='):]))
     self.assertListEqual(expected, actual)
 
+  def _AssertUndeclaredOutputs(self, flag):
+    exit_code, bazel_testlogs, stderr = self.RunBazel(
+        ['info', 'bazel-testlogs'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_testlogs = bazel_testlogs[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:undecl_test',
+        '-t-',
+        '--test_output=errors',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    undecl_zip = os.path.join(bazel_testlogs, 'foo', 'undecl_test',
+                              'test.outputs', 'outputs.zip')
+    self.assertTrue(os.path.exists(undecl_zip))
+    zip_content = {}
+    with zipfile.ZipFile(undecl_zip, 'r') as z:
+      zip_content = {f: z.getinfo(f).file_size for f in z.namelist()}
+    self.assertDictEqual(
+        zip_content, {
+            'out1/': 0,
+            'out2/': 0,
+            'empty/': 0,
+            'empty/sub/': 0,
+            'out1/data1.ico': 70,
+            'out2/data2.dat': 16
+        })
+
+    undecl_mf = os.path.join(bazel_testlogs, 'foo', 'undecl_test',
+                             'test.outputs_manifest', 'MANIFEST')
+    self.assertTrue(os.path.exists(undecl_mf))
+    mf_content = []
+    with open(undecl_mf, 'rt') as f:
+      mf_content = [line.strip() for line in f.readlines()]
+    # Using an ".ico" file as example, because as of 2018-11-09 Bazel's CI
+    # machines run Windows Server 2016 core which recognizes fewer MIME types
+    # than desktop Windows versions, and one of the recognized types is ".ico"
+    # files.
+    self.assertListEqual(mf_content, [
+        'out1/data1.ico\t70\timage/x-icon',
+        'out2/data2.dat\t16\tapplication/octet-stream'
+    ])
+
+  def _AssertUndeclaredOutputsAnnotations(self, flag):
+    exit_code, bazel_testlogs, stderr = self.RunBazel(
+        ['info', 'bazel-testlogs'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_testlogs = bazel_testlogs[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:annot_test',
+        '-t-',
+        '--test_output=errors',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    undecl_annot = os.path.join(bazel_testlogs, 'foo', 'annot_test',
+                                'test.outputs_manifest', 'ANNOTATIONS')
+    self.assertTrue(os.path.exists(undecl_annot))
+    annot_content = []
+    with open(undecl_annot, 'rt') as f:
+      annot_content = [line.strip() for line in f.readlines()]
+
+    self.assertListEqual(annot_content, ['Hello aHello c'])
+
+  def _AssertXmlGeneration(self, flag, split_xml=False):
+    exit_code, bazel_testlogs, stderr = self.RunBazel(
+        ['info', 'bazel-testlogs'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_testlogs = bazel_testlogs[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:xml_test',
+        '-t-',
+        '--test_output=errors',
+        '--%sexperimental_split_xml_generation' % ('' if split_xml else 'no'),
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    test_xml = os.path.join(bazel_testlogs, 'foo', 'xml_test', 'test.xml')
+    self.assertTrue(os.path.exists(test_xml))
+    duration = 0
+    xml_contents = []
+    stdout_lines = []
+    stderr_lines = []
+    with open(test_xml, 'rt') as f:
+      xml_contents = [line.strip() for line in f]
+    for line in xml_contents:
+      if 'duration=' in line:
+        line = line[line.find('duration="') + len('duration="'):]
+        line = line[:line.find('"')]
+        duration = int(line)
+      elif 'stdout_line' in line:
+        stdout_lines.append(line)
+      elif 'stderr_line' in line:
+        stderr_lines.append(line)
+    # Since stdout and stderr of the test are redirected to the same file, it's
+    # possible that a line L1 written to stdout before a line L2 written to
+    # stderr is dumped to the file later, i.e. the file will have lines L2 then
+    # L1. It is however true that lines printed to the same stream (stdout or
+    # stderr) have to preserve their ordering, i.e. if line L3 is printed to
+    # stdout after L1, then it must be strictly ordered after L1 (but not
+    # necessarily after L2).
+    # Therefore we only assert partial ordering of lines.
+    if duration <= 1:
+      self._FailWithOutput(xml_contents)
+    if (len(stdout_lines) != 2 or 'stdout_line_1' not in stdout_lines[0] or
+        'stdout_line_2' not in stdout_lines[1]):
+      self._FailWithOutput(xml_contents)
+    if (len(stderr_lines) != 2 or 'stderr_line_1' not in stderr_lines[0] or
+        'stderr_line_2' not in stderr_lines[1]):
+      self._FailWithOutput(xml_contents)
+
+  def _AssertXmlGeneratedByTestIsRetained(self, flag, split_xml=False):
+    exit_code, bazel_testlogs, stderr = self.RunBazel(
+        ['info', 'bazel-testlogs'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_testlogs = bazel_testlogs[0]
+
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:xml2_test',
+        '-t-',
+        '--test_output=errors',
+        '--%sexperimental_split_xml_generation' % ('' if split_xml else 'no'),
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    test_xml = os.path.join(bazel_testlogs, 'foo', 'xml2_test', 'test.xml')
+    self.assertTrue(os.path.exists(test_xml))
+    xml_contents = []
+    with open(test_xml, 'rt') as f:
+      xml_contents = [line.strip() for line in f.readlines()]
+    self.assertListEqual(xml_contents, ['leave this'])
+
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
-    flag = '--nowindows_native_test_wrapper'
+    flag = '--noexperimental_windows_native_test_wrapper'
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
@@ -322,13 +576,16 @@ class TestWrapperTest(test_base.TestBase):
             '("\\\\\\")',
             '(qux")'
         ])
+    self._AssertUndeclaredOutputs(flag)
+    self._AssertUndeclaredOutputsAnnotations(flag)
+    self._AssertXmlGeneration(flag, split_xml=False)
+    self._AssertXmlGeneration(flag, split_xml=True)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=False)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=True)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
-    # As of 2018-09-11, the Windows native test runner can run simple tests and
-    # export a few envvars, though it does not completely set up the test's
-    # environment yet.
-    flag = '--windows_native_test_wrapper'
+    flag = '--experimental_windows_native_test_wrapper'
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
@@ -355,6 +612,12 @@ class TestWrapperTest(test_base.TestBase):
             '(qux)',
             '()'
         ])
+    self._AssertUndeclaredOutputs(flag)
+    self._AssertUndeclaredOutputsAnnotations(flag)
+    self._AssertXmlGeneration(flag, split_xml=False)
+    self._AssertXmlGeneration(flag, split_xml=True)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=False)
+    self._AssertXmlGeneratedByTestIsRetained(flag, split_xml=True)
 
 
 if __name__ == '__main__':

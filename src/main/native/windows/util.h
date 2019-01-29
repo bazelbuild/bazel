@@ -17,6 +17,7 @@
 
 #include <windows.h>
 
+#include <memory>
 #include <string>
 
 namespace bazel {
@@ -27,15 +28,27 @@ using std::wstring;
 // A wrapper for the `HANDLE` type that calls CloseHandle in its d'tor.
 // WARNING: do not use for HANDLE returned by FindFirstFile; those must be
 // closed with FindClose (otherwise they aren't closed properly).
-struct AutoHandle {
-  AutoHandle(HANDLE _handle = INVALID_HANDLE_VALUE) : handle_(_handle) {}
+class AutoHandle {
+ public:
+  explicit AutoHandle(HANDLE handle = INVALID_HANDLE_VALUE) : handle_(handle) {}
+  AutoHandle(const AutoHandle&) = delete;
+  AutoHandle(AutoHandle&& other) = delete;
+  AutoHandle& operator=(const AutoHandle&) = delete;
+  AutoHandle& operator=(AutoHandle&& other) = delete;
 
   ~AutoHandle() {
-    ::CloseHandle(handle_);  // succeeds if handle == INVALID_HANDLE_VALUE
-    handle_ = INVALID_HANDLE_VALUE;
+    if (IsValid()) {
+      ::CloseHandle(handle_);
+    }
   }
 
-  bool IsValid() { return handle_ != INVALID_HANDLE_VALUE && handle_ != NULL; }
+  AutoHandle(AutoHandle* other) : handle_(other->handle_) {
+    other->handle_ = INVALID_HANDLE_VALUE;
+  }
+
+  bool IsValid() const {
+    return handle_ != INVALID_HANDLE_VALUE && handle_ != NULL;
+  }
 
   AutoHandle& operator=(const HANDLE& rhs) {
     if (IsValid()) {
@@ -51,28 +64,39 @@ struct AutoHandle {
   HANDLE handle_;
 };
 
-struct AutoAttributeList {
-  AutoAttributeList(DWORD dwAttributeCount) {
-    SIZE_T size = 0;
-    InitializeProcThreadAttributeList(NULL, dwAttributeCount, 0, &size);
-    lpAttributeList =
-        reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(malloc(size));
-    InitializeProcThreadAttributeList(lpAttributeList, dwAttributeCount, 0,
-                                      &size);
-  }
+class AutoAttributeList {
+ public:
+  static bool Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
+                     std::unique_ptr<AutoAttributeList>* result,
+                     wstring* error_msg = nullptr);
+  ~AutoAttributeList();
 
-  ~AutoAttributeList() {
-    if (lpAttributeList) {
-      DeleteProcThreadAttributeList(lpAttributeList);
-      free(lpAttributeList);
-    }
-    lpAttributeList = NULL;
-  }
+  void InitStartupInfoExA(STARTUPINFOEXA* startup_info) const;
 
-  operator LPPROC_THREAD_ATTRIBUTE_LIST() const { return lpAttributeList; }
+  void InitStartupInfoExW(STARTUPINFOEXW* startup_info) const;
 
  private:
-  LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList;
+  struct StdHandles {
+    static constexpr size_t kHandleCount = 3;
+    union {
+      HANDLE handle_array[kHandleCount];
+      struct {
+        HANDLE stdin_h;
+        HANDLE stdout_h;
+        HANDLE stderr_h;
+      };
+    };
+  };
+
+  AutoAttributeList(std::unique_ptr<uint8_t[]>&& data, HANDLE stdin_h,
+                    HANDLE stdout_h, HANDLE stderr_h);
+  AutoAttributeList(const AutoAttributeList&) = delete;
+  AutoAttributeList& operator=(const AutoAttributeList&) = delete;
+
+  operator LPPROC_THREAD_ATTRIBUTE_LIST() const;
+
+  std::unique_ptr<uint8_t[]> data_;
+  StdHandles handles_;
 };
 
 #define WSTR1(x) L##x

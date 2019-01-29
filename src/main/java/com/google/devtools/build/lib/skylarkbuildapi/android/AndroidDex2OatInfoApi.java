@@ -26,4 +26,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed.",
     documented = false)
-public interface AndroidDex2OatInfoApi extends StructApi {}
+public interface AndroidDex2OatInfoApi extends StructApi {
+  /** The name of the provider for this info object. */
+  String NAME = "AndroidDex2OatInfo";
+}

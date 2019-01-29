@@ -48,4 +48,4 @@ class ZiptoolCreator {
 };
 
 typedef testing::Types<ZiptoolCreator> Creators;
-INSTANTIATE_TYPED_TEST_CASE_P(Jartool, InputJarScanEntries, Creators);
+INSTANTIATE_TYPED_TEST_SUITE_P(Jartool, InputJarScanEntries, Creators);

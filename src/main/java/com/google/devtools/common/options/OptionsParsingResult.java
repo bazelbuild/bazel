@@ -29,6 +29,12 @@ public interface OptionsParsingResult extends OptionsProvider {
   List<String> getResidue();
 
   /**
+   * Returns an immutable copy of the residue before the " -- " signals the remainder of the
+   * arguments are not options.
+   */
+  List<String> getPreDoubleDashResidue();
+
+  /**
    * Returns if the named option was specified explicitly in a call to parse.
    */
   boolean containsExplicitOption(String string);

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
@@ -51,7 +52,7 @@ import java.util.concurrent.ExecutionException;
 public class BuildRequest implements OptionsProvider {
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
-  private final Map<String, Object> skylarkOptions;
+  private final Map<String, Object> starlarkOptions;
 
   /** A human-readable description of all the non-default option settings. */
   private final String optionsDescription;
@@ -107,17 +108,22 @@ public class BuildRequest implements OptionsProvider {
             return Optional.fromNullable(result);
           }
         });
-    this.skylarkOptions = options.getSkylarkOptions();
+    this.starlarkOptions = options.getStarlarkOptions();
 
     for (Class<? extends OptionsBase> optionsClass : MANDATORY_OPTIONS) {
       Preconditions.checkNotNull(getOptions(optionsClass));
     }
   }
 
-
+  /**
+   * Since the OptionsProvider interface is used by many teams, this method is String-keyed even
+   * though it should always contain labels for our purposes. Consumers of this method should
+   * probably use the {@link BuildOptions#labelizeStarlarkOptions} method before doing meaningful
+   * work with the results.
+   */
   @Override
-  public Map<String, Object> getSkylarkOptions() {
-    return skylarkOptions;
+  public Map<String, Object> getStarlarkOptions() {
+    return starlarkOptions;
   }
 
   /**
@@ -268,11 +274,6 @@ public class BuildRequest implements OptionsProvider {
     List<String> warnings = new ArrayList<>();
 
     int localTestJobs = getExecutionOptions().localTestJobs;
-    if (localTestJobs < 0) {
-      throw new InvalidConfigurationException(String.format(
-          "Invalid parameter for --local_test_jobs: %d. Only values 0 or greater are "
-              + "allowed.", localTestJobs));
-    }
     int jobs = getBuildOptions().jobs;
     if (localTestJobs > jobs) {
       warnings.add(

@@ -64,9 +64,14 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
+if ! type try_with_timeout >&/dev/null; then
+  # Bazel's testenv.sh defines try_with_timeout but the Google-internal version
+  # uses a different testenv.sh.
+  function try_with_timeout() { $* ; }
+fi
 
 function tear_down() {
-    bazel shutdown || fail "Failed to shut down bazel"
+  try_with_timeout bazel shutdown || fail "Failed to shut down bazel"
 }
 
 #### TESTS #############################################################

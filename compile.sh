@@ -93,6 +93,7 @@ log "Building output/bazel"
 # We set host and target platform directly since the defaults in @bazel_tools
 # have not yet been generated.
 bazel_build "src:bazel_nojdk${EXE_EXT}" \
+  --action_env=PATH \
   --host_platform=@bazel_tools//platforms:host_platform \
   --platforms=@bazel_tools//platforms:target_platform \
   || fail "Could not build Bazel"

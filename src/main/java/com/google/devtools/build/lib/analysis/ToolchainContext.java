@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.ToolchainContextApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -57,10 +59,10 @@ public abstract class ToolchainContext implements ToolchainContextApi {
     Builder setTargetPlatform(PlatformInfo targetPlatform);
 
     /** Sets the toolchain types that were requested. */
-    Builder setRequiredToolchainTypes(Set<Label> requiredToolchainTypes);
+    Builder setRequiredToolchainTypes(Set<ToolchainTypeInfo> requiredToolchainTypes);
 
     /** Sets the map from toolchain type to toolchain provider. */
-    Builder setToolchains(ImmutableMap<Label, ToolchainInfo> toolchains);
+    Builder setToolchains(ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains);
 
     /** Sets the template variables that these toolchains provide. */
     Builder setTemplateVariableProviders(ImmutableList<TemplateVariableInfo> providers);
@@ -82,9 +84,9 @@ public abstract class ToolchainContext implements ToolchainContextApi {
   public abstract PlatformInfo targetPlatform();
 
   /** Returns the toolchain types that were requested. */
-  public abstract ImmutableSet<Label> requiredToolchainTypes();
+  public abstract ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes();
 
-  abstract ImmutableMap<Label, ToolchainInfo> toolchains();
+  abstract ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains();
 
   /** Returns the template variables that these toolchains provide. */
   public abstract ImmutableList<TemplateVariableInfo> templateVariableProviders();
@@ -97,7 +99,20 @@ public abstract class ToolchainContext implements ToolchainContextApi {
    * required in this context.
    */
   @Nullable
-  public ToolchainInfo forToolchainType(Label toolchainType) {
+  public ToolchainInfo forToolchainType(Label toolchainTypeLabel) {
+    Optional<ToolchainTypeInfo> toolchainType =
+        toolchains().keySet().stream()
+            .filter(info -> info.typeLabel().equals(toolchainTypeLabel))
+            .findFirst();
+    if (toolchainType.isPresent()) {
+      return forToolchainType(toolchainType.get());
+    } else {
+      return null;
+    }
+  }
+
+  @Nullable
+  public ToolchainInfo forToolchainType(ToolchainTypeInfo toolchainType) {
     return toolchains().get(toolchainType);
   }
 
@@ -109,13 +124,19 @@ public abstract class ToolchainContext implements ToolchainContextApi {
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<toolchain_context.resolved_labels: ");
-    printer.append(toolchains().keySet().stream().map(Label::toString).collect(joining(", ")));
+    printer.append(
+        toolchains().keySet().stream()
+            .map(ToolchainTypeInfo::typeLabel)
+            .map(Label::toString)
+            .collect(joining(", ")));
     printer.append(">");
   }
 
   private Label transformKey(Object key, Location loc) throws EvalException {
     if (key instanceof Label) {
       return (Label) key;
+    } else if (key instanceof ToolchainTypeInfo) {
+      return ((ToolchainTypeInfo) key).typeLabel();
     } else if (key instanceof String) {
       Label toolchainType;
       String rawLabel = (String) key;
@@ -137,23 +158,31 @@ public abstract class ToolchainContext implements ToolchainContextApi {
 
   @Override
   public ToolchainInfo getIndex(Object key, Location loc) throws EvalException {
-    Label toolchainType = transformKey(key, loc);
+    Label toolchainTypeLabel = transformKey(key, loc);
 
-    if (!requiredToolchainTypes().contains(toolchainType)) {
+    if (!containsKey(key, loc)) {
       throw new EvalException(
           loc,
           String.format(
               "In %s, toolchain type %s was requested but only types [%s] are configured",
               targetDescription(),
-              toolchainType,
-              requiredToolchainTypes().stream().map(Label::toString).collect(joining())));
+              toolchainTypeLabel,
+              requiredToolchainTypes().stream()
+                  .map(ToolchainTypeInfo::typeLabel)
+                  .map(Label::toString)
+                  .collect(joining(", "))));
     }
-    return forToolchainType(toolchainType);
+    return forToolchainType(toolchainTypeLabel);
   }
 
   @Override
   public boolean containsKey(Object key, Location loc) throws EvalException {
-    Label toolchainType = transformKey(key, loc);
-    return toolchains().containsKey(toolchainType);
+    Label toolchainTypeLabel = transformKey(key, loc);
+    Optional<Label> matching =
+        toolchains().keySet().stream()
+            .map(ToolchainTypeInfo::typeLabel)
+            .filter(label -> label.equals(toolchainTypeLabel))
+            .findAny();
+    return matching.isPresent();
   }
 }

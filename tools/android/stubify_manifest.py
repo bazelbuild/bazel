@@ -101,7 +101,7 @@ def StubifyInstantRun(manifest_string):
   Returns:
     The new manifest as a string.
   Raises:
-    Exception: if somethign goes wrong
+    Exception: if something goes wrong
   """
   manifest, application = _ParseManifest(manifest_string)
   old_application = application.get("{%s}name" % ANDROID)

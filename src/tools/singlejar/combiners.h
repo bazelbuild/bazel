@@ -64,7 +64,7 @@ class Concatenator : public Combiner {
 
  private:
   void CreateBuffer() {
-    if (!buffer_.get()) {
+    if (!buffer_) {
       buffer_.reset(new TransientBytes());
     }
   }

@@ -16,16 +16,19 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
@@ -140,6 +143,31 @@ public class SkylarkRepositoryContext
     } else {
       throw new EvalException(Location.BUILTIN, method + " can only take a string or a label.");
     }
+  }
+
+  @Override
+  public void reportProgress(String status) {
+    final String message = status == null ? "" : status;
+    final String id = "@" + getName();
+
+    env.getListener()
+        .post(
+            new FetchProgress() {
+              @Override
+              public String getResourceIdentifier() {
+                return id;
+              }
+
+              @Override
+              public String getProgress() {
+                return message;
+              }
+
+              @Override
+              public boolean isFinished() {
+                return false;
+              }
+            });
   }
 
   @Override
@@ -332,7 +360,7 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void download(
+  public StructImpl download(
       Object url, Object output, String sha256, Boolean executable, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     validateSha256(sha256);
@@ -342,16 +370,18 @@ public class SkylarkRepositoryContext
         WorkspaceRuleEvent.newDownloadEvent(
             urls, output.toString(), sha256, executable, rule.getLabel().toString(), location);
     env.getListener().post(w);
+    Path downloadedPath;
     try {
       checkInOutputDirectory(outputPath);
       makeDirectories(outputPath.getPath());
-      httpDownloader.download(
-          urls,
-          sha256,
-          Optional.<String>absent(),
-          outputPath.getPath(),
-          env.getListener(),
-          osObject.getEnvironmentVariables());
+      downloadedPath =
+          httpDownloader.download(
+              urls,
+              sha256,
+              Optional.<String>absent(),
+              outputPath.getPath(),
+              env.getListener(),
+              osObject.getEnvironmentVariables());
       if (executable) {
         outputPath.getPath().setExecutable(true);
       }
@@ -361,10 +391,21 @@ public class SkylarkRepositoryContext
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
+    String finalSha256;
+    try {
+      finalSha256 = calculateSha256(sha256, downloadedPath);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Couldn't hash downloaded file (" + downloadedPath.getPathString() + ")", e),
+          Transience.PERSISTENT);
+    }
+    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256);
+    return StructProvider.STRUCT.createStruct(dict, null);
   }
 
   @Override
-  public void downloadAndExtract(
+  public StructImpl downloadAndExtract(
       Object url, Object output, String sha256, String type, String stripPrefix, Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     validateSha256(sha256);
@@ -410,6 +451,15 @@ public class SkylarkRepositoryContext
             .setRepositoryPath(outputPath.getPath())
             .setPrefix(stripPrefix)
             .build());
+    String finalSha256 = null;
+    try {
+      finalSha256 = calculateSha256(sha256, downloadedPath);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Couldn't hash downloaded file (" + downloadedPath.getPathString() + ")", e),
+          Transience.PERSISTENT);
+    }
     try {
       if (downloadedPath.exists()) {
         downloadedPath.delete();
@@ -420,6 +470,16 @@ public class SkylarkRepositoryContext
               "Couldn't delete temporary file (" + downloadedPath.getPathString() + ")", e),
           Transience.TRANSIENT);
     }
+    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256);
+    return StructProvider.STRUCT.createStruct(dict, null);
+  }
+
+  private String calculateSha256(String originalSha, Path path) throws IOException {
+    if (!Strings.isNullOrEmpty(originalSha)) {
+      // The sha is checked on download, so if we got here, the user provided sha is good
+      return originalSha;
+    }
+    return RepositoryCache.getChecksum(KeyType.SHA256, path);
   }
 
   private static void validateSha256(String sha256) throws RepositoryFunctionException {

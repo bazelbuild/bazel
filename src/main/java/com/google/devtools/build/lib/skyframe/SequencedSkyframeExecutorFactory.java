@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.MutableArtifactFactorySupplier;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
@@ -50,7 +49,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
     return SequencedSkyframeExecutor.create(
-        InMemoryMemoizingEvaluator.SUPPLIER,
         pkgFactory,
         fileSystem,
         directories,
@@ -66,6 +64,7 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
         BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE,
         defaultBuildOptions,
-        new MutableArtifactFactorySupplier());
+        new MutableArtifactFactorySupplier(),
+        skyframeExecutor -> {});
   }
 }

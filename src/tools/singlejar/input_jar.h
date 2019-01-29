@@ -15,7 +15,9 @@
 #ifndef BAZEL_SRC_TOOLS_SINGLEJAR_INPUT_JAR_H_
 #define BAZEL_SRC_TOOLS_SINGLEJAR_INPUT_JAR_H_ 1
 
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS 1
+#endif
 
 #include <inttypes.h>
 #include <stdlib.h>
@@ -43,7 +45,10 @@ class InputJar {
 
   ~InputJar() { Close(); }
 
+#ifndef _WIN32
+  // Not used on Windows, only in Google's own code. Don't add more usage of it.
   int fd() const { return mapped_file_.fd(); }
+#endif
 
   // Opens the file, memory maps it and locates Central Directory.
   bool Open(const std::string& path);

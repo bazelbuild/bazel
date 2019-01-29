@@ -179,7 +179,8 @@ public final class WorkspaceRuleEvent implements ProgressLike {
   /** Creates a new WorkspaceRuleEvent for a symlink event. */
   public static WorkspaceRuleEvent newSymlinkEvent(
       String from, String to, String ruleLabel, Location location) {
-    SymlinkEvent e = WorkspaceLogProtos.SymlinkEvent.newBuilder().setFrom(from).setTo(to).build();
+    SymlinkEvent e =
+        WorkspaceLogProtos.SymlinkEvent.newBuilder().setTarget(from).setPath(to).build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();

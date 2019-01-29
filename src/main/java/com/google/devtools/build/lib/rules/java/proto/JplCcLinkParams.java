@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.java.proto;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -39,20 +38,26 @@ public class JplCcLinkParams {
    */
   public static JavaCcLinkParamsProvider createCcLinkingInfo(
       final RuleContext ruleContext, final ImmutableList<TransitiveInfoCollection> protoRuntimes) {
-    List<JavaCcLinkParamsProvider> providers = new ArrayList<>();
+    List<CcInfo> providers = new ArrayList<>();
     for (TransitiveInfoCollection t :
         ruleContext.getPrerequisites("deps", RuleConfiguredTarget.Mode.TARGET)) {
-      providers.add(t.get(JavaCcLinkParamsProvider.PROVIDER));
+      JavaCcLinkParamsProvider javaCcLinkParamsProvider = t.get(JavaCcLinkParamsProvider.PROVIDER);
+      if (javaCcLinkParamsProvider != null) {
+        providers.add(javaCcLinkParamsProvider.getCcInfo());
+      }
     }
-    ImmutableList<CcInfo> ccInfos =
-        ImmutableList.<CcInfo>builder()
-            .addAll(
-                providers.stream()
-                    .map(JavaCcLinkParamsProvider::getCcInfo)
-                    .collect(ImmutableList.toImmutableList()))
-            .addAll(AnalysisUtils.getProviders(protoRuntimes, CcInfo.PROVIDER))
-            .build();
 
-    return new JavaCcLinkParamsProvider(CcInfo.merge(ccInfos));
+    for (TransitiveInfoCollection t : protoRuntimes) {
+      JavaCcLinkParamsProvider javaCcLinkParamsProvider = t.get(JavaCcLinkParamsProvider.PROVIDER);
+      if (javaCcLinkParamsProvider != null) {
+        providers.add(javaCcLinkParamsProvider.getCcInfo());
+      }
+      CcInfo ccInfo = t.get(CcInfo.PROVIDER);
+      if (ccInfo != null) {
+        providers.add(ccInfo);
+      }
+    }
+
+    return new JavaCcLinkParamsProvider(CcInfo.merge(providers));
   }
 }

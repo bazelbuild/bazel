@@ -86,6 +86,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 actionKeyContext,
                 null,
                 null,
+                executor.getEventHandler(),
                 ImmutableMap.<String, String>of(),
                 ImmutableMap.of(),
                 null,

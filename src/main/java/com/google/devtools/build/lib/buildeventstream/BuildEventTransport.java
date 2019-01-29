@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -53,13 +55,7 @@ public interface BuildEventTransport {
    */
   ListenableFuture<Void> close();
 
-  /**
-   * Similar to {@link #close()}. Instructs the transport to close as soon as possible even if
-   * some build events will be lost.
-   *
-   * <p>This method might be called multiple times without any effect after the first call.
-   *
-   * <p>This method should not throw any exceptions.
-   */
-  void closeNow();
+  @VisibleForTesting
+  @Nullable
+  BuildEventArtifactUploader getUploader();
 }

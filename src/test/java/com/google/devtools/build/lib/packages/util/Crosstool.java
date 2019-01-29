@@ -21,6 +21,7 @@ import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,8 +40,8 @@ final class Crosstool {
   private String version;
   private String crosstoolFileContents;
   private boolean addEmbeddedRuntimes;
-  private String staticRuntimesLabel;
-  private String dynamicRuntimesLabel;
+  private String staticRuntimeLabelOrNull;
+  private String dynamicRuntimeLabelOrNull;
   private ImmutableList<String> archs;
   private boolean addModuleMap;
   private boolean supportsHeaderParsing;
@@ -74,25 +75,13 @@ final class Crosstool {
   public Crosstool setEmbeddedRuntimes(
       boolean addEmbeddedRuntimes, String staticRuntimesLabel, String dynamicRuntimesLabel) {
     this.addEmbeddedRuntimes = addEmbeddedRuntimes;
-    this.staticRuntimesLabel = staticRuntimesLabel;
-    this.dynamicRuntimesLabel = dynamicRuntimesLabel;
+    this.staticRuntimeLabelOrNull = staticRuntimesLabel;
+    this.dynamicRuntimeLabelOrNull = dynamicRuntimesLabel;
     return this;
   }
 
   public void write() throws IOException {
-    String runtimes = "";
-    for (String arch : archs) {
-      runtimes +=
-          Joiner.on('\n')
-              .join(
-                  "filegroup(name = 'dynamic-runtime-libs-" + arch + "',",
-                  "          licenses = ['unencumbered'],",
-                  "          srcs = ['libdynamic-runtime-lib-source.so'])",
-                  "filegroup(name = 'static-runtime-libs-" + arch + "',",
-                  "          licenses = ['unencumbered'],",
-                  "          srcs = ['static-runtime-lib-source.a'])\n");
-    }
-
+    Set<String> runtimes = new HashSet<>();
     StringBuilder compilationTools = new StringBuilder();
     for (String compilationTool : CROSSTOOL_BINARIES) {
       Collection<String> archTargets = new ArrayList<>();
@@ -119,6 +108,35 @@ final class Crosstool {
     Set<String> seenCpus = new LinkedHashSet<>();
     StringBuilder compilerMap = new StringBuilder();
     for (CToolchain toolchain : toolchainList) {
+      String staticRuntimeLabel =
+          staticRuntimeLabelOrNull != null
+              ? staticRuntimeLabelOrNull
+              : toolchain.getStaticRuntimesFilegroup();
+      String dynamicRuntimeLabel =
+          dynamicRuntimeLabelOrNull != null
+              ? dynamicRuntimeLabelOrNull
+              : toolchain.getDynamicRuntimesFilegroup();
+      if (!staticRuntimeLabel.isEmpty()) {
+        runtimes.add(
+            Joiner.on('\n')
+                .join(
+                    "filegroup(",
+                    "  name = '" + staticRuntimeLabel + "',",
+                    "  licenses = ['unencumbered'],",
+                    "  srcs = ['libstatic-runtime-lib-source.a'])",
+                    ""));
+      }
+      if (!dynamicRuntimeLabel.isEmpty()) {
+        runtimes.add(
+            Joiner.on('\n')
+                .join(
+                    "filegroup(",
+                    "  name = '" + dynamicRuntimeLabel + "',",
+                    "  licenses = ['unencumbered'],",
+                    "  srcs = ['libdynamic-runtime-lib-source.so'])",
+                    ""));
+      }
+
       // Generate entry to cc_toolchain_suite.toolchains
       if (seenCpus.add(toolchain.getTargetCpu())) {
         compilerMap.append(
@@ -135,15 +153,17 @@ final class Crosstool {
               toolchain.getCompiler()));
 
       // Generate cc_toolchain target
+      String suffix = toolchain.getTargetCpu() + "-" + toolchain.getCompiler();
       compilationTools.append(
           Joiner.on("\n")
               .join(
+                  "toolchain(",
+                  "  name = 'cc-toolchain-" + suffix + "',",
+                  "  toolchain_type = ':toolchain_type',",
+                  "  toolchain = ':cc-compiler-" + suffix + "',",
+                  ")",
                   "cc_toolchain(",
-                  "  name = 'cc-compiler-"
-                      + toolchain.getTargetCpu()
-                      + "-"
-                      + toolchain.getCompiler()
-                      + "',",
+                  "  name = 'cc-compiler-" + suffix + "',",
                   "  toolchain_identifier = '" + toolchain.getToolchainIdentifier() + "',",
                   "  output_licenses = ['unencumbered'],",
                   addModuleMap ? "    module_map = 'crosstool.cppmap'," : "",
@@ -159,14 +179,13 @@ final class Crosstool {
                   "  all_files = ':every-file',",
                   "  licenses = ['unencumbered'],",
                   supportsHeaderParsing ? "    supports_header_parsing = 1," : "",
-                  "  dynamic_runtime_libs = [",
-                  "    'dynamic-runtime-libs-" + toolchain.getTargetCpu() + "',",
-                  "    " + dynamicRuntimesLabel == null ? "" : "'" + dynamicRuntimesLabel + "',",
-                  "  ],",
-                  "  static_runtime_libs = [",
-                  "    'static-runtime-libs-" + toolchain.getTargetCpu() + "',",
-                  "    " + staticRuntimesLabel == null ? "" : "'" + staticRuntimesLabel + "',",
-                  "])",
+                  dynamicRuntimeLabel.isEmpty()
+                      ? ""
+                      : "    dynamic_runtime_lib = '" + dynamicRuntimeLabel + "',",
+                  staticRuntimeLabel.isEmpty()
+                      ? ""
+                      : "    static_runtime_lib = '" + staticRuntimeLabel + "',",
+                  ")",
                   ""));
     }
 
@@ -176,6 +195,8 @@ final class Crosstool {
                 "package(default_visibility=['//visibility:public'])",
                 "licenses(['restricted'])",
                 "",
+                "toolchain_type(name = 'toolchain_type')",
+                "cc_toolchain_alias(name = 'current_cc_toolchain')",
                 "alias(name = 'toolchain', actual = 'everything')",
                 "filegroup(name = 'everything-multilib',",
                 "          srcs = glob(['" + version + "/**/*'],",
@@ -192,8 +213,12 @@ final class Crosstool {
                     addEmbeddedRuntimes ? ", ':static-runtime-libs-k8'" : ""),
                 "",
                 compilationTools.toString(),
-                runtimes,
+                Joiner.on("\n").join(runtimes),
                 "",
+                "filegroup(",
+                "    name = 'interface_library_builder',",
+                "    srcs = ['build_interface_so'],",
+                ")",
                 // We add an empty :malloc target in case we need it.
                 "cc_library(name = 'malloc')");
 

@@ -23,7 +23,7 @@ def _search_string(fullstring, prefix, suffix):
     Args:
       fullstring: The larger string to search.
       prefix: The substring that should occur directly before the returned string.
-      suffix: The substring that should occur direclty after the returned string.
+      suffix: The substring that should occur directly after the returned string.
     Returns:
       A string occurring in fullstring exactly prefixed by prefix, and exactly
       terminated by suffix. For example, ("hello goodbye", "lo ", " bye") will

@@ -143,8 +143,7 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
          (PackageGroupsRuleVisibility) ruleVisibility;
      for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
        try {
-         convertGroupVisibility((PackageGroup) queryEnvironment.getTarget(groupLabel),
-             packageSpecifications);
+          maybeConvertGroupVisibility(groupLabel, packageSpecifications);
        } catch (TargetNotFoundException e) {
          throw new QueryException(e.getMessage());
        }
@@ -157,12 +156,21 @@ final class BlazeTargetAccessor implements TargetAccessor<Target> {
    }
   }
 
+  private void maybeConvertGroupVisibility(
+      Label groupLabel, ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications)
+      throws QueryException, TargetNotFoundException, InterruptedException {
+    Target groupTarget = queryEnvironment.getTarget(groupLabel);
+    if (groupTarget instanceof PackageGroup) {
+      convertGroupVisibility(
+          (PackageGroup) queryEnvironment.getTarget(groupLabel), packageSpecifications);
+    }
+  }
+
   private void convertGroupVisibility(
       PackageGroup group, ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications)
       throws QueryException, TargetNotFoundException, InterruptedException {
     for (Label include : group.getIncludes()) {
-      convertGroupVisibility((PackageGroup) queryEnvironment.getTarget(include),
-          packageSpecifications);
+      maybeConvertGroupVisibility(include, packageSpecifications);
     }
     packageSpecifications.add(new BlazeQueryVisibility(group.getPackageSpecifications()));
   }

@@ -20,9 +20,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests uncommon lambda scenarious.
- */
+/** Tests uncommon lambda scenarios. */
 @RunWith(JUnit4.class)
 public class DesugarLambdaTest {
 

@@ -197,16 +197,15 @@ public class ResourceShrinkerAction {
     public Path log;
 
     @Option(
-      name = "packageType",
-      defaultValue = "DEFAULT",
-      converter = VariantTypeConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Variant configuration type for packaging the resources."
-              + " Acceptible values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST"
-    )
+        name = "packageType",
+        defaultValue = "DEFAULT",
+        converter = VariantTypeConverter.class,
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Variant configuration type for packaging the resources."
+                + " Acceptable values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
     public VariantType packageType;
   }
 

@@ -3,31 +3,14 @@ layout: documentation
 title: Build Tutorial - iOS
 ---
 
-Introduction to Bazel: Building an iOS App
-==========
+# Introduction to Bazel: Building an iOS App
 
 In this tutorial, you will learn how to build a simple iOS app. You'll do the
 following:
 
-*   [Set up your environment](#set-up-your-environment)
-    *   [Install Bazel](#install-bazel)
-    *   [Install Xcode](#install-xcode)
-    *   [Get the sample project](#get-the-sample-project)
-*   [Set up a workspace](#set-up-a-workspace)
-    *   [Create a WORKSPACE file](#create-a-workspace-file)
-    *   [Update the WORKSPACE file](#update-the-workspace-file)
-*   [Review the source files](#review-the-source-files)
-*   [Create a BUILD file](#create-a-build-file)
-    *   [Add the rule load statement](#add-the-rule-load-statement)
-    *   [Add an objc_library rule](#add-an-objc_library-rule)
-    *   [Add an ios_application rule](#add_an-ios_application-rule)
-*   [Build and deploy the app](#build-and-deploy-the-app)
-    *   [Build the app for the simulator](#build-the-app-for-the-simulator)
-    *   [Find the build outputs](#find-the-build-outputs)
-    *   [Run and debug the app in the simulator](#run-and-debug-the-app-in-the-simulator)
-    *   [Build the app for a device](#build-the-app-for-a-device)
-    *   [Install the app on a device](#install-the-app-on-a-device)
-*   [Review  your work](#review-your-work)
+* ToC
+{:toc}
+
 
 ## Set up your environment
 

@@ -51,6 +51,8 @@ public class FakeStructApi implements StructApi, ClassObject {
     return "";
   }
 
+  // TODO(cparsons): Implement repr to match the real Struct's repr, as it affects the
+  // "default value" documentation of functions.
   @Override
   public void repr(SkylarkPrinter printer) {}
 

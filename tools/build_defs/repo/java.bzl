@@ -163,7 +163,7 @@ disjoint from production code.
 
 ### Provided Dependencies
 
-The feature in Bazel most analagous to Maven's provided scope is the neverlink
+The feature in Bazel most analogous to Maven's provided scope is the neverlink
 attribute. This should be used in rare circumstances when a distributed jar
 will be loaded into a runtime environment where certain dependencies can be
 reasonably expected to already be provided.

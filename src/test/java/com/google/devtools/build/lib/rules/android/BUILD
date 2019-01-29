@@ -343,6 +343,7 @@ java_library(
     srcs = ["AndroidLocalTestTest.java"],
     deps = [
         ":AbstractAndroidLocalTestTestBase",
+        ":AndroidBuildViewTestCase",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:util",

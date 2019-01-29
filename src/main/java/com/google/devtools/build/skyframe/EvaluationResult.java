@@ -105,6 +105,14 @@ public class EvaluationResult<T extends SkyValue> {
   }
 
   /**
+   * Returns some error info. Convenience method equivalent to Iterables.getFirst({@link
+   * #errorMap()}, null).getValue().
+   */
+  public ErrorInfo getError() {
+    return Iterables.getFirst(errorMap.entrySet(), null).getValue();
+  }
+
+  /**
    * @return Names of all values that were successfully evaluated. This collection is disjoint from
    *     the keys in {@link #errorMap}.
    */
@@ -124,14 +132,6 @@ public class EvaluationResult<T extends SkyValue> {
   @Nullable
   public WalkableGraph getWalkableGraph() {
     return walkableGraph;
-  }
-
-  /**
-   * Returns some error info. Convenience method equivalent to
-   * Iterables.getFirst({@link #errorMap()}, null).getValue().
-   */
-  public ErrorInfo getError() {
-    return Iterables.getFirst(errorMap.entrySet(), null).getValue();
   }
 
   @Override

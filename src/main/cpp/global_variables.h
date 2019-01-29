@@ -73,7 +73,7 @@ struct GlobalVariables {
   // The path of the JVM executable that should be used to launch Blaze.
   std::string jvm_path;
 
-  // TODO(laszlocsomor) 2016-11-28: move pid_t usage out of here and whereever
+  // TODO(laszlocsomor) 2016-11-28: move pid_t usage out of here and wherever
   // else it appears. Find some way to not have to declare a pid_t here, either
   // by making PID handling platform-independent or some other idea.
   pid_t server_pid;

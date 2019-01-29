@@ -19,7 +19,6 @@ import static org.junit.Assert.fail;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -130,14 +129,5 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
         .map(AttributeMap.DepEdge::getLabel)
         .map(Label::toString)
         .collect(Collectors.toList());
-  }
-
-  @Test
-  public void testComputedDefault() throws Exception {
-    // Should return a valid ComputedDefault instance since this is a computed default:
-    assertThat(mapper.getComputedDefault("$stl_default", BuildType.LABEL))
-        .isInstanceOf(Attribute.ComputedDefault.class);
-    // Should return null since this *isn't* a computed default:
-    assertThat(mapper.getComputedDefault("srcs", BuildType.LABEL_LIST)).isNull();
   }
 }

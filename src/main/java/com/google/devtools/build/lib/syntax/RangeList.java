@@ -222,20 +222,6 @@ public final class RangeList extends SkylarkList<Integer> {
   }
 
   /**
-   * Converts this range sequence into a materialized list.
-   *
-   * <p>Usage of this method is not recommended, since it completely defeats the purpose of lazy
-   * computation by eagerly computing the result.
-   *
-   * @return A materialized version of the range that can be used as a
-   *     <pre>list</pre>
-   *     type.
-   */
-  MutableList<Integer> toMutableList(Environment env) {
-    return MutableList.copyOf(env, contents);
-  }
-
-  /**
    * @return A half-opened range defined by its starting value (inclusive), stop value (exclusive)
    *     and a step from previous value to the next one.
    */

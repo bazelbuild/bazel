@@ -1,6 +1,6 @@
 ---
 layout: documentation
-title: User Manual
+title: User's Guide
 ---
 <h1>A User's Guide to Bazel</h1>
 
@@ -21,7 +21,6 @@ title: User Manual
     <a href='user-manual.html#analyze-profile'>analyze-profile</a>     Analyzes build profile data.
     <a href='user-manual.html#aquery'>aquery</a>             Executes a query on the <a href='#analysis-phase'>post-analysis</a> action graph.
     <a href='#build'>build</a>               Builds the specified targets.
-
     <a href='user-manual.html#canonicalize'>canonicalize-flags</a>  Canonicalize Bazel flags.
     <a href='user-manual.html#clean'>clean</a>               Removes output files and optionally stops the server.
 
@@ -393,7 +392,7 @@ $ bazel fetch //...
 
 <p>
   Upon each cache hit, the modification time of the file in the cache is
-  updated. In this way, the last use of a file in the cache directroy can easily
+  updated. In this way, the last use of a file in the cache directory can easily
   be determined, for example to manually clean up the cache. The cache is never
   cleaned up automatically, as it might contain a copy of a file that is no
   longer available upstream.
@@ -693,7 +692,7 @@ $ bazel fetch //...
   In some cases, the Bazel sandbox fails to execute rules because of the system setup. The symptom
   is generally a failure that output a message similar to
   <code>namespace-sandbox.c:633: execvp(argv[0], argv): No such file or directory</code>. In that
-  case, try to deactivate the sandbox for genrules with <code>--genrule_strategy=standalone</code>
+  case, try to deactivate the sandbox for genrules with <code>--strategy=Genrule=standalone</code>
   and for other rules with <code>--spawn_strategy=standalone</code>. Also please report a bug on our
   issue tracker and mention which Linux distribution you're using so that we can investigate and
   provide a fix in a subsequent release.

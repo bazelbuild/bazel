@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -79,7 +79,7 @@ public class PackageLookupFunction implements SkyFunction {
 
     if (!packageKey.getRepository().isMain()) {
       return computeExternalPackageLookupValue(skyKey, env, packageKey);
-    } else if (packageKey.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
+    } else if (packageKey.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       return computeWorkspacePackageLookupValue(env, pkgLocator.getPathEntries());
     }
 
@@ -272,7 +272,10 @@ public class PackageLookupFunction implements SkyFunction {
       throws PackageLookupFunctionException, InterruptedException {
     PackageLookupValue result =
         getPackageLookupValue(
-            env, packagePathEntries, Label.EXTERNAL_PACKAGE_IDENTIFIER, BuildFileName.WORKSPACE);
+            env,
+            packagePathEntries,
+            LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+            BuildFileName.WORKSPACE);
     if (result == null) {
       return null;
     }
@@ -286,10 +289,11 @@ public class PackageLookupFunction implements SkyFunction {
       return PackageLookupValue.NO_BUILD_FILE_VALUE;
     }
     Root lastPackagePath = packagePathEntries.get(packagePathEntries.size() - 1);
-    FileValue lastPackagePackagePathFileValue = getFileValue(
-        RootedPath.toRootedPath(lastPackagePath, PathFragment.EMPTY_FRAGMENT),
-        env,
-        Label.EXTERNAL_PACKAGE_IDENTIFIER);
+    FileValue lastPackagePackagePathFileValue =
+        getFileValue(
+            RootedPath.toRootedPath(lastPackagePath, PathFragment.EMPTY_FRAGMENT),
+            env,
+            LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     if (lastPackagePackagePathFileValue == null) {
       return null;
     }

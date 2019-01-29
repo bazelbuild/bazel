@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileTypeApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -32,8 +33,8 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor.Type;
 import com.google.devtools.build.skydoc.rendering.AttributeInfo;
+import com.google.devtools.build.skydoc.rendering.AttributeInfo.Type;
 import com.google.devtools.build.skydoc.rendering.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
@@ -52,7 +53,7 @@ import javax.annotation.Nullable;
 public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<FileApi> {
 
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
-      new FakeDescriptor(Type.STRING, "A unique name for this target.", true);
+      new FakeDescriptor(Type.NAME, "A unique name for this target.", true);
   private final List<RuleInfo> ruleInfoList;
   private final List<ProviderInfo> providerInfoList;
 
@@ -118,8 +119,10 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       SkylarkList<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
+      Object cfg,
       FuncallExpression ast,
-      Environment funcallEnv)
+      Environment funcallEnv,
+      StarlarkContext context)
       throws EvalException {
     List<AttributeInfo> attrInfos;
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
@@ -134,7 +137,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
         .map(entry -> new AttributeInfo(
             entry.getKey(),
             entry.getValue().getDocString(),
-            entry.getValue().getType().getDescription(),
+            entry.getValue().getType(),
             entry.getValue().isMandatory()))
         .collect(Collectors.toList());
     attrInfos.sort(new AttributeNameComparator());
@@ -146,8 +149,13 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   }
 
   @Override
-  public Label label(String labelString, Boolean relativeToCallerRepository, Location loc,
-      Environment env) throws EvalException {
+  public Label label(
+      String labelString,
+      Boolean relativeToCallerRepository,
+      Location loc,
+      Environment env,
+      StarlarkContext context)
+      throws EvalException {
     try {
       return Label.parseAbsolute(
           labelString,

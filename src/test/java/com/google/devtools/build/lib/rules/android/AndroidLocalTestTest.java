@@ -14,10 +14,14 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.rules.android.AndroidBuildViewTestCase.getValidatedResources;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.rules.java.JavaPrimaryClassProvider;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.List;
@@ -132,6 +136,25 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   }
 
   @Test
+  public void testCustomPackageMissingAttribute() throws Exception {
+    scratch.file(
+        "wrong_package_name/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
+        "android_local_test(name = 'dummyTest',",
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps)");
+
+    boolean noCrashFlag = false;
+    try {
+      getConfiguredTarget("//wrong_package_name/test:dummyTest");
+      noCrashFlag = true;
+    } catch (AssertionError error) {
+      assertThat(error).hasMessageThat().contains("'custom_package'");
+    }
+    assertThat(noCrashFlag).isFalse();
+  }
+
+  @Test
   public void testBinaryResources() throws Exception {
     scratch.file(
         "java/test/BUILD",
@@ -178,6 +201,45 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
 
     assertThat(target.getProvider(JavaPrimaryClassProvider.class).getPrimaryClass())
         .isEqualTo("foo.bar");
+  }
+
+  @Test
+  public void testNocompressExtensions() throws Exception {
+    scratch.file(
+        "java/r/android/BUILD",
+        "android_binary(",
+        "  name = 'r',",
+        "  srcs = ['Foo.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  resource_files = ['res/raw/foo.apk'],",
+        "  nocompress_extensions = ['.apk', '.so'],",
+        ")");
+    ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
+    ValidatedAndroidResources resource = getValidatedResources(binary);
+    List<String> args = getGeneratingSpawnActionArgs(resource.getApk());
+    Artifact inputManifest =
+        getFirstArtifactEndingWith(
+            getGeneratingSpawnAction(resource.getManifest()).getInputs(), "AndroidManifest.xml");
+    Artifact finalUnsignedApk =
+        getFirstArtifactEndingWith(
+            binary.getProvider(FileProvider.class).getFilesToBuild(), "_unsigned.apk");
+    Artifact compressedUnsignedApk =
+        artifactByPath(
+            actionsTestUtil().artifactClosureOf(finalUnsignedApk),
+            "_unsigned.apk",
+            "_unsigned.apk");
+    assertContainsSublist(
+        args,
+        ImmutableList.of(
+            "--primaryData", "java/r/android/res::" + inputManifest.getExecPathString()));
+    assertThat(args).contains("--uncompressedExtensions");
+    assertThat(args.get(args.indexOf("--uncompressedExtensions") + 1)).isEqualTo(".apk,.so");
+    assertThat(getGeneratingSpawnActionArgs(compressedUnsignedApk))
+        .containsAllOf("--nocompress_suffixes", ".apk", ".so")
+        .inOrder();
+    assertThat(getGeneratingSpawnActionArgs(finalUnsignedApk))
+        .containsAllOf("--nocompress_suffixes", ".apk", ".so")
+        .inOrder();
   }
 
   @Override

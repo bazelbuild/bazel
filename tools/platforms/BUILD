@@ -82,21 +82,6 @@ constraint_value(
     constraint_setting = ":os",
 )
 
-# A constraint that can only be matched by the autoconfigured platforms.
-constraint_setting(
-    name = "autoconfigure_status",
-    visibility = ["//visibility:private"],
-)
-
-constraint_value(
-    name = "autoconfigured",
-    constraint_setting = ":autoconfigure_status",
-    visibility = [
-        "@bazel_tools//:__subpackages__",
-        "@local_config_cc//:__subpackages__",
-    ],
-)
-
 # A default platform with nothing defined.
 platform(name = "default_platform")
 
@@ -105,7 +90,6 @@ platform(name = "default_platform")
 platform(
     name = "host_platform",
     constraint_values = [
-        ":autoconfigured",
     ],
     cpu_constraints = [
         ":x86_32",
@@ -127,7 +111,6 @@ platform(
 platform(
     name = "target_platform",
     constraint_values = [
-        ":autoconfigured",
     ],
     cpu_constraints = [
         ":x86_32",

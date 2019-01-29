@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
+import com.google.devtools.build.lib.skyframe.serialization.UnshareableValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -45,7 +46,7 @@ import javax.annotation.Nullable;
  * (e.g. via injection).
  */
 @AutoCodec
-public final class PrecomputedValue implements SkyValue {
+public class PrecomputedValue implements SkyValue {
   /**
    * An externally-injected precomputed value. Exists so that modules can inject precomputed values
    * into Skyframe's graph.
@@ -99,7 +100,8 @@ public final class PrecomputedValue implements SkyValue {
   public static final Precomputed<SkylarkSemantics> SKYLARK_SEMANTICS =
       new Precomputed<>(Key.create("skylark_semantics"));
 
-  static final Precomputed<UUID> BUILD_ID = new Precomputed<>(Key.create("build_id"));
+  static final Precomputed<UUID> BUILD_ID =
+      new Precomputed<>(Key.create("build_id"), /*shareable=*/ false);
 
   public static final Precomputed<Map<String, String>> ACTION_ENV =
       new Precomputed<>(Key.create("action_env"));
@@ -160,9 +162,15 @@ public final class PrecomputedValue implements SkyValue {
    */
   public static final class Precomputed<T> {
     private final Key key;
+    private final boolean shareable;
 
     public Precomputed(Key key) {
+      this(key, /*shareable=*/ true);
+    }
+
+    private Precomputed(Key key, boolean shareable) {
       this.key = key;
+      this.shareable = shareable;
     }
 
     @VisibleForTesting
@@ -185,11 +193,19 @@ public final class PrecomputedValue implements SkyValue {
       return (T) value.get();
     }
 
-    /**
-     * Injects a new variable value.
-     */
+    /** Injects a new variable value. */
     public void set(Injectable injectable, T value) {
-      injectable.inject(key, new PrecomputedValue(value));
+      injectable.inject(
+          key, shareable ? new PrecomputedValue(value) : new UnshareablePrecomputedValue(value));
+    }
+  }
+
+  /** An {@linkplain UnshareableValue unshareable} version of {@link PrecomputedValue}. */
+  private static final class UnshareablePrecomputedValue extends PrecomputedValue
+      implements UnshareableValue {
+
+    private UnshareablePrecomputedValue(Object value) {
+      super(value);
     }
   }
 

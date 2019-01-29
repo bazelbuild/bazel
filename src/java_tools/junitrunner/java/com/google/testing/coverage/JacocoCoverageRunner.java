@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import java.io.BufferedReader;
@@ -31,7 +32,6 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.reflect.Method;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
@@ -271,6 +271,20 @@ public class JacocoCoverageRunner {
     }
   }
 
+  /**
+   * Returns an immutable list containing all the file paths found in mainFile. It uses the
+   * javaRunfilesRoot prefix for every found file to compute its absolute path.
+   */
+  private static ImmutableList<File> getFilesFromFileList(File mainFile, String javaRunfilesRoot)
+      throws IOException {
+    List<String> metadataFiles = Files.readLines(mainFile, UTF_8);
+    ImmutableList.Builder<File> convertedMetadataFiles = new Builder<>();
+    for (String metadataFile : metadataFiles) {
+      convertedMetadataFiles.add(new File(javaRunfilesRoot + "/" + metadataFile));
+    }
+    return convertedMetadataFiles.build();
+  }
+
   private static String getUniquePath(String pathTemplate, String suffix) throws IOException {
     // If pathTemplate is null, we're likely executing from a deploy jar and the test framework
     // did not properly set the environment for coverage reporting. This alone is not a reason for
@@ -294,7 +308,10 @@ public class JacocoCoverageRunner {
   public static void main(String[] args) throws Exception {
     final String metadataFile = System.getenv("JACOCO_METADATA_JAR");
     final boolean isNewImplementation =
-        metadataFile == null ? false : metadataFile.endsWith(".txt");
+        metadataFile == null
+            ? false
+            : (metadataFile.endsWith(".txt") || metadataFile.endsWith("_merged_instr.jar"));
+    final boolean hasOneFile = !isNewImplementation || metadataFile.endsWith("_merged_instr.jar");
     final String javaRunfilesRoot = System.getenv("JACOCO_JAVA_RUNFILES_ROOT");
 
     final String coverageReportBase = System.getenv("JAVA_COVERAGE_FILE");
@@ -353,18 +370,12 @@ public class JacocoCoverageRunner {
                     dataInputStream = new ByteArrayInputStream(new byte[0]);
                   }
 
-                  File[] metadataJars;
                   if (metadataFile != null) {
-                    if (isNewImplementation) {
-                      List<String> metadataFiles = Files.readLines(new File(metadataFile), UTF_8);
-                      List<File> convertedMetadataFiles = new ArrayList<>();
-                      for (String metadataFile : metadataFiles) {
-                        convertedMetadataFiles.add(new File(javaRunfilesRoot + metadataFile));
-                      }
-                      metadataJars = convertedMetadataFiles.toArray(new File[0]);
-                    } else {
-                      metadataJars = new File[] {new File(metadataFile)};
-                    }
+                    File[] metadataJars =
+                        hasOneFile
+                            ? new File[] {new File(metadataFile)}
+                            : getFilesFromFileList(new File(metadataFile), javaRunfilesRoot)
+                                .toArray(new File[0]);
 
                     new JacocoCoverageRunner(
                             isNewImplementation, dataInputStream, coverageReport, metadataJars)

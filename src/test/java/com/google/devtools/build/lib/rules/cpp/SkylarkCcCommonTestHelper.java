@@ -84,7 +84,6 @@ public final class SkylarkCcCommonTestHelper {
         "    return struct(",
         "            libraries=dynamic_libs,",
         "            providers=[DefaultInfo(files=depset(files_to_build)),",
-        "            cc_common.create_cc_skylark_info(ctx=ctx),",
         "            CcInfo(compilation_context=compilation_info.compilation_context,",
         "            linking_context=linking_info.linking_context)])",
         "cc_skylark_library = rule(",

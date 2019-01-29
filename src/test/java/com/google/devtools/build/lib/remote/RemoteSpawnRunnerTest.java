@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
@@ -23,6 +24,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
@@ -114,7 +116,7 @@ public class RemoteSpawnRunnerTest {
   private RemoteOptions options;
   private RemoteRetrier retrier;
 
-  @Mock private AbstractRemoteActionCache cache;
+  @Mock private GrpcRemoteCache cache;
 
   @Mock
   private GrpcRemoteExecutor executor;
@@ -166,6 +168,8 @@ public class RemoteSpawnRunnerTest {
     options.remoteAcceptCached = true;
     options.remoteLocalFallback = false;
     options.remoteUploadLocalResults = true;
+    options.remoteResultCachePriority = 1;
+    options.remoteExecutionPriority = 2;
 
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
@@ -203,6 +207,8 @@ public class RemoteSpawnRunnerTest {
     ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
     verify(executor).executeRemotely(requestCaptor.capture());
     assertThat(requestCaptor.getValue().getSkipCacheLookup()).isTrue();
+    assertThat(requestCaptor.getValue().getResultsCachePolicy().getPriority()).isEqualTo(1);
+    assertThat(requestCaptor.getValue().getExecutionPolicy().getPriority()).isEqualTo(2);
     // TODO(olaola): verify that the uploaded action has the doNotCache set.
 
     verify(cache, never())
@@ -214,8 +220,7 @@ public class RemoteSpawnRunnerTest {
             any(Command.class),
             any(Path.class),
             any(Collection.class),
-            any(FileOutErr.class),
-            any(Boolean.class));
+            any(FileOutErr.class));
     verifyZeroInteractions(localRunner);
   }
 
@@ -223,7 +228,7 @@ public class RemoteSpawnRunnerTest {
   @SuppressWarnings("unchecked")
   public void nonCachableSpawnsShouldNotBeCached_local() throws Exception {
     // Test that if a spawn is executed locally, due to the local fallback, that its result is not
-    // uploaded to the remote cache. However, the artifacts should still be uploaded.
+    // uploaded to the remote cache.
 
     options.remoteAcceptCached = true;
     options.remoteLocalFallback = true;
@@ -265,22 +270,13 @@ public class RemoteSpawnRunnerTest {
 
     verify(cache, never())
         .getCachedActionResult(any(ActionKey.class));
-    verify(cache)
-        .upload(
-            any(ActionKey.class),
-            any(Action.class),
-            any(Command.class),
-            any(Path.class),
-            any(Collection.class),
-            any(FileOutErr.class),
-            eq(false));
+    verifyNoMoreInteractions(cache);
   }
 
   @Test
   @SuppressWarnings("unchecked")
-  public void failedActionShouldOnlyUploadOutputs() throws Exception {
-    // Test that the outputs of a failed locally executed action are uploaded to a remote cache,
-    // but the action result itself is not.
+  public void failedLocalActionShouldNotBeUploaded() throws Exception {
+    // Test that the outputs of a locally executed action that failed are not uploaded.
 
     options.remoteUploadLocalResults = true;
 
@@ -321,16 +317,15 @@ public class RemoteSpawnRunnerTest {
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
-            eq(true));
-    verify(cache)
+            /* uploadLocalResults= */ eq(true));
+    verify(cache, never())
         .upload(
             any(ActionKey.class),
             any(Action.class),
             any(Command.class),
             any(Path.class),
             any(Collection.class),
-            any(FileOutErr.class),
-            eq(false));
+            any(FileOutErr.class));
   }
 
   @Test
@@ -362,12 +357,7 @@ public class RemoteSpawnRunnerTest {
                 digestUtil,
                 logDir));
 
-    try {
-      runner.exec(spawn, policy);
-      fail("Expected exception");
-    } catch (EnvironmentalExecException expected) {
-      // Intentionally left empty.
-    }
+    assertThrows(EnvironmentalExecException.class, () -> runner.exec(spawn, policy));
   }
 
   @Test
@@ -412,8 +402,7 @@ public class RemoteSpawnRunnerTest {
             any(Command.class),
             any(Path.class),
             any(Collection.class),
-            any(FileOutErr.class),
-            eq(true));
+            any(FileOutErr.class));
 
     SpawnResult res =
         new SpawnResult.Builder()
@@ -627,8 +616,7 @@ public class RemoteSpawnRunnerTest {
             .setStatus(timeoutStatus)
             .build();
     when(executor.executeRemotely(any(ExecuteRequest.class)))
-        .thenThrow(new Retrier.RetryException(
-                "", 1, new ExecutionStatusException(resp.getStatus(), resp)));
+        .thenThrow(new IOException(new ExecutionStatusException(resp.getStatus(), resp)));
     SettableFuture<Void> completed = SettableFuture.create();
     completed.set(null);
     when(cache.downloadFile(eq(logPath), eq(logDigest))).thenReturn(completed);
@@ -745,9 +733,7 @@ public class RemoteSpawnRunnerTest {
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(cachedResult);
-    Retrier.RetryException downloadFailure =
-        new Retrier.RetryException(
-            "", 1, new CacheNotFoundException(Digest.getDefaultInstance(), digestUtil));
+    Exception downloadFailure = new CacheNotFoundException(Digest.getDefaultInstance(), digestUtil);
     doThrow(downloadFailure)
         .when(cache)
         .download(eq(cachedResult), any(Path.class), any(FileOutErr.class));
@@ -800,9 +786,7 @@ public class RemoteSpawnRunnerTest {
                     .build())
             .build();
     when(executor.executeRemotely(any(ExecuteRequest.class)))
-        .thenThrow(
-            new Retrier.RetryException(
-                "", 1, new ExecutionStatusException(resp.getStatus(), resp)));
+        .thenThrow(new IOException(new ExecutionStatusException(resp.getStatus(), resp)));
 
     Spawn spawn = newSimpleSpawn();
 
@@ -849,9 +833,7 @@ public class RemoteSpawnRunnerTest {
                     .build())
             .build();
     when(executor.executeRemotely(any(ExecuteRequest.class)))
-        .thenThrow(
-            new Retrier.RetryException(
-                "", 1, new ExecutionStatusException(resp.getStatus(), resp)));
+        .thenThrow(new IOException(new ExecutionStatusException(resp.getStatus(), resp)));
 
     Spawn spawn = newSimpleSpawn();
 

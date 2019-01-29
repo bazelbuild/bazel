@@ -34,8 +34,7 @@ function set_up() {
   # Find the version number for an installed Xcode.
   XCODE_VERSION=$(xcodebuild -version | grep ^Xcode | cut -d' ' -f2)
 
-  # Allow access to //external:xcrunwrapper.
-  use_bazel_workspace_file
+  create_new_workspace
 }
 
 function test_fat_binary_no_srcs() {

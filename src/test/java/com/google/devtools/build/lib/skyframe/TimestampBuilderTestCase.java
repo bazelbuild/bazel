@@ -239,8 +239,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         TestRuleClassProvider.getRuleClassProvider(),
                         TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
                             .builder(directories)
-                            .build(TestRuleClassProvider.getRuleClassProvider()),
-                        directories))
+                            .build(TestRuleClassProvider.getRuleClassProvider(), fileSystem),
+                        directories,
+                        /*skylarkImportLookupFunctionForInlining=*/ null))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
@@ -261,7 +262,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                   ACTION_LOOKUP_KEY,
                   new BasicActionLookupValue(
                       Actions.filterSharedActionsAndThrowActionConflict(
-                          actionKeyContext, ImmutableList.copyOf(actions)))));
+                          actionKeyContext, ImmutableList.copyOf(actions)),
+                      /*nonceVersion=*/ null)));
         }
       }
 
@@ -420,7 +422,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected void buildArtifacts(Builder builder, Artifact... artifacts)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException,
           OptionsParsingException {
-    buildArtifacts(builder, new DummyExecutor(fileSystem, rootDirectory), artifacts);
+    buildArtifacts(builder, new DummyExecutor(fileSystem, rootDirectory, reporter), artifacts);
   }
 
   protected void buildArtifacts(Builder builder, Executor executor, Artifact... artifacts)

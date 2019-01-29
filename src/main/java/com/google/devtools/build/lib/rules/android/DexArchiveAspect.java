@@ -64,8 +64,8 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.HashMap;
@@ -137,9 +137,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .requireSkylarkProviders(forKey(ToolchainInfo.PROVIDER.getKey()))
             // For android_sdk rules, where we just want to get at aidl runtime deps.
             .requireSkylarkProviders(forKey(AndroidSdkProvider.PROVIDER.getKey()))
+            .requireSkylarkProviders(forKey(ProtoInfo.PROVIDER.getKey()))
             .requireProviderSets(
                 ImmutableList.of(
-                    ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
                     ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class)))
@@ -177,7 +177,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters params)
+      ConfiguredTargetAndData ctadBase,
+      RuleContext ruleContext,
+      AspectParameters params,
+      String toolsRepository)
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, params, ruleContext);
     Function<Artifact, Artifact> desugaredJars =

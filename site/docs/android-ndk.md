@@ -6,8 +6,7 @@ title: Using the Android Native Development Kit with Bazel
 # Using the Android Native Development Kit with Bazel
 
 _If you're new to Bazel, please start with the [Building Android with
-Bazel](https://docs.bazel.build/versions/master/tutorial/android-app.html)
-tutorial._
+Bazel](tutorial/android-app.html) tutorial._
 
 ## Table of contents
 
@@ -48,8 +47,7 @@ android_ndk_repository(
 ```
 
 For more information on the `android_ndk_repository` rule, see its the [Build
-Encyclopedia
-entry](https://docs.bazel.build/versions/master/be/android.html#android_ndk_repository).
+Encyclopedia entry](be/android.html#android_ndk_repository).
 
 ## Quick start
 
@@ -243,8 +241,7 @@ bazel build //:app --cxxopt=-std=c++11
 ```
 
 Read more about passing compiler and linker flags with `--cxxopt`, `--copt`, and
-`--linkopt` in the [User
-Manual](https://docs.bazel.build/versions/master/user-manual.html#flag--cxxopt).
+`--linkopt` in the [User Manual](user-manual.html#flag--cxxopt).
 
 Compiler and linker flags can also be specified as attributes in `cc_library`
 using `copts` and `linkopts`. For example:
@@ -266,7 +263,7 @@ any special flags, except for `--fat_apk_cpu` and `--android_crosstool_top` for
 ABI and STL configuration.
 
 Behind the scenes, this automatic configuration uses Android [configuration
-transitions](https://docs.bazel.build/versions/master/skylark/rules.html#configurations).
+transitions](skylark/rules.html#configurations).
 
 A compatible rule, like `android_binary`, automatically changes the
 configuration of its dependencies to an Android configuration, so only
@@ -331,9 +328,8 @@ With this approach, the entire build tree is affected.
 
 Note that all of the targets on the command line must be compatible with
 building for Android when specifying these flags, which may make it difficult to
-use [Bazel
-wild-cards](https://docs.bazel.build/versions/master/command-line-reference.html#target-pattern-syntax)
-like `/...` and `:all`.
+use [Bazel wild-cards](command-line-reference.html#target-pattern-syntax) like
+`/...` and `:all`.
 
 These flags can be put into a `bazelrc` config (one for each ABI), in
 `<project>/.bazelrc`:

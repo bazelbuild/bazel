@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is a quick and dirty rule to make Bazel compile itself.  It
-# only supports Java.
+# This is a quick and dirty rule to make Bazel compile itself. Do not use.
 
 proto_filetype = [".proto"]
 

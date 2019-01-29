@@ -66,7 +66,10 @@ while [[ $# -gt 0 ]]; do
       HASHED_FILELIST="${ARG%.objlist}_hashes.objlist"
       rm -f "${HASHED_FILELIST}"
       # Use python helper script for fast md5 calculation of many strings.
-      python "${MY_LOCATION}/make_hashed_objlist.py" "${ARG}" "${HASHED_FILELIST}"
+      TEMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/libtool.XXXXXXXX")"
+      trap "rm -rf \"${TEMPDIR}\"" EXIT
+      python "${MY_LOCATION}/make_hashed_objlist.py" \
+        "${ARG}" "${HASHED_FILELIST}" "${TEMPDIR}"
       ARGS+=("${HASHED_FILELIST}")
       ;;
    # Output flag

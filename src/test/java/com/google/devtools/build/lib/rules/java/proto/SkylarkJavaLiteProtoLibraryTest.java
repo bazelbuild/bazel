@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelp
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
@@ -32,10 +33,10 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
@@ -203,8 +204,8 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "java_lite_proto_library(name = 'lite_pb2', deps = [':proto'])",
         "proto_library(name = 'proto', srcs = ['dummy.proto'])");
 
-    SpawnAction javacAction =
-        (SpawnAction)
+    JavaCompileAction javacAction =
+        (JavaCompileAction)
             getGeneratingAction(
                 getConfiguredTarget("//java/lib:lite_pb2"), "java/lib/libproto-lite.jar");
 
@@ -316,10 +317,10 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         Multimaps.index(compilationArgs.getRuntimeJars(), ROOT_RELATIVE_PATH_STRING);
 
     Artifact jar = Iterables.getOnlyElement(runtimeJars.get("x/libproto_lib-lite.jar"));
-    SpawnAction action = (SpawnAction) getGeneratingAction(jar);
+    JavaCompileAction action = (JavaCompileAction) getGeneratingAction(jar);
 
-    List<String> commandLine = ImmutableList.copyOf((Iterable<String>) getJavacArguments(action));
-    assertThat(commandLine).contains("-protoMarkerForTest");
+    String commandLine = Joiner.on(' ').join(getJavacArguments(action));
+    assertThat(commandLine).contains("-source 7 -target 7");
   }
 
   @Test
@@ -545,15 +546,15 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         ")");
 
     {
-      SpawnAction action =
-          (SpawnAction)
+      JavaCompileAction action =
+          (JavaCompileAction)
               getGeneratingAction(getConfiguredTarget("//x:foo_lite_pb"), "x/libfoo-lite.jar");
       assertThat(prettyArtifactNames(getInputs(action, getDirectJars(action)))).isEmpty();
     }
 
     {
-      SpawnAction action =
-          (SpawnAction)
+      JavaCompileAction action =
+          (JavaCompileAction)
               getGeneratingAction(getConfiguredTarget("//x:bar_lite_pb"), "x/libbar-lite.jar");
       assertThat(prettyArtifactNames(getInputs(action, getDirectJars(action)))).isEmpty();
     }

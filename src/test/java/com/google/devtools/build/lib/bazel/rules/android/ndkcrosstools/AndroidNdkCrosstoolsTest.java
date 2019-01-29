@@ -30,13 +30,10 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -245,22 +242,6 @@ public class AndroidNdkCrosstoolsTest {
       for (CToolchain toolchain : crosstool.getToolchainList()) {
         assertThat(toolchain.getDynamicRuntimesFilegroup()).isNotEmpty();
         assertThat(toolchain.getStaticRuntimesFilegroup()).isNotEmpty();
-      }
-    }
-  }
-
-  @Test
-  public void testDefaultToolchainsExist() {
-
-    for (CrosstoolRelease crosstool : crosstoolReleases) {
-
-      Set<String> toolchainNames = new HashSet<>();
-      for (CToolchain toolchain : crosstool.getToolchainList()) {
-        toolchainNames.add(toolchain.getToolchainIdentifier());
-      }
-
-      for (DefaultCpuToolchain defaultCpuToolchain : crosstool.getDefaultToolchainList()) {
-        assertThat(toolchainNames).contains(defaultCpuToolchain.getToolchainIdentifier());
       }
     }
   }

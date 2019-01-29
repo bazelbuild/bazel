@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -309,6 +310,9 @@ public class AttributeTest {
     public SplitTransition apply(AttributeMap attrMapper) {
       return new TestSplitTransition();
     }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {}
   }
 
   @Test

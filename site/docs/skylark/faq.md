@@ -7,7 +7,8 @@ title: Extension FAQ
 
 These are some common issues and questions with writing extensions.
 
-<!-- [TOC] -->
+* ToC
+{:toc}
 
 
 ## Why is my file not produced / my action never executed?

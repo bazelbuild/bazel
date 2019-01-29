@@ -40,6 +40,116 @@ import java.io.IOException;
 public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
+    @Option(
+        name = "output_symbol_counts",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public boolean symbolCounts;
+
+    @Option(
+        name = "incompatible_disable_sysroot_from_configuration",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableSysrootFromConfiguration;
+
+    @Option(
+        name = "incompatible_provide_cc_toolchain_info_from_cc_toolchain_suite",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean provideCcToolchainInfoFromCcToolchainSuite;
+
+    @Option(
+        name = "incompatible_disable_cc_toolchain_label_from_crosstool_proto",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "Deprecated no-op.")
+    public boolean disableCcToolchainFromCrosstool;
+
+    @Option(
+        name = "incompatible_disable_cc_configuration_make_variables",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED,
+        },
+        help = "Deprecated no-op.")
+    public boolean disableMakeVariables;
+
+    @Option(
+        name = "make_variables_source",
+        defaultValue = "configuration",
+        metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN})
+    public String makeVariableSource;
+
+    @Option(
+        name = "incompatible_disable_legacy_flags_cc_toolchain_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED
+        },
+        help =
+            "Flag for disabling the legacy cc_toolchain Skylark API for accessing legacy "
+                + "CROSSTOOL fields.")
+    public boolean disableLegacyFlagsCcToolchainApi;
+
+    @Option(
+        name = "incompatible_enable_legacy_cpp_toolchain_skylark_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED
+        },
+        help = "Obsolete, no effect.")
+    public boolean enableLegacyToolchainSkylarkApi;
+
+    @Option(
+        name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.DEPRECATED
+        },
+        help = "Obsolete, no effect.")
+    public boolean disableLegacyToolchainSkylarkApi;
+
     @Deprecated
     @Option(
         name = "direct_run",
@@ -76,6 +186,19 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
         help = "noop")
     public boolean forceIgnoreDashStatic;
+
+    @Option(
+        name = "incompatible_disable_late_bound_option_defaults",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "This option is deprecated and has no effect.")
+    public boolean incompatibleDisableLateBoundOptionDefaults;
   }
 
   @Override

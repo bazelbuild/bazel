@@ -104,22 +104,28 @@ public class WindowsFileOperations {
     String[] result = new String[] {null};
     String[] error = new String[] {null};
     if (nativeGetLongPath(asLongPath(path), result, error)) {
-      return result[0];
+      return removeUncPrefixAndUseSlashes(result[0]);
     } else {
       throw new IOException(error[0]);
     }
   }
 
-  /**
-   * Returns a Windows-style path suitable to pass to unicode WinAPI functions.
-   *
-   * <p>Returns an UNC path if `path` is at least `MAX_PATH` long. If it's shorter or is already an
-   * UNC path, then this method returns `path` itself.
-   */
+  /** Returns a Windows-style path suitable to pass to unicode WinAPI functions. */
   static String asLongPath(String path) {
-    return path.length() >= MAX_PATH && !path.startsWith("\\\\?\\")
+    return !path.startsWith("\\\\?\\")
         ? ("\\\\?\\" + path.replace('/', '\\'))
-        : path;
+        : path.replace('/', '\\');
+  }
+
+  private static String removeUncPrefixAndUseSlashes(String p) {
+    if (p.length() >= 4
+        && p.charAt(0) == '\\'
+        && (p.charAt(1) == '\\' || p.charAt(1) == '?')
+        && p.charAt(2) == '?'
+        && p.charAt(3) == '\\') {
+      p = p.substring(4);
+    }
+    return p.replace('\\', '/');
   }
 
   /**
@@ -163,7 +169,7 @@ public class WindowsFileOperations {
   public static boolean deletePath(String path) throws IOException {
     WindowsJniLoader.loadJni();
     String[] error = new String[] {null};
-    int result = nativeDeletePath(asLongPath(path), error);
+    int result = nativeDeletePath(asLongPath(path.replace('/', '\\')), error);
     switch (result) {
       case DELETE_PATH_SUCCESS:
         return true;

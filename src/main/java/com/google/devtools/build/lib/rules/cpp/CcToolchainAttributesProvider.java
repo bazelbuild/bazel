@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.syntax.Type;
@@ -51,16 +52,17 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
-  private final NestedSet<Artifact> crosstool;
-  private final NestedSet<Artifact> crosstoolMiddleman;
-  private final NestedSet<Artifact> compile;
-  private final NestedSet<Artifact> compileWithoutIncludes;
-  private final NestedSet<Artifact> strip;
-  private final NestedSet<Artifact> objcopy;
-  private final NestedSet<Artifact> as;
-  private final NestedSet<Artifact> ar;
-  private final NestedSet<Artifact> link;
-  private final NestedSet<Artifact> dwp;
+  private final NestedSet<Artifact> allFiles;
+  private final NestedSet<Artifact> allFilesMiddleman;
+  private final NestedSet<Artifact> compilerFiles;
+  private final NestedSet<Artifact> compilerFilesWithoutIncludes;
+  private final NestedSet<Artifact> stripFiles;
+  private final NestedSet<Artifact> objcopyFiles;
+  private final NestedSet<Artifact> asFiles;
+  private final NestedSet<Artifact> arFiles;
+  private final NestedSet<Artifact> linkerFiles;
+  private final NestedSet<Artifact> dwpFiles;
+  private final Label libcTopAttribute;
   private final NestedSet<Artifact> libc;
   private final NestedSet<Artifact> libcMiddleman;
   private final NestedSet<Artifact> fullInputsForCrosstool;
@@ -89,7 +91,10 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final CcToolchainConfigInfo ccToolchainConfigInfo;
   private final String toolchainIdentifier;
   private final FdoProfileProvider fdoProfileProvider;
+  private final FdoProfileProvider xfdoProfileProvider;
   private final Label ccToolchainLabel;
+  private final TransitiveInfoCollection staticRuntimeLib;
+  private final TransitiveInfoCollection dynamicRuntimeLib;
 
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
@@ -98,42 +103,49 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     super(ImmutableMap.of(), Location.BUILTIN);
     this.ccToolchainLabel = ruleContext.getLabel();
     this.toolchainIdentifier = ruleContext.attributes().get("toolchain_identifier", Type.STRING);
+    if (ruleContext.getFragment(CppConfiguration.class).removeCpuCompilerCcToolchainAttributes()
+        && (ruleContext.attributes().isAttributeValueExplicitlySpecified("cpu")
+            || ruleContext.attributes().isAttributeValueExplicitlySpecified("compiler"))) {
+      ruleContext.ruleError(
+          "attributes 'cpu' and 'compiler' have been deprecated, please remove them. See "
+              + "https://github.com/bazelbuild/bazel/issues/7075 for details.");
+    }
+
     this.cpu = ruleContext.attributes().get("cpu", Type.STRING);
     this.compiler = ruleContext.attributes().get("compiler", Type.STRING);
     this.proto = ruleContext.attributes().get("proto", Type.STRING);
     this.supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
     this.supportsHeaderParsing = ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
-    this.crosstool =
+    this.allFiles =
         ruleContext
             .getPrerequisite("all_files", Mode.HOST)
             .getProvider(FileProvider.class)
             .getFilesToBuild();
-    this.crosstoolMiddleman = getMiddlemanOrFiles(ruleContext, "all_files");
-    this.compile = getMiddlemanOrFiles(ruleContext, "compiler_files");
-    this.compileWithoutIncludes =
+    this.allFilesMiddleman = getMiddlemanOrFiles(ruleContext, "all_files");
+    this.compilerFiles = getMiddlemanOrFiles(ruleContext, "compiler_files");
+    this.compilerFilesWithoutIncludes =
         getOptionalMiddlemanOrFiles(ruleContext, "compiler_files_without_includes");
-    this.strip = getMiddlemanOrFiles(ruleContext, "strip_files");
-    this.objcopy = getMiddlemanOrFiles(ruleContext, "objcopy_files");
-    this.as = getOptionalMiddlemanOrFiles(ruleContext, "as_files");
-    this.ar = getOptionalMiddlemanOrFiles(ruleContext, "ar_files");
-    this.link = getMiddlemanOrFiles(ruleContext, "linker_files");
-    this.dwp = getMiddlemanOrFiles(ruleContext, "dwp_files");
+    this.stripFiles = getMiddlemanOrFiles(ruleContext, "strip_files");
+    this.objcopyFiles = getMiddlemanOrFiles(ruleContext, "objcopy_files");
+    this.asFiles = getOptionalMiddlemanOrFiles(ruleContext, "as_files");
+    this.arFiles = getOptionalMiddlemanOrFiles(ruleContext, "ar_files");
+    this.linkerFiles = getMiddlemanOrFiles(ruleContext, "linker_files");
+    this.dwpFiles = getMiddlemanOrFiles(ruleContext, "dwp_files");
     this.libcMiddleman =
         getOptionalMiddlemanOrFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
     this.libc = getOptionalFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
     this.fullInputsForCrosstool =
         NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(crosstoolMiddleman)
+            .addTransitive(allFilesMiddleman)
             .addTransitive(libcMiddleman)
             .build();
-    ;
-    this.fullInputsForLink = fullInputsForLink(ruleContext, link, libcMiddleman, isAppleToolchain);
-    NestedSet<Artifact> coverageAttribute =
-        getOptionalMiddlemanOrFiles(ruleContext, "coverage_files");
-    if (coverageAttribute.isEmpty()) {
-      this.coverage = Preconditions.checkNotNull(this.crosstool);
+    this.fullInputsForLink =
+        fullInputsForLink(ruleContext, linkerFiles, libcMiddleman, isAppleToolchain);
+    NestedSet<Artifact> coverageFiles = getOptionalMiddlemanOrFiles(ruleContext, "coverage_files");
+    if (coverageFiles.isEmpty()) {
+      this.coverage = Preconditions.checkNotNull(this.allFiles);
     } else {
-      this.coverage = coverageAttribute;
+      this.coverage = coverageFiles;
     }
     this.ifsoBuilder = ruleContext.getPrerequisiteArtifact("$interface_library_builder", Mode.HOST);
     this.linkDynamicLibraryTool =
@@ -141,6 +153,9 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.fdoProfileProvider =
         ruleContext.getPrerequisite(
             CcToolchainRule.FDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
+    this.xfdoProfileProvider =
+        ruleContext.getPrerequisite(
+            CcToolchainRule.XFDO_PROFILE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
     this.fdoOptimizeProvider =
         ruleContext.getPrerequisite(
             CcToolchainRule.FDO_OPTIMIZE_ATTR, Mode.TARGET, FdoProfileProvider.PROVIDER);
@@ -150,16 +165,24 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.fdoPrefetch =
         ruleContext.getPrerequisite(
             ":fdo_prefetch_hints", Mode.TARGET, FdoPrefetchHintsProvider.PROVIDER);
+    this.libcTopAttribute = ruleContext.attributes().get("libc_top", BuildType.LABEL);
     this.libcTop = ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
     this.moduleMap = ruleContext.getPrerequisite("module_map", Mode.HOST);
     this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map", Mode.HOST);
     this.zipper = ruleContext.getPrerequisiteArtifact(":zipper", Mode.HOST);
     this.purposePrefix = Actions.escapeLabel(ruleContext.getLabel()) + "_";
     this.runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(ruleContext.getLabel());
+    this.staticRuntimeLib = ruleContext.getPrerequisite("static_runtime_lib", Mode.TARGET);
+    this.dynamicRuntimeLib = ruleContext.getPrerequisite("dynamic_runtime_lib", Mode.TARGET);
     this.staticRuntimesLibs =
-        ImmutableList.copyOf(ruleContext.getPrerequisites("static_runtime_libs", Mode.TARGET));
+        staticRuntimeLib == null
+            ? ImmutableList.copyOf(ruleContext.getPrerequisites("static_runtime_libs", Mode.TARGET))
+            : null;
     this.dynamicRuntimesLibs =
-        ImmutableList.copyOf(ruleContext.getPrerequisites("dynamic_runtime_libs", Mode.TARGET));
+        dynamicRuntimeLib == null
+            ? ImmutableList.copyOf(
+                ruleContext.getPrerequisites("dynamic_runtime_libs", Mode.TARGET))
+            : null;
     this.ccToolchainConfigInfo =
         ruleContext.getPrerequisite(
             CcToolchainRule.TOOLCHAIN_CONFIG_ATTR, Mode.TARGET, CcToolchainConfigInfo.PROVIDER);
@@ -241,6 +264,14 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return dynamicRuntimesLibs;
   }
 
+  public TransitiveInfoCollection getStaticRuntimeLib() {
+    return staticRuntimeLib;
+  }
+
+  public TransitiveInfoCollection getDynamicRuntimeLib() {
+    return dynamicRuntimeLib;
+  }
+
   public boolean isSupportsHeaderParsing() {
     return supportsHeaderParsing;
   }
@@ -249,24 +280,24 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return additionalBuildVariables;
   }
 
-  public NestedSet<Artifact> getCrosstool() {
-    return crosstool;
+  public NestedSet<Artifact> getAllFiles() {
+    return allFiles;
   }
 
-  public NestedSet<Artifact> getCrosstoolMiddleman() {
-    return crosstoolMiddleman;
+  public NestedSet<Artifact> getAllFilesMiddleman() {
+    return allFilesMiddleman;
   }
 
-  public NestedSet<Artifact> getCompile() {
-    return compile;
+  public NestedSet<Artifact> getCompilerFiles() {
+    return compilerFiles;
   }
 
-  public NestedSet<Artifact> getStrip() {
-    return strip;
+  public NestedSet<Artifact> getStripFiles() {
+    return stripFiles;
   }
 
-  public NestedSet<Artifact> getObjcopy() {
-    return objcopy;
+  public NestedSet<Artifact> getObjcopyFiles() {
+    return objcopyFiles;
   }
 
   public TransitiveInfoCollection getFdoOptimize() {
@@ -282,24 +313,24 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return moduleMap;
   }
 
-  public NestedSet<Artifact> getAs() {
-    return as;
+  public NestedSet<Artifact> getAsFiles() {
+    return asFiles;
   }
 
-  public NestedSet<Artifact> getAr() {
-    return ar;
+  public NestedSet<Artifact> getArFiles() {
+    return arFiles;
   }
 
   public TransitiveInfoCollection getLibcTop() {
     return libcTop;
   }
 
-  public NestedSet<Artifact> getLink() {
-    return link;
+  public NestedSet<Artifact> getLinkerFiles() {
+    return linkerFiles;
   }
 
-  public NestedSet<Artifact> getDwp() {
-    return dwp;
+  public NestedSet<Artifact> getDwpFiles() {
+    return dwpFiles;
   }
 
   public FdoProfileProvider getFdoOptimizeProvider() {
@@ -322,6 +353,10 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return fdoProfileProvider;
   }
 
+  public FdoProfileProvider getXFdoProfileProvider() {
+    return xfdoProfileProvider;
+  }
+
   public Artifact getZipper() {
     return zipper;
   }
@@ -338,12 +373,16 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return coverage;
   }
 
-  public NestedSet<Artifact> getCompileWithoutIncludes() {
-    return compileWithoutIncludes;
+  public NestedSet<Artifact> getCompilerFilesWithoutIncludes() {
+    return compilerFilesWithoutIncludes;
   }
 
   public NestedSet<Artifact> getLibc() {
     return libc;
+  }
+
+  public Label getLibcTopAttribute() {
+    return libcTopAttribute;
   }
 
   public String getCompiler() {
@@ -391,7 +430,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   }
 
   /**
-   * Returns the crosstool-derived link action inputs for a given rule. Adds the given set of
+   * Returns the allFiles-derived link action inputs for a given rule. Adds the given set of
    * artifacts as extra inputs.
    */
   private static NestedSet<Artifact> fullInputsForLink(

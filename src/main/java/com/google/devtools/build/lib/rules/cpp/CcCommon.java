@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
@@ -35,7 +33,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -50,7 +48,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategor
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -69,6 +66,7 @@ import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -86,7 +84,8 @@ public final class CcCommon {
   public static final String MINIMUM_OS_VERSION_VARIABLE_NAME = "minimum_os_version";
 
   public static final String PIC_CONFIGURATION_ERROR =
-      "PIC compilation is requested but the toolchain does not support it";
+      "PIC compilation is requested but the toolchain does not support it "
+          + "(feature named 'supports_pic' is not enabled)";
 
   private static final String NO_COPTS_ATTRIBUTE = "nocopts";
 
@@ -155,19 +154,20 @@ public final class CcCommon {
           CppRuleClasses.PREPROCESSOR_DEFINES);
 
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
+  private static final String SYSROOT_FLAG = "--sysroot=";
 
   private final RuleContext ruleContext;
 
   private final CcToolchainProvider ccToolchain;
 
-  private final FdoProvider fdoProvider;
+  private final FdoContext fdoContext;
 
   public CcCommon(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.ccToolchain =
         Preconditions.checkNotNull(
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
-    this.fdoProvider = ccToolchain.getFdoProvider();
+    this.fdoContext = ccToolchain.getFdoContext();
   }
 
   /**
@@ -402,11 +402,9 @@ public final class CcCommon {
     return ccToolchain;
   }
 
-  /**
-   * Returns the C++ FDO optimization support provider.
-   */
-  public FdoProvider getFdoProvider() {
-    return fdoProvider;
+  /** Returns the C++ FDO optimization support provider. */
+  public FdoContext getFdoContext() {
+    return fdoContext;
   }
 
   /**
@@ -623,7 +621,9 @@ public final class CcCommon {
                 + "'. This will be an error in the future");
       }
       result.add(includesPath);
-      result.add(ruleContext.getConfiguration().getGenfilesFragment().getRelative(includesPath));
+      if (ruleContext.getConfiguration().hasSeparateGenfilesDirectory()) {
+        result.add(ruleContext.getConfiguration().getGenfilesFragment().getRelative(includesPath));
+      }
       result.add(ruleContext.getConfiguration().getBinFragment().getRelative(includesPath));
     }
     return result;
@@ -695,9 +695,8 @@ public final class CcCommon {
   }
 
   /** Provides support for instrumentation. */
-  public InstrumentedFilesProvider getInstrumentedFilesProvider(
-      Iterable<Artifact> files,
-      boolean withBaselineCoverage) {
+  public InstrumentedFilesInfo getInstrumentedFilesProvider(
+      Iterable<Artifact> files, boolean withBaselineCoverage) {
     return getInstrumentedFilesProvider(
         files,
         withBaselineCoverage,
@@ -705,7 +704,7 @@ public final class CcCommon {
         );
   }
 
-  public InstrumentedFilesProvider getInstrumentedFilesProvider(
+  public InstrumentedFilesInfo getInstrumentedFilesProvider(
       Iterable<Artifact> files,
       boolean withBaselineCoverage,
       NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
@@ -825,10 +824,23 @@ public final class CcCommon {
     if (toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
-    if (enableStaticLinkCppRuntimesFeature(requestedFeatures, unsupportedFeatures, toolchain)) {
-      allRequestedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
-    } else {
-      unsupportedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
+
+    if (toolchain.supportsEmbeddedRuntimes()) {
+      if (!cppConfiguration.disableLegacyCrosstoolFields()) {
+        // If we're not using legacy crosstool fields, we assume 'static_link_cpp_runtimes' feature
+        // is enabled by default for toolchains that support it, and can be disabled by the user
+        // when needed using --feature=-static_link_cpp_runtimes option or
+        // features = [ '-static_link_cpp_runtimes' ] rule attribute.
+        if (enableStaticLinkCppRuntimesFeature(requestedFeatures, unsupportedFeatures, toolchain)) {
+          allRequestedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
+        } else {
+          unsupportedFeaturesBuilder.add(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
+        }
+      }
+    }
+
+    if (cppConfiguration.forcePic()) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.SUPPORTS_PIC);
     }
 
     ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();
@@ -852,7 +864,10 @@ public final class CcCommon {
     ImmutableList.Builder<String> allFeatures =
         new ImmutableList.Builder<String>()
             .addAll(ImmutableSet.of(toolchain.getCompilationMode().toString()))
-            .addAll(DEFAULT_FEATURES)
+            .addAll(
+                cppConfiguration.disableLegacyCrosstoolFields()
+                    ? ImmutableList.of()
+                    : DEFAULT_FEATURES)
             .addAll(DEFAULT_ACTION_CONFIGS)
             .addAll(requestedFeatures)
             .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs());
@@ -863,40 +878,41 @@ public final class CcCommon {
       allFeatures.add("nonhost");
     }
 
-    if (toolchain.useFission()) {
+    if (toolchain.useFission() && !cppConfiguration.disableLegacyCrosstoolFields()) {
       allFeatures.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
 
     allFeatures.addAll(getCoverageFeatures(toolchain));
 
-    if (cppConfiguration.getFdoInstrument() != null
-        && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
+    String fdoInstrument = cppConfiguration.getFdoInstrument();
+    if (fdoInstrument != null && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
       allFeatures.add(CppRuleClasses.FDO_INSTRUMENT);
     }
 
-    FdoMode fdoMode = toolchain.getFdoMode();
-    boolean isFdo = fdoMode != FdoMode.OFF && toolchain.getCompilationMode() == CompilationMode.OPT;
-    if (isFdo
-        && fdoMode != FdoMode.AUTO_FDO
-        && fdoMode != FdoMode.XBINARY_FDO
-        && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
-      allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
-      // For LLVM, support implicit enabling of ThinLTO for FDO unless it has been
-      // explicitly disabled.
-      if (toolchain.isLLVMCompiler() && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
-        allFeatures.add(CppRuleClasses.ENABLE_FDO_THINLTO);
+    FdoContext.BranchFdoProfile branchFdoProvider = toolchain.getFdoContext().getBranchFdoProfile();
+    if (branchFdoProvider != null && toolchain.getCompilationMode() == CompilationMode.OPT) {
+      if (branchFdoProvider.isLlvmFdo()
+          && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
+        allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
+        // For LLVM, support implicit enabling of ThinLTO for FDO unless it has been
+        // explicitly disabled.
+        if (toolchain.isLLVMCompiler()
+            && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+          allFeatures.add(CppRuleClasses.ENABLE_FDO_THINLTO);
+        }
       }
-    }
-    if (isFdo && fdoMode == FdoMode.AUTO_FDO) {
-      allFeatures.add(CppRuleClasses.AUTOFDO);
-      // For LLVM, support implicit enabling of ThinLTO for AFDO unless it has been
-      // explicitly disabled.
-      if (toolchain.isLLVMCompiler() && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
-        allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
+      if (branchFdoProvider.isAutoFdo()) {
+        allFeatures.add(CppRuleClasses.AUTOFDO);
+        // For LLVM, support implicit enabling of ThinLTO for AFDO unless it has been
+        // explicitly disabled.
+        if (toolchain.isLLVMCompiler()
+            && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+          allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
+        }
       }
-    }
-    if (isFdo && fdoMode == FdoMode.XBINARY_FDO) {
-      allFeatures.add(CppRuleClasses.XBINARYFDO);
+      if (branchFdoProvider.isAutoXBinaryFdo()) {
+        allFeatures.add(CppRuleClasses.XBINARYFDO);
+      }
     }
     if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_PREFETCH_HINTS);
@@ -924,7 +940,8 @@ public final class CcCommon {
         }
       }
       if ((cppConfiguration.forcePic() || toolchain.toolchainNeedsPic())
-          && !featureConfiguration.isEnabled(CppRuleClasses.PIC)) {
+          && (!featureConfiguration.isEnabled(CppRuleClasses.PIC)
+              && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC))) {
         throw new EvalException(/* location= */ null, PIC_CONFIGURATION_ERROR);
       }
       return featureConfiguration;
@@ -940,27 +957,55 @@ public final class CcCommon {
   public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain) {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) toolchain.get(ToolchainInfo.PROVIDER);
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, toolchainProvider);
-    if (!featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
-      return null;
+
+    // Determine the original value of CC_FLAGS.
+    String originalCcFlags = toolchainProvider.getLegacyCcFlagsMakeVariable();
+
+    // Ensure that Sysroot is set properly.
+    String sysrootCcFlags = computeCcFlagForSysroot(toolchainProvider);
+
+    // Fetch additional flags from the FeatureConfiguration.
+    List<String> featureConfigCcFlags =
+        computeCcFlagsFromFeatureConfig(ruleContext, toolchainProvider);
+
+    // Combine the different flag sources.
+    ImmutableList.Builder<String> ccFlags = new ImmutableList.Builder<>();
+    ccFlags.add(originalCcFlags);
+
+    // Only add the sysroot flag if nothing else adds sysroot, _but_ it must appear before
+    // the feature config flags.
+    if (!containsSysroot(originalCcFlags, featureConfigCcFlags)) {
+      ccFlags.add(sysrootCcFlags);
     }
 
-    CcToolchainVariables buildVariables = toolchainProvider.getBuildVariables();
-    String toolchainCcFlags =
-        Joiner.on(" ")
-            .join(
-                featureConfiguration.getCommandLine(
-                    CppActionNames.CC_FLAGS_MAKE_VARIABLE, buildVariables));
-    String oldCcFlags = "";
-    TemplateVariableInfo templateVariableInfo =
-        toolchain.get(TemplateVariableInfo.PROVIDER);
-    if (templateVariableInfo != null) {
-      oldCcFlags = templateVariableInfo.getVariables().getOrDefault(
-          CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, "");
+    ccFlags.addAll(featureConfigCcFlags);
+    return Joiner.on(" ").join(ccFlags.build());
+  }
+
+  private static boolean containsSysroot(String ccFlags, List<String> moreCcFlags) {
+    return Stream.concat(Stream.of(ccFlags), moreCcFlags.stream())
+        .anyMatch(str -> str.contains(SYSROOT_FLAG));
+  }
+
+  private static String computeCcFlagForSysroot(CcToolchainProvider toolchainProvider) {
+    PathFragment sysroot = toolchainProvider.getSysrootPathFragment();
+    String sysrootFlag = "";
+    if (sysroot != null) {
+      sysrootFlag = SYSROOT_FLAG + sysroot;
     }
-    return FluentIterable.of(oldCcFlags)
-        .append(toolchainCcFlags)
-        .join(Joiner.on(" "));
+
+    return sysrootFlag;
+  }
+
+  private static List<String> computeCcFlagsFromFeatureConfig(
+      RuleContext ruleContext, CcToolchainProvider toolchainProvider) {
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, toolchainProvider);
+    if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
+      CcToolchainVariables buildVariables = toolchainProvider.getBuildVariables();
+      return featureConfiguration.getCommandLine(
+          CppActionNames.CC_FLAGS_MAKE_VARIABLE, buildVariables);
+    }
+    return ImmutableList.of();
   }
 }

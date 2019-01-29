@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.util.DefaultsPackageUtil;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,8 +32,14 @@ public class CppOptionsTest {
   @Test
   public void testGetDefaultsPackage() throws Exception {
     String content = DefaultsPackageUtil.getDefaultsPackageForOptions(CppOptions.class);
-    assertThat(content).contains("filegroup(name = 'crosstool',\n"
-        + "          srcs = ['" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain'])");
+    Label toolchainLabel =
+        Label.parseAbsoluteUnchecked(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain");
+    assertThat(content)
+        .contains(
+            String.format(
+                // Indentation matched literally.
+                "filegroup(name = 'crosstool',\n          srcs = ['%s'])",
+                toolchainLabel.getDefaultCanonicalForm()));
   }
 
   @Test

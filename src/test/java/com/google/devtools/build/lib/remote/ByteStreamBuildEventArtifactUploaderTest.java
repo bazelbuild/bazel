@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnceUploadService;
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -145,7 +144,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader =
         new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance");
+            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     for (Path file : filesToUpload.keySet()) {
@@ -171,7 +170,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ByteStreamUploader uploader = mock(ByteStreamUploader.class);
     ByteStreamBuildEventArtifactUploader artifactUploader =
         new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance");
+            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
     artifactUploader.shutdown();
@@ -234,13 +233,12 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         new ByteStreamUploader("instance", refCntChannel, null, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader =
         new ByteStreamBuildEventArtifactUploader(
-            uploader, "localhost", withEmptyMetadata, "instance");
+            uploader, "localhost", withEmptyMetadata, "instance", /* maxUploadThreads= */ 100);
 
     try {
       artifactUploader.upload(filesToUpload).get();
       fail("exception expected.");
     } catch (ExecutionException e) {
-      assertThat(e.getCause()).isInstanceOf(RetryException.class);
       assertThat(Status.fromThrowable(e).getCode()).isEqualTo(Status.CANCELLED.getCode());
     }
 

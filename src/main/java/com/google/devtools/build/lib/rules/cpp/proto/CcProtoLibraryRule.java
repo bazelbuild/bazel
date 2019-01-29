@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /** Declaration part of cc_proto_library. */
 public class CcProtoLibraryRule implements RuleDefinition {
@@ -34,6 +35,7 @@ public class CcProtoLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
+        .requiresConfigurationFragments(CppConfiguration.class)
         /* <!-- #BLAZE_RULE(cc_proto_library).ATTRIBUTE(deps) -->
         The list of <a href="protocol-buffer.html#proto_library"><code>proto_library</code></a>
         rules to generate C++ code for.

@@ -1,3 +1,482 @@
+## Release 0.22.0 (2019-01-28)
+
+```
+Baseline: deb028e3fb30b4e2953df16f35ab1f55a08ea8fa
+
+Cherry picks:
+
+   + a3a5975dca3ad04c19dc7d063fcf490a8cd612fd:
+     Fix a race condition in remote cache
+   + b8d0e1b05c225a4b943ce498194d069d18093d9a:
+     Use a new GitHub token and KMS key for the release process.
+   + 3759e3895503aa2bbd6943c5b568b8c050b9448f:
+     remote: fix unexpected IO error (not a directory)
+   + 4473bb1a9ec4282aa8497b86580d68e82415df4a:
+     Fix a race condition in Bazel's Windows process management.
+   + 9137fb940886aa516f32ca8a36feccedb545c99b:
+     undo flag flip of --incompatible_strict_action_env
+   + 12ab12e80ad1c9a3510aa4bbfdf3fddafc0bca00:
+     Revert "Enabling Bazel to generate input symlinks as defined by
+     RE AP?
+   + 6345c747d8cb1819e70c853becadbf8a989decf1:
+     Automated rollback of commit
+     30536baa4a410d8c0a7adab5cd58cd8a2ac7e46c.
+```
+
+
+
+The Bazel team is happy to announce a new release of Bazel,
+[Bazel 0.22.0](https://github.com/bazelbuild/bazel/releases/tag/0.22.0).
+
+Baseline: deb028e3fb30b4e2953df16f35ab1f55a08ea8fa
+
+### Breaking changes
+
+- [`--incompatible_string_is_not_iterable`](https://github.com/bazelbuild/bazel/issues/5830)
+
+### Upcoming changes
+
+This release is a [migration window for the following changes](https://github.com/bazelbuild/bazel/labels/migration-0.22).
+
+- [`--incompatible_disallow_data_transition`](https://github.com/bazelbuild/bazel/issues/6153)
+- [`--incompatible_dont_emit_static_libgcc`](https://github.com/bazelbuild/bazel/issues/6825)
+- [`--incompatible_linkopts_in_user_link_flags`](https://github.com/bazelbuild/bazel/issues/6826)
+- [`--incompatible_disable_legacy_crosstool_fields`](https://github.com/bazelbuild/bazel/issues/6861)
+- [`--incompatible_use_aapt2_by_default`](https://github.com/bazelbuild/bazel/issues/6907)
+- [`--incompatible_disable_runtimes_filegroups`](https://github.com/bazelbuild/bazel/issues/6942)
+- [`--incompatible_disable_legacy_cc_provider`](https://github.com/bazelbuild/bazel/issues/7036)
+- [`--incompatible_require_feature_configuration_for_pic`](https://github.com/bazelbuild/bazel/issues/7007)
+- [`--incompatible_disable_expand_if_all_available_in_flag_set`](https://github.com/bazelbuild/bazel/issues/7008)
+- [`--incompatible_disable_legacy_proto_provider`](https://github.com/bazelbuild/bazel/issues/7152)
+- [`--incompatible_disable_proto_source_root`](https://github.com/bazelbuild/bazel/issues/7153)
+
+### General Changes
+
+- https://docs.bazel.build now supports versioned
+  documentation. Use the selector at the top of the navigation bar
+  to switch between documentation for different Bazel releases.
+
+- set `projectId` in all `PublishBuildToolEventStreamRequest`
+
+### Android
+
+- mobile-install now works with aapt2. Try it out with `bazel
+  mobile-install --android_aapt=aapt2 //my:target`
+
+- Fixed issues with mobile-install v1 when deploying to Android 9 Pie
+  devices. https://github.com/bazelbuild/bazel/issues/6814
+
+- Fixed issue where error messages from Android manifest merging
+  actions were not fully propagated.
+
+- New incompatible change flag `--incompatible_use_aapt2_by_default`
+  for defaulting to aapt2 in Android builds has been added. To build with
+  aapt2 today, pass the flag
+  `--incompatible_use_aapt2_by_default=true` or
+  `--android_aapt=aapt2`, or set the `aapt_version`  to `aapt2` on
+  your `android_binary` or `android_local_test` target.
+
+- Fixed mobile-install v1 error when installing an app with native
+  libraries onto an Android 9 (Pie) device. See
+  https://github.com/bazelbuild/examples/issues/77
+
+- Fixed a mobile-install bug where `arm64-v8a` libraries were not
+  deployed correctly on `arm64` devices. This was done by enabling
+  incremental native lib deployment by default. A previously
+  undocumented `--android_incremental_native_libs` flag is removed,
+  and is now the regular behavior. See
+  https://github.com/bazelbuild/bazel/issues/2239
+
+### Apple
+
+- The `objc_bundle` rule has been removed. Please migrate to rules_apple's
+  [apple_bundle_import](https://github.com/bazelbuild/rules_apple/bl
+  ob/master/doc/rules-resources.md#apple_bundle_import).
+
+- The `apple_stub_binary` rule has been deleted.
+
+- The `--xbinary_fdo` option that passes xbinary profiles has been added.
+
+### C++
+
+- `cc_toolchain.(static|dynamic)_runtime_libs` attributes are now optional
+
+### Packaging
+
+- `build_tar.py` in `tools/build_defs/pkg` now supports a JSON manifest
+  that can be used to add paths that have symbols that can't be
+  specified via the command line
+
+### Query
+
+- Filtering of inputs, outputs, and mnemonic filtering have been added to
+  aquery.
+
+- The aquery and cquery query2 tests have been open-sourced.
+
+- The Bazel query how-to recommends ":*" instead of ":all", because "all" might
+  be the name of a target.
+
+### Testing
+
+- The `--runs_per_test` has been placed in the TESTING documentation category.
+
+- A a clarifying message has been added to test case summary output when all
+  test cases pass but the target fails.
+
+### Contributors
+
+This release contains contributions from many people at Google, as well as
+Benjamin Peterson, Dave Lee, George Gensure, Gert van Dijk, Gustavo Storti
+Salibi, Keith Smiley, Loo Rong Jie, Lukasz Tekieli, Mikhail Mazurskiy, Thi,
+Travis Cline, Vladimir Chebotarev, and Yannic.
+
+## Release 0.21.0 (2018-12-19)
+
+```
+Baseline: cb9b2afbba3f8d3a1db8bf68e65d06f1b36902f5
+
+Cherry picks:
+
+   + 12b96466ee0d6ab83f7d4cd24be110bb5021281d:
+     Windows, test wrapper: rename the associated flag
+   + 7fc967c4d6435de2bb4e34aac00ca2e499f55fca:
+     Use a fixed thread pool in ByteStreamBuildEventArtifactUploader
+   + 798b9a989aa793655d29504edb5fb85f3143db84:
+     Add --build_event_upload_max_threads option
+   + dbe05df23ccf4c919379e0294e0701fd3f66739c:
+     Update the version of  skylib bundled in the distfile
+```
+
+Incompatible changes:
+
+  - The --experimental_stl command line option is removed.
+  - aquery defaults to human readable output format.
+
+New features:
+
+  - repository_ctx.download and repository_ctx.download_and_extract
+    now return a struct.
+  - Android Databinding v2 can be enabled with
+    --experimental_android_databinding_v2.
+
+Important changes:
+
+  - The deprecated and unmaintained Docker rules in
+    tools/build_defs/docker were removed. Please use
+    https://github.com/bazelbuild/rules_docker instead.
+  - The new --upload_query_output_using_bep query/cquery/aquery flag
+    causes query outputs to be uploaded via BEP.
+  - New incompatible flag --incompatible_strict_argument_ordering
+  - --strict_android_deps and --strict_java_deps were renamed to
+    --experimental_strict_java_deps
+  - config_settings that select on "compiler" value instead of values
+    = {"compiler" : "x"} should use flag_values =
+    {"@bazel_tools//tools/cpp:compiler": "x"}.
+  - The new --upload_query_output_using_bep query/cquery/aquery flag
+    causes query outputs to be uploaded via BEP.
+  - Turn on --incompatible_disable_sysroot_from_configuration
+  - We revamped our Android with Bazel tutorial! Check it out
+    [here](https://docs.bazel.build/versions/master/tutorial/android-a
+    pp.html).
+  - --incompatible_disallow_slash_operator is now on by default
+  - Enable --experimental_check_desugar_deps by default.  This flag
+    rules out several types of invalid Android builds at compile-time.
+  - The --max_config_changes_to_show option lists the names of
+    options which
+    have changed and thus caused the analysis cache to be dropped.
+  - The --experimental_strict_action_env option has been renamed to
+    --incompatible_strict_action_env and is now on by default. This
+    means Bazel will no longer use the client's PATH and
+    LD_LIBRARY_PATH environmental variables in the default action
+    environment. If the old behavior is desired, pass
+    --action_env=PATH and --action_env=LD_LIBRARY_PATH.
+    --noincompatible_strict_action_env will also temporarily restore
+    the old behavior. However, as --action_env is a more general and
+    explicit way to pass client environmental variables into actions,
+    --noincompatible_strict_action_env will eventually be deprecated
+    and removed. See #6648 for more details.
+  - XCRUNWRAPPER_LABEL has been removed. If you used this value
+    before, please use @bazel_tools//tools/objc:xcrunwrapper instead.
+  - --incompatible_static_name_resolution is no unable by default
+  - We will phase out --genrule_strategy in favor of
+    --strategy=Genrule=<value> (for genrules) or
+    --spawn_strategy=<value> (for all actions).
+  - --incompatible_package_name_is_a_function is now enabled by
+    default
+  - Dynamic execution is now available with
+    --experimental_spawn_strategy. Dynamic execution allows a build
+    action to run locally and remotely simultaneously, and Bazel
+    picks the fastest action. This provides the best of both worlds:
+    faster clean builds than pure local builds, and faster
+    incremental builds than pure remote builds.
+  - --incompatible_package_name_is_a_function is now enabled by
+    default
+  - New incompatible flag --incompatible_merge_genfiles_directory
+  - grpc log now logs updateActionResult
+  - CppConfiguration doesn't do package loading anymore. That means:
+    * it's no longer needed to have C++ toolchain available when
+    building non-C++ projects
+    * bazel will not analyze C++ toolchain when not needed -> speedup
+    ~2s on bazel startup when C++ rules using hermetic toolchain are
+    not loaded
+  - --incompatible_package_name_is_a_fu...
+
+This release contains contributions from many people at Google, as well as andy g scott ?, Attila Ol?h, Benjamin Peterson, Clint Harrison, Dave Lee, Ed Schouten, Greg Estren, Gregor Jasny, Jamie Snape, Jerry Marino, Loo Rong Jie, Or Shachar, Sevki Hasirci, William Chargin.
+
+## Release 0.20.0 (2018-11-30)
+
+```
+Baseline: 7bf7f031c332dc483257248d1c1f98ad75bbc83b
+
+Cherry picks:
+
+   + fd52341505e725487c6bc6dfbe6b5e081aa037da:
+     update bazel-toolchains pin to latest release Part of changes to
+     allow bazelci to use 0.19.0 configs. RBE toolchain configs at or
+     before 0.17.0 are not compatible with bazel 0.19.0 or above.
+   + 241f28d05424db2d11ee245dc856b992258505e3:
+     Revert "Toggle --incompatible_disable_late_bound_option_defaults
+     flag."
+   + f7e5aef145c33968f658eb2260e25630dc41cc67:
+     Add cc_toolchain targets for the new entries in the default
+     cc_toolchain_suite.
+   + d2920e32ec7f3f8551a693d33c17b19f1b802145:
+     Revert "WindowsFileSystem: open files with delete-sharing"
+```
+
+[Breaking changes in 0.20](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+label%3Abreaking-change-0.20)
+
+  - [--incompatible_remove_native_http_archive](https://github.com/bazelbuild/bazel/issues/6570).
+  - [--incompatible_remove_native_git_repository](https://github.com/bazelbuild/bazel/issues/6569).
+  - [--incompatible_disable_cc_toolchain_label_from_crosstool_proto](https://github.com/bazelbuild/bazel/issues/6434).
+  - [--incompatible_disable_depset_in_cc_user_flags](https://github.com/bazelbuild/bazel/issues/6384).
+  - [--incompatible_disable_cc_configuration_make_variables](https://github.com/bazelbuild/bazel/issues/6381).
+  - [--incompatible_disallow_conflicting_providers](https://github.com/bazelbuild/bazel/issues/5902).
+  - [--incompatible_range_type](https://github.com/bazelbuild/bazel/issues/5264).
+
+[0.20 is a migration window for the following changes](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+label%3Amigration-0.20)
+
+  - [--incompatible_use_jdk10_as_host_javabase](https://github.com/bazelbuild/bazel/issues/6661)
+  - [--incompatible_use_remotejdk_as_host_javabase](https://github.com/bazelbuild/bazel/issues/6656)
+  - [--incompatible_disable_sysroot_from_configuration](https://github.com/bazelbuild/bazel/issues/6565)
+  - [--incompatible_provide_cc_toolchain_info_from_cc_toolchain_suite](https://github.com/bazelbuild/bazel/issues/6537)
+  - [--incompatible_disable_depset_in_cc_user_flags](https://github.com/bazelbuild/bazel/issues/6383)
+  - [--incompatible_package_name_is_a_function](https://github.com/bazelbuild/bazel/issues/5827)
+
+[Breaking changes in the next release (0.21)](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+label%3Abreaking-change-0.21)
+
+  - [--incompatible_use_jdk10_as_host_javabase](https://github.com/bazelbuild/bazel/issues/6661)
+  - [--incompatible_use_remotejdk_as_host_javabase](https://github.com/bazelbuild/bazel/issues/6656)
+  - [--incompatible_disable_sysroot_from_configuration](https://github.com/bazelbuild/bazel/issues/6565)
+  - [--incompatible_provide_cc_toolchain_info_from_cc_toolchain_suite](https://github.com/bazelbuild/bazel/issues/6537)
+  - [--incompatible_disable_depset_in_cc_user_flags](https://github.com/bazelbuild/bazel/issues/6383)
+  - [--incompatible_disallow_data_transition](https://github.com/bazelbuild/bazel/issues/6153)
+  - [--incompatible_package_name_is_a_function](https://github.com/bazelbuild/bazel/issues/5827)
+  - [--incompatible_disallow_slash_operator](https://github.com/bazelbuild/bazel/issues/5823)
+  - [--incompatible_static_name_resolution](https://github.com/bazelbuild/bazel/issues/5637)
+
+Incompatible changes:
+
+  - the --experimental_no_dotd_scanning_with_modules command line
+    argument is not supported anymore.
+  - The --prune_cpp_modules command line option is not supported
+    anymore.
+  - the --experimental_prune_cpp_input_discovery command line option
+    is not supported anymore.
+
+New features:
+
+  - Added support for Android NDK r18.
+
+Important changes:
+
+  - The 'default' parameter of attr.output and attr.output_list is
+    removed. This is controlled by
+    --incompatible_no_output_attr_default
+  - A number of platform-related Starlark APIs which were previously
+    marked "experimental" are now disabled by default, and may be
+    enabled via --experimental_platforms_api
+  - Make legacy-test-support ("legacy_test-<api-level>") from
+    android_sdk_repository neverlink. The legacy test support
+    libraries shouldn't be built into test binaries. To make them
+    available at runtime, developers should declare them via
+    uses-library:
+    https://developer.android.com/training/testing/set-up-project#andr
+    oid-test-base
+  - query remote server Capabilities (per REAPI v2)
+  - CppRules: All cc_toolchains depended on from
+    cc_toolchain_suite.toolchains are now analyzed when not using
+    platforms in order to select the right cc_toolchain.
+  - removed obsolete --explicit_jre_deps flag.
+  - Incompatible flag
+    --incompatible_disable_legacy_cpp_toolchain_skylark_api was
+    flipped.
+  - Improve error messaging when unsupport proguard options are
+    specified at the library level.
+  - Incompatible flag
+    --incompatible_disable_legacy_cpp_toolchain_skylark_api was
+    flipped.
+  - Incompatible flag
+    --incompatible_disable_legacy_cpp_toolchain_skylark_api was
+    flipped.
+  - The --incompatible_disable_late_bound_option_defaults flag has
+    been flipped (#6384)
+  - Incompatible flag
+    --incompatible_disable_legacy_flags_cc_toolchain_api was flipped
+    (#6434)
+  - Fixed issue where ctx.resolve_command created conflicting
+    intermediate files when resolve_command was called multiple times
+    within the same rule invocation with a long command attribute.
+  - Incompatible flag
+    --incompatible_disable_cc_configuration_make_variables was
+    flipped (#6381)
+  - If the --javabase flag is unset, it Bazel locates a JDK using
+    the JAVA_HOME environment variable and searching the PATH. If no
+    JDK is found --javabase will be empty, and builds targeting Java
+    will not
+    be supported. Previously Bazel would fall back to using the
+    embedded
+    JDK as a --javabase, but this is no longer default behaviour. A
+    JDK should
+    be explicitly installed instead to enable Java development
+  - Bazel will now shut down when idle for 5 minutes and the system
+    is low on RAM (linux only).
+  - CROSSTOOL file is now read from the package of cc_toolchain, not
+    from
+    the package of cc_toolchain_suite. This is not expected to break
+    anybody since
+    cc_toolchain_suite and cc_toolchain are commonly in the same
+    package.
+  - All overrides of Starlark's ctx.new_file function are now
+    deprecated.
+      Try the `--incompatible_new_actions_api` flag to ensure your
+    code is forward-compatible.
+  - --incompatible_disable_cc_toolchain_label_from_crosstool_proto
+    was flipped.
+  - Introduce --(no)shutdown_on_low_sys_mem startup flag to toggle
+    idle low-memory shutdown, disabled by default.
+  - --incompatible_disable_cc_toolchain_label_from_crosstool_proto
+    was flipped.
+  - --incompatible_disable_cc_toolchain_label_from_crosstool_proto
+    was flipped.
+  - CppRules: All cc_toolchains depended on from
+    cc_toolchain_suite.toolchains are now analyzed when not using
+    platforms in order to select the right cc_toolchain.
+  - The function `attr.license` is deprecated and will be removed.
+      It can be disabled now with `--incompatible_no_attr_license`.
+  - `range()` function now returns a lazy value
+    (`--incompatible_range_type` is now set by default).
+  - The code coverage report now includes the actual paths to header
+    files instead of the ugly,
+    Bazel generated, virtual includes path.
+  - `--incompatible_disallow_conflicting_providers` has been switched
+    to true
+  - Add new flag `--incompatible_disable_systool_from_configration` to
+    disable loading the systool from CppConfiguration.
+  - Add new flag `--incompatible_disable_sysroot_from_configuration`
+    to
+    disable loading the systool from CppConfiguration.
+  - Sorting remote Platform properties for remote execution. May
+    affect cache keys!
+  - Use different server log files per Bazel server process; java.log
+    is
+    now a symlink to the latest log.
+
+This release contains contributions from many people at Google, as well as a7g4 <a7g4@a7g4.net>, Alan <alan.agius@betssongroup.com>, Asaf Flescher <asafflesch@gmail.com>, Benjamin Peterson <bp@benjamin.pe>, Ed Schouten <ed.schouten@prodrive-technologies.com>, George Gensure <ggensure@uber.com>, George Kalpakas <kalpakas.g@gmail.com>, Greg <gregestren@users.noreply.github.com>, Irina Iancu <iirina@users.noreply.github.com>, Keith Smiley <keithbsmiley@gmail.com>, Loo Rong Jie <loorongjie@gmail.com>, Mark Zeren <mzeren@vmware.com>, Petros Eskinder <petroseskinder@users.noreply.github.com>, rachcatch <rachelcatchpoole@hotmail.com>, Robert Brown <robert.brown@gmail.com>, Robert Gay <robert.gay@redfin.com>, Salty Egg <2281521+zhouhao@users.noreply.github.com>.
+
+## Release 0.19.2 (2018-11-19)
+
+```
+Baseline: ac880418885061d1039ad6b3d8c28949782e02d6
+
+Cherry picks:
+
+   + 9bc3b20053a8b99bf2c4a31323a7f96fabb9f1ec:
+     Fix the "nojava" platform and enable full presubmit checks for
+     the various JDK platforms now that we have enough GCE resources.
+   + 54c2572a8cabaf2b29e58abe9f04327314caa6a0:
+     Add openjdk_linux_archive java_toolchain for nojava platform.
+   + 20bfdc67dc1fc32ffebbda7088ba49ee17e3e182:
+     Automated rollback of commit
+     19a401c38e30ebc0879925a5caedcbe43de0028f.
+   + 914b4ce14624171a97ff8b41f9202058f10d15b2:
+     Windows: Fix Precondition check for addDynamicInputLinkOptions
+   + 83d406b7da32d1b1f6dd02eae2fe98582a4556fd:
+     Windows, test-setup.sh: Setting RUNFILES_MANIFEST_FILE only when
+     it exists.
+   + e025726006236520f7e91e196b9e7f139e0af5f4:
+     Update turbine
+   + 5f312dd1678878fb7563eae0cd184f2270346352:
+     Fix event id for action_completed BEP events
+   + f0c844c77a2406518c4e75c49188390d5e281d3d:
+     Release 0.19.0 (2018-10-29)
+   + c3fb1db9e4e817e8a911f5b347b30f2674a82f7c:
+     Do not use CROSSTOOL to select cc_toolchain
+   + 8e280838e8896a6b5eb5421fda435b96b6f8de60:
+     Windows Add tests for msys gcc toolchain and mingw gcc toolchain
+   + fd52341505e725487c6bc6dfbe6b5e081aa037da:
+     update bazel-toolchains pin to latest release Part of changes to
+     allow bazelci to use 0.19.0 configs. RBE toolchain configs at or
+     before 0.17.0 are not compatible with bazel 0.19.0 or above.
+   + eb2af0f699350ad187048bf814a95af23f562c77:
+     Release 0.19.1 (2018-11-12)
+   + 6bc452874ddff69cbf7f66186238032283f1195f:
+     Also update cc_toolchain.toolchain_identifier when
+     CC_TOOLCHAIN_NAME is set
+   + f7e5aef145c33968f658eb2260e25630dc41cc67:
+     Add cc_toolchain targets for the new entries in the default
+     cc_toolchain_suite.
+   + 683c302129b66a8999f986be5ae7e642707e978c:
+     Read the CROSSTOOL from the package of the current cc_toolchain,
+     not from --crosstool_top
+```
+
+- Fixes regression #6662, by fixing tools/cpp/BUILD
+- Fixes regression #6665, by setting the toolchain identifier.
+- CROSSTOOL file is now read from the package of cc_toolchain, not from the
+  package of cc_toolchain_suite. This is not expected to break anybody since
+  cc_toolchain_suite and cc_toolchain are commonly in the same package.
+
+## Release 0.19.1 (2018-11-12)
+
+```
+Baseline: ac880418885061d1039ad6b3d8c28949782e02d6
+
+Cherry picks:
+
+   + 9bc3b20053a8b99bf2c4a31323a7f96fabb9f1ec:
+     Fix the "nojava" platform and enable full presubmit checks for
+     the various JDK platforms now that we have enough GCE resources.
+   + 54c2572a8cabaf2b29e58abe9f04327314caa6a0:
+     Add openjdk_linux_archive java_toolchain for nojava platform.
+   + 20bfdc67dc1fc32ffebbda7088ba49ee17e3e182:
+     Automated rollback of commit
+     19a401c38e30ebc0879925a5caedcbe43de0028f.
+   + 914b4ce14624171a97ff8b41f9202058f10d15b2:
+     Windows: Fix Precondition check for addDynamicInputLinkOptions
+   + 83d406b7da32d1b1f6dd02eae2fe98582a4556fd:
+     Windows, test-setup.sh: Setting RUNFILES_MANIFEST_FILE only when
+     it exists.
+   + e025726006236520f7e91e196b9e7f139e0af5f4:
+     Update turbine
+   + 5f312dd1678878fb7563eae0cd184f2270346352:
+     Fix event id for action_completed BEP events
+   + f0c844c77a2406518c4e75c49188390d5e281d3d:
+     Release 0.19.0 (2018-10-29)
+   + c3fb1db9e4e817e8a911f5b347b30f2674a82f7c:
+     Do not use CROSSTOOL to select cc_toolchain
+   + 8e280838e8896a6b5eb5421fda435b96b6f8de60:
+     Windows Add tests for msys gcc toolchain and mingw gcc toolchain
+   + fd52341505e725487c6bc6dfbe6b5e081aa037da:
+     update bazel-toolchains pin to latest release Part of changes to
+     allow bazelci to use 0.19.0 configs. RBE toolchain configs at or
+     before 0.17.0 are not compatible with bazel 0.19.0 or above.
+```
+
+Important changes:
+- Fix regression #6610, which prevents using the MINGW compiler on Windows.
+
 ## Release 0.19.0 (2018-10-29)
 
 ```
@@ -3690,6 +4169,9 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
+
+
 
 
 

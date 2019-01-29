@@ -35,9 +35,9 @@ import javax.annotation.Nullable;
 @Immutable
 public class AndroidLibraryAarInfo extends NativeInfo
     implements AndroidLibraryAarInfoApi<Artifact> {
-  private static final String SKYLARK_NAME = "AndroidLibraryAarInfo";
+
   public static final NativeProvider<AndroidLibraryAarInfo> PROVIDER =
-      new NativeProvider<AndroidLibraryAarInfo>(AndroidLibraryAarInfo.class, SKYLARK_NAME) {};
+      new NativeProvider<AndroidLibraryAarInfo>(AndroidLibraryAarInfo.class, NAME) {};
 
   @Nullable private final Aar aar;
   private final NestedSet<Aar> transitiveAars;

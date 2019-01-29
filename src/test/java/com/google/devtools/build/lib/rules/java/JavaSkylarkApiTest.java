@@ -178,7 +178,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    ctx,",
         "    source_files = ctx.files.srcs,",
         "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
         "    host_javabase = ctx.attr._host_javabase",
         "  )",
         "  return struct()",
@@ -303,8 +303,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    deps = [],",
         "    sourcepath = ctx.files.sourcepath,",
         "    strict_deps = 'ERROR',",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return struct(",
         "    files = depset([output_jar]),",
@@ -365,8 +365,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    exports = [e[JavaInfo] for e in ctx.attr.exports],",
         "    plugins = [p[JavaInfo] for p in ctx.attr.plugins],",
         "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "java_custom_library = rule(",
         "  implementation = _impl,",
@@ -415,8 +415,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    source_files = ctx.files.srcs,",
         "    output = output_jar,",
         "    deps = deps,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return struct(",
         "    files = depset([output_jar] + compilation_provider.source_jars),",
@@ -473,8 +473,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    source_files = ctx.files.srcs,",
         "    output = output_jar,",
         "    deps = deps,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return struct(",
         "    files = depset([output_jar] + compilation_provider.source_jars),",
@@ -533,16 +533,16 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    source_files = ctx.files.srcs,",
         "    output = output_jar,",
         "    deps = deps,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  other_compilation_provider = java_common.compile(",
         "    ctx,",
         "    source_files = ctx.files.srcs,",
         "    output = other_output_jar,",
         "    deps = deps,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  result_provider = java_common.merge([compilation_provider, other_compilation_provider])",
         "  return struct(",
@@ -593,8 +593,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    ctx,",
         "    source_jars = ctx.files.srcs,",
         "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return struct(",
         "    files = depset([output_jar]),",
@@ -646,8 +646,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    ctx,",
         "    source_jars = ctx.files.srcs,",
         "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return struct(",
         "    files = depset([output_jar]),",
@@ -696,8 +696,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "  compilation_provider = java_common.compile(",
         "    ctx,",
         "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return struct(",
         "    files = depset([output_jar]),",
@@ -720,7 +720,59 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     } catch (AssertionError e) {
       assertThat(e)
           .hasMessageThat()
-          .contains("source_jars, sources and exports cannot be simultaneous empty");
+          .contains(
+              "source_jars, sources, exports and exported_plugins cannot be simultaneously empty");
+    }
+  }
+
+  @Test
+  public void testJavaCommonCompileWithOnlyExportedPlugins() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_library(name = 'plugin_dep',",
+        "    srcs = [ 'ProcessorDep.java'])",
+        "java_plugin(name = 'plugin',",
+        "    srcs = ['AnnotationProcessor.java'],",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [ ':plugin_dep' ])",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  exported_plugins = [':plugin'],",
+        ")");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    exported_plugins = [p[JavaInfo] for p in ctx.attr.exported_plugins],",
+        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    host_javabase = ctx.attr._host_javabase",
+        "  )",
+        "  return [DefaultInfo(files=depset([output_jar])), compilation_provider]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'exported_plugins': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+    try {
+      getConfiguredTarget("//java/test:custom");
+    } catch (AssertionError e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "source_jars, sources, exports and exported_plugins cannot be simultaneously empty");
     }
   }
 
@@ -1629,8 +1681,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    output = output_jar,",
         "    neverlink = ctx.attr.neverlink,",
         "    deps = deps,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return struct(",
         "    files = depset([output_jar]),",
@@ -1839,12 +1891,43 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     checkError(
         "java/test",
         "custom",
-        "create_provider is deprecated and cannot be used when "
-            + "--incompatible_disallow_legacy_javainfo is set. ",
+        "java_common.create_provider is deprecated and cannot be used when "
+            + "--incompatible_disallow_legacy_javainfo is set.",
         "load(':custom_rule.bzl', 'java_custom_library')",
         "java_custom_library(",
         "  name = 'custom',",
         ")");
+  }
+
+  @Test
+  public void testIncompatibleDisallowLegacyJavaInfoWithFlag() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_legacy_javainfo");
+    setSkylarkSemanticsOptions(
+        "--experimental_java_common_create_provider_enabled_packages=java/test");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  jar = ctx.file.jar",
+        "  java_common.create_provider(",
+        "      compile_time_jars = [jar],",
+        "      transitive_compile_time_jars = [jar],",
+        "      runtime_jars = [jar],",
+        "      use_ijar = False,",
+        "  )",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'jar': attr.label(allow_files = True, single_file = True),",
+        "  }",
+        ")");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  jar = 'lib.jar'",
+        ")");
+    assertThat(getConfiguredTarget("//java/test:custom")).isNotNull();
   }
 
   private static boolean javaCompilationArgsHaveTheSameParent(
@@ -1908,8 +1991,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    source_files = ctx.files.srcs,",
         "    output = output_jar,",
         "    exports = exports,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return struct(",
         "    files = depset([output_jar]),",
@@ -1951,8 +2034,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    ctx,",
         "    source_files = ctx.files.srcs,",
         "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return struct(",
         "    providers = [compilation_provider]",
@@ -1993,8 +2076,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    source_files = ctx.files.srcs,",
         "    output = output_jar,",
         "    deps = deps,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return struct(",
         "    providers = [compilation_provider]",
@@ -2039,8 +2122,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "    source_files = ctx.files.srcs,",
         "    output = output_jar,",
         "    exports = exports,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
-        "    host_javabase = ctx.attr._host_javabase",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
         "  )",
         "  return struct(",
         "    providers = [compilation_provider]",
@@ -2073,5 +2156,110 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     OutputJar output = outputs.getOutputJars().get(0);
     assertThat(output.getClassJar().getFilename()).isEqualTo("libc.jar");
     assertThat(output.getIJar()).isNull();
+  }
+
+  @Test
+  public void testDisallowLegacyJavaProvider() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_legacy_java_provider");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.attr.java_lib.java.source_jars",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'java_lib': attr.label(),",
+        "   },",
+        ")");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_library(name = 'java_lib', srcs = ['java/A.java'])",
+        "java_custom_library(name = 'custom_lib', java_lib = ':java_lib')");
+    checkError(
+        "//foo:custom_lib",
+        "The .java provider is deprecated and cannot be used "
+            + "when --incompatible_disallow_legacy_java_provider is set.");
+  }
+
+  @Test
+  public void testConfiguredTargetHostJavabase() throws Exception {
+    writeBuildFileForJavaToolchain();
+    setSkylarkSemanticsOptions("--incompatible_use_toolchain_providers_in_java_common=true");
+
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "java_runtime(name='jvm', srcs=[], java_home='/foo/bar')",
+        "jrule(name='r', srcs=['S.java'])");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    host_javabase = ctx.attr._host_javabase",
+        "  )",
+        "  return struct()",
+        "jrule = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(default = Label('//a:jvm'))",
+        "  },",
+        "  fragments = ['java'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:r");
+    assertContainsEvent("java_common.JavaRuntimeInfo");
+  }
+
+  @Test
+  public void testConfiguredTargetToolchain() throws Exception {
+    writeBuildFileForJavaToolchain();
+    setSkylarkSemanticsOptions("--incompatible_use_toolchain_providers_in_java_common=true");
+
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "java_runtime(name='jvm', srcs=[], java_home='/foo/bar')",
+        "jrule(name='r', srcs=['S.java'])");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    host_javabase = ctx.attr._host_javabase[java_common.JavaRuntimeInfo]",
+        "  )",
+        "  return struct()",
+        "jrule = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(default = Label('//a:jvm'))",
+        "  },",
+        "  fragments = ['java'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:r");
+    assertContainsEvent("java_common.JavaToolchainInfo");
   }
 }

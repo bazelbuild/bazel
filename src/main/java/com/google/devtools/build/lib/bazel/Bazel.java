@@ -55,13 +55,13 @@ public final class Bazel {
           com.google.devtools.build.lib.standalone.StandaloneModule.class,
           com.google.devtools.build.lib.sandbox.SandboxModule.class,
           com.google.devtools.build.lib.runtime.BuildSummaryStatsModule.class,
+          com.google.devtools.build.lib.dynamic.DynamicExecutionModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelStrategyModule.class,
           com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.class,
           com.google.devtools.build.lib.profiler.callcounts.CallcountsModule.class,
           com.google.devtools.build.lib.profiler.memory.AllocationTrackerModule.class,
           com.google.devtools.build.lib.metrics.MetricsModule.class,
-          com.google.devtools.build.lib.bazel.BazelServerLogModule.class,
           BazelBuiltinCommandModule.class);
 
   public static void main(String[] args) {

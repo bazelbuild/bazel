@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
@@ -441,6 +442,11 @@ public final class AndroidRuleClasses {
               attr(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, LABEL)
                   .cfg(HostTransition.INSTANCE)
                   .value(env.getToolsLabel("//tools/android:databinding_annotation_processor")))
+          .add(
+              attr(DataBinding.DATABINDING_EXEC_PROCESSOR_ATTR, LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:databinding_exec")))
           .advertiseSkylarkProvider(
               SkylarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()))
           .advertiseSkylarkProvider(

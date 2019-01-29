@@ -149,7 +149,7 @@ public abstract class Substitution {
   /**
    * Expands a fragment value.
    *
-   * <p>This is slighly more memory efficient since it defers the expansion of the path fragment's
+   * <p>This is slightly more memory efficient since it defers the expansion of the path fragment's
    * string until requested. Often a template action is never executed, meaning the string is never
    * needed.
    */

@@ -2,7 +2,7 @@ steps:
 - name: gcr.io/cloud-builders/docker
   args: ['build', '--tag=gcr.io/$PROJECT_ID/bazel-jekyll', 'scripts/docs']
 - name: gcr.io/$PROJECT_ID/bazel-jekyll
-  args: ['build', '//site']
+  args: ['build', '--action_env=PATH=/usr/local/bin:/usr/bin:/bin', '//site']
 - name: gcr.io/cloud-builders/gsutil
   args: ['-m', 'rsync', '-r', '-c', '-d', '/workspace/bazel-bin/site/site-build', 'gs://docs.bazel.build']
 - name: gcr.io/cloud-builders/gsutil

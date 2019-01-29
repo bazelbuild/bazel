@@ -196,7 +196,7 @@ function startup_server() {
   fileserver_root=$1
   cd $fileserver_root
   fileserver_port=$(pick_random_unused_tcp_port) || exit 1
-  python $python_server --port=$fileserver_port &
+  python $python_server $fileserver_port &
   fileserver_pid=$!
   wait_for_server_startup
   cd -
@@ -204,7 +204,7 @@ function startup_server() {
 
 function startup_auth_server() {
   fileserver_port=$(pick_random_unused_tcp_port) || exit 1
-  python $python_server --port=$fileserver_port --auth=basic &
+  python $python_server $fileserver_port auth &
   fileserver_pid=$!
   wait_for_server_startup
 }

@@ -85,6 +85,8 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   private static final String ENVIRONMENT = "com.google.devtools.build.lib.syntax.Environment";
   private static final String SKYLARK_SEMANTICS =
       "com.google.devtools.build.lib.syntax.SkylarkSemantics";
+  private static final String STARLARK_CONTEXT =
+      "com.google.devtools.build.lib.skylarkinterface.StarlarkContext";
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
@@ -120,6 +122,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         verifyDocumented(methodElement, annotation);
         verifyNotStructFieldWithParams(methodElement, annotation);
         verifyParamSemantics(methodElement, annotation);
+        verifyParamFlagSemantics(methodElement, annotation);
         verifyNumberOfParameters(methodElement, annotation);
         verifyExtraInterpreterParams(methodElement, annotation);
         verifyIfSelfCall(methodElement, annotation);
@@ -282,6 +285,52 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     }
   }
 
+  private void verifyParamFlagSemantics(ExecutableElement methodElement, SkylarkCallable annotation)
+      throws SkylarkCallableProcessorException {
+
+    for (Param parameter : annotation.parameters()) {
+      if (parameter.enableOnlyWithFlag() != FlagIdentifier.NONE
+          && parameter.disableWithFlag() != FlagIdentifier.NONE) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            String.format(
+                "Parameter '%s' has enableOnlyWithFlag and disableWithFlag set. "
+                    + "At most one may be set",
+                parameter.name()));
+      }
+
+      boolean isParamControlledByFlag =
+          parameter.enableOnlyWithFlag() != FlagIdentifier.NONE
+              || parameter.disableWithFlag() != FlagIdentifier.NONE;
+
+      if (!isParamControlledByFlag && !parameter.valueWhenDisabled().isEmpty()) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            String.format(
+                "Parameter '%s' has valueWhenDisabled set, but is always enabled",
+                parameter.name()));
+      } else if (isParamControlledByFlag && parameter.valueWhenDisabled().isEmpty()) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            String.format(
+                "Parameter '%s' may be disabled by semantic flag, "
+                    + "thus valueWhenDisabled must be set",
+                parameter.name()));
+      }
+    }
+
+    if (annotation.extraPositionals().enableOnlyWithFlag() != FlagIdentifier.NONE
+        || annotation.extraPositionals().disableWithFlag() != FlagIdentifier.NONE) {
+      throw new SkylarkCallableProcessorException(
+          methodElement, "The extraPositionals parameter may not be toggled by semantic flag");
+    }
+    if (annotation.extraKeywords().enableOnlyWithFlag() != FlagIdentifier.NONE
+        || annotation.extraKeywords().disableWithFlag() != FlagIdentifier.NONE) {
+      throw new SkylarkCallableProcessorException(
+          methodElement, "The extraKeywords parameter may not be toggled by semantic flag");
+    }
+  }
+
   private String paramTypeFieldCanonicalName(Param param) {
     try {
       return param.type().toString();
@@ -401,6 +450,17 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
                 SKYLARK_SEMANTICS,
                 methodSignatureParams.get(currentIndex).asType().toString()));
       }
+      currentIndex++;
+    }
+    if (annotation.useContext()) {
+      if (!STARLARK_CONTEXT.equals(methodSignatureParams.get(currentIndex).asType().toString())) {
+        throw new SkylarkCallableProcessorException(
+            methodElement,
+            String.format(
+                "Expected parameter index %d to be the %s type, matching useContext, "
+                    + "but was %s",
+                currentIndex, STARLARK_CONTEXT, methodSignatureParams.get(currentIndex).asType()));
+      }
     }
   }
 
@@ -412,6 +472,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     numExtraInterpreterParams += annotation.useAst() ? 1 : 0;
     numExtraInterpreterParams += annotation.useEnvironment() ? 1 : 0;
     numExtraInterpreterParams += annotation.useSkylarkSemantics() ? 1 : 0;
+    numExtraInterpreterParams += annotation.useContext() ? 1 : 0;
     return numExtraInterpreterParams;
   }
 

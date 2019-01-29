@@ -27,7 +27,6 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
@@ -52,8 +51,8 @@ public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor 
   private Messager messager;
   private Types typeUtils;
   private Elements elementUtils;
-  private TypeMirror labelType;
-  private TypeMirror configurationFragmentType;
+  private TypeElement labelType;
+  private TypeElement configurationFragmentType;
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
@@ -67,10 +66,10 @@ public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor 
     typeUtils = processingEnv.getTypeUtils();
     elementUtils = processingEnv.getElementUtils();
     labelType =
-        elementUtils.getTypeElement("com.google.devtools.build.lib.cmdline.Label").asType();
+        elementUtils.getTypeElement("com.google.devtools.build.lib.cmdline.Label");
     configurationFragmentType =
         elementUtils.getTypeElement(
-            "com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment").asType();
+            "com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment");
   }
 
   @Override
@@ -84,7 +83,10 @@ public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor 
         error(methodElement, "@SkylarkConfigurationField annotated methods must be methods "
             + "of configuration fragments.");
       }
-      if (!typeUtils.isSameType(methodElement.getReturnType(), labelType)) {
+      // If labelType is null, then Label isn't even included
+      // in the current build, so the method clearly does not return it.
+      if (labelType == null
+          || !typeUtils.isSameType(methodElement.getReturnType(), labelType.asType())) {
         error(methodElement, "@SkylarkConfigurationField annotated methods must return Label.");
       }
       if (!methodElement.getModifiers().contains(Modifier.PUBLIC)) {
@@ -109,7 +111,10 @@ public final class SkylarkConfigurationFieldProcessor extends AbstractProcessor 
       return false;
     }
     Element classElement = methodElement.getEnclosingElement();
-    if (!typeUtils.isAssignable(classElement.asType(), configurationFragmentType)) {
+    // If configurationFragmentType is null, then BuildConfiguration.Fragment isn't even included
+    // in the current build, so the class clearly does not depend on it.
+    if (configurationFragmentType == null
+        || !typeUtils.isAssignable(classElement.asType(), configurationFragmentType.asType())) {
       return false;
     }
 

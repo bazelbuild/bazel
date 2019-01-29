@@ -37,15 +37,17 @@ public enum CPU {
     this.archs = archs;
   }
 
+  public String getCanonicalName() {
+    return canonicalName;
+  }
+
+  private static final CPU HOST_CPU = determineCurrentCpu();
+
   /**
    * The current CPU.
    */
   public static CPU getCurrent() {
     return HOST_CPU;
-  }
-
-  public String getCanonicalName() {
-    return canonicalName;
   }
 
   private static CPU determineCurrentCpu() {
@@ -59,6 +61,4 @@ public enum CPU {
 
     return CPU.UNKNOWN;
   }
-
-  private static final CPU HOST_CPU = determineCurrentCpu();
 }

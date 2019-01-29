@@ -1061,7 +1061,7 @@ public class ResourceUsageAnalyzer {
     private final String currentClass;
 
     public UsageVisitor(File jarFile, String name) {
-      super(Opcodes.ASM6);
+      super(Opcodes.ASM7);
       this.jarFile = jarFile;
       currentClass = name;
     }
@@ -1069,7 +1069,7 @@ public class ResourceUsageAnalyzer {
     @Override
     public MethodVisitor visitMethod(
         int access, final String name, String desc, String signature, String[] exceptions) {
-      return new MethodVisitor(Opcodes.ASM6) {
+      return new MethodVisitor(Opcodes.ASM7) {
         @Override
         public void visitLdcInsn(Object cst) {
           handleCodeConstant(cst, "ldc");
@@ -1137,7 +1137,7 @@ public class ResourceUsageAnalyzer {
     public FieldVisitor visitField(
         int access, String name, String desc, String signature, Object value) {
       handleCodeConstant(value, "field");
-      return new FieldVisitor(Opcodes.ASM6) {
+      return new FieldVisitor(Opcodes.ASM7) {
         @Override
         public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
           return new AnnotationUsageVisitor();
@@ -1147,7 +1147,7 @@ public class ResourceUsageAnalyzer {
 
     private class AnnotationUsageVisitor extends AnnotationVisitor {
       public AnnotationUsageVisitor() {
-        super(Opcodes.ASM6);
+        super(Opcodes.ASM7);
       }
 
       @Override

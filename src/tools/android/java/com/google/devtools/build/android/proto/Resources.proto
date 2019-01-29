@@ -21,7 +21,6 @@ import "src/tools/android/java/com/google/devtools/build/android/proto/Configura
 package aapt.pb;
 
 option java_package = "com.android.aapt";
-option optimize_for = LITE_RUNTIME;
 
 // A string pool that wraps the binary form of the C++ class android::ResStringPool.
 message StringPool {

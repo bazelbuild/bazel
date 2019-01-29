@@ -210,6 +210,11 @@ public class DumpPlatformClassPath {
     je.setTime(FIXED_TIMESTAMP);
     je.setMethod(ZipEntry.STORED);
     byte[] bytes = toByteArray(input);
+    // When targeting JDK >= 10, patch the major version so it will be accepted by javac 9
+    // TODO(cushon): remove this after updating javac
+    if (bytes[7] > 53) {
+      bytes[7] = 53;
+    }
     je.setSize(bytes.length);
     CRC32 crc = new CRC32();
     crc.update(bytes);

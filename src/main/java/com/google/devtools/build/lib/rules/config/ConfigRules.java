@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkConfig;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkConfig;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
@@ -38,15 +38,12 @@ public final class ConfigRules implements RuleSet {
         new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR));
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigBaseRule());
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigSettingRule());
-    builder.addConfig(ConfigFeatureFlagOptions.class,
-        new ConfigFeatureFlagConfiguration.Loader());
+    builder.addConfigurationFragment(new ConfigFeatureFlagConfiguration.Loader());
 
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigFeatureFlagRule());
     builder.addSkylarkBootstrap(
         new ConfigBootstrap(
-            new ConfigSkylarkCommon(),
-            new SkylarkConfig(),
-            new ConfigGlobalLibrary()));
+            new ConfigSkylarkCommon(), new StarlarkConfig(), new ConfigGlobalLibrary()));
   }
 
   @Override

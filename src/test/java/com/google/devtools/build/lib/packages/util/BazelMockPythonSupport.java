@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages.util;
 
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
 /** Mock python support in Bazel. */
@@ -21,8 +22,33 @@ public class BazelMockPythonSupport extends MockPythonSupport {
 
   public static final BazelMockPythonSupport INSTANCE = new BazelMockPythonSupport();
 
+  private static void addTool(MockToolsConfig config, String toolRelativePath) throws IOException {
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + toolRelativePath,
+        ResourceLoader.readFromResources(TestConstants.BAZEL_REPO_PATH + toolRelativePath));
+  }
+
   @Override
   public void setup(MockToolsConfig config) throws IOException {
+    addTool(config, "tools/python/python_version.bzl");
+    addTool(config, "tools/python/srcs_version.bzl");
 
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/python/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "load(':python_version.bzl', 'define_python_version_flag')",
+        "define_python_version_flag(",
+        "    name = 'python_version',",
+        ")",
+        "config_setting(",
+        "    name = 'PY2',",
+        "    flag_values = {':python_version': 'PY2'},",
+        ")",
+        "config_setting(",
+        "    name = 'PY3',",
+        "    flag_values = {':python_version': 'PY3'},",
+        ")",
+        "exports_files(['precompile.py'])",
+        "sh_binary(name='2to3', srcs=['2to3.sh'])");
   }
 }

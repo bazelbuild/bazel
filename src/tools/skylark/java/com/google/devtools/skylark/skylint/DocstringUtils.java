@@ -119,7 +119,7 @@ public final class DocstringUtils {
 
   /** Takes a function body and returns the docstring literal, if present. */
   @Nullable
-  static StringLiteral extractDocstring(List<Statement> statements) {
+  public static StringLiteral extractDocstring(List<Statement> statements) {
     if (statements.isEmpty()) {
       return null;
     }
@@ -127,7 +127,8 @@ public final class DocstringUtils {
   }
 
   /** Parses a docstring from a string literal and appends any new errors to the given list. */
-  static DocstringInfo parseDocstring(StringLiteral docstring, List<DocstringParseError> errors) {
+  public static DocstringInfo parseDocstring(
+      StringLiteral docstring, List<DocstringParseError> errors) {
     int indentation = docstring.getLocation().getStartLineAndColumn().getColumn() - 1;
     return parseDocstring(docstring.getValue(), indentation, errors);
   }
@@ -174,7 +175,30 @@ public final class DocstringUtils {
     return result;
   }
 
-  static class DocstringInfo {
+  /** Encapsulates information about a Starlark function docstring. */
+  public static class DocstringInfo {
+
+    /** Returns the one-line summary of the docstring. */
+    public String getSummary() {
+      return summary;
+    }
+
+    /**
+     * Returns a list containing information about parameter documentation for the parameters of the
+     * documented function.
+     */
+    public List<ParameterDoc> getParameters() {
+      return parameters;
+    }
+
+    /**
+     * Returns the long-form description of the docstring. (Everything after the one-line summary
+     * and before special sections such as "Args:".
+     */
+    public String getLongDescription() {
+      return longDescription;
+    }
+
     /** The one-line summary at the start of the docstring. */
     final String summary;
     /** Documentation of function parameters from the 'Args:' section. */
@@ -208,7 +232,10 @@ public final class DocstringUtils {
     }
   }
 
-  static class ParameterDoc {
+  /**
+   * Contains information about the documentation for function parameters of a Starlark function.
+   */
+  public static class ParameterDoc {
     final String parameterName;
     final List<String> attributes; // e.g. a type annotation, "unused", "mutable"
     final String description;
@@ -217,6 +244,18 @@ public final class DocstringUtils {
       this.parameterName = parameterName;
       this.attributes = ImmutableList.copyOf(attributes);
       this.description = description;
+    }
+
+    public String getParameterName() {
+      return parameterName;
+    }
+
+    public List<String> getAttributes() {
+      return attributes;
+    }
+
+    public String getDescription() {
+      return description;
     }
   }
 
@@ -578,7 +617,8 @@ public final class DocstringUtils {
     }
   }
 
-  static class DocstringParseError {
+  /** Contains error information to reflect a docstring parse error. */
+  public static class DocstringParseError {
     final String message;
     final int lineNumber;
     final String line;
@@ -592,6 +632,16 @@ public final class DocstringUtils {
     @Override
     public String toString() {
       return lineNumber + ": " + message;
+    }
+
+    /** Returns a descriptive method about the error which occurred. */
+    public String getMessage() {
+      return message;
+    }
+
+    /** Returns the line number in the containing Starlark file which contains this error. */
+    public int getLineNumber() {
+      return lineNumber;
     }
   }
 }

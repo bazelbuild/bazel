@@ -146,7 +146,7 @@ using command_server::CommandServer;
 //   to deliver a SIGKILL to the server after three SIGINTs. It would only be
 //   possible with gRPC anyway.
 //
-// - Have the server check that the PID file containts the correct things
+// - Have the server check that the PID file contains the correct things
 //   before deleting them: there is a window of time between checking the file
 //   and deleting it in which a new server can overwrite the PID file. The
 //   output base lock cannot be acquired, either, because when starting up a
@@ -608,9 +608,8 @@ static vector<string> GetArgumentArray(
   }
 
   // Pass in invocation policy as a startup argument for batch mode only.
-  if (globals->options->batch && globals->options->invocation_policy != NULL &&
-      strlen(globals->options->invocation_policy) > 0) {
-    result.push_back(string("--invocation_policy=") +
+  if (globals->options->batch && !globals->options->invocation_policy.empty()) {
+    result.push_back("--invocation_policy=" +
                      globals->options->invocation_policy);
   }
 
@@ -1038,7 +1037,6 @@ static void ActuallyExtractData(const string &argv0,
 // it is in place. Concurrency during extraction is handled by
 // extracting in a tmp dir and then renaming it into place where it
 // becomes visible automically at the new path.
-// Populates globals->extracted_binaries with their extracted locations.
 static void ExtractData(const string &self_path) {
   // If the install dir doesn't exist, create it, if it does, we know it's good.
   if (!blaze_util::PathExists(globals->options->install_base)) {
@@ -1869,8 +1867,7 @@ unsigned int GrpcBlazeServer::Communicate() {
   for (const string &arg : arg_vector) {
     request.add_arg(arg);
   }
-  if (globals->options->invocation_policy != NULL &&
-      strlen(globals->options->invocation_policy) > 0) {
+  if (!globals->options->invocation_policy.empty()) {
     request.set_invocation_policy(globals->options->invocation_policy);
   }
 

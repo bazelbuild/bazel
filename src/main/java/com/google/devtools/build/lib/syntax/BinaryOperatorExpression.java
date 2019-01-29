@@ -157,22 +157,6 @@ public final class BinaryOperatorExpression extends Expression {
     return evaluate(operator, lhs, rhs, env, loc, /*isAugmented=*/false);
   }
 
-  /**
-   * Evaluates {@code lhs @= rhs} and returns the result, possibly mutating {@code lhs}.
-   *
-   * <p>Whether or not {@code lhs} is mutated depends on its type. If it is mutated, then it is also
-   * the return value.
-   */
-  public static Object evaluateAugmented(
-      Operator operator,
-      Object lhs,
-      Object rhs,
-      Environment env,
-      Location loc)
-      throws EvalException, InterruptedException {
-    return evaluate(operator, lhs, rhs, env, loc, /*isAugmented=*/true);
-  }
-
   private static Object evaluate(
       Operator operator,
       Object lhs,
@@ -183,8 +167,8 @@ public final class BinaryOperatorExpression extends Expression {
       throws EvalException, InterruptedException {
     try {
       switch (operator) {
-        // AND and OR are included for completeness, but should normally be handled using
-        // evaluateWithShortCircuiting() instead of this method.
+          // AND and OR are included for completeness, but should normally be handled using
+          // evaluateWithShortCircuiting() instead of this method.
 
         case AND:
           return EvalUtils.toBoolean(lhs) ? rhs : lhs;
@@ -205,14 +189,10 @@ public final class BinaryOperatorExpression extends Expression {
           return mult(lhs, rhs, env, location);
 
         case DIVIDE:
-          if (env.getSemantics().incompatibleDisallowSlashOperator()) {
-            throw new EvalException(
-                location,
-                "The `/` operator has been removed. Please use the `//` operator for integer "
-                    + "division. You can temporarily enable the `/` operator by passing "
-                    + "the flag --incompatible_disallow_slash_operator=false");
-          }
-          return divide(lhs, rhs, location);
+          throw new EvalException(
+              location,
+              "The `/` operator is not allowed. Please use the `//` operator for integer "
+                  + "division.");
 
         case FLOOR_DIVIDE:
           return divide(lhs, rhs, location);
@@ -250,6 +230,18 @@ public final class BinaryOperatorExpression extends Expression {
     } catch (ArithmeticException e) {
       throw new EvalException(location, e.getMessage());
     }
+  }
+
+  /**
+   * Evaluates {@code lhs @= rhs} and returns the result, possibly mutating {@code lhs}.
+   *
+   * <p>Whether or not {@code lhs} is mutated depends on its type. If it is mutated, then it is also
+   * the return value.
+   */
+  public static Object evaluateAugmented(
+      Operator operator, Object lhs, Object rhs, Environment env, Location loc)
+      throws EvalException, InterruptedException {
+    return evaluate(operator, lhs, rhs, env, loc, /*isAugmented=*/ true);
   }
 
   @Override
@@ -410,7 +402,7 @@ public final class BinaryOperatorExpression extends Expression {
       // We want to follow Python semantics, so we use float division and round down.
       return (int) Math.floor(Double.valueOf((Integer) lval) / (Integer) rval);
     }
-    throw typeException(lval, rval, Operator.DIVIDE, location);
+    throw typeException(lval, rval, Operator.FLOOR_DIVIDE, location);
   }
 
   /** Implements Operator.PERCENT. */

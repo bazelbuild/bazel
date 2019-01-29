@@ -114,18 +114,8 @@ public final class JavaLibraryHelper {
     return this;
   }
 
-  public JavaLibraryHelper addAllDeps(Iterable<JavaCompilationArgsProvider> providers) {
-    Iterables.addAll(deps, providers);
-    return this;
-  }
-
   public JavaLibraryHelper addExport(JavaCompilationArgsProvider provider) {
     exports.add(provider);
-    return this;
-  }
-
-  public JavaLibraryHelper addAllExports(Iterable<JavaCompilationArgsProvider> providers) {
-    Iterables.addAll(exports, providers);
     return this;
   }
 

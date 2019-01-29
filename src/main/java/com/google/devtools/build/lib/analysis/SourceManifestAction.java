@@ -43,13 +43,12 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Action to create a manifest of input files for processing by a subsequent build step (e.g.
- * runfiles symlinking or archive building).
+ * Creates a manifest file describing a symlink tree.
  *
- * <p>The manifest's format is specifiable by {@link ManifestType}, in accordance with the needs of
- * the calling functionality.
+ * <p>In addition to symlink trees (whose manifests are a tree position -> exec path map), this
+ * action can also create manifest consisting of just exec paths for historical reasons.
  *
- * <p>Note that this action carefully avoids building the manifest content in memory.
+ * <p>This action carefully avoids building the manifest content in memory because it can be large.
  */
 @AutoCodec
 @Immutable // if all ManifestWriter implementations are immutable

@@ -20,10 +20,6 @@ cc_library(
     name = "malloc",
 )
 
-cc_library(
-    name = "stl",
-)
-
 filegroup(
     name = "empty",
     srcs = [],
@@ -44,13 +40,12 @@ cc_toolchain(
     name = "cc-compiler-freebsd",
     toolchain_identifier = "local_freebsd",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
 )
@@ -73,13 +68,12 @@ cc_toolchain(
     name = "cc-compiler-armeabi-v7a",
     toolchain_identifier = "stub_armeabi-v7a",
     all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
     dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
     objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
 )

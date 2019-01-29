@@ -34,7 +34,7 @@ function set_up() {
         --work_path="${work_path}" \
         --listen_port=${worker_port} \
         --cas_path=${cas_path} \
-        --noremote_allow_symlink_upload \
+        --incompatible_remote_symlinks \
         --pid_file="${pid_file}" >& $TEST_log &
     local wait_seconds=0
     until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 15 ]; do
@@ -149,6 +149,30 @@ EOF
       || fail "Remote cache generated different result"
 }
 
+function test_cc_binary_grpc_cache_statsline() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_binary(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello world!" << std::endl; return 0; }
+EOF
+  bazel build \
+      --remote_cache=localhost:${worker_port} \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote gRPC cache service"
+  bazel clean --expunge >& $TEST_log
+  bazel build \
+      --remote_cache=localhost:${worker_port} \
+      //a:test 2>&1 | tee $TEST_log | grep "remote cache hit" \
+      || fail "Output does not contain remote cache hits"
+}
+
 function test_failing_cc_test() {
   mkdir -p a
   cat > a/BUILD <<EOF
@@ -224,13 +248,15 @@ function is_file_uploaded() {
   if [ -e "$cas_path/${h:0:64}" ]; then return 0; else return 1; fi
 }
 
-function test_failing_cc_test_grpc_cache() {
+function test_failed_test_outputs_not_uploaded() {
+  # Test that outputs of a failed test/action are not uploaded to the remote
+  # cache. This is a regression test for https://github.com/bazelbuild/bazel/issues/7232
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
 cc_test(
-name = 'test',
-srcs = [ 'test.cc' ],
+  name = 'test',
+  srcs = [ 'test.cc' ],
 )
 EOF
   cat > a/test.cc <<EOF
@@ -242,50 +268,10 @@ EOF
       --test_output=errors \
       //a:test >& $TEST_log \
       && fail "Expected test failure" || true
-   $(is_file_uploaded bazel-testlogs/a/test/test.log) \
-     || fail "Expected test log to be uploaded to remote execution"
-   $(is_file_uploaded bazel-testlogs/a/test/test.xml) \
-     || fail "Expected test xml to be uploaded to remote execution"
-}
-
-function test_failing_cc_test_remote_spawn_cache() {
-  mkdir -p a
-  cat > a/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-cc_test(
-name = 'test',
-srcs = [ 'test.cc' ],
-)
-EOF
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Fail me!" << std::endl; return 1; }
-EOF
-  bazel test \
-      --remote_cache=localhost:${worker_port} \
-      --test_output=errors \
-      //a:test >& $TEST_log \
-      && fail "Expected test failure" || true
-   $(is_file_uploaded bazel-testlogs/a/test/test.log) \
-     || fail "Expected test log to be uploaded to remote execution"
-   $(is_file_uploaded bazel-testlogs/a/test/test.xml) \
-     || fail "Expected test xml to be uploaded to remote execution"
-  # Check that logs are uploaded regardless of the spawn being cacheable.
-  # Re-running a changed test that failed once renders the test spawn uncacheable.
-  rm -f a/test.cc
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Fail me again!" << std::endl; return 1; }
-EOF
-  bazel test \
-      --remote_cache=localhost:${worker_port} \
-      --test_output=errors \
-      //a:test >& $TEST_log \
-      && fail "Expected test failure" || true
-   $(is_file_uploaded bazel-testlogs/a/test/test.log) \
-     || fail "Expected test log to be uploaded to remote execution"
-   $(is_file_uploaded bazel-testlogs/a/test/test.xml) \
-     || fail "Expected test xml to be uploaded to remote execution"
+   ($(is_file_uploaded bazel-testlogs/a/test/test.log) \
+     && fail "Expected test log to not be uploaded to remote execution") || true
+   ($(is_file_uploaded bazel-testlogs/a/test/test.xml) \
+     && fail "Expected test xml to not be uploaded to remote execution") || true
 }
 
 # Tests that the remote worker can return a 200MB blob that requires chunking.
@@ -559,21 +545,83 @@ EOF
   expect_log "Failed to query remote execution capabilities"
 }
 
-function test_refuse_symlink_output() {
+function set_symlinks_in_directory_testfixtures() {
     cat > BUILD <<'EOF'
 genrule(
-    name = 'make-link',
-    outs = ['l', 't'],
-    cmd = 'touch $(location t) && ln -s t $(location l)',
+    name = 'make-links',
+    outs = ['dir', 'r', 'a', 'rd', 'ad'],
+    cmd = ('mkdir $(location dir) && ' +
+        'cd $(location dir) && ' +
+        'echo hello > foo && ' + # Regular file.
+        'ln -s foo r && ' +  # Relative symlink, will be passed as symlink.
+        'ln -s $$PWD/foo a && ' +  # Absolute symlink, will be copied.
+        'mkdir bar && ' + # Regular directory.
+        'echo bla > bar/baz && ' +
+        'ln -s bar rd && ' +  # Relative symlink, will be passed as symlink.
+        'ln -s $$PWD/bar ad && ' + # Absolute symlink, will be copied.
+        'cd .. && ' +
+        'ln -s dir/foo r && ' +  # Relative symlink, will be passed as symlink.
+        'ln -s $$PWD/dir/foo a && ' +  # Absolute symlink, will be copied.
+        'ln -s dir rd && ' +  # Relative symlink, will be passed as symlink.
+        'ln -s $$PWD/dir ad' # Absolute symlink, will be copied.
+    ),
 )
 EOF
+    cat > "${TEST_TMPDIR}/expected_links" <<'EOF'
+./ad/r
+./ad/rd
+./dir/r
+./dir/rd
+./r
+./rd
+EOF
+}
 
+function test_symlinks_in_directory() {
+    set_symlinks_in_directory_testfixtures
     bazel build \
-          --genrule_strategy=remote \
+          --incompatible_remote_symlinks \
           --remote_executor=localhost:${worker_port} \
-          //:make-link >& TEST_log \
-          && fail "should have failed"# || true
-    expect_log "/l is a symbolic link"
+          --spawn_strategy=remote \
+          //:make-links &> $TEST_log \
+          || fail "Failed to build //:make-links with remote execution"
+    expect_log "1 remote"
+    find -L bazel-genfiles -type f -exec cat {} \; | sort | uniq -c &> $TEST_log
+    expect_log "9 bla"
+    expect_log "11 hello"
+    CUR=$PWD && cd bazel-genfiles && \
+      find . -type l | sort > "${TEST_TMPDIR}/links" && cd $CUR
+    diff "${TEST_TMPDIR}/links" "${TEST_TMPDIR}/expected_links" \
+      || fail "Remote execution created different symbolic links"
+}
+
+function test_symlinks_in_directory_cache_only() {
+    # This test is the same as test_symlinks_in_directory, except it works
+    # locally and uses the remote cache to query results.
+    set_symlinks_in_directory_testfixtures
+    bazel build \
+          --incompatible_remote_symlinks \
+          --remote_cache=localhost:${worker_port} \
+          --spawn_strategy=local \
+          //:make-links &> $TEST_log \
+          || fail "Failed to build //:make-links with remote cache service"
+    expect_log "1 local"
+    bazel clean --expunge # Get rid of local results, rely on remote cache.
+    bazel build \
+          --incompatible_remote_symlinks \
+          --remote_cache=localhost:${worker_port} \
+          --spawn_strategy=local \
+          //:make-links &> $TEST_log \
+          || fail "Failed to build //:make-links with remote cache service"
+    expect_log "1 remote cache hit"
+    # Check that the results downloaded from remote cache are the same as local.
+    find -L bazel-genfiles -type f -exec cat {} \; | sort | uniq -c &> $TEST_log
+    expect_log "9 bla"
+    expect_log "11 hello"
+    CUR=$PWD && cd bazel-genfiles && \
+      find . -type l | sort > "${TEST_TMPDIR}/links" && cd $CUR
+    diff "${TEST_TMPDIR}/links" "${TEST_TMPDIR}/expected_links" \
+      || fail "Cached result created different symbolic links"
 }
 
 function test_treeartifact_in_runfiles() {

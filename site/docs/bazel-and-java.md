@@ -23,7 +23,7 @@ Java projects with Bazel.
 The following resources will help you work with Bazel on Java projects:
 
 *  [Tutorial: Building a Java Project](tutorial/java.html)
-*  [Java rules](https://docs.bazel.build/versions/master/be/java.html)
+*  [Java rules](be/java.html)
 
 ## Migrating to Bazel
 
@@ -60,7 +60,7 @@ Follow these guidelines when creating your BUILD files:
 *  The name of the library should be the name of the directory containing the
    BUILD file.
 
-*  The sources should be a non-recursive [`glob`](https://docs.bazel.build/versions/master/be/functions.html#glob)
+*  The sources should be a non-recursive [`glob`](be/functions.html#glob)
    of all Java files in the directory.
 
 *  Tests should be in a matching directory under `src/test` and depend on this
@@ -72,7 +72,7 @@ Follow these guidelines when creating your BUILD files:
 You do not need it when getting started with Bazel.
 
 The following modules, configuration fragments, and providers will help you
-[extend Bazel's capabilities](https://docs.bazel.build/versions/master/skylark/concepts.html)
+[extend Bazel's capabilities](skylark/concepts.html)
 when building your Java projects:
 
 *  Modules:

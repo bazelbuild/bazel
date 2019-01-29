@@ -791,6 +791,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             actionKeyContext,
             null,
             null,
+            null,
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
             DUMMY_ARTIFACT_EXPANDER,
@@ -843,7 +844,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             actionKeyContext,
             null,
             null,
-            ImmutableMap.<String, String>of(),
+            null,
+            ImmutableMap.of(),
             ImmutableMap.of(),
             DUMMY_ARTIFACT_EXPANDER,
             null,
@@ -1171,7 +1173,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testCompileActionTemplateFromGenJar() throws Exception {
-    useConfiguration("--cpu=ios_i386", "--ios_minimum_os=1.0");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_minimum_os=1.0");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
     CommandAction archiveAction = (CommandAction) getGeneratingAction(archive);

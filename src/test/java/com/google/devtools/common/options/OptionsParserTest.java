@@ -1538,6 +1538,21 @@ public class OptionsParserTest {
   }
 
   @Test
+  public void testDashDash() throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(ExampleFoo.class);
+
+    parser.parse(
+        PriorityCategory.COMMAND_LINE,
+        "command line source",
+        Arrays.asList("--foo=woohoo", "residue", "--", "--bar=42"));
+
+    assertThat(parser.getResidue()).hasSize(2);
+    assertThat(parser.getResidue()).containsExactly("residue", "--bar=42");
+    assertThat(parser.getPreDoubleDashResidue()).hasSize(1);
+    assertThat(parser.getPreDoubleDashResidue()).containsExactly("residue");
+  }
+
+  @Test
   public void listOptionsHaveCorrectPriorities() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ListExample.class);
     parser.parse(

@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 public interface LinkingInfoApi {
 
   @SkylarkCallable(name = "linking_context", structField = true, documented = false)
-  CcLinkingInfoApi getCcLinkingInfo();
+  CcLinkingContextApi getCcLinkingContext();
 
   @SkylarkCallable(name = "cc_linking_outputs", structField = true, documented = false)
   CcLinkingOutputsApi getCcLinkingOutputs();

@@ -150,7 +150,7 @@ public abstract class ParallelVisitor<T, V> {
     }
   }
 
-  void visitAndWaitForCompletion(Iterable<SkyKey> keys)
+  public void visitAndWaitForCompletion(Iterable<SkyKey> keys)
       throws QueryException, InterruptedException {
     getUniqueValues(preprocessInitialVisit(keys)).forEach(processingQueue::add);
     executor.visitAndWaitForCompletion();
