@@ -692,6 +692,11 @@ public final class RuleContext extends TargetContext
     Preconditions.checkState(rootRelativePath.startsWith(getPackageDirectory()),
         "Output artifact '%s' not under package directory '%s' for target '%s'",
         rootRelativePath, getPackageDirectory(), getLabel());
+
+    if (getAspects().size() > 0) {
+      // Don't track artifacts for targets if we are in an aspect
+      return getAnalysisEnvironment().getDerivedArtifactUntracked(rootRelativePath, root);
+    }
     return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root);
   }
 

@@ -257,6 +257,12 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
+  public Artifact getDerivedArtifactUntracked(PathFragment rootRelativePath, ArtifactRoot root) {
+    Preconditions.checkState(enabled);
+    return artifactFactory.getDerivedArtifact(rootRelativePath, root, getOwner());
+  }
+
+  @Override
   public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
     return (SpecialArtifact)
