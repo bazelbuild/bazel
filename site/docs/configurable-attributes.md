@@ -570,6 +570,10 @@ sh_binary(
 Unlike `selects.with_or`, different rules can `select` on `:config1_or_2_or_3`
 with different values.
 
+Note that it's an error for multiple conditions to match unless one is a
+"specialization" of the other. See [select()](be/functions.html#select)
+documentation for details.
+
 For `AND` chaining, see [here](#multiple-selects).
 
 ## Custom Error Messages
