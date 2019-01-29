@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -43,7 +44,6 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
@@ -354,9 +354,9 @@ public abstract class AbstractParallelEvaluator {
             evaluatorContext.getGraphInconsistencyReceiver();
         Set<SkyKey> missingChildren =
             Sets.difference(ImmutableSet.copyOf(knownChildren), oldChildren.keySet());
-        for (SkyKey missingChild : missingChildren) {
+        if (!missingChildren.isEmpty()) {
           inconsistencyReceiver.noteInconsistencyAndMaybeThrow(
-              skyKey, missingChild, Inconsistency.CHILD_MISSING_FOR_DIRTY_NODE);
+              skyKey, missingChildren, Inconsistency.CHILD_MISSING_FOR_DIRTY_NODE);
         }
         Map<SkyKey, ? extends NodeEntry> recreatedEntries =
             graph.createIfAbsentBatch(skyKey, Reason.ENQUEUING_CHILD, missingChildren);
@@ -588,7 +588,9 @@ public abstract class AbstractParallelEvaluator {
               evaluatorContext
                   .getGraphInconsistencyReceiver()
                   .noteInconsistencyAndMaybeThrow(
-                      skyKey, childErrorKey, Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
+                      skyKey,
+                      ImmutableList.of(childErrorKey),
+                      Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
             }
           }
           SkyValue childErrorInfoMaybe =
@@ -721,14 +723,16 @@ public abstract class AbstractParallelEvaluator {
     Map<SkyKey, ? extends NodeEntry> additionalNodesToRestart =
         this.evaluatorContext.getBatchValues(
             key, Reason.INVALIDATION, restart.getAdditionalKeysToRestart());
-    for (Entry<SkyKey, ? extends NodeEntry> restartEntry : additionalNodesToRestart.entrySet()) {
+    if (!additionalNodesToRestart.isEmpty()) {
       evaluatorContext
           .getGraphInconsistencyReceiver()
           .noteInconsistencyAndMaybeThrow(
-              key, restartEntry.getKey(), Inconsistency.PARENT_FORCE_REBUILD_OF_CHILD);
+              key, additionalNodesToRestart.keySet(), Inconsistency.PARENT_FORCE_REBUILD_OF_CHILD);
+    }
+    for (NodeEntry restartEntry : additionalNodesToRestart.values()) {
       // Nodes are marked "force-rebuild" to ensure that they run, and to allow them to evaluate to
       // a different value than before, even if their versions remain the same.
-      restartEntry.getValue().markDirty(DirtyType.FORCE_REBUILD);
+      restartEntry.markDirty(DirtyType.FORCE_REBUILD);
     }
 
     // TODO(mschaller): rdeps of children have to be handled here. If the graph does not keep edges,
@@ -743,7 +747,7 @@ public abstract class AbstractParallelEvaluator {
   private void restart(SkyKey key, NodeEntry entry) {
     evaluatorContext
         .getGraphInconsistencyReceiver()
-        .noteInconsistencyAndMaybeThrow(key, /*otherKey=*/ null, Inconsistency.RESET_REQUESTED);
+        .noteInconsistencyAndMaybeThrow(key, /*otherKeys=*/ null, Inconsistency.RESET_REQUESTED);
     entry.resetForRestartFromScratch();
   }
 
@@ -871,7 +875,7 @@ public abstract class AbstractParallelEvaluator {
     evaluatorContext
         .getGraphInconsistencyReceiver()
         .noteInconsistencyAndMaybeThrow(
-            skyKey, depKey, Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
+            skyKey, ImmutableList.of(depKey), Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
     if (triState == DependencyState.NEEDS_SCHEDULING) {
       // Top priority since this depKey was already evaluated before, and we want to finish it off
       // again, reducing the chance that another node may observe this dep to be undone.
