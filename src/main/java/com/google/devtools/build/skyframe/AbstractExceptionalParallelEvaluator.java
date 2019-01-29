@@ -541,14 +541,15 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
   }
 
   private void replay(ValueWithMetadata valueWithMetadata) {
-    // TODO(bazel-team): Verify that message replay is fast and works in failure
-    // modes [skyframe-core]
+    // Replaying actions is done on a small number of nodes, but potentially over a large dependency
+    // graph. Under those conditions, using the regular NestedSet flattening with .toCollection()
+    // is more efficient than using NestedSetVisitor's custom traversal logic.
     evaluatorContext
         .getReplayingNestedSetPostableVisitor()
-        .visit(valueWithMetadata.getTransitivePostables());
+        .visit(valueWithMetadata.getTransitivePostables().toCollection());
     evaluatorContext
         .getReplayingNestedSetEventVisitor()
-        .visit(valueWithMetadata.getTransitiveEvents());
+        .visit(valueWithMetadata.getTransitiveEvents().toCollection());
   }
 
   abstract <T extends SkyValue> EvaluationResult<T> constructResultExceptionally(
