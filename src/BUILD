@@ -178,7 +178,7 @@ JAVA_TOOLS = [
         "//src/test:__subpackages__",  # For integration tests
     ],
 ) for suffix, jdk in {
-    "_jdk_allmodules": [":embedded_jdk_allmodules"],
+    "_jdk_allmodules": [":embedded_jdk_allmodules_cached"],
     "_jdk_minimal": [":embedded_jdk_minimal_cached"],
     "_dev_jdk": [":embedded_jdk_minimal"],
     "_nojdk": [],
@@ -195,7 +195,7 @@ rule_size_test(
 )
 
 filegroup(
-    name = "embedded_jdk_allmodules",
+    name = "embedded_jdk_allmodules_cached",
     srcs = select({
         "//src/conditions:darwin": [
             "@openjdk_macos//file",
@@ -274,6 +274,18 @@ filegroup(
     }),
 )
 
+filegroup(
+    name = "embedded_jdk_allmodules",
+    srcs = select({
+        "//src/conditions:windows": [
+            ":embedded_jdk_allmodules.zip",
+        ],
+        "//conditions:default": [
+            ":embedded_jdk_allmodules.tar.gz",
+        ],
+    }),
+)
+
 [genrule(
     name = "embedded_jdk_minimal" + suffix,
     srcs = [
@@ -283,6 +295,21 @@ filegroup(
     ],
     outs = ["minimal_jdk" + suffix],
     cmd = "$(location :minimize_jdk.sh) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+) for suffix in [
+    ".zip",
+    ".tar.gz",
+]]
+
+[genrule(
+    name = "embedded_jdk_allmodules" + suffix,
+    srcs = [
+        ":embedded_jdk_vanilla",
+        ":minimize_jdk.sh",
+        ":jdeps_modules.golden",
+    ],
+    outs = ["allmodules_jdk" + suffix],
+    cmd = "$(location :minimize_jdk.sh) --allmodules $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
     visibility = ["//src/test/shell/bazel:__pkg__"],
 ) for suffix in [
     ".zip",

@@ -653,12 +653,12 @@ sh_test(
     srcs = ["bazel_bootstrap_distfile_test.sh"],
     args = [
         "$(location //:bazel-distfile)",
-        "$(location //src:embedded_jdk_allmodules)",
+        "$(location //src:embedded_jdk_allmodules_cached)",
     ],
     data = [
         ":test-deps",
         "//:bazel-distfile",
-        "//src:embedded_jdk_allmodules",
+        "//src:embedded_jdk_allmodules_cached",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["block-network"],
@@ -783,7 +783,7 @@ sh_test(
     data = [
         ":jdeps_class_blacklist.txt",
         ":test-deps",
-        "//src:embedded_jdk_allmodules",
+        "//src:embedded_jdk_allmodules_cached",
         "//src:jdeps_modules.golden",
         "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
         "@bazel_tools//tools/bash/runfiles",
