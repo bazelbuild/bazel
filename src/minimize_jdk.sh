@@ -19,8 +19,13 @@
 
 set -euo pipefail
 
+if [ "$1" == "--allmodules" ]; then
+  shift
+  modules="ALL-MODULE-PATH"
+else
+  modules=$(cat "$2" | paste -sd "," - | tr -d '\r')
+fi
 fulljdk=$1
-modules=$(cat "$2" | paste -sd "," - | tr -d '\r')
 out=$3
 
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
@@ -29,7 +34,6 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   set -x
   unzip "$fulljdk"
   cd zulu*
-  echo -e "MODULES: >>$modules<<\n"
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --output reduced
