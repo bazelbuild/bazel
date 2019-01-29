@@ -32,8 +32,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
       new Predicate<String>() {
         @Override
         public boolean apply(String label) {
-          return !label.startsWith("@blaze_tools//tools/cpp/stl")
-              && !label.startsWith("@blaze_tools//tools/cpp/link_dynamic_library");
+          return !label.startsWith("@blaze_tools//tools/cpp/link_dynamic_library");
         }
       };
 
@@ -77,7 +76,6 @@ public final class BazelMockCcSupport extends MockCcSupport {
     config.create(
         "/bazel_tools_workspace/tools/cpp/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "cc_library(name = 'stl')",
         "toolchain_type(name = 'toolchain_type')",
         "cc_library(name = 'malloc')",
         "cc_toolchain_suite(",
