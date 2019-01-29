@@ -27,7 +27,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
  */
 public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
   ActionTemplateExpansionValue(GeneratingActions generatingActions) {
-    super(generatingActions);
+    super(generatingActions, /*nonceVersion=*/ null);
   }
 
   static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {
