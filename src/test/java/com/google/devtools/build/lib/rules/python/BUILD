@@ -14,6 +14,7 @@ test_suite(
     tests = [
         ":BazelPythonConfigurationTest",
         ":PyBinaryConfiguredTargetTest",
+        ":PyInfoTest",
         ":PyLibraryConfiguredTargetTest",
         ":PyProviderUtilsTest",
         ":PyStructUtilsTest",
@@ -198,6 +199,23 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PyInfoTest",
+    srcs = ["PyInfoTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],

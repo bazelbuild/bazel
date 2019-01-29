@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** Static helper class for creating and accessing instances of the legacy "py" struct provider. */
-// TODO(#7010): Replace this with a real provider.
+// TODO(#7010): Remove this in favor of PyInfo.
 public class PyStructUtils {
 
   // Disable construction.
@@ -76,7 +76,7 @@ public class PyStructUtils {
     builder.put(USES_SHARED_LIBRARIES, false);
     builder.put(
         IMPORTS,
-        SkylarkNestedSet.of(String.class, NestedSetBuilder.<String>compileOrder().build()));
+        SkylarkNestedSet.of(String.class, NestedSetBuilder.<String>emptySet(Order.COMPILE_ORDER)));
     builder.put(HAS_PY2_ONLY_SOURCES, false);
     builder.put(HAS_PY3_ONLY_SOURCES, false);
     DEFAULTS = builder.build();
@@ -110,7 +110,7 @@ public class PyStructUtils {
             "'%s' provider's '%s' field should be a depset of Files (got a '%s')",
             PROVIDER_NAME,
             TRANSITIVE_SOURCES,
-            EvalUtils.getDataTypeNameFromClass(fieldValue.getClass()));
+            EvalUtils.getDataTypeName(fieldValue, /*fullDetails=*/ true));
     NestedSet<Artifact> unwrappedValue = castValue.getSet(Artifact.class);
     if (!unwrappedValue.getOrder().isCompatible(Order.COMPILE_ORDER)) {
       throw new EvalException(
@@ -137,7 +137,7 @@ public class PyStructUtils {
         "'%s' provider's '%s' field should be a boolean (got a '%s')",
         PROVIDER_NAME,
         USES_SHARED_LIBRARIES,
-        EvalUtils.getDataTypeNameFromClass(fieldValue.getClass()));
+        EvalUtils.getDataTypeName(fieldValue, /*fullDetails=*/ true));
   }
 
   /**
