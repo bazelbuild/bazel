@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.StructImpl;
 import org.junit.Test;
@@ -48,12 +50,17 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    has_py3_only_sources = \\",
         "        any([py.has_py3_only_sources for py in dep_infos]) or \\",
         "        ctx.attr.has_py3_only_sources",
-        "    info = struct(",
+        "    legacy_info = struct(",
         "        transitive_sources = transitive_sources,",
         "        uses_shared_libraries = uses_shared_libraries,",
         "        has_py2_only_sources = has_py2_only_sources,",
         "        has_py3_only_sources = has_py3_only_sources)",
-        "    return struct(py=info)",
+        "    modern_info = PyInfo(",
+        "        transitive_sources = transitive_sources,",
+        "        uses_shared_libraries = uses_shared_libraries,",
+        "        has_py2_only_sources = has_py2_only_sources,",
+        "        has_py3_only_sources = has_py3_only_sources)",
+        "    return struct(py=legacy_info, providers=[modern_info])",
         "",
         "userlib = rule(",
         "    implementation = _userlib_impl,",
@@ -92,14 +99,26 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    srcs = ['upperuserlib.py'],",
         "    deps = [':pylib'],",
         ")");
-    StructImpl info = PyProviderUtils.getProvider(getConfiguredTarget("//pkg:upperuserlib"));
-    assertThat(PyStructUtils.getTransitiveSources(info))
+    ConfiguredTarget target = getConfiguredTarget("//pkg:upperuserlib");
+    StructImpl legacyInfo = PyProviderUtils.getLegacyProvider(target);
+    PyInfo modernInfo = PyProviderUtils.getModernProvider(target);
+
+    assertThat(PyStructUtils.getTransitiveSources(legacyInfo))
         .containsExactly(
             getSourceArtifact("pkg/loweruserlib.py"),
             getSourceArtifact("pkg/pylib.py"),
             getSourceArtifact("pkg/upperuserlib.py"));
-    assertThat(PyStructUtils.getUsesSharedLibraries(info)).isTrue();
-    assertThat(PyStructUtils.getHasPy2OnlySources(info)).isTrue();
-    assertThat(PyStructUtils.getHasPy3OnlySources(info)).isTrue();
+    assertThat(PyStructUtils.getUsesSharedLibraries(legacyInfo)).isTrue();
+    assertThat(PyStructUtils.getHasPy2OnlySources(legacyInfo)).isTrue();
+    assertThat(PyStructUtils.getHasPy3OnlySources(legacyInfo)).isTrue();
+
+    assertThat(modernInfo.getTransitiveSources().getSet(Artifact.class))
+        .containsExactly(
+            getSourceArtifact("pkg/loweruserlib.py"),
+            getSourceArtifact("pkg/pylib.py"),
+            getSourceArtifact("pkg/upperuserlib.py"));
+    assertThat(modernInfo.getUsesSharedLibraries()).isTrue();
+    assertThat(modernInfo.getHasPy2OnlySources()).isTrue();
+    assertThat(modernInfo.getHasPy3OnlySources()).isTrue();
   }
 }

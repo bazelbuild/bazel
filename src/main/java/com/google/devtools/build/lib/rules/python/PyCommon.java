@@ -562,6 +562,14 @@ public final class PyCommon {
       NestedSet<Artifact> filesToBuild,
       NestedSet<String> imports) {
 
+    PyProviderUtils.builder()
+        .setTransitiveSources(transitivePythonSources)
+        .setUsesSharedLibraries(usesSharedLibraries)
+        .setImports(imports)
+        .setHasPy2OnlySources(hasPy2OnlySources)
+        .setHasPy3OnlySources(hasPy3OnlySources)
+        .buildAndAddToTarget(builder);
+
     builder
         .addNativeDeclaredProvider(
             InstrumentedFilesCollector.collect(
@@ -570,15 +578,6 @@ public final class PyCommon {
                 METADATA_COLLECTOR,
                 filesToBuild,
                 /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER)))
-        .addSkylarkTransitiveInfo(
-            PyStructUtils.PROVIDER_NAME,
-            PyStructUtils.builder()
-                .setTransitiveSources(transitivePythonSources)
-                .setUsesSharedLibraries(usesSharedLibraries)
-                .setImports(imports)
-                .setHasPy2OnlySources(hasPy2OnlySources)
-                .setHasPy3OnlySources(hasPy3OnlySources)
-                .build())
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, transitivePythonSources)

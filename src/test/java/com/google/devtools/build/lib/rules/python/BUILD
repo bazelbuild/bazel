@@ -225,8 +225,10 @@ java_test(
     name = "PythonStarlarkApiTest",
     srcs = ["PythonStarlarkApiTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//third_party:junit4",
         "//third_party:truth",

@@ -107,7 +107,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     }
   }
 
-  private String join(String... lines) {
+  private static String join(String... lines) {
     return String.join("\n", lines);
   }
 

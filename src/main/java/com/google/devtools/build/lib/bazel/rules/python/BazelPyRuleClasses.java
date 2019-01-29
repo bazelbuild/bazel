@@ -32,8 +32,10 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.python.PyCommon;
+import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses;
 import com.google.devtools.build.lib.rules.python.PyStructUtils;
 import com.google.devtools.build.lib.rules.python.PythonVersion;
@@ -70,6 +72,14 @@ public final class BazelPyRuleClasses {
           .override(
               builder
                   .copy("deps")
+                  .mandatoryProvidersList(
+                      ImmutableList.of(
+                          // Legacy provider.
+                          // TODO(#7010): Remove this legacy set.
+                          ImmutableList.of(
+                              SkylarkProviderIdentifier.forLegacy(PyStructUtils.PROVIDER_NAME)),
+                          // Modern provider.
+                          ImmutableList.of(PyInfo.PROVIDER.id())))
                   .legacyMandatoryProviders(PyStructUtils.PROVIDER_NAME)
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(imports) -->

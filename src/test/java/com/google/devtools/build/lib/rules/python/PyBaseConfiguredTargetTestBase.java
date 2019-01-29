@@ -57,7 +57,8 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void goodSrcsVersionValue() throws Exception {
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD",
         ruleName + "(",
         "    name = 'foo',",
         "    srcs_version = 'PY2',",
@@ -89,7 +90,8 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   @Test
   public void versionIs2IfUnspecified() throws Exception {
     ensureDefaultIsPY2();
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD", //
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
@@ -105,7 +107,8 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
     // test.
     ensureDefaultIsPY2();
     useConfiguration("--experimental_allow_python_version_transitions=false", "--force_python=PY3");
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD", //
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
@@ -125,7 +128,8 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void srcsPackageNameCannotHaveHyphen() throws Exception {
-    scratch.file("pkg-hyphenated/BUILD",
+    scratch.file(
+        "pkg-hyphenated/BUILD", //
         "exports_files(['bar.py'])");
     checkError("otherpkg", "foo",
         // error:
@@ -134,5 +138,93 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py', '//pkg-hyphenated:bar.py'])");
+  }
+
+  @Test
+  public void producesBothModernAndLegacyProviders() throws Exception {
+    scratch.file(
+        "pkg/BUILD", //
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'])");
+    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
+    assertThat(target.get(PyInfo.PROVIDER)).isNotNull();
+    assertThat(target.get(PyStructUtils.PROVIDER_NAME)).isNotNull();
+  }
+
+  @Test
+  public void consumesLegacyProvider() throws Exception {
+    scratch.file(
+        "pkg/rules.bzl",
+        "def _myrule_impl(ctx):",
+        "    return struct(py=struct(transitive_sources=depset([])))",
+        "myrule = rule(",
+        "    implementation = _myrule_impl,",
+        ")");
+    scratch.file(
+        "pkg/BUILD",
+        "load(':rules.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'dep',",
+        ")",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        "    deps = [':dep'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
+    assertThat(target).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void consumesModernProvider() throws Exception {
+    scratch.file(
+        "pkg/rules.bzl",
+        "def _myrule_impl(ctx):",
+        "    return [PyInfo(transitive_sources=depset([]))]",
+        "myrule = rule(",
+        "    implementation = _myrule_impl,",
+        ")");
+    scratch.file(
+        "pkg/BUILD",
+        "load(':rules.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'dep',",
+        ")",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        "    deps = [':dep'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
+    assertThat(target).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void requiresProvider() throws Exception {
+    scratch.file(
+        "pkg/rules.bzl",
+        "def _myrule_impl(ctx):",
+        "    return []",
+        "myrule = rule(",
+        "    implementation = _myrule_impl,",
+        ")");
+    checkError(
+        "pkg",
+        "foo",
+        // error:
+        "'//pkg:dep' does not have mandatory providers",
+        // build file:
+        "load(':rules.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'dep',",
+        ")",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        "    deps = [':dep'],",
+        ")");
   }
 }
