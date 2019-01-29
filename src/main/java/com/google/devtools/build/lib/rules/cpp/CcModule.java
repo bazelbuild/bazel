@@ -87,7 +87,8 @@ public class CcModule
         CcCompilationContext,
         CcLinkingContext,
         LibraryToLinkWrapper,
-        CcToolchainVariables> {
+        CcToolchainVariables,
+        SkylarkRuleContext> {
 
   private enum RegisterActions {
     ALWAYS,
@@ -1507,5 +1508,10 @@ public class CcModule
   @Nullable
   private static <T> T nullIfNone(Object object, Class<T> type) {
     return object != Runtime.NONE ? type.cast(object) : null;
+  }
+
+  @Override
+  public boolean isCcToolchainResolutionEnabled(SkylarkRuleContext skylarkRuleContext) {
+    return CppHelper.useToolchainResolution(skylarkRuleContext.getRuleContext());
   }
 }

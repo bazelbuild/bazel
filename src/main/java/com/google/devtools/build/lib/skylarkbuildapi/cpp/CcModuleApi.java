@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -39,7 +40,8 @@ public interface CcModuleApi<
     CompilationContextT extends CcCompilationContextApi,
     LinkingContextT extends CcLinkingContextApi,
     LibraryToLinkWrapperT extends LibraryToLinkWrapperApi,
-    CcToolchainVariablesT extends CcToolchainVariablesApi> {
+    CcToolchainVariablesT extends CcToolchainVariablesApi,
+    SkylarkRuleContextT extends SkylarkRuleContextApi> {
 
   @SkylarkCallable(
       name = "CcToolchainInfo",
@@ -669,4 +671,18 @@ public interface CcModuleApi<
             type = CcToolchainProviderApi.class)
       })
   String legacyCcFlagsMakeVariable(CcToolchainProviderT ccToolchain);
+
+  @SkylarkCallable(
+      name = "is_cc_toolchain_resolution_enabled_do_not_use",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+      },
+      doc = "Returns true if the --incompatible_enable_cc_toolchain_resolution flag is enabled.")
+  boolean isCcToolchainResolutionEnabled(SkylarkRuleContextT ruleContext);
 }

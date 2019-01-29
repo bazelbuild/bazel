@@ -157,6 +157,11 @@ public class FakeCcModule
   }
 
   @Override
+  public boolean isCcToolchainResolutionEnabled(SkylarkRuleContextApi ruleContext) {
+    return false;
+  }
+
+  @Override
   public CompilationInfoApi compile(
       SkylarkRuleContextApi skylarkRuleContext,
       FeatureConfigurationApi skylarkFeatureConfiguration,

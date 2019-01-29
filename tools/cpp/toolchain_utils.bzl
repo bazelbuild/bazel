@@ -33,10 +33,17 @@ def find_cpp_toolchain(ctx):
     Returns:
       A CcToolchainProvider.
     """
-    if not hasattr(ctx.attr, "_cc_toolchain"):
-        fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
 
-    if Label("@bazel_tools//tools/cpp:toolchain_type") in ctx.fragments.platform.enabled_toolchain_types:
+    # Check the incompatible flag for toolchain resolution.
+    if hasattr(cc_common, "is_cc_toolchain_resolution_enabled_do_not_use") and cc_common.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx):
         return ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
-    else:
+
+    if Label("//tools/cpp:toolchain_type") in ctx.fragments.platform.enabled_toolchain_types:
+        return ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
+
+    # Fall back to the legacy implicit attribute lookup.
+    if hasattr(ctx.attr, "_cc_toolchain"):
         return ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+
+    # We didn't find anything.
+    fail("In order to use find_cpp_toolchain, you must include the '@bazel_tools//tools/cpp:toolchain_type' in the toolchains argument to your rule.")

@@ -48,7 +48,8 @@ public interface BazelCcModuleApi<
         CcCompilationContextT,
         LinkingContextT,
         LibraryToLinkWrapperT,
-        CcToolchainVariablesT> {
+        CcToolchainVariablesT,
+        SkylarkRuleContextT> {
 
   @SkylarkCallable(
       name = "compile",
