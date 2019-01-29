@@ -14,6 +14,8 @@ title: Configurable Build Attributes
 * [Short Keys](#short-keys)
 * [Multiple Selects](#multiple-selects)
 * [OR Chaining](#or-chaining)
+  * [selects.with_or](#selects-with-or)
+  * [config_setting Aliasing](#config-setting-aliasing)
 * [Custom Error Messages](#custom-error-messages)
 * [Rules Compatibility](#rules)
 * [Bazel Query and Cquery](#query)
@@ -506,8 +508,13 @@ This makes it easier to manage the dependency. But it still adds unnecessary
 duplication.
 
 `select()` doesn't support native syntax for `OR`ed conditions. For this, use
-the [Skylib](https://github.com/bazelbuild/bazel-skylib) utility [`selects`](
-https://github.com/bazelbuild/bazel-skylib/blob/master/lib/selects.bzl).
+one of the following:
+
+### <a name="selects-with-or"></a>`selects.with_or`
+
+The [Skylib](https://github.com/bazelbuild/bazel-skylib) utility [`selects`](
+(https://github.com/bazelbuild/bazel-skylib/blob/master/lib/selects.bzl)
+defines a Starlark macro that emulates `OR` behavior:
 
 ```python
 load("@bazel_skylib//:lib.bzl", "selects")
@@ -525,6 +532,47 @@ sh_binary(
 ```
 
 This automatically expands the `select` to the original syntax above.
+
+### <a name="config-setting-aliasing"></a>`config_setting`Aliasing
+
+If you'd like to `OR` conditions under a proper `config_setting` that any rule
+can reference, you can use a `select`able [alias](be/general.html#alias) that
+matches any of the desired conditions:
+
+```python
+alias(
+    name = "config1_or_2_or_3",
+    actual = select({
+        # When the build matches :config1, this alias *becomes* :config1.
+        # So it too matches by definition. The same applies for :config2
+        # and :config3.
+        ":config1": ":config1",
+        ":config2": ":config2",
+        ":config3": ":config3",
+        # The default condition represents this alias "not matching" (i.e.
+        # none of the conditions that we care about above match). In this
+        # case, bind the alias to any of those conditions. By definition
+        # it won't match.
+        "//conditions:default": ":config2", # Arbitrarily chosen from above.
+    }),
+)
+
+sh_binary(
+    name = "my_target",
+    srcs = ["always_include.sh"],
+    deps = select({
+        ":config1_or_2_or_3": [":standard_lib"],
+        ":config4": [":special_lib"],
+    }),
+)
+```
+
+Unlike `selects.with_or`, different rules can `select` on `:config1_or_2_or_3`
+with different values.
+
+Note that it's an error for multiple conditions to match unless one is a
+"specialization" of the other. See [select()](be/functions.html#select)
+documentation for details.
 
 For `AND` chaining, see [here](#multiple-selects).
 
