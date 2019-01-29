@@ -1537,10 +1537,12 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   // Must be done before command line parsing.
   ComputeWorkspace(workspace_layout);
 
+#if defined(_WIN32) || defined(__CYGWIN__)
   // Must be done before command line parsing.
   // ParseOptions already populate --client_env, so detect bash before it
   // happens.
   DetectBashOrDie();
+#endif  // if defined(_WIN32) || defined(__CYGWIN__)
 
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);
   ParseOptions(argc, argv);

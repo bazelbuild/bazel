@@ -1458,12 +1458,15 @@ static string LocateBash() {
   return result;
 }
 
-void DetectBashOrDie() {
-  if (!blaze::GetEnv("BAZEL_SH").empty()) return;
+string DetectBashAndExportBazelSh() {
+  string bash = blaze::GetEnv("BAZEL_SH");
+  if (!bash.empty()) {
+    return bash;
+  }
 
   uint64_t start = blaze::GetMillisecondsMonotonic();
 
-  string bash = LocateBash();
+  bash = LocateBash();
   uint64_t end = blaze::GetMillisecondsMonotonic();
   BAZEL_LOG(INFO) << "BAZEL_SH detection took " << end - start
                   << " msec, found " << bash.c_str();
@@ -1471,7 +1474,13 @@ void DetectBashOrDie() {
   if (!bash.empty()) {
     // Set process environment variable.
     blaze::SetEnv("BAZEL_SH", bash);
-  } else {
+  }
+  return bash;
+}
+
+void DetectBashOrDie() {
+  string bash = DetectBashAndExportBazelSh();
+  if (bash.empty()) {
     // TODO(bazel-team) should this be printed to stderr? If so, it should use
     // BAZEL_LOG(ERROR)
     printf(

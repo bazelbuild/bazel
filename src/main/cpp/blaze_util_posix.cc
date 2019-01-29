@@ -830,10 +830,6 @@ bool UnlimitCoredumps() {
   return UnlimitResource(RLIMIT_CORE, true);
 }
 
-void DetectBashOrDie() {
-  // do nothing.
-}
-
 void EnsurePythonPathOption(vector<string>* options) {
   // do nothing.
 }
