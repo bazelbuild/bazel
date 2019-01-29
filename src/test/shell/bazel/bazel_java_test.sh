@@ -1547,7 +1547,8 @@ EOF
 }
 
 
-function test_java_test_timeout() {
+# Test is flaky: b/123476045, https://github.com/bazelbuild/bazel/issues/7288
+function DISABLED_test_java_test_timeout() {
   setup_javatest_support
   mkdir -p javatests/com/google/timeout
   touch javatests/com/google/timeout/{BUILD,TimeoutTests.java}
