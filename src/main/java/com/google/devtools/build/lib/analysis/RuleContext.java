@@ -293,6 +293,10 @@ public final class RuleContext extends TargetContext
     return aspects;
   }
 
+  public boolean inAspect() {
+    return aspects.size() > 0;
+  }
+
   /**
    * If this target's configuration suppresses analysis failures, this returns a list
    * of strings, where each string corresponds to a description of an error that occurred during
@@ -693,7 +697,7 @@ public final class RuleContext extends TargetContext
         "Output artifact '%s' not under package directory '%s' for target '%s'",
         rootRelativePath, getPackageDirectory(), getLabel());
 
-    if (getAspects().size() > 0) {
+    if (inAspect()) {
       // Don't track artifacts for targets if we are in an aspect
       return getAnalysisEnvironment().getDerivedArtifactUntracked(rootRelativePath, root);
     }
