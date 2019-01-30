@@ -512,8 +512,8 @@ one of the following:
 
 ### <a name="selects-with-or"></a>`selects.with_or`
 
-The [Skylib](https://github.com/bazelbuild/bazel-skylib) utility [`selects`](
-(https://github.com/bazelbuild/bazel-skylib/blob/master/lib/selects.bzl)
+The [Skylib](https://github.com/bazelbuild/bazel-skylib) utility
+[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/master/lib/selects.bzl)
 defines a Starlark macro that emulates `OR` behavior:
 
 ```python
