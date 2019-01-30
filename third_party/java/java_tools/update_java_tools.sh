@@ -99,12 +99,13 @@ done
 if [[ ${#updated_tools[@]} -gt 0 ]]; then
   bazel_version=$(bazel version | grep "Build label" | cut -d " " -f 3)
   git_head=$(git rev-parse HEAD)
-  echo ""
-  echo "Please copy/paste the following into third_party/java/java_tools/README.md:"
-  echo ""
-  echo "The following tools were built with bazel $bazel_version at commit $git_head \
+  cat >>third_party/java/java_tools/README.md <<EOL
+
+The following tools were built with bazel $bazel_version at commit $git_head
 by running:
 $ third_party/java/java_tools/update_java_tools.sh $@
-"
-  ( IFS=$'\n'; echo "${updated_tools[*]}" )
+
+$( IFS=$'\n'; echo "${updated_tools[*]}" )
+
+EOL
 fi
