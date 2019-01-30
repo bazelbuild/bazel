@@ -734,7 +734,9 @@ public final class PackageFactory {
               String.format("licenses for exported file '%s' declared twice",
                   inputFile.getName()));
         }
-        if (license == null && !pkgBuilder.getDefaultLicense().isSpecified()
+        if (env.getSemantics().checkThirdPartyTargetsHaveLicenses()
+            && license == null
+            && !pkgBuilder.getDefaultLicense().isSpecified()
             && RuleClass.isThirdPartyPackage(pkgBuilder.getPackageIdentifier())) {
           throw new EvalException(ast.getLocation(),
               "third-party file '" + inputFile.getName() + "' lacks a license declaration "

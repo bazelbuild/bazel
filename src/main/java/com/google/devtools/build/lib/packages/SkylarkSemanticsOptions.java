@@ -62,6 +62,16 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
 
   // <== Add new options here in alphabetic order ==>
 
+  // TODO(gregce): remove license checking completely from Bazel. aiuto@ is working on replacing
+  // this with a new and more useful model.
+  @Option(
+      name = "check_third_party_targets_have_licenses",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
+      help = "If true, all rules and files under //third_party must declare licenses([])")
+  public boolean checkThirdPartyTargetsHaveLicenses;
+
   @Option(
       name = "experimental_build_setting_api",
       defaultValue = "false",
@@ -523,6 +533,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public SkylarkSemantics toSkylarkSemantics() {
     return SkylarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
+        .checkThirdPartyTargetsHaveLicenses(checkThirdPartyTargetsHaveLicenses)
         .experimentalBuildSettingApi(experimentalBuildSettingApi)
         .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
         .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)

@@ -786,7 +786,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         reporter,
         /*ast=*/ null,
         location,
-        new AttributeContainer(ruleClass));
+        new AttributeContainer(ruleClass),
+        /*checkThirdPartyRulesHaveLicenses=*/ true);
   }
 
   @Test

@@ -374,6 +374,29 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
+  public void testThirdPartyNoLicenseChecking() throws Exception {
+    Path buildFile =
+        scratch.file("/third_party/foo/BUILD", "# line 1", "cc_library(name='bar')", "# line 3");
+    Package pkg =
+        packages.createPackage(
+            "third_party/foo",
+            RootedPath.toRootedPath(root, buildFile),
+            "--nocheck_third_party_targets_have_licenses");
+    assertThat(pkg.containsErrors()).isFalse();
+  }
+
+  @Test
+  public void testThirdPartyExportsFileNoLicenseChecking() throws Exception {
+    Path buildFile = scratch.file("/third_party/foo/BUILD", "exports_files(['bar'])");
+    Package pkg =
+        packages.createPackage(
+            "third_party/foo",
+            RootedPath.toRootedPath(root, buildFile),
+            "--nocheck_third_party_targets_have_licenses");
+    assertThat(pkg.containsErrors()).isFalse();
+  }
+
+  @Test
   public void testDuplicateRuleIsNotAddedToPackage() throws Exception {
     events.setFailFast(false);
     Path path =
