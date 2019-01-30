@@ -133,25 +133,12 @@ public class WorkspaceFactory {
         allowOverride, ruleFactory);
   }
 
-  /**
-   * Parses the given WORKSPACE file without resolving Skylark imports, using the default Skylark
-   * semantics.
-   */
-  public void parse(ParserInputSource source)
-      throws BuildFileContainsErrorsException, InterruptedException {
-    parse(source, SkylarkSemantics.DEFAULT_SEMANTICS, null);
-  }
-
   @VisibleForTesting
-  public void parse(
+  void parseForTesting(
       ParserInputSource source,
       SkylarkSemantics skylarkSemantics,
       @Nullable StoredEventHandler localReporter)
       throws BuildFileContainsErrorsException, InterruptedException {
-    // This method is split in 2 so WorkspaceFileFunction can call the two parts separately and
-    // do the Skylark load imports in between. We can't load skylark imports from
-    // generate_workspace at the moment because it doesn't have access to skyframe, but that's okay
-    // because most people are just using it to resolve Maven dependencies.
     if (localReporter == null) {
       localReporter = new StoredEventHandler();
     }

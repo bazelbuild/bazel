@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BuildFileAST;

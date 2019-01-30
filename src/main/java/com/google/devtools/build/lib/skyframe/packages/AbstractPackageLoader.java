@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
@@ -433,7 +434,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
         .put(
-            SkyFunctions.WORKSPACE_FILE,
+            WorkspaceFileValue.WORKSPACE_FILE,
             new WorkspaceFileFunction(
                 ruleClassProvider,
                 pkgFactory,

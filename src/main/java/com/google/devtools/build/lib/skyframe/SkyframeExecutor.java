@@ -110,6 +110,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -540,7 +541,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction());
     map.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     map.put(
-        SkyFunctions.WORKSPACE_FILE,
+        WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
             ruleClassProvider, pkgFactory, directories, skylarkImportLookupFunctionForInlining));
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());

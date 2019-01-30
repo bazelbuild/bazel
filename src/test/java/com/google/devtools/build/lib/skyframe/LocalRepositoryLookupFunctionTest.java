@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -106,7 +107,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
-        SkyFunctions.WORKSPACE_FILE,
+        WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
             ruleClassProvider,
             analysisMock

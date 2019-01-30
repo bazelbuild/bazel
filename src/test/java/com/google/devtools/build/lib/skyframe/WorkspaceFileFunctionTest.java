@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
@@ -161,7 +162,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
     Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(FileValue.FILE))))
         .thenReturn(fakeWorkspaceFileValue);
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.WORKSPACE_FILE))))
+    Mockito.when(
+            env.getValue(Matchers.argThat(new SkyKeyMatchers(WorkspaceFileValue.WORKSPACE_FILE))))
         .then(
             new Answer<SkyValue>() {
               @Override

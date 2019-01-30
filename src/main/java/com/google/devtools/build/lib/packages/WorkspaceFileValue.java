@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -20,8 +20,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -37,6 +35,8 @@ import java.util.Objects;
  * repositories before being able to load from those repositories.
  */
 public class WorkspaceFileValue implements SkyValue {
+  public static final SkyFunctionName WORKSPACE_FILE =
+      SkyFunctionName.createHermetic("WORKSPACE_FILE");
 
   /** Argument for the SkyKey to request a WorkspaceFileValue. */
   @Immutable
@@ -68,7 +68,7 @@ public class WorkspaceFileValue implements SkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.WORKSPACE_FILE;
+      return WORKSPACE_FILE;
     }
 
     @Override
@@ -159,11 +159,11 @@ public class WorkspaceFileValue implements SkyValue {
    * {@code path}. This key will ask WorkspaceFileFunction to get the {@code idx+1}-th part of the
    * workspace file (so idx = 0 represents the first part, idx = 1, the second part, etc...).
    */
-  static WorkspaceFileKey key(RootedPath path, int idx) {
+  public static WorkspaceFileKey key(RootedPath path, int idx) {
     return WorkspaceFileKey.create(path, idx);
   }
 
-  public static SkyKey key(RootedPath path) {
+  public static WorkspaceFileKey key(RootedPath path) {
     return key(path, 0);
   }
 

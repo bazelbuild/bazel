@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -150,7 +151,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new PackageFunction(null, null, null, null, null, null, null));
     skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
-        SkyFunctions.WORKSPACE_FILE,
+        WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
             ruleClassProvider,
             analysisMock

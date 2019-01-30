@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryExceptio
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.skyframe.PackageFunction.PackageFunctionException;
 import com.google.devtools.build.lib.syntax.Type;
