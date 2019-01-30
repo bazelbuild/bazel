@@ -131,9 +131,9 @@ http_file(
 http_file(
     name = "openjdk_linux_vanilla",
     downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-    sha256 = "45f2dfbee93b91b1468cf81d843fc6d9a47fef1f831c0b7ceff4f1eb6e6851c8",
+    sha256 = "232b1c3511f0d26e92582b7c3cc363be7ac633e371854ca2f2e9f2b50eb72a75",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-linux_x64.tar.gz",
     ],
 )
 
@@ -170,9 +170,9 @@ http_file(
 http_file(
     name = "openjdk_macos_vanilla",
     downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-    sha256 = "5a5b3225b86d3fdb51e9add5335f43cc19c6b2d9b8b5558e72b52d7b2ce9162e",
+    sha256 = "1edf366ee821e5db8e348152fcb337b28dfd6bf0f97943c270dcc6747cedb6cb",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-macosx_x64.tar.gz",
     ],
 )
 
@@ -197,9 +197,9 @@ http_file(
 http_file(
     name = "openjdk_win_vanilla",
     downloaded_file_path = "zulu-win-vanilla.zip",
-    sha256 = "75f76c53c6a1f12b1a571b86bd9708ab75adf582d689dddc94fdd77dcc0f3f5c",
+    sha256 = "8e1e2b8347de6746f3fd1538840dd643201533ab113abc4ed93678e342d28aa3",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64.zip",
+        "https://mirror.bazel.build/openjdk/azul-zulu11.2.3-jdk11.0.1/zulu11.2.3-jdk11.0.1-win_x64.zip",
     ],
 )
 
