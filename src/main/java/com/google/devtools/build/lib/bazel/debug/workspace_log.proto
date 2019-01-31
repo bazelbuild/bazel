@@ -82,6 +82,14 @@ message FileEvent {
   bool executable = 3;
 }
 
+// Information on "read" event in repository_ctx.
+message ReadEvent {
+  // Path to the file to read
+  string path = 1;
+  // Text encoding, or empty for raw bytes
+  string encoding = 2;
+}
+
 // Information on "os" event in repository_ctx.
 message OsEvent {
   // Takes no inputs
@@ -130,5 +138,6 @@ message WorkspaceEvent {
     TemplateEvent template_event = 9;
     WhichEvent which_event = 10;
     ExtractEvent extract_event = 11;
+    ReadEvent read_event = 12;
   }
 }

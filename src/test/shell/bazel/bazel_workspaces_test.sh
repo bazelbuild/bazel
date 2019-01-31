@@ -292,6 +292,25 @@ function test_file() {
   ensure_contains_exactly 'executable: true' 1
 }
 
+function test_read() {
+  set_workspace_command '
+  content = "echo filefile"
+  repository_ctx.file("filefile.sh", content, True)
+  read_result = repository_ctx.read("filefile.sh")
+  if read_result != content:
+    fail("read(): expected %r, got %r" % (content, read_result))'
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:4:3' 1
+  ensure_contains_exactly 'location: .*repos.bzl:5:17' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 2
+
+  ensure_contains_exactly 'read_event' 1
+  ensure_contains_exactly 'path: ".*filefile.sh"' 2
+  ensure_contains_exactly 'encoding: "utf-8"' 1
+}
+
 function test_os() {
   set_workspace_command 'print(repository_ctx.os.name)'
 

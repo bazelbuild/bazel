@@ -190,6 +190,29 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
+      name = "read",
+      doc = "Reads the content of a file on the filesystem.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "path",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path of the file to read from."),
+        @Param(
+            name = "encoding",
+            type = String.class,
+            named = true,
+            defaultValue = "'utf-8'",
+            doc = "encoding of the file, or '' to read raw bytes"),
+      })
+  public String readFile(Object path, String encoding, Location location)
+      throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
+
+  @SkylarkCallable(
       name = "os",
       structField = true,
       doc = "A struct to access information from the system.",

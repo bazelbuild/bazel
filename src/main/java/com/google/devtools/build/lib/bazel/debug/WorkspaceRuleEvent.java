@@ -183,6 +183,27 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     return new WorkspaceRuleEvent(result.build());
   }
 
+  /** Creates a new WorkspaceRuleEvent for a file read event. */
+  public static WorkspaceRuleEvent newReadEvent(
+      String path, String encoding, String ruleLabel, Location location) {
+    WorkspaceLogProtos.ReadEvent e =
+        WorkspaceLogProtos.ReadEvent.newBuilder()
+            .setPath(path)
+            .setEncoding(encoding)
+            .build();
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setReadEvent(e);
+    if (location != null) {
+      result = result.setLocation(location.print());
+    }
+    if (ruleLabel != null) {
+      result = result.setRule(ruleLabel);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
   /** Creates a new WorkspaceRuleEvent for an os event. */
   public static WorkspaceRuleEvent newOsEvent(String ruleLabel, Location location) {
     OsEvent e = WorkspaceLogProtos.OsEvent.getDefaultInstance();

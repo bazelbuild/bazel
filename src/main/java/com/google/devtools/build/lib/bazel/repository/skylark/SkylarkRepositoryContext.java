@@ -59,6 +59,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -259,6 +260,29 @@ public class SkylarkRepositoryContext
       if (executable) {
         p.getPath().setExecutable(true);
       }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  @Override
+  public String readFile(Object path, String encoding, Location location)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
+    SkylarkPath p = getPath("read()", path);
+    Charset charset;
+    if (encoding.equals("")) {
+      charset = StandardCharsets.ISO_8859_1;
+    } else if (encoding.equalsIgnoreCase("utf-8")) {
+      charset = StandardCharsets.UTF_8;
+    } else {
+      throw new EvalException(Location.BUILTIN, "read() only supports encodings in ['utf-8'].");
+    }
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newReadEvent(
+            p.toString(), encoding, rule.getLabel().toString(), location);
+    env.getListener().post(w);
+    try {
+      return FileSystemUtils.readContent(p.getPath(), charset);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
