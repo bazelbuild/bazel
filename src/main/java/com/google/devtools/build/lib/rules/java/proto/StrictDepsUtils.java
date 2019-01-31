@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.syntax.Type;
 
 public class StrictDepsUtils {
 
@@ -97,7 +98,8 @@ public class StrictDepsUtils {
    * <p>Using this method requires requesting the JavaConfiguration fragment.
    */
   public static boolean isStrictDepsJavaProtoLibrary(RuleContext ruleContext) {
-    if (ruleContext.getFragment(JavaConfiguration.class).strictDepsJavaProtos()) {
+    if (ruleContext.getFragment(JavaConfiguration.class).strictDepsJavaProtos()
+        || !ruleContext.attributes().has("strict_deps", Type.BOOLEAN)) {
       return true;
     }
     return (boolean) ruleContext.getRule().getAttributeContainer().getAttr("strict_deps");
