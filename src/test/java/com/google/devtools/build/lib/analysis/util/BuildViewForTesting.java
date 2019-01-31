@@ -528,13 +528,14 @@ public class BuildViewForTesting {
     ToolchainContext toolchainContext = unloadedToolchainContext.load(prerequisiteMap);
 
     return new RuleContext.Builder(
-        env,
-        target,
-        ImmutableList.of(),
-        targetConfig,
-        configurations.getHostConfiguration(),
-        ruleClassProvider.getPrerequisiteValidator(),
-        target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
+            env,
+            target,
+            ImmutableList.of(),
+            targetConfig,
+            configurations.getHostConfiguration(),
+            ruleClassProvider.getPrerequisiteValidator(),
+            target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy(),
+            ConfiguredTargetKey.inTargetConfig(configuredTarget))
         .setVisibility(
             NestedSetBuilder.create(
                 Order.STABLE_ORDER,

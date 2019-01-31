@@ -134,7 +134,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       if (importResult == null) {
         return null;
       }
-      parser.execute(ast, importResult.importMap, skylarkSemantics);
+      parser.execute(ast, importResult.importMap, skylarkSemantics, key);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     } catch (NameConflictException e) {

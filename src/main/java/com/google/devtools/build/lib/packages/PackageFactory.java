@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -1620,7 +1621,10 @@ public final class PackageFactory {
 
     try (Mutability mutability = Mutability.create("package %s", packageId)) {
       BazelStarlarkContext starlarkContext =
-          new BazelStarlarkContext(ruleClassProvider.getToolsRepository(), repositoryMapping);
+          new BazelStarlarkContext(
+              ruleClassProvider.getToolsRepository(),
+              repositoryMapping,
+              new SymbolGenerator<>(packageId));
       Environment pkgEnv =
           Environment.builder(mutability)
               .setGlobals(BazelLibrary.GLOBALS)

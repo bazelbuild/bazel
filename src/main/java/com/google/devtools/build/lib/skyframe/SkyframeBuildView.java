@@ -751,6 +751,7 @@ public final class SkyframeBuildView {
       Target target,
       BuildConfiguration configuration,
       CachingAnalysisEnvironment analysisEnvironment,
+      ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
@@ -766,6 +767,7 @@ public final class SkyframeBuildView {
         target,
         configuration,
         getHostConfiguration(configuration),
+        configuredTargetKey,
         prerequisiteMap,
         configConditions,
         toolchainContext);

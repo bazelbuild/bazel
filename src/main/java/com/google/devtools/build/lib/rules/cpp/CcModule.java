@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -486,8 +488,8 @@ public class CcModule
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Location location,
-      Environment environment)
-      throws EvalException, InterruptedException {
+      StarlarkContext context)
+      throws EvalException {
     @SuppressWarnings("unchecked")
     SkylarkList<LibraryToLinkWrapper> librariesToLink =
         nullIfNone(librariesToLinkObject, SkylarkList.class);
@@ -505,7 +507,9 @@ public class CcModule
             NestedSetBuilder.wrap(
                 Order.LINK_ORDER,
                 ImmutableList.of(
-                    CcLinkingContext.LinkOptions.of(userLinkFlags.getImmutableList()))));
+                    CcLinkingContext.LinkOptions.of(
+                        userLinkFlags.getImmutableList(),
+                        ((BazelStarlarkContext) context).getSymbolGenerator()))));
       }
       return ccLinkingContextBuilder.build();
     }

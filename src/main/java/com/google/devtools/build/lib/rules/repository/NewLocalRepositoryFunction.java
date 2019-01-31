@@ -48,8 +48,13 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
-      BlazeDirectories directories, Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(
+      Rule rule,
+      Path outputDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      Map<String, String> markerData,
+      SkyKey key)
       throws SkyFunctionException, InterruptedException {
 
     NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
@@ -104,7 +105,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             .addDeclaredIncludeSrcs(common.getTextualHdrs())
             .build();
 
-    CcLinkingContext ccLinkingContext = buildCcLinkingContext(common);
+    CcLinkingContext ccLinkingContext =
+        buildCcLinkingContext(common, ruleContext.getSymbolGenerator());
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(common.getObjcProvider())
@@ -121,7 +123,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  public CcLinkingContext buildCcLinkingContext(ObjcCommon common) {
+  private CcLinkingContext buildCcLinkingContext(
+      ObjcCommon common, SymbolGenerator<?> symbolGenerator) {
     ImmutableSet.Builder<LibraryToLinkWrapper> libraries = new ImmutableSet.Builder<>();
     ObjcProvider objcProvider = common.getObjcProvider();
     for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY)) {
@@ -144,7 +147,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<LinkOptions> userLinkFlags = NestedSetBuilder.linkOrder();
     for (SdkFramework sdkFramework : objcProvider.get(ObjcProvider.SDK_FRAMEWORK)) {
       userLinkFlags.add(
-          CcLinkingContext.LinkOptions.of(ImmutableList.of("-framework", sdkFramework.getName())));
+          LinkOptions.of(ImmutableList.of("-framework", sdkFramework.getName()), symbolGenerator));
     }
     ccLinkingContext.addUserLinkFlags(userLinkFlags.build());
 

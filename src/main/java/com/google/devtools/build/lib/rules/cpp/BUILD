@@ -23,6 +23,7 @@ java_library(
     ),
     deps = [
         ":cpp_interface",
+        "//src/main/java/com/google/devtools/build/lib:bug-report",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",

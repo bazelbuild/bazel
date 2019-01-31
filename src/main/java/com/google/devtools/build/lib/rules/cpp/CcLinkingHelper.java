@@ -374,7 +374,9 @@ public final class CcLinkingHelper {
                   linkopts.isEmpty()
                       ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
                       : NestedSetBuilder.create(
-                          Order.LINK_ORDER, CcLinkingContext.LinkOptions.of(linkopts)))
+                          Order.LINK_ORDER,
+                          CcLinkingContext.LinkOptions.of(
+                              linkopts, ruleContext.getSymbolGenerator())))
               .addLibraries(
                   NestedSetBuilder.<LibraryToLinkWrapper>linkOrder()
                       .addAll(libraryToLinkWrappers)

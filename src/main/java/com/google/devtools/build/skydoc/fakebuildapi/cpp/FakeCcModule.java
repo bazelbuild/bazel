@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkWrapperApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -135,7 +136,7 @@ public class FakeCcModule
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Location location,
-      Environment environment) {
+      StarlarkContext context) {
     return null;
   }
 

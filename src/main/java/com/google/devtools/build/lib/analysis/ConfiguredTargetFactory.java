@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -192,6 +193,7 @@ public final class ConfiguredTargetFactory {
       Target target,
       BuildConfiguration config,
       BuildConfiguration hostConfig,
+      ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
@@ -204,6 +206,7 @@ public final class ConfiguredTargetFactory {
             (Rule) target,
             config,
             hostConfig,
+            configuredTargetKey,
             prerequisiteMap,
             configConditions,
             toolchainContext);
@@ -255,6 +258,7 @@ public final class ConfiguredTargetFactory {
       Rule rule,
       BuildConfiguration configuration,
       BuildConfiguration hostConfiguration,
+      ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
@@ -269,7 +273,8 @@ public final class ConfiguredTargetFactory {
                 configuration,
                 hostConfiguration,
                 ruleClassProvider.getPrerequisiteValidator(),
-                rule.getRuleClassObject().getConfigurationFragmentPolicy())
+                rule.getRuleClassObject().getConfigurationFragmentPolicy(),
+                configuredTargetKey)
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
             .setPrerequisites(prerequisiteMap)
             .setConfigConditions(configConditions)
@@ -395,7 +400,8 @@ public final class ConfiguredTargetFactory {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
-      BuildConfiguration hostConfiguration)
+      BuildConfiguration hostConfiguration,
+      ActionLookupValue.ActionLookupKey aspectKey)
       throws AspectFunctionException, InterruptedException {
 
     RuleContext.Builder builder =
@@ -406,7 +412,8 @@ public final class ConfiguredTargetFactory {
             aspectConfiguration,
             hostConfiguration,
             ruleClassProvider.getPrerequisiteValidator(),
-            aspect.getDefinition().getConfigurationFragmentPolicy());
+            aspect.getDefinition().getConfigurationFragmentPolicy(),
+            aspectKey);
 
     Map<String, Attribute> aspectAttributes = mergeAspectAttributes(aspectPath);
 

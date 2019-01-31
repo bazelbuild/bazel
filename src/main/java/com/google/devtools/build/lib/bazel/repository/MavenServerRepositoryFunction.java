@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -40,8 +41,13 @@ public class MavenServerRepositoryFunction extends RepositoryFunction {
 
   @Nullable
   @Override
-  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
-      BlazeDirectories directories, Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(
+      Rule rule,
+      Path outputDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      Map<String, String> markerData,
+      SkyKey key)
       throws SkyFunctionException, InterruptedException {
     throw new RepositoryFunctionException(new EvalException(
         rule.getLocation(),

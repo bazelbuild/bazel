@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -792,14 +793,19 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private Environment createSkylarkRuleClassEnvironment(
       Mutability mutability,
-      Environment.GlobalFrame globals,
+      GlobalFrame globals,
       SkylarkSemantics skylarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      Label callerLabel) {
     BazelStarlarkContext context =
-        new BazelStarlarkContext(toolsRepository, configurationFragmentMap, repoMapping);
+        new BazelStarlarkContext(
+            toolsRepository,
+            configurationFragmentMap,
+            repoMapping,
+            new SymbolGenerator<>(callerLabel));
     Environment env =
         Environment.builder(mutability)
             .setGlobals(globals)
@@ -829,7 +835,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         eventHandler,
         astFileContentHashCode,
         importMap,
-        repoMapping);
+        repoMapping,
+        extensionLabel);
   }
 
   @Override

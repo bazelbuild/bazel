@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
@@ -565,7 +566,7 @@ public interface CcModuleApi<
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
       useLocation = true,
-      useEnvironment = true,
+      useContext = true,
       parameters = {
         @Param(
             name = "libraries_to_link",
@@ -588,7 +589,7 @@ public interface CcModuleApi<
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Location location,
-      Environment environment)
+      StarlarkContext context)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

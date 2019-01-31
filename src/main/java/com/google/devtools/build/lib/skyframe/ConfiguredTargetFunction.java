@@ -340,6 +340,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               env,
               target,
               configuration,
+              configuredTargetKey,
               depValueMap,
               configConditions,
               toolchainContext,
@@ -771,6 +772,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Environment env,
       Target target,
       BuildConfiguration configuration,
+      ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depValueMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext,
@@ -796,6 +798,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               target,
               configuration,
               analysisEnvironment,
+              configuredTargetKey,
               depValueMap,
               configConditions,
               toolchainContext);

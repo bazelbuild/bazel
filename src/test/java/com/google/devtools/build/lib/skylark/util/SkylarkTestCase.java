@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -70,7 +71,9 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       public Environment newEnvironment() throws Exception {
         BazelStarlarkContext context =
             new BazelStarlarkContext(
-                TestConstants.TOOLS_REPOSITORY, /*repoMapping=*/ ImmutableMap.of());
+                TestConstants.TOOLS_REPOSITORY,
+                /*repoMapping=*/ ImmutableMap.of(),
+                new SymbolGenerator<>(new Object()));
         Environment env =
             Environment.builder(mutability)
                 .setSemantics(semantics)

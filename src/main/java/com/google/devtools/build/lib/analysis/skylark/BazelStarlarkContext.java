@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.skylark;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
@@ -25,31 +26,38 @@ public class BazelStarlarkContext implements StarlarkContext {
   private final String toolsRepository;
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
   private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
+  private final SymbolGenerator<?> symbolGenerator;
 
   /**
    * @param toolsRepository the name of the tools repository, such as "@bazel_tools"
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
    *     class, such as "apple" to AppleConfiguration.class
    * @param repoMapping a map from RepositoryName to RepositoryName to be used for external
-   *     repository renaming
+   * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
+   *     compared using reference equality.
    */
   public BazelStarlarkContext(
       String toolsRepository,
       ImmutableMap<String, Class<?>> fragmentNameToClass,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      SymbolGenerator<?> symbolGenerator) {
     this.toolsRepository = toolsRepository;
     this.fragmentNameToClass = fragmentNameToClass;
     this.repoMapping = repoMapping;
+    this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
   }
 
   /**
    * @param toolsRepository the name of the tools repository, such as "@bazel_tools"
    * @param repoMapping a map from RepositoryName to RepositoryName to be used for external
-   *     repository renaming
+   * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
+   *     compared using reference equality.
    */
   public BazelStarlarkContext(
-      String toolsRepository, ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
-    this(toolsRepository, null, repoMapping);
+      String toolsRepository,
+      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      SymbolGenerator<?> symbolGenerator) {
+    this(toolsRepository, null, repoMapping, symbolGenerator);
   }
 
   @Override
@@ -88,5 +96,9 @@ public class BazelStarlarkContext implements StarlarkContext {
    */
   public ImmutableMap<RepositoryName, RepositoryName> getRepoMapping() {
     return repoMapping;
+  }
+
+  public SymbolGenerator<?> getSymbolGenerator() {
+    return symbolGenerator;
   }
 }

@@ -630,7 +630,8 @@ public final class AspectFunction implements SkyFunction {
                     configConditions,
                     toolchainContext,
                     aspectConfiguration,
-                    view.getHostConfiguration(aspectConfiguration));
+                    view.getHostConfiguration(aspectConfiguration),
+                    key);
       } finally {
         CurrentRuleTracker.endConfiguredAspect();
       }

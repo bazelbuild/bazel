@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +52,8 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
       Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<String, String> markerData)
+      Map<String, String> markerData,
+      SkyKey key)
       throws RepositoryFunctionException {
 
     CPU hostCpu = CPU.getCurrent();

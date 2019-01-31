@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -817,19 +818,23 @@ public class AndroidCommon {
     return asNeverLink;
   }
 
-  public CcInfo getCcInfo() {
+  CcInfo getCcInfo() {
     return getCcInfo(
-        javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH), ImmutableList.<String>of());
+        javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
+        ImmutableList.of(),
+        ruleContext.getSymbolGenerator());
   }
 
-  public static CcInfo getCcInfo(
-      final Iterable<? extends TransitiveInfoCollection> deps, final Collection<String> linkOpts) {
+  static CcInfo getCcInfo(
+      final Iterable<? extends TransitiveInfoCollection> deps,
+      final Collection<String> linkOpts,
+      SymbolGenerator<?> symbolGenerator) {
 
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder()
             .addUserLinkFlags(
                 NestedSetBuilder.<LinkOptions>linkOrder()
-                    .add(CcLinkingContext.LinkOptions.of(linkOpts))
+                    .add(LinkOptions.of(linkOpts, symbolGenerator))
                     .build())
             .build();
 

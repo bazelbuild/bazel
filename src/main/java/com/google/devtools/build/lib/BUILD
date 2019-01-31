@@ -388,10 +388,12 @@ java_library(
     name = "starlark_context",
     srcs = [
         "analysis/skylark/BazelStarlarkContext.java",
+        "analysis/skylark/SymbolGenerator.java",
     ],
     deps = [
         ":skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/cmdline:RepositoryName",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

@@ -730,7 +730,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 .build())
         .addUserLinkFlags(
             NestedSetBuilder.<LinkOptions>linkOrder()
-                .add(new LinkOptions(userLinkflags.build()))
+                .add(LinkOptions.of(userLinkflags.build(), ruleContext.getSymbolGenerator()))
                 .build());
 
     CcInfo ccInfoWithoutExtraLinkTimeLibraries =
