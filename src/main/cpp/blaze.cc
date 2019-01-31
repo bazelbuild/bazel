@@ -1410,6 +1410,16 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
   }
 }
 
+static void SettingLocalhost(string &proxy) {
+  vector<string> localhost_addresses_vec{"localhost", "127.0.0.1", "0:0:0:0:0:0:0:1", "::1"};
+  for (auto const& s : localhost_addresses_vec) {
+    if (proxy.find(s) == string::npos) {
+      if (!proxy.empty()) proxy += ",";
+      proxy += s;
+    }
+  }
+}
+
 // Prepares the environment to be suitable to start a JVM.
 // Changes made to the environment in this function *will not* be part
 // of '--client_env'.
@@ -1422,31 +1432,25 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   if (!blaze::GetEnv("http_proxy").empty() ||
       !blaze::GetEnv("HTTP_PROXY").empty()) {
     BAZEL_LOG(WARNING)
-        << "detected HTTP_PROXY set in env, setting NO_PROXY for localhost.";
+        << "detected http_proxy/HTTP_PROXY set in env, will set no_proxy/NO_PROXY for localhost.";
 
     // Disable HTTP proxies for localhost and any localhost-like address,
     // in case we (or gRPC, etc.) ever use one of these addresses.
-    string localhost_addresses = blaze::GetEnv("NO_PROXY");
-    if (localhost_addresses.empty()) {
-      localhost_addresses = blaze::GetEnv("no_proxy");
-    }
-    vector<string> localhost_addresses_vec{"localhost", "127.0.0.1", "0:0:0:0:0:0:0:1", "::1"};
-    for (auto const& s : localhost_addresses_vec) {
-      if (localhost_addresses.find(s) == string::npos) {
-        if (!localhost_addresses.empty()) localhost_addresses += ",";
-        localhost_addresses += s;
-      }
-    }
+    string no_proxy = blaze::GetEnv("no_proxy");
+    string NO_PROXY = blaze::GetEnv("NO_PROXY");
 
-    result["no_proxy"] = EnvVarValue(EnvVarAction::SET, localhost_addresses);
-    result["NO_PROXY"] = EnvVarValue(EnvVarAction::SET, localhost_addresses);
+    SettingLocalhost(no_proxy);
+    SettingLocalhost(NO_PROXY);
+
+    result["no_proxy"] = EnvVarValue(EnvVarAction::SET, no_proxy);
+    result["NO_PROXY"] = EnvVarValue(EnvVarAction::SET, NO_PROXY);
 
     BAZEL_LOG(WARNING)
-        << "Setting NO_PROXY to '" << localhost_addresses << "'";
+        << "Setting no_proxy/NO_PROXY to '" << no_proxy << "/" << NO_PROXY << "'";
 
     // Set no_proxy for the client, as well.
-    blaze::SetEnv("no_proxy", localhost_addresses);
-    blaze::SetEnv("NO_PROXY", localhost_addresses);
+    blaze::SetEnv("no_proxy", no_proxy);
+    blaze::SetEnv("NO_PROXY", NO_PROXY);
   }
 
   if (!blaze::GetEnv("LD_ASSUME_KERNEL").empty()) {
