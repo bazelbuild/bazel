@@ -186,6 +186,7 @@ public final class PyCommon {
     validateTargetPythonVersionAttr(DEFAULT_PYTHON_VERSION_ATTRIBUTE);
     validateTargetPythonVersionAttr(PYTHON_VERSION_ATTRIBUTE);
     validateOldVersionAttrNotUsedIfDisabled();
+    validateLegacyProviderNotUsedIfDisabled();
   }
 
   /** Returns the parsed value of the "srcs_version" attribute. */
@@ -233,7 +234,8 @@ public final class PyCommon {
         builder.addTransitive(PyProviderUtils.getTransitiveSources(dep));
       } catch (EvalException e) {
         // Either the provider type or field type is bad.
-        ruleContext.ruleError(String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+        ruleContext.attributeError(
+            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
       }
     }
   }
@@ -285,7 +287,8 @@ public final class PyCommon {
           builder.addTransitive(imports);
         }
       } catch (EvalException e) {
-        ruleContext.ruleError(String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+        ruleContext.attributeError(
+            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
       }
     }
     return builder.build();
@@ -307,7 +310,8 @@ public final class PyCommon {
           return true;
         }
       } catch (EvalException e) {
-        ruleContext.ruleError(String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+        ruleContext.attributeError(
+            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
       }
     }
     return false;
@@ -328,7 +332,8 @@ public final class PyCommon {
           return true;
         }
       } catch (EvalException e) {
-        ruleContext.ruleError(String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
+        ruleContext.attributeError(
+            "deps", String.format("In dep '%s': %s", dep.getLabel(), e.getMessage()));
       }
     }
     return false;
@@ -434,6 +439,27 @@ public final class PyCommon {
           DEFAULT_PYTHON_VERSION_ATTRIBUTE,
           "the 'default_python_version' attribute is disabled by the "
               + "'--experimental_remove_old_python_version_api' flag");
+    }
+  }
+
+  /**
+   * Reports an attribute error if a target in {@code deps} passes the legacy "py" provider but this
+   * is disallowed by the configuration.
+   */
+  private void validateLegacyProviderNotUsedIfDisabled() {
+    if (!ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider()) {
+      return;
+    }
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+      if (PyProviderUtils.hasLegacyProvider(dep)) {
+        ruleContext.attributeError(
+            "deps",
+            String.format(
+                "In dep '%s': The legacy 'py' provider is disallowed. Migrate to the PyInfo "
+                    + "provider instead. You can temporarily disable this failure with "
+                    + "--incompatible_disallow_legacy_py_provider=false.",
+                dep.getLabel()));
+      }
     }
   }
 
@@ -562,7 +588,9 @@ public final class PyCommon {
       NestedSet<Artifact> filesToBuild,
       NestedSet<String> imports) {
 
-    PyProviderUtils.builder()
+    boolean createLegacyPyProvider =
+        !ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider();
+    PyProviderUtils.builder(createLegacyPyProvider)
         .setTransitiveSources(transitivePythonSources)
         .setUsesSharedLibraries(usesSharedLibraries)
         .setImports(imports)

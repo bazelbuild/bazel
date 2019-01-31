@@ -42,21 +42,26 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   private final TriState buildPythonZip;
   private final boolean buildTransitiveRunfilesTrees;
 
-  // TODO(brandjon): Remove these once migration to the new API is complete (#6583).
+  // TODO(brandjon): Remove these once migration to the new version API is complete (#6583).
   private final boolean oldPyVersionApiAllowed;
   private final boolean useNewPyVersionSemantics;
+
+  // TODO(brandjon): Remove this once migration to the new provider is complete (#7010).
+  private final boolean disallowLegacyPyProvider;
 
   PythonConfiguration(
       PythonVersion version,
       TriState buildPythonZip,
       boolean buildTransitiveRunfilesTrees,
       boolean oldPyVersionApiAllowed,
-      boolean useNewPyVersionSemantics) {
+      boolean useNewPyVersionSemantics,
+      boolean disallowLegacyPyProvider) {
     this.version = version;
     this.buildPythonZip = buildPythonZip;
     this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
     this.oldPyVersionApiAllowed = oldPyVersionApiAllowed;
     this.useNewPyVersionSemantics = useNewPyVersionSemantics;
+    this.disallowLegacyPyProvider = disallowLegacyPyProvider;
   }
 
   /**
@@ -131,5 +136,15 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   /** Returns true if the new semantics should be used for transitions on the Python version. */
   public boolean useNewPyVersionSemantics() {
     return useNewPyVersionSemantics;
+  }
+
+  /**
+   * Returns true if Python rules should omit the legacy "py" provider and fail-fast when given this
+   * provider from their {@code deps}.
+   *
+   * <p>Any rules that pass this provider should be updated to pass {@code PyInfo} instead.
+   */
+  public boolean disallowLegacyPyProvider() {
+    return disallowLegacyPyProvider;
   }
 }

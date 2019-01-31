@@ -141,7 +141,8 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   }
 
   @Test
-  public void producesBothModernAndLegacyProviders() throws Exception {
+  public void producesBothModernAndLegacyProviders_WithoutIncompatibleFlag() throws Exception {
+    useConfiguration("--experimental_disallow_legacy_py_provider=false");
     scratch.file(
         "pkg/BUILD", //
         ruleName + "(",
@@ -153,7 +154,21 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   }
 
   @Test
-  public void consumesLegacyProvider() throws Exception {
+  public void producesOnlyModernProvider_WithIncompatibleFlag() throws Exception {
+    useConfiguration("--experimental_disallow_legacy_py_provider=true");
+    scratch.file(
+        "pkg/BUILD", //
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'])");
+    ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
+    assertThat(target.get(PyInfo.PROVIDER)).isNotNull();
+    assertThat(target.get(PyStructUtils.PROVIDER_NAME)).isNull();
+  }
+
+  @Test
+  public void consumesLegacyProvider_WithoutIncompatibleFlag() throws Exception {
+    useConfiguration("--experimental_disallow_legacy_py_provider=false");
     scratch.file(
         "pkg/rules.bzl",
         "def _myrule_impl(ctx):",
@@ -175,6 +190,33 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
     assertThat(target).isNotNull();
     assertNoEvents();
+  }
+
+  @Test
+  public void rejectsLegacyProvider_WithIncompatibleFlag() throws Exception {
+    useConfiguration("--experimental_disallow_legacy_py_provider=true");
+    scratch.file(
+        "pkg/rules.bzl",
+        "def _myrule_impl(ctx):",
+        "    return struct(py=struct(transitive_sources=depset([])))",
+        "myrule = rule(",
+        "    implementation = _myrule_impl,",
+        ")");
+    checkError(
+        "pkg",
+        "foo",
+        // error:
+        "In dep '//pkg:dep': The legacy 'py' provider is disallowed.",
+        // build file:
+        "load(':rules.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'dep',",
+        ")",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        "    deps = [':dep'],",
+        ")");
   }
 
   @Test

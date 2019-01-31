@@ -164,11 +164,13 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
         parsePythonOptions(
             "--experimental_allow_python_version_transitions=true",
             "--experimental_remove_old_python_version_api=true",
-            "--build_python_zip=true");
+            "--build_python_zip=true",
+            "--experimental_disallow_legacy_py_provider=true");
     PythonOptions hostOpts = (PythonOptions) opts.getHost();
     assertThat(hostOpts.experimentalAllowPythonVersionTransitions).isTrue();
     assertThat(hostOpts.experimentalRemoveOldPythonVersionApi).isTrue();
     assertThat(hostOpts.buildPythonZip).isEqualTo(TriState.YES);
+    assertThat(hostOpts.experimentalDisallowLegacyPyProvider).isTrue();
   }
 
   @Test

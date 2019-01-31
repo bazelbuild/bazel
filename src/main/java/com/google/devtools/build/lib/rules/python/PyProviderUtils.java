@@ -170,17 +170,27 @@ public class PyProviderUtils {
     }
   }
 
-  public static Builder builder() {
-    return new Builder();
+  /**
+   * Returns a builder to construct the legacy and/or modern Python providers and add them to a
+   * configured target.
+   *
+   * <p>If {@code createLegacy} is false, only the modern {@code PyInfo} provider is produced.
+   * Otherwise both {@code PyInfo} and the "py" provider are produced.
+   */
+  public static Builder builder(boolean createLegacy) {
+    return new Builder(createLegacy);
   }
 
   /** A builder to add both the legacy and modern providers to a configured target. */
   public static class Builder {
     private final PyInfo.Builder modernBuilder = PyInfo.builder();
     private final PyStructUtils.Builder legacyBuilder = PyStructUtils.builder();
+    private final boolean createLegacy;
 
     // Use the static builder() method instead.
-    private Builder() {}
+    private Builder(boolean createLegacy) {
+      this.createLegacy = createLegacy;
+    }
 
     public Builder setTransitiveSources(NestedSet<Artifact> transitiveSources) {
       modernBuilder.setTransitiveSources(transitiveSources);
@@ -214,8 +224,10 @@ public class PyProviderUtils {
 
     public RuleConfiguredTargetBuilder buildAndAddToTarget(
         RuleConfiguredTargetBuilder targetBuilder) {
-      targetBuilder.addSkylarkTransitiveInfo(PyStructUtils.PROVIDER_NAME, legacyBuilder.build());
       targetBuilder.addNativeDeclaredProvider(modernBuilder.build());
+      if (createLegacy) {
+        targetBuilder.addSkylarkTransitiveInfo(PyStructUtils.PROVIDER_NAME, legacyBuilder.build());
+      }
       return targetBuilder;
     }
   }
