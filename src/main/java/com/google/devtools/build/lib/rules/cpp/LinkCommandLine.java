@@ -291,6 +291,9 @@ public final class LinkCommandLine extends CommandLine {
     int argsSize = args.size();
     for (int i = 1; i < argsSize; i++) {
       String arg = args.get(i);
+      if (arg.isEmpty()) {
+        continue;
+      }
       if (arg.equals("-Wl,-no-whole-archive")) {
         paramFileArgs.add("-no-whole-archive");
       } else if (arg.equals("-Wl,-whole-archive")) {
