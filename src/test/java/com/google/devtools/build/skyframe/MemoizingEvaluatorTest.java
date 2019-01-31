@@ -2792,51 +2792,6 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
-  public void childVersionRespectedForChangePruning() throws Exception {
-    SkyKey leaf = skyKey("leaf");
-    SkyKey mid = skyKey("mid");
-    SkyKey top = skyKey("top");
-    SkyKey invalidator = GraphTester.nonHermeticKey("invalidator");
-    StringValue value = new StringValue("value");
-    Set<InconsistencyData> inconsistencyData = setupGraphInconsistencyReceiver();
-    AtomicInteger topEvalCount = new AtomicInteger(0);
-    tester
-        .getOrCreate(top)
-        .setBuilder(
-            (TaglessSkyFunction)
-                (skykey, env) -> {
-                  assertThat(skykey).isEqualTo(top);
-                  Map<SkyKey, SkyValue> values = env.getValues(ImmutableList.of(mid, invalidator));
-                  if (env.valuesMissing()) {
-                    return null;
-                  }
-                  topEvalCount.incrementAndGet();
-                  return Preconditions.checkNotNull(values.get(mid));
-                });
-    // When top depends on mid depends on leaf, and also depends on invalidator,
-    tester.getOrCreate(mid).addDependency(leaf).setComputedValue(CONCATENATE);
-    tester.getOrCreate(leaf).setConstantValue(value);
-    tester.getOrCreate(invalidator).setConstantValue(value);
-    // And top is evaluated at the first version,
-    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(value);
-    assertThat(topEvalCount.get()).isEqualTo(1);
-    // And mid is deleted from the graph,
-    deleteKeyFromGraph(mid);
-    assertThat(inconsistencyData).isEmpty();
-    // And top is invalidated (by invalidator) but not actually changed,
-    tester.getOrCreate(invalidator, /*markAsModified=*/ true);
-    tester.invalidate();
-    // Then we re-evaluate successfully,
-    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(value);
-    // And we noticed the missing dep,
-    assertThat(inconsistencyData)
-        .containsExactly(
-            InconsistencyData.create(top, mid, Inconsistency.CHILD_MISSING_FOR_DIRTY_NODE));
-    // And top was not actually re-evaluated on the incremental build (it was change-pruned).
-    assertWithMessage("Top should have been change-pruned").that(topEvalCount.get()).isEqualTo(1);
-  }
-
-  @Test
   public void hermeticSkyFunctionCanThrowTransientErrorThenRecover() throws Exception {
     SkyKey leaf = skyKey("leaf");
     SkyKey top = skyKey("top");
@@ -4181,6 +4136,31 @@ public class MemoizingEvaluatorTest {
     tester.invalidateTransientErrors();
     stringValue = (StringValue) tester.evalAndGet(/*keepGoing=*/true, errorKey);
     assertThat(stringValue).isEqualTo(value);
+  }
+
+  @Test
+  public void transientErrorTurnsGoodOnSecondTry() throws Exception {
+    SkyKey leafKey = toSkyKey("leaf");
+    SkyKey errorKey = toSkyKey("error");
+    SkyKey topKey = toSkyKey("top");
+    StringValue value = new StringValue("val");
+    tester.getOrCreate(topKey).addDependency(errorKey).setConstantValue(value);
+    tester
+        .getOrCreate(errorKey)
+        .addDependency(leafKey)
+        .setConstantValue(value)
+        .setHasTransientError(true);
+    tester.getOrCreate(leafKey).setConstantValue(new StringValue("leaf"));
+    ErrorInfo errorInfo = tester.evalAndGetError(/*keepGoing=*/ true, topKey);
+    assertThat(errorInfo).isNotNull();
+    assertThatErrorInfo(errorInfo).isTransient();
+    tester.invalidateTransientErrors();
+    errorInfo = tester.evalAndGetError(/*keepGoing=*/ true, topKey);
+    assertThat(errorInfo).isNotNull();
+    assertThatErrorInfo(errorInfo).isTransient();
+    tester.invalidateTransientErrors();
+    tester.getOrCreate(errorKey, /*markAsModified=*/ false).setHasTransientError(false);
+    assertThat(tester.evalAndGet(/*keepGoing=*/ true, topKey)).isEqualTo(value);
   }
 
   @Test
