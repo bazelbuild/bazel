@@ -54,15 +54,15 @@ bool IsAbsolute(const std::string &path);
 //   MakeAbsolute("C:/foo") ---> "C:/foo"
 std::string MakeAbsolute(const std::string &path);
 
-// Returns the given path in absolute form, taking into account a possible
-// starting environment variable on the windows platform, so that we can
-// accept standard path variables like %USERPROFILE%. We do not support
-// unix-style envvars here: recreating that logic is error-prone and not
-// worthwhile, since they are less critical to standard paths as in Windows.
+// Returns the given path in absolute form, taking into account a
+// possible starting environment variable, so that we can accept
+// standard path variables like %USERPROFILE% or ${BAZEL}. For
+// simplicity, we implement only those two forms, not $BAZEL.
 //
 //   MakeAbsolute("foo") in wd "/bar" --> "/bar/foo"
-//   MakeAbsolute("%USERPROFILE%/foo") --> "C:\Users\bazel-user\foo"
-std::string MakeAbsoluteAndResolveWindowsEnvvars(const std::string &path);
+//   MakeAbsoluteAndResolveEnvvars("%USERPROFILE%/foo") --> "C:\Users\bazel-user\foo"
+//   MakeAbsoluteAndResolveEnvvars("${BAZEL}/foo") --> "/opt/bazel/foo"
+std::string MakeAbsoluteAndResolveEnvvars(const std::string &path);
 
 // TODO(bazel-team) consider changing the path(_platform) header split to be a
 // path.h and path_windows.h split, which would make it clearer what functions

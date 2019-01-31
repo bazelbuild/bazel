@@ -159,14 +159,24 @@ TEST(PathPosixTest, MakeAbsolute) {
   EXPECT_EQ(MakeAbsolute(""), "");
 }
 
-TEST(PathPosixTest, MakeAbsoluteAndResolveWindowsEnvvars) {
-  // Check that Unix-style envvars are not resolved.
-  EXPECT_EQ(MakeAbsoluteAndResolveWindowsEnvvars("$PATH"),
-            JoinPath(GetCwd(), "$PATH"));
-  EXPECT_EQ(MakeAbsoluteAndResolveWindowsEnvvars("${PATH}"),
-            JoinPath(GetCwd(), "${PATH}"));
+TEST(PathPosixTest, MakeAbsoluteAndResolveEnvvars) {
+  // Check that Unix-style envvars are resolved.
+  const std::string tmpdir = getenv("TEST_TMPDIR");
+  const std::string expected_tmpdir_bar = ConvertPath(tmpdir + "/bar");
+
+  // Using an existing environment variable
+  EXPECT_EQ(expected_tmpdir_bar,
+            MakeAbsoluteAndResolveEnvvars("${TEST_TMPDIR}/bar"));
+  // Using an undefined environment variable (case-sensitive)
+  EXPECT_EQ("/bar",
+            MakeAbsoluteAndResolveEnvvars("${test_tmpdir}/bar"));
+
+  // This style of variable is not supported
+  EXPECT_EQ(JoinPath(GetCwd(), "$TEST_TMPDIR/bar"),
+            MakeAbsoluteAndResolveEnvvars("$TEST_TMPDIR/bar"));
+
   // Check that Windows-style envvars are not resolved when not on Windows.
-  EXPECT_EQ(MakeAbsoluteAndResolveWindowsEnvvars("%PATH%"),
+  EXPECT_EQ(MakeAbsoluteAndResolveEnvvars("%PATH%"),
             JoinPath(GetCwd(), "%PATH%"));
 }
 

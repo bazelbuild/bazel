@@ -14,6 +14,8 @@
 
 #include "src/main/cpp/util/path_platform.h"
 
+#include <regex>
+
 #include <limits.h>  // PATH_MAX
 
 #include <string.h>  // strncmp
@@ -67,8 +69,20 @@ std::string MakeAbsolute(const std::string &path) {
   return JoinPath(blaze_util::GetCwd(), path);
 }
 
-std::string MakeAbsoluteAndResolveWindowsEnvvars(const std::string &path) {
-  return MakeAbsolute(path);
+std::string ResolveEnvvars(const std::string &path) {
+  std::string result = path;
+  static std::regex env("\\$\\{([^}]+)}");
+  std::smatch m;
+  while (std::regex_search(result, m, env)) {
+    const char *value = getenv(m[1].str().c_str());
+    const std::string replacement = std::string(value ? value : "");
+    result.replace(m.position(0), m.length(0), replacement);
+  }
+  return result;
+}
+
+std::string MakeAbsoluteAndResolveEnvvars(const std::string &path) {
+  return MakeAbsolute(ResolveEnvvars(path));
 }
 
 }  // namespace blaze_util
