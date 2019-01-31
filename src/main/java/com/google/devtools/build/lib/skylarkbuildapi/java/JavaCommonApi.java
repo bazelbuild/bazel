@@ -177,12 +177,12 @@ public interface JavaCommonApi<
       throws EvalException;
 
   @SkylarkCallable(
-    name = "provider",
-    structField = true,
-    doc = "Returns the Java declared provider. <br>"
-        + "The same value is accessible as <code>JavaInfo</code>. <br>"
-        + "Prefer using <code>JavaInfo</code> in new code."
-  )
+      name = "provider",
+      structField = true,
+      doc =
+          "Returns the Java declared provider. <br>"
+              + "The same value is accessible as <code>JavaInfo</code>. <br>"
+              + "Prefer using <code>JavaInfo</code> in new code.")
   public ProviderApi getJavaProvider();
 
   @SkylarkCallable(
@@ -543,36 +543,32 @@ public interface JavaCommonApi<
       throws EvalException;
 
   @SkylarkCallable(
-    name = "merge",
-    doc = "Merges the given providers into a single JavaInfo.",
-    parameters = {
-      @Param(
-          name = "providers",
-          positional = true,
-          named = false,
-          type = SkylarkList.class,
-          generic1 = JavaInfoApi.class,
-          doc = "The list of providers to merge."
-      ),
-    }
-  )
+      name = "merge",
+      doc = "Merges the given providers into a single JavaInfo.",
+      parameters = {
+        @Param(
+            name = "providers",
+            positional = true,
+            named = false,
+            type = SkylarkList.class,
+            generic1 = JavaInfoApi.class,
+            doc = "The list of providers to merge."),
+      })
   public JavaInfoT mergeJavaProviders(SkylarkList<JavaInfoT> providers);
 
   @SkylarkCallable(
-    name = "make_non_strict",
-    doc =
-        "Returns a new Java provider whose direct-jars part is the union of both the direct and"
-            + " indirect jars of the given Java provider.",
-    parameters = {
-      @Param(
-          name = "java_info",
-          positional = true,
-          named = false,
-          type = JavaInfoApi.class,
-          doc = "The java info."
-      ),
-    }
-  )
+      name = "make_non_strict",
+      doc =
+          "Returns a new Java provider whose direct-jars part is the union of both the direct and"
+              + " indirect jars of the given Java provider.",
+      parameters = {
+        @Param(
+            name = "java_info",
+            positional = true,
+            named = false,
+            type = JavaInfoApi.class,
+            doc = "The java info."),
+      })
   public JavaInfoT makeNonStrict(JavaInfoT javaInfo);
 
   @SkylarkCallable(
@@ -584,11 +580,24 @@ public interface JavaCommonApi<
   public ProviderApi getJavaToolchainProvider();
 
   @SkylarkCallable(
-    name = "JavaRuntimeInfo",
-    doc =
-        "The key used to retrieve the provider that contains information about the Java "
-            + "runtime being used.",
-    structField = true
-  )
+      name = "JavaRuntimeInfo",
+      doc =
+          "The key used to retrieve the provider that contains information about the Java "
+              + "runtime being used.",
+      structField = true)
   public ProviderApi getJavaRuntimeProvider();
+
+  @SkylarkCallable(
+      name = "is_java_toolchain_resolution_enabled_do_not_use",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+      },
+      doc = "Returns true if --experimental_use_toolchain_resolution_for_java_rules is enabled.")
+  boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextT ruleContext) throws EvalException;
 }

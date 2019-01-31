@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
@@ -264,5 +265,15 @@ public class JavaSkylarkCommon
               + "--incompatible_disallow_legacy_javainfo is set. "
               + "Please migrate to the JavaInfo constructor.");
     }
+  }
+
+  @Override
+  public boolean isJavaToolchainResolutionEnabled(SkylarkRuleContext ruleContext)
+      throws EvalException {
+    return ruleContext
+        .getConfiguration()
+        .getOptions()
+        .get(PlatformOptions.class)
+        .useToolchainResolutionForJavaRules;
   }
 }
