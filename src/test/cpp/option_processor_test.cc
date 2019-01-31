@@ -26,117 +26,141 @@
 
 namespace blaze {
 
-class OptionProcessorTest : public ::testing::Test {
- protected:
-  OptionProcessorTest() :
-      workspace_(
-          blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "testdir")),
-      cwd_("cwd"),
-      workspace_layout_(new WorkspaceLayout()) {}
+  class OptionProcessorTest : public ::testing::Test {
+    protected:
+      OptionProcessorTest() :
+        workspace_(
+            blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "testdir")),
+        cwd_("cwd"),
+        workspace_layout_(new WorkspaceLayout()) {}
 
-  ~OptionProcessorTest() override {}
+      ~OptionProcessorTest() override {}
 
-  void SetUp() override {
-    ASSERT_TRUE(blaze_util::MakeDirectories(workspace_, 0755));
-    option_processor_.reset(new OptionProcessor(
-        workspace_layout_.get(),
-        std::unique_ptr<StartupOptions>(
-            new BazelStartupOptions(workspace_layout_.get()))));
-  }
+      void SetUp() override {
+        ASSERT_TRUE(blaze_util::MakeDirectories(workspace_, 0755));
+        option_processor_.reset(new OptionProcessor(
+              workspace_layout_.get(),
+              std::unique_ptr<StartupOptions>(
+                new BazelStartupOptions(workspace_layout_.get()))));
+      }
 
-  void TearDown() override {
-    // TODO(bazel-team): The code below deletes all the files in the workspace
-    // but it intentionally skips directories. As a consequence, there may be
-    // empty directories from test to test. Remove this once
-    // blaze_util::DeleteDirectories(path) exists.
-    std::vector<std::string> files_in_workspace;
-    blaze_util::GetAllFilesUnder(workspace_, &files_in_workspace);
-    for (const std::string& file : files_in_workspace) {
-      blaze_util::UnlinkPath(file);
-    }
-  }
+      void TearDown() override {
+        // TODO(bazel-team): The code below deletes all the files in the workspace
+        // but it intentionally skips directories. As a consequence, there may be
+        // empty directories from test to test. Remove this once
+        // blaze_util::DeleteDirectories(path) exists.
+        std::vector<std::string> files_in_workspace;
+        blaze_util::GetAllFilesUnder(workspace_, &files_in_workspace);
+        for (const std::string& file : files_in_workspace) {
+          blaze_util::UnlinkPath(file);
+        }
+      }
 
-  void FailedSplitStartupOptionsTest(const std::vector<std::string>& args,
-                                     const std::string& expected_error) const {
-    std::string error;
-    const std::unique_ptr<CommandLine> result =
-        option_processor_->SplitCommandLine(args, &error);
-    ASSERT_EQ(expected_error, error);
-    ASSERT_EQ(nullptr, result);
-  }
+      void FailedSplitStartupOptionsTest(const std::vector<std::string>& args,
+          const std::string& expected_error) const {
+        std::string error;
+        const std::unique_ptr<CommandLine> result =
+          option_processor_->SplitCommandLine(args, &error);
+        ASSERT_EQ(expected_error, error);
+        ASSERT_EQ(nullptr, result);
+      }
 
-  void SuccessfulSplitStartupOptionsTest(const std::vector<std::string>& args,
-                                         const CommandLine& expected) const {
-    std::string error;
-    const std::unique_ptr<CommandLine> result =
-        option_processor_->SplitCommandLine(args, &error);
+      void SuccessfulSplitStartupOptionsTest(const std::vector<std::string>& args,
+          const CommandLine& expected) const {
+        std::string error;
+        const std::unique_ptr<CommandLine> result =
+          option_processor_->SplitCommandLine(args, &error);
 
-    ASSERT_EQ("", error);
-    EXPECT_EQ(expected.path_to_binary, result->path_to_binary);
-    EXPECT_EQ(expected.startup_args, result->startup_args);
-    EXPECT_EQ(expected.command, result->command);
-    EXPECT_EQ(expected.command_args, result->command_args);
-  }
+        ASSERT_EQ("", error);
+        EXPECT_EQ(expected.path_to_binary, result->path_to_binary);
+        EXPECT_EQ(expected.startup_args, result->startup_args);
+        EXPECT_EQ(expected.command, result->command);
+        EXPECT_EQ(expected.command_args, result->command_args);
+      }
 
-  void HelpArgIsInterpretedAsACommand(const std::string& arg) {
-    const std::vector<std::string> args = {"bazel", arg};
+      void HelpArgIsInterpretedAsACommand(const std::string& arg) {
+        const std::vector<std::string> args = {"bazel", arg};
+        std::string error;
+        ASSERT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+          << error;
+        ASSERT_EQ("", error);
+
+        EXPECT_EQ(arg, option_processor_->GetCommand());
+        EXPECT_EQ(std::vector<std::string>({}),
+            option_processor_->GetExplicitCommandArguments());
+      }
+
+      const std::string workspace_;
+      const std::string cwd_;
+      const std::unique_ptr<WorkspaceLayout> workspace_layout_;
+      std::unique_ptr<OptionProcessor> option_processor_;
+  };
+
+  TEST_F(OptionProcessorTest, CanParseOptions) {
+    const std::vector<std::string> args =
+    {"bazel",
+      "--host_jvm_args=MyParam", "--nobatch",
+      "command",
+      "--flag", "//my:target", "--flag2=42"};
     std::string error;
     ASSERT_EQ(blaze_exit_code::SUCCESS,
-              option_processor_->ParseOptions(args, workspace_, cwd_, &error))
-        << error;
-    ASSERT_EQ("", error);
+        option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+      << error;
 
-    EXPECT_EQ(arg, option_processor_->GetCommand());
-    EXPECT_EQ(std::vector<std::string>({}),
-              option_processor_->GetExplicitCommandArguments());
+    ASSERT_EQ("", error);
+#if defined(_WIN32) || defined(__CYGWIN__)
+    ASSERT_EQ(size_t(2),
+        option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
+    const std::string win_unix_root("-Dbazel.windows_unix_root=");
+    const std::string host_jvm_args_0 =
+      option_processor_->GetParsedStartupOptions()->host_jvm_args[0];
+    EXPECT_EQ(host_jvm_args_0.find(win_unix_root), 0) << host_jvm_args_0;
+    EXPECT_GT(host_jvm_args_0.size(), win_unix_root.size());
+    EXPECT_EQ("MyParam",
+        option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
+#else  // ! (defined(_WIN32) || defined(__CYGWIN__))
+    ASSERT_EQ(size_t(1),
+        option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
+    EXPECT_EQ("MyParam",
+        option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
+    EXPECT_FALSE(option_processor_->GetParsedStartupOptions()->batch);
+
+    EXPECT_EQ("command", option_processor_->GetCommand());
+
+    EXPECT_EQ(std::vector<std::string>({"--flag", "//my:target", "--flag2=42"}),
+        option_processor_->GetExplicitCommandArguments());
   }
 
-  const std::string workspace_;
-  const std::string cwd_;
-  const std::unique_ptr<WorkspaceLayout> workspace_layout_;
-  std::unique_ptr<OptionProcessor> option_processor_;
-};
+  TEST_F(OptionProcessorTest, CanParseHelpCommandSurroundedByOtherArgs) {
+    const std::vector<std::string> args =
+    {"bazel",
+      "--host_jvm_args=MyParam", "--nobatch",
+      "help",
+      "--flag", "//my:target", "--flag2=42"};
+    std::string error;
+    ASSERT_EQ(blaze_exit_code::SUCCESS,
+        option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+      << error;
 
-TEST_F(OptionProcessorTest, CanParseOptions) {
-  const std::vector<std::string> args =
-      {"bazel",
-       "--host_jvm_args=MyParam", "--nobatch",
-       "command",
-       "--flag", "//my:target", "--flag2=42"};
-  std::string error;
-  ASSERT_EQ(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
-                << error;
-
-  ASSERT_EQ("", error);
+    ASSERT_EQ("", error);
+#if defined(_WIN32) || defined(__CYGWIN__)
+    ASSERT_EQ(size_t(2),
+        option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
+    const std::string win_unix_root("-Dbazel.windows_unix_root=");
+    const std::string host_jvm_args_0 =
+      option_processor_->GetParsedStartupOptions()->host_jvm_args[0];
+    EXPECT_EQ(host_jvm_args_0.find(win_unix_root), 0) << host_jvm_args_0;
+    EXPECT_GT(host_jvm_args_0.size(), win_unix_root.size());
+    EXPECT_EQ("MyParam",
+        option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
+#else  // ! (defined(_WIN32) || defined(__CYGWIN__))
   ASSERT_EQ(size_t(1),
             option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
-  EXPECT_FALSE(option_processor_->GetParsedStartupOptions()->batch);
-
-  EXPECT_EQ("command", option_processor_->GetCommand());
-
-  EXPECT_EQ(std::vector<std::string>({"--flag", "//my:target", "--flag2=42"}),
-            option_processor_->GetExplicitCommandArguments());
-}
-
-TEST_F(OptionProcessorTest, CanParseHelpCommandSurroundedByOtherArgs) {
-  const std::vector<std::string> args =
-      {"bazel",
-       "--host_jvm_args=MyParam", "--nobatch",
-       "help",
-       "--flag", "//my:target", "--flag2=42"};
-  std::string error;
-  ASSERT_EQ(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
-                << error;
-
-  ASSERT_EQ("", error);
-  ASSERT_EQ(size_t(1),
-            option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
-  EXPECT_EQ("MyParam",
-            option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
   EXPECT_FALSE(option_processor_->GetParsedStartupOptions()->batch);
 
   EXPECT_EQ("help", option_processor_->GetCommand());
@@ -181,12 +205,26 @@ TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
                 << error;
   ASSERT_EQ("", error);
 
+#if defined(_WIN32) || defined(__CYGWIN__)
+  ASSERT_EQ(size_t(3),
+            option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
+  const std::string win_unix_root("-Dbazel.windows_unix_root=");
+  const std::string host_jvm_args_0 =
+    option_processor_->GetParsedStartupOptions()->host_jvm_args[0];
+  EXPECT_EQ(host_jvm_args_0.find(win_unix_root), 0) << host_jvm_args_0;
+  EXPECT_GT(host_jvm_args_0.size(), win_unix_root.size());
+  EXPECT_EQ("MyParam",
+            option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
+  EXPECT_EQ("42",
+            option_processor_->GetParsedStartupOptions()->host_jvm_args[2]);
+#else  // ! (defined(_WIN32) || defined(__CYGWIN__))
   ASSERT_EQ(size_t(2),
             option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
   EXPECT_EQ("MyParam",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[0]);
   EXPECT_EQ("42",
             option_processor_->GetParsedStartupOptions()->host_jvm_args[1]);
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
 
   EXPECT_EQ("", option_processor_->GetCommand());
 
