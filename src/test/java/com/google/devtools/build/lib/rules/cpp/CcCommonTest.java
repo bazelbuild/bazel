@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -56,7 +55,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -773,56 +771,6 @@ public class CcCommonTest extends BuildViewTestCase {
         "bad_absolute_include",
         "ignoring invalid absolute path",
         "cc_library(name='bad_absolute_include', srcs=[], includes=['/usr/include/'])");
-  }
-
-  @Test
-  public void testSelectPreferredLibrariesInvariant() {
-    // All combinations of libraries:
-    // a - static+pic+shared
-    // b - static+pic
-    // c - static+shared
-    // d - static
-    // e - pic+shared
-    // f - pic
-    // g - shared
-    CcLinkingOutputs linkingOutputs =
-        CcLinkingOutputs.builder()
-            .addStaticLibraries(
-                ImmutableList.copyOf(
-                    LinkerInputs.opaqueLibrariesToLink(ArtifactCategory.STATIC_LIBRARY,
-                        Arrays.asList(
-                            getSourceArtifact("liba.a"),
-                            getSourceArtifact("libb.a"),
-                            getSourceArtifact("libc.a"),
-                            getSourceArtifact("libd.a")))))
-            .addPicStaticLibraries(
-                ImmutableList.copyOf(
-                    LinkerInputs.opaqueLibrariesToLink(ArtifactCategory.STATIC_LIBRARY,
-                        Arrays.asList(
-                            getSourceArtifact("liba.pic.a"),
-                            getSourceArtifact("libb.pic.a"),
-                            getSourceArtifact("libe.pic.a"),
-                            getSourceArtifact("libf.pic.a")))))
-            .addDynamicLibraries(
-                ImmutableList.copyOf(
-                    LinkerInputs.opaqueLibrariesToLink(ArtifactCategory.DYNAMIC_LIBRARY,
-                        Arrays.asList(
-                            getSourceArtifact("liba.so"),
-                            getSourceArtifact("libc.so"),
-                            getSourceArtifact("libe.so"),
-                            getSourceArtifact("libg.so")))))
-            .build();
-
-    // Whether linkShared is true or false, this should return the identical results.
-    List<Artifact> sharedLibraries1 =
-        FileType.filterList(
-            LinkerInputs.toLibraryArtifacts(linkingOutputs.getPreferredLibraries(true, false)),
-            CppFileTypes.SHARED_LIBRARY);
-    List<Artifact> sharedLibraries2 =
-        FileType.filterList(
-            LinkerInputs.toLibraryArtifacts(linkingOutputs.getPreferredLibraries(true, true)),
-            CppFileTypes.SHARED_LIBRARY);
-    assertThat(sharedLibraries2).isEqualTo(sharedLibraries1);
   }
 
   /** Tests that shared libraries of the form "libfoo.so.1.2" are permitted within "srcs". */

@@ -206,8 +206,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getSharedArtifact("_solib_" + cpu + "/libhello_Slibhello.ifso", hello);
     assertThat(getFilesToBuild(hello)).containsExactly(archive, implSharedObject,
         implInterfaceSharedObject);
-    assertThat(LinkerInputs.toLibraryArtifacts(
-        hello.getProvider(CcNativeLibraryProvider.class).getTransitiveCcNativeLibraries()))
+    assertThat(
+            LibraryToLinkWrapper.getDynamicLibrariesForLinking(
+                hello.getProvider(CcNativeLibraryProvider.class).getTransitiveCcNativeLibraries()))
         .containsExactly(implInterfaceSharedObjectLink);
     assertThat(
             hello
@@ -271,8 +272,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact implSharedObjectLink =
         getSharedArtifact("_solib_" + cpu + "/libhello_Slibhello.so", hello);
     assertThat(getFilesToBuild(hello)).containsExactly(archive, sharedObject, implSharedObject);
-    assertThat(LinkerInputs.toLibraryArtifacts(
-        hello.getProvider(CcNativeLibraryProvider.class).getTransitiveCcNativeLibraries()))
+    assertThat(
+            LibraryToLinkWrapper.getDynamicLibrariesForLinking(
+                hello.getProvider(CcNativeLibraryProvider.class).getTransitiveCcNativeLibraries()))
         .containsExactly(sharedObjectLink);
     assertThat(
             hello
@@ -1462,10 +1464,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     checkError(
         "a",
         "foo",
-        "in cc_library rule //a:foo: Can't put libfoo.lo into the srcs of a cc_library with the "
-            + "same name (foo) which also contains other code or objects to link; it shares a name "
-            + "with libfoo.a, libfoo.ifso, libfoo.so (output compiled and linked from the "
-            + "non-library sources of this rule), which could cause confusion",
+        "in cc_library rule //a:foo: Can't put library with "
+            + "identifier 'a/libfoo' into the srcs of a cc_library with the same name (foo) which "
+            + "also contains other code or objects to link",
         "cc_library(name = 'foo', srcs = ['foo.cc', 'libfoo.lo'])");
   }
 

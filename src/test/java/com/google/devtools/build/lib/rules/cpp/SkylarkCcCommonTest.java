@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -1398,11 +1397,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
     @SuppressWarnings("unchecked")
-    SkylarkList<LibraryToLinkApi> libraries =
-        (SkylarkList<LibraryToLinkApi>) target.get("libraries");
+    SkylarkList<LibraryToLinkWrapper> libraries =
+        (SkylarkList<LibraryToLinkWrapper>) target.get("libraries");
     assertThat(
             libraries.stream()
-                .map(x -> x.getOriginalLibraryArtifact().getFilename())
+                .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .contains("libskylark_lib.so");
   }
@@ -1413,9 +1412,8 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         scratch, "tools/build_defs/foo", "linkopts=depset(['-LINKING_OPTION'])");
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
     assertThat(target).isNotNull();
-    CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".so"));
-    assertThat(action.getArguments()).contains("-LINKING_OPTION");
+    assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getFlattenedUserLinkFlags())
+        .contains("-LINKING_OPTION");
   }
 
   @Test
@@ -1426,9 +1424,12 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "dynamic_library=ctx.actions.declare_file('dynamic_lib_artifact.so')");
     assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    @SuppressWarnings("unchecked")
+    SkylarkList<LibraryToLinkWrapper> libraries =
+        (SkylarkList<LibraryToLinkWrapper>) target.get("libraries");
     assertThat(
-            getFilesToBuild(target).toCollection().stream()
-                .map(x -> x.getFilename())
+            libraries.stream()
+                .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .contains("dynamic_lib_artifact.so");
   }

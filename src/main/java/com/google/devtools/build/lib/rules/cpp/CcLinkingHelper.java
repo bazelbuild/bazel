@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -413,7 +412,7 @@ public final class CcLinkingHelper {
         staticLinkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER,
         "can only handle static links");
 
-    CcLinkingOutputs.Builder result = new CcLinkingOutputs.Builder();
+    LibraryToLinkWrapper.Builder libraryToLinkBuilder = LibraryToLinkWrapper.builder();
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     boolean usePicForBinaries =
         CppHelper.usePicForBinaries(ruleContext, ccToolchain, featureConfiguration);
@@ -427,30 +426,36 @@ public final class CcLinkingHelper {
             .getPathString();
 
     if (shouldCreateStaticLibraries) {
-      Pair<LibraryToLink, LibraryToLink> staticLibrariesToLink =
-          createNoPicAndPicStaticLibraries(
-              env, usePicForBinaries, usePicForDynamicLibs, libraryIdentifier, ccOutputs);
-      if (staticLibrariesToLink.first != null) {
-        result.addStaticLibrary(staticLibrariesToLink.first);
-      }
-      if (staticLibrariesToLink.second != null) {
-        result.addPicStaticLibrary(staticLibrariesToLink.second);
-      }
+      createNoPicAndPicStaticLibraries(
+          libraryToLinkBuilder,
+          env,
+          usePicForBinaries,
+          usePicForDynamicLibs,
+          libraryIdentifier,
+          ccOutputs);
     }
 
+    boolean hasBuiltDynamicLibrary = false;
+    CcLinkingOutputs.Builder ccLinkingOutputsBuilder = CcLinkingOutputs.builder();
     if (shouldCreateDynamicLibrary) {
       boolean usePic =
           (!dynamicLinkType.isExecutable() && usePicForDynamicLibs)
               || (dynamicLinkType.isExecutable() && usePicForBinaries);
-      createDynamicLibrary(result, env, usePic, libraryIdentifier, ccOutputs);
+      hasBuiltDynamicLibrary =
+          createDynamicLibrary(
+              ccLinkingOutputsBuilder,
+              libraryToLinkBuilder,
+              env,
+              usePic,
+              libraryIdentifier,
+              ccOutputs);
     }
 
-    CcLinkingOutputs ccLinkingOutputs = result.build();
-    Preconditions.checkState(ccLinkingOutputs.getStaticLibraries().size() <= 1);
-    Preconditions.checkState(ccLinkingOutputs.getPicStaticLibraries().size() <= 1);
-    Preconditions.checkState(ccLinkingOutputs.getDynamicLibrariesForLinking().size() <= 1);
-    Preconditions.checkState(ccLinkingOutputs.getDynamicLibrariesForRuntime().size() <= 1);
-    return ccLinkingOutputs;
+    if (hasBuiltDynamicLibrary || shouldCreateStaticLibraries) {
+      ccLinkingOutputsBuilder.setLibraryToLink(libraryToLinkBuilder.build());
+    }
+
+    return ccLinkingOutputsBuilder.build();
   }
 
   public CcLinkingHelper setWillOnlyBeLinkedIntoDynamicLibraries(
@@ -489,15 +494,14 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  private Pair<LibraryToLink, LibraryToLink> createNoPicAndPicStaticLibraries(
+  private void createNoPicAndPicStaticLibraries(
+      LibraryToLinkWrapper.Builder libraryToLinkBuilder,
       AnalysisEnvironment env,
       boolean usePicForBinaries,
       boolean usePicForDynamicLibs,
       String libraryIdentifier,
       CcCompilationOutputs ccOutputs)
       throws RuleErrorException, InterruptedException {
-    LibraryToLink staticLibrary = null;
-    LibraryToLink picStaticLibrary = null;
     // Create static library (.a). The staticLinkType only reflects whether the library is
     // alwayslink or not. The PIC-ness is determined by whether we need to use PIC or not. There
     // are four cases:
@@ -529,10 +533,18 @@ public final class CcLinkingHelper {
     }
 
     if (createNoPicAction) {
-      staticLibrary =
+      LibraryToLink staticLibrary =
           registerActionForStaticLibrary(
                   staticLinkType, ccOutputs, /* usePic= */ false, libraryIdentifier, env)
               .getOutputLibrary();
+      libraryToLinkBuilder
+          .setLibraryIdentifier(staticLibrary.getLibraryIdentifier())
+          .setStaticLibrary(staticLibrary.getArtifact())
+          .setObjectFiles(ImmutableList.copyOf(staticLibrary.getObjectFiles()))
+          .setLtoCompilationContext(staticLibrary.getLtoCompilationContext())
+          .setSharedNonLtoBackends(staticLibrary.getSharedNonLtoBackends())
+          .setAlwayslink(
+              staticLibrary.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY);
     }
 
     if (createPicAction) {
@@ -546,7 +558,7 @@ public final class CcLinkingHelper {
                 ? LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY
                 : LinkTargetType.PIC_STATIC_LIBRARY;
       }
-      picStaticLibrary =
+      LibraryToLink picStaticLibrary =
           registerActionForStaticLibrary(
                   linkTargetTypeUsedForNaming,
                   ccOutputs,
@@ -554,8 +566,15 @@ public final class CcLinkingHelper {
                   libraryIdentifier,
                   env)
               .getOutputLibrary();
+      libraryToLinkBuilder
+          .setLibraryIdentifier(picStaticLibrary.getLibraryIdentifier())
+          .setPicStaticLibrary(picStaticLibrary.getArtifact())
+          .setPicObjectFiles(ImmutableList.copyOf(picStaticLibrary.getObjectFiles()))
+          .setPicLtoCompilationContext(picStaticLibrary.getLtoCompilationContext())
+          .setPicSharedNonLtoBackends(picStaticLibrary.getSharedNonLtoBackends())
+          .setAlwayslink(
+              picStaticLibrary.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY);
     }
-    return new Pair<>(staticLibrary, picStaticLibrary);
   }
 
   private CppLinkAction registerActionForStaticLibrary(
@@ -582,13 +601,15 @@ public final class CcLinkingHelper {
     return action;
   }
 
-  private void createDynamicLibrary(
-      CcLinkingOutputs.Builder result,
+  private boolean createDynamicLibrary(
+      CcLinkingOutputs.Builder ccLinkingOutputs,
+      LibraryToLinkWrapper.Builder libraryToLinkBuilder,
       AnalysisEnvironment env,
       boolean usePic,
       String libraryIdentifier,
       CcCompilationOutputs ccOutputs)
       throws RuleErrorException, InterruptedException {
+    boolean hasBuiltDynamicLibrary = false;
     // Create dynamic library.
     Artifact soImpl;
     String mainLibraryIdentifier;
@@ -703,10 +724,10 @@ public final class CcLinkingHelper {
     }
 
     if (dynamicLinkActionBuilder.getAllLtoBackendArtifacts() != null) {
-      result.addAllLtoArtifacts(dynamicLinkActionBuilder.getAllLtoBackendArtifacts());
+      ccLinkingOutputs.addAllLtoArtifacts(dynamicLinkActionBuilder.getAllLtoBackendArtifacts());
     }
     CppLinkAction dynamicLinkAction = dynamicLinkActionBuilder.build();
-    result.addLinkActionInputs(dynamicLinkAction.getInputs());
+    ccLinkingOutputs.addLinkActionInputs(dynamicLinkAction.getInputs());
     env.registerAction(dynamicLinkAction);
 
     LibraryToLink dynamicLibrary = dynamicLinkAction.getOutputLibrary();
@@ -719,11 +740,14 @@ public final class CcLinkingHelper {
     // When COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, we don't need to create the special
     // solibDir, instead we use the original interface library and dynamic library.
     if (dynamicLibrary != null) {
+      hasBuiltDynamicLibrary = true;
+      libraryToLinkBuilder.setLibraryIdentifier(dynamicLibrary.getLibraryIdentifier());
       if (neverlink
           || featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
-        result.addDynamicLibraryForLinking(
-            interfaceLibrary == null ? dynamicLibrary : interfaceLibrary);
-        result.addDynamicLibraryForRuntime(dynamicLibrary);
+        if (interfaceLibrary != null) {
+          libraryToLinkBuilder.setInterfaceLibrary(interfaceLibrary.getArtifact());
+        }
+        libraryToLinkBuilder.setDynamicLibrary(dynamicLibrary.getArtifact());
       } else {
         Artifact implLibraryLinkArtifact =
             SolibSymlinkAction.getDynamicLibrarySymlink(
@@ -734,15 +758,10 @@ public final class CcLinkingHelper {
                 /* preserveName= */ false,
                 /* prefixConsumer= */ false,
                 ruleContext.getConfiguration());
-        LibraryToLink implLibraryLink =
-            LinkerInputs.solibLibraryToLink(
-                implLibraryLinkArtifact, dynamicLibrary.getArtifact(), libraryIdentifier);
-        result.addDynamicLibraryForRuntime(implLibraryLink);
+        libraryToLinkBuilder.setDynamicLibrary(implLibraryLinkArtifact);
+        libraryToLinkBuilder.setResolvedSymlinkDynamicLibrary(dynamicLibrary.getArtifact());
 
-        LibraryToLink libraryLink;
-        if (interfaceLibrary == null) {
-          libraryLink = implLibraryLink;
-        } else {
+        if (interfaceLibrary != null) {
           Artifact libraryLinkArtifact =
               SolibSymlinkAction.getDynamicLibrarySymlink(
                   /* actionRegistry= */ ruleContext,
@@ -752,13 +771,12 @@ public final class CcLinkingHelper {
                   /* preserveName= */ false,
                   /* prefixConsumer= */ false,
                   ruleContext.getConfiguration());
-          libraryLink =
-              LinkerInputs.solibLibraryToLink(
-                  libraryLinkArtifact, interfaceLibrary.getArtifact(), libraryIdentifier);
+          libraryToLinkBuilder.setInterfaceLibrary(libraryLinkArtifact);
+          libraryToLinkBuilder.setResolvedSymlinkInterfaceLibrary(interfaceLibrary.getArtifact());
         }
-        result.addDynamicLibraryForLinking(libraryLink);
       }
     }
+    return hasBuiltDynamicLibrary;
   }
 
   private CppLinkActionBuilder newLinkActionBuilder(Artifact outputArtifact) {

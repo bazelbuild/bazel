@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
-import com.google.devtools.build.lib.rules.cpp.LinkerInput;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
@@ -650,14 +650,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
    */
   public static Collection<Artifact> collectNativeLibraries(
       Iterable<? extends TransitiveInfoCollection> deps) {
-    NestedSet<LinkerInput> linkerInputs =
+    NestedSet<LibraryToLinkWrapper> linkerInputs =
         new NativeLibraryNestedSetBuilder().addJavaTargets(deps).build();
-    ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    for (LinkerInput linkerInput : linkerInputs) {
-      result.add(linkerInput.getArtifact());
-    }
-
-    return result.build();
+    return LibraryToLinkWrapper.getDynamicLibrariesForLinking(linkerInputs);
   }
 
   /**

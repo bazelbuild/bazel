@@ -637,18 +637,16 @@ public class CcModule
             .setNeverLink(neverLink);
     try {
       CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
-      ImmutableList.Builder<LibraryToLinkWrapper> libraryToLinkWrapperBuilder =
-          ImmutableList.builder();
+      ImmutableList<LibraryToLinkWrapper> libraryToLinkWrapper = ImmutableList.of();
       if (!ccCompilationOutputs.isEmpty()) {
         ccLinkingOutputs = helper.link(ccCompilationOutputs);
-        if (!neverLink) {
-          libraryToLinkWrapperBuilder.add(
-              LibraryToLinkWrapper.convertLinkOutputsToLibraryToLinkWrapper(ccLinkingOutputs));
+        if (!neverLink && !ccLinkingOutputs.isEmpty()) {
+          libraryToLinkWrapper = ImmutableList.of(ccLinkingOutputs.getLibraryToLink());
         }
       }
       CcLinkingContext ccLinkingContext =
           helper.buildCcLinkingContextFromLibraryToLinkWrappers(
-              libraryToLinkWrapperBuilder.build(), CcCompilationContext.EMPTY);
+              libraryToLinkWrapper, CcCompilationContext.EMPTY);
       return new LinkingInfo(ccLinkingContext, ccLinkingOutputs);
     } catch (RuleErrorException e) {
       throw new EvalException(ruleContext.getRule().getLocation(), e);

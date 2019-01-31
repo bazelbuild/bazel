@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.cpp.LinkerInput;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.syntax.Type;
@@ -358,7 +358,7 @@ public class JavaCommon {
    *
    * @see JavaNativeLibraryProvider
    */
-  protected NestedSet<LinkerInput> collectTransitiveJavaNativeLibraries() {
+  protected NestedSet<LibraryToLinkWrapper> collectTransitiveJavaNativeLibraries() {
     NativeLibraryNestedSetBuilder builder = new NativeLibraryNestedSetBuilder();
     builder.addJavaTargets(targetsTreatedAsDeps(ClasspathType.BOTH));
 

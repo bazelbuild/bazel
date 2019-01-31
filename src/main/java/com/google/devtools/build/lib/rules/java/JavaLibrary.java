@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.LinkerInput;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 
@@ -165,7 +165,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         new JavaStrictCompilationArgsProvider(
             common.collectJavaCompilationArgs(
                 neverLink, /* srcLessDepsExport= */ false, /* javaProtoLibraryStrictDeps= */ true));
-    NestedSet<LinkerInput> transitiveJavaNativeLibraries =
+    NestedSet<LibraryToLinkWrapper> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
