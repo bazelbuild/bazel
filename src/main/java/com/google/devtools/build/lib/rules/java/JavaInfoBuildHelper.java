@@ -116,6 +116,7 @@ final class JavaInfoBuildHelper {
           packSourceFiles(
               (SkylarkActionFactory) actions,
               outputJar,
+              /* outputSourceJar= */ null,
               sourceFiles,
               sourceJars,
               javaToolchain,
@@ -240,12 +241,15 @@ final class JavaInfoBuildHelper {
    * outputJar.
    *
    * @param outputJar name of output Jar artifact.
+   * @param outputSourceJar name of output source Jar artifact, or {@code null}. If unset, defaults
+   *     to base name of the output jar with the suffix {@code -src.jar}.
    * @return generated artifact, or null if there's nothing to pack
    */
   @Nullable
   Artifact packSourceFiles(
       SkylarkActionFactory actions,
       Artifact outputJar,
+      Artifact outputSourceJar,
       SkylarkList<Artifact> sourceFiles,
       SkylarkList<Artifact> sourceJars,
       Object javaToolchain,
@@ -262,7 +266,8 @@ final class JavaInfoBuildHelper {
       return sourceJars.get(0);
     }
     ActionRegistry actionRegistry = actions.asActionRegistry(location, actions);
-    Artifact outputSrcJar = getSourceJar(actions.getActionConstructionContext(), outputJar);
+    Artifact outputSrcJar =
+        getSourceJar(actions.getActionConstructionContext(), outputJar, outputSourceJar);
     JavaRuntimeInfo javaRuntimeInfo =
         getJavaRuntimeProvider(semantics, location, hostJavabase, null);
     JavaToolchainProvider javaToolchainProvider =
@@ -382,6 +387,7 @@ final class JavaInfoBuildHelper {
       SkylarkList<Artifact> sourceJars,
       SkylarkList<Artifact> sourceFiles,
       Artifact outputJar,
+      Artifact outputSourceJar,
       SkylarkList<String> javacOpts,
       SkylarkList<JavaInfo> deps,
       SkylarkList<JavaInfo> exports,
@@ -447,9 +453,9 @@ final class JavaInfoBuildHelper {
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
 
     boolean createOutputSourceJar;
-    Artifact outputSourceJar;
     if (environment.getSemantics().incompatibleGenerateJavaCommonSourceJar()) {
-      outputSourceJar = getSourceJar(skylarkRuleContext.getRuleContext(), outputJar);
+      outputSourceJar =
+          getSourceJar(skylarkRuleContext.getRuleContext(), outputJar, outputSourceJar);
       createOutputSourceJar = true;
     } else {
       createOutputSourceJar =
@@ -459,7 +465,7 @@ final class JavaInfoBuildHelper {
                   && (!exports.isEmpty() || !exportedPlugins.isEmpty()));
       outputSourceJar =
           createOutputSourceJar
-              ? getSourceJar(skylarkRuleContext.getRuleContext(), outputJar)
+              ? getSourceJar(skylarkRuleContext.getRuleContext(), outputJar, outputSourceJar)
               : sourceJars.get(0);
     }
 
@@ -651,7 +657,11 @@ final class JavaInfoBuildHelper {
     }
   }
 
-  private static Artifact getSourceJar(ActionConstructionContext context, Artifact outputJar) {
+  private static Artifact getSourceJar(
+      ActionConstructionContext context, Artifact outputJar, Artifact outputSourceJar) {
+    if (outputSourceJar != null) {
+      return outputSourceJar;
+    }
     return JavaCompilationHelper.derivedArtifact(context, outputJar, "", "-src.jar");
   }
 }

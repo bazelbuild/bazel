@@ -220,6 +220,14 @@ public interface JavaCommonApi<
                     + "source_files should be specified."),
         @Param(name = "output", positional = false, named = true, type = FileApi.class),
         @Param(
+            name = "output_source_jar",
+            positional = false,
+            named = true,
+            type = FileApi.class,
+            noneable = true,
+            defaultValue = "None",
+            doc = "The output source jar. Optional. Defaults to `{output_jar}-src.jar` if unset."),
+        @Param(
             name = "javac_opts",
             positional = false,
             named = true,
@@ -318,6 +326,7 @@ public interface JavaCommonApi<
       SkylarkList<FileT> sourceJars,
       SkylarkList<FileT> sourceFiles,
       FileT outputJar,
+      Object outputSourceJar,
       SkylarkList<String> javacOpts,
       SkylarkList<JavaInfoT> deps,
       SkylarkList<JavaInfoT> exports,

@@ -53,6 +53,7 @@ public class FakeJavaCommon
       SkylarkList<FileApi> sourceJars,
       SkylarkList<FileApi> sourceFiles,
       FileApi outputJar,
+      Object outputSourceJar,
       SkylarkList<String> javacOpts,
       SkylarkList<FakeJavaInfo> deps,
       SkylarkList<FakeJavaInfo> exports,

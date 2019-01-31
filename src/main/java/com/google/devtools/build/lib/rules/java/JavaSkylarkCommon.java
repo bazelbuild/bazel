@@ -89,6 +89,7 @@ public class JavaSkylarkCommon
       SkylarkList<Artifact> sourceJars,
       SkylarkList<Artifact> sourceFiles,
       Artifact outputJar,
+      Object outputSourceJar,
       SkylarkList<String> javacOpts,
       SkylarkList<JavaInfo> deps,
       SkylarkList<JavaInfo> exports,
@@ -110,6 +111,7 @@ public class JavaSkylarkCommon
             sourceJars,
             sourceFiles,
             outputJar,
+            outputSourceJar == Runtime.NONE ? null : (Artifact) outputSourceJar,
             javacOpts,
             deps,
             exports,
@@ -173,6 +175,7 @@ public class JavaSkylarkCommon
         .packSourceFiles(
             actions,
             outputJar,
+            /* outputSourceJar= */ null,
             sourceFiles,
             sourceJars,
             javaToolchain,
