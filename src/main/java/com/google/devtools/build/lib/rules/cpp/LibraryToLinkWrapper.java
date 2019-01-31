@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -33,7 +34,9 @@ import com.google.devtools.build.lib.rules.cpp.LinkerInputs.SolibLibraryToLink;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkWrapperApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
@@ -191,10 +194,20 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
     public static final class Linkstamp {
       private final Artifact artifact;
       private final NestedSet<Artifact> declaredIncludeSrcs;
+      private final byte[] nestedDigest;
 
-      Linkstamp(Artifact artifact, NestedSet<Artifact> declaredIncludeSrcs) {
+      // TODO(janakr): if action key context is not available, the digest can be computed lazily,
+      // only if we are doing an equality comparison and artifacts are equal. That should never
+      // happen, so doing an expensive digest should be ok then.
+      Linkstamp(
+          Artifact artifact,
+          NestedSet<Artifact> declaredIncludeSrcs,
+          ActionKeyContext actionKeyContext) {
         this.artifact = Preconditions.checkNotNull(artifact);
         this.declaredIncludeSrcs = Preconditions.checkNotNull(declaredIncludeSrcs);
+        Fingerprint fp = new Fingerprint();
+        actionKeyContext.addNestedSetToFingerprint(fp, this.declaredIncludeSrcs);
+        nestedDigest = fp.digestAndReset();
       }
 
       /** Returns the linkstamp artifact. */
@@ -209,7 +222,8 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
 
       @Override
       public int hashCode() {
-        return java.util.Objects.hash(artifact, declaredIncludeSrcs);
+        // Artifact should be enough to disambiguate basically all the time.
+        return artifact.hashCode();
       }
 
       @Override
@@ -222,7 +236,7 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
         }
         Linkstamp other = (Linkstamp) obj;
         return artifact.equals(other.artifact)
-            && declaredIncludeSrcs.equals(other.declaredIncludeSrcs);
+            && Arrays.equals(this.nestedDigest, other.nestedDigest);
       }
     }
 
