@@ -213,6 +213,7 @@ public class SkylarkRepositoryContext
     try {
       checkInOutputDirectory(p);
       makeDirectories(p.getPath());
+      p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
         stream.write(content.getBytes(StandardCharsets.UTF_8));
       }
@@ -251,6 +252,7 @@ public class SkylarkRepositoryContext
         tpl =
             StringUtilities.replaceAllLiteral(tpl, substitution.getKey(), substitution.getValue());
       }
+      p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
         stream.write(tpl.getBytes(StandardCharsets.UTF_8));
       }
