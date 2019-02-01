@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
@@ -28,6 +29,6 @@ public class JavaRuntimeAliasRule extends CommonAliasRule<JavaConfiguration> {
   @Override
   protected Attribute.Builder<Label> makeAttribute(RuleDefinitionEnvironment environment) {
     Attribute.Builder<Label> builder = super.makeAttribute(environment);
-    return builder.mandatoryProviders(JavaRuntimeInfo.PROVIDER.id());
+    return builder.mandatoryProviders(ToolchainInfo.PROVIDER.id());
   }
 }

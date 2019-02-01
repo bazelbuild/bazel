@@ -97,13 +97,13 @@ public class JavaRuleClasses {
           .add(
               attr(":jvm", LABEL)
                   .value(JavaSemantics.jvmAttribute(env))
-                  .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id())
+                  .mandatoryProviders(ToolchainInfo.PROVIDER.id())
                   .useOutputLicenses())
           .add(
               attr(":host_jdk", LABEL)
                   .cfg(HostTransition.INSTANCE)
                   .value(JavaSemantics.hostJdkAttribute(env))
-                  .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id()))
+                  .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
           .add(
               attr(JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                   .value(JavaRuleClasses.javaRuntimeTypeAttribute(env)))

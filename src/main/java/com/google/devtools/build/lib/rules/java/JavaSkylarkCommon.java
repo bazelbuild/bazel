@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -230,12 +231,12 @@ public class JavaSkylarkCommon
 
   @Override
   public Provider getJavaToolchainProvider() {
-    return JavaToolchainProvider.PROVIDER;
+    return ToolchainInfo.PROVIDER;
   }
 
   @Override
   public Provider getJavaRuntimeProvider() {
-    return JavaRuntimeInfo.PROVIDER;
+    return ToolchainInfo.PROVIDER;
   }
 
   /**

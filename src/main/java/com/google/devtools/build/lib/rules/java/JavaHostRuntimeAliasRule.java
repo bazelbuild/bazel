@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
@@ -29,6 +30,6 @@ public class JavaHostRuntimeAliasRule extends CommonAliasRule<JavaConfiguration>
   @Override
   protected Attribute.Builder<Label> makeAttribute(RuleDefinitionEnvironment environment) {
     Attribute.Builder<Label> builder = super.makeAttribute(environment);
-    return builder.cfg(HostTransition.INSTANCE).mandatoryProviders(JavaRuntimeInfo.PROVIDER.id());
+    return builder.cfg(HostTransition.INSTANCE).mandatoryProviders(ToolchainInfo.PROVIDER.id());
   }
 }

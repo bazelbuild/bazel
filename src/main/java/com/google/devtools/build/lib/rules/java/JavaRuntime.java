@@ -114,7 +114,6 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(javaRuntime)
-        .addNativeDeclaredProvider(new JavaRuntimeToolchainInfo(javaRuntime))
         .addNativeDeclaredProvider(templateVariableInfo)
         .build();
   }

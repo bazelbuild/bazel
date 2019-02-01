@@ -14,16 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-/**
- * Information about the Java runtime being used.
- */
+/** Information about the Java runtime being used. */
 @SkylarkModule(name = "JavaRuntimeInfo", doc = "Information about the Java runtime being used.")
-public interface JavaRuntimeInfoApi extends StructApi {
+public interface JavaRuntimeInfoApi extends ToolchainInfoApi {
 
   @SkylarkCallable(
       name = "java_home",
