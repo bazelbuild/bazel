@@ -25,8 +25,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /**
- * A temporary interface to allow migration from RuleConfiguredTarget to RuleContext. It bundles
- * the items commonly needed to construct action instances.
+ * Contains all API required to construct actions in the context of some target or an aspect applied
+ * to a target. Depend on this interface instead of the full RuleContext to avoid accidental data
+ * dependency on attribute values.
+ *
+ * <p>This a "native" equivalent of Starlark's `ctx.actions`.
  */
 public interface ActionConstructionContext {
 
