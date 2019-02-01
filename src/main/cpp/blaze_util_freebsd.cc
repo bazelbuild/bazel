@@ -147,7 +147,7 @@ string GetSystemJavabase() {
     if (access(javac.c_str(), X_OK) == 0) {
       return javahome;
     }
-    BAZEL_LOG(WARNING) << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE";
+    BAZEL_LOG(WARNING) << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
   }
 
   return "/usr/local/openjdk8";

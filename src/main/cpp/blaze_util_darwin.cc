@@ -167,7 +167,7 @@ string GetSystemJavabase() {
     if (access(javac.c_str(), X_OK) == 0) {
       return java_home;
     }
-    BAZEL_LOG(WARNING) << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE";
+    BAZEL_LOG(WARNING) << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
   }
 
   // java_home will print a warning if no JDK could be found
