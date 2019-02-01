@@ -1546,9 +1546,7 @@ EOF
   expect_log "The value of use_ijar is True. Make sure the java_toolchain argument is valid."
 }
 
-
-# Test is flaky: b/123476045, https://github.com/bazelbuild/bazel/issues/7288
-function DISABLED_test_java_test_timeout() {
+function write_java_timeout_test() {
   setup_javatest_support
   mkdir -p javatests/com/google/timeout
   touch javatests/com/google/timeout/{BUILD,TimeoutTests.java}
@@ -1582,8 +1580,27 @@ java_test(
   timeout = "short", # 1 min
 )
 EOF
+}
 
-  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5  >& "$TEST_log" && fail "Unexpected success"
+# Test is flaky: b/123476045, https://github.com/bazelbuild/bazel/issues/7288
+function DISABLED_test_java_test_timeout() {
+  write_java_timeout_test
+  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5 \
+      --noexperimental_split_xml_generation >& "$TEST_log" \
+      && fail "Unexpected success"
+  xml_log=bazel-testlogs/javatests/com/google/timeout/TimeoutTests/test.xml
+  [[ -s $xml_log ]] || fail "$xml_log was not present after test"
+  cat "$xml_log" > "$TEST_log"
+  expect_log "failures='2'"
+  expect_log "<failure message='Test cancelled' type='java.lang.Exception'>java.lang.Exception: Test cancelled"
+  expect_log "<failure message='Test interrupted' type='java.lang.Exception'>java.lang.Exception: Test interrupted"
+}
+
+function test_java_test_timeout_split_xml() {
+  write_java_timeout_test
+  bazel test javatests/com/google/timeout:TimeoutTests --test_timeout=5 \
+      --experimental_split_xml_generation >& "$TEST_log" \
+      && fail "Unexpected success"
   xml_log=bazel-testlogs/javatests/com/google/timeout/TimeoutTests/test.xml
   [[ -s $xml_log ]] || fail "$xml_log was not present after test"
   cat "$xml_log" > "$TEST_log"
