@@ -555,7 +555,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     String defaultsPackageContent = ruleClassProvider.getDefaultsPackageContent(optionsParser);
     skyframeExecutor.setupDefaultPackage(defaultsPackageContent);
-    skyframeExecutor.handleConfiguredTargetChange();
+    skyframeExecutor.handleAnalysisInvalidatingChange();
 
     view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
     view.setConfigurationsForTesting(event -> {}, masterConfig);

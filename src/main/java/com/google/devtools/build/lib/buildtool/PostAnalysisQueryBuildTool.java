@@ -53,7 +53,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
     // will also pick up any nodes that are in the graph from prior builds. This makes the results
     // not reproducible at the level of a single command. Either tolerate, or wipe the analysis
     // graph beforehand if this option is specified, or add another option to wipe if desired
-    // (SkyframeExecutor#handleConfiguredTargetChange should be sufficient).
+    // (SkyframeExecutor#handleAnalysisInvalidatingChange should be sufficient).
     if (queryExpression != null) {
       if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
         throw new PostAnalysisQueryCommandLineException(
