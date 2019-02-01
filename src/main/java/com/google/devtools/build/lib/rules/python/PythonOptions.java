@@ -69,30 +69,28 @@ public class PythonOptions extends FragmentOptions {
       help = "Build python executable zip; on on Windows, off on other platforms")
   public TriState buildPythonZip;
 
-  // TODO(brandjon): For both experimental options below, add documentation and add a link to it
-  // from the help text, then change the documentationCategory to SKYLARK_SEMANTICS.
-
   @Option(
       name = "experimental_remove_old_python_version_api",
-      // TODO(brandjon): Do not flip until we have an answer for how to disallow the
-      // "default_python_version" attribute without hacking up native.existing_rules(). See
-      // #7071 and b/122596733.
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If true, disables use of the `--force_python` flag and the `default_python_version` "
-              + "attribute for `py_binary` and `py_test`.")
+              + "attribute for `py_binary` and `py_test`. Use the `--python_version` flag and "
+              + "`python_version` attribute instead, which have exactly the same meaning. This "
+              + "flag also disables `select()`-ing over `--host_force_python`.")
   public boolean experimentalRemoveOldPythonVersionApi;
 
   @Option(
       name = "experimental_allow_python_version_transitions",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, Python rules use the new PY2/PY3 version semantics.")
+      help =
+          "If true, Python rules use the new PY2/PY3 version semantics. For more information, see "
+              + "the documentation for `py_binary`'s `python_version` attribute.")
   public boolean experimentalAllowPythonVersionTransitions;
 
   /**
@@ -107,17 +105,16 @@ public class PythonOptions extends FragmentOptions {
       name = "python_version",
       defaultValue = "null",
       converter = TargetPythonVersionConverter.class,
-      // TODO(brandjon): Change to OptionDocumentationCategory.GENERIC_INPUTS when this is
-      // sufficiently implemented/documented.
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
         OptionEffectTag.AFFECTS_OUTPUTS // because of "-py3" output root
       },
       help =
-          "The Python major version mode, either `PY2` or `PY3`. Note that this is overridden by "
-              + "`py_binary` and `py_test` targets (whether or not they specify their version "
-              + "explicitly), so there is usually not much reason to supply this flag.")
+          "The Python major version mode, either `PY2` or `PY3`. Note that under the new version "
+              + "semantics (`--experimental_allow_python_version_transitions`) this is overridden "
+              + "by `py_binary` and `py_test` targets (even if they don't explicitly specify a "
+              + "version) so there is usually not much reason to supply this flag.")
   public PythonVersion pythonVersion;
 
   private static final OptionDefinition PYTHON_VERSION_DEFINITION =
@@ -140,7 +137,9 @@ public class PythonOptions extends FragmentOptions {
       converter = TargetPythonVersionConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Overrides default_python_version attribute. Can be \"PY2\" or \"PY3\".")
+      help =
+          "Deprecated alias for `--python_version`. Disabled by "
+              + "`--experimental_remove_old_python_version_api`.")
   public PythonVersion forcePython;
 
   private static final OptionDefinition FORCE_PYTHON_DEFINITION =
@@ -186,19 +185,25 @@ public class PythonOptions extends FragmentOptions {
 
   @Override
   public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
-    // TODO(brandjon): Add an error string that references documentation explaining to use
-    // @bazel_tools//tools/python:python_version instead.
+    // TODO(brandjon): Instead of referencing the python_version target, whose path depends on the
+    // tools repo name, reference a standalone documentation page instead.
     ImmutableMap.Builder<OptionDefinition, SelectRestriction> restrictions = ImmutableMap.builder();
     restrictions.put(
         PYTHON_VERSION_DEFINITION,
-        new SelectRestriction(/*visibleWithinToolsPackage=*/ true, /*errorMessage=*/ null));
+        new SelectRestriction(
+            /*visibleWithinToolsPackage=*/ true,
+            "Use @bazel_tools//python/tools:python_version instead."));
     if (experimentalRemoveOldPythonVersionApi) {
       restrictions.put(
           FORCE_PYTHON_DEFINITION,
-          new SelectRestriction(/*visibleWithinToolsPackage=*/ true, /*errorMessage=*/ null));
+          new SelectRestriction(
+              /*visibleWithinToolsPackage=*/ true,
+              "Use @bazel_tools//python/tools:python_version instead."));
       restrictions.put(
           HOST_FORCE_PYTHON_DEFINITION,
-          new SelectRestriction(/*visibleWithinToolsPackage=*/ false, /*errorMessage=*/ null));
+          new SelectRestriction(
+              /*visibleWithinToolsPackage=*/ false,
+              "Use @bazel_tools//python/tools:python_version instead."));
     }
     return restrictions.build();
   }
