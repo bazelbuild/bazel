@@ -8110,6 +8110,8 @@ toolchain {
         flag: "-D__DATE__=\"redacted\""
         flag: "-D__TIMESTAMP__=\"redacted\""
         flag: "-D__TIME__=\"redacted\""
+        flag: "-target"
+        flag: "arm64_32-apple-watchos"
       }
     }
   }
