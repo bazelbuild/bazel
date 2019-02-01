@@ -1031,7 +1031,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ccCompilationContext.getVirtualToOriginalHeaders());
 
     NestedSet<Artifact> headerTokens =
-        CcCompilationHelper.collectHeaderTokens(ruleContext, ccCompilationOutputs);
+        CcCompilationHelper.collectHeaderTokens(
+            ruleContext, cppConfiguration, ccCompilationOutputs);
     NestedSet<Artifact> filesToCompile =
         ccCompilationOutputs.getFilesToCompile(
             cppConfiguration.processHeadersInDependencies(),

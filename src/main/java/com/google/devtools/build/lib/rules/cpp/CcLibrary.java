@@ -476,7 +476,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ruleContext, ccToolchain, ccCompilationOutputs, featureConfiguration))
         .addOutputGroup(
             CcCompilationHelper.HIDDEN_HEADER_TOKENS,
-            CcCompilationHelper.collectHeaderTokens(ruleContext, ccCompilationOutputs));
+            CcCompilationHelper.collectHeaderTokens(
+                ruleContext,
+                ruleContext.getFragment(CppConfiguration.class),
+                ccCompilationOutputs));
   }
 
   private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(

@@ -73,6 +73,12 @@ public interface ActionConstructionContext {
   Artifact getImplicitOutputArtifact(ImplicitOutputsFunction function) throws InterruptedException;
 
   /**
+   * Returns an artifact with a given file extension. All other path components are the same as in
+   * {@code pathFragment}.
+   */
+  Artifact getRelatedArtifact(PathFragment pathFragment, String extension);
+
+  /**
    * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
    * clashes with artifacts created by other rules.
    *
@@ -87,6 +93,13 @@ public interface ActionConstructionContext {
    * @param uniqueDirectorySuffix suffix of the directory - it will be prepended
    */
   Artifact getUniqueDirectoryArtifact(String uniqueDirectorySuffix, PathFragment relative);
+
+  /**
+   * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
+   * clashes with artifacts created by other rules.
+   */
+  Artifact getUniqueDirectoryArtifact(
+      String uniqueDirectory, PathFragment relative, ArtifactRoot root);
 
   /**
    * Returns a path fragment qualified by the rule name and unique fragment to

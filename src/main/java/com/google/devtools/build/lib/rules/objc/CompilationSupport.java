@@ -439,7 +439,8 @@ public class CompilationSupport {
     }
 
     CcCompilationContext.Builder ccCompilationContextBuilder =
-        new CcCompilationContext.Builder(ruleContext);
+        new CcCompilationContext.Builder(
+            ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
     ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
         Arrays.asList(
             objcArcCompilationInfo.getCcCompilationContext(),

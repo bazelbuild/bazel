@@ -95,7 +95,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
       .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
           J2ObjcEntryClassProvider.class)).build();
     CcCompilationContext ccCompilationContext =
-        new CcCompilationContext.Builder(ruleContext)
+        new CcCompilationContext.Builder(
+                ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel())
             .addDeclaredIncludeSrcs(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext)
                     .build()

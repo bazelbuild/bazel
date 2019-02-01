@@ -62,7 +62,8 @@ public final class CcInfo extends NativeInfo implements CcInfoApi {
       ccLinkingContexts.add(ccInfo.getCcLinkingContext());
     }
     CcCompilationContext.Builder builder =
-        new CcCompilationContext.Builder(/* ruleContext= */ null);
+        new CcCompilationContext.Builder(
+            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
 
     return new CcInfo(
         builder.mergeDependentCcCompilationContexts(ccCompilationContexts.build()).build(),

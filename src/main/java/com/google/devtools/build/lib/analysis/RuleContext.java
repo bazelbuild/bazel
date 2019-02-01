@@ -751,10 +751,7 @@ public final class RuleContext extends TargetContext
     return getUniqueDirectoryArtifact(uniqueDirectorySuffix, relative, getBinOrGenfilesDirectory());
   }
 
-  /**
-   * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
-   * clashes with artifacts created by other rules.
-   */
+  @Override
   public Artifact getUniqueDirectoryArtifact(
       String uniqueDirectory, PathFragment relative, ArtifactRoot root) {
     return getDerivedArtifact(getUniqueDirectory(uniqueDirectory).getRelative(relative), root);
@@ -1402,10 +1399,7 @@ public final class RuleContext extends TargetContext
     return outs.get(0);
   }
 
-  /**
-   * Returns an artifact with a given file extension. All other path components
-   * are the same as in {@code pathFragment}.
-   */
+  @Override
   public final Artifact getRelatedArtifact(PathFragment pathFragment, String extension) {
     PathFragment file = FileSystemUtils.replaceExtension(pathFragment, extension);
     return getDerivedArtifact(file, getConfiguration().getBinDirectory(rule.getRepository()));

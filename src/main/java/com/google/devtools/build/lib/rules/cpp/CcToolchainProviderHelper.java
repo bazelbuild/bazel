@@ -606,7 +606,8 @@ public class CcToolchainProviderHelper {
             == (dynamicRuntimeLinkSymlinks == null || dynamicRuntimeLinkSymlinks.isEmpty()));
 
     CcCompilationContext.Builder ccCompilationContextBuilder =
-        new CcCompilationContext.Builder(ruleContext);
+        new CcCompilationContext.Builder(
+            ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
     CppModuleMap moduleMap = createCrosstoolModuleMap(attributes);
     if (moduleMap != null) {
       ccCompilationContextBuilder.setCppModuleMap(moduleMap);

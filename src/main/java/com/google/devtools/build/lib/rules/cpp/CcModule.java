@@ -433,7 +433,8 @@ public class CcModule
       Object headers, Object systemIncludes, Object includes, Object quoteIncludes, Object defines)
       throws EvalException {
     CcCompilationContext.Builder ccCompilationContext =
-        new CcCompilationContext.Builder(/* ruleContext= */ null);
+        new CcCompilationContext.Builder(
+            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
     ccCompilationContext.addDeclaredIncludeSrcs(
         toNestedSetOfArtifacts(headers, "headers").getSet(Artifact.class));
     ccCompilationContext.addSystemIncludeDirs(
