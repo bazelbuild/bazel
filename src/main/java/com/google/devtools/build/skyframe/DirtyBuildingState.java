@@ -136,7 +136,7 @@ public abstract class DirtyBuildingState {
         this);
     if (!isChanged()) {
       // Synchronization isn't needed here because the only caller is NodeEntry, which does it
-      // through the synchronized method signalDep(Version).
+      // through the synchronized method signalDep.
       if (childChanged) {
         dirtyState = DirtyState.NEEDS_REBUILDING;
       } else if (dirtyState == DirtyState.CHECK_DEPENDENCIES

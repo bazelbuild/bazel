@@ -74,11 +74,6 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public boolean signalDep() {
-    return getDelegate().signalDep();
-  }
-
-  @Override
   public boolean signalDep(Version childVersion, @Nullable SkyKey childForDebugging) {
     return getDelegate().signalDep(childVersion, childForDebugging);
   }

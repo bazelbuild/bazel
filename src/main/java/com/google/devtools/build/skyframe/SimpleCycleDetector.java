@@ -187,7 +187,7 @@ public class SimpleCycleDetector implements CycleDetector {
           // must be part of the path to the cycle we have found (since done nodes cannot be in
           // cycles, and this is the only missing one). Thus, it will not be removed below in
           // removeDescendantsOfCycleValue, so it is safe here to signal that it is done.
-          entry.signalDep();
+          entry.signalDep(evaluatorContext.getGraphVersion(), null);
           maybeMarkRebuilding(entry);
         }
         if (evaluatorContext.keepGoing()) {
@@ -383,7 +383,7 @@ public class SimpleCycleDetector implements CycleDetector {
       // The entry has at most one undone dep now, its cycleChild. Signal to make entry ready. Note
       // that the entry can conceivably be ready if its cycleChild already found a different cycle
       // and was built.
-      entry.signalDep();
+      entry.signalDep(evaluatorContext.getGraphVersion(), cycleChild);
     }
     maybeMarkRebuilding(entry);
     Preconditions.checkState(entry.isReady(), "%s %s %s", key, cycleChild, entry);
