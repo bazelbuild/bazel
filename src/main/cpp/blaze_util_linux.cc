@@ -165,7 +165,11 @@ string GetSystemJavabase() {
   // if JAVA_HOME is defined, then use it as default.
   string javahome = GetEnv("JAVA_HOME");
   if (!javahome.empty()) {
-    return javahome;
+    string javac = blaze_util::JoinPath(javahome, "bin/javac");
+    if (access(javac.c_str(), X_OK) == 0) {
+      return javahome;
+    }
+    BAZEL_LOG(WARNING) << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE";
   }
 
   // which javac
