@@ -8020,7 +8020,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
-        flag: "-m<platform_for_version_min>-version-min=%{version_min}"
+        flag: "-mwatchos-version-min=%{version_min}"
       }
     }
   }
@@ -8310,7 +8310,7 @@ toolchain {
     flag_set {
       flag_group {
         flag: "-arch"
-        flag: "<architecture>"
+        flag: "arm64_32"
       }
     }
     implies: "compiler_input_flags"
@@ -8339,7 +8339,7 @@ toolchain {
     flag_set {
       flag_group {
         flag: "-arch"
-        flag: "<architecture>"
+        flag: "arm64_32"
         flag: "-stdlib=libc++"
         flag: "-std=gnu++11"
       }
@@ -8409,7 +8409,7 @@ toolchain {
         flag: "-filelist"
         flag: "%{obj_list_path}"
         flag: "-arch_only"
-        flag: "<architecture>"
+        flag: "arm64_32"
         flag: "-syslibroot"
         flag: "%{sdk_dir}"
         flag: "-o"
@@ -8445,7 +8445,7 @@ toolchain {
     flag_set {
       flag_group {
         flag: "-arch"
-        flag: "<architecture>"
+        flag: "arm64_32"
       }
       flag_group {
         flag: "-framework"
@@ -8504,7 +8504,7 @@ toolchain {
       }
       flag_group {
         flag: "-arch"
-        flag: "<architecture>"
+        flag: "arm64_32"
       }
       flag_group {
         flag: "-Xlinker"
@@ -8648,7 +8648,7 @@ toolchain {
         flag: "-no_warning_for_no_symbols"
         flag: "-static"
         flag: "-arch_only"
-        flag: "<architecture>"
+        flag: "arm64_32"
         flag: "-syslibroot"
         flag: "%{sdk_dir}"
         flag: "-o"
