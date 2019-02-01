@@ -284,6 +284,7 @@ filegroup(
             ":embedded_jdk_allmodules.tar.gz",
         ],
     }),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 [genrule(
