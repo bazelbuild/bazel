@@ -361,7 +361,7 @@ public final class PyCommon {
 
   /**
    * Under the old version semantics ({@code
-   * --experimental_allow_python_version_transitions=false}), checks that the {@code srcs_version}
+   * --incompatible_allow_python_version_transitions=false}), checks that the {@code srcs_version}
    * attribute is compatible with the Python version as determined by the configuration.
    *
    * <p>A failure is reported as a rule error.
@@ -438,7 +438,7 @@ public final class PyCommon {
       ruleContext.attributeError(
           DEFAULT_PYTHON_VERSION_ATTRIBUTE,
           "the 'default_python_version' attribute is disabled by the "
-              + "'--experimental_remove_old_python_version_api' flag");
+              + "'--incompatible_remove_old_python_version_api' flag");
     }
   }
 
@@ -464,7 +464,7 @@ public final class PyCommon {
   }
 
   /**
-   * Under the new version semantics ({@code --experimental_allow_python_version_transitions=true}),
+   * Under the new version semantics ({@code --incompatible_allow_python_version_transitions=true}),
    * if the Python version (as determined by the configuration) is inconsistent with {@link
    * #hasPy2OnlySources} or {@link #hasPy3OnlySources}, emits a {@link FailAction} that "generates"
    * the executable.

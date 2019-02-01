@@ -98,10 +98,10 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     PythonOptions opts = buildOptions.get(PythonOptions.class);
-    if (opts.forcePython != null && opts.experimentalRemoveOldPythonVersionApi) {
+    if (opts.forcePython != null && opts.incompatibleRemoveOldPythonVersionApi) {
       reporter.handle(
           Event.error(
-              "`--force_python` is disabled by `--experimental_remove_old_python_version_api`"));
+              "`--force_python` is disabled by `--incompatible_remove_old_python_version_api`"));
     }
   }
 

@@ -38,8 +38,8 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
         pythonVersion,
         pythonOptions.buildPythonZip,
         pythonOptions.buildTransitiveRunfilesTrees,
-        /*oldPyVersionApiAllowed=*/ !pythonOptions.experimentalRemoveOldPythonVersionApi,
-        /*useNewPyVersionSemantics=*/ pythonOptions.experimentalAllowPythonVersionTransitions,
+        /*oldPyVersionApiAllowed=*/ !pythonOptions.incompatibleRemoveOldPythonVersionApi,
+        /*useNewPyVersionSemantics=*/ pythonOptions.incompatibleAllowPythonVersionTransitions,
         /*disallowLegacyPyProvider=*/ pythonOptions.incompatibleDisallowLegacyPyProvider);
   }
 

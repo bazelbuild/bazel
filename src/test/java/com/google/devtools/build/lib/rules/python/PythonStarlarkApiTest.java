@@ -77,7 +77,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
   @Test
   public void librarySandwich() throws Exception {
     // Use new version semantics so we don't validate source versions in py_library.
-    useConfiguration("--experimental_allow_python_version_transitions=true");
+    useConfiguration("--incompatible_allow_python_version_transitions=true");
     defineUserlibRule();
     scratch.file(
         "pkg/BUILD",

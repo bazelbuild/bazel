@@ -106,10 +106,10 @@ public final class BazelPyRuleClasses {
           and should be avoided.
 
           <p>Under the old semantics
-          (<code>--experimental_allow_python_version_transitions=false</code>), it is an error to
+          (<code>--incompatible_allow_python_version_transitions=false</code>), it is an error to
           build any Python target for a version disallowed by its <code>srcs_version</code>
           attribute. Under the new semantics
-          (<code>--experimental_allow_python_version_transitions=true</code>), this check is
+          (<code>--incompatible_allow_python_version_transitions=true</code>), this check is
           deferred to the executable rule: You can build a <code>srcs_version = "PY3"</code>
           <code>py_library</code> target for Python 2, but you cannot actually depend on it via
           <code>deps</code> from a Python 3 <code>py_binary</code>.
@@ -170,7 +170,7 @@ public final class BazelPyRuleClasses {
           .add(attr("main", LABEL).allowedFileTypes(PYTHON_SOURCE))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(default_python_version) -->
           A deprecated alias for <code>python_version</code>; use that instead. This attribute is
-          disabled under <code>--experimental_remove_old_python_version_api</code>. For migration
+          disabled under <code>--incompatible_remove_old_python_version_api</code>. For migration
           purposes, if <code>python_version</code> is given then the value of
           <code>default_python_version</code> is ignored.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -186,13 +186,13 @@ public final class BazelPyRuleClasses {
           3. Valid values are <code>"PY2"</code> (the default) and <code>"PY3"</code>.
 
           <p>Under the old semantics
-          (<code>--experimental_allow_python_version_transitions=false</code>), the Python version
+          (<code>--incompatible_allow_python_version_transitions=false</code>), the Python version
           generally cannot be changed once set. This means that the <code>--python_version</code>
           flag overrides this attribute, and other Python binaries in the <code>data</code> deps of
           this target are forced to use the same version as this target.
 
           <p>Under the new semantics
-          (<code>--experimental_allow_python_version_transitions=true</code>), the Python version
+          (<code>--incompatible_allow_python_version_transitions=true</code>), the Python version
           is always set (possibly by default) to whatever version is specified by this attribute,
           regardless of the version specified on the command line or by other targets that depend on
           this one.
