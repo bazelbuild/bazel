@@ -142,7 +142,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void producesBothModernAndLegacyProviders_WithoutIncompatibleFlag() throws Exception {
-    useConfiguration("--experimental_disallow_legacy_py_provider=false");
+    useConfiguration("--incompatible_disallow_legacy_py_provider=false");
     scratch.file(
         "pkg/BUILD", //
         ruleName + "(",
@@ -155,7 +155,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void producesOnlyModernProvider_WithIncompatibleFlag() throws Exception {
-    useConfiguration("--experimental_disallow_legacy_py_provider=true");
+    useConfiguration("--incompatible_disallow_legacy_py_provider=true");
     scratch.file(
         "pkg/BUILD", //
         ruleName + "(",
@@ -168,7 +168,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void consumesLegacyProvider_WithoutIncompatibleFlag() throws Exception {
-    useConfiguration("--experimental_disallow_legacy_py_provider=false");
+    useConfiguration("--incompatible_disallow_legacy_py_provider=false");
     scratch.file(
         "pkg/rules.bzl",
         "def _myrule_impl(ctx):",
@@ -194,7 +194,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void rejectsLegacyProvider_WithIncompatibleFlag() throws Exception {
-    useConfiguration("--experimental_disallow_legacy_py_provider=true");
+    useConfiguration("--incompatible_disallow_legacy_py_provider=true");
     scratch.file(
         "pkg/rules.bzl",
         "def _myrule_impl(ctx):",

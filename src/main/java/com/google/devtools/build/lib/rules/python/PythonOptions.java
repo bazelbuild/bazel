@@ -169,18 +169,20 @@ public class PythonOptions extends FragmentOptions {
   private static final OptionDefinition HOST_FORCE_PYTHON_DEFINITION =
       OptionsParser.getOptionDefinitionByName(PythonOptions.class, "host_force_python");
 
-  // TODO(#7010): Change the option name to "incompatible_..." and enable the appropriate metadata
-  // tags.
   @Option(
-      name = "experimental_disallow_legacy_py_provider",
+      name = "incompatible_disallow_legacy_py_provider",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
       help =
           "If set to true, native Python rules will neither produce nor consume the legacy \"py\" "
               + "provider. Use PyInfo instead. Under this flag, passing the legacy provider to a "
               + "Python target will be an error.")
-  public boolean experimentalDisallowLegacyPyProvider;
+  public boolean incompatibleDisallowLegacyPyProvider;
 
   @Override
   public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
@@ -284,7 +286,7 @@ public class PythonOptions extends FragmentOptions {
         (hostForcePython != null) ? hostForcePython : PythonVersion.DEFAULT_TARGET_VALUE;
     hostPythonOptions.setPythonVersion(hostVersion);
     hostPythonOptions.buildPythonZip = buildPythonZip;
-    hostPythonOptions.experimentalDisallowLegacyPyProvider = experimentalDisallowLegacyPyProvider;
+    hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     return hostPythonOptions;
   }
 
