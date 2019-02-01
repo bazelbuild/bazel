@@ -283,6 +283,7 @@ public final class MockObjcSupport {
               "darwin_x86_64",
               "watchos_i386",
               "watchos_armv7k",
+              "watchos_arm64_32",
               "tvos_x86_64",
               "tvos_arm64")) {
         crosstoolBuild.add(

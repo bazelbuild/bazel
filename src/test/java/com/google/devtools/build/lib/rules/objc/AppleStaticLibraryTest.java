@@ -239,21 +239,23 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     RULE_TYPE.scratchTarget(scratch, "platform_type", "'watchos'");
 
     // Tests that ios_multi_cpus and ios_cpu are completely ignored.
-    useConfiguration("--ios_multi_cpus=x86_64", "--ios_cpu=x86_64", "--watchos_cpus=i386,armv7k");
+    useConfiguration("--ios_multi_cpus=x86_64", "--ios_cpu=x86_64", "--watchos_cpus=i386,armv7k,arm64_32");
 
     CommandAction action = (CommandAction) lipoLibAction("//x:x");
     String i386Bin = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
         + "x/x-fl.a";
     String armv7kBin = configurationBin("armv7k", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
         + "x/x-fl.a";
+    String armv64_32Bin = configurationBin("arm64_32", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
+        + "x/x-fl.a";
 
     assertThat(Artifact.toExecPaths(action.getInputs()))
-        .containsExactly(i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH,
+        .containsExactly(i386Bin, armv7kBin, armv64_32Bin, MOCK_XCRUNWRAPPER_PATH,
             MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
 
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
-    assertThat(action.getArguments()).containsAllOf(armv7kBin, i386Bin);
+    assertThat(action.getArguments()).containsAllOf(armv64_32Bin, armv7kBin, i386Bin);
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         "-o", execPathEndingWith(action.getOutputs(), "x_lipo.a")));
 

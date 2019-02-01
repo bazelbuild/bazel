@@ -245,6 +245,14 @@ EOF
       || fail "expected output binary to be for armv7k architecture"
 
   bazel build --verbose_failures //package:lipo_out \
+      --watchos_cpus=arm64_32 \
+      --xcode_version=$XCODE_VERSION \
+      || fail "should build watch binary"
+
+  cat bazel-genfiles/package/lipo_out | grep "arm64_32" \
+      || fail "expected output binary to be for arm64_32 architecture"
+
+  bazel build --verbose_failures //package:lipo_out \
       --watchos_cpus=i386 \
       --xcode_version=$XCODE_VERSION \
       || fail "should build watch binary"

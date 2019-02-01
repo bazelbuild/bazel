@@ -128,7 +128,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
   public void testToolchainSelectionMultiArchWatchos() throws Exception {
     useConfiguration(
         "--ios_multi_cpus=armv7,arm64",
-        "--watchos_cpus=armv7k");
+        "--watchos_cpus=armv7k,arm64_32");
     ScratchAttributeWriter
         .fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "a.cc")
@@ -139,9 +139,24 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
         .set("platform_type", "\"watchos\"")
         .write();
 
-    CommandAction linkAction = linkAction("//a:bin");
-    CppLinkAction objcLibCompileAction = (CppLinkAction) getGeneratingAction(
-        getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
-    assertThat(Joiner.on(" ").join(objcLibCompileAction.getArguments())).contains("watchos_armv7k");
+    Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
+	{
+	    String arm64_32Bin =
+	        configurationBin("arm64_32", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "a/bin_bin";
+	    Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), arm64_32Bin);
+	    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+	    CppLinkAction objcLibArchiveAction = (CppLinkAction) getGeneratingAction(
+	        getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
+	    assertThat(Joiner.on(" ").join(objcLibArchiveAction.getArguments())).contains("watchos_arm64_32");
+	}
+	{
+	    String armv7kBin =
+	        configurationBin("armv7k", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "a/bin_bin";
+	    Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), armv7kBin);
+	    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+	    CppLinkAction objcLibArchiveAction = (CppLinkAction) getGeneratingAction(
+	        getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
+	    assertThat(Joiner.on(" ").join(objcLibArchiveAction.getArguments())).contains("watchos_armv7k");
+	}
   }
 }
