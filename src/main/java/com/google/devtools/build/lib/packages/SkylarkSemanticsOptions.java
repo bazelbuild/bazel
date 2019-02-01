@@ -237,16 +237,15 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean requireFeatureConfigurationForPic;
 
   @Option(
-    name = "incompatible_disable_objc_provider_resources",
-    defaultValue = "false",
+      name = "incompatible_disable_objc_provider_resources",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help = "If set to true, disallow use of deprecated resource fields on the Objc provider."
-  )
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, disallow use of deprecated resource fields on the Objc provider.")
   public boolean incompatibleDisableObjcProviderResources;
 
   @Option(
