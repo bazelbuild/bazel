@@ -7021,6 +7021,7 @@ toolchain {
     value: "-Wframe-larger-than=100000000 -Wno-vla"
   }
   %{cxx_builtin_include_directory}
+  builtin_sysroot: ""
   feature {
     name: "fastbuild"
   }
@@ -8004,6 +8005,8 @@ toolchain {
       flag_group {
         flag: "-headerpad_max_install_names"
         flag: "-no-canonical-prefixes"
+        flag: "-target"
+        flag: "arm64_32-apple-watchos"
       }
     }
     enabled: true
