@@ -138,7 +138,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     getRuleType().scratchTarget(scratch,
         "platform_type", "'watchos'");
 
-    useConfiguration("--watchos_cpus=i386,armv7k", "--xcode_version=7.3",
+    useConfiguration("--watchos_cpus=i386,armv7k,arm64_32", "--xcode_version=7.3",
         "--watchos_sdk_version=2.1");
 
     CommandAction action = (CommandAction) lipoBinAction("//x:x");
@@ -163,7 +163,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     getRuleType().scratchTarget(scratch,
         "platform_type", "'watchos'");
 
-    useConfiguration("--watchos_cpus=i386,armv7k",
+    useConfiguration("--watchos_cpus=i386,armv7k,arm64_32",
         "--xcode_version=7.3", "--watchos_sdk_version=2");
 
     CommandAction action = (CommandAction) lipoBinAction("//x:x");
@@ -1138,11 +1138,12 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
     useConfiguration("--define=use_watch=1",
         "--ios_multi_cpus=armv7,arm64",
-        "--watchos_cpus=armv7k");
+        "--watchos_cpus=armv7k,arm64_32");
 
     Action lipoAction = actionProducingArtifact("//examples:bin", "_lipobin");
 
     assertThat(getSingleArchBinary(lipoAction, "armv7k")).isNotNull();
+    assertThat(getSingleArchBinary(lipoAction, "arm64_32")).isNotNull();
   }
 
   private SkylarkDict<String, SkylarkDict<String, Artifact>>
