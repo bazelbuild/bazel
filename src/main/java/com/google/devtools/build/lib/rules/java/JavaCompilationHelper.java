@@ -677,7 +677,7 @@ public final class JavaCompilationHelper {
         ruleContext,
         ruleContext,
         semantics,
-        attributes.getSourceFiles(),
+        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, attributes.getSourceFiles()),
         resourceJars.build(),
         outputJar,
         javaToolchainProvider,
@@ -692,7 +692,11 @@ public final class JavaCompilationHelper {
       resourceJars.add(gensrcJar);
     }
     SingleJarActionBuilder.createSourceJarAction(
-        ruleContext, semantics, attributes.getSourceFiles(), resourceJars.build(), outputJar);
+        ruleContext,
+        semantics,
+        NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, attributes.getSourceFiles()),
+        resourceJars.build(),
+        outputJar);
   }
 
   /**
