@@ -143,6 +143,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     CppCompileActionBuilder builder = new CppCompileActionBuilder(cppCompileActionBuilder);
     builder.setAdditionalPrunableHeaders(privateHeaders);
     builder.setSourceFile(sourceTreeFileArtifact);
+    builder.addTransitiveMandatoryInputs(builder.getCcCompilationContext().getDeclaredIncludeSrcs());
     builder.setOutputs(outputTreeFileArtifact, null);
 
     CcToolchainVariables.Builder buildVariables =
