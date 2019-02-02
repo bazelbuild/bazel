@@ -277,11 +277,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // since it is not yet created when we create the value builders, we have to use a supplier,
   // initialized when the build view is created.
   private final MutableArtifactFactorySupplier artifactFactory;
-  // Used to give to WriteBuildInfoAction via a supplier. Relying on BuildVariableValue.BUILD_ID
-  // would be preferable, but we have no way to have the Action depend on that value directly.
-  // Having the BuildInfoFunction own the supplier is currently not possible either, because then
-  // it would be invalidated on every build, since it would depend on the build id value.
-  private final MutableSupplier<UUID> buildId = new MutableSupplier<>();
   private final ActionKeyContext actionKeyContext;
 
   protected boolean active = true;
@@ -1002,13 +997,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
-    return workspaceStatusActionFactory.createWorkspaceStatusAction(
-        artifactFactory.get(), WorkspaceStatusValue.BUILD_INFO_KEY, workspaceName);
-  }
+    WorkspaceStatusAction.Environment env =
+        new WorkspaceStatusAction.Environment() {
+          @Override
+          public Artifact createStableArtifact(String name) {
+            ArtifactRoot root = directories.getBuildDataDirectory(workspaceName);
+            return skyframeBuildView
+                .getArtifactFactory()
+                .getDerivedArtifact(
+                    PathFragment.create(name), root, WorkspaceStatusValue.BUILD_INFO_KEY);
+          }
 
-  @VisibleForTesting
-  public WorkspaceStatusAction.Factory getWorkspaceStatusActionFactoryForTesting() {
-    return workspaceStatusActionFactory;
+          @Override
+          public Artifact createVolatileArtifact(String name) {
+            ArtifactRoot root = directories.getBuildDataDirectory(workspaceName);
+            return skyframeBuildView
+                .getArtifactFactory()
+                .getConstantMetadataArtifact(
+                    PathFragment.create(name), root, WorkspaceStatusValue.BUILD_INFO_KEY);
+          }
+        };
+    return workspaceStatusActionFactory.createWorkspaceStatusAction(env);
   }
 
   @VisibleForTesting
@@ -1066,7 +1075,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   public void setCommandId(UUID commandId) {
     PrecomputedValue.BUILD_ID.set(injectable(), commandId);
-    buildId.set(commandId);
   }
 
   /** Returns the build-info.txt and build-changelist.txt artifacts. */

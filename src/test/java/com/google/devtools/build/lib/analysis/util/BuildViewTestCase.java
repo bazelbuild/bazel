@@ -244,8 +244,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     packageCacheOptions = parsePackageCacheOptions();
     skylarkSemanticsOptions = parseSkylarkSemanticsOptions();
-    workspaceStatusActionFactory =
-        new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
+    workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
     mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = getRuleClassProvider();
 

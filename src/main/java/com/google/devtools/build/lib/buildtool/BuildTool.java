@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
+import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -44,6 +45,8 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsProvider;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -201,8 +204,25 @@ public class BuildTool {
         env.getEventBus()
             .post(
                 new BuildInfoEvent(
-                    env.getBlazeWorkspace().getWorkspaceStatusActionFactory()
-                        .createDummyWorkspaceStatus()));
+                    env.getBlazeWorkspace()
+                        .getWorkspaceStatusActionFactory()
+                        .createDummyWorkspaceStatus(
+                            new DummyEnvironment() {
+                              @Override
+                              public Path getWorkspace() {
+                                return env.getWorkspace();
+                              }
+
+                              @Override
+                              public String getBuildRequestId() {
+                                return env.getBuildRequestId();
+                              }
+
+                              @Override
+                              public OptionsProvider getOptions() {
+                                return env.getOptions();
+                              }
+                            })));
       }
     }
   }

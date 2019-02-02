@@ -132,7 +132,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .getPackageFactoryBuilderForTesting(directories)
             .build(ruleClassProvider, fileSystem);
     AnalysisTestUtil.DummyWorkspaceStatusActionFactory workspaceStatusActionFactory =
-        new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
+        new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             pkgFactory,
