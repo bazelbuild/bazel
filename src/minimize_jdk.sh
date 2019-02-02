@@ -32,7 +32,9 @@ UNAME=$(uname -s | tr 'A-Z' 'a-z')
 
 if [[ "$UNAME" =~ msys_nt* ]]; then
   set -x
-  unzip "$fulljdk"
+  mkdir "tmp.$$"
+  cd "tmp.$$"
+  unzip "../$fulljdk"
   cd zulu*
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
@@ -42,8 +44,9 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
   zip -r -9 ../reduced.zip reduced/
-  cd ..
-  mv reduced.zip "$out"
+  cd ../..
+  mv "tmp.$$/reduced.zip" "$out"
+  rm -rf "tmp.$$"
 else
   tar xf "$fulljdk"
   cd zulu*
