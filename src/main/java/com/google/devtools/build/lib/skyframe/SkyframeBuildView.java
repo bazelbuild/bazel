@@ -294,14 +294,14 @@ public final class SkyframeBuildView {
           Event.info(
               "--discard_analysis_cache was used in the previous build, "
               + "discarding analysis cache."));
-      skyframeExecutor.handleConfiguredTargetChange();
+      skyframeExecutor.handleAnalysisInvalidatingChange();
     } else {
       String diff = describeConfigurationDifference(configurations, maxDifferencesToShow);
       if (diff != null) {
         // Clearing cached ConfiguredTargets when the configuration changes is not required for
         // correctness, but prevents unbounded memory usage.
         eventHandler.handle(Event.info(diff + ", discarding analysis cache."));
-        skyframeExecutor.handleConfiguredTargetChange();
+        skyframeExecutor.handleAnalysisInvalidatingChange();
       }
     }
     skyframeAnalysisWasDiscarded = false;

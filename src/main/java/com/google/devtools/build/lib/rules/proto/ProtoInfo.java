@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import javax.annotation.Nullable;
 
 /**
@@ -35,7 +36,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   /** Provider class for {@link ProtoInfo} objects. */
   public static class Provider extends BuiltinProvider<ProtoInfo> implements ProtoInfoApi.Provider {
     public Provider() {
-      super(SKYLARK_NAME, ProtoInfo.class);
+      super(ProtoBootstrap.PROTO_INFO_STARLARK_NAME, ProtoInfo.class);
     }
   }
 
@@ -48,9 +49,6 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    * migrated to {@code ctx.attr.deps[ProtoInfo]}.
    */
   public static final String LEGACY_SKYLARK_NAME = "proto";
-
-  /** the name of the provider in Starlark. */
-  public static final String SKYLARK_NAME = "ProtoInfo";
 
   private final ImmutableList<Artifact> directProtoSources;
   private final String directProtoSourceRoot;

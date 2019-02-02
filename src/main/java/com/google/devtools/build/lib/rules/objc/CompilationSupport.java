@@ -101,6 +101,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
@@ -316,7 +317,6 @@ public class CompilationSupport {
             .addSources(sources)
             .addPrivateHeaders(privateHdrs)
             .addDefines(objcProvider.get(DEFINE))
-            .enableCompileProviders()
             .addPublicHeaders(publicHdrs)
             .addDeps(deps)
             // Not all our dependencies need to export cpp information.
@@ -416,11 +416,13 @@ public class CompilationSupport {
             semantics,
             purpose);
 
+    FeatureConfiguration featureConfiguration =
+        getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider);
     CcLinkingHelper resultLink =
         new CcLinkingHelper(
                 ruleContext,
                 semantics,
-                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
+                featureConfiguration,
                 ccToolchain,
                 fdoContext,
                 buildConfiguration)
@@ -468,11 +470,27 @@ public class CompilationSupport {
       resultLink.link(compilationOutputs);
     }
 
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    Map<String, NestedSet<Artifact>> arcOutputGroups =
+        CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
+            objcArcCompilationInfo.getCcCompilationOutputs(),
+            objcArcCompilationInfo.getCcCompilationContext(),
+            cppConfiguration,
+            ccToolchain,
+            featureConfiguration,
+            ruleContext);
+
+    Map<String, NestedSet<Artifact>> nonArcOutputGroups =
+        CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
+            nonObjcArcCompilationInfo.getCcCompilationOutputs(),
+            nonObjcArcCompilationInfo.getCcCompilationContext(),
+            cppConfiguration,
+            ccToolchain,
+            featureConfiguration,
+            ruleContext);
+
     Map<String, NestedSet<Artifact>> mergedOutputGroups =
-        CcCommon.mergeOutputGroups(
-            ImmutableList.of(
-                objcArcCompilationInfo.getOutputGroups(),
-                nonObjcArcCompilationInfo.getOutputGroups()));
+        CcCommon.mergeOutputGroups(ImmutableList.of(arcOutputGroups, nonArcOutputGroups));
 
     return new Pair<>(compilationOutputsBuilder.build(), ImmutableMap.copyOf(mergedOutputGroups));
   }

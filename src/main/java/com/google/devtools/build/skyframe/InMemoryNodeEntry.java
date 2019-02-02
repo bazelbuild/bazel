@@ -492,11 +492,6 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized boolean signalDep() {
-    return signalDep(/*childVersion=*/ IntVersion.of(Long.MAX_VALUE), /*childForDebugging=*/ null);
-  }
-
-  @Override
   public synchronized boolean signalDep(Version childVersion, @Nullable SkyKey childForDebugging) {
     Preconditions.checkState(
         !isDone(), "Value must not be done in signalDep %s child=%s", this, childForDebugging);

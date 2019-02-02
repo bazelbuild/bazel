@@ -373,7 +373,9 @@ function test_xml_is_present_when_timingout_split_xml() {
   # the header starts with "exec ${PAGER:-/usr/bin/less}".
   expect_log '<!\[CDATA\[exec ${PAGER:-/usr/bin/less}'
   expect_log 'before ????? after'
-  expect_log '<!CDATA\[\]\]>\]\]<!\[CDATA\[>\]\]>'
+  # This is different from above, since we're using a SIGTERM trap to output
+  # timing information.
+  expect_log '<!CDATA\[\]\]>\]\]<!\[CDATA\[>'
   expect_log '</system-out>'
 }
 

@@ -17,7 +17,6 @@ import static com.google.devtools.build.skyframe.AbstractParallelEvaluator.isDon
 import static com.google.devtools.build.skyframe.AbstractParallelEvaluator.maybeMarkRebuilding;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -187,7 +186,7 @@ public class SimpleCycleDetector implements CycleDetector {
           // must be part of the path to the cycle we have found (since done nodes cannot be in
           // cycles, and this is the only missing one). Thus, it will not be removed below in
           // removeDescendantsOfCycleValue, so it is safe here to signal that it is done.
-          entry.signalDep();
+          entry.signalDep(evaluatorContext.getGraphVersion(), null);
           maybeMarkRebuilding(entry);
         }
         if (evaluatorContext.keepGoing()) {
@@ -235,8 +234,9 @@ public class SimpleCycleDetector implements CycleDetector {
       }
 
       // This node is not yet known to be in a cycle. So process its children.
-      Iterable<SkyKey> children = Iterables.concat(entry.getTemporaryDirectDeps());
-      if (Iterables.isEmpty(children)) {
+      GroupedList<SkyKey> temporaryDirectDeps = entry.getTemporaryDirectDeps();
+      Iterable<SkyKey> children = temporaryDirectDeps.getAllElementsAsIterable();
+      if (temporaryDirectDeps.isEmpty()) {
         continue;
       }
       // Prefetch all children, in case our graph performs better with a primed cache. No need to
@@ -246,17 +246,18 @@ public class SimpleCycleDetector implements CycleDetector {
       // have to change this.
       Map<SkyKey, ? extends NodeEntry> childrenNodes =
           evaluatorContext.getGraph().getBatch(key, Reason.EXISTENCE_CHECKING, children);
-      Preconditions.checkState(childrenNodes.size() == Iterables.size(children), childrenNodes);
-      children =
-          Maps.filterValues(
-                  childrenNodes,
-                  new Predicate<NodeEntry>() {
-                    @Override
-                    public boolean apply(NodeEntry nodeEntry) {
-                      return !nodeEntry.isDone();
-                    }
-                  })
-              .keySet();
+      if (childrenNodes.size() != temporaryDirectDeps.numElements()) {
+        ImmutableSet<SkyKey> childrenSet = ImmutableSet.copyOf(children);
+        Set<SkyKey> missingChildren = Sets.difference(childrenSet, childrenNodes.keySet());
+        evaluatorContext
+            .getGraphInconsistencyReceiver()
+            .noteInconsistencyAndMaybeThrow(
+                key,
+                missingChildren,
+                GraphInconsistencyReceiver.Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
+        entry.removeUnfinishedDeps(missingChildren);
+      }
+      children = Maps.filterValues(childrenNodes, nodeEntry -> !nodeEntry.isDone()).keySet();
 
       // This marker flag will tell us when all this node's children have been processed.
       toVisit.push(CHILDREN_FINISHED);
@@ -383,7 +384,7 @@ public class SimpleCycleDetector implements CycleDetector {
       // The entry has at most one undone dep now, its cycleChild. Signal to make entry ready. Note
       // that the entry can conceivably be ready if its cycleChild already found a different cycle
       // and was built.
-      entry.signalDep();
+      entry.signalDep(evaluatorContext.getGraphVersion(), cycleChild);
     }
     maybeMarkRebuilding(entry);
     Preconditions.checkState(entry.isReady(), "%s %s %s", key, cycleChild, entry);

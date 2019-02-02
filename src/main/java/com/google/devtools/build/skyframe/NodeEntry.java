@@ -224,16 +224,6 @@ public interface NodeEntry extends ThinNodeEntry {
   Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted();
 
   /**
-   * Tell this node that one of its dependencies is now done. Callers must check the return value,
-   * and if true, they must re-schedule this node for evaluation. Equivalent to
-   * {@code #signalDep(Long.MAX_VALUE)}. Since this entry was last evaluated at a version less than
-   * {@link Long#MAX_VALUE}, informing this entry that a child of it has version
-   * {@link Long#MAX_VALUE} will force it to re-evaluate.
-   */
-  @ThreadSafe
-  boolean signalDep();
-
-  /**
    * Tell this entry that one of its dependencies is now done. Callers must check the return value,
    * and if true, they must re-schedule this node for evaluation.
    *

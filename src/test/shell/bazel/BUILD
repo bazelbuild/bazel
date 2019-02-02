@@ -783,7 +783,7 @@ sh_test(
     data = [
         ":jdeps_class_blacklist.txt",
         ":test-deps",
-        "//src:embedded_jdk_allmodules_cached",
+        "//src:embedded_jdk_allmodules",
         "//src:jdeps_modules.golden",
         "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
         "@bazel_tools//tools/bash/runfiles",

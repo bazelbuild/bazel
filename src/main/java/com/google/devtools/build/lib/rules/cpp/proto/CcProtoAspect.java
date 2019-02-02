@@ -232,7 +232,9 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                       .build())
               .add(ccNativeLibraryProvider)
               .build();
-      outputGroups = ImmutableMap.copyOf(compilationInfo.getOutputGroups());
+      outputGroups =
+          ImmutableMap.copyOf(
+              CcCompilationHelper.buildOutputGroups(compilationInfo.getCcCompilationOutputs()));
       // On Windows, dynamic library is not built by default, so don't add them to filesToBuild.
 
       if (!libraryToLinkWrapper.isEmpty()) {

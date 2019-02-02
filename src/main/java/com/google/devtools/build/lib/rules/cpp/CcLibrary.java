@@ -139,8 +139,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .fromCommon(common, additionalCopts)
             .addSources(common.getSources())
             .addPrivateHeaders(common.getPrivateHeaders())
-            .addPublicHeaders(common.getHeaders())
-            .enableCompileProviders();
+            .addPublicHeaders(common.getHeaders());
 
     CcLinkingHelper linkingHelper =
         new CcLinkingHelper(
@@ -455,6 +454,14 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 LibraryToLinkWrapper.getDynamicLibrariesForRuntime(
                     /* linkingStatically= */ false, libraryToLinkWrappers));
 
+    Map<String, NestedSet<Artifact>> currentOutputGroups =
+        CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
+            compilationInfo.getCcCompilationOutputs(),
+            compilationInfo.getCcCompilationContext(),
+            ruleContext.getFragment(CppConfiguration.class),
+            ccToolchain,
+            featureConfiguration,
+            ruleContext);
     CcSkylarkApiProvider.maybeAdd(ruleContext, targetBuilder);
     targetBuilder
         .setFilesToBuild(filesToBuild)
@@ -466,8 +473,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 .setCcLinkingContext(ccLinkingContext)
                 .build())
         .addOutputGroups(
-            CcCommon.mergeOutputGroups(
-                ImmutableList.of(compilationInfo.getOutputGroups(), outputGroups.build())))
+            CcCommon.mergeOutputGroups(ImmutableList.of(currentOutputGroups, outputGroups.build())))
         .addNativeDeclaredProvider(instrumentedFilesProvider)
         .addProvider(RunfilesProvider.withData(defaultRunfiles.build(), dataRunfiles.build()))
         .addOutputGroup(

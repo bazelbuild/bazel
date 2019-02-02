@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,7 +54,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -85,7 +83,6 @@ import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
-import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
@@ -100,7 +97,6 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -117,8 +113,6 @@ import javax.annotation.Nullable;
 public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private static final Logger logger = Logger.getLogger(SequencedSkyframeExecutor.class.getName());
-
-  private boolean lastAnalysisDiscarded = false;
 
   /**
    * If false, the graph will not store state useful for incremental builds, saving memory but
@@ -375,19 +369,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   /** Uses diff awareness on all the package paths to invalidate changed files. */
   @VisibleForTesting
-  public void handleDiffs(ExtendedEventHandler eventHandler) throws InterruptedException {
+  public void handleDiffsForTesting(ExtendedEventHandler eventHandler) throws InterruptedException {
+    if (super.lastAnalysisDiscarded) {
+      // Values were cleared last build, but they couldn't be deleted because they were needed for
+      // the execution phase. We can delete them now.
+      dropConfiguredTargetsNow(eventHandler);
+      super.lastAnalysisDiscarded = false;
+    }
     handleDiffs(eventHandler, /*checkOutputFiles=*/false, OptionsProvider.EMPTY);
   }
 
   private void handleDiffs(
       ExtendedEventHandler eventHandler, boolean checkOutputFiles, OptionsProvider options)
       throws InterruptedException {
-    if (lastAnalysisDiscarded) {
-      // Values were cleared last build, but they couldn't be deleted because they were needed for
-      // the execution phase. We can delete them now.
-      dropConfiguredTargetsNow(eventHandler);
-      lastAnalysisDiscarded = false;
-    }
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     modifiedFiles = 0;
     Map<Root, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry =
@@ -649,15 +643,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void invalidateFilesUnderPathForTesting(
+  protected boolean discardPackagesWhenDiscardingAnalysisObjects() {
+    return !trackIncrementalState;
+  }
+
+  @Override
+  protected void invalidateFilesUnderPathForTestingImpl(
       ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Root pathEntry)
       throws InterruptedException {
-    if (lastAnalysisDiscarded) {
-      // Values were cleared last build, but they couldn't be deleted because they were needed for
-      // the execution phase. We can delete them now.
-      dropConfiguredTargetsNow(eventHandler);
-      lastAnalysisDiscarded = false;
-    }
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
@@ -695,94 +688,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
     modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
     informAboutNumberOfModifiedFiles();
-  }
-
-  private static ImmutableSet<SkyFunctionName> LOADING_TYPES =
-      ImmutableSet.of(
-          SkyFunctions.PACKAGE,
-          SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
-          SkyFunctions.AST_FILE_LOOKUP,
-          SkyFunctions.GLOB);
-
-  /**
-   * Save memory by removing references to configured targets and aspects in Skyframe.
-   *
-   * <p>These nodes must be recreated on subsequent builds. We do not clear the top-level target
-   * nodes, since their configured targets are needed for the target completion middleman values.
-   *
-   * <p>The nodes are not deleted during this method call, because they are needed for the execution
-   * phase. Instead, their analysis-time data is cleared while preserving the generating action info
-   * needed for execution. The next build will delete the nodes (and recreate them if necessary).
-   *
-   * <p>If {@link #tracksStateForIncrementality} is false, then also delete loading-phase nodes (as
-   * determined by {@link #LOADING_TYPES}) from the graph, since there will be no future builds to
-   * use them for.
-   */
-  private void discardAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
-    topLevelTargets = ImmutableSet.copyOf(topLevelTargets);
-    topLevelAspects = ImmutableSet.copyOf(topLevelAspects);
-    // This is to prevent throwing away Packages we may need during execution.
-    ImmutableSet.Builder<PackageIdentifier> packageSetBuilder = ImmutableSet.builder();
-    packageSetBuilder.addAll(
-        Collections2.transform(
-            topLevelTargets, (target) -> target.getLabel().getPackageIdentifier()));
-    packageSetBuilder.addAll(
-        Collections2.transform(
-            topLevelAspects, (aspect) -> aspect.getLabel().getPackageIdentifier()));
-    ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
-    try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", logger)) {
-      lastAnalysisDiscarded = true;
-      Iterator<? extends Map.Entry<SkyKey, ? extends NodeEntry>> it =
-          memoizingEvaluator.getGraphMap().entrySet().iterator();
-      while (it.hasNext()) {
-        Map.Entry<SkyKey, ? extends NodeEntry> keyAndEntry = it.next();
-        NodeEntry entry = keyAndEntry.getValue();
-        if (entry == null || !entry.isDone()) {
-          continue;
-        }
-        SkyKey key = keyAndEntry.getKey();
-        SkyFunctionName functionName = key.functionName();
-        // Keep packages for top-level targets and aspects in memory to get the target from later.
-        if (functionName.equals(SkyFunctions.PACKAGE)
-            && topLevelPackages.contains((key.argument()))) {
-          continue;
-        }
-        if (!tracksStateForIncrementality() && LOADING_TYPES.contains(functionName)) {
-          it.remove();
-          continue;
-        }
-        if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-          ConfiguredTargetValue ctValue;
-          try {
-            ctValue = (ConfiguredTargetValue) entry.getValue();
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("No interruption in sequenced evaluation", e);
-          }
-          // ctValue may be null if target was not successfully analyzed.
-          if (ctValue != null) {
-            ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
-          }
-        } else if (functionName.equals(SkyFunctions.ASPECT)) {
-          AspectValue aspectValue;
-          try {
-            aspectValue = (AspectValue) entry.getValue();
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("No interruption in sequenced evaluation", e);
-          }
-          // value may be null if target was not successfully analyzed.
-          if (aspectValue != null) {
-            aspectValue.clear(!topLevelAspects.contains(aspectValue));
-          }
-        }
-      }
-    }
-  }
-
-  @Override
-  public void clearAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
-    discardAnalysisCache(topLevelTargets, topLevelAspects);
   }
 
   @Override
@@ -857,9 +762,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return actionGraphDump.build();
   }
 
-
   /**
-   * In addition to calling the superclass method, deletes all ConfiguredTarget values from the
+   * In addition to calling the superclass method, deletes all analysis-related values from the
    * Skyframe cache. This is done to save memory (e.g. on a configuration change); since the
    * configuration is part of the key, these key/value pairs will be sitting around doing nothing
    * until the configuration changes back to the previous value.
@@ -867,18 +771,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * <p>The next evaluation will delete all invalid values.
    */
   @Override
-  public void handleConfiguredTargetChange() {
-    super.handleConfiguredTargetChange();
-    memoizingEvaluator.delete(
-        // We delete any value that can hold an action -- all subclasses of ActionLookupValue -- as
-        // well as ActionExecutionValues, since they do not depend on ActionLookupValues.
-        SkyFunctionName.functionIsIn(ImmutableSet.of(
-            SkyFunctions.CONFIGURED_TARGET,
-            SkyFunctions.BUILD_INFO,
-            SkyFunctions.TARGET_COMPLETION,
-            SkyFunctions.BUILD_INFO_COLLECTION,
-            SkyFunctions.ACTION_EXECUTION))
-    );
+  public void handleAnalysisInvalidatingChange() {
+    super.handleAnalysisInvalidatingChange();
+    memoizingEvaluator.delete(ANALYSIS_KEY_PREDICATE);
   }
 
   /**
@@ -890,8 +785,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * <p>WARNING: Note that a call to this method leaves legacy data inconsistent with Skyframe. The
    * next build should clear the legacy caches.
    */
-  private void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler) {
-    handleConfiguredTargetChange();
+  @Override
+  protected void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler) {
+    handleAnalysisInvalidatingChange();
     // Run the invalidator to actually delete the values.
     try {
       progressReceiver.ignoreInvalidations = true;

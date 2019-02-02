@@ -25,6 +25,7 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -119,6 +120,7 @@ import com.google.devtools.build.lib.pkgcache.TargetParsingPhaseTimeEvent;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
@@ -165,6 +167,7 @@ import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
+import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -177,6 +180,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -203,6 +207,12 @@ import javax.annotation.Nullable;
  * the build.
  */
 public abstract class SkyframeExecutor implements WalkableGraphFactory {
+  private static final Logger logger = Logger.getLogger(SkyframeExecutor.class.getName());
+
+  // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
+  protected static final Predicate<SkyKey> ANALYSIS_KEY_PREDICATE =
+      k -> k instanceof ActionLookupValue.ActionLookupKey;
+
   private final EvaluatorSupplier evaluatorSupplier;
   protected MemoizingEvaluator memoizingEvaluator;
   private final MemoizingEvaluator.EmittedEventState emittedEventState =
@@ -267,11 +277,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   // since it is not yet created when we create the value builders, we have to use a supplier,
   // initialized when the build view is created.
   private final MutableArtifactFactorySupplier artifactFactory;
-  // Used to give to WriteBuildInfoAction via a supplier. Relying on BuildVariableValue.BUILD_ID
-  // would be preferable, but we have no way to have the Action depend on that value directly.
-  // Having the BuildInfoFunction own the supplier is currently not possible either, because then
-  // it would be invalidated on every build, since it would depend on the build id value.
-  private final MutableSupplier<UUID> buildId = new MutableSupplier<>();
   private final ActionKeyContext actionKeyContext;
 
   protected boolean active = true;
@@ -291,6 +296,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected int modifiedFiles;
   protected int outputDirtyFiles;
   protected int modifiedFilesDuringPreviousBuild;
+
+  @VisibleForTesting boolean lastAnalysisDiscarded = false;
 
   private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
 
@@ -314,8 +321,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private PerBuildSyscallCache perBuildSyscallCache;
   private int lastConcurrencyLevel = -1;
-
-  private static final Logger logger = Logger.getLogger(SkyframeExecutor.class.getName());
 
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
   @Nullable private final NonexistentFileReceiver nonexistentFileReceiver;
@@ -793,7 +798,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected abstract BuildDriver getBuildDriver();
 
   /** Clear any configured target data stored outside Skyframe. */
-  public void handleConfiguredTargetChange() {
+  public void handleAnalysisInvalidatingChange() {
     logger.info("Dropping configured target data");
     skyframeBuildView.clearInvalidatedConfiguredTargets();
     skyframeBuildView.clearLegacyData();
@@ -869,6 +874,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return true;
   }
 
+  protected abstract boolean discardPackagesWhenDiscardingAnalysisObjects();
+
   /**
    * If not null, this is the only source root in the build, corresponding to the single element in
    * a single-element package path. Such a single-source-root build need not plant the execroot
@@ -888,13 +895,98 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   protected abstract Injectable injectable();
 
+  private static final ImmutableSet<SkyFunctionName> LOADING_TYPES =
+      ImmutableSet.of(
+          SkyFunctions.PACKAGE,
+          SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
+          SkyFunctions.AST_FILE_LOOKUP,
+          SkyFunctions.GLOB);
+
   /**
-   * Saves memory by clearing analysis objects from Skyframe. If using legacy execution, actually
-   * deletes the relevant values. If using Skyframe execution, clears their data without deleting
+   * Save memory by removing references to configured targets and aspects in Skyframe.
+   *
+   * <p>These nodes must be recreated on subsequent builds. We do not clear the top-level target
+   * nodes, since their configured targets are needed for the target completion middleman values.
+   *
+   * <p>The nodes are not deleted during this method call, because they are needed for the execution
+   * phase. Instead, their analysis-time data is cleared while preserving the generating action info
+   * needed for execution. The next build will delete the nodes (and recreate them if necessary).
+   *
+   * <p>If {@link #discardPackagesWhenDiscardingAnalysisObjects} is true, then also delete
+   * loading-phase nodes (as determined by {@link #LOADING_TYPES}) from the graph.
+   */
+  private void discardAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
+    topLevelTargets = ImmutableSet.copyOf(topLevelTargets);
+    topLevelAspects = ImmutableSet.copyOf(topLevelAspects);
+    // This is to prevent throwing away Packages we may need during execution.
+    ImmutableSet.Builder<PackageIdentifier> packageSetBuilder = ImmutableSet.builder();
+    packageSetBuilder.addAll(
+        Collections2.transform(
+            topLevelTargets, target -> target.getLabel().getPackageIdentifier()));
+    packageSetBuilder.addAll(
+        Collections2.transform(
+            topLevelAspects, aspect -> aspect.getLabel().getPackageIdentifier()));
+    ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
+    try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", logger)) {
+      lastAnalysisDiscarded = true;
+      Iterator<? extends Map.Entry<SkyKey, ? extends NodeEntry>> it =
+          memoizingEvaluator.getGraphMap().entrySet().iterator();
+      while (it.hasNext()) {
+        Map.Entry<SkyKey, ? extends NodeEntry> keyAndEntry = it.next();
+        NodeEntry entry = keyAndEntry.getValue();
+        if (entry == null || !entry.isDone()) {
+          continue;
+        }
+        SkyKey key = keyAndEntry.getKey();
+        SkyFunctionName functionName = key.functionName();
+        // Keep packages for top-level targets and aspects in memory to get the target from later.
+        if (functionName.equals(SkyFunctions.PACKAGE)
+            && topLevelPackages.contains(key.argument())) {
+          continue;
+        }
+        if (discardPackagesWhenDiscardingAnalysisObjects()
+            && LOADING_TYPES.contains(functionName)) {
+          it.remove();
+          continue;
+        }
+        if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
+          ConfiguredTargetValue ctValue;
+          try {
+            ctValue = (ConfiguredTargetValue) entry.getValue();
+          } catch (InterruptedException e) {
+            throw new IllegalStateException("No interruption in in-memory retrieval: " + entry, e);
+          }
+          // ctValue may be null if target was not successfully analyzed.
+          if (ctValue != null) {
+            ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
+          }
+        } else if (functionName.equals(SkyFunctions.ASPECT)) {
+          AspectValue aspectValue;
+          try {
+            aspectValue = (AspectValue) entry.getValue();
+          } catch (InterruptedException e) {
+            throw new IllegalStateException("No interruption in in-memory retrieval: " + entry, e);
+          }
+          // value may be null if target was not successfully analyzed.
+          if (aspectValue != null) {
+            aspectValue.clear(!topLevelAspects.contains(aspectValue));
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Saves memory by clearing analysis objects from Skyframe. Clears their data without deleting
    * them (they will be deleted on the next build).
    */
-  public abstract void clearAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects);
+  public void clearAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
+    discardAnalysisCache(topLevelTargets, topLevelAspects);
+  }
+
+  protected abstract void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler);
 
   /**
    * Injects the contents of the computed tools/defaults package.
@@ -905,13 +997,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
-    return workspaceStatusActionFactory.createWorkspaceStatusAction(
-        artifactFactory.get(), WorkspaceStatusValue.BUILD_INFO_KEY, workspaceName);
-  }
+    WorkspaceStatusAction.Environment env =
+        new WorkspaceStatusAction.Environment() {
+          @Override
+          public Artifact createStableArtifact(String name) {
+            ArtifactRoot root = directories.getBuildDataDirectory(workspaceName);
+            return skyframeBuildView
+                .getArtifactFactory()
+                .getDerivedArtifact(
+                    PathFragment.create(name), root, WorkspaceStatusValue.BUILD_INFO_KEY);
+          }
 
-  @VisibleForTesting
-  public WorkspaceStatusAction.Factory getWorkspaceStatusActionFactoryForTesting() {
-    return workspaceStatusActionFactory;
+          @Override
+          public Artifact createVolatileArtifact(String name) {
+            ArtifactRoot root = directories.getBuildDataDirectory(workspaceName);
+            return skyframeBuildView
+                .getArtifactFactory()
+                .getConstantMetadataArtifact(
+                    PathFragment.create(name), root, WorkspaceStatusValue.BUILD_INFO_KEY);
+          }
+        };
+    return workspaceStatusActionFactory.createWorkspaceStatusAction(env);
   }
 
   @VisibleForTesting
@@ -969,7 +1075,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   public void setCommandId(UUID commandId) {
     PrecomputedValue.BUILD_ID.set(injectable(), commandId);
-    buildId.set(commandId);
   }
 
   /** Returns the build-info.txt and build-changelist.txt artifacts. */
@@ -2011,7 +2116,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * <p>May throw an {@link InterruptedException}, which means that no values have been invalidated.
    */
   @VisibleForTesting
-  public abstract void invalidateFilesUnderPathForTesting(
+  public final void invalidateFilesUnderPathForTesting(
+      ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Root pathEntry)
+      throws InterruptedException {
+    if (lastAnalysisDiscarded) {
+      // Values were cleared last build, but they couldn't be deleted because they were needed for
+      // the execution phase. We can delete them now.
+      dropConfiguredTargetsNow(eventHandler);
+      lastAnalysisDiscarded = false;
+    }
+    invalidateFilesUnderPathForTestingImpl(eventHandler, modifiedFileSet, pathEntry);
+  }
+
+  protected abstract void invalidateFilesUnderPathForTestingImpl(
       ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Root pathEntry)
       throws InterruptedException;
 
@@ -2314,6 +2431,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         commandId,
         clientEnv,
         tsgm);
+    if (lastAnalysisDiscarded) {
+      dropConfiguredTargetsNow(eventHandler);
+      lastAnalysisDiscarded = false;
+    }
   }
 
   public void syncPackageLoading(

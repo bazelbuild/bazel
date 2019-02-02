@@ -361,7 +361,7 @@ public final class PyCommon {
 
   /**
    * Under the old version semantics ({@code
-   * --experimental_allow_python_version_transitions=false}), checks that the {@code srcs_version}
+   * --incompatible_allow_python_version_transitions=false}), checks that the {@code srcs_version}
    * attribute is compatible with the Python version as determined by the configuration.
    *
    * <p>A failure is reported as a rule error.
@@ -438,7 +438,7 @@ public final class PyCommon {
       ruleContext.attributeError(
           DEFAULT_PYTHON_VERSION_ATTRIBUTE,
           "the 'default_python_version' attribute is disabled by the "
-              + "'--experimental_remove_old_python_version_api' flag");
+              + "'--incompatible_remove_old_python_version_api' flag");
     }
   }
 
@@ -464,7 +464,7 @@ public final class PyCommon {
   }
 
   /**
-   * Under the new version semantics ({@code --experimental_allow_python_version_transitions=true}),
+   * Under the new version semantics ({@code --incompatible_allow_python_version_transitions=true}),
    * if the Python version (as determined by the configuration) is inconsistent with {@link
    * #hasPy2OnlySources} or {@link #hasPy3OnlySources}, emits a {@link FailAction} that "generates"
    * the executable.
@@ -483,14 +483,16 @@ public final class PyCommon {
     if (!ruleContext.getFragment(PythonConfiguration.class).useNewPyVersionSemantics()) {
       return false;
     }
-    // TODO(brandjon): Add link to documentation explaining the error and use of the aspect.
+    String errorTemplate =
+        "This target is being built for Python %s but (transitively) includes Python %s-only "
+            + "sources. You can get diagnostic information about which dependencies introduce this "
+            + "version requirement by running the `find_requirements` aspect. For more info see "
+            + "the documentation for the `srcs_version` attribute.";
     String error = null;
     if (version == PythonVersion.PY2 && hasPy3OnlySources) {
-      error =
-          "target is being built for Python 2 but (transitively) includes Python 3-only sources";
+      error = String.format(errorTemplate, "2", "3");
     } else if (version == PythonVersion.PY3 && hasPy2OnlySources) {
-      error =
-          "target is being built for Python 3 but (transitively) includes Python 2-only sources";
+      error = String.format(errorTemplate, "3", "2");
     }
     if (error == null) {
       return false;
