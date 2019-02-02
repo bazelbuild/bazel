@@ -14,19 +14,65 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.base.Optional;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
+import java.util.Set;
 
 /**
  * The contents of decompressed archive.
  */
 public class DecompressorValue implements SkyValue {
-  /** Implementation of a decompression algorithm. */
+
+  /**
+   * Implementation of a decompression algorithm.
+   */
   public interface Decompressor {
-    Path decompress(DecompressorDescriptor descriptor) throws RepositoryFunctionException;
+
+    class CouldNotFindPrefixException extends IOException {
+
+      CouldNotFindPrefixException(String prefix,
+          Set<String> availablePrefixes) {
+
+        super(CouldNotFindPrefixException.prepareErrorMessage(prefix, availablePrefixes));
+      }
+
+      static private String prepareErrorMessage(String prefix,
+          Set<String> availablePrefixes) {
+        String error = "Prefix \"" + prefix + "\" was given, but not found in the archive. ";
+        String suggestion = "Here are possible prefixes for this archive: ";
+        String suggestionBody = "";
+
+        if (availablePrefixes.isEmpty()) {
+          suggestion = "We could not find any directory in this archive (maybe there is no need for `strip_prefix`?)";
+        } else {
+          // Add a list of possible suggestion wrapped with `"` and separated by `, `.
+          suggestionBody = "\"" + String.join("\", \"", availablePrefixes) + "\".";
+        }
+
+        return error + suggestion + suggestionBody;
+      }
+
+      static private boolean isValidPrefixSuggestion(PathFragment pathFragment) {
+        return pathFragment.segmentCount() > 1;
+      }
+
+      static public Optional<String> getPrefixSuggestion(PathFragment pathFragment) {
+        if (isValidPrefixSuggestion(pathFragment)) {
+          return Optional.of(pathFragment.getSegment(0));
+        } else {
+          return Optional.absent();
+        }
+      }
+    }
+
+    Path decompress(DecompressorDescriptor descriptor)
+        throws RepositoryFunctionException, IOException;
   }
 
   private final Path directory;
@@ -76,7 +122,15 @@ public class DecompressorValue implements SkyValue {
   }
 
   public static Path decompress(DecompressorDescriptor descriptor)
-      throws RepositoryFunctionException, InterruptedException {
-    return descriptor.getDecompressor().decompress(descriptor);
+      throws RepositoryFunctionException {
+    try {
+      return descriptor.getDecompressor().decompress(descriptor);
+    } catch(IOException e) {
+      Path destinationDirectory = descriptor.archivePath().getParentDirectory();
+      throw new RepositoryFunctionException(new IOException(
+          String.format("Error extracting %s to %s: %s",
+              descriptor.archivePath(), destinationDirectory, e.getMessage())),
+          Transience.TRANSIENT);
+    }
   }
 }

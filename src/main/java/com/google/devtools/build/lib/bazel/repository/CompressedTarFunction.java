@@ -30,74 +30,83 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Common code for unarchiving a compressed TAR file.
  */
 public abstract class CompressedTarFunction implements Decompressor {
+
   protected abstract InputStream getDecompressorStream(DecompressorDescriptor descriptor)
       throws IOException;
 
   @Override
-  public Path decompress(DecompressorDescriptor descriptor) throws RepositoryFunctionException {
+  public Path decompress(DecompressorDescriptor descriptor)
+      throws IOException {
     Optional<String> prefix = descriptor.prefix();
     boolean foundPrefix = false;
+    Set<String> availablePrefixes = new HashSet<>();
 
-    try (InputStream decompressorStream = getDecompressorStream(descriptor)) {
-      TarArchiveInputStream tarStream = new TarArchiveInputStream(decompressorStream);
-      TarArchiveEntry entry;
-      while ((entry = tarStream.getNextTarEntry()) != null) {
-        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entry.getName(), prefix);
-        foundPrefix = foundPrefix || entryPath.foundPrefix();
-        if (entryPath.skip()) {
-          continue;
-        }
+    InputStream decompressorStream = getDecompressorStream(descriptor);
+    TarArchiveInputStream tarStream = new TarArchiveInputStream(decompressorStream);
+    TarArchiveEntry entry;
+    while ((entry = tarStream.getNextTarEntry()) != null) {
+      StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entry.getName(), prefix);
+      foundPrefix = foundPrefix || entryPath.foundPrefix();
 
-        Path filename = descriptor.repositoryPath().getRelative(entryPath.getPathFragment());
-        FileSystemUtils.createDirectoryAndParents(filename.getParentDirectory());
-        if (entry.isDirectory()) {
-          FileSystemUtils.createDirectoryAndParents(filename);
-        } else {
-          if (entry.isSymbolicLink() || entry.isLink()) {
-            PathFragment linkName = PathFragment.create(entry.getLinkName());
-            boolean wasAbsolute = linkName.isAbsolute();
-            // Strip the prefix from the link path if set.
-            linkName =
-                StripPrefixedPath.maybeDeprefix(linkName.getPathString(), prefix).getPathFragment();
-            if (wasAbsolute) {
-              // Recover the path to an absolute path as maybeDeprefix() relativize the path
-              // even if the prefix is not set
-              linkName = descriptor.repositoryPath().getRelative(linkName).asFragment();
-            }
-            if (filename.exists()) {
-              filename.delete();
-            }
-            if (entry.isSymbolicLink()) {
-              FileSystemUtils.ensureSymbolicLink(filename, linkName);
-            } else {
-              FileSystemUtils.createHardLink(
-                  filename, descriptor.repositoryPath().getRelative(linkName));
-            }
-          } else {
-            Files.copy(
-                tarStream, filename.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
-            filename.chmod(entry.getMode());
-
-            // This can only be done on real files, not links, or it will skip the reader to
-            // the next "real" file to try to find the mod time info.
-            Date lastModified = entry.getLastModifiedDate();
-            filename.setLastModifiedTime(lastModified.getTime());
-          }
+      if (prefix.isPresent() && !foundPrefix) {
+        Optional<String> suggestion = CouldNotFindPrefixException
+            .getPrefixSuggestion(entryPath.getPathFragment());
+        if (suggestion.isPresent()) {
+          availablePrefixes.add(suggestion.get());
         }
       }
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+
+      if (entryPath.skip()) {
+        continue;
+      }
+
+      Path filename = descriptor.repositoryPath().getRelative(entryPath.getPathFragment());
+      FileSystemUtils.createDirectoryAndParents(filename.getParentDirectory());
+      if (entry.isDirectory()) {
+        FileSystemUtils.createDirectoryAndParents(filename);
+      } else {
+        if (entry.isSymbolicLink() || entry.isLink()) {
+          PathFragment linkName = PathFragment.create(entry.getLinkName());
+          boolean wasAbsolute = linkName.isAbsolute();
+          // Strip the prefix from the link path if set.
+          linkName =
+              StripPrefixedPath.maybeDeprefix(linkName.getPathString(), prefix).getPathFragment();
+          if (wasAbsolute) {
+            // Recover the path to an absolute path as maybeDeprefix() relativize the path
+            // even if the prefix is not set
+            linkName = descriptor.repositoryPath().getRelative(linkName).asFragment();
+          }
+          if (filename.exists()) {
+            filename.delete();
+          }
+          if (entry.isSymbolicLink()) {
+            FileSystemUtils.ensureSymbolicLink(filename, linkName);
+          } else {
+            FileSystemUtils.createHardLink(
+                filename, descriptor.repositoryPath().getRelative(linkName));
+          }
+        } else {
+          Files.copy(
+              tarStream, filename.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
+          filename.chmod(entry.getMode());
+
+          // This can only be done on real files, not links, or it will skip the reader to
+          // the next "real" file to try to find the mod time info.
+          Date lastModified = entry.getLastModifiedDate();
+          filename.setLastModifiedTime(lastModified.getTime());
+        }
+      }
     }
 
     if (prefix.isPresent() && !foundPrefix) {
-      throw new RepositoryFunctionException(
-          new IOException("Prefix " + prefix.get() + " was given, but not found in the archive"),
-          Transience.PERSISTENT);
+      throw new CouldNotFindPrefixException(prefix.get(), availablePrefixes);
     }
 
     return descriptor.repositoryPath();
