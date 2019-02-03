@@ -90,7 +90,7 @@ function test_bootstrap()  {
     elif [[ $EMBEDDED_JDK == *.zip ]]; then
       unzip -q $EMBEDDED_JDK
     fi
-    JAVABASE=$(echo zulu*)
+    JAVABASE=$(echo reduced*)
 
     _log_progress "bootstrap"
     env EXTRA_BAZEL_ARGS="--curses=no --strategy=Javac=standalone --host_javabase=@local_jdk//:jdk" ./compile.sh \
