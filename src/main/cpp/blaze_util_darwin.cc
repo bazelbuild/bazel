@@ -36,6 +36,7 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/strings.h"
 
 namespace blaze {
@@ -162,7 +163,12 @@ bool IsSharedLibrary(const string &filename) {
 string GetSystemJavabase() {
   string java_home = GetEnv("JAVA_HOME");
   if (!java_home.empty()) {
-    return java_home;
+    string javac = blaze_util::JoinPath(java_home, "bin/javac");
+    if (access(javac.c_str(), X_OK) == 0) {
+      return java_home;
+    }
+    BAZEL_LOG(WARNING)
+        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
   }
 
   // java_home will print a warning if no JDK could be found
