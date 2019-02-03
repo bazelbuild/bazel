@@ -24,6 +24,9 @@ if [ "$1" == "--allmodules" ]; then
   modules="ALL-MODULE-PATH"
 else
   modules=$(cat "$2" | paste -sd "," - | tr -d '\r')
+  # We have to add this module explicitly because jdeps doesn't find the
+  # dependency on it but it is still necessary for TLSv1.3.
+  modules="$modules,jdk.crypto.ec"
 fi
 fulljdk=$1
 out=$3
