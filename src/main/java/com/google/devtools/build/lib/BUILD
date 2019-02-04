@@ -1281,7 +1281,6 @@ java_library(
         ":shared-base-rules",
         ":unix",
         ":util",
-        "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
