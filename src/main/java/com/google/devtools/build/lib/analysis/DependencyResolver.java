@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -416,7 +417,6 @@ public abstract class DependencyResolver {
       BuildConfiguration ruleConfig,
       BuildConfiguration hostConfig) {
     Label ruleLabel = rule.getLabel();
-    ImmutableSet<String> mappedAttributes = ImmutableSet.copyOf(attributeMap.getAttributeNames());
     for (AttributeDependencyKind dependencyKind : getAttributes(rule, aspects)) {
       Attribute attribute = dependencyKind.getAttribute();
       if (!attribute.getCondition().apply(attributeMap)) {
@@ -440,7 +440,7 @@ public abstract class DependencyResolver {
         // are not configurable. It would be nice if that wasn't the case, but we'd have to revamp
         // how attribute mapping works, which is a large chunk of work.
         attributeValue =
-            mappedAttributes.contains(attribute.getName())
+            dependencyKind.getOwningAspect() == null
                 ? attributeMap.get(attribute.getName(), attribute.getType())
                 : attribute.getDefaultValue(rule);
       } else if (attribute.isLateBound()) {
@@ -588,13 +588,22 @@ public abstract class DependencyResolver {
   /** Returns the attributes that should be visited for this rule/aspect combination. */
   private List<AttributeDependencyKind> getAttributes(Rule rule, Iterable<Aspect> aspects) {
     ImmutableList.Builder<AttributeDependencyKind> result = ImmutableList.builder();
-    List<Attribute> ruleDefs = rule.getRuleClassObject().getAttributes();
-    for (Attribute attribute : ruleDefs) {
-      result.add(AttributeDependencyKind.forRule(attribute));
-    }
+    // If processing aspects, aspect attribute names may conflict with the attribute names of
+    // rules they attach to. If this occurs, the highest-level aspect attribute takes precedence.
+    LinkedHashSet<String> aspectProcessedAttributes = new LinkedHashSet<>();
+
     for (Aspect aspect : aspects) {
       for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-        result.add(AttributeDependencyKind.forAspect(attribute, aspect.getAspectClass()));
+        if (!aspectProcessedAttributes.contains(attribute.getName())) {
+          result.add(AttributeDependencyKind.forAspect(attribute, aspect.getAspectClass()));
+          aspectProcessedAttributes.add(attribute.getName());
+        }
+      }
+    }
+    List<Attribute> ruleDefs = rule.getRuleClassObject().getAttributes();
+    for (Attribute attribute : ruleDefs) {
+      if (!aspectProcessedAttributes.contains(attribute.getName())) {
+        result.add(AttributeDependencyKind.forRule(attribute));
       }
     }
     return result.build();
