@@ -50,6 +50,7 @@ def _clone_or_update(ctx):
               ))
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     st = ctx.execute([bash_exe, "-c", """
+cd {working_dir}
 set -ex
 ( cd {working_dir} &&
     if ! ( cd '{dir_link}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
