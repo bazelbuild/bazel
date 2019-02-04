@@ -49,7 +49,6 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class CcToolchainProvider extends ToolchainInfo
     implements CcToolchainProviderApi<FeatureConfiguration>, HasCcToolchainLabel {
-  public static final String SKYLARK_NAME = "CcToolchainInfo";
 
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
