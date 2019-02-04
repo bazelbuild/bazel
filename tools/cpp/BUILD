@@ -16,6 +16,8 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
+load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
 # The toolchain type used to distinguish cc toolchains.
 toolchain_type(name = "toolchain_type")
 
@@ -120,7 +122,14 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
+    toolchain_config = ":local_linux",
     toolchain_identifier = "local_linux",
+)
+
+cc_toolchain_config(
+    name = "local_linux",
+    compiler = "compiler",
+    cpu = "local",
 )
 
 toolchain(
@@ -147,6 +156,7 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
+    toolchain_config = ":local_linux",
     toolchain_identifier = "local_linux",
 )
 
@@ -176,6 +186,7 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
+    toolchain_config = ":local_linux",
     toolchain_identifier = "local_linux",
 )
 
@@ -205,6 +216,7 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
+    toolchain_config = ":local_linux",
     toolchain_identifier = "local_linux",
 )
 
@@ -236,7 +248,14 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
+    toolchain_config = ":local_darwin",
     toolchain_identifier = "local_darwin",
+)
+
+cc_toolchain_config(
+    name = "local_darwin",
+    compiler = "compiler",
+    cpu = "darwin",
 )
 
 toolchain(
@@ -267,7 +286,14 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
+    toolchain_config = ":local_freebsd",
     toolchain_identifier = "local_freebsd",
+)
+
+cc_toolchain_config(
+    name = "local_freebsd",
+    compiler = "compiler",
+    cpu = "freebsd",
 )
 
 toolchain(
@@ -298,7 +324,14 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
+    toolchain_config = ":local_windows_msys64",
     toolchain_identifier = "local_windows_msys64",
+)
+
+cc_toolchain_config(
+    name = "local_windows_msys64",
+    compiler = "windows_msys64",
+    cpu = "x64_windows",
 )
 
 toolchain(
@@ -329,7 +362,14 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 1,
+    toolchain_config = ":vc_14_0_x64",
     toolchain_identifier = "vc_14_0_x64",
+)
+
+cc_toolchain_config(
+    name = "vc_14_0_x64",
+    compiler = "cl",
+    cpu = "x64_windows_msvc",
 )
 
 toolchain(

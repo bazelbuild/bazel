@@ -605,4 +605,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public boolean enableLegacyCcProvider() {
     return !cppOptions.disableLegacyCcProvider;
   }
+
+  public boolean disableCrosstool() {
+    return cppOptions.disableCrosstool;
+  }
 }

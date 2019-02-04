@@ -54,7 +54,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         "@bazel_tools//tools/objc:make_hashed_objlist.py",
         "@bazel_tools//tools/objc:xcrunwrapper.sh",
         "@bazel_tools//tools/osx/crosstool:BUILD.tpl",
-        "@bazel_tools//tools/osx/crosstool:CROSSTOOL.tpl",
+        "@bazel_tools//tools/osx/crosstool:cc_toolchain_config.bzl.tpl",
         "@bazel_tools//tools/osx/crosstool:osx_archs.bzl",
         "@bazel_tools//tools/osx/crosstool:wrapped_ar.tpl",
         "@bazel_tools//tools/osx/crosstool:wrapped_clang.cc",
@@ -148,13 +148,13 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         escaped_include_paths = _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
         escaped_cxx_include_directories = []
         for path in escaped_include_paths:
-            escaped_cxx_include_directories.append(("cxx_builtin_include_directory: \"%s\"" % path))
+            escaped_cxx_include_directories.append(("    \"%s\"," % path))
         if xcodeloc_err:
             escaped_cxx_include_directories.append("# Error: " + xcodeloc_err + "\n")
         repository_ctx.template(
-            "CROSSTOOL",
-            paths["@bazel_tools//tools/osx/crosstool:CROSSTOOL.tpl"],
-            {"%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories)},
+            "cc_toolchain_config.bzl",
+            paths["@bazel_tools//tools/osx/crosstool:cc_toolchain_config.bzl.tpl"],
+            {"%{cxx_builtin_include_directories}": "\n".join(escaped_cxx_include_directories)},
         )
     else:
         configure_unix_toolchain(repository_ctx, cpu_value = "darwin", overriden_tools = overriden_tools)

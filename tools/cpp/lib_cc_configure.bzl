@@ -202,3 +202,6 @@ def is_cc_configure_debug(repository_ctx):
 def build_flags(flags):
     """Convert `flags` to a string of flag fields."""
     return "\n".join(["        flag: '" + flag + "'" for flag in flags])
+
+def get_starlark_list(values):
+    return "\"" + "\",\n    \"".join(values) + "\""
