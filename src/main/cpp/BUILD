@@ -132,6 +132,8 @@ cc_library(
         "//src/conditions:windows": [
             "/DBAZEL_SYSTEM_BAZELRC_PATH#\\\"%%ProgramData%%/bazel.bazelrc\\\"",
         ],
+        # For unix platforms, this can include environment variables in the
+        # form ${var_name}. Braces are required.
         "//conditions:default": [
             "-DBAZEL_SYSTEM_BAZELRC_PATH=\\\"/etc/bazel.bazelrc\\\"",
         ],
