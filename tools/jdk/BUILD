@@ -337,6 +337,7 @@ filegroup(
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.cfg",
+        "toolchain_utils.bzl",
     ],
 )
 
