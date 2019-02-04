@@ -688,8 +688,9 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                   } else {
                     // This code only cares about calling closeOnTimeout() if the closeFuture does
                     // not complete within closeTimeout.
-                    logError(e, "closeTimeout failure");
-                    LoggingUtil.logToRemote(Level.SEVERE, "closeTimeout failure", e);
+                    String failureMsg = "BES close failure";
+                    logError(e, failureMsg);
+                    LoggingUtil.logToRemote(Level.SEVERE, failureMsg, e);
                   }
                 }
               },
