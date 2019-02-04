@@ -583,10 +583,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return PathFragment.create(builtInSysroot);
   }
 
-  boolean enableCcToolchainConfigInfoFromSkylark() {
-    return cppOptions.enableCcToolchainConfigInfoFromSkylark;
-  }
-
   boolean disableRuntimesFilegroups() {
     return cppOptions.disableRuntimesFilegroups;
   }

@@ -40,6 +40,16 @@ import java.io.IOException;
 public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "experimental_enable_cc_toolchain_config_info",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "No-op")
+    public boolean enableCcToolchainConfigInfoFromSkylark;
+
     @Option(
         name = "output_symbol_counts",
         defaultValue = "false",

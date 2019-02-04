@@ -773,15 +773,6 @@ public class CppOptions extends FragmentOptions {
   public boolean disableRuntimesFilegroups;
 
   @Option(
-      name = "experimental_enable_cc_toolchain_config_info",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, Bazel will allow creating a CcToolchainConfigInfo.")
-  public boolean enableCcToolchainConfigInfoFromSkylark;
-
-  @Option(
       name = "incompatible_disable_crosstool_file",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -915,7 +906,6 @@ public class CppOptions extends FragmentOptions {
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
     host.doNotUseCpuTransformer = doNotUseCpuTransformer;
-    host.enableCcToolchainConfigInfoFromSkylark = enableCcToolchainConfigInfoFromSkylark;
     host.disableGenruleCcToolchainDependency = disableGenruleCcToolchainDependency;
     host.disableEmittingStaticLibgcc = disableEmittingStaticLibgcc;
     host.disableDepsetInUserFlags = disableDepsetInUserFlags;

@@ -4089,16 +4089,11 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
         (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
     assertThat(ccToolchainConfigInfo).isNotNull();
-
-    useConfiguration("--experimental_enable_cc_toolchain_config_info=false");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("Creating a CcToolchainConfigInfo is not enabled.");
   }
 
   @Test
@@ -4162,7 +4157,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testCcToolchainInfoFromSkylarkAllRequiredStringsPresent() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("");
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -4253,7 +4247,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -4323,7 +4316,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -4452,7 +4444,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
 
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -4587,7 +4578,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
 
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =

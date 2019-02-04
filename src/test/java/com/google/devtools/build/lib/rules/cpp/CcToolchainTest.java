@@ -660,7 +660,7 @@ public class CcToolchainTest extends BuildViewTestCase {
             mockToolsConfig,
             CrosstoolConfig.CToolchain.newBuilder().setAbiVersion("orange").buildPartial());
 
-    useConfiguration("--cpu=k8", "--experimental_enable_cc_toolchain_config_info");
+    useConfiguration("--cpu=k8");
 
     ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider toolchainProvider =
@@ -678,7 +678,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     getAnalysisMock().ccSupport();
 
-    useConfiguration("--cpu=k8", "--experimental_enable_cc_toolchain_config_info");
+    useConfiguration("--cpu=k8");
 
     ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider toolchainProvider =
@@ -1022,40 +1022,12 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCrosstoolNeededWhenStarlarkRuleNotEnabled() throws Exception {
+  public void testCrosstoolNeededWhenStarlarkRuleIsNotPresent() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
     getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ false);
 
     useConfiguration("--cpu=k8", "--crosstool_top=//a:a");
-    ConfiguredTarget target = getConfiguredTarget("//lib:lib");
-    // Skyframe cannot find the CROSSTOOL file
-    assertContainsEvent("errors encountered while analyzing target '//lib:lib'");
-    assertThat(target).isNull();
-  }
-
-  @Test
-  public void testCrosstoolReadWhenStarlarkRuleNotEnabled() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
-    getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ false);
-
-    scratch.file("a/CROSSTOOL", getAnalysisMock().ccSupport().readCrosstoolFile());
-
-    useConfiguration("--cpu=k8", "--crosstool_top=//a:a");
-    ConfiguredTarget target = getConfiguredTarget("//lib:lib");
-    assertNoEvents();
-    assertThat(target).isNotNull();
-  }
-
-  @Test
-  public void testCrosstoolNeededWhenStarlarkRuleIsEnabledButNotPresent() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
-    getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ false);
-
-    useConfiguration(
-        "--cpu=k8", "--crosstool_top=//a:a", "--experimental_enable_cc_toolchain_config_info");
     ConfiguredTarget target = getConfiguredTarget("//lib:lib");
     // Skyframe cannot find the CROSSTOOL file
     assertContainsEvent("errors encountered while analyzing target '//lib:lib'");
@@ -1070,8 +1042,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     scratch.file("a/CROSSTOOL", getAnalysisMock().ccSupport().readCrosstoolFile());
 
-    useConfiguration(
-        "--cpu=k8", "--crosstool_top=//a:a", "--experimental_enable_cc_toolchain_config_info");
+    useConfiguration("--cpu=k8", "--crosstool_top=//a:a");
     ConfiguredTarget target = getConfiguredTarget("//lib:lib");
     assertThat(target).isNotNull();
   }
@@ -1082,8 +1053,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("lib/BUILD", "cc_library(name = 'lib', srcs = ['a.cc'])");
     getSimpleStarlarkRule(/* addToolchainConfigAttribute= */ true);
 
-    useConfiguration(
-        "--cpu=k8", "--crosstool_top=//a:a", "--experimental_enable_cc_toolchain_config_info");
+    useConfiguration("--cpu=k8", "--crosstool_top=//a:a");
     // We don't have a CROSSTOOL, but we don't need it
     ConfiguredTarget target = getConfiguredTarget("//lib:lib");
     assertThat(target).isNotNull();
