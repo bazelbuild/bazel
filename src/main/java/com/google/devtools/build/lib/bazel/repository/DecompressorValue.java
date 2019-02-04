@@ -72,7 +72,7 @@ public class DecompressorValue implements SkyValue {
     }
 
     Path decompress(DecompressorDescriptor descriptor)
-        throws IOException;
+        throws IOException, RepositoryFunctionException;
   }
 
   private final Path directory;
