@@ -47,9 +47,9 @@ public abstract class CompressedTarFunction implements Decompressor {
     Optional<String> prefix = descriptor.prefix();
     boolean foundPrefix = false;
     Set<String> availablePrefixes = new HashSet<>();
-
-    InputStream decompressorStream = getDecompressorStream(descriptor);
-    try(TarArchiveInputStream tarStream = new TarArchiveInputStream(decompressorStream)) {
+    
+    try(InputStream decompressorStream = getDecompressorStream(descriptor)) {
+      TarArchiveInputStream tarStream = new TarArchiveInputStream(decompressorStream);
       TarArchiveEntry entry;
       while ((entry = tarStream.getNextTarEntry()) != null) {
         StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entry.getName(), prefix);
