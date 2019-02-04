@@ -37,7 +37,6 @@ import javax.annotation.Nullable;
  * Creates a repository by decompressing a zip file.
  */
 public class ZipDecompressor implements Decompressor {
-
   public static final Decompressor INSTANCE = new ZipDecompressor();
   private static final long MAX_PATH_LENGTH = 256;
 
