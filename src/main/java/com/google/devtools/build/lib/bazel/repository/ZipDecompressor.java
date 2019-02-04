@@ -18,11 +18,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.zip.ZipFileEntry;
 import com.google.devtools.build.zip.ZipReader;
 import java.io.File;
@@ -32,7 +30,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
-import java.util.zip.ZipFile;
 
 import javax.annotation.Nullable;
 
@@ -100,8 +97,7 @@ public class ZipDecompressor implements Decompressor {
           StripPrefixedPath entryPath = StripPrefixedPath
               .maybeDeprefix(entry.getName(), Optional.absent());
           Optional<String> suggestion = CouldNotFindPrefixException
-              .getPrefixSuggestion(entryPath.getPathFragment());
-          // Is that a directory?
+              .maybeMakePrefixSuggestion(entryPath.getPathFragment());
           if (suggestion.isPresent()) {
             prefixes.add(suggestion.get());
           }

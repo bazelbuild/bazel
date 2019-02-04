@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import java.util.Date;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
@@ -37,7 +35,6 @@ import java.util.Set;
  * Common code for unarchiving a compressed TAR file.
  */
 public abstract class CompressedTarFunction implements Decompressor {
-
   protected abstract InputStream getDecompressorStream(DecompressorDescriptor descriptor)
       throws IOException;
 
@@ -47,7 +44,7 @@ public abstract class CompressedTarFunction implements Decompressor {
     Optional<String> prefix = descriptor.prefix();
     boolean foundPrefix = false;
     Set<String> availablePrefixes = new HashSet<>();
-    
+
     try(InputStream decompressorStream = getDecompressorStream(descriptor)) {
       TarArchiveInputStream tarStream = new TarArchiveInputStream(decompressorStream);
       TarArchiveEntry entry;
@@ -57,7 +54,7 @@ public abstract class CompressedTarFunction implements Decompressor {
 
         if (prefix.isPresent() && !foundPrefix) {
           Optional<String> suggestion = CouldNotFindPrefixException
-              .getPrefixSuggestion(entryPath.getPathFragment());
+              .maybeMakePrefixSuggestion(entryPath.getPathFragment());
           if (suggestion.isPresent()) {
             availablePrefixes.add(suggestion.get());
           }

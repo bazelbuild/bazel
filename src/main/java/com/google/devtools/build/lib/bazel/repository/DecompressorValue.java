@@ -62,7 +62,7 @@ public class DecompressorValue implements SkyValue {
         return pathFragment.segmentCount() > 1;
       }
 
-      static public Optional<String> getPrefixSuggestion(PathFragment pathFragment) {
+      static public Optional<String> maybeMakePrefixSuggestion(PathFragment pathFragment) {
         if (isValidPrefixSuggestion(pathFragment)) {
           return Optional.of(pathFragment.getSegment(0));
         } else {
@@ -72,7 +72,7 @@ public class DecompressorValue implements SkyValue {
     }
 
     Path decompress(DecompressorDescriptor descriptor)
-        throws RepositoryFunctionException, IOException;
+        throws IOException;
   }
 
   private final Path directory;
