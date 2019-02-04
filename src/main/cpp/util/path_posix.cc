@@ -14,8 +14,6 @@
 
 #include "src/main/cpp/util/path_platform.h"
 
-#include <regex>
-
 #include <limits.h>  // PATH_MAX
 
 #include <string.h>  // strncmp
@@ -71,12 +69,20 @@ std::string MakeAbsolute(const std::string &path) {
 
 std::string ResolveEnvvars(const std::string &path) {
   std::string result = path;
-  static std::regex env("\\$\\{([^}]+)\\}");
-  std::smatch m;
-  while (std::regex_search(result, m, env)) {
-    const char *value = getenv(m[1].str().c_str());
-    const std::string replacement = std::string(value ? value : "");
-    result.replace(m.position(0), m.length(0), replacement);
+  size_t start = 0;
+  while ((start = result.find("${", start)) != std::string::npos) {
+    // Just match to the next }
+    size_t end = result.find("}", start + 1);
+    if (end == std::string::npos) {
+      // No more variables can exist
+      break;
+    }
+    // Extract the variable name
+    const std::string name = result.substr(start + 2, end - start - 2);
+    // Get the value from the environment
+    const char *value = getenv(name.c_str());
+    result.erase(start, end - start + 1);
+    result.insert(start, value ? value : "");
   }
   return result;
 }
