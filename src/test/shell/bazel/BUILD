@@ -75,17 +75,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_enable_disable_tools_defaults_flag_test",
-    size = "large",
-    srcs = ["bazel_enable_disable_tools_defaults_flag_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/test/shell:shell_utils.sh",
-    ],
-    tags = ["no_windows"],
-)
-
-sh_test(
     name = "bazel_windows_example_test",
     size = "large",
     srcs = ["bazel_windows_example_test.sh"],

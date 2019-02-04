@@ -1324,13 +1324,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
     setSkylarkSemantics(skylarkSemanticsOptions.toSkylarkSemantics());
-    if (packageCacheOptions.incompatibleDisableInMemoryToolsDefaultsPackage) {
-      setupDefaultPackage("# //tools/defaults in-memory package is disabled.");
-      PrecomputedValue.ENABLE_DEFAULTS_PACKAGE.set(injectable(), false);
-    } else {
-      setupDefaultPackage(defaultsPackageContents);
-      PrecomputedValue.ENABLE_DEFAULTS_PACKAGE.set(injectable(), true);
-    }
+
+    setupDefaultPackage("# //tools/defaults in-memory package is disabled.");
+    PrecomputedValue.ENABLE_DEFAULTS_PACKAGE.set(injectable(), false);
 
     setPackageLocator(pkgLocator);
 

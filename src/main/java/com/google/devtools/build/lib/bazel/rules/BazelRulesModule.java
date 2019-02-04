@@ -40,6 +40,18 @@ import java.io.IOException;
 public class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
   public static class GraveyardOptions extends OptionsBase {
+    @Option(
+        name = "incompatible_disable_tools_defaults_package",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.DEPRECATED,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+          OptionMetadataTag.INCOMPATIBLE_CHANGE
+        },
+        help = "Deprecated no-op.")
+    public boolean incompatibleDisableInMemoryToolsDefaultsPackage;
 
     @Option(
         name = "experimental_enable_cc_toolchain_config_info",
