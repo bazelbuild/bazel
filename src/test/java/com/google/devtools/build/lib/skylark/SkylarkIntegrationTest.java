@@ -653,7 +653,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testInstrumentedFilesProviderWithCodeCoverageDiabled() throws Exception {
+  public void testInstrumentedFilesProviderWithCodeCoverageDisabled() throws Exception {
     scratch.file(
         "test/skylark/extension.bzl",
         "def custom_rule_impl(ctx):",
@@ -680,7 +680,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     assertThat(target.getLabel().toString()).isEqualTo("//test/skylark:cr");
     InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
-    assertWithMessage("InstrumentedFilesProvider should be set.").that(provider).isNotNull();
+    assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
     assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles())).isEmpty();
   }
 
@@ -712,7 +712,70 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
     assertThat(target.getLabel().toString()).isEqualTo("//test/skylark:cr");
     InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
-    assertWithMessage("InstrumentedFilesProvider should be set.").that(provider).isNotNull();
+    assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
+    assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles()))
+        .containsExactly("a.txt", "A.java");
+  }
+
+  @Test
+  public void testInstrumentedFilesInfo_coverageDisabled() throws Exception {
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  return struct(instrumented_files=struct(",
+        "      extensions = ['txt'],",
+        "      source_attributes = ['attr1'],",
+        "      dependency_attributes = ['attr2']))",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "  attrs = {",
+        "      'attr1': attr.label_list(mandatory = True, allow_files=True),",
+        "      'attr2': attr.label_list(mandatory = True)})");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
+        "",
+        "java_library(name='jl', srcs = [':A.java'])",
+        "custom_rule(name = 'cr', attr1 = [':a.txt', ':a.random'], attr2 = [':jl'])");
+
+    useConfiguration("--nocollect_code_coverage");
+
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
+
+    InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
+    assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
+    assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles())).isEmpty();
+  }
+
+  @Test
+  public void testInstrumentedFilesInfo_coverageEnabled() throws Exception {
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  return [coverage_common.instrumented_files_info(ctx,",
+        "      extensions = ['txt'],",
+        "      source_attributes = ['attr1'],",
+        "      dependency_attributes = ['attr2'])]",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "  attrs = {",
+        "      'attr1': attr.label_list(mandatory = True, allow_files=True),",
+        "      'attr2': attr.label_list(mandatory = True)})");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
+        "",
+        "java_library(name='jl', srcs = [':A.java'])",
+        "custom_rule(name = 'cr', attr1 = [':a.txt', ':a.random'], attr2 = [':jl'])");
+
+    useConfiguration("--collect_code_coverage");
+
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
+
+    InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
+    assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
     assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles()))
         .containsExactly("a.txt", "A.java");
   }

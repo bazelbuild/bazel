@@ -94,6 +94,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.python.FakePyInfo.FakePyInf
 import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.test.FakeCoverageCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
 import com.google.devtools.build.skydoc.rendering.ProviderInfo;
@@ -486,9 +487,12 @@ public class SkydocMain {
     ProtoBootstrap protoBootstrap = new ProtoBootstrap(new FakeProtoInfoApiProvider());
     PyBootstrap pyBootstrap = new PyBootstrap(new FakePyInfoProvider());
     RepositoryBootstrap repositoryBootstrap = new RepositoryBootstrap(new FakeRepositoryModule());
-    TestingBootstrap testingBootstrap = new TestingBootstrap(new FakeTestingModule(),
-        new FakeAnalysisFailureInfoProvider(),
-        new FakeAnalysisTestResultInfoProvider());
+    TestingBootstrap testingBootstrap =
+        new TestingBootstrap(
+            new FakeTestingModule(),
+            new FakeCoverageCommon(),
+            new FakeAnalysisFailureInfoProvider(),
+            new FakeAnalysisTestResultInfoProvider());
 
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
