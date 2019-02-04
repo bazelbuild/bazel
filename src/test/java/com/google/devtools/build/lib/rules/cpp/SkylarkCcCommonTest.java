@@ -4676,4 +4676,34 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
 
     assertThat(toolchainResolutionEnabled()).isTrue();
   }
+
+  @Test
+  public void testWrongExtensionThrowsError() throws Exception {
+    setUpCcLinkingContextTest();
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "cc_binary(name='bin',",
+        "   deps = [':a'],",
+        ")",
+        "crule(name='a',",
+        "   static_library = 'a.o',",
+        "   pic_static_library = 'a.pic.o',",
+        "   dynamic_library = 'a.ifso',",
+        "   interface_library = 'a.so',",
+        ")");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'a.o' does not have any of the allowed extensions .a, .lib or .pic.a");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'a.pic.o' does not have any of the allowed extensions .a, .lib or .pic.a");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'a.ifso' does not have any of the allowed extensions .so, .dylib or .dll");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'a.so' does not have any of the allowed extensions .ifso, .tbd or .lib");
+  }
 }
