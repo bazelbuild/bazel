@@ -71,7 +71,7 @@ std::string MakeAbsolute(const std::string &path) {
 
 std::string ResolveEnvvars(const std::string &path) {
   std::string result = path;
-  static std::regex env("\\$\\{([^}]+)}");
+  static std::regex env("\\$\\{([^}]+)\\}");
   std::smatch m;
   while (std::regex_search(result, m, env)) {
     const char *value = getenv(m[1].str().c_str());
