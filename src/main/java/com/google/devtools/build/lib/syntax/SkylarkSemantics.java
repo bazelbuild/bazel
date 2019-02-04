@@ -217,7 +217,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
           .incompatibleDisableDeprecatedAttrParams(false)
-          .incompatibleDisableObjcProviderResources(true)
+          .incompatibleDisableObjcProviderResources(false)
           .incompatibleDisallowDataTransition(true)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowFileType(false)
