@@ -38,7 +38,7 @@ def find_cpp_toolchain(ctx):
     if hasattr(cc_common, "is_cc_toolchain_resolution_enabled_do_not_use") and cc_common.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx):
         return ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
 
-    if Label("//tools/cpp:toolchain_type") in ctx.fragments.platform.enabled_toolchain_types:
+    if Label("@bazel_tools//tools/cpp:toolchain_type") in ctx.fragments.platform.enabled_toolchain_types:
         return ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]
 
     # Fall back to the legacy implicit attribute lookup.
