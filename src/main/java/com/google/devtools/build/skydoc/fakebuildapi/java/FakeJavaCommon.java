@@ -111,8 +111,9 @@ public class FakeJavaCommon
 
   @Override
   public ImmutableList<String> getDefaultJavacOpts(
-      SkylarkRuleContextApi skylarkRuleContext,
-      String javaToolchainAttr,
+      Object skylarkRuleContext,
+      Object javaToolchainAttr,
+      Object javaToolchain,
       Location loc,
       SkylarkSemantics semantics)
       throws EvalException {

@@ -2318,6 +2318,56 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertContainsEvent("java_common.JavaToolchainInfo");
   }
 
+  @Test
+  public void defaultJavacOpts() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  return struct(",
+        "    javac_opts = java_common.default_javac_opts(",
+        "        ctx, java_toolchain_attr = '_java_toolchain')",
+        "    )",
+        "get_javac_opts = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  }",
+        ");");
+
+    scratch.file("a/BUILD", "load(':rule.bzl', 'get_javac_opts')", "get_javac_opts(name='r')");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked") // Use an extra variable in order to suppress the warning.
+    SkylarkList<String> javacopts = (SkylarkList<String>) r.get("javac_opts");
+    assertThat(String.join(" ", javacopts)).contains("-source 6 -target 6");
+  }
+
+  @Test
+  public void defaultJavacOpts_toolchainProvider() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  return struct(",
+        "    javac_opts = java_common.default_javac_opts(",
+        "        java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo])",
+        "    )",
+        "get_javac_opts = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  }",
+        ");");
+
+    scratch.file("a/BUILD", "load(':rule.bzl', 'get_javac_opts')", "get_javac_opts(name='r')");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked") // Use an extra variable in order to suppress the warning.
+    SkylarkList<String> javacopts = (SkylarkList<String>) r.get("javac_opts");
+    assertThat(String.join(" ", javacopts)).contains("-source 6 -target 6");
+  }
+
   private boolean toolchainResolutionEnabled() throws Exception {
     scratch.file(
         "a/rule.bzl",

@@ -190,26 +190,49 @@ public class JavaSkylarkCommon
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
   public ImmutableList<String> getDefaultJavacOpts(
-      SkylarkRuleContext skylarkRuleContext,
-      String javaToolchainAttr,
+      Object skylarkRuleContext,
+      Object javaToolchainAttr,
+      Object javaToolchain,
       Location location,
       SkylarkSemantics skylarkSemantics)
       throws EvalException {
-    RuleContext ruleContext = skylarkRuleContext.getRuleContext();
-    ConfiguredTarget javaToolchainConfigTarget =
-        (ConfiguredTarget) skylarkRuleContext.getAttr().getValue(javaToolchainAttr);
-    JavaToolchainProvider toolchain =
-        JavaInfoBuildHelper.getInstance()
-            .getJavaToolchainProvider(skylarkSemantics, location, javaToolchainConfigTarget);
-    ImmutableList<String> javacOptsFromAttr;
-    if (ruleContext.getRule().isAttrDefined("javacopts", Type.STRING_LIST)) {
-      javacOptsFromAttr = ruleContext.getExpander().withDataLocations().tokenized("javacopts");
+    if (skylarkSemantics.incompatibleUseToolchainProvidersInJavaCommon()) {
+      // TODO(b/122738702): remove support for passing toolchains as configured targets
+      if (javaToolchain == Runtime.NONE
+          || skylarkRuleContext != Runtime.NONE
+          || javaToolchainAttr != Runtime.NONE) {
+        throw new EvalException(
+            location,
+            "pass a java_common.JavaToolchainInfo to the `java_toolchain` param, and omit"
+                + " `ctx` and `java_toolchain_attr`;"
+                + " see https://github.com/bazelbuild/bazel/issues/7186.");
+      }
+    }
+    if (javaToolchain != Runtime.NONE) {
+      if (!(javaToolchain instanceof JavaToolchainProvider)) {
+        throw new EvalException(location, javaToolchain + " is not a JavaToolchainProvider.");
+      }
+      return ((JavaToolchainProvider) javaToolchain).getJavacOptions();
     } else {
+      ConfiguredTarget javaToolchainConfigTarget =
+          (ConfiguredTarget)
+              ((SkylarkRuleContext) skylarkRuleContext)
+                  .getAttr()
+                  .getValue((String) javaToolchainAttr);
+      JavaToolchainProvider toolchain =
+          JavaInfoBuildHelper.getInstance()
+              .getJavaToolchainProvider(skylarkSemantics, location, javaToolchainConfigTarget);
       // This can also be called from Skylark rules that may or may not have an appropriate
       // javacopts attribute.
-      javacOptsFromAttr = ImmutableList.of();
+      RuleContext ruleContext = ((SkylarkRuleContext) skylarkRuleContext).getRuleContext();
+      ImmutableList<String> javacOptsFromAttr;
+      if (ruleContext.getRule().isAttrDefined("javacopts", Type.STRING_LIST)) {
+        javacOptsFromAttr = ruleContext.getExpander().withDataLocations().tokenized("javacopts");
+      } else {
+        javacOptsFromAttr = ImmutableList.of();
+      }
+      return ImmutableList.copyOf(Iterables.concat(toolchain.getJavacOptions(), javacOptsFromAttr));
     }
-    return ImmutableList.copyOf(Iterables.concat(toolchain.getJavacOptions(), javacOptsFromAttr));
   }
 
   @Override
