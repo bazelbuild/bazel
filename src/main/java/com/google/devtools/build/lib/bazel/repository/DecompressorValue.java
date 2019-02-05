@@ -29,9 +29,7 @@ import java.util.Set;
  */
 public class DecompressorValue implements SkyValue {
 
-  /**
-   * Implementation of a decompression algorithm.
-   */
+  /** Implementation of a decompression algorithm. */
   public interface Decompressor {
 
     class CouldNotFindPrefixException extends IOException {
