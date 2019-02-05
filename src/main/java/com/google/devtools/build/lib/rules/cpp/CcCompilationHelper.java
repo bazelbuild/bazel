@@ -202,20 +202,13 @@ public final class CcCompilationHelper {
   // this class with {@code CcCompilationOutputs}.
   public static final class CompilationInfo implements CompilationInfoApi {
     private final CcCompilationContext ccCompilationContext;
-    private final CppDebugFileProvider cppDebugFileProvider;
     private final CcCompilationOutputs compilationOutputs;
 
     private CompilationInfo(
         CcCompilationContext ccCompilationContext,
-        CppDebugFileProvider cppDebugFileProvider,
         CcCompilationOutputs compilationOutputs) {
       this.ccCompilationContext = ccCompilationContext;
-      this.cppDebugFileProvider = cppDebugFileProvider;
       this.compilationOutputs = compilationOutputs;
-    }
-
-    public CppDebugFileProvider getCppDebugFileProvider() {
-      return cppDebugFileProvider;
     }
 
     @Override
@@ -747,18 +740,7 @@ public final class CcCompilationHelper {
     // Create compile actions (both PIC and no-PIC).
     CcCompilationOutputs ccOutputs = createCcCompileActions();
 
-    DwoArtifactsCollector dwoArtifacts =
-        DwoArtifactsCollector.transitiveCollector(
-            ccOutputs,
-            deps,
-            /*generateDwo=*/ false,
-            /*ltoBackendArtifactsUsePic=*/ false,
-            /*ltoBackendArtifacts=*/ ImmutableList.of());
-
-    CppDebugFileProvider cppDebugFileProvider =
-        new CppDebugFileProvider(dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts());
-
-    return new CompilationInfo(ccCompilationContext, cppDebugFileProvider, ccOutputs);
+    return new CompilationInfo(ccCompilationContext, ccOutputs);
   }
 
   public static Map<String, NestedSet<Artifact>> buildOutputGroups(
@@ -766,6 +748,20 @@ public final class CcCompilationHelper {
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
     outputGroups.put(OutputGroupInfo.TEMP_FILES, ccCompilationOutputs.getTemps());
     return outputGroups;
+  }
+
+  public static CppDebugFileProvider buildCppDebugFileProvider(
+      CcCompilationOutputs ccCompilationOutputs, Iterable<TransitiveInfoCollection> deps) {
+    DwoArtifactsCollector dwoArtifacts =
+        DwoArtifactsCollector.transitiveCollector(
+            ccCompilationOutputs,
+            deps,
+            /*generateDwo=*/ false,
+            /*ltoBackendArtifactsUsePic=*/ false,
+            /*ltoBackendArtifacts=*/ ImmutableList.of());
+    CppDebugFileProvider cppDebugFileProvider =
+        new CppDebugFileProvider(dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts());
+    return cppDebugFileProvider;
   }
 
   public static Map<String, NestedSet<Artifact>> buildOutputGroupsForEmittingCompileProviders(
