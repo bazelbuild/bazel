@@ -1002,13 +1002,14 @@ public final class PackageFactory {
       return null;
     }
 
-    if (val instanceof SkylarkValue) {
-      return val;
+    if (val instanceof License) {
+      // License is deprecated as a Starlark type, so omit this type from Starlark values
+      // to avoid exposing these objects, even though they are technically SkylarkValue.
+      return null;
     }
 
-    if (val instanceof License) {
-      // TODO(bazel-team): convert License.getLicenseTypes() to a list of strings.
-      return null;
+    if (val instanceof SkylarkValue) {
+      return val;
     }
 
     if (val instanceof BuildType.SelectorList) {

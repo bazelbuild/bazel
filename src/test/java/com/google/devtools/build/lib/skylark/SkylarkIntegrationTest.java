@@ -2727,6 +2727,28 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("Unused function-based split transition whitelist");
   }
 
+  @Test
+  public void testLicenseType() throws Exception {
+    // Note that attr.license is deprecated, and thus this test is subject to imminent removal.
+    // (See --incompatible_no_attr_license). However, this verifies that until the attribute
+    // is removed, values of the attribute are a valid Starlark type.
+    scratch.file(
+        "test/rule.bzl",
+        "def _my_rule_impl(ctx): ",
+        "  print(ctx.attr.my_license)",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "  attrs = {",
+        "    'my_license':  attr.license(),",
+        "  })");
+    scratch.file("test/BUILD", "load(':rule.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    getConfiguredTarget("//test:test");
+
+    assertContainsEvent("<license object>");
+  }
+
   /**
    * Skylark integration test that forces inlining.
    */

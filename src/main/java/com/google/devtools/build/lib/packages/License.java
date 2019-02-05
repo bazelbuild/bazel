@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.LicenseApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -41,7 +43,7 @@ import java.util.Set;
 @Immutable
 @ThreadSafe
 @AutoCodec
-public final class License {
+public final class License implements LicenseApi {
   private final ImmutableSet<LicenseType> licenseTypes;
   private final ImmutableSet<Label> exceptions;
 
@@ -332,5 +334,10 @@ public final class License {
   @Override
   public int hashCode() {
     return licenseTypes.hashCode() * 43 + exceptions.hashCode();
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<license object>");
   }
 }
