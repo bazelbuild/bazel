@@ -145,6 +145,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_disallow_legacy_java_provider=" + rand.nextBoolean(),
         "--incompatible_disallow_load_labels_to_cross_package_boundaries=" + rand.nextBoolean(),
         "--incompatible_disallow_old_style_args_add=" + rand.nextBoolean(),
+        "--incompatible_disallow_struct_provider_syntax=" + rand.nextBoolean(),
         "--incompatible_expand_directories=" + rand.nextBoolean(),
         "--incompatible_generate_javacommon_source_jar=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
@@ -192,6 +193,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleDisallowLegacyJavaProvider(rand.nextBoolean())
         .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(rand.nextBoolean())
         .incompatibleDisallowOldStyleArgsAdd(rand.nextBoolean())
+        .incompatibleDisallowStructProviderSyntax(rand.nextBoolean())
         .incompatibleExpandDirectories(rand.nextBoolean())
         .incompatibleGenerateJavaCommonSourceJar(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())

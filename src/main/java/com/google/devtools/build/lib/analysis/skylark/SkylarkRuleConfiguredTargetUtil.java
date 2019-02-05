@@ -318,6 +318,16 @@ public final class SkylarkRuleConfiguredTargetUtil {
       // Use the creation location of this struct as a better reference in error messages
       loc = info.getCreationLoc();
       if (info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
+
+        if (context.getSkylarkSemantics().incompatibleDisallowStructProviderSyntax()) {
+          throw new EvalException(
+              loc,
+              "Returning a struct from a rule implementation function is deprecated and will "
+                  + "be removed soon. It may be temporarily re-enabled by setting "
+                  + "--incompatible_disallow_struct_provider_syntax=false . See "
+                  + "https://github.com/bazelbuild/bazel/issues/7347 for details.");
+        }
+
         // Old-style struct, but it may contain declared providers
         StructImpl struct = (StructImpl) target;
         oldStyleProviders = struct;

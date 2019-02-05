@@ -2749,6 +2749,29 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("<license object>");
   }
 
+  @Test
+  public void testDisallowStructProviderSyntax() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=true");
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  return struct()",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl)");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'cr')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:cr");
+    assertContainsEvent(
+        "Returning a struct from a rule implementation function is deprecated and will be "
+            + "removed soon. It may be temporarily re-enabled by setting "
+            + "--incompatible_disallow_struct_provider_syntax=false");
+  }
+
   /**
    * Skylark integration test that forces inlining.
    */

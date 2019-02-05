@@ -326,6 +326,20 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowLoadLabelsToCrossPackageBoundaries;
 
   @Option(
+      name = "incompatible_disallow_struct_provider_syntax",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, rule implementation functions may not return a struct. They must "
+              + "instead return a list of provider instances.")
+  public boolean incompatibleDisallowStructProviderSyntax;
+
+  @Option(
       name = "incompatible_generate_javacommon_source_jar",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -555,6 +569,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisallowLoadLabelsToCrossPackageBoundaries(
             incompatibleDisallowLoadLabelsToCrossPackageBoundaries)
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
+        .incompatibleDisallowStructProviderSyntax(incompatibleDisallowStructProviderSyntax)
         .incompatibleExpandDirectories(incompatibleExpandDirectories)
         .incompatibleGenerateJavaCommonSourceJar(incompatibleGenerateJavaCommonSourceJar)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
