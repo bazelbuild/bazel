@@ -223,7 +223,7 @@ genrule(
   name = "show_app_output",
   srcs = ["empty.source"],
   outs = ["app_output"],
-  cmd = """cat <<EOF > $@
+  cmd = """cat &lt;&lt;EOF &gt; $@
 :app output paths
  execpath: $(execpath :app)
  runfiles: $(rootpath :app)
