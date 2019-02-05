@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.UsesDataBindingProv
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
@@ -515,15 +516,27 @@ public class SkydocMain {
   }
 
   // TODO(cparsons): Remove this constant by migrating the contained symbols to bootstraps.
-  private static final String[] nonBootstrapGlobals = {"android_data", AndroidDex2OatInfoApi.NAME,
-      AndroidManifestInfoApi.NAME, AndroidAssetsInfoApi.NAME,
-      AndroidLibraryAarInfoApi.NAME, AndroidProguardInfoApi.NAME,
-      AndroidIdlProviderApi.NAME, AndroidIdeInfoProviderApi.NAME,
-      AndroidPreDexJarProviderApi.NAME, UsesDataBindingProviderApi.NAME,
-      AndroidCcLinkParamsProviderApi.NAME, AndroidLibraryResourceClassJarProviderApi.NAME,
-      AndroidSdkProviderApi.NAME, AndroidFeatureFlagSetProviderApi.NAME,
-      ProguardMappingProviderApi.NAME, GeneratedExtensionRegistryProviderApi.NAME,
-      AndroidBinaryDataInfoApi.NAME };
+  private static final String[] nonBootstrapGlobals = {
+    "android_data",
+    AndroidDex2OatInfoApi.NAME,
+    AndroidManifestInfoApi.NAME,
+    AndroidAssetsInfoApi.NAME,
+    AndroidLibraryAarInfoApi.NAME,
+    AndroidProguardInfoApi.NAME,
+    AndroidIdlProviderApi.NAME,
+    AndroidIdeInfoProviderApi.NAME,
+    AndroidPreDexJarProviderApi.NAME,
+    UsesDataBindingProviderApi.NAME,
+    AndroidCcLinkParamsProviderApi.NAME,
+    AndroidLibraryResourceClassJarProviderApi.NAME,
+    AndroidSdkProviderApi.NAME,
+    AndroidFeatureFlagSetProviderApi.NAME,
+    ProguardMappingProviderApi.NAME,
+    GeneratedExtensionRegistryProviderApi.NAME,
+    AndroidBinaryDataInfoApi.NAME,
+    "ProtoRegistryAspect",
+    CcInfoApi.NAME
+  };
 
   /**
    * A hack to add a number of global symbols which are part of the build API but are otherwise
