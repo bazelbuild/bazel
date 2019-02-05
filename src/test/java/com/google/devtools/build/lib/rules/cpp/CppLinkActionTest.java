@@ -277,8 +277,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCompilesDynamicModeTestSourcesWithoutFeatureIntoDynamicLibrary()
-      throws Exception {
+  public void testCompilesDynamicModeTestSourcesWithFeatureIntoDynamicLibrary() throws Exception {
     if (OS.getCurrent() == OS.WINDOWS) {
       // Skip the test on Windows.
       // TODO(bazel-team): maybe we should move that test that doesn't work with MSVC toolchain to
@@ -287,9 +286,9 @@ public class CppLinkActionTest extends BuildViewTestCase {
     }
     scratch.file(
         "x/BUILD",
-        "cc_test(name='a', srcs=['a.cc'], features=['-static_link_test_srcs'])",
+        "cc_test(name='a', srcs=['a.cc'], features=['dynamic_link_test_srcs'])",
         "cc_binary(name='b', srcs=['a.cc'])",
-        "cc_test(name='c', srcs=['a.cc'], features=['-static_link_test_srcs'], linkstatic=1)");
+        "cc_test(name='c', srcs=['a.cc'], features=['dynamic_link_test_srcs'], linkstatic=1)");
     scratch.file("x/a.cc", "int main() {}");
     useConfiguration("--force_pic");
 

@@ -96,12 +96,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   public static final String INTERMEDIATE_DWP_DIR = "_dwps";
 
   /**
-   * A string constant for the static_link_test_srcs feature.
+   * A string constant for the dynamic_link_test_srcs feature.
    *
-   * <p>Disabling this feature forces srcs of test executables to be linked dynamically in
+   * <p>Enabling this feature forces srcs of test executables to be linked dynamically in
    * DYNAMIC_MODE=AUTO.
    */
-  public static final String STATIC_LINK_TEST_SRCS = "static_link_test_srcs";
+  public static final String DYNAMIC_LINK_TEST_SRCS = "dynamic_link_test_srcs";
 
   /** Provider for native deps launchers. DO NOT USE. */
   @Deprecated
@@ -330,13 +330,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // Allows the dynamic library generated for code of default dynamic mode targets to be linked
     // separately. The main use case for default dynamic mode is the cc_test rule. The same behavior
     // can also be enabled specifically for tests with an experimental flag.
-    // TODO(meikeb): Retire the experimental flag by end of 2018.
+    // TODO(meikeb): Retire the experimental flag in Q1 2019.
     boolean linkCompileOutputSeparately =
         ruleContext.isTestTarget()
             && linkingMode == LinkingMode.DYNAMIC
             && cppConfiguration.getDynamicModeFlag() == DynamicMode.DEFAULT
             && (cppConfiguration.getLinkCompileOutputSeparately()
-                || ruleContext.getDisabledFeatures().contains(STATIC_LINK_TEST_SRCS));
+                || ruleContext.getFeatures().contains(DYNAMIC_LINK_TEST_SRCS));
     // When linking the object files directly into the resulting binary, we do not need
     // library-level link outputs; thus, we do not let CcCompilationHelper produce link outputs
     // (either shared object files or archives) for a non-library link type [*], and add
