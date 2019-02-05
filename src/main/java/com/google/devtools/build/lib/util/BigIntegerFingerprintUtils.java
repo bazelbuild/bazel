@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.skyframe;
+package com.google.devtools.build.lib.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.math.BigInteger;
 import javax.annotation.Nullable;
 
@@ -23,7 +24,8 @@ public final class BigIntegerFingerprintUtils {
   public static final int BYTES = BITS / 8;
 
   private static final BigInteger UINT128_LIMIT = BigInteger.ONE.shiftLeft(BITS);
-  private static final BigInteger RELATIVE_PRIME = BigInteger.valueOf(31);
+  @VisibleForTesting public static final int RELATIVE_PRIME_INT = 31;
+  private static final BigInteger RELATIVE_PRIME = BigInteger.valueOf(RELATIVE_PRIME_INT);
 
   private BigIntegerFingerprintUtils() {}
 
