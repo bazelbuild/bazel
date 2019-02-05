@@ -39,6 +39,15 @@ public class AqueryOptions extends CommonQueryOptions {
   public boolean includeCommandline;
 
   @Option(
+      name = "include_artifacts",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Includes names of the action inputs and outputs in the output " + "(potentially large).")
+  public boolean includeArtifacts;
+
+  @Option(
       name = "include_aspects",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,

@@ -65,23 +65,30 @@ public class ActionGraphDump {
   private final KnownRuleConfiguredTargets knownRuleConfiguredTargets;
   private final AqueryActionFilter actionFilters;
   private final boolean includeActionCmdLine;
+  private final boolean includeArtifacts;
   private final boolean includeParamFiles;
 
   private Map<String, Iterable<String>> paramFileNameToContentMap;
 
   public ActionGraphDump(
-      boolean includeActionCmdLine, AqueryActionFilter actionFilters, boolean includeParamFiles) {
+      boolean includeActionCmdLine,
+      boolean includeArtifacts,
+      AqueryActionFilter actionFilters,
+      boolean includeParamFiles) {
     this(
         /* actionGraphTargets= */ ImmutableList.of("..."),
         includeActionCmdLine,
+        includeArtifacts,
         actionFilters,
         includeParamFiles);
   }
 
-  public ActionGraphDump(List<String> actionGraphTargets, boolean includeActionCmdLine) {
+  public ActionGraphDump(
+      List<String> actionGraphTargets, boolean includeActionCmdLine, boolean includeArtifacts) {
     this(
         actionGraphTargets,
         includeActionCmdLine,
+        includeArtifacts,
         /* actionFilters= */ AqueryActionFilter.emptyInstance(),
         /* includeParamFiles */ false);
   }
@@ -89,10 +96,12 @@ public class ActionGraphDump {
   public ActionGraphDump(
       List<String> actionGraphTargets,
       boolean includeActionCmdLine,
+      boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
+    this.includeArtifacts = includeArtifacts;
     this.actionFilters = actionFilters;
     this.includeParamFiles = includeParamFiles;
 
@@ -210,20 +219,22 @@ public class ActionGraphDump {
       }
     }
 
-    // Store inputs
-    Iterable<Artifact> inputs = action.getInputs();
-    if (!(inputs instanceof NestedSet)) {
-      inputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs);
-    }
-    NestedSetView<Artifact> nestedSetView = new NestedSetView<>((NestedSet<Artifact>) inputs);
+    if (includeArtifacts) {
+      // Store inputs
+      Iterable<Artifact> inputs = action.getInputs();
+      if (!(inputs instanceof NestedSet)) {
+        inputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs);
+      }
+      NestedSetView<Artifact> nestedSetView = new NestedSetView<>((NestedSet<Artifact>) inputs);
 
-    if (nestedSetView.directs().size() > 0 || nestedSetView.transitives().size() > 0) {
-      actionBuilder.addInputDepSetIds(knownNestedSets.dataToId(nestedSetView));
-    }
+      if (nestedSetView.directs().size() > 0 || nestedSetView.transitives().size() > 0) {
+        actionBuilder.addInputDepSetIds(knownNestedSets.dataToId(nestedSetView));
+      }
 
-    // store outputs
-    for (Artifact artifact : action.getOutputs()) {
-      actionBuilder.addOutputIds(knownArtifacts.dataToId(artifact));
+      // store outputs
+      for (Artifact artifact : action.getOutputs()) {
+        actionBuilder.addOutputIds(knownArtifacts.dataToId(artifact));
+      }
     }
 
     actionGraphBuilder.addActions(actionBuilder.build());

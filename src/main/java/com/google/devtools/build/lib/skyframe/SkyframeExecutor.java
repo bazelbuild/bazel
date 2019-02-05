@@ -708,7 +708,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   public abstract ActionGraphContainer getActionGraphContainer(
-      List<String> actionGraphTargets, boolean includeActionCmdLine)
+      List<String> actionGraphTargets, boolean includeActionCmdLine, boolean includeArtifacts)
       throws CommandLineExpansionException;
 
   class BuildViewProvider {

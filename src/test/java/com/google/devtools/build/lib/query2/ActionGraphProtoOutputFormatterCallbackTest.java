@@ -62,6 +62,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
   public final void setUpAqueryOptions() {
     this.options = new AqueryOptions();
     options.aspectDeps = Mode.OFF;
+    options.includeArtifacts = true;
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 
@@ -358,6 +359,25 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
     ActionGraphContainer actionGraphContainer =
         getOutput("mnemonic('something', //test:foo)", actionFilters);
     assertThat(actionGraphContainer.getActionsCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void test_includeArtifacts_disabled() throws Exception {
+    options.includeArtifacts = false;
+
+    writeFile("test/BUILD", "java_library(name='foo', srcs=['foo.java'])");
+    ActionGraphContainer actionGraphContainer =
+        getOutput("deps(//test:foo)", AqueryActionFilter.emptyInstance());
+    Action javaCompileAction =
+        Iterables.getOnlyElement(
+            actionGraphContainer.getActionsList().stream()
+                .filter(x -> x.getMnemonic().equals("Javac"))
+                .collect(Collectors.toList()));
+
+    assertThat(javaCompileAction.getInputDepSetIdsList()).isEmpty();
+    assertThat(javaCompileAction.getOutputIdsList()).isEmpty();
+    assertThat(actionGraphContainer.getDepSetOfFilesList()).isEmpty();
+    assertThat(actionGraphContainer.getArtifactsList()).isEmpty();
   }
 
   @Test

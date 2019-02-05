@@ -732,9 +732,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public ActionGraphContainer getActionGraphContainer(
-      List<String> actionGraphTargets, boolean includeActionCmdLine)
+      List<String> actionGraphTargets, boolean includeActionCmdLine, boolean includeArtifacts)
       throws CommandLineExpansionException {
-    ActionGraphDump actionGraphDump = new ActionGraphDump(actionGraphTargets, includeActionCmdLine);
+    ActionGraphDump actionGraphDump =
+        new ActionGraphDump(actionGraphTargets, includeActionCmdLine, includeArtifacts);
     for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
         memoizingEvaluator.getDoneValues().entrySet()) {
       SkyKey key = skyKeyAndValue.getKey();

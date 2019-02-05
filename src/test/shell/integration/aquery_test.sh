@@ -136,6 +136,35 @@ EOF
   assert_not_contains "echo unused" output
 }
 
+
+function test_aquery_include_artifacts() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  echo "hello aquery" > "$pkg/in.txt"
+
+  bazel aquery --include_artifacts "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Inputs: \[" output
+  assert_contains "Outputs: \[" output
+
+  bazel aquery --noinclude_artifacts "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_not_contains "Inputs: \[" output
+  assert_not_contains "Outputs: \[" output
+}
+
 function test_aquery_textproto() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
