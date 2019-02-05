@@ -249,13 +249,29 @@ public class SimpleCycleDetector implements CycleDetector {
       if (childrenNodes.size() != temporaryDirectDeps.numElements()) {
         ImmutableSet<SkyKey> childrenSet = ImmutableSet.copyOf(children);
         Set<SkyKey> missingChildren = Sets.difference(childrenSet, childrenNodes.keySet());
-        evaluatorContext
-            .getGraphInconsistencyReceiver()
-            .noteInconsistencyAndMaybeThrow(
-                key,
-                missingChildren,
-                GraphInconsistencyReceiver.Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
-        entry.removeUnfinishedDeps(missingChildren);
+        if (missingChildren.isEmpty()) {
+          logger.warning(
+              "Mismatch for children?? "
+                  + childrenNodes.size()
+                  + ", "
+                  + temporaryDirectDeps.numElements()
+                  + ", "
+                  + childrenSet
+                  + ", "
+                  + childrenNodes
+                  + ", "
+                  + key
+                  + ", "
+                  + entry);
+        } else {
+          evaluatorContext
+              .getGraphInconsistencyReceiver()
+              .noteInconsistencyAndMaybeThrow(
+                  key,
+                  missingChildren,
+                  GraphInconsistencyReceiver.Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
+          entry.removeUnfinishedDeps(missingChildren);
+        }
       }
       children = Maps.filterValues(childrenNodes, nodeEntry -> !nodeEntry.isDone()).keySet();
 
