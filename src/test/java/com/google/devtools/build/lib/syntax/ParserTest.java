@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxEx
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -47,11 +49,14 @@ public class ParserTest extends EvaluationTestCase {
     return parseFileWithComments(input).getStatements();
   }
 
+  private BuildFileAST parseFileForSkylarkAsAST(String... input) {
+    BuildFileAST ast = BuildFileAST.parseString(getEventHandler(), input);
+    return ast.validate(env, getEventHandler());
+  }
+
   /** Parses Skylark code */
   private List<Statement> parseFileForSkylark(String... input) {
-    BuildFileAST ast = BuildFileAST.parseString(getEventHandler(), input);
-    ast = ast.validate(env, getEventHandler());
-    return ast.getStatements();
+    return parseFileForSkylarkAsAST(input).getStatements();
   }
 
   private static String getText(String text, ASTNode node) {
@@ -1503,5 +1508,21 @@ public class ParserTest extends EvaluationTestCase {
         "    3,", // error on this line
         ")\n");
     assertContainsError(":4:5: non-keyword arg after keyword arg");
+  }
+
+  @Test
+  public void testStringsAreDeduped() throws Exception {
+    BuildFileAST buildFileAST =
+        parseFileForSkylarkAsAST("L1 = ['cat', 'dog', 'fish']", "L2 = ['dog', 'fish', 'cat']");
+    Set<String> uniqueStringInstances = Sets.newIdentityHashSet();
+    SyntaxTreeVisitor collectAllStringsInStringLiteralsVisitor =
+        new SyntaxTreeVisitor() {
+          @Override
+          public void visit(StringLiteral stringLiteral) {
+            uniqueStringInstances.add(stringLiteral.getValue());
+          }
+        };
+    collectAllStringsInStringLiteralsVisitor.visit(buildFileAST);
+    assertThat(uniqueStringInstances).containsExactly("cat", "dog", "fish");
   }
 }
