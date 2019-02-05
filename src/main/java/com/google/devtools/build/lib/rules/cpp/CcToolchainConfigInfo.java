@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainConfigInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -724,10 +723,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return hasDynamicLinkingModeFlags;
   }
 
-  @SkylarkCallable(
-      name = "proto",
-      doc = "Returns text proto from the CcToolchainConfigInfo data.",
-      structField = true)
+  @Override
   public String getProto() {
     return proto;
   }

@@ -41,7 +41,8 @@ public interface BazelCcModuleApi<
         LinkingInfoT extends LinkingInfoApi,
         LinkingContextT extends CcLinkingContextApi,
         LibraryToLinkWrapperT extends LibraryToLinkWrapperApi,
-        CcToolchainVariablesT extends CcToolchainVariablesApi>
+        CcToolchainVariablesT extends CcToolchainVariablesApi,
+        CcToolchainConfigInfoT extends CcToolchainConfigInfoApi>
     extends CcModuleApi<
         CcToolchainProviderT,
         FeatureConfigurationT,
@@ -49,7 +50,8 @@ public interface BazelCcModuleApi<
         LinkingContextT,
         LibraryToLinkWrapperT,
         CcToolchainVariablesT,
-        SkylarkRuleContextT> {
+        SkylarkRuleContextT,
+        CcToolchainConfigInfoT> {
 
   @SkylarkCallable(
       name = "compile",

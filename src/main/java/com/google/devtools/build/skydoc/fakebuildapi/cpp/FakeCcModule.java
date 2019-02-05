@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainConfigInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
@@ -50,7 +51,8 @@ public class FakeCcModule
         LinkingInfoApi,
         CcLinkingContextApi,
         LibraryToLinkWrapperApi,
-        CcToolchainVariablesApi> {
+        CcToolchainVariablesApi,
+        CcToolchainConfigInfoApi> {
 
   @Override
   public ProviderApi getCcToolchainProvider() {
@@ -185,6 +187,29 @@ public class FakeCcModule
       Object dynamicLibrary,
       SkylarkList<CcLinkingContextApi> skylarkCcLinkingContexts,
       boolean neverLink) {
+    return null;
+  }
+
+  @Override
+  public CcToolchainConfigInfoApi ccToolchainConfigInfoFromSkylark(
+      SkylarkRuleContextApi skylarkRuleContext,
+      SkylarkList<Object> features,
+      SkylarkList<Object> actionConfigs,
+      SkylarkList<Object> artifactNamePatterns,
+      SkylarkList<String> cxxBuiltInIncludeDirectories,
+      String toolchainIdentifier,
+      String hostSystemName,
+      String targetSystemName,
+      String targetCpu,
+      String targetLibc,
+      String compiler,
+      String abiVersion,
+      String abiLibcVersion,
+      SkylarkList<Object> toolPaths,
+      SkylarkList<Object> makeVariables,
+      Object builtinSysroot,
+      Object ccTargetOs)
+      throws EvalException {
     return null;
   }
 }

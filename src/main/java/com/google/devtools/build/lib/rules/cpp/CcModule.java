@@ -52,12 +52,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkContext;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -91,7 +87,8 @@ public class CcModule
         CcLinkingContext,
         LibraryToLinkWrapper,
         CcToolchainVariables,
-        SkylarkRuleContext> {
+        SkylarkRuleContext,
+        CcToolchainConfigInfo> {
 
   private enum RegisterActions {
     ALWAYS,
@@ -754,79 +751,7 @@ public class CcModule
         : NestedSetBuilder.wrap(Order.COMPILE_ORDER, (SkylarkList<T>) o);
   }
 
-  @SkylarkCallable(
-      name = "create_cc_toolchain_config_info",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            type = SkylarkRuleContextApi.class,
-            doc = "The rule context."),
-        @Param(
-            name = "features",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "action_configs",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "artifact_name_patterns",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "cxx_builtin_include_directories",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "toolchain_identifier",
-            positional = false,
-            type = String.class,
-            named = true),
-        @Param(name = "host_system_name", positional = false, type = String.class, named = true),
-        @Param(name = "target_system_name", positional = false, type = String.class, named = true),
-        @Param(name = "target_cpu", positional = false, type = String.class, named = true),
-        @Param(name = "target_libc", positional = false, type = String.class, named = true),
-        @Param(name = "compiler", positional = false, type = String.class, named = true),
-        @Param(name = "abi_version", positional = false, type = String.class, named = true),
-        @Param(name = "abi_libc_version", positional = false, type = String.class, named = true),
-        @Param(
-            name = "tool_paths",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "make_variables",
-            positional = false,
-            named = true,
-            defaultValue = "[]",
-            type = SkylarkList.class),
-        @Param(
-            name = "builtin_sysroot",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "cc_target_os",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-      })
+  @Override
   public CcToolchainConfigInfo ccToolchainConfigInfoFromSkylark(
       SkylarkRuleContext skylarkRuleContext,
       SkylarkList<Object> features,
