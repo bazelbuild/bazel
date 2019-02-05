@@ -613,6 +613,11 @@ public class CcModule
             .addPrivateHeaders(separatedHeadersAndSources.first)
             .addSources(separatedHeadersAndSources.second)
             .addCcCompilationContexts(ccCompilationContexts)
+            // TODO(b/123908721): Pass from Starlark as part of the compilation context list.
+            .addCcCompilationContexts(
+                ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
+            .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
+            .addQuoteIncludeDirs(cppSemantics.getQuoteIncludes(ruleContext))
             .setPurpose(convertFromNoneable(purpose, null));
 
     SkylarkNestedSet additionalCompilationInputs =

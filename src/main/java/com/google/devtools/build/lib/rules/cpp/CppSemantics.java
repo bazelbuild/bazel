@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 
 /** Pluggable C++ compilation semantics. */
 public interface CppSemantics {
@@ -40,8 +42,7 @@ public interface CppSemantics {
    * <p>Gives the semantics implementation the opportunity to change what the C++ rule propagates to
    * dependent rules.
    */
-  void setupCcCompilationContext(
-      RuleContext ruleContext, CcCompilationContext.Builder ccCompilationContextBuilder);
+  List<PathFragment> getQuoteIncludes(RuleContext ruleContext);
 
   /**
    * Returns the set of includes which are not mandatory and may be pruned by include processing.

@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -877,5 +878,12 @@ public class CppHelper {
     PlatformConfiguration platformConfig =
         Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
     return platformConfig.isToolchainTypeEnabled(getToolchainTypeFromRuleClass(ruleContext));
+  }
+
+  public static ImmutableList<CcCompilationContext> getCompilationContextsFromDeps(
+      List<TransitiveInfoCollection> deps) {
+    return Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
+        .map(CcInfo::getCcCompilationContext)
+        .collect(ImmutableList.toImmutableList());
   }
 }
