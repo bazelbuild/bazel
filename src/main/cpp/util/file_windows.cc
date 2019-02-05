@@ -757,13 +757,12 @@ void SyncFile(const string& path) {
 bool MakeDirectoriesW(const wstring& path, unsigned int mode) {
   std::wstring abs_path;
   std::string error;
-  if (!AsAbsoluteWindowsPath(path, &abs_path, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "MakeDirectoriesW(" << blaze_util::WstringToString(path)
-        << ") : " << error;
-  }
   if (abs_path.empty()) {
     return false;
+  }
+  if (!AsAbsoluteWindowsPath(path, &abs_path, &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "MakeDirectoriesW("
+        << blaze_util::WstringToString(path) << "): " << error;
   }
   if (IsRootDirectoryW(abs_path) || IsDirectoryW(abs_path)) {
     return true;
