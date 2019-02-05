@@ -92,6 +92,9 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "tools/jdk/build_defs.bzl",
         Files.readAllBytes(Runfiles.location("tools/jdk/build_defs.bzl").toPath()));
+    scratch.file(
+        "tools/jdk/toolchain_utils.bzl",
+        Files.readAllBytes(Runfiles.location("tools/jdk/toolchain_utils.bzl").toPath()));
     invalidatePackages();
   }
 
