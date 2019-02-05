@@ -126,10 +126,8 @@ public class AspectDefinitionTest {
         .propagateAlongAttribute("deps")
         .build();
 
-    assertThat(withAspects.propagateAlong(createLabelListAttribute("srcs")))
-        .isTrue();
-    assertThat(withAspects.propagateAlong(createLabelListAttribute("deps")))
-        .isTrue();
+    assertThat(withAspects.propagateAlong("srcs")).isTrue();
+    assertThat(withAspects.propagateAlong("deps")).isTrue();
   }
 
   @Test
@@ -138,17 +136,8 @@ public class AspectDefinitionTest {
         .propagateAlongAllAttributes()
         .build();
 
-    assertThat(withAspects.propagateAlong(createLabelListAttribute("srcs")))
-        .isTrue();
-    assertThat(withAspects.propagateAlong(createLabelListAttribute("deps")))
-        .isTrue();
-  }
-
-
-  private static Attribute createLabelListAttribute(String name) {
-    return Attribute.attr(name, BuildType.LABEL_LIST)
-        .allowedFileTypes(FileTypeSet.ANY_FILE)
-        .build();
+    assertThat(withAspects.propagateAlong("srcs")).isTrue();
+    assertThat(withAspects.propagateAlong("deps")).isTrue();
   }
 
   @Test

@@ -135,6 +135,21 @@ public abstract class DependencyResolver {
     }
   }
 
+  @AutoValue
+  abstract static class PartiallyResolvedDependency {
+    public abstract Label getLabel();
+
+    public abstract ConfigurationTransition getTransition();
+
+    public abstract ImmutableList<Aspect> getBaseAspects();
+
+    static PartiallyResolvedDependency of(
+        Label label, ConfigurationTransition transition, ImmutableList<Aspect> baseAspects) {
+      return new AutoValue_DependencyResolver_PartiallyResolvedDependency(
+          label, transition, baseAspects);
+    }
+  }
+
   /**
    * Returns ids for dependent nodes of a given node, sorted by attribute. Note that some
    * dependencies do not have a corresponding attribute here, and we use the null attribute to
@@ -248,8 +263,6 @@ public abstract class DependencyResolver {
       throw new IllegalStateException(target.getLabel().toString());
     }
 
-    OrderedSetMultimap<Attribute, Dependency> outgoingEdges = OrderedSetMultimap.create();
-
     List<Label> dependencyLabels =
         outgoingLabels.entries().stream()
             // Toolchains are resolved separately, so we don't need to depend on their packages.
@@ -261,15 +274,17 @@ public abstract class DependencyResolver {
             .distinct()
             .collect(Collectors.toList());
 
-    Map<Label, Target> targetMap = getTargets(dependencyLabels, target, rootCauses);
-    if (targetMap == null) {
-      // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
-      return outgoingEdges;
-    }
-
     Rule fromRule = target instanceof Rule ? (Rule) target : null;
     ConfiguredAttributeMapper attributeMap =
         fromRule == null ? null : ConfiguredAttributeMapper.of(fromRule, configConditions);
+    OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
+        OrderedSetMultimap.create();
+
+    Map<Label, Target> targetMap = getTargets(dependencyLabels, target, rootCauses);
+    if (targetMap == null) {
+      // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
+      return OrderedSetMultimap.create();
+    }
 
     for (Map.Entry<DependencyKind, Label> entry : outgoingLabels.entries()) {
       Label toLabel = entry.getValue();
@@ -280,20 +295,61 @@ public abstract class DependencyResolver {
         // use sensible defaults. Not depending on their package makes the error message reporting
         // a missing toolchain a bit better.
         // TODO(lberki): This special-casing is weird. Find a better way to depend on toolchains.
+        partiallyResolvedDeps.put(
+            TOOLCHAIN_DEPENDENCY,
+            PartiallyResolvedDependency.of(
+                toLabel,
+                // TODO(jcater): Replace this with a proper transition for the execution platform.
+                HostTransition.INSTANCE,
+                ImmutableList.of()));
+        continue;
+      }
+
+      if (entry.getKey() == VISIBILITY_DEPENDENCY) {
+        // Package groups should be analyzed with the null configuration, but we don't know if this
+        // is actually a package group. So just use no transition until it's known whether that
+        // assumption is correct.
+        partiallyResolvedDeps.put(
+            VISIBILITY_DEPENDENCY,
+            PartiallyResolvedDependency.of(toLabel, NoTransition.INSTANCE, ImmutableList.of()));
+        continue;
+      }
+
+      if (entry.getKey() == OUTPUT_FILE_RULE_DEPENDENCY) {
+        partiallyResolvedDeps.put(
+            OUTPUT_FILE_RULE_DEPENDENCY,
+            PartiallyResolvedDependency.of(toLabel, NoTransition.INSTANCE, ImmutableList.of()));
+        continue;
+      }
+
+      Attribute attribute = entry.getKey().getAttribute();
+      ImmutableList<Aspect> baseAspects = attribute.getAspects(fromRule);
+      ConfigurationTransition attributeTransition =
+          attribute.hasSplitConfigurationTransition()
+              ? attribute.getSplitTransition(attributeMap)
+              : attribute.getConfigurationTransition();
+      partiallyResolvedDeps.put(
+          entry.getKey(),
+          PartiallyResolvedDependency.of(toLabel, attributeTransition, baseAspects));
+    }
+
+    OrderedSetMultimap<Attribute, Dependency> outgoingEdges = OrderedSetMultimap.create();
+
+    for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry :
+        partiallyResolvedDeps.entries()) {
+      PartiallyResolvedDependency dep = entry.getValue();
+
+      if (entry.getKey() == TOOLCHAIN_DEPENDENCY) {
         Attribute toolchainsAttribute =
             attributeMap.getAttributeDefinition(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR);
         outgoingEdges.put(
             toolchainsAttribute,
             Dependency.withTransitionAndAspects(
-                toLabel,
-                // TODO(jcater): Replace this with a proper transition for the execution platform.
-                HostTransition.INSTANCE,
-                AspectCollection.EMPTY));
+                dep.getLabel(), dep.getTransition(), AspectCollection.EMPTY));
         continue;
       }
 
-      Target toTarget = targetMap.get(toLabel);
-
+      Target toTarget = targetMap.get(dep.getLabel());
       if (toTarget == null) {
         // Dependency pointing to non-existent target. This error was reported above, so we can just
         // ignore this dependency. Toolchain dependencies always have toTarget == null since we do
@@ -303,14 +359,14 @@ public abstract class DependencyResolver {
 
       if (entry.getKey() == VISIBILITY_DEPENDENCY) {
         if (toTarget instanceof PackageGroup) {
-          outgoingEdges.put(null, Dependency.withNullConfiguration(toLabel));
+          outgoingEdges.put(null, Dependency.withNullConfiguration(dep.getLabel()));
         } else {
           // Note that this error could also be caught in
           // AbstractConfiguredTarget.convertVisibility(), but we have an
           // opportunity here to avoid dependency cycles that result from
           // the visibility attribute of a rule referring to a rule that
           // depends on it (instead of its package)
-          invalidPackageGroupReferenceHook(node, toLabel);
+          invalidPackageGroupReferenceHook(node, dep.getLabel());
         }
 
         continue;
@@ -320,28 +376,25 @@ public abstract class DependencyResolver {
         outgoingEdges.put(
             null,
             Dependency.withTransitionAndAspects(
-                toLabel, NoTransition.INSTANCE, AspectCollection.EMPTY));
+                dep.getLabel(), NoTransition.INSTANCE, AspectCollection.EMPTY));
         continue;
       }
 
       Attribute attribute = entry.getKey().getAttribute();
       AspectClass ownerAspect = entry.getKey().getOwningAspect();
 
-      ConfigurationTransition attributeTransition =
-          attribute.hasSplitConfigurationTransition()
-              ? attribute.getSplitTransition(attributeMap)
-              : attribute.getConfigurationTransition();
-
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
-              node.getConfiguration(), attributeTransition, toTarget, trimmingTransitionFactory);
+              node.getConfiguration(), dep.getTransition(), toTarget, trimmingTransitionFactory);
+
       AspectCollection requiredAspects =
-          requiredAspects(fromRule, aspects, attribute, ownerAspect, toTarget);
+          requiredAspects(
+              fromRule, aspects, dep.getBaseAspects(), attribute.getName(), ownerAspect, toTarget);
       outgoingEdges.put(
           attribute,
           transition == NullTransition.INSTANCE
-              ? Dependency.withNullConfiguration(toLabel)
-              : Dependency.withTransitionAndAspects(entry.getValue(), transition, requiredAspects));
+              ? Dependency.withNullConfiguration(dep.getLabel())
+              : Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
     }
 
     return outgoingEdges;
@@ -535,7 +588,7 @@ public abstract class DependencyResolver {
    */
   private static void collectPropagatingAspects(
       Iterable<Aspect> aspectPath,
-      Attribute attribute,
+      String attributeName,
       @Nullable AspectClass aspectOwningAttribute,
       Rule target,
       ImmutableList.Builder<Aspect> filteredAspectPath,
@@ -548,7 +601,7 @@ public abstract class DependencyResolver {
         continue;
       }
       lastAspect = aspect;
-      if (aspect.getDefinition().propagateAlong(attribute)
+      if (aspect.getDefinition().propagateAlong(attributeName)
           && aspect
               .getDefinition()
               .getRequiredProviders()
@@ -565,16 +618,17 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * Collect all aspects that originate on {@code attribute} of {@code originalRule}
-   * and are applicable to a {@code target}
+   * Collect all aspects that originate on {@code attribute} of {@code originalRule} and are
+   * applicable to a {@code target}
    *
-   * They are appended to {@code filteredAspectPath} and registered in {@code visibleAspects} set.
+   * <p>They are appended to {@code filteredAspectPath} and registered in {@code visibleAspects}
+   * set.
    */
   private static void collectOriginatingAspects(
-      Rule originalRule, Attribute attribute, Rule target,
+      Iterable<Aspect> baseAspects,
+      Rule target,
       ImmutableList.Builder<Aspect> filteredAspectPath,
       ImmutableSet.Builder<AspectDescriptor> visibleAspects) {
-    ImmutableList<Aspect> baseAspects = attribute.getAspects(originalRule);
     RuleClass ruleClass = target.getRuleClassObject();
     for (Aspect baseAspect : baseAspects) {
       if (baseAspect.getDefinition().getRequiredProviders()
@@ -612,7 +666,8 @@ public abstract class DependencyResolver {
   private AspectCollection requiredAspects(
       Rule fromRule,
       Iterable<Aspect> aspects,
-      Attribute attribute,
+      Iterable<Aspect> baseAspects,
+      String attributeName,
       AspectClass ownerAspect,
       Target toTarget)
       throws InconsistentAspectOrderException {
@@ -624,16 +679,15 @@ public abstract class DependencyResolver {
     ImmutableSet.Builder<AspectDescriptor> visibleAspects = ImmutableSet.builder();
 
     if (ownerAspect == null) {
-      collectOriginatingAspects(
-          fromRule, attribute, (Rule) toTarget, filteredAspectPath, visibleAspects);
+      collectOriginatingAspects(baseAspects, (Rule) toTarget, filteredAspectPath, visibleAspects);
     }
 
     collectPropagatingAspects(
-        aspects, attribute, ownerAspect, (Rule) toTarget, filteredAspectPath, visibleAspects);
+        aspects, attributeName, ownerAspect, (Rule) toTarget, filteredAspectPath, visibleAspects);
     try {
       return AspectCollection.create(filteredAspectPath.build(), visibleAspects.build());
     } catch (AspectCycleOnPathException e) {
-      throw new InconsistentAspectOrderException(fromRule, attribute, toTarget, e);
+      throw new InconsistentAspectOrderException(fromRule, attributeName, toTarget, e);
     }
   }
 
@@ -673,13 +727,13 @@ public abstract class DependencyResolver {
    */
   public class InconsistentAspectOrderException extends Exception {
     private final Location location;
-    public InconsistentAspectOrderException(Rule originalRule, Attribute attribute, Target target,
-        AspectCycleOnPathException e) {
-      super(String.format("%s (when propagating from %s to %s via attribute %s)",
-          e.getMessage(),
-          originalRule.getLabel(),
-          target.getLabel(),
-          attribute.getName()));
+
+    public InconsistentAspectOrderException(
+        Rule originalRule, String attributeName, Target target, AspectCycleOnPathException e) {
+      super(
+          String.format(
+              "%s (when propagating from %s to %s via attribute %s)",
+              e.getMessage(), originalRule.getLabel(), target.getLabel(), attributeName));
       this.location = originalRule.getLocation();
     }
 

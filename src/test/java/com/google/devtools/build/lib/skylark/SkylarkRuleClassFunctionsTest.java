@@ -1433,9 +1433,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(_impl, attr_aspects=['*'])");
 
     SkylarkDefinedAspect myAspect = (SkylarkDefinedAspect) lookup("my_aspect");
-    assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong(
-        Attribute.attr("foo", BuildType.LABEL).allowedFileTypes().build()
-    )).isTrue();
+    assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong("foo")).isTrue();
   }
 
   @Test
