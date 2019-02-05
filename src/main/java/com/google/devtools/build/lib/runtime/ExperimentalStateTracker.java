@@ -119,6 +119,8 @@ class ExperimentalStateTracker {
   private int failedTests;
   private boolean ok;
   private boolean buildComplete;
+  private String defaultStatus = "Loading";
+  private String defaultActivity = "loading...";
 
   private ExecutionProgressReceiver executionProgressReceiver;
   private PackageProgressReceiver packageProgressReceiver;
@@ -200,6 +202,8 @@ class ExperimentalStateTracker {
     status = null;
     packageProgressReceiver = null;
     configuredTargetProgressReceiver = null;
+    defaultStatus = "Building";
+    defaultActivity = "checking cached actions";
     return workDone;
   }
 
@@ -848,7 +852,7 @@ class ExperimentalStateTracker {
     if (executionProgressReceiver != null) {
       terminalWriter.okStatus().append(executionProgressReceiver.getProgressString());
     } else {
-      terminalWriter.okStatus().append("Building:");
+      terminalWriter.okStatus().append(defaultStatus).append(":");
     }
     if (completedTests > 0) {
       terminalWriter.normal().append(" " + completedTests + " / " + totalTests + " tests");
@@ -861,7 +865,7 @@ class ExperimentalStateTracker {
     // might not be one.
     ActionState oldestAction = getOldestAction();
     if (actionsCount == 0 || oldestAction == null) {
-      terminalWriter.normal().append(" no action");
+      terminalWriter.normal().append(" ").append(defaultActivity);
       maybeShowRecentTest(terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
     } else if (actionsCount == 1) {
       if (maybeShowRecentTest(null, shortVersion, targetWidth - terminalWriter.getPosition())) {
