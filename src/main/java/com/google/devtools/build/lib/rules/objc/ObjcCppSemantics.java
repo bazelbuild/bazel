@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -87,7 +88,9 @@ public class ObjcCppSemantics implements CppSemantics {
 
   @Override
   public void finalizeCompileActionBuilder(
-      RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {
+      BuildConfiguration configuration,
+      FeatureConfiguration featureConfiguration,
+      CppCompileActionBuilder actionBuilder) {
     actionBuilder
         // Because Bazel does not support include scanning, we need the entire crosstool filegroup,
         // including header files, as opposed to just the "compile" filegroup.

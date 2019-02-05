@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 
 /** Pluggable C++ compilation semantics. */
@@ -27,7 +29,10 @@ public interface CppSemantics {
    * <p>Gives the semantics implementation the opportunity to change compile actions at the last
    * minute.
    */
-  void finalizeCompileActionBuilder(RuleContext ruleContext, CppCompileActionBuilder actionBuilder);
+  void finalizeCompileActionBuilder(
+      BuildConfiguration configuration,
+      FeatureConfiguration featureConfiguration,
+      CppCompileActionBuilder actionBuilder);
 
   /**
    * Called before {@link CcCompilationContext}s are finalized.
