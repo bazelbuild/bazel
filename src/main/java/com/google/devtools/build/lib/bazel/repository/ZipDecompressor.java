@@ -78,7 +78,7 @@ public class ZipDecompressor implements Decompressor {
     Path destinationDirectory = descriptor.archivePath().getParentDirectory();
     Optional<String> prefix = descriptor.prefix();
     boolean foundPrefix = false;
-    try(ZipReader reader = new ZipReader(descriptor.archivePath().getPathFile())) {
+    try (ZipReader reader = new ZipReader(descriptor.archivePath().getPathFile())) {
       Collection<ZipFileEntry> entries = reader.entries();
       // Store link, target info of symlinks, we create them after regular files are extracted.
       Map<Path, PathFragment> symlinks = new HashMap<>();
