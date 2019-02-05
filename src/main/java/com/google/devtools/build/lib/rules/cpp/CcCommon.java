@@ -912,6 +912,12 @@ public final class CcCommon {
       }
       if (branchFdoProvider.isAutoXBinaryFdo()) {
         allFeatures.add(CppRuleClasses.XBINARYFDO);
+        // For LLVM, support implicit enabling of ThinLTO for XFDO unless it has been
+        // explicitly disabled.
+        if (toolchain.isLLVMCompiler()
+            && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+          allFeatures.add(CppRuleClasses.ENABLE_XFDO_THINLTO);
+        }
       }
     }
     if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {

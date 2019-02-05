@@ -310,6 +310,17 @@ public abstract class MockCcSupport {
   public static final String FDO_IMPLICIT_THINLTO_CONFIGURATION =
       "" + "feature {  name: 'fdo_implicit_thinlto'}";
 
+  public static final String ENABLE_XFDO_THINLTO_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'enable_xbinaryfdo_thinlto'"
+          + "  requires { feature: 'xbinaryfdo_implicit_thinlto' }"
+          + "  implies: 'thin_lto'"
+          + "}";
+
+  public static final String XFDO_IMPLICIT_THINLTO_CONFIGURATION =
+      "" + "feature {  name: 'xbinaryfdo_implicit_thinlto'}";
+
   public static final String AUTO_FDO_CONFIGURATION =
       ""
           + "feature {"
