@@ -384,16 +384,15 @@ public abstract class DependencyResolver {
         continue;
       }
 
-      Attribute attribute = entry.getKey().getAttribute();
-
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
               node.getConfiguration(), dep.getTransition(), toTarget, trimmingTransitionFactory);
 
       AspectCollection requiredAspects =
-          requiredAspects(fromRule, dep.getPropagatingAspects(), attribute.getName(), toTarget);
+          filterPropagatingAspects(dep.getPropagatingAspects(), toTarget);
+
       outgoingEdges.put(
-          attribute,
+          entry.getKey().getAttribute(),
           transition == NullTransition.INSTANCE
               ? Dependency.withNullConfiguration(dep.getLabel())
               : Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
@@ -630,8 +629,11 @@ public abstract class DependencyResolver {
     return result.build();
   }
 
-  private AspectCollection requiredAspects(
-      Rule fromRule, Iterable<Aspect> aspects, String attributeName, Target toTarget)
+  /**
+   * Filter the set of aspects that are to be propagated according to the set of advertised
+   * providers of the dependency.
+   */
+  private AspectCollection filterPropagatingAspects(Iterable<Aspect> aspects, Target toTarget)
       throws InconsistentAspectOrderException {
     if (!(toTarget instanceof Rule)) {
       return AspectCollection.EMPTY;
@@ -653,7 +655,7 @@ public abstract class DependencyResolver {
     try {
       return AspectCollection.create(filteredAspectPath.build(), visibleAspects.build());
     } catch (AspectCycleOnPathException e) {
-      throw new InconsistentAspectOrderException(fromRule, attributeName, toTarget, e);
+      throw new InconsistentAspectOrderException(toTarget, e);
     }
   }
 
@@ -694,13 +696,9 @@ public abstract class DependencyResolver {
   public class InconsistentAspectOrderException extends Exception {
     private final Location location;
 
-    public InconsistentAspectOrderException(
-        Rule originalRule, String attributeName, Target target, AspectCycleOnPathException e) {
-      super(
-          String.format(
-              "%s (when propagating from %s to %s via attribute %s)",
-              e.getMessage(), originalRule.getLabel(), target.getLabel(), attributeName));
-      this.location = originalRule.getLocation();
+    public InconsistentAspectOrderException(Target target, AspectCycleOnPathException e) {
+      super(String.format("%s (when propagating to %s)", e.getMessage(), target.getLabel()));
+      this.location = target.getLocation();
     }
 
     public Location getLocation() {

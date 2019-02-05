@@ -2139,9 +2139,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
       // expected
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:4:1: Aspect //test:aspect.bzl%a2 is"
+        "ERROR /workspace/test/BUILD:3:1: Aspect //test:aspect.bzl%a2 is"
             + " applied twice, both before and after aspect //test:aspect.bzl%a1 "
-            + "(when propagating from //test:r2 to //test:r1 via attribute dep)");
+            + "(when propagating to //test:r1)");
   }
 
   @Test
@@ -2184,9 +2184,9 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
       // expected
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:4:1: Aspect //test:aspect.bzl%a2 is"
+        "ERROR /workspace/test/BUILD:3:1: Aspect //test:aspect.bzl%a2 is"
             + " applied twice, both before and after aspect //test:aspect.bzl%a1 "
-            + "(when propagating from //test:r2 to //test:r1 via attribute dep)");
+            + "(when propagating to //test:r1)");
   }
 
   /**
