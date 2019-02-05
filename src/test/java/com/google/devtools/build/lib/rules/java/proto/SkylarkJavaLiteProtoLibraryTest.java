@@ -427,7 +427,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
           getProvider(JavaSourceJarsProvider.class, getConfiguredTarget("//x:foo_lite_pb2"));
       assertThat(sourceJarsProvider).isNotNull();
       assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-          .containsExactly("x/foo-lite-src.jar");
+          .containsExactly("x/libfoo-lite-src.jar");
     }
 
     {
@@ -443,7 +443,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
           getProvider(JavaSourceJarsProvider.class, getConfiguredTarget("//x:bar_lite_pb2"));
       assertThat(sourceJarsProvider).isNotNull();
       assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
-          .containsExactly("x/bar-lite-src.jar");
+          .containsExactly("x/libbar-lite-src.jar");
     }
   }
 

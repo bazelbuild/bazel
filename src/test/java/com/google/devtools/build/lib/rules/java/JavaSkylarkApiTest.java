@@ -617,12 +617,12 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
     SkylarkList<Artifact> sourceJars = info.getSourceJars();
-    assertThat(artifactFilesNames(sourceJars)).containsExactly("myjar-src.jar");
+    assertThat(artifactFilesNames(sourceJars)).containsExactly("libcustom-src.jar");
     JavaRuleOutputJarsProvider outputJars = info.getOutputJars();
     assertThat(outputJars.getOutputJars()).hasSize(1);
     OutputJar outputJar = outputJars.getOutputJars().get(0);
     assertThat((outputJar.getClassJar().getFilename())).isEqualTo("libcustom.jar");
-    assertThat((outputJar.getSrcJar().getFilename())).isEqualTo("myjar-src.jar");
+    assertThat(outputJar.getSrcJar().getFilename()).isEqualTo("libcustom-src.jar");
     assertThat((outputJar.getIJar().getFilename())).isEqualTo("libcustom-hjar.jar");
     assertThat(outputJars.getJdeps().getFilename()).isEqualTo("libcustom.jdeps");
   }
