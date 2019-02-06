@@ -91,6 +91,8 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     shard_count = 6,
+    # Remove once fixed: https://github.com/bazelbuild/bazel/issues/4663
+    tags = ["no-remote"],
 )
 
 sh_test(
