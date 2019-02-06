@@ -100,6 +100,59 @@ class TeeImpl : Tee {
   bazel::windows::AutoHandle output2_;
 };
 
+// Buffered input stream (based on a Windows HANDLE) with peek-ahead support.
+//
+// This class uses two consecutive "pages" where it buffers data from the
+// underlying HANDLE (wrapped in an AutoHandle). Both pages are always loaded
+// with data until there's no more data to read.
+//
+// The "active" page is the one where the read cursor is pointing. The other
+// page is the next one to be read once the client moves the read cursor beyond
+// the end of the active page.
+//
+// The client advances the read cursor with Advance(). When the cursor reaches
+// the end of the active page, the other page becomes the active one (whose data
+// is already buffered), and the old active page is loaded with new data from
+// the underlying file.
+class IFStreamImpl : IFStream {
+ public:
+  // Creates a new IFStream.
+  //
+  // If successful, then takes ownership of the HANDLE in 'handle', and returns
+  // a new IFStream pointer. Otherwise leaves 'handle' alone and returns
+  // nullptr.
+  static IFStream* Create(bazel::windows::AutoHandle* handle,
+                          DWORD max_page_size = 0x100000 /* 1 MB */);
+
+  bool Get(uint8_t* result) const override;
+  bool Advance() override;
+
+ protected:
+  bool PeekN(DWORD n, uint8_t* result) const override;
+
+ private:
+  bazel::windows::AutoHandle handle_;
+  const std::unique_ptr<uint8_t[]> data_;
+  const DWORD max_page_size_;
+  DWORD page1_size_;
+  DWORD page2_size_;
+  DWORD page_end_;
+  DWORD read_pos_;
+
+  IFStreamImpl(bazel::windows::AutoHandle* handle,
+               std::unique_ptr<uint8_t[]>&& data, DWORD data_size,
+               DWORD max_page_size)
+      : handle_(handle),
+        data_(std::move(data)),
+        max_page_size_(max_page_size),
+        page1_size_(data_size > max_page_size ? max_page_size : data_size),
+        page2_size_(data_size > max_page_size ? data_size - max_page_size : 0),
+        read_pos_(0),
+        page_end_(page1_size_) {}
+
+  bool Page1Active() const { return read_pos_ < max_page_size_; }
+};
+
 // A lightweight path abstraction that stores a Unicode Windows path.
 //
 // The class allows extracting the underlying path as a (immutable) string so
@@ -1719,6 +1772,100 @@ Path Path::Dirname() const {
   return result;
 }
 
+IFStream* IFStreamImpl::Create(bazel::windows::AutoHandle* handle,
+                               DWORD max_page_size) {
+  std::unique_ptr<uint8_t[]> data(new uint8_t[max_page_size * 2]);
+  DWORD read;
+  if (!ReadFile(*handle, data.get(), max_page_size * 2, &read, NULL)) {
+    DWORD err = GetLastError();
+    if (err == ERROR_BROKEN_PIPE) {
+      read = 0;
+    } else {
+      LogErrorWithValue(__LINE__, "Failed to read from file", err);
+      return nullptr;
+    }
+  }
+  return new IFStreamImpl(handle, std::move(data), read, max_page_size);
+}
+
+bool IFStreamImpl::Get(uint8_t* result) const {
+  if (read_pos_ < page_end_) {
+    *result = data_[read_pos_];
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool IFStreamImpl::Advance() {
+  if (read_pos_ + 1 < page_end_) {
+    read_pos_++;
+    return true;
+  }
+  const bool page1_was_active = Page1Active();
+  // The new page should have already been loaded when we started reading the
+  // current one (or it was filled by the Create method). Its size should only
+  // be zero if we reached EOF.
+  if ((page1_was_active && page2_size_ == 0) ||
+      (!page1_was_active && page1_size_ == 0)) {
+    return false;
+  }
+  // Overwrite the *active* page, because read_pos_ is about to move out of it
+  // and the current inactive page will be the new active one.
+  if (!ReadFile(handle_,
+                page1_was_active ? data_.get() : (data_.get() + max_page_size_),
+                max_page_size_, page1_was_active ? &page1_size_ : &page2_size_,
+                NULL)) {
+    DWORD err = GetLastError();
+    if (err == ERROR_BROKEN_PIPE) {
+      // The stream is reading from a pipe, and there's no more data.
+      if (page1_was_active) {
+        page1_size_ = 0;
+      } else {
+        page2_size_ = 0;
+      }
+    } else {
+      LogErrorWithValue(__LINE__, "Failed to read from file", err);
+      return false;
+    }
+  }
+  page_end_ = page1_was_active ? max_page_size_ + page2_size_ : page1_size_;
+  read_pos_ = page1_was_active ? max_page_size_ : 0;
+  return true;
+}
+
+bool IFStreamImpl::PeekN(DWORD n, uint8_t* result) const {
+  if (n > 3) {
+    // We only need to support peeking at up to 3 bytes. The theoretical upper
+    // limit is max_page_size_ * 2 - 1, because the buffer can hold at most
+    // max_page_size_ * 2 bytes of data and peeking starts at the next byte.
+    return false;
+  }
+
+  if (page_end_ - read_pos_ > n) {
+    // The current page has enough data we can peek at.
+    for (DWORD i = 0; i < n; ++i) {
+      result[i] = data_[read_pos_ + 1 + i];
+    }
+    return true;
+  }
+  DWORD required_from_next_page = n - (page_end_ - 1 - read_pos_);
+  // Check that the next page has enough data.
+  if ((Page1Active() && page2_size_ < required_from_next_page) ||
+      (!Page1Active() && page1_size_ < required_from_next_page)) {
+    // Pages are loaded eagerly by Advance(). The only way the next page's size
+    // can be zero is if we reached EOF.
+    return false;
+  }
+  for (DWORD i = 0, pos = read_pos_ + 1; i < n; ++i, ++pos) {
+    if (pos == page_end_) {
+      pos = Page1Active() ? max_page_size_ : 0;
+    }
+    result[i] = data_[pos];
+  }
+  return true;
+}
+
 }  // namespace
 
 void ZipEntryPaths::Create(const std::string& root,
@@ -1900,6 +2047,11 @@ bool TestOnly_CdataEscapeAndAppend(const std::wstring& abs_input,
   bazel::windows::AutoHandle output;
   return OpenFileForWriting(output_path, &output) &&
          CdataEscapeAndAppend(input_path, output);
+}
+
+IFStream* TestOnly_CreateIFStream(bazel::windows::AutoHandle* handle,
+                                  DWORD page_size) {
+  return IFStreamImpl::Create(handle, page_size);
 }
 
 }  // namespace testing
