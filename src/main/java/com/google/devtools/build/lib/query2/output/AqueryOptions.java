@@ -65,4 +65,15 @@ public class AqueryOptions extends CommonQueryOptions {
               + "Note: Enabling this flag will automatically enable the "
               + "--include_commandline flag.")
   public boolean includeParamFiles;
+
+  @Option(
+      name = "skyframe_state",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Without performing extra analysis, dump the current Action Graph from Skyframe. "
+              + "Note: Specifying a target with --skyframe_state is currently not supported. "
+              + "This flag is only available with --output=proto or --output=textproto.")
+  public boolean queryCurrentSkyframeState;
 }

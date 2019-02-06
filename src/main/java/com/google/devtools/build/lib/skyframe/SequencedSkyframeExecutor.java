@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.query2.AqueryActionFilter;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
@@ -711,7 +712,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               throw new IllegalStateException(
                   "Failed to get Rule target from package when calculating stats.", e);
             }
-            RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
             RuleClass ruleClass = rule.getRuleClassObject();
             RuleStat ruleStat =
                 ruleStats.computeIfAbsent(
@@ -736,6 +736,24 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       throws CommandLineExpansionException {
     ActionGraphDump actionGraphDump =
         new ActionGraphDump(actionGraphTargets, includeActionCmdLine, includeArtifacts);
+    return buildActionGraphContainerFromDump(actionGraphDump);
+  }
+
+  /** Get ActionGraphContainer from the Skyframe evaluator. Used for aquery. */
+  public ActionGraphContainer getActionGraphContainer(
+      boolean includeActionCmdLine,
+      AqueryActionFilter aqueryActionFilter,
+      boolean includeParamFiles,
+      boolean includeArtifacts)
+      throws CommandLineExpansionException {
+    ActionGraphDump actionGraphDump =
+        new ActionGraphDump(
+            includeActionCmdLine, includeArtifacts, aqueryActionFilter, includeParamFiles);
+    return buildActionGraphContainerFromDump(actionGraphDump);
+  }
+
+  private ActionGraphContainer buildActionGraphContainerFromDump(ActionGraphDump actionGraphDump)
+      throws CommandLineExpansionException {
     for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
         memoizingEvaluator.getDoneValues().entrySet()) {
       SkyKey key = skyKeyAndValue.getKey();
@@ -751,7 +769,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             AspectKey aspectKey = aspectValue.getKey();
             ConfiguredTargetValue configuredTargetValue =
                 (ConfiguredTargetValue)
-                memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
+                    memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
             actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
           }
         }

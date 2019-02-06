@@ -40,11 +40,6 @@ public class InputsFunction extends ActionFilterFunction {
   }
 
   @Override
-  public int getMandatoryArguments() {
-    return 2;
-  }
-
-  @Override
   public Iterable<ArgumentType> getArgumentTypes() {
     return ImmutableList.of(ArgumentType.WORD, ArgumentType.EXPRESSION);
   }

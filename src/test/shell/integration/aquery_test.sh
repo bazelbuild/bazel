@@ -70,6 +70,14 @@ function assert_only_action_foo() {
   return 0
 }
 
+function assert_only_action_foo_textproto() {
+  expect_log_once "actions {"
+  assert_contains "input_dep_set_ids: \"0\"" $1
+  assert_contains "output_ids: \"2\"" $1
+  assert_contains "mnemonic: \"Genrule\"" $1
+  return 0
+}
+
 function test_basic_aquery() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
@@ -976,6 +984,92 @@ EOF
 
   bazel aquery --output=textproto --include_aspects --noinclude_commandline ${QUERY} > output \
     2> "$TEST_log" || fail "Expected success"
+}
+
+function test_aquery_skyframe_state_no_filter_no_previous_build_empty() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+
+  bazel clean
+
+  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_not_contains "actions" output
+}
+
+function test_aquery_skyframe_state_wrong_syntax() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+
+  EXPECTED_LOG="Specifying a build target(s) \[//some_target\] with --skyframe_state is currently not supported"
+  bazel aquery --output=textproto --skyframe_state "//some_target" > output 2> "$TEST_log" \
+    && fail "Expected failure"
+  expect_log "${EXPECTED_LOG}"
+
+  bazel aquery --output=textproto --skyframe_state "inputs('pattern', //some_target)" > output 2> "$TEST_log" \
+    && fail "Expected failure"
+  expect_log "${EXPECTED_LOG}"
+}
+
+function test_aquery_skyframe_state_no_filter_with_previous_build() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  bazel clean
+
+  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_not_contains "actions" output
+
+  bazel build --nobuild "//$pkg:foo"
+
+  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo_textproto output
+}
+
+function test_aquery_skyframe_state_with_filter_with_previous_build() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+
+genrule(
+    name = "wrong_input",
+    srcs = ["wrong_input.java"],
+    outs = ["wi_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  QUERY="inputs('.*matching_in.java', outputs('.*matching_out', mnemonic('Genrule')))"
+
+  bazel clean
+  bazel build --nobuild "//$pkg:foo"
+
+  bazel aquery --output=textproto --skyframe_state ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_only_action_foo_textproto output
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"
