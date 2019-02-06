@@ -198,7 +198,9 @@ public abstract class LibraryToLinkWrapper implements LibraryToLinkWrapperApi<Ar
 
       // TODO(janakr): if action key context is not available, the digest can be computed lazily,
       // only if we are doing an equality comparison and artifacts are equal. That should never
-      // happen, so doing an expensive digest should be ok then.
+      // happen, so doing an expensive digest should be ok then. If this is ever moved to Starlark
+      // and Starlark doesn't support custom equality or amortized deep equality of nested sets, a
+      // Symbol can be used as an equality proxy, similar to what LinkOptions does above.
       Linkstamp(
           Artifact artifact,
           NestedSet<Artifact> declaredIncludeSrcs,
