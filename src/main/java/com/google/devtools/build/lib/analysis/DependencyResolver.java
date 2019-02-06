@@ -364,7 +364,7 @@ public abstract class DependencyResolver {
    *
    * <p>This should really be done where we filter other illegal kinds of dependencies (e.g. on the
    * wrong rule class), but we'll either have to figure out a way to report the common mistake of
-   * the visibility attribute of a rule refering to the rule that depends on it (instead of its
+   * the visibility attribute of a rule referring to the rule that depends on it (instead of its
    * package) or decide to live without nice reporting in that case.
    */
   private void filterIllegalVisibilityDependencies(
