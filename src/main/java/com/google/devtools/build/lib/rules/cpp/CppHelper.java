@@ -717,11 +717,13 @@ public class CppHelper {
 
   /** Returns the corresponding compiled TreeArtifact given the source TreeArtifact. */
   public static SpecialArtifact getCompileOutputTreeArtifact(
-      RuleContext ruleContext, Artifact sourceTreeArtifact, String outputName, boolean usePic) {
-    PathFragment objectDir = getObjDirectory(ruleContext.getLabel(), usePic);
-
-    return ruleContext.getTreeArtifact(
-        objectDir.getRelative(outputName), sourceTreeArtifact.getRoot());
+      ActionConstructionContext actionConstructionContext,
+      Label label,
+      Artifact sourceTreeArtifact,
+      String outputName,
+      boolean usePic) {
+    return actionConstructionContext.getTreeArtifact(
+        getObjDirectory(label, usePic).getRelative(outputName), sourceTreeArtifact.getRoot());
   }
 
   public static String getArtifactNameForCategory(
