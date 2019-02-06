@@ -626,7 +626,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamNoData) {
 
   CreateIFStreamForData("", &s, 6);
   ASSERT_FALSE(s->Get(buf));
-  ASSERT_FALSE(s->Move());
+  ASSERT_FALSE(s->Advance());
   ASSERT_FALSE(s->Peek1(buf));
   ASSERT_FALSE(s->Peek2(buf));
   ASSERT_FALSE(s->Peek3(buf));
@@ -648,7 +648,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanPageSize) {
   ASSERT_EQ(buf[0], 'b');
   ASSERT_EQ(buf[1], 'c');
   ASSERT_FALSE(s->Peek3(buf));
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 
   // Read position is at "b".
   ASSERT_TRUE(s->Get(buf));
@@ -657,7 +657,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanPageSize) {
   ASSERT_EQ(buf[0], 'c');
   ASSERT_FALSE(s->Peek2(buf));
   ASSERT_FALSE(s->Peek3(buf));
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 
   // Read position is at "c".
   ASSERT_TRUE(s->Get(buf));
@@ -665,7 +665,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanPageSize) {
   ASSERT_FALSE(s->Peek1(buf));
   ASSERT_FALSE(s->Peek2(buf));
   ASSERT_FALSE(s->Peek3(buf));
-  ASSERT_FALSE(s->Move());
+  ASSERT_FALSE(s->Advance());
 }
 
 TEST_F(TestWrapperWindowsTest, TestIFStreamExactlySinglePageSize) {
@@ -687,10 +687,10 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamExactlySinglePageSize) {
   ASSERT_EQ(buf[0], 'b');
   ASSERT_EQ(buf[1], 'c');
   ASSERT_EQ(buf[2], 'd');
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 
   // Read position is at "b". Nothing to test here, move to "c".
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 
   // Read position is at "c". Last position where we can Peek3.
   ASSERT_TRUE(s->Get(buf));
@@ -704,7 +704,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamExactlySinglePageSize) {
   ASSERT_EQ(buf[0], 'd');
   ASSERT_EQ(buf[1], 'e');
   ASSERT_EQ(buf[2], 'f');
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 
   // Read position is at "d". Last position where we can Peek2.
   ASSERT_TRUE(s->Get(buf));
@@ -715,7 +715,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamExactlySinglePageSize) {
   ASSERT_EQ(buf[0], 'e');
   ASSERT_EQ(buf[1], 'f');
   ASSERT_FALSE(s->Peek3(buf));
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 
   // Read position is at "e". Last position where we can Peek1.
   ASSERT_TRUE(s->Get(buf));
@@ -724,7 +724,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamExactlySinglePageSize) {
   ASSERT_EQ(buf[0], 'f');
   ASSERT_FALSE(s->Peek2(buf));
   ASSERT_FALSE(s->Peek3(buf));
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 
   // Read position is at "f". No more peeking or moving.
   ASSERT_TRUE(s->Get(buf));
@@ -732,7 +732,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamExactlySinglePageSize) {
   ASSERT_FALSE(s->Peek1(buf));
   ASSERT_FALSE(s->Peek2(buf));
   ASSERT_FALSE(s->Peek3(buf));
-  ASSERT_FALSE(s->Move());
+  ASSERT_FALSE(s->Advance());
 }
 
 TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanDoublePageSize) {
@@ -743,7 +743,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanDoublePageSize) {
 
   // Move near the page boundary.
   while (buf[0] != 'e') {
-    ASSERT_TRUE(s->Move());
+    ASSERT_TRUE(s->Advance());
     ASSERT_TRUE(s->Get(buf));
   }
 
@@ -759,12 +759,12 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanDoublePageSize) {
   ASSERT_EQ(buf[0], 'f');
   ASSERT_EQ(buf[1], 'g');
   ASSERT_EQ(buf[2], 'h');
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 
   // Read position is at "f". Keep moving.
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
   // Read position is at "g". Keep moving.
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 
   // Read position is at "h".
   ASSERT_TRUE(s->Get(buf));
@@ -773,7 +773,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanDoublePageSize) {
   ASSERT_EQ(buf[0], 'i');
   ASSERT_FALSE(s->Peek2(buf));
   ASSERT_FALSE(s->Peek3(buf));
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 }
 
 TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanTriplePageSize) {
@@ -785,7 +785,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanTriplePageSize) {
 
   // Move near the second page boundary.
   while (buf[0] != 'k') {
-    ASSERT_TRUE(s->Move());
+    ASSERT_TRUE(s->Advance());
     ASSERT_TRUE(s->Get(buf));
   }
 
@@ -801,11 +801,11 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanTriplePageSize) {
   ASSERT_EQ(buf[0], 'l');
   ASSERT_EQ(buf[1], 'm');
   ASSERT_EQ(buf[2], 'n');
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 
   // Move near the end of the last page.
   while (buf[0] != 'm') {
-    ASSERT_TRUE(s->Move());
+    ASSERT_TRUE(s->Advance());
     ASSERT_TRUE(s->Get(buf));
   }
 
@@ -818,7 +818,7 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanTriplePageSize) {
   ASSERT_EQ(buf[0], 'n');
   ASSERT_EQ(buf[1], 'o');
   ASSERT_FALSE(s->Peek3(buf));
-  ASSERT_TRUE(s->Move());
+  ASSERT_TRUE(s->Advance());
 }
 
 }  // namespace

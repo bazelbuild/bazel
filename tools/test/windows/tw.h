@@ -120,11 +120,11 @@ class IFStream {
   // Returns true upon success, returns false if there's no more data to read.
   virtual bool Get(uint8_t* result) const = 0;
 
-  // Moves the read cursor one byte ahead. May fetch data from the underlying
+  // Advances the read cursor one byte ahead. May fetch data from the underlying
   // HANDLE.
-  // Returns true if the cursor could be moved, returns false otherwise or if
-  // there was an I/O error.
-  virtual bool Move() = 0;
+  // Returns true if the cursor could be moved. Returns false if EOF was reached
+  // or if there was an I/O error.
+  virtual bool Advance() = 0;
 
   // Peeks at the next byte after the read cursor. Returns true if there's at
   // least one more byte in the stream.

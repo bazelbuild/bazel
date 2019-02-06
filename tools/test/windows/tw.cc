@@ -110,10 +110,10 @@ class TeeImpl : Tee {
 // page is the next one to be read once the client moves the read cursor beyond
 // the end of the active page.
 //
-// The client advances the read cursor with Move(). When the cursor reaches the
-// end of the active page, the other page becomes the active one (whose data is
-// already buffered), and the old active page is loaded with new data from the
-// underlying file.
+// The client advances the read cursor with Advance(). When the cursor reaches
+// the end of the active page, the other page becomes the active one (whose data
+// is already buffered), and the old active page is loaded with new data from
+// the underlying file.
 class IFStreamImpl : IFStream {
  public:
   // Creates a new IFStream.
@@ -125,7 +125,7 @@ class IFStreamImpl : IFStream {
                           DWORD max_page_size = 0x100000 /* 1 MB */);
 
   bool Get(uint8_t* result) const override;
-  bool Move() override;
+  bool Advance() override;
 
  protected:
   bool PeekN(DWORD n, uint8_t* result) const override;
@@ -1797,7 +1797,7 @@ bool IFStreamImpl::Get(uint8_t* result) const {
   }
 }
 
-bool IFStreamImpl::Move() {
+bool IFStreamImpl::Advance() {
   if (read_pos_ + 1 < page_end_) {
     read_pos_++;
     return true;
@@ -1854,7 +1854,7 @@ bool IFStreamImpl::PeekN(DWORD n, uint8_t* result) const {
   // Check that the next page has enough data.
   if ((Page1Active() && page2_size_ < required_from_next_page) ||
       (!Page1Active() && page1_size_ < required_from_next_page)) {
-    // Pages are loaded eagerly by Move(). The only way the next page's size can
+    // Pages are loaded eagerly by Advance(). The only way the next page's size can
     // be zero is if we reached EOF.
     return false;
   }
