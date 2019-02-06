@@ -1115,7 +1115,8 @@ public final class Runfiles implements RunfilesApi {
       }
       // The suffix should be the same within any blaze build, except for the EMPTY runfiles, which
       // may have an empty suffix, but that is covered above.
-      Preconditions.checkArgument(suffix.equals(runfiles.suffix));
+      Preconditions.checkArgument(
+          suffix.equals(runfiles.suffix), "%s != %s", suffix, runfiles.suffix);
       if (includeUnconditionalArtifacts) {
         artifactsBuilder.addTransitive(runfiles.getUnconditionalArtifacts());
       }
