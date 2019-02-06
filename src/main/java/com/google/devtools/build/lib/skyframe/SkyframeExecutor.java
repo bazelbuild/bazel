@@ -299,6 +299,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @VisibleForTesting boolean lastAnalysisDiscarded = false;
 
+  private boolean analysisCacheDiscarded = false;
+
   private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
 
   protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
@@ -681,6 +683,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return buildDriver;
   }
 
+  public boolean wasAnalysisCacheDiscardedAndResetBit() {
+    boolean tmp = analysisCacheDiscarded;
+    analysisCacheDiscarded = false;
+    return tmp;
+  }
+
   /**
    * This method exists only to allow a module to make a top-level Skyframe call during the
    * transition to making it fully Skyframe-compatible. Do not add additional callers!
@@ -800,6 +808,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Clear any configured target data stored outside Skyframe. */
   public void handleAnalysisInvalidatingChange() {
     logger.info("Dropping configured target data");
+    analysisCacheDiscarded = true;
     skyframeBuildView.clearInvalidatedConfiguredTargets();
     skyframeBuildView.clearLegacyData();
   }

@@ -227,7 +227,8 @@ public final class AnalysisPhaseRunner {
                 view.getTargetsConfigured(),
                 timer.stop().elapsed(TimeUnit.MILLISECONDS),
                 view.getAndClearPkgManagerStatistics(),
-                view.getActionsConstructed()));
+                view.getActionsConstructed(),
+                env.getSkyframeExecutor().wasAnalysisCacheDiscardedAndResetBit()));
     ImmutableSet<BuildConfigurationValue.Key> configurationKeys =
         Stream.concat(
                 analysisResult
