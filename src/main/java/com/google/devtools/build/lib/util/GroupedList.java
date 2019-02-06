@@ -110,7 +110,7 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
 
   // Use with caution as there are no checks in place for the integrity of the resulting object
   // (no de-duping).
-  public void appendGroup(Collection<T> group) {
+  public void appendGroup(Collection<? extends T> group) {
     // Do a check to make sure we don't have lists here. Note that if group is empty,
     // Iterables.getFirst will return null, and null is not instanceof List.
     Preconditions.checkState(!(Iterables.getFirst(group, null) instanceof List),
