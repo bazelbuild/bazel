@@ -47,8 +47,8 @@ cp `which MSVCR100.DLL` $DEST/generator-bin/
 cp `which MSVCP100.DLL` $DEST/generator-bin/
 
 # Convert line breaks for convenience
-find $DEST \( -name '*.c' -o -name '*.h' -o -name '*.txt' \
-    -o -name '*.proto' -o -name '*.py' -o -name '*.options' \) \
+find $DEST -name '*.c' -o -name '*.h' -o -name '*.txt' \
+    -o -name '*.proto' -o -name '*.py' -o -name '*.options' \
     -exec unix2dos '{}' \;
 
 # Zip it all up

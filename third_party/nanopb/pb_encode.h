@@ -35,7 +35,7 @@ struct pb_ostream_s
      */
     int *callback;
 #else
-    bool (*callback)(pb_ostream_t *stream, const uint8_t *buf, size_t count);
+    bool (*callback)(pb_ostream_t *stream, const pb_byte_t *buf, size_t count);
 #endif
     void *state;          /* Free field for use by callback implementation. */
     size_t max_size;      /* Limit number of output bytes written (or use SIZE_MAX). */
@@ -86,7 +86,7 @@ bool pb_get_encoded_size(size_t *size, const pb_field_t fields[], const void *sr
  * Alternatively, you can use a custom stream that writes directly to e.g.
  * a file or a network socket.
  */
-pb_ostream_t pb_ostream_from_buffer(uint8_t *buf, size_t bufsize);
+pb_ostream_t pb_ostream_from_buffer(pb_byte_t *buf, size_t bufsize);
 
 /* Pseudo-stream for measuring the size of a message without actually storing
  * the encoded data.
@@ -106,7 +106,7 @@ pb_ostream_t pb_ostream_from_buffer(uint8_t *buf, size_t bufsize);
 /* Function to write into a pb_ostream_t stream. You can use this if you need
  * to append or prepend some custom headers to the message.
  */
-bool pb_write(pb_ostream_t *stream, const uint8_t *buf, size_t count);
+bool pb_write(pb_ostream_t *stream, const pb_byte_t *buf, size_t count);
 
 
 /************************************************
@@ -130,7 +130,7 @@ bool pb_encode_varint(pb_ostream_t *stream, uint64_t value);
 bool pb_encode_svarint(pb_ostream_t *stream, int64_t value);
 
 /* Encode a string or bytes type field. For strings, pass strlen(s) as size. */
-bool pb_encode_string(pb_ostream_t *stream, const uint8_t *buffer, size_t size);
+bool pb_encode_string(pb_ostream_t *stream, const pb_byte_t *buffer, size_t size);
 
 /* Encode a fixed32, sfixed32 or float value.
  * You need to pass a pointer to a 4-byte wide C variable. */

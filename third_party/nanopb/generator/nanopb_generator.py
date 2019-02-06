@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 
 '''Generate header file for nanopb from a ProtoBuf FileDescriptorSet.'''
-nanopb_version = "nanopb-0.3.5-dev"
+nanopb_version = "nanopb-0.3.6"
 
 import sys
 import re
@@ -125,11 +125,15 @@ class EncodedSize:
     '''Class used to represent the encoded size of a field or a message.
     Consists of a combination of symbolic sizes and integer sizes.'''
     def __init__(self, value = 0, symbols = []):
-        if isinstance(value, strtypes + (Names,)):
-            symbols = [str(value)]
-            value = 0
-        self.value = value
-        self.symbols = symbols
+        if isinstance(value, EncodedSize):
+            self.value = value.value
+            self.symbols = value.symbols
+        elif isinstance(value, strtypes + (Names,)):
+            self.symbols = [str(value)]
+            self.value = 0
+        else:
+            self.value = value
+            self.symbols = symbols
 
     def __add__(self, other):
         if isinstance(other, int):
@@ -193,6 +197,10 @@ class Enum:
 
         result += ' %s;' % self.names
 
+        result += '\n#define _%s_MIN %s' % (self.names, self.values[0][0])
+        result += '\n#define _%s_MAX %s' % (self.names, self.values[-1][0])
+        result += '\n#define _%s_ARRAYSIZE ((%s)(%s+1))' % (self.names, self.names, self.values[-1][0])
+
         if not self.options.long_names:
             # Define the long names always so that enum value references
             # from other files work properly.
@@ -209,7 +217,7 @@ class FieldMaxSize:
             self.worst = worst
 
         self.worst_field = field_name
-        self.checks = checks
+        self.checks = list(checks)
 
     def extend(self, extend, field_name = None):
         self.worst = max(self.worst, extend.worst)
@@ -463,7 +471,10 @@ class Field:
         '''
 
         if self.rules == 'ONEOF':
-            result = '    PB_ONEOF_FIELD(%s, ' % self.union_name
+            if self.anonymous:
+                result = '    PB_ANONYMOUS_ONEOF_FIELD(%s, ' % self.union_name
+            else:
+                result = '    PB_ONEOF_FIELD(%s, ' % self.union_name
         else:
             result = '    PB_FIELD('
 
@@ -489,6 +500,9 @@ class Field:
 
         return result
 
+    def get_last_field_name(self):
+        return self.name
+
     def largest_field_value(self):
         '''Determine if this field needs 16bit or 32bit pb_field_t structure to compile properly.
         Returns numeric value or a C-expression for assert.'''
@@ -497,7 +511,10 @@ class Field:
             if self.rules == 'REPEATED' and self.allocation == 'STATIC':
                 check.append('pb_membersize(%s, %s[0])' % (self.struct_name, self.name))
             elif self.rules == 'ONEOF':
-                check.append('pb_membersize(%s, %s.%s)' % (self.struct_name, self.union_name, self.name))
+                if self.anonymous:
+                    check.append('pb_membersize(%s, %s)' % (self.struct_name, self.name))
+                else:
+                    check.append('pb_membersize(%s, %s.%s)' % (self.struct_name, self.union_name, self.name))
             else:
                 check.append('pb_membersize(%s, %s)' % (self.struct_name, self.name))
 
@@ -653,6 +670,7 @@ class OneOf(Field):
         self.allocation = 'ONEOF'
         self.default = None
         self.rules = 'ONEOF'
+        self.anonymous = False
 
     def add_field(self, field):
         if field.allocation == 'CALLBACK':
@@ -661,6 +679,7 @@ class OneOf(Field):
 
         field.union_name = self.name
         field.rules = 'ONEOF'
+        field.anonymous = self.anonymous
         self.fields.append(field)
         self.fields.sort(key = lambda f: f.tag)
 
@@ -674,7 +693,10 @@ class OneOf(Field):
             result += '    union {\n'
             for f in self.fields:
                 result += '    ' + str(f).replace('\n', '\n    ') + '\n'
-            result += '    } ' + self.name + ';'
+            if self.anonymous:
+                result += '    };'
+            else:
+                result += '    } ' + self.name + ';'
         return result
 
     def types(self):
@@ -693,11 +715,17 @@ class OneOf(Field):
         return None
 
     def tags(self):
-        return '\n'.join([f.tags() for f in self.fields])
+        return ''.join([f.tags() for f in self.fields])
 
     def pb_field_t(self, prev_field_name):
         result = ',\n'.join([f.pb_field_t(prev_field_name) for f in self.fields])
         return result
+
+    def get_last_field_name(self):
+        if self.anonymous:
+            return self.fields[-1].name
+        else:
+            return self.name + '.' + self.fields[-1].name
 
     def largest_field_value(self):
         largest = FieldMaxSize()
@@ -706,10 +734,11 @@ class OneOf(Field):
         return largest
 
     def encoded_size(self, dependencies):
+        '''Returns the size of the largest oneof field.'''
         largest = EncodedSize(0)
         for f in self.fields:
-            size = f.encoded_size(dependencies)
-            if size is None:
+            size = EncodedSize(f.encoded_size(dependencies))
+            if size.value is None:
                 return None
             elif size.symbols:
                 return None # Cannot resolve maximum of symbols
@@ -742,6 +771,8 @@ class Message:
                     pass # No union and skip fields also
                 else:
                     oneof = OneOf(self.name, f)
+                    if oneof_options.anonymous_oneof:
+                        oneof.anonymous = True
                     self.oneofs[i] = oneof
                     self.fields.append(oneof)
 
@@ -782,9 +813,10 @@ class Message:
         if not self.ordered_fields:
             # Empty structs are not allowed in C standard.
             # Therefore add a dummy field if an empty message occurs.
-            result += '    uint8_t dummy_field;'
+            result += '    char dummy_field;'
 
         result += '\n'.join([str(f) for f in self.ordered_fields])
+        result += '\n/* @@protoc_insertion_point(struct:%s) */' % self.name
         result += '\n}'
 
         if self.packed:
@@ -847,10 +879,7 @@ class Message:
         for field in self.ordered_fields:
             result += field.pb_field_t(prev)
             result += ',\n'
-            if isinstance(field, OneOf):
-                prev = field.name + '.' + field.fields[-1].name
-            else:
-                prev = field.name
+            prev = field.get_last_field_name()
 
         result += '    PB_LAST_FIELD\n};'
         return result
@@ -1031,6 +1060,8 @@ class ProtoFile:
             yield options.genformat % (noext + options.extension + '.h')
             yield '\n'
 
+        yield '/* @@protoc_insertion_point(includes) */\n'
+
         yield '#if PB_PROTO_HEADER_VERSION != 30\n'
         yield '#error Regenerate this file with the current version of nanopb generator.\n'
         yield '#endif\n'
@@ -1088,9 +1119,11 @@ class ProtoFile:
             yield '/* Maximum encoded size of messages (where known) */\n'
             for msg in self.messages:
                 msize = msg.encoded_size(self.dependencies)
+                identifier = '%s_size' % msg.name
                 if msize is not None:
-                    identifier = '%s_size' % msg.name
                     yield '#define %-40s %s\n' % (identifier, msize)
+                else:
+                    yield '/* %s depends on runtime parameters */\n' % identifier
             yield '\n'
 
             yield '/* Message IDs (where set with "msgid" option) */\n'
@@ -1125,6 +1158,7 @@ class ProtoFile:
         yield '#endif\n'
 
         # End of header
+        yield '/* @@protoc_insertion_point(eof) */\n'
         yield '\n#endif\n'
 
     def generate_source(self, headername, options):
@@ -1137,6 +1171,7 @@ class ProtoFile:
             yield '/* Generated by %s at %s. */\n\n' % (nanopb_version, time.asctime())
         yield options.genformat % (headername)
         yield '\n'
+        yield '/* @@protoc_insertion_point(includes) */\n'
 
         yield '#if PB_PROTO_HEADER_VERSION != 30\n'
         yield '#error Regenerate this file with the current version of nanopb generator.\n'
@@ -1229,6 +1264,7 @@ class ProtoFile:
             yield 'PB_STATIC_ASSERT(sizeof(double) == 8, DOUBLE_MUST_BE_8_BYTES)\n'
 
         yield '\n'
+        yield '/* @@protoc_insertion_point(eof) */\n'
 
 # ---------------------------------------------------------------------------
 #                    Options parsing for the .proto files
@@ -1333,6 +1369,9 @@ optparser.add_option("-f", "--options-file", dest="options_file", metavar="FILE"
 optparser.add_option("-I", "--options-path", dest="options_path", metavar="DIR",
     action="append", default = [],
     help="Search for .options files additionally in this path")
+optparser.add_option("-D", "--output-dir", dest="output_dir",
+                     metavar="OUTPUTDIR", default=None,
+                     help="Output directory of .pb.h and .pb.c files")
 optparser.add_option("-Q", "--generated-include-format", dest="genformat",
     metavar="FORMAT", default='#include "%s"\n',
     help="Set format string to use for including other .pb.h files. [default: %default]")
@@ -1449,17 +1488,29 @@ def main_cli():
     if options.quiet:
         options.verbose = False
 
-    Globals.verbose_options = options.verbose
+    if options.output_dir and not os.path.exists(options.output_dir):
+        optparser.print_help()
+        sys.stderr.write("\noutput_dir does not exist: %s\n" % options.output_dir)
+        sys.exit(1)
 
+
+    Globals.verbose_options = options.verbose
     for filename in filenames:
         results = process_file(filename, None, options)
 
-        if not options.quiet:
-            sys.stderr.write("Writing to " + results['headername'] + " and "
-                             + results['sourcename'] + "\n")
+        base_dir = options.output_dir or ''
+        to_write = [
+            (os.path.join(base_dir, results['headername']), results['headerdata']),
+            (os.path.join(base_dir, results['sourcename']), results['sourcedata']),
+        ]
 
-        open(results['headername'], 'w').write(results['headerdata'])
-        open(results['sourcename'], 'w').write(results['sourcedata'])
+        if not options.quiet:
+            paths = " and ".join([x[0] for x in to_write])
+            sys.stderr.write("Writing to %s\n" % paths)
+
+        for path, data in to_write:
+            with open(path, 'w') as f:
+                f.write(data)
 
 def main_plugin():
     '''Main function when invoked as a protoc plugin.'''
@@ -1523,4 +1574,3 @@ if __name__ == '__main__':
         main_plugin()
     else:
         main_cli()
-
