@@ -398,7 +398,8 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
       ImmutableList.<Key<?>>of(
           ASSET_CATALOG,
           BUNDLE_FILE,
-          MERGE_ZIP,
+          // TODO(kaipi): Add this back once we have migrated usages of merge_zip from custom rules.
+          // MERGE_ZIP,
           ROOT_MERGE_ZIP,
           STORYBOARD,
           STRINGS,
