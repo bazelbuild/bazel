@@ -266,14 +266,45 @@ public abstract class DependencyResolver {
     Rule fromRule = target instanceof Rule ? (Rule) target : null;
     ConfiguredAttributeMapper attributeMap =
         fromRule == null ? null : ConfiguredAttributeMapper.of(fromRule, configConditions);
-    OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
-        OrderedSetMultimap.create();
 
     Map<Label, Target> targetMap = getTargets(outgoingLabels, target, rootCauses);
     if (targetMap == null) {
       // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
       return OrderedSetMultimap.create();
     }
+
+    OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
+        partiallyResolveDependencies(outgoingLabels, fromRule, attributeMap, aspects);
+
+    filterIllegalVisibilityDependencies(node, targetMap, partiallyResolvedDeps);
+
+    OrderedSetMultimap<Attribute, Dependency> outgoingEdges =
+        fullyResolveDependencies(
+            partiallyResolvedDeps,
+            attributeMap,
+            targetMap,
+            node.getConfiguration(),
+            trimmingTransitionFactory);
+
+    return outgoingEdges;
+  }
+
+  /**
+   * Factor in the properties of the current rule into the dependency edge calculation.
+   *
+   * <p>The target of the dependency edges depends on two things: the rule that depends on them and
+   * the type of target they depend on. This function takes the rule into account. Accordingly, it
+   * should <b>NOT</b> get the {@link Target} instances representing the targets of the dependency
+   * edges as an argument.
+   */
+  private OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
+      partiallyResolveDependencies(
+          OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
+          Rule fromRule,
+          ConfiguredAttributeMapper attributeMap,
+          Iterable<Aspect> aspects) {
+    OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
+        OrderedSetMultimap.create();
 
     for (Map.Entry<DependencyKind, Label> entry : outgoingLabels.entries()) {
       Label toLabel = entry.getValue();
@@ -325,7 +356,21 @@ public abstract class DependencyResolver {
           entry.getKey(),
           PartiallyResolvedDependency.of(toLabel, attributeTransition, propagatingAspects.build()));
     }
+    return partiallyResolvedDeps;
+  }
 
+  /**
+   * Filter out visibility dependencies that don't point to package groups.
+   *
+   * <p>This should really be done where we filter other illegal kinds of dependencies (e.g. on the
+   * wrong rule class), but we'll either have to figure out a way to report the common mistake of
+   * the visibility attribute of a rule refering to the rule that depends on it (instead of its
+   * package) or decide to live without nice reporting in that case.
+   */
+  private void filterIllegalVisibilityDependencies(
+      TargetAndConfiguration node,
+      Map<Label, Target> targetMap,
+      OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps) {
     Set<PartiallyResolvedDependency> illegalVisibilityDeps = new LinkedHashSet<>();
     for (PartiallyResolvedDependency dep : partiallyResolvedDeps.get(VISIBILITY_DEPENDENCY)) {
       Target toTarget = targetMap.get(dep.getLabel());
@@ -348,7 +393,24 @@ public abstract class DependencyResolver {
     for (PartiallyResolvedDependency illegalVisibilityDep : illegalVisibilityDeps) {
       partiallyResolvedDeps.remove(VISIBILITY_DEPENDENCY, illegalVisibilityDep);
     }
+  }
 
+  /**
+   * Factor in the properties of the target where the dependency points to in the dependency edge
+   * calculation.
+   *
+   * <p>The target of the dependency edges depends on two things: the rule that depends on them and
+   * the type of target they depend on. This function takes the rule into account. Accordingly, it
+   * should <b>NOT</b> get the {@link Rule} instance representing the rule whose dependencies are
+   * being calculated as an argument.
+   */
+  private OrderedSetMultimap<Attribute, Dependency> fullyResolveDependencies(
+      OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps,
+      ConfiguredAttributeMapper attributeMap,
+      Map<Label, Target> targetMap,
+      BuildConfiguration originalConfiguration,
+      @Nullable RuleTransitionFactory trimmingTransitionFactory)
+      throws InconsistentAspectOrderException {
     OrderedSetMultimap<Attribute, Dependency> outgoingEdges = OrderedSetMultimap.create();
 
     for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry :
@@ -357,15 +419,15 @@ public abstract class DependencyResolver {
 
       Target toTarget = targetMap.get(dep.getLabel());
       if (toTarget == null) {
-        // Dependency pointing to non-existent target. This error was reported above, so we can just
-        // ignore this dependency. Toolchain dependencies always have toTarget == null since we do
-        // not depend on their package.
+        // Dependency pointing to non-existent target. This error was reported in getTargets(), so
+        // we can just ignore this dependency. Toolchain dependencies always have toTarget == null
+        // since we do not depend on their package.
         continue;
       }
 
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
-              node.getConfiguration(), dep.getTransition(), toTarget, trimmingTransitionFactory);
+              originalConfiguration, dep.getTransition(), toTarget, trimmingTransitionFactory);
 
       AspectCollection requiredAspects =
           filterPropagatingAspects(dep.getPropagatingAspects(), toTarget);
@@ -380,7 +442,6 @@ public abstract class DependencyResolver {
               ? Dependency.withNullConfiguration(dep.getLabel())
               : Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
     }
-
     return outgoingEdges;
   }
 
