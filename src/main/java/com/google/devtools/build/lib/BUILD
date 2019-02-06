@@ -190,7 +190,13 @@ java_library(
     ],
 )
 
+RESOURCE_UTILS_SRCS = [
+    "util/ResourceConverter.java",
+]
+
 COMMAND_UTILS_SRCS = [
+    "util/CommandBuilder.java",
+    "util/CommandDescriptionForm.java",
     "util/CommandFailureUtils.java",
     "util/CommandUtils.java",
 ]
@@ -202,6 +208,7 @@ java_library(
         ":util",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -211,7 +218,7 @@ java_library(
     name = "util",
     srcs = glob(
         ["util/*.java"],
-        exclude = COMMAND_UTILS_SRCS + [
+        exclude = COMMAND_UTILS_SRCS + RESOURCE_UTILS_SRCS + [
             "util/BlazeClock.java",
             "util/Clock.java",
             "util/ExitCode.java",
@@ -652,6 +659,7 @@ java_library(
         ":packages-internal",
         ":process_util",
         ":provider-collection",
+        ":resource-converter",
         ":skylark_semantics",
         ":skylarkinterface",
         ":syntax",
@@ -839,6 +847,7 @@ java_library(
     deps = [
         ":build-base",
         ":build-info",
+        ":command-utils",
         ":events",
         ":exitcode-external",
         ":io",
@@ -1152,6 +1161,7 @@ java_library(
     name = "build-request-options",
     srcs = ["buildtool/BuildRequestOptions.java"],
     deps = [
+        ":resource-converter",
         ":util",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -1178,9 +1188,7 @@ java_library(
 
 java_library(
     name = "resource-converter",
-    srcs = [
-        "util/ResourceConverter.java",
-    ],
+    srcs = RESOURCE_UTILS_SRCS,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/common/options",

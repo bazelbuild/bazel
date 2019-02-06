@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.skylark.skylint;
+package com.google.devtools.skylark.common;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.syntax.FunctionDefStatement;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
-import com.google.devtools.skylark.skylint.LocationRange.Location;
+import com.google.devtools.skylark.common.LocationRange.Location;
 import java.util.AbstractMap;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -50,7 +50,7 @@ public final class DocstringUtils {
    * @return a map from identifier names to their docstring; if there is a file-level docstring, its
    *     key is "".
    */
-  static ImmutableMap<String, StringLiteral> collectDocstringLiterals(BuildFileAST ast) {
+  public static ImmutableMap<String, StringLiteral> collectDocstringLiterals(BuildFileAST ast) {
     ImmutableMap.Builder<String, StringLiteral> nameToDocstringLiteral = ImmutableMap.builder();
     Statement previousStatement = null;
     for (Statement currentStatement : ast.getStatements()) {
@@ -95,7 +95,7 @@ public final class DocstringUtils {
 
   /** If the statement is an assignment to one variable, returns its name, or otherwise null. */
   @Nullable
-  static String getAssignedVariableName(@Nullable Statement stmt) {
+  public static String getAssignedVariableName(@Nullable Statement stmt) {
     if (stmt instanceof AssignmentStatement) {
       Expression lhs = ((AssignmentStatement) stmt).getLValue().getExpression();
       if (lhs instanceof Identifier) {
@@ -107,7 +107,7 @@ public final class DocstringUtils {
 
   /** If the statement is a string literal, returns it, or otherwise null. */
   @Nullable
-  static StringLiteral getStringLiteral(Statement stmt) {
+  public static StringLiteral getStringLiteral(Statement stmt) {
     if (stmt instanceof ExpressionStatement) {
       Expression expr = ((ExpressionStatement) stmt).getExpression();
       if (expr instanceof StringLiteral) {
@@ -167,7 +167,7 @@ public final class DocstringUtils {
    * @param parseErrors a list to which parsing error messages are written
    * @return the parsed docstring information
    */
-  static DocstringInfo parseDocstring(
+  public static DocstringInfo parseDocstring(
       String docstring, int indentation, List<DocstringParseError> parseErrors) {
     DocstringParser parser = new DocstringParser(docstring, indentation);
     DocstringInfo result = parser.parse();
@@ -177,27 +177,6 @@ public final class DocstringUtils {
 
   /** Encapsulates information about a Starlark function docstring. */
   public static class DocstringInfo {
-
-    /** Returns the one-line summary of the docstring. */
-    public String getSummary() {
-      return summary;
-    }
-
-    /**
-     * Returns a list containing information about parameter documentation for the parameters of the
-     * documented function.
-     */
-    public List<ParameterDoc> getParameters() {
-      return parameters;
-    }
-
-    /**
-     * Returns the long-form description of the docstring. (Everything after the one-line summary
-     * and before special sections such as "Args:".
-     */
-    public String getLongDescription() {
-      return longDescription;
-    }
 
     /** The one-line summary at the start of the docstring. */
     final String summary;
@@ -227,8 +206,50 @@ public final class DocstringUtils {
       this.argumentsLocation = argumentsLocation;
     }
 
+
+    /** Returns the one-line summary of the docstring. */
+    public String getSummary() {
+      return summary;
+    }
+
+    /**
+     * Returns a list containing information about parameter documentation for the parameters of the
+     * documented function.
+     */
+    public List<ParameterDoc> getParameters() {
+      return parameters;
+    }
+
+    /**
+     * Returns the long-form description of the docstring. (Everything after the one-line summary
+     * and before special sections such as "Args:".
+     */
+    public String getLongDescription() {
+      return longDescription;
+    }
+
+    /**
+     * Returns the deprecation warning from the 'Deprecated:' section, or empty if there is none.
+     */
+    public String getDeprecated() {
+      return deprecated;
+    }
+
     public boolean isSingleLineDocstring() {
       return longDescription.isEmpty() && parameters.isEmpty() && returns.isEmpty();
+    }
+
+    /**
+     * Returns the documentation of the return value from the 'Returns:' section, or empty if
+     * there is none.
+     */
+    public String getReturns() {
+      return returns;
+    }
+
+    /** Returns the texual location of the 'Arguments:' (not 'Args:') section in the function. */
+    public LocationRange getArgumentsLocation() {
+      return argumentsLocation;
     }
   }
 
@@ -642,6 +663,11 @@ public final class DocstringUtils {
     /** Returns the line number in the containing Starlark file which contains this error. */
     public int getLineNumber() {
       return lineNumber;
+    }
+
+    /** Returns the contents of the original line that caused the parse error. */
+    public String getLine() {
+      return line;
     }
   }
 }
