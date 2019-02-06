@@ -531,7 +531,8 @@ public final class Label
               + "then the following remapping will take place:<br>"
               + "<pre class=language-python>\n"
               + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
-              + "Label(\"@remapped//wiz:quux\")",
+              + "Label(\"@remapped//wiz:quux\")\n"
+              + "</pre>",
       parameters = {
         @Param(
             name = "relName",
