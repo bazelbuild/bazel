@@ -55,7 +55,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -71,7 +70,7 @@ public abstract class DependencyResolver {
    * <p>Usually an attribute, but other special-cased kinds exist, for example, for visibility or
    * toolchains.
    */
-  private interface DependencyKind {
+  public interface DependencyKind {
 
     /**
      * The attribute through which a dependency arises.
@@ -108,18 +107,17 @@ public abstract class DependencyResolver {
   }
 
   /** A dependency for visibility. */
-  private static final DependencyKind VISIBILITY_DEPENDENCY = new NonAttributeDependencyKind();
+  public static final DependencyKind VISIBILITY_DEPENDENCY = new NonAttributeDependencyKind();
 
   /** The dependency on the rule that creates a given output file. */
-  private static final DependencyKind OUTPUT_FILE_RULE_DEPENDENCY =
-      new NonAttributeDependencyKind();
+  public static final DependencyKind OUTPUT_FILE_RULE_DEPENDENCY = new NonAttributeDependencyKind();
 
   /** A dependency on a resolved toolchain. */
-  private static final DependencyKind TOOLCHAIN_DEPENDENCY = new NonAttributeDependencyKind();
+  public static final DependencyKind TOOLCHAIN_DEPENDENCY = new NonAttributeDependencyKind();
 
   /** A dependency through an attribute, either that of an aspect or the rule itself. */
   @AutoValue
-  abstract static class AttributeDependencyKind implements DependencyKind {
+  public abstract static class AttributeDependencyKind implements DependencyKind {
     @Override
     public abstract Attribute getAttribute();
 
@@ -127,7 +125,7 @@ public abstract class DependencyResolver {
     @Nullable
     public abstract AspectClass getOwningAspect();
 
-    private static AttributeDependencyKind forRule(Attribute attribute) {
+    public static AttributeDependencyKind forRule(Attribute attribute) {
       return new AutoValue_DependencyResolver_AttributeDependencyKind(attribute, null);
     }
 
@@ -265,24 +263,13 @@ public abstract class DependencyResolver {
       throw new IllegalStateException(target.getLabel().toString());
     }
 
-    List<Label> dependencyLabels =
-        outgoingLabels.entries().stream()
-            // Toolchains are resolved separately, so we don't need to depend on their packages.
-            // It doesn't cause diminished functionality (after all, we depend on a package that
-            // must have been loaded), but this makse the error message reporting a missing
-            // toolchain a bit better.
-            .filter(e -> e.getKey() != TOOLCHAIN_DEPENDENCY)
-            .map(e -> e.getValue())
-            .distinct()
-            .collect(Collectors.toList());
-
     Rule fromRule = target instanceof Rule ? (Rule) target : null;
     ConfiguredAttributeMapper attributeMap =
         fromRule == null ? null : ConfiguredAttributeMapper.of(fromRule, configConditions);
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
 
-    Map<Label, Target> targetMap = getTargets(dependencyLabels, target, rootCauses);
+    Map<Label, Target> targetMap = getTargets(outgoingLabels, target, rootCauses);
     if (targetMap == null) {
       // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
       return OrderedSetMultimap.create();
@@ -368,16 +355,6 @@ public abstract class DependencyResolver {
         partiallyResolvedDeps.entries()) {
       PartiallyResolvedDependency dep = entry.getValue();
 
-      if (entry.getKey() == TOOLCHAIN_DEPENDENCY) {
-        Attribute toolchainsAttribute =
-            attributeMap.getAttributeDefinition(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR);
-        outgoingEdges.put(
-            toolchainsAttribute,
-            Dependency.withTransitionAndAspects(
-                dep.getLabel(), dep.getTransition(), AspectCollection.EMPTY));
-        continue;
-      }
-
       Target toTarget = targetMap.get(dep.getLabel());
       if (toTarget == null) {
         // Dependency pointing to non-existent target. This error was reported above, so we can just
@@ -393,8 +370,12 @@ public abstract class DependencyResolver {
       AspectCollection requiredAspects =
           filterPropagatingAspects(dep.getPropagatingAspects(), toTarget);
 
+      Attribute attribute =
+          entry.getKey() == TOOLCHAIN_DEPENDENCY
+              ? attributeMap.getAttributeDefinition(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR)
+              : entry.getKey().getAttribute();
       outgoingEdges.put(
-          entry.getKey().getAttribute(),
+          attribute,
           transition == NullTransition.INSTANCE
               ? Dependency.withNullConfiguration(dep.getLabel())
               : Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
@@ -686,7 +667,9 @@ public abstract class DependencyResolver {
    * restarted, at which point the requested dependencies will be available.
    */
   protected abstract Map<Label, Target> getTargets(
-      Collection<Label> labels, Target fromTarget, NestedSetBuilder<Cause> rootCauses)
+      OrderedSetMultimap<DependencyKind, Label> labelMap,
+      Target fromTarget,
+      NestedSetBuilder<Cause> rootCauses)
       throws InterruptedException;
 
   /**

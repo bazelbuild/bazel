@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.PackageRoots;
@@ -309,8 +308,10 @@ public class BuildViewForTesting {
 
       @Override
       protected Map<Label, Target> getTargets(
-          Collection<Label> labels, Target fromTarget, NestedSetBuilder<Cause> rootCauses) {
-        return Streams.stream(labels)
+          OrderedSetMultimap<DependencyKind, Label> labelMap,
+          Target fromTarget,
+          NestedSetBuilder<Cause> rootCauses) {
+        return labelMap.values().stream()
             .distinct()
             .collect(
                 Collectors.toMap(

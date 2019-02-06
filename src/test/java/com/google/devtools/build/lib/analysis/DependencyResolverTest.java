@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.causes.Cause;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import java.util.Collection;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -69,8 +67,10 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
           @Override
           protected Map<Label, Target> getTargets(
-              Collection<Label> labels, Target fromTarget, NestedSetBuilder<Cause> rootCauses) {
-            return Streams.stream(labels)
+              OrderedSetMultimap<DependencyKind, Label> labelMap,
+              Target fromTarget,
+              NestedSetBuilder<Cause> rootCauses) {
+            return labelMap.values().stream()
                 .distinct()
                 .collect(
                     Collectors.toMap(

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
@@ -47,7 +46,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.io.OutputStream;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -212,8 +210,10 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
 
     @Override
     protected Map<Label, Target> getTargets(
-        Collection<Label> labels, Target fromTarget, NestedSetBuilder<Cause> rootCauses) {
-      return Streams.stream(labels)
+        OrderedSetMultimap<DependencyKind, Label> labelMap,
+        Target fromTarget,
+        NestedSetBuilder<Cause> rootCauses) {
+      return labelMap.values().stream()
           .distinct()
           .filter(Objects::nonNull)
           .filter(partialResultMap::containsKey)

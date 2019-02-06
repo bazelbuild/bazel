@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyResolver.AttributeDependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -573,12 +575,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     Map<Label, ConfigMatchingProvider> configConditions = new LinkedHashMap<>();
 
     // Collect the labels of the configured targets we need to resolve.
-    OrderedSetMultimap<Attribute, Label> configLabelMap = OrderedSetMultimap.create();
+    OrderedSetMultimap<DependencyKind, Label> configLabelMap = OrderedSetMultimap.create();
     RawAttributeMapper attributeMap = RawAttributeMapper.of(((Rule) target));
     for (Attribute a : ((Rule) target).getAttributes()) {
       for (Label configLabel : attributeMap.getConfigurabilityKeys(a.getName(), a.getType())) {
         if (!BuildType.Selector.isReservedLabel(configLabel)) {
-          configLabelMap.put(a, target.getLabel().resolveRepositoryRelative(configLabel));
+          configLabelMap.put(
+              AttributeDependencyKind.forRule(a),
+              target.getLabel().resolveRepositoryRelative(configLabel));
         }
       }
     }
@@ -587,7 +591,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     Map<Label, Target> configurabilityTargets =
-        resolver.getTargets(configLabelMap.values(), target, transitiveRootCauses);
+        resolver.getTargets(configLabelMap, target, transitiveRootCauses);
     if (configurabilityTargets == null) {
       return null;
     }
