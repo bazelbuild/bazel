@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
@@ -59,7 +58,6 @@ import javax.annotation.Nullable;
  * A factory and repository for {@link TreeNode} objects. Provides directory structure traversals,
  * computing and caching Merkle hashes on all objects.
  */
-@ThreadSafe
 public final class TreeNodeRepository {
   private static final BaseEncoding LOWER_CASE_HEX = BaseEncoding.base16().lowerCase();
 
@@ -84,7 +82,6 @@ public final class TreeNodeRepository {
    * </ol>
    */
   @Immutable
-  @ThreadSafe
   public static final class TreeNode {
 
     private final int hashCode;
@@ -356,7 +353,7 @@ public final class TreeNodeRepository {
     return interner.intern(new TreeNode(entries, null));
   }
 
-  private synchronized Directory getOrComputeDirectory(TreeNode node) throws IOException {
+  private Directory getOrComputeDirectory(TreeNode node) throws IOException {
     // Assumes all child digests have already been computed!
     Preconditions.checkArgument(!node.isLeaf());
     Directory directory = directoryCache.get(node);
@@ -398,11 +395,9 @@ public final class TreeNodeRepository {
   // Recursively traverses the tree, expanding and computing Merkle digests for nodes for which
   // they have not yet been computed and cached.
   public void computeMerkleDigests(TreeNode root) throws IOException {
-    synchronized (this) {
-      if (directoryCache.get(root) != null) {
-        // Strong assumption: the cache is valid, i.e. parent present implies children present.
-        return;
-      }
+    if (directoryCache.get(root) != null) {
+      // Strong assumption: the cache is valid, i.e. parent present implies children present.
+      return;
     }
     if (!root.isLeaf()) {
       for (TreeNode child : children(root)) {
@@ -458,8 +453,6 @@ public final class TreeNodeRepository {
    * a part of the tree that we are interested in. Should only be used after computeMerkleDigests
    * has been called on one of the node ancestors.
    */
-  // Note: this is not, strictly speaking, thread safe. If someone is deleting cached Merkle hashes
-  // while this is executing, it will trigger an exception. But I think this is WAI.
   public ImmutableList<Directory> treeToDirectories(TreeNode root) {
     ImmutableList.Builder<Directory> directories = ImmutableList.builder();
     for (TreeNode node : descendants(root)) {
