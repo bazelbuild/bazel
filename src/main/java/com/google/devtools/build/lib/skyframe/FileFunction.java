@@ -71,42 +71,45 @@ public class FileFunction implements SkyFunction {
   public FileValue compute(SkyKey skyKey, Environment env)
       throws FileFunctionException, InterruptedException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
+    RootedPath realRootedPath = null;
+    FileStateValue realFileStateValue = null;
     PathFragment relativePath = rootedPath.getRootRelativePath();
 
-    // Fully resolve the path of the parent directory, but only if the current file is not the
-    // filesystem root (has no parent) or a package path root (treated opaquely and handled by
-    // skyframe's DiffAwareness interface).
-    //
-    // This entails resolving ancestor symlinks fully. Note that this is the first thing we do - if
-    // an ancestor is part of a symlink cycle, we want to detect that quickly as it gives a more
-    // informative error message than we'd get doing bogus filesystem operations.
-    RootedPath rootedPathFromAncestors;
-    FileStateValue fileStateValueFromAncestors;
-    if (relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
-      FileStateValue fileStateValue = (FileStateValue) env.getValue(FileStateValue.key(rootedPath));
-      if (fileStateValue == null) {
-        return null;
-      }
-      rootedPathFromAncestors = rootedPath;
-      fileStateValueFromAncestors = fileStateValue;
-    } else {
+    // Resolve ancestor symlinks, but only if the current file is not the filesystem root (has no
+    // parent) or a package path root (treated opaquely and handled by skyframe's DiffAwareness
+    // interface). Note that this is the first thing we do - if an ancestor is part of a
+    // symlink cycle, we want to detect that quickly as it gives a more informative error message
+    // than we'd get doing bogus filesystem operations.
+    if (!relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
       Pair<RootedPath, FileStateValue> resolvedState = resolveFromAncestors(rootedPath, env);
       if (resolvedState == null) {
         return null;
       }
-      rootedPathFromAncestors = resolvedState.getFirst();
-      fileStateValueFromAncestors = resolvedState.getSecond();
-      if (fileStateValueFromAncestors.getType() == FileStateType.NONEXISTENT) {
+      realRootedPath = resolvedState.getFirst();
+      realFileStateValue = resolvedState.getSecond();
+      if (realFileStateValue.getType() == FileStateType.NONEXISTENT) {
         return FileValue.value(
             rootedPath,
             FileStateValue.NONEXISTENT_FILE_STATE_NODE,
-            rootedPathFromAncestors,
-            fileStateValueFromAncestors);
+            realRootedPath,
+            realFileStateValue);
       }
     }
 
-    RootedPath realRootedPath = rootedPathFromAncestors;
-    FileStateValue realFileStateValue = fileStateValueFromAncestors;
+    FileStateValue fileStateValue;
+    if (rootedPath.equals(realRootedPath)) {
+      fileStateValue = Preconditions.checkNotNull(realFileStateValue, rootedPath);
+    } else {
+      fileStateValue = (FileStateValue) env.getValue(FileStateValue.key(rootedPath));
+      if (fileStateValue == null) {
+        return null;
+      }
+    }
+
+    if (realFileStateValue == null) {
+      realRootedPath = rootedPath;
+      realFileStateValue = fileStateValue;
+    }
 
     ArrayList<RootedPath> symlinkChain = new ArrayList<>();
     TreeSet<Path> orderedSeenPaths = Sets.newTreeSet();
@@ -121,9 +124,7 @@ public class FileFunction implements SkyFunction {
       realRootedPath = resolvedState.getFirst();
       realFileStateValue = resolvedState.getSecond();
     }
-
-    return FileValue.value(
-        rootedPath, fileStateValueFromAncestors, realRootedPath, realFileStateValue);
+    return FileValue.value(rootedPath, fileStateValue, realRootedPath, realFileStateValue);
   }
 
   /**

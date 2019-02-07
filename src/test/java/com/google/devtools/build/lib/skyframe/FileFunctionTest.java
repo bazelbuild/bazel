@@ -199,17 +199,17 @@ public class FileFunctionTest {
   }
 
   private FileValue valueForPath(Path path) throws InterruptedException {
-    return valueForPathHelper(pkgRoot, path, makeDriver());
+    return valueForPathHelper(pkgRoot, path);
   }
 
   private FileValue valueForPathOutsidePkgRoot(Path path) throws InterruptedException {
-    return valueForPathHelper(Root.absoluteRoot(fs), path, makeDriver());
+    return valueForPathHelper(Root.absoluteRoot(fs), path);
   }
 
-  private FileValue valueForPathHelper(Root root, Path path, SequentialBuildDriver driver)
-      throws InterruptedException {
+  private FileValue valueForPathHelper(Root root, Path path) throws InterruptedException {
     PathFragment pathFragment = root.relativize(path);
     RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
+    SequentialBuildDriver driver = makeDriver();
     SkyKey key = FileValue.key(rootedPath);
     EvaluationResult<FileValue> result = driver.evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
     assertThat(result.hasError()).isFalse();
@@ -1259,35 +1259,6 @@ public class FileFunctionTest {
     result = driver.evaluate(ImmutableList.of(fooKey), evaluationContext);
     assertThatEvaluationResult(result).hasNoError();
     assertThat(result.get(fooKey).exists()).isTrue();
-  }
-
-  @Test
-  public void testMultipleLevelsOfDirectorySymlinks_Clean() throws Exception {
-    symlink("a/b/c", "../c");
-    Path abcd = path("a/b/c/d");
-    symlink("a/c/d", "../d");
-    assertThat(valueForPath(abcd).isSymlink()).isTrue();
-  }
-
-  @Test
-  public void testMultipleLevelsOfDirectorySymlinks_Incremental() throws Exception {
-    SequentialBuildDriver driver = makeDriver();
-
-    symlink("a/b/c", "../c");
-    Path acd = directory("a/c/d");
-    Path abcd = path("a/b/c/d");
-
-    FileValue abcdFileValue = valueForPathHelper(pkgRoot, abcd, driver);
-    assertThat(abcdFileValue.isDirectory()).isTrue();
-    assertThat(abcdFileValue.isSymlink()).isFalse();
-
-    acd.delete();
-    symlink("a/c/d", "../d");
-    differencer.invalidate(ImmutableList.of(fileStateSkyKey("a/c/d")));
-
-    abcdFileValue = valueForPathHelper(pkgRoot, abcd, driver);
-
-    assertThat(abcdFileValue.isSymlink()).isTrue();
   }
 
   private void checkRealPath(String pathString) throws Exception {
