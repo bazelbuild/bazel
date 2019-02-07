@@ -115,7 +115,6 @@ java_library(
         "JavaStrictCompilationArgsProvider.java",
         "JavaTargetAttributes.java",
         "JavaToolchainProvider.java",
-        "JavaToolchainSkylarkApiProvider.java",
         "JavaUtil.java",
         "MessageBundleInfo.java",
         "NativeLibraryNestedSetBuilder.java",
