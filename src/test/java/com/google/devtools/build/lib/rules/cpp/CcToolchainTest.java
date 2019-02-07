@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -217,8 +216,7 @@ public class CcToolchainTest extends BuildViewTestCase {
             /* requestedFeatures= */ ImmutableSet.of(),
             /* unsupportedFeatures= */ ImmutableSet.of(),
             toolchainProvider);
-    RuleContext ruleContext = getRuleContext(target);
-    return CppHelper.usePicForBinaries(ruleContext, toolchainProvider, featureConfiguration);
+    return CppHelper.usePicForBinaries(toolchainProvider, featureConfiguration);
   }
 
   @Test

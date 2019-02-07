@@ -222,8 +222,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
             /* requestedFeatures= */ ImmutableSet.of(),
             /* unsupportedFeatures= */ ImmutableSet.of(),
             toolchain);
-    boolean usePic =
-        CppHelper.usePicForBinaries(getRuleContext(target), toolchain, featureConfiguration);
+    boolean usePic = CppHelper.usePicForBinaries(toolchain, featureConfiguration);
 
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
 

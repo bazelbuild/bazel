@@ -327,10 +327,10 @@ public final class CcCompilationHelper {
         Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
     setGenerateNoPicAction(
         !ccToolchain.usePicForDynamicLibraries(featureConfiguration)
-            || !CppHelper.usePicForBinaries(ruleContext, ccToolchain, featureConfiguration));
+            || !CppHelper.usePicForBinaries(ccToolchain, featureConfiguration));
     setGeneratePicAction(
         ccToolchain.usePicForDynamicLibraries(featureConfiguration)
-            || CppHelper.usePicForBinaries(ruleContext, ccToolchain, featureConfiguration));
+            || CppHelper.usePicForBinaries(ccToolchain, featureConfiguration));
     ruleErrorConsumer = ruleContext;
     actionRegistry = ruleContext;
     actionConstructionContext = ruleContext;

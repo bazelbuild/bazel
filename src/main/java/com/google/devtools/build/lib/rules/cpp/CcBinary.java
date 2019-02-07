@@ -1096,7 +1096,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     if (isLinkShared(ruleContext)) {
       return ccToolchainProvider.usePicForDynamicLibraries(featureConfiguration);
     } else {
-      return CppHelper.usePicForBinaries(ruleContext, ccToolchainProvider, featureConfiguration);
+      return CppHelper.usePicForBinaries(ccToolchainProvider, featureConfiguration);
     }
   }
 }

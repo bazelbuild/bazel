@@ -505,16 +505,17 @@ public class CppHelper {
 
   /** Returns whether binaries must be compiled with position independent code. */
   public static boolean usePicForBinaries(
-      RuleContext ruleContext,
       CcToolchainProvider toolchain,
       FeatureConfiguration featureConfiguration) {
-    CppConfiguration config = ruleContext.getFragment(CppConfiguration.class);
-    if (CcCommon.noCoptsMatches("-fPIC", ruleContext)) {
+    // TODO(b/124030770): Please do not use this feature without contacting the C++ rules team at
+    // bazel-team@google.com. The feature will be removed in a later Bazel release and it might
+    // break you. Contact us so we can find alternatives for your build.
+    if (featureConfiguration.getRequestedFeatures().contains("coptnopic")) {
       return false;
     }
-    return config.forcePic()
+    return toolchain.getCppConfiguration().forcePic()
         || (toolchain.usePicForDynamicLibraries(featureConfiguration)
-            && config.getCompilationMode() != CompilationMode.OPT);
+            && toolchain.getCppConfiguration().getCompilationMode() != CompilationMode.OPT);
   }
 
   /**

@@ -395,20 +395,27 @@ public class CcCommonTest extends BuildViewTestCase {
         "           srcs = [ 'library.cc' ])",
         "cc_binary(name = 'nopic',",
         "           srcs = [ 'binary.cc' ],",
+        "           features = ['coptnopic'],",
         "           nocopts = '-fPIC')",
         "cc_binary(name = 'libnopic.so',",
         "           srcs = [ 'binary.cc' ],",
+        "           features = ['coptnopic'],",
         "           nocopts = '-fPIC')",
         "cc_library(name = 'nopiclib',",
         "           srcs = [ 'library.cc' ],",
+        "           features = ['coptnopic'],",
         "           nocopts = '-fPIC')");
 
     assertThat(getCppCompileAction("//a:pic").getArguments()).contains("-fPIC");
     assertThat(getCppCompileAction("//a:libpic.so").getArguments()).contains("-fPIC");
     assertThat(getCppCompileAction("//a:piclib").getArguments()).contains("-fPIC");
+    assertThat(getCppCompileAction("//a:piclib").getOutputFile().getFilename())
+        .contains("library.pic.o");
     assertThat(getCppCompileAction("//a:nopic").getArguments()).doesNotContain("-fPIC");
     assertThat(getCppCompileAction("//a:libnopic.so").getArguments()).doesNotContain("-fPIC");
     assertThat(getCppCompileAction("//a:nopiclib").getArguments()).doesNotContain("-fPIC");
+    assertThat(getCppCompileAction("//a:nopiclib").getOutputFile().getFilename())
+        .contains("library.o");
   }
 
   @Test
