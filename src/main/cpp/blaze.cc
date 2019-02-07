@@ -1652,8 +1652,10 @@ bool GrpcBlazeServer::TryConnect(
   grpc::Status status = client->Ping(&context, request, &response);
 
   if (!status.ok() || !ProtoStringEqual(response.cookie(), response_cookie_)) {
-    BAZEL_LOG(INFO) << "Connection to server failed: "
-                    << status.error_message().c_str();
+    BAZEL_LOG(INFO) << "Connection to server failed ("
+                    << "error code: " << status.error_code() << ", "
+                    << "error message: " << status.error_message().c_str()
+                    << ")\n";
     return false;
   }
 
@@ -1808,7 +1810,9 @@ void GrpcBlazeServer::SendCancelMessage() {
   grpc::Status status = client_->Cancel(&context, request, &response);
   if (!status.ok()) {
     BAZEL_LOG(USER) << "\nCould not interrupt server ("
-                    << status.error_message().c_str() << ")\n";
+                    << "error code: " << status.error_code() << ", "
+                    << "error message: " << status.error_message().c_str()
+                    << ")\n";
   }
 }
 
