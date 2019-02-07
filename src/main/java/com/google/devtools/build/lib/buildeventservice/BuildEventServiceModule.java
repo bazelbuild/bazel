@@ -103,7 +103,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
     if (streamer != null) {
       commandEnvironment.getReporter().addHandler(streamer);
       commandEnvironment.getEventBus().register(streamer);
-      long bufferSize =
+      int bufferSize =
           commandEnvironment.getOptions().getOptions(optionsClass()).besOuterrBufferSize;
 
       final SynchronizedOutputStream out = new SynchronizedOutputStream(bufferSize);
@@ -112,12 +112,12 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       streamer.registerOutErrProvider(
           new BuildEventStreamer.OutErrProvider() {
             @Override
-            public String getOut() {
+            public Iterable<String> getOut() {
               return out.readAndReset();
             }
 
             @Override
-            public String getErr() {
+            public Iterable<String> getErr() {
               return err.readAndReset();
             }
           });

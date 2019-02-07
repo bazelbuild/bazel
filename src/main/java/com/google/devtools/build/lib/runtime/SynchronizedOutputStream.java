@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.runtime;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -37,7 +39,7 @@ public class SynchronizedOutputStream extends OutputStream {
   // so the actual size we store in this buffer can be the maximum (not the sum)
   // of this value and the amount of bytes written in a single call to the
   // {@link write(byte[] buffer, int offset, int count)} method.
-  private final long maxBufferedLength;
+  private final int maxBufferedLength;
 
   private byte[] buf;
   private long count;
@@ -46,7 +48,7 @@ public class SynchronizedOutputStream extends OutputStream {
   // The event streamer that is supposed to flush stdout/stderr.
   private BuildEventStreamer streamer;
 
-  public SynchronizedOutputStream(long maxBufferedLength) {
+  public SynchronizedOutputStream(int maxBufferedLength) {
     buf = new byte[64];
     count = 0;
     discardAll = false;
@@ -57,21 +59,17 @@ public class SynchronizedOutputStream extends OutputStream {
     this.streamer = streamer;
   }
 
-  public synchronized void setDiscardAll() {
-    discardAll = true;
-    count = 0;
-    buf = null;
-  }
-
   /**
-   * Read the contents of the stream and simultaneously clear them. Also, reset the amount of
-   * memory retained to a constant amount.
+   * Read the contents of the stream and simultaneously clear them. Also, reset the amount of memory
+   * retained to a constant amount.
    */
-  public synchronized String readAndReset() {
+  public synchronized Iterable<String> readAndReset() {
     String content = new String(buf, 0, (int) count, UTF_8);
     buf = new byte[64];
     count = 0;
-    return content;
+    return content.isEmpty()
+        ? ImmutableList.of()
+        : Splitter.fixedLength(maxBufferedLength).split(content);
   }
 
   @Override
