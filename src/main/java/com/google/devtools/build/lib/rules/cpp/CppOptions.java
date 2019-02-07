@@ -904,6 +904,7 @@ public class CppOptions extends FragmentOptions {
     host.fdoProfileLabel = null;
     host.xfdoProfileLabel = null;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
+    host.forcePic = forcePic;
 
     host.doNotUseCpuTransformer = doNotUseCpuTransformer;
     host.disableGenruleCcToolchainDependency = disableGenruleCcToolchainDependency;

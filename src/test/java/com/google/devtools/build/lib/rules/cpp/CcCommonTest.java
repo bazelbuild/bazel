@@ -1053,6 +1053,29 @@ public class CcCommonTest extends BuildViewTestCase {
             + " (feature named 'supports_pic' is not enabled");
   }
 
+  @Test
+  public void testForcePicPassedToHost() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
+            MockCcSupport.EMPTY_STATIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.EMPTY_DYNAMIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.EMPTY_COMPILE_ACTION_CONFIG,
+            "needsPic: false");
+    useConfiguration("--force_pic");
+
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    getConfiguredTarget("//x:foo", getHostConfiguration());
+    assertContainsEvent(
+        "PIC compilation is requested but the toolchain does not support it"
+            + " (feature named 'supports_pic' is not enabled");
+  }
+
   /**
    * Tests for the case where there are only C++ rules defined.
    */
