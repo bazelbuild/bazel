@@ -32,9 +32,9 @@ import java.util.Map;
 /**
  * Python-related command-line options.
  *
- * <p>Due to the migration from the old Python version API to the new (see #6583), the Python major
- * version mode ({@code PY2} vs {@code PY3}) is a function of multiple flags. See {@link
- * #getPythonVersion} for more details.
+ * <p>Due to the migration of the Python version API (see #6583) and the default Python version (see
+ * (see #6647), the Python major version mode ({@code PY2} vs {@code PY3}) is a function of multiple
+ * flags. See {@link #getPythonVersion} for more details.
  */
 public class PythonOptions extends FragmentOptions {
 
@@ -100,6 +100,29 @@ public class PythonOptions extends FragmentOptions {
   public boolean incompatibleAllowPythonVersionTransitions;
 
   /**
+   * Native rule logic should call {@link #getDefaultPythonVersion} instead of accessing this option
+   * directly.
+   */
+  @Option(
+      name = "incompatible_py3_is_default",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
+      },
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, `py_binary` and `py_test` targets that do not set their `python_version` (or "
+              + "`default_python_version`) attribute will default to PY3 rather than to PY2. It is "
+              + "an error to set this flag without also enabling "
+              + "`--incompatible_allow_python_version_transitions`.")
+  public boolean incompatiblePy3IsDefault;
+
+  /**
    * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
    * PythonVersion} values do not represent distinct Python versions and are not allowed.
    *
@@ -114,7 +137,7 @@ public class PythonOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.AFFECTS_OUTPUTS // because of "-py3" output root
+        OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
       },
       help =
           "The Python major version mode, either `PY2` or `PY3`. Note that under the new version "
@@ -155,7 +178,7 @@ public class PythonOptions extends FragmentOptions {
    * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
    * PythonVersion} values do not represent distinct Python versions and are not allowed.
    *
-   * <p>Null is treated the same as the default ({@link PythonVersion#DEFAULT_TARGET_VALUE}).
+   * <p>Null means to use the default ({@link #getDefaultPythonVersion}).
    *
    * <p>This option is only read by {@link #getHost}. It should not be read by other native code or
    * by {@code select()}s in user code.
@@ -166,9 +189,7 @@ public class PythonOptions extends FragmentOptions {
       converter = TargetPythonVersionConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Overrides default_python_version attribute for the host configuration."
-              + " Can be \"PY2\" or \"PY3\".")
+      help = "Overrides the Python version for the host configuration. Can be \"PY2\" or \"PY3\".")
   public PythonVersion hostForcePython;
 
   private static final OptionDefinition HOST_FORCE_PYTHON_DEFINITION =
@@ -188,6 +209,16 @@ public class PythonOptions extends FragmentOptions {
               + "provider. Use PyInfo instead. Under this flag, passing the legacy provider to a "
               + "Python target will be an error.")
   public boolean incompatibleDisallowLegacyPyProvider;
+
+  @Option(
+      name = "experimental_build_transitive_python_runfiles",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Build the runfiles trees of py_binary targets that appear in the transitive "
+              + "data runfiles of another binary.")
+  public boolean buildTransitiveRunfilesTrees;
 
   @Override
   public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
@@ -215,10 +246,18 @@ public class PythonOptions extends FragmentOptions {
   }
 
   /**
+   * Returns the Python major version ({@code PY2} or {@code PY3}) that targets that do not specify
+   * a version should be built for.
+   */
+  public PythonVersion getDefaultPythonVersion() {
+    return incompatiblePy3IsDefault ? PythonVersion.PY3 : PythonVersion.PY2;
+  }
+
+  /**
    * Returns the Python major version ({@code PY2} or {@code PY3}) that targets should be built for.
    *
    * <p>The version is taken as the value of {@code --python_version} if not null, otherwise {@code
-   * --force_python} if not null, otherwise {@link PythonVersion#DEFAULT_TARGET_VALUE}.
+   * --force_python} if not null, otherwise {@link #getDefaultPythonVersion}.
    */
   public PythonVersion getPythonVersion() {
     if (pythonVersion != null) {
@@ -226,7 +265,7 @@ public class PythonOptions extends FragmentOptions {
     } else if (forcePython != null) {
       return forcePython;
     } else {
-      return PythonVersion.DEFAULT_TARGET_VALUE;
+      return getDefaultPythonVersion();
     }
   }
 
@@ -257,7 +296,7 @@ public class PythonOptions extends FragmentOptions {
       return currentVersionNeedsUpdating || forcePythonNeedsUpdating;
     } else {
       boolean currentlyUnset = forcePython == null && pythonVersion == null;
-      boolean transitioningToNonDefault = !version.equals(PythonVersion.DEFAULT_TARGET_VALUE);
+      boolean transitioningToNonDefault = !version.equals(getDefaultPythonVersion());
       return currentlyUnset && transitioningToNonDefault;
     }
   }
@@ -294,20 +333,11 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatibleAllowPythonVersionTransitions =
         incompatibleAllowPythonVersionTransitions;
     PythonVersion hostVersion =
-        (hostForcePython != null) ? hostForcePython : PythonVersion.DEFAULT_TARGET_VALUE;
+        (hostForcePython != null) ? hostForcePython : getDefaultPythonVersion();
     hostPythonOptions.setPythonVersion(hostVersion);
+    hostPythonOptions.incompatiblePy3IsDefault = incompatiblePy3IsDefault;
     hostPythonOptions.buildPythonZip = buildPythonZip;
     hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     return hostPythonOptions;
   }
-
-  @Option(
-      name = "experimental_build_transitive_python_runfiles",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Build the runfiles trees of py_binary targets that appear in the transitive "
-              + "data runfiles of another binary.")
-  public boolean buildTransitiveRunfilesTrees;
 }

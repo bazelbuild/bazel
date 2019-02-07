@@ -52,7 +52,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void oldVersionFlagGatedByExperimentalFlag() throws Exception {
+  public void oldVersionFlagGatedByIncompatibleFlag() throws Exception {
     create("--incompatible_remove_old_python_version_api=false", "--force_python=PY2");
     checkError(
         "`--force_python` is disabled by `--incompatible_remove_old_python_version_api`",
@@ -61,10 +61,44 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void getPythonVersion_HardcodedDefaultWhenOmitted() throws Exception {
-    ensureDefaultIsPY2();
-    PythonOptions opts = parsePythonOptions();
-    assertThat(opts.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+  public void py3IsDefaultFlagRequiresNewSemanticsFlag() throws Exception {
+    checkError(
+        "cannot enable `--incompatible_py3_is_default` without also enabling "
+            + "`--incompatible_allow_python_version_transitions`",
+        "--incompatible_allow_python_version_transitions=false",
+        "--incompatible_py3_is_default=true");
+  }
+
+  @Test
+  public void getDefaultPythonVersion() throws Exception {
+    // --incompatible_py3_is_default requires --incompatible_allow_python_version_transitions
+    PythonOptions withoutPy3IsDefaultOpts =
+        parsePythonOptions(
+            "--incompatible_allow_python_version_transitions=true",
+            "--incompatible_py3_is_default=false");
+    PythonOptions withPy3IsDefaultOpts =
+        parsePythonOptions(
+            "--incompatible_allow_python_version_transitions=true",
+            "--incompatible_py3_is_default=true");
+    assertThat(withoutPy3IsDefaultOpts.getDefaultPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(withPy3IsDefaultOpts.getDefaultPythonVersion()).isEqualTo(PythonVersion.PY3);
+  }
+
+  @Test
+  public void getPythonVersion_FallBackOnDefaultPythonVersion() throws Exception {
+    // Run it twice with two different values for the incompatible flag to confirm it's actually
+    // reading getDefaultPythonVersion() and not some other source of default values. Note that
+    // --incompatible_py3_is_default requires --incompatible_allow_python_version_transitions.
+    PythonOptions py2Opts =
+        parsePythonOptions(
+            "--incompatible_allow_python_version_transitions=true",
+            "--incompatible_py3_is_default=false");
+    PythonOptions py3Opts =
+        parsePythonOptions(
+            "--incompatible_allow_python_version_transitions=true",
+            "--incompatible_py3_is_default=true");
+    assertThat(py2Opts.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(py3Opts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
@@ -164,11 +198,13 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
         parsePythonOptions(
             "--incompatible_allow_python_version_transitions=true",
             "--incompatible_remove_old_python_version_api=true",
+            "--incompatible_py3_is_default=true",
             "--build_python_zip=true",
             "--incompatible_disallow_legacy_py_provider=true");
     PythonOptions hostOpts = (PythonOptions) opts.getHost();
     assertThat(hostOpts.incompatibleAllowPythonVersionTransitions).isTrue();
     assertThat(hostOpts.incompatibleRemoveOldPythonVersionApi).isTrue();
+    assertThat(hostOpts.incompatiblePy3IsDefault).isTrue();
     assertThat(hostOpts.buildPythonZip).isEqualTo(TriState.YES);
     assertThat(hostOpts.incompatibleDisallowLegacyPyProvider).isTrue();
   }
@@ -176,16 +212,39 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   @Test
   public void getHost_AppliesHostForcePython() throws Exception {
     ensureDefaultIsPY2();
-    PythonOptions optsWithOldFlag =
+    PythonOptions optsWithForcePythonFlag =
         parsePythonOptions(
             "--incompatible_remove_old_python_version_api=false",
             "--force_python=PY2",
             "--host_force_python=PY3");
-    PythonOptions optsWithNewFlag =
+    PythonOptions optsWithPythonVersionFlag =
         parsePythonOptions("--python_version=PY2", "--host_force_python=PY3");
-    PythonOptions hostOptsWithOldFlag = (PythonOptions) optsWithOldFlag.getHost();
-    PythonOptions hostOptsWithNewFlag = (PythonOptions) optsWithNewFlag.getHost();
-    assertThat(hostOptsWithOldFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-    assertThat(hostOptsWithNewFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    PythonOptions optsWithPy3IsDefaultFlag =
+        // --incompatible_py3_is_default requires --incompatible_allow_python_version_transitions
+        parsePythonOptions(
+            "--incompatible_allow_python_version_transitions=true",
+            "--incompatible_py3_is_default=true",
+            // It's more interesting to set the incompatible flag true and force host to PY2, than
+            // it is to set the flag false and force host to PY3.
+            "--host_force_python=PY2");
+    PythonOptions hostOptsWithForcePythonFlag = (PythonOptions) optsWithForcePythonFlag.getHost();
+    PythonOptions hostOptsWithPythonVersionFlag =
+        (PythonOptions) optsWithPythonVersionFlag.getHost();
+    PythonOptions hostOptsWithPy3IsDefaultFlag = (PythonOptions) optsWithPy3IsDefaultFlag.getHost();
+    assertThat(hostOptsWithForcePythonFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(hostOptsWithPythonVersionFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(hostOptsWithPy3IsDefaultFlag.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+  }
+
+  @Test
+  public void getHost_Py3IsDefaultFlagChangesHost() throws Exception {
+    ensureDefaultIsPY2();
+    PythonOptions opts =
+        // --incompatible_py3_is_default requires --incompatible_allow_python_version_transitions
+        parsePythonOptions(
+            "--incompatible_allow_python_version_transitions=true",
+            "--incompatible_py3_is_default=true");
+    PythonOptions hostOpts = (PythonOptions) opts.getHost();
+    assertThat(hostOpts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 }

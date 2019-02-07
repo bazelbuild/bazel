@@ -32,6 +32,7 @@ java_library(
     srcs = ["PythonTestUtils.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:junit4",
         "//third_party:truth",
     ],

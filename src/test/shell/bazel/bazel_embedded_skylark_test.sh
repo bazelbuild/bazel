@@ -42,7 +42,7 @@ pkg_tar(
 EOF
   bazel build --all_incompatible_changes ... \
     || fail "Expect success, even with all upcoming Skylark changes"
-  grep -q 'Hello World' `bazel info bazel-bin`/data.tar \
+  grep -q 'Hello World' `bazel info bazel-bin --all_incompatible_changes`/data.tar \
     || fail "Output not generated correctly"
 }
 
@@ -67,7 +67,7 @@ pkg_tar(
 EOF
   bazel build --all_incompatible_changes :fancy || fail "Expected success"
   mkdir ../out
-  tar -C ../out -x -v -f `bazel info bazel-bin`/fancy.tar
+  tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes`/fancy.tar
 
   grep equal ../out/foo=bar || fail "file with equal sign not packed correctly"
   grep option ../out/--foo || fail "file with double minus not packed correctly"
@@ -117,7 +117,7 @@ create_banana_directory = rule(
 EOF
   bazel build --all_incompatible_changes :banana_tarball || fail "Expected success"
   mkdir ../out
-  tar -C ../out -x -v -f `bazel info bazel-bin`/banana_tarball.tar
+  tar -C ../out -x -v -f `bazel info bazel-bin --all_incompatible_changes`/banana_tarball.tar
 
   test -f ../out/pear/grape || fail "expected file to be present"
 }

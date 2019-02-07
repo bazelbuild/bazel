@@ -57,6 +57,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
 /** A helper class for analyzing a Python configured target. */
 public final class PyCommon {
@@ -70,17 +71,15 @@ public final class PyCommon {
    *
    * <p>It is expected that both attributes are defined, string-typed, and default to {@link
    * PythonVersion#_INTERNAL_SENTINEL}. The returned version is the value of {@code python_version}
-   * if it is not the sentinel, then {@code default_python_version} if it is not the sentinel, then
-   * finally {@code default}. In all cases the return value is a target version value (either {@code
-   * PY2} or {@code PY3}).
+   * if it is not the sentinel, then {@code default_python_version} if it is not the sentinel,
+   * otherwise null (when both attributes are sentinels). In all cases the return value is either a
+   * target version value ({@code PY2} or {@code PY3}) or null.
    *
    * @throws IllegalArgumentException if the attributes are not present, not string-typed, or not
-   *     parsable as target {@link PythonVersion} values or as the sentinel value; or if {@code
-   *     default} is not a target version value
+   *     parsable as target {@link PythonVersion} values or as the sentinel value
    */
-  public static PythonVersion readPythonVersionFromAttributes(
-      AttributeMap attrs, PythonVersion defaultVersion) {
-    Preconditions.checkArgument(defaultVersion.isTargetValue());
+  @Nullable
+  public static PythonVersion readPythonVersionFromAttributes(AttributeMap attrs) {
     PythonVersion pythonVersionAttr =
         PythonVersion.parseTargetOrSentinelValue(attrs.get(PYTHON_VERSION_ATTRIBUTE, Type.STRING));
     PythonVersion defaultPythonVersionAttr =
@@ -91,7 +90,7 @@ public final class PyCommon {
     } else if (defaultPythonVersionAttr != PythonVersion._INTERNAL_SENTINEL) {
       return defaultPythonVersionAttr;
     } else {
-      return defaultVersion;
+      return null;
     }
   }
 
@@ -158,7 +157,7 @@ public final class PyCommon {
    *
    * <p>Null if no 2to3 conversion is required.
    */
-  private final Map<PathFragment, Artifact> convertedFiles;
+  @Nullable private final Map<PathFragment, Artifact> convertedFiles;
 
   private Artifact executable = null;
 
@@ -345,6 +344,7 @@ public final class PyCommon {
    */
   // TODO(#1393): 2to3 conversion doesn't work in Bazel and the attempt to invoke it for Bazel
   // should be removed / factored away into PythonSemantics.
+  @Nullable
   private static Map<PathFragment, Artifact> makeAndInitConvertedFiles(
       RuleContext ruleContext, PythonVersion version, PythonVersion sourcesVersion) {
     if (sourcesVersion == PythonVersion.PY2 && version == PythonVersion.PY3) {

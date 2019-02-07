@@ -42,7 +42,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
    *
    * <p>This serves as a drop-in replacement for {@link #getConfiguredTarget} that will also catch
    * unexpected deferred failures (e.g. {@code srcs_versions} validation failures) in {@code
-   * py_binary} and {@code py_library} targets.
+   * py_binary} and {@code py_test} targets.
    */
   protected ConfiguredTarget getOkPyTarget(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
@@ -63,7 +63,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   /**
    * Gets the configured target for an executable Python rule (generally {@code py_binary} or {@code
-   * py_library}) and asserts that it produces a deferred error via {@link FailAction}.
+   * py_test}) and asserts that it produces a deferred error via {@link FailAction}.
    *
    * @return the deferred error string
    */
@@ -240,6 +240,46 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "copy_target(" + ruleName + ", 'foo', 'bar')");
     ConfiguredTarget target = getConfiguredTarget("//pkg:bar");
     assertThat(target).isNotNull();
+  }
+
+  @Test
+  public void py3IsDefaultFlag_SetsDefaultPythonVersion() throws Exception {
+    scratch.file( //
+        "pkg/BUILD", //
+        ruleName + "(", //
+        "    name = 'foo',", //
+        "    srcs = ['foo.py'],", //
+        ")");
+    // --incompatible_py3_is_default requires --incompatible_allow_python_version_transitions
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo",
+        PythonVersion.PY2,
+        "--incompatible_allow_python_version_transitions=true",
+        "--incompatible_py3_is_default=false");
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo",
+        PythonVersion.PY3,
+        "--incompatible_allow_python_version_transitions=true",
+        "--incompatible_py3_is_default=true",
+        // Keep the host Python as PY2, because we don't want to drag any implicit dependencies on
+        // tools into PY3 for this test. (Doing so may require setting extra options to get it to
+        // pass analysis.)
+        "--host_force_python=PY2");
+  }
+
+  @Test
+  public void py3IsDefaultFlag_DoesntOverrideExplicitVersion() throws Exception {
+    scratch.file("pkg/BUILD", ruleDeclWithDefaultPyVersionAttr("foo", "PY2"));
+    // --incompatible_py3_is_default requires --incompatible_allow_python_version_transitions
+    assertPythonVersionIs_UnderNewConfig(
+        "//pkg:foo",
+        PythonVersion.PY2,
+        "--incompatible_allow_python_version_transitions=true",
+        "--incompatible_py3_is_default=true",
+        // Keep the host Python as PY2, because we don't want to drag any implicit dependencies on
+        // tools into PY3 for this test. (Doing so may require setting extra options to get it to
+        // pass analysis.)
+        "--host_force_python=PY2");
   }
 
   @Test

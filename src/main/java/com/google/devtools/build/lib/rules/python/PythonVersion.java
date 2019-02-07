@@ -77,7 +77,8 @@ public enum PythonVersion {
    * ({@code native.existing_rules()}) or bazel query, we give it the scary "_internal" prefix
    * instead.
    *
-   * <p>The logical meaning of this value is the same as {@link #DEFAULT_TARGET_VALUE}.
+   * <p>The logical meaning of this value is the same as {@link
+   * PythonOptions#getDefaultPythonVersion}.
    */
   _INTERNAL_SENTINEL;
 
@@ -117,8 +118,6 @@ public enum PythonVersion {
    */
   public static final ImmutableList<String> NON_CONVERSION_STRINGS =
       convertToStrings(NON_CONVERSION_VALUES);
-
-  public static final PythonVersion DEFAULT_TARGET_VALUE = PY2;
 
   public static final PythonVersion DEFAULT_SRCS_VALUE = PY2AND3;
 

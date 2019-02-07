@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -43,19 +42,19 @@ public class PyRuleClasses {
    * Returns a rule transition factory for Python binary rules and other rules that may change the
    * Python version.
    *
-   * <p>The factory makes a transition to set the Python version to the value specified by the
-   * rule's {@code python_version} attribute if it is given, or otherwise the {@code
-   * default_python_version} attribute if it is given, or otherwise the default value passed into
-   * this function.
+   * <p>The factory reads the version specified by the target's {@code python_version} attribute if
+   * given, falling back on the {@code default_python_version} attribute otherwise. Both attributes
+   * must exist on the rule class. If a value was read successfully, the factory returns a
+   * transition that sets the version to that value. Otherwise if neither attribute was set, the
+   * factory returns {@code defaultTransition} instead.
    *
-   * <p>The factory throws {@link IllegalArgumentException} if used on a rule whose {@link
-   * RuleClass} does not define both attributes. If both are defined, but one of their values cannot
-   * be parsed as a Python version, the given default value is used as a fallback instead; in this
-   * case it is up to the rule's analysis phase ({@link PyCommon#validateTargetPythonVersionAttr})
-   * to report an attribute error to the user. This case should be prevented by attribute validation
-   * if the rule is defined correctly.
+   * <p>If either attribute has an unparsable value on the target, then the factory returns {@code
+   * defaultTransition} and it is up to the rule's analysis phase ({@link
+   * PyCommon#validateTargetPythonVersionAttr}) to report an attribute error to the user. This case
+   * should be prevented by attribute validation if the rule class is defined correctly.
    */
-  public static RuleTransitionFactory makeVersionTransition(PythonVersion defaultVersion) {
+  public static RuleTransitionFactory makeVersionTransition(
+      PythonVersionTransition defaultTransition) {
     return (rule) -> {
       AttributeMap attrs = RawAttributeMapper.of(rule);
       // Fail fast if we're used on an ill-defined rule class.
@@ -69,20 +68,25 @@ public class PyRuleClasses {
       // we'll, treat an invalid value as the default value rather than propagate an unchecked
       // exception in this context. That way the user can at least get a clean error message
       // instead of a crash.
-      PythonVersion version;
+      PythonVersionTransition transition;
       try {
-        version = PyCommon.readPythonVersionFromAttributes(attrs, defaultVersion);
+        PythonVersion versionFromAttributes = PyCommon.readPythonVersionFromAttributes(attrs);
+        if (versionFromAttributes == null) {
+          transition = defaultTransition;
+        } else {
+          transition = PythonVersionTransition.toConstant(versionFromAttributes);
+        }
       } catch (IllegalArgumentException ex) {
-        version = defaultVersion;
+        transition = defaultTransition;
       }
-      return new PythonVersionTransition(version);
+      return transition;
     };
   }
 
   /**
    * A Python version transition that sets the version as specified by the target's attributes, with
-   * a default of {@link PythonVersion#DEFAULT_TARGET_VALUE}.
+   * a default determined by {@link PythonOptions#getDefaultPythonVersion}.
    */
   public static final RuleTransitionFactory VERSION_TRANSITION =
-      makeVersionTransition(PythonVersion.DEFAULT_TARGET_VALUE);
+      makeVersionTransition(PythonVersionTransition.toDefault());
 }

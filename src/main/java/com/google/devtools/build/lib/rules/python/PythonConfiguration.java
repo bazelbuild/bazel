@@ -103,6 +103,12 @@ public class PythonConfiguration extends BuildConfiguration.Fragment {
           Event.error(
               "`--force_python` is disabled by `--incompatible_remove_old_python_version_api`"));
     }
+    if (opts.incompatiblePy3IsDefault && !opts.incompatibleAllowPythonVersionTransitions) {
+      reporter.handle(
+          Event.error(
+              "cannot enable `--incompatible_py3_is_default` without also enabling "
+                  + "`--incompatible_allow_python_version_transitions`"));
+    }
   }
 
   /** Returns whether to build the executable zip file for Python binaries. */
