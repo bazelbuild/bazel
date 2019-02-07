@@ -150,22 +150,26 @@ public abstract class FileValue implements SkyValue {
    * not be used for symlink cycles.
    */
   public static FileValue value(
-      RootedPath rootedPath,
-      FileStateValue fileStateValue,
+      RootedPath originalRootedPath,
+      FileStateValue fileStateValueFromAncestors,
       RootedPath realRootedPath,
       FileStateValue realFileStateValue) {
-    if (rootedPath.equals(realRootedPath)) {
-      Preconditions.checkState(fileStateValue.getType() != FileStateType.SYMLINK,
-          "rootedPath: %s, fileStateValue: %s, realRootedPath: %s, realFileStateValue: %s",
-          rootedPath, fileStateValue, realRootedPath, realFileStateValue);
-      return new RegularFileValue(rootedPath, fileStateValue);
+    if (originalRootedPath.equals(realRootedPath)) {
+      Preconditions.checkState(
+          fileStateValueFromAncestors.getType() != FileStateType.SYMLINK,
+          "originalRootedPath: %s, fileStateValue: %s, realRootedPath: %s, "
+              + "fileStateValueFromAncestors: %s",
+          originalRootedPath,
+          fileStateValueFromAncestors,
+          realRootedPath,
+          realFileStateValue);
+      return new RegularFileValue(originalRootedPath, fileStateValueFromAncestors);
     } else {
-      if (fileStateValue.getType() == FileStateType.SYMLINK) {
-        return new SymlinkFileValue(realRootedPath, realFileStateValue,
-            fileStateValue.getSymlinkTarget());
+      if (fileStateValueFromAncestors.getType() == FileStateType.SYMLINK) {
+        return new SymlinkFileValue(
+            realRootedPath, realFileStateValue, fileStateValueFromAncestors.getSymlinkTarget());
       } else {
-        return new DifferentRealPathFileValue(
-            realRootedPath, realFileStateValue);
+        return new DifferentRealPathFileValue(realRootedPath, realFileStateValue);
       }
     }
   }
