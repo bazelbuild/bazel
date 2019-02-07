@@ -1176,7 +1176,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   public SkyFunctionEnvironmentForTesting getSkyFunctionEnvironmentForTesting(
       ExtendedEventHandler eventHandler) {
-    return new SkyFunctionEnvironmentForTesting(buildDriver, eventHandler, this);
+    return new SkyFunctionEnvironmentForTesting(eventHandler, this);
   }
 
   /**
