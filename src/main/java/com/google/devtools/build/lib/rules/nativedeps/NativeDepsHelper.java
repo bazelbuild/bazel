@@ -24,8 +24,10 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
@@ -76,10 +78,13 @@ public abstract class NativeDepsHelper {
   private static final CppLinkAction.LinkArtifactFactory SHAREABLE_LINK_ARTIFACT_FACTORY =
       new CppLinkAction.LinkArtifactFactory() {
         @Override
-        public Artifact create(RuleContext ruleContext, BuildConfiguration configuration,
+        public Artifact create(
+            ActionConstructionContext actionConstructionContext,
+            RepositoryName repositoryName,
+            BuildConfiguration configuration,
             PathFragment rootRelativePath) {
-          return ruleContext.getShareableArtifact(rootRelativePath,
-              configuration.getBinDirectory(ruleContext.getRule().getRepository()));
+          return actionConstructionContext.getShareableArtifact(
+              rootRelativePath, configuration.getBinDirectory(repositoryName));
         }
       };
 

@@ -465,11 +465,12 @@ public class CppHelper {
   }
 
   public static Artifact getLinuxLinkedArtifact(
-      RuleContext ruleContext,
+      Label label,
+      ActionConstructionContext actionConstructionContext,
       BuildConfiguration config,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix) {
-    PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
+    PathFragment name = PathFragment.create(label.getName());
     if (linkType != LinkTargetType.EXECUTABLE) {
       name = name.replaceName(
           "lib" + name.getBaseName()
@@ -478,8 +479,8 @@ public class CppHelper {
               + linkType.getDefaultExtension());
     }
 
-    return ruleContext.getPackageRelativeArtifact(
-        name, config.getBinDirectory(ruleContext.getRule().getRepository()));
+    return actionConstructionContext.getPackageRelativeArtifact(
+        name, config.getBinDirectory(label.getPackageIdentifier().getRepository()));
   }
 
   /**

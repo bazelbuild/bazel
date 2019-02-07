@@ -26,12 +26,13 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.DedupingIterable;
 import com.google.devtools.build.lib.collect.ImmutableIterable;
@@ -78,12 +79,12 @@ public class CppLinkActionBuilder {
       new LinkArtifactFactory() {
         @Override
         public Artifact create(
-            RuleContext ruleContext,
+            ActionConstructionContext actionConstructionContext,
+            RepositoryName repositoryName,
             BuildConfiguration configuration,
             PathFragment rootRelativePath) {
-          return ruleContext.getShareableArtifact(
-              rootRelativePath,
-              configuration.getBinDirectory(ruleContext.getRule().getRepository()));
+          return actionConstructionContext.getShareableArtifact(
+              rootRelativePath, configuration.getBinDirectory(repositoryName));
         }
       };
 
@@ -92,7 +93,6 @@ public class CppLinkActionBuilder {
   // Builder-only
   // Null when invoked from tests (e.g. via createTestBuilder).
   @Nullable private final RuleContext ruleContext;
-  private final AnalysisEnvironment analysisEnvironment;
   private final Artifact output;
   private final CppSemantics cppSemantics;
   @Nullable private String mnemonic;
@@ -144,6 +144,10 @@ public class CppLinkActionBuilder {
   private final NestedSetBuilder<Artifact> linkActionInputs = NestedSetBuilder.stableOrder();
   private final ImmutableList.Builder<Artifact> linkActionOutputs = ImmutableList.builder();
 
+  private final ActionConstructionContext actionConstructionContext;
+  private final RuleErrorConsumer ruleErrorConsumer;
+  private final RepositoryName repositoryName;
+
   /**
    * Creates a builder that builds {@link CppLinkAction} instances.
    *
@@ -164,36 +168,6 @@ public class CppLinkActionBuilder {
         ruleContext,
         output,
         ruleContext.getConfiguration(),
-        ruleContext.getAnalysisEnvironment(),
-        toolchain,
-        fdoContext,
-        featureConfiguration,
-        cppSemantics);
-  }
-
-  /**
-   * Creates a builder that builds {@link CppLinkAction} instances.
-   *
-   * @param ruleContext the rule that owns the action
-   * @param output the output artifact
-   * @param configuration build configuration
-   * @param toolchain C++ toolchain provider
-   * @param fdoContext the C++ FDO optimization support
-   * @param cppSemantics to be used for linkstamp compiles
-   */
-  public CppLinkActionBuilder(
-      RuleContext ruleContext,
-      Artifact output,
-      BuildConfiguration configuration,
-      CcToolchainProvider toolchain,
-      FdoContext fdoContext,
-      FeatureConfiguration featureConfiguration,
-      CppSemantics cppSemantics) {
-    this(
-        ruleContext,
-        output,
-        configuration,
-        ruleContext.getAnalysisEnvironment(),
         toolchain,
         fdoContext,
         featureConfiguration,
@@ -211,17 +185,15 @@ public class CppLinkActionBuilder {
    * @param fdoContext the C++ FDO optimization support
    * @param cppSemantics to be used for linkstamp compiles
    */
-  private CppLinkActionBuilder(
+  public CppLinkActionBuilder(
       @Nullable RuleContext ruleContext,
       Artifact output,
       BuildConfiguration configuration,
-      AnalysisEnvironment analysisEnvironment,
       CcToolchainProvider toolchain,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       CppSemantics cppSemantics) {
     this.ruleContext = ruleContext;
-    this.analysisEnvironment = Preconditions.checkNotNull(analysisEnvironment);
     this.output = Preconditions.checkNotNull(output);
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
@@ -232,6 +204,10 @@ public class CppLinkActionBuilder {
     }
     this.featureConfiguration = featureConfiguration;
     this.cppSemantics = Preconditions.checkNotNull(cppSemantics);
+
+    actionConstructionContext = ruleContext;
+    repositoryName = ruleContext.getLabel().getPackageIdentifier().getRepository();
+    ruleErrorConsumer = ruleContext;
   }
 
   /** Returns the action name for purposes of querying the crosstool. */
@@ -384,7 +360,8 @@ public class CppLinkActionBuilder {
             ? new LtoBackendArtifacts(
                 ltoOutputRootPrefix,
                 bitcodeFile,
-                ruleContext,
+                actionConstructionContext,
+                repositoryName,
                 configuration,
                 SHAREABLE_LINK_ARTIFACT_FACTORY,
                 featureConfiguration,
@@ -397,7 +374,8 @@ public class CppLinkActionBuilder {
                 ltoOutputRootPrefix,
                 bitcodeFile,
                 allBitcode,
-                ruleContext,
+                actionConstructionContext,
+                repositoryName,
                 configuration,
                 linkArtifactFactory,
                 featureConfiguration,
@@ -643,7 +621,13 @@ public class CppLinkActionBuilder {
     Preconditions.checkNotNull(featureConfiguration);
     ImmutableSet<Linkstamp> linkstamps = linkstampsBuilder.build();
     final ImmutableMap<Linkstamp, Artifact> linkstampMap =
-        mapLinkstampsToOutputs(linkstamps, ruleContext, configuration, output, linkArtifactFactory);
+        mapLinkstampsToOutputs(
+            linkstamps,
+            actionConstructionContext,
+            repositoryName,
+            configuration,
+            output,
+            linkArtifactFactory);
 
     if (interfaceOutput != null && (fake || !linkType.isDynamicLibrary())) {
       throw new RuntimeException(
@@ -651,14 +635,16 @@ public class CppLinkActionBuilder {
     }
 
     if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
-      ruleContext.ruleError(
+      ruleErrorConsumer.ruleError(
           String.format(
               "Expected action_config for '%s' to be configured", linkType.getActionName()));
     }
 
     final ImmutableList<Artifact> buildInfoHeaderArtifacts =
         !linkstamps.isEmpty()
-            ? analysisEnvironment.getBuildInfo(ruleContext, CppBuildInfo.KEY, configuration)
+            ? actionConstructionContext
+                .getAnalysisEnvironment()
+                .getBuildInfo(ruleContext, CppBuildInfo.KEY, configuration)
             : ImmutableList.of();
 
     boolean needWholeArchive =
@@ -791,14 +777,19 @@ public class CppLinkActionBuilder {
       // of the native object files not the input bitcode files.
       PathFragment linkerParamFileRootPath = ParameterFile.derivePath(outputRootPath, "lto-final");
       thinltoParamFile =
-          linkArtifactFactory.create(ruleContext, configuration, linkerParamFileRootPath);
+          linkArtifactFactory.create(
+              actionConstructionContext, repositoryName, configuration, linkerParamFileRootPath);
 
       // Create artifact for the merged object file, which is an object file that is created
       // during the LTO indexing step and needs to be passed to the final link.
       PathFragment thinltoMergedObjectFileRootPath =
           outputRootPath.replaceName(outputRootPath.getBaseName() + ".lto.merged.o");
       thinltoMergedObjectFile =
-          linkArtifactFactory.create(ruleContext, configuration, thinltoMergedObjectFileRootPath);
+          linkArtifactFactory.create(
+              actionConstructionContext,
+              repositoryName,
+              configuration,
+              thinltoMergedObjectFileRootPath);
     }
 
     final ImmutableSet<Artifact> actionOutputs;
@@ -845,7 +836,8 @@ public class CppLinkActionBuilder {
     @Nullable
     final Artifact paramFile =
         canSplitCommandLine()
-            ? linkArtifactFactory.create(ruleContext, configuration, paramRootPath)
+            ? linkArtifactFactory.create(
+                actionConstructionContext, repositoryName, configuration, paramRootPath)
             : null;
 
     // Add build variables necessary to template link args into the crosstool.
@@ -856,7 +848,7 @@ public class CppLinkActionBuilder {
     Preconditions.checkState(allowLtoIndexing || thinltoMergedObjectFile == null);
     PathFragment solibDir =
         configuration
-            .getBinDirectory(ruleContext.getRule().getRepository())
+            .getBinDirectory(repositoryName)
             .getExecPath()
             .getRelative(toolchain.getSolibDirectory());
     LibrariesToLinkCollector librariesToLinkCollector =
@@ -927,7 +919,7 @@ public class CppLinkActionBuilder {
               linkingMode.equals(LinkingMode.STATIC),
               /* addIfsoRelatedVariables= */ true);
     } catch (EvalException e) {
-      ruleContext.ruleError(e.getMessage());
+      ruleErrorConsumer.ruleError(e.getMessage());
       variables = CcToolchainVariables.EMPTY;
     }
     buildVariablesBuilder.addAllNonTransitive(variables);
@@ -958,7 +950,7 @@ public class CppLinkActionBuilder {
     }
 
     LinkCommandLine.Builder linkCommandLineBuilder =
-        new LinkCommandLine.Builder(ruleContext)
+        new LinkCommandLine.Builder()
             .setLinkerInputArtifacts(expandedLinkerArtifacts)
             .setLinkTargetType(linkType)
             .setLinkingMode(linkingMode)
@@ -1028,7 +1020,7 @@ public class CppLinkActionBuilder {
               linkCommandLine.paramCmdLine(),
               ParameterFile.ParameterFileType.UNQUOTED,
               ISO_8859_1);
-      analysisEnvironment.registerAction(parameterFileWriteAction);
+      actionConstructionContext.registerAction(parameterFileWriteAction);
     }
 
     ImmutableMap<String, String> toolchainEnv =
@@ -1049,7 +1041,7 @@ public class CppLinkActionBuilder {
 
     if (!isLtoIndexing) {
       for (Map.Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
-        analysisEnvironment.registerAction(
+        actionConstructionContext.registerAction(
             CppLinkstampCompileHelper.createLinkstampCompileAction(
                 ruleContext,
                 linkstampEntry.getKey().getArtifact(),
@@ -1161,14 +1153,16 @@ public class CppLinkActionBuilder {
    * path to which each file should be compiled.
    *
    * @param linkstamps set of {@link Linkstamp}s
-   * @param ruleContext the rule for which this link is being performed
+   * @param actionConstructionContext of the rule for which this link is being performed
+   * @param repositoryName of the rule for which this link is being performed
    * @param outputBinary the binary output path for this link
    * @return an immutable map that pairs each source file with the corresponding object file that
    *     should be fed into the link
    */
   public static ImmutableMap<Linkstamp, Artifact> mapLinkstampsToOutputs(
       ImmutableSet<Linkstamp> linkstamps,
-      RuleContext ruleContext,
+      ActionConstructionContext actionConstructionContext,
+      RepositoryName repositoryName,
       BuildConfiguration configuration,
       Artifact outputBinary,
       LinkArtifactFactory linkArtifactFactory) {
@@ -1190,13 +1184,14 @@ public class CppLinkActionBuilder {
           linkstamp,
           // Note that link stamp actions can be shared between link actions that output shared
           // native dep libraries.
-          linkArtifactFactory.create(ruleContext, configuration, stampOutputPath));
+          linkArtifactFactory.create(
+              actionConstructionContext, repositoryName, configuration, stampOutputPath));
     }
     return mapBuilder.build();
   }
 
   protected ActionOwner getOwner() {
-    return ruleContext.getActionOwner();
+    return actionConstructionContext.getActionOwner();
   }
   
   /** Sets the mnemonic for the link action. */
