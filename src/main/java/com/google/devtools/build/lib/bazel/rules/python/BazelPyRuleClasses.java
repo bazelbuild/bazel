@@ -201,6 +201,14 @@ public final class BazelPyRuleClasses {
           value of <code>@bazel_tools//tools/python:python_version</code>. See
           <a href="https://github.com/bazelbuild/bazel/blob/4b74ea9a3f81b7ed30562f1689827b5488884c86/tools/python/BUILD#L33">here</a>
           for more information.
+
+          <p><b>Bug warning:</b> This attribute sets the version for which Bazel builds your target,
+          but due to <a href="https://github.com/bazelbuild/bazel/issues/4815">#4815</a>, the
+          resulting stub script may still invoke the wrong interpreter version at runtime. See
+          <a href="https://github.com/bazelbuild/bazel/issues/4815#issuecomment-460777113">this
+          workaround</a>, which involves defining a <code>py_runtime</code> target that points to
+          either Python version as needed, and activating this <code>py_runtime</code> by setting
+          <code>--python_top</code>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr(PyCommon.PYTHON_VERSION_ATTRIBUTE, STRING)
