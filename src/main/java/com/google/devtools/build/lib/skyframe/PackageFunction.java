@@ -614,8 +614,7 @@ public class PackageFunction implements SkyFunction {
         // Inlining calls to SkylarkImportLookupFunction
         for (SkyKey importLookupKey : importLookupKeys) {
           SkyValue skyValue =
-              skylarkImportLookupFunctionForInlining.computeWithInlineCalls(
-                  importLookupKey, env, importLookupKeys.size());
+              skylarkImportLookupFunctionForInlining.computeWithInlineCalls(importLookupKey, env);
           if (skyValue == null) {
             Preconditions.checkState(
                 env.valuesMissing(), "no starlark import value for %s", importLookupKey);

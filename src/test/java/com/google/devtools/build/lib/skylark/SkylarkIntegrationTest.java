@@ -2809,9 +2809,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
       } catch (BuildFileContainsErrorsException e) {
         // The reason that this is an exception and not reported to the event handler is that the
         // error is reported by the parent sky function, which we don't have here.
-        assertThat(e).hasMessageThat().contains("Starlark import cycle");
-        assertThat(e).hasMessageThat().contains("test/skylark:ext1.bzl");
-        assertThat(e).hasMessageThat().contains("test/skylark:ext2.bzl");
+        assertThat(e)
+            .hasMessageThat()
+            .contains("Starlark import cycle: [//test/skylark:ext1.bzl, //test/skylark:ext2.bzl]");
       }
     }
 
@@ -2835,10 +2835,11 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
       } catch (BuildFileContainsErrorsException e) {
         // The reason that this is an exception and not reported to the event handler is that the
         // error is reported by the parent sky function, which we don't have here.
-        assertThat(e).hasMessageThat().contains("Starlark import cycle");
-        assertThat(e).hasMessageThat().contains("//test/skylark:ext2.bzl");
-        assertThat(e).hasMessageThat().contains("//test/skylark:ext3.bzl");
-        assertThat(e).hasMessageThat().contains("//test/skylark:ext4.bzl");
+        assertThat(e)
+            .hasMessageThat()
+            .contains(
+                "Starlark import cycle: [//test/skylark:ext2.bzl, "
+                    + "//test/skylark:ext3.bzl, //test/skylark:ext4.bzl]");
       }
     }
   }
