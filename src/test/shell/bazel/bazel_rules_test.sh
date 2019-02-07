@@ -107,7 +107,7 @@ function test_extra_action() {
   # The workspace name is initialized in testenv.sh; use that var rather than
   # hardcoding it here. The extra sed pass is so we can selectively expand that
   # one var while keeping the rest of the heredoc literal.
-  cat | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" > mypkg/echoer.sh << 'EOF'
+  cat << 'EOF' | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" > mypkg/echoer.sh
 #!/bin/bash
 set -euo pipefail
 # --- begin runfiles.bash initialization ---
