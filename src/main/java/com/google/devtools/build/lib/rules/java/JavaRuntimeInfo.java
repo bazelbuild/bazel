@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeInfoApi;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -172,6 +173,11 @@ public class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi
   /** The runfiles path of the Java binary. */
   public PathFragment javaBinaryRunfilesPath() {
     return javaBinaryRunfilesPath;
+  }
+
+  @Override
+  public SkylarkNestedSet skylarkJavaBaseInputs() {
+    return SkylarkNestedSet.of(Artifact.class, javaBaseInputs());
   }
 
   // Not all of JavaRuntimeInfo is exposed to Skylark, which makes implementing deep equality

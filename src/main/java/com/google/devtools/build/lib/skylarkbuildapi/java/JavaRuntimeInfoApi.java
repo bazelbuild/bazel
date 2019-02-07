@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Information about the Java runtime being used. */
@@ -26,16 +27,15 @@ public interface JavaRuntimeInfoApi extends ToolchainInfoApi {
   @SkylarkCallable(
       name = "java_home",
       doc = "Returns the execpath of the root of the Java installation.",
-      structField = true
-  )
-  public PathFragment javaHome();
+      structField = true)
+  PathFragment javaHome();
 
   /** The execpath of the Java binary. */
   @SkylarkCallable(
       name = "java_executable_exec_path",
       doc = "Returns the execpath of the Java executable.",
       structField = true)
-  public PathFragment javaBinaryExecPath();
+  PathFragment javaBinaryExecPath();
 
   /** The runfiles path of the JDK. */
   @SkylarkCallable(
@@ -46,7 +46,7 @@ public interface JavaRuntimeInfoApi extends ToolchainInfoApi {
               + "by Bazel. In particular, when one needs the JDK during an action, "
               + "java_home should be used instead.",
       structField = true)
-  public PathFragment javaHomeRunfilesPath();
+  PathFragment javaHomeRunfilesPath();
 
   /** The runfiles path of the Java binary. */
   @SkylarkCallable(
@@ -57,5 +57,12 @@ public interface JavaRuntimeInfoApi extends ToolchainInfoApi {
               + "by Bazel. In particular, when one needs to invoke the JVM during an action, "
               + "java_executable_exec_path should be used instead.",
       structField = true)
-  public PathFragment javaBinaryRunfilesPath();
+  PathFragment javaBinaryRunfilesPath();
+
+  /** The files in the Java runtime. */
+  @SkylarkCallable(
+      name = "files",
+      doc = "Returns the files in the Java runtime.",
+      structField = true)
+  SkylarkNestedSet skylarkJavaBaseInputs();
 }

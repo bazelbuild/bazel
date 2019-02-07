@@ -2405,4 +2405,30 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(toolchainResolutionEnabled()).isTrue();
   }
+
+  @Test
+  public void testJavaRuntimeProviderFiles() throws Exception {
+    scratch.file("a/a.txt", "hello");
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "java_runtime(name='jvm', srcs=['a.txt'], java_home='foo/bar')",
+        "java_runtime_alias(name='alias')",
+        "jrule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
+        "  return struct(",
+        "    files = provider.files,",
+        "  )",
+        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+
+    useConfiguration("--javabase=//a:jvm");
+    ConfiguredTarget ct = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked")
+    SkylarkNestedSet files = (SkylarkNestedSet) ct.get("files");
+    assertThat(prettyArtifactNames(files.toCollection(Artifact.class))).containsExactly("a/a.txt");
+  }
 }
