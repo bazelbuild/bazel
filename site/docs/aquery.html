@@ -10,7 +10,13 @@ title: Aquery (Action Graph Query)
   <li><a href="#basic-syntax">Basic Syntax</a></li>
   <li><a href="#functions">Aquery Functions</a></li>
   <li><a href="#options">Options</a></li>
-  <li><a href="#misc">Miscellaneous</a></li>
+  <li>
+    <a href="#misc">Miscellaneous</a>
+    <ul>
+      <li><a href="#skyframe-state">Querying against the state of Skyframe</a></li>
+      <li><a href="#aspect-on-aspect">Handling Aspect-on-aspect</a></li>
+    </ul>
+  </li>
   <li><a href="#known-issues">Known Issues</a></li>
   <li><a href="#updates">Updates</a></li>
 </ul>
@@ -174,9 +180,92 @@ $ bazel aquery 'inputs(".*cpp, deps(//src/target_a))'
   Warning: Enabling this flag will automatically enable the <code>--include_commandline</code> flag.
 </p>
 
+<h4><code class='flag'>--skyframe_state, default=false</code></h4>
+
+<p>
+  Without performing extra analysis, dump the current Action Graph from Skyframe.
+  Note: Specifying a target with <code>--skyframe_state</code> is currently not supported.
+  This flag is only available with <code>--output=proto</code> or <code>--output=textproto</code>.
+</p>
+
 <h2 id='misc'>Miscellaneous</h2>
 
-<h3>Aspect-on-Aspect</h3>
+<h3 id="skyframe-state">Querying against the state of Skyframe</h3>
+
+<p>
+  <a href="https://bazel.build/designs/skyframe.html">Skyframe</a> is the evaluation and
+  incrementality model of Bazel. On each instance of Bazel server, Skyframe stores the dependency graph
+  constructed from the previous runs of the <a href="guide.html#analysis-phase">Analysis phase</a>.
+</p>
+
+<p>
+  In some cases, it is useful to query the Action Graph currently on Skyframe.
+  An example use case would be:
+</p>
+
+<ol>
+  <li>Run <code>bazel build //target_a</code></li>
+  <li>Run <code>bazel build //target_b</code></li>
+  <li>File <code>foo.out</code> was generated.</li>
+</ol>
+
+<p>
+  <i>As a Bazel user, I want to determine if <code>foo.out</code> was generated from building
+  <code>//target_a</code> or <code>//target_b</code></i>.
+</p>
+
+<p>
+  One could run <code>bazel aquery 'outputs("foo.out", //target_a)'</code> and
+  <code>bazel aquery 'outputs("foo.out", //target_b)'</code> to figure out the action responsible
+  for creating <code>foo.out</code>, and in turn the target. However, the number of different
+  targets previously built can be larger than 2, which makes running multiple <code>aquery</code>
+  commands a hassle.
+</p>
+
+<p>As an alternative, the <code>--skyframe_state</code> flag can be used:</p>
+
+<pre>
+  # List all actions on Skyframe's action graph
+  $ bazel aquery --output=proto --skyframe_state
+
+  # or
+
+  # List all actions on Skyframe's action graph, whose output matches "foo.out"
+  $ bazel aquery --output=proto --skyframe_state 'outputs("foo.out")'
+</pre>
+
+<p>
+  With <code>--skyframe_state</code> mode, <code>aquery</code> takes the content of the Action Graph
+  that Skyframe keeps on the current instance of Bazel, (optionally) performs filtering on it and
+  outputs the content, without re-running the analysis phase.
+</p>
+
+<h4>Special considerations</h4>
+
+<h5>Output format</h5>
+
+<p><code>--skyframe_state</code> is currently only available for <code>--output=proto</code>
+  and <code>--output=textproto</code></p>
+
+<h5>Non-inclusion of target labels in the query expression</h5>
+
+<p>
+  Currently, <code>--skyframe_state</code> queries the whole action graph that exists on Skyframe,
+  regardless of the targets. Having the target label specified in the query together with
+  <code>--skyframe_state</code> is considered a syntax error:
+</p>
+
+<pre>
+  # Without filter
+  $ bazel aquery --output=proto --skyframe_state <b>//target_a</b>
+
+  # With filter
+  $ bazel aquery --output=proto --skyframe_state inputs(".*.java", <b>//target_a</b>)
+
+  ERROR: Error while parsing '//target_a)': Specifying a build target(s) [//target_a] with --skyframe_state is currently not supported.
+</pre>
+
+<h3 id="aspect-on-aspect">Aspect-on-Aspect</h3>
 
 <p>
   It is possible for <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">Aspects</a>
