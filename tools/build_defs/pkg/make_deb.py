@@ -142,7 +142,7 @@ def MakeDebianControlField(name, value, wrap=False):
                            break_long_words=False)
   else:
     result += value
-  return result.replace('\n', '\n ') + '\n'
+  return result.decode('utf-8').replace('\n', '\n ') + '\n'
 
 
 def CreateDebControl(extrafiles=None, **kwargs):
@@ -159,7 +159,8 @@ def CreateDebControl(extrafiles=None, **kwargs):
   with gzip.GzipFile('control.tar.gz', mode='w', fileobj=tar, mtime=0) as gz:
     with tarfile.open('control.tar.gz', mode='w', fileobj=gz) as f:
       tarinfo = tarfile.TarInfo('control')
-      tarinfo.size = len(controlfile)
+      # Don't discard unicode characters when computing the size
+      tarinfo.size = len(controlfile.encode('utf-8'))
       f.addfile(tarinfo, fileobj=BytesIO(controlfile.encode('utf-8')))
       if extrafiles:
         for name, (data, mode) in extrafiles.items():
@@ -281,7 +282,7 @@ def CreateChanges(output,
                      ), ('Checksums-Sha256', '\n' + ' '.join(
                          [checksums['sha256'], debsize, deb_basename]))])
   with open(output, 'w') as changes_fh:
-    changes_fh.write(changesdata)
+    changes_fh.write(changesdata.encode("utf-8"))
 
 
 def GetFlagValue(flagvalue, strip=True):
