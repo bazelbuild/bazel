@@ -140,7 +140,7 @@ public class ProxyHelper {
       try {
         port = Integer.parseInt(portRaw);
       } catch (NumberFormatException e) {
-        throw new IOException("Error parsing proxy port: " + cleanProxyAddress);
+        throw new IOException("Error parsing proxy port: " + cleanProxyAddress, e);
       }
     }
 
