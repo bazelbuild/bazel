@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <fstream>
 #include <functional>
 #include <iomanip>
 #include <memory>
@@ -1488,26 +1489,33 @@ int RunSubprocess(const Path& test_path,
 //
 // Every octet-sequence matching one of these regexps will be left alone, all
 // other octet-sequences will be replaced by '?' characters.
-//
-// This function also memorizes the locations of "]]>" in `cdata_end_locations`.
-// The reason is "]]>" ends the CDATA section prematurely and cannot be escaped
-// (see https://stackoverflow.com/a/223782/7778502). A separate filtering step
-// can replace those sequences with the string "]]>]]&gt;<![CDATA[" (which ends
-// the current CDATA segment, adds "]]&gt;", then starts a new CDATA segment).
-void CdataEscape(uint8_t* p, const DWORD size,
-                 std::vector<DWORD>* cdata_end_locations) {
+bool CdataEscape(const uint8_t* input, const DWORD size,
+                 std::basic_ostream<char>* out) {
+  // We aren't modifying the input, so const_cast is fine.
+  uint8_t* p = const_cast<uint8_t*>(input);
+
   for (DWORD i = 0; i < size; ++i, ++p) {
     if (p[0] == ']' && (i + 2 < size) && p[1] == ']' && p[2] == '>') {
-      // Mark where "]]>" is, then skip the next two octets.
-      cdata_end_locations->push_back(i);
+      *out << "]]>]]<![CDATA[>";
+      if (!out->good()) {
+        return false;
+      }
       i += 2;
       p += 2;
     } else if (*p == 0x9 || *p == 0xA || *p == 0xD ||
                (*p >= 0x20 && *p <= 0x7F)) {
-      // Matched legal single-octet sequence. Nothing to do.
+      // Matched legal single-octet sequence.
+      *out << *p;
+      if (!out->good()) {
+        return false;
+      }
     } else if ((i + 1 < size) && p[0] >= 0xC0 && p[0] <= 0xDF && p[1] >= 0x80 &&
                p[1] <= 0xBF) {
       // Matched legal double-octet sequence. Skip the next octet.
+      *out << p[0] << p[1];
+      if (!out->good()) {
+        return false;
+      }
       i += 1;
       p += 1;
     } else if ((i + 2 < size) &&
@@ -1522,22 +1530,34 @@ void CdataEscape(uint8_t* p, const DWORD size,
                 (p[0] == 0xEF && p[1] == 0xBF && p[2] >= 0x80 &&
                  p[2] <= 0xBD))) {
       // Matched legal triple-octet sequence. Skip the next two octets.
+      *out << p[0] << p[1] << p[2];
+      if (!out->good()) {
+        return false;
+      }
       i += 2;
       p += 2;
     } else if ((i + 3 < size) && p[0] >= 0xF0 && p[0] <= 0xF7 && p[1] >= 0x80 &&
                p[1] <= 0xBF && p[2] >= 0x80 && p[2] <= 0xBF && p[3] >= 0x80 &&
                p[3] <= 0xBF) {
       // Matched legal quadruple-octet sequence. Skip the next three octets.
+      *out << p[0] << p[1] << p[2] << p[3];
+      if (!out->good()) {
+        return false;
+      }
       i += 3;
       p += 3;
     } else {
       // Illegal octet; replace.
-      *p = '?';
+      *out << '?';
+      if (!out->good()) {
+        return false;
+      }
     }
   }
+  return true;
 }
 
-bool CdataEscapeAndAppend(const Path& input, HANDLE output) {
+bool CdataEscapeAndAppend(const Path& input, std::ofstream* out_stm) {
   DWORD size;
   std::unique_ptr<uint8_t[]> data;
   if (!ReadCompleteFile(input, &data, &size)) {
@@ -1545,49 +1565,7 @@ bool CdataEscapeAndAppend(const Path& input, HANDLE output) {
     return false;
   }
 
-  std::vector<DWORD> cdata_end_locations;
-  CdataEscape(data.get(), size, &cdata_end_locations);
-
-  if (cdata_end_locations.empty()) {
-    // If there were no "]]>" occurrences, we can dump the whole buffer.
-    if (!WriteToFile(output, data.get(), size)) {
-      LogError(__LINE__, input.Get());
-      return false;
-    }
-  } else {
-    // If there were "]]>" occurrences, we must replace each occurrence with
-    // `kCdataReplace`.
-    //
-    // A possible optimization would be to record the length of each "]]>"
-    // sequence. This would allow replacing "]]>]]>]]>" by
-    // "]]>]]&gt;]]&gt;]]&gt;<![CDATA[" instead of by
-    // "]]>]]&gt;<![CDATA[]]>]]&gt;<![CDATA[]]>]]&gt;<![CDATA[", yielding a
-    // smaller XML file but a more complex algorithm and data structure. So we
-    // forgo that optimization for this rare corner-case in favour of the
-    // simpler code and store each location of "]]>" individually.
-    static const std::string kCdataReplace = "]]>]]&gt;<![CDATA[";
-    DWORD start = 0;
-    DWORD end = 0;
-    for (DWORD end : cdata_end_locations) {
-      // Dump the section of the buffer since the last "]]>" to the current one
-      // then write the replacement for the current "]]>".
-      if (!WriteToFile(output, data.get() + start, end - start) ||
-          !WriteToFile(output, kCdataReplace.c_str(), kCdataReplace.size())) {
-        LogError(__LINE__, input.Get());
-        return false;
-      }
-      start = end + 3;
-    }
-
-    if (start < size) {
-      // Write the remainder of the buffer after the last "]]>".
-      if (!WriteToFile(output, data.get() + start, size - start)) {
-        LogError(__LINE__, input.Get());
-        return false;
-      }
-    }
-  }
-  return true;
+  return CdataEscape(data.get(), size, out_stm);
 }
 
 bool GetTestName(std::wstring* result) {
@@ -1695,14 +1673,15 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
     return false;
   }
 
-  bazel::windows::AutoHandle handle;
-  if (!OpenFileForWriting(output, &handle)) {
+  std::ofstream stm(AddUncPrefixMaybe(output).c_str(),
+                    std::ios_base::out | std::ios_base::binary
+                        | std::ios_base::trunc);
+  if (!stm.is_open() || !stm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Create XML file stub.
-  std::stringstream stm;
   stm << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
          "<testsuites>\n"
          "<testsuite name=\""
@@ -1713,21 +1692,20 @@ bool CreateXmlLog(const Path& output, const Path& test_outerr,
       << "\" time=\"" << duration.seconds << "\">" << error_msg
       << "</testcase>\n"
          "<system-out><![CDATA[";
-  std::string prefix = stm.str();
-  if (!WriteToFile(handle, prefix.c_str(), prefix.size())) {
+  if (!stm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Encode test log to make it embeddable in CDATA.
-  if (!CdataEscapeAndAppend(test_outerr, handle)) {
+  if (!CdataEscapeAndAppend(test_outerr, &stm)) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
 
   // Append CDATA end and closing tags.
-  std::string suffix = "]]></system-out>\n</testsuite>\n</testsuites>\n";
-  if (!WriteToFile(handle, suffix.c_str(), suffix.size())) {
+  stm << "]]></system-out>\n</testsuite>\n</testsuites>\n";
+  if (!stm.good()) {
     LogError(__LINE__, output.Get().c_str());
     return false;
   }
@@ -2031,22 +2009,9 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
   return TeeImpl::Create(input, output1, output2, result);
 }
 
-bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const DWORD size,
-                                std::vector<DWORD>* cdata_end_locations) {
-  CdataEscape(buffer, size, cdata_end_locations);
-  return true;
-}
-
-bool TestOnly_CdataEscapeAndAppend(const std::wstring& abs_input,
-                                   const std::wstring& abs_output) {
-  Path input_path, output_path;
-  if (!blaze_util::IsAbsolute(abs_input) || !input_path.Set(abs_input) ||
-      !blaze_util::IsAbsolute(abs_output) || !output_path.Set(abs_output)) {
-    return false;
-  }
-  bazel::windows::AutoHandle output;
-  return OpenFileForWriting(output_path, &output) &&
-         CdataEscapeAndAppend(input_path, output);
+bool TestOnly_CdataEncode(const uint8_t* input, const DWORD size,
+                          std::basic_ostream<char>* out_stm) {
+  return CdataEscape(input, size, out_stm);
 }
 
 IFStream* TestOnly_CreateIFStream(bazel::windows::AutoHandle* handle,

@@ -38,8 +38,7 @@ using bazel::tools::test_wrapper::FileInfo;
 using bazel::tools::test_wrapper::IFStream;
 using bazel::tools::test_wrapper::ZipEntryPaths;
 using bazel::tools::test_wrapper::testing::TestOnly_AsMixedPath;
-using bazel::tools::test_wrapper::testing::TestOnly_CdataEncodeBuffer;
-using bazel::tools::test_wrapper::testing::TestOnly_CdataEscapeAndAppend;
+using bazel::tools::test_wrapper::testing::TestOnly_CdataEncode;
 using bazel::tools::test_wrapper::testing::TestOnly_CreateIFStream;
 using bazel::tools::test_wrapper::testing::TestOnly_CreateTee;
 using bazel::tools::test_wrapper::testing::
@@ -460,28 +459,24 @@ TEST_F(TestWrapperWindowsTest, TestTee) {
   write1 = INVALID_HANDLE_VALUE;  // closes handle so the Tee thread can exit
 }
 
-void AssertCdataEncodeBuffer(
-    int line, const std::string& input, const std::string& expected_output,
-    const std::vector<DWORD>& expected_cdata_end_indices) {
-  ASSERT_EQ(input.size(), expected_output.size());
-
-  std::unique_ptr<uint8_t[]> mutable_buffer(new uint8_t[input.size()]);
-  memcpy(mutable_buffer.get(), input.c_str(), input.size());
-
-  std::vector<DWORD> cdata_ends;
-  EXPECT_TRUE(TestOnly_CdataEncodeBuffer(mutable_buffer.get(), input.size(),
-                                         &cdata_ends));
-  for (int i = 0; i < input.size(); ++i) {
-    EXPECT_EQ(mutable_buffer[i], static_cast<uint8_t>(expected_output[i]))
-        << "FAILED(in line " << line << "): mismatch at index " << i;
-  }
-
-  EXPECT_EQ(cdata_ends, expected_cdata_end_indices);
+void AssertCdataEncodeBuffer(const char* input, DWORD size,
+                             const char* expected_output) {
+  std::stringstream out_stm;
+  ASSERT_TRUE(TestOnly_CdataEncode(reinterpret_cast<const uint8_t*>(input),
+                                   size, &out_stm));
+  ASSERT_EQ(expected_output, out_stm.str());
 }
 
-TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferCdataEndings) {
+void AssertCdataEncodeBuffer(const char* input, const char* expected_output) {
+  AssertCdataEncodeBuffer(input, strlen(input), expected_output);
+}
+
+TEST_F(TestWrapperWindowsTest, TestCdataEscapeNullTerminator) {
+  AssertCdataEncodeBuffer("x\0y", 3, "x?y");
+}
+
+TEST_F(TestWrapperWindowsTest, TestCdataEscapeCdataEndings) {
   AssertCdataEncodeBuffer(
-      __LINE__,
       // === Input ===
       // CDATA end sequence, followed by some arbitrary octet.
       "]]>x"
@@ -491,18 +486,13 @@ TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferCdataEndings) {
       "]]>",
 
       // === Expected output ===
-      // "]]>" sequences are left alone but their position is stored in
-      "]]>x"
-      "]]>]]>x"
-      "]]>",
-
-      // === Expected CDATA end positions ===
-      {0, 4, 7, 11});
+      "]]>]]<![CDATA[>x"
+      "]]>]]<![CDATA[>]]>]]<![CDATA[>x"
+      "]]>]]<![CDATA[>");
 }
 
-TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferSingleOctets) {
-  AssertCdataEncodeBuffer(__LINE__,
-                          // === Input ===
+TEST_F(TestWrapperWindowsTest, TestCdataEscapeSingleOctets) {
+  AssertCdataEncodeBuffer(// === Input ===
                           // Legal single-octets.
                           "AB\x9\xA\xD\x20\x7F"
                           // Illegal single-octets.
@@ -514,14 +504,12 @@ TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferSingleOctets) {
                           "AB\x9\xA\xD\x20\x7F"
                           // Illegal single-octets.
                           "??????"
-                          "x",
-                          {});
+                          "x");
 }
 
-TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferDoubleOctets) {
+TEST_F(TestWrapperWindowsTest, TestCdataEscapeDoubleOctets) {
   // Legal range: [\xc0-\xdf][\x80-\xbf]
   AssertCdataEncodeBuffer(
-      __LINE__,
       "x"
       // Legal double-octet sequences.
       "\xC0\x80"
@@ -551,56 +539,41 @@ TEST_F(TestWrapperWindowsTest, TestCdataEncodeBufferDoubleOctets) {
       "?\xC0"  // 0xC0 starts a legal two-octet sequence...
       // Illegal double-octet sequences, both octets bad.
       "\xBF?"  // ...and 0xBF finishes that sequence
-      "x",
-      {});
+      "x");
 }
 
 TEST_F(TestWrapperWindowsTest, TestCdataEscapeAndAppend) {
   std::wstring tmpdir;
   GET_TEST_TMPDIR(&tmpdir);
 
-  // Create a directory structure to parse.
-  std::wstring root = tmpdir + L"\\tmp" + WLINE;
-  EXPECT_TRUE(CreateDirectoryW(root.c_str(), NULL));
-  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a",
-                                          "AB\xA\xC\xD"
-                                          "]]>"
-                                          "]]]>"
-                                          "\xC0\x80"
-                                          "a"
-                                          "\xED\x9F\xBF"
-                                          "b"
-                                          "\xEF\xBF\xB0"
-                                          "c"
-                                          "\xF7\xB0\x80\x81"
-                                          "d"
-                                          "]]>"));
+  AssertCdataEncodeBuffer(
+      // === Input ===
+      "AB\xA\xC\xD"
+      "]]>"
+      "]]]>"
+      "\xC0\x80"
+      "a"
+      "\xED\x9F\xBF"
+      "b"
+      "\xEF\xBF\xB0"
+      "c"
+      "\xF7\xB0\x80\x81"
+      "d"
+      "]]>",
 
-  ASSERT_TRUE(TestOnly_CdataEscapeAndAppend(root + L"\\a", root + L"\\b"));
-
-  HANDLE h = CreateFileW((root + L"\\b").c_str(), GENERIC_READ,
-                         FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
-                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-  ASSERT_NE(h, INVALID_HANDLE_VALUE);
-  char content[200];
-  DWORD read;
-  bool success = ReadFile(h, content, 200, &read, NULL) != FALSE;
-  CloseHandle(h);
-  EXPECT_TRUE(success);
-
-  ASSERT_EQ(std::string(content, read),
-            "AB\xA?\xD"
-            "]]>]]&gt;<![CDATA["
-            "]]]>]]&gt;<![CDATA["
-            "\xC0\x80"
-            "a"
-            "\xED\x9F\xBF"
-            "b"
-            "\xEF\xBF\xB0"
-            "c"
-            "\xF7\xB0\x80\x81"
-            "d"
-            "]]>]]&gt;<![CDATA[");
+      // === Output ===
+      "AB\xA?\xD"
+      "]]>]]<![CDATA[>"
+      "]]]>]]<![CDATA[>"
+      "\xC0\x80"
+      "a"
+      "\xED\x9F\xBF"
+      "b"
+      "\xEF\xBF\xB0"
+      "c"
+      "\xF7\xB0\x80\x81"
+      "d"
+      "]]>]]<![CDATA[>");
 }
 
 void CreateIFStreamForData(const std::string& data,

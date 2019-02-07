@@ -19,6 +19,7 @@
 #include <windows.h>
 
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -199,11 +200,8 @@ bool TestOnly_CreateTee(bazel::windows::AutoHandle* input,
                         bazel::windows::AutoHandle* output2,
                         std::unique_ptr<Tee>* result);
 
-bool TestOnly_CdataEncodeBuffer(uint8_t* buffer, const DWORD size,
-                                std::vector<DWORD>* cdata_end_locations);
-
-bool TestOnly_CdataEscapeAndAppend(const std::wstring& abs_input,
-                                   const std::wstring& abs_output);
+bool TestOnly_CdataEncode(const uint8_t* buffer, const DWORD size,
+                          std::basic_ostream<char>* out_stm);
 
 IFStream* TestOnly_CreateIFStream(bazel::windows::AutoHandle* handle,
                                   DWORD page_size);
