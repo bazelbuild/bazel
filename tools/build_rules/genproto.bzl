@@ -19,7 +19,7 @@ proto_filetype = [".proto"]
 def cc_grpc_library(name, src):
     basename = src[:-len(".proto")]
     protoc_label = str(Label("//third_party/protobuf:protoc"))
-    protoc_lib_label = str(Label("//third_party/protobuf:protoc_lib"))
+    protobuf_lib_label = str(Label("//third_party/protobuf"))
     cpp_plugin_label = str(Label("//third_party/grpc:cpp_plugin"))
     native.genrule(
         name = name + "_codegen",
@@ -41,7 +41,7 @@ def cc_grpc_library(name, src):
         hdrs = [basename + ".grpc.pb.h", basename + ".pb.h"],
         deps = [
             str(Label("//third_party/grpc:grpc++_unsecure")),
-            protoc_lib_label,
+            protobuf_lib_label,
         ],
         includes = ["."],
     )
