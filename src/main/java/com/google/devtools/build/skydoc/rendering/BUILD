@@ -18,7 +18,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/tools/skylark/java/com/google/devtools/skylark/common",
-        "//src/tools/skylark/java/com/google/devtools/skylark/skylint:skylint_lib",
         "//third_party:apache_velocity",
         "//third_party:guava",
         "//third_party:jsr305",
