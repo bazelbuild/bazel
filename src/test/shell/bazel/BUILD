@@ -525,7 +525,7 @@ sh_test(
         ":jdk_WORKSPACE",
         ":test-deps",
     ],
-    shard_count = 19,
+    shard_count = 20,
     tags = [
         "block-network",
         "no_windows",

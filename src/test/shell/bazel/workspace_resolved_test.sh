@@ -1024,4 +1024,49 @@ EOF
         //:it || fail "Expected success"
 }
 
+test_hidden_symbols() {
+  # Verify that the resolved file can be used for building, even if it
+  # legitimately contains a private symbol
+  mkdir main
+  cd main
+  cat > BUILD <<'EOF'
+genrule(
+  name = "it",
+  srcs = ["@foo//:data.txt"],
+  outs = ["it.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+
+  cat > repo.bzl <<'EOF'
+_THE_DATA="42"
+
+def _data_impl(ctx):
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+  ctx.file("data.txt", ctx.attr.data)
+
+_repo = repository_rule(
+  implementation = _data_impl,
+  attrs = { "data" : attr.string() },
+)
+
+def data_repo(name):
+  _repo(name=name, data=_THE_DATA)
+
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:repo.bzl", "data_repo")
+
+data_repo("foo")
+EOF
+
+  bazel build --experimental_repository_resolved_file=resolved.bzl //:it
+  echo > WORKSPACE # remove workspace, only work from the resolved file
+  bazel clean --expunge
+  echo; cat resolved.bzl; echo
+
+  bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl \
+        //:it || fail "Expected success"
+}
+
 run_suite "workspace_resolved_test tests"
