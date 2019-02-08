@@ -178,7 +178,7 @@ public abstract class DependencyResolver {
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
-  public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
+  public final OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
@@ -187,7 +187,7 @@ public abstract class DependencyResolver {
       @Nullable RuleTransitionFactory trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
-    OrderedSetMultimap<Attribute, Dependency> outgoingEdges =
+    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
         dependentNodeMap(
             node,
             hostConfig,
@@ -233,7 +233,7 @@ public abstract class DependencyResolver {
    * @param rootCauses collector for dep labels that can't be (loading phase) loaded
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
-  public final OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
+  public final OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
@@ -278,13 +278,9 @@ public abstract class DependencyResolver {
 
     filterIllegalVisibilityDependencies(node, targetMap, partiallyResolvedDeps);
 
-    OrderedSetMultimap<Attribute, Dependency> outgoingEdges =
+    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
         fullyResolveDependencies(
-            partiallyResolvedDeps,
-            attributeMap,
-            targetMap,
-            node.getConfiguration(),
-            trimmingTransitionFactory);
+            partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
 
     return outgoingEdges;
   }
@@ -402,16 +398,15 @@ public abstract class DependencyResolver {
    * <p>The target of the dependency edges depends on two things: the rule that depends on them and
    * the type of target they depend on. This function takes the rule into account. Accordingly, it
    * should <b>NOT</b> get the {@link Rule} instance representing the rule whose dependencies are
-   * being calculated as an argument.
+   * being calculated as an argument or its attributes.
    */
-  private OrderedSetMultimap<Attribute, Dependency> fullyResolveDependencies(
+  private OrderedSetMultimap<DependencyKind, Dependency> fullyResolveDependencies(
       OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps,
-      ConfiguredAttributeMapper attributeMap,
       Map<Label, Target> targetMap,
       BuildConfiguration originalConfiguration,
       @Nullable RuleTransitionFactory trimmingTransitionFactory)
       throws InconsistentAspectOrderException {
-    OrderedSetMultimap<Attribute, Dependency> outgoingEdges = OrderedSetMultimap.create();
+    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges = OrderedSetMultimap.create();
 
     for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry :
         partiallyResolvedDeps.entries()) {
@@ -432,12 +427,8 @@ public abstract class DependencyResolver {
       AspectCollection requiredAspects =
           filterPropagatingAspects(dep.getPropagatingAspects(), toTarget);
 
-      Attribute attribute =
-          entry.getKey() == TOOLCHAIN_DEPENDENCY
-              ? attributeMap.getAttributeDefinition(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR)
-              : entry.getKey().getAttribute();
       outgoingEdges.put(
-          attribute,
+          entry.getKey(),
           transition == NullTransition.INSTANCE
               ? Dependency.withNullConfiguration(dep.getLabel())
               : Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));

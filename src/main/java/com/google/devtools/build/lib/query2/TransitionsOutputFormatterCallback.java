@@ -19,6 +19,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
@@ -114,7 +114,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
       if (!(configuredTarget instanceof RuleConfiguredTarget)) {
         continue;
       }
-      OrderedSetMultimap<Attribute, Dependency> deps;
+      OrderedSetMultimap<DependencyKind, Dependency> deps;
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
           ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
       try {
@@ -137,7 +137,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
       } catch (EvalException | InconsistentAspectOrderException e) {
         throw new InterruptedException(e.getMessage());
       }
-      for (Map.Entry<Attribute, Dependency> attributeAndDep : deps.entries()) {
+      for (Map.Entry<DependencyKind, Dependency> attributeAndDep : deps.entries()) {
         if (attributeAndDep.getValue().hasExplicitConfiguration()
             || attributeAndDep.getValue().getTransition() instanceof NoTransition) {
           continue;
@@ -146,17 +146,20 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
         BuildOptions fromOptions = config.getOptions();
         List<BuildOptions> toOptions = dep.getTransition().apply(fromOptions);
         String hostConfigurationChecksum = hostConfiguration.checksum();
+        String dependencyName =
+            attributeAndDep.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY
+                ? PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR
+                : attributeAndDep.getKey().getAttribute().getName();
         addResult(
             "  "
-                .concat(attributeAndDep.getKey().getName())
+                .concat(dependencyName)
                 .concat("#")
                 .concat(dep.getLabel().toString())
                 .concat("#")
                 .concat(dep.getTransition().getName())
                 .concat(" ( -> ")
                 .concat(
-                    toOptions
-                        .stream()
+                    toOptions.stream()
                         .map(
                             options -> {
                               String checksum = options.computeChecksum();

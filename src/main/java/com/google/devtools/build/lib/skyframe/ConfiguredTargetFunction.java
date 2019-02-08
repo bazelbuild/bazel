@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DependencyResolver.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
@@ -305,7 +306,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
 
       // Calculate the dependencies of this target.
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depValueMap =
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap =
           computeDependencies(
               env,
               resolver,
@@ -333,7 +334,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
       ToolchainContext toolchainContext = null;
       if (unloadedToolchainContext != null) {
-        toolchainContext = unloadedToolchainContext.load(depValueMap);
+        toolchainContext =
+            unloadedToolchainContext.load(depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY));
       }
 
       ConfiguredTargetValue ans =
@@ -461,7 +463,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    *     BuildOptions object.
    */
   @Nullable
-  static OrderedSetMultimap<Attribute, ConfiguredTargetAndData> computeDependencies(
+  static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependencies(
       Environment env,
       SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
@@ -476,7 +478,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws DependencyEvaluationException, ConfiguredTargetFunctionException,
           AspectCreationException, InterruptedException {
     // Create the map from attributes to set of (target, configuration) pairs.
-    OrderedSetMultimap<Attribute, Dependency> depValueNames;
+    OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
     try {
       depValueNames =
           resolver.dependentNodeMap(
@@ -777,7 +779,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Target target,
       BuildConfiguration configuration,
       ConfiguredTargetKey configuredTargetKey,
-      OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depValueMap,
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
