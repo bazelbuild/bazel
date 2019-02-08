@@ -1212,17 +1212,6 @@ java_test(
 )
 
 java_test(
-    name = "StrictDepsUtilsTest",
-    srcs = ["rules/java/proto/StrictDepsUtilsTest.java"],
-    deps = [
-        ":analysis_testutil",
-        ":guava_junit_truth",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
-    ],
-)
-
-java_test(
     name = "test-rules-tests",
     srcs = ["rules/test/SkylarkTestingModuleTest.java"],
     tags = ["rules"],
