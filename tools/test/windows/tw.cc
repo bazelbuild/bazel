@@ -122,36 +122,28 @@ class IFStreamImpl : IFStream {
   // If successful, then takes ownership of the HANDLE in 'handle', and returns
   // a new IFStream pointer. Otherwise leaves 'handle' alone and returns
   // nullptr.
-  static IFStream* Create(bazel::windows::AutoHandle* handle,
-                          DWORD max_page_size = 0x100000 /* 1 MB */);
+  static IFStream* Create(HANDLE handle,
+                          DWORD page_size = 0x100000 /* 1 MB */);
 
-  bool Get(uint8_t* result) const override;
-  bool Advance() override;
-
- protected:
-  bool PeekN(DWORD n, uint8_t* result) const override;
+  int Get() override;
+  DWORD Peek(DWORD n, uint8_t* out) const override;
 
  private:
-  bazel::windows::AutoHandle handle_;
-  const std::unique_ptr<uint8_t[]> data_;
-  const DWORD max_page_size_;
-  DWORD page1_size_;
-  DWORD page2_size_;
-  DWORD page_end_;
-  DWORD read_pos_;
+  HANDLE handle_;
+  const std::unique_ptr<uint8_t[]> pages_;
+  const DWORD page_size_;
+  DWORD pos_, end_, next_size_;
 
-  IFStreamImpl(bazel::windows::AutoHandle* handle,
-               std::unique_ptr<uint8_t[]>&& data, DWORD data_size,
-               DWORD max_page_size)
+  IFStreamImpl(HANDLE handle, std::unique_ptr<uint8_t[]>&& pages,
+               DWORD n, DWORD page_size)
       : handle_(handle),
-        data_(std::move(data)),
-        max_page_size_(max_page_size),
-        page1_size_(data_size > max_page_size ? max_page_size : data_size),
-        page2_size_(data_size > max_page_size ? data_size - max_page_size : 0),
-        read_pos_(0),
-        page_end_(page1_size_) {}
-
-  bool Page1Active() const { return read_pos_ < max_page_size_; }
+        pages_(std::move(pages)),
+        page_size_(page_size),
+        pos_(0),
+        end_(n < page_size ? n : page_size),
+        next_size_(n < page_size
+                       ? 0
+                       : (n < page_size * 2 ? n - page_size : page_size)) {}
 };
 
 // A lightweight path abstraction that stores a Unicode Windows path.
@@ -1750,11 +1742,10 @@ Path Path::Dirname() const {
   return result;
 }
 
-IFStream* IFStreamImpl::Create(bazel::windows::AutoHandle* handle,
-                               DWORD max_page_size) {
-  std::unique_ptr<uint8_t[]> data(new uint8_t[max_page_size * 2]);
+IFStream* IFStreamImpl::Create(HANDLE handle, DWORD page_size) {
+  std::unique_ptr<uint8_t[]> data(new uint8_t[page_size * 2]);
   DWORD read;
-  if (!ReadFile(*handle, data.get(), max_page_size * 2, &read, NULL)) {
+  if (!ReadFile(handle, data.get(), page_size * 2, &read, NULL)) {
     DWORD err = GetLastError();
     if (err == ERROR_BROKEN_PIPE) {
       read = 0;
@@ -1763,85 +1754,63 @@ IFStream* IFStreamImpl::Create(bazel::windows::AutoHandle* handle,
       return nullptr;
     }
   }
-  return new IFStreamImpl(handle, std::move(data), read, max_page_size);
+  return new IFStreamImpl(handle, std::move(data), read, page_size);
 }
 
-bool IFStreamImpl::Get(uint8_t* result) const {
-  if (read_pos_ < page_end_) {
-    *result = data_[read_pos_];
-    return true;
-  } else {
-    return false;
+int IFStreamImpl::Get() {
+  if (pos_ == end_) {
+    return kIFStreamErrorEOF;
   }
-}
 
-bool IFStreamImpl::Advance() {
-  if (read_pos_ + 1 < page_end_) {
-    read_pos_++;
-    return true;
+  int result = pages_[pos_];
+  if (pos_ + 1 < end_) {
+    pos_++;
+    return result;
   }
-  const bool page1_was_active = Page1Active();
-  // The new page should have already been loaded when we started reading the
-  // current one (or it was filled by the Create method). Its size should only
-  // be zero if we reached EOF.
-  if ((page1_was_active && page2_size_ == 0) ||
-      (!page1_was_active && page1_size_ == 0)) {
-    return false;
-  }
-  // Overwrite the *active* page, because read_pos_ is about to move out of it
-  // and the current inactive page will be the new active one.
-  if (!ReadFile(handle_,
-                page1_was_active ? data_.get() : (data_.get() + max_page_size_),
-                max_page_size_, page1_was_active ? &page1_size_ : &page2_size_,
-                NULL)) {
+
+  // Overwrite the *active* page: we are about to move off of it.
+  DWORD offs = (pos_ < page_size_) ? 0 : page_size_;
+  DWORD read;
+  if (!ReadFile(handle_, pages_.get() + offs, page_size_, &read, NULL)) {
     DWORD err = GetLastError();
     if (err == ERROR_BROKEN_PIPE) {
       // The stream is reading from a pipe, and there's no more data.
-      if (page1_was_active) {
-        page1_size_ = 0;
-      } else {
-        page2_size_ = 0;
-      }
     } else {
       LogErrorWithValue(__LINE__, "Failed to read from file", err);
-      return false;
+      return kIFStreamErrorIO;
     }
   }
-  page_end_ = page1_was_active ? max_page_size_ + page2_size_ : page1_size_;
-  read_pos_ = page1_was_active ? max_page_size_ : 0;
-  return true;
+  pos_ = (pos_ < page_size_) ? page_size_ : 0;
+  end_ = pos_ + next_size_;
+  next_size_ = read;
+  return result;
 }
 
-bool IFStreamImpl::PeekN(DWORD n, uint8_t* result) const {
-  if (n > 3) {
-    // We only need to support peeking at up to 3 bytes. The theoretical upper
-    // limit is max_page_size_ * 2 - 1, because the buffer can hold at most
-    // max_page_size_ * 2 bytes of data and peeking starts at the next byte.
-    return false;
+DWORD IFStreamImpl::Peek(DWORD n, uint8_t* out) const {
+  if (pos_ == end_) {
+    return 0;
   }
 
-  if (page_end_ - read_pos_ > n) {
-    // The current page has enough data we can peek at.
-    for (DWORD i = 0; i < n; ++i) {
-      result[i] = data_[read_pos_ + 1 + i];
-    }
-    return true;
+  DWORD n1 = end_ - pos_;
+  if (n1 > n) {
+    n1 = n;  // all 'n' bytes are on the current page
   }
-  DWORD required_from_next_page = n - (page_end_ - 1 - read_pos_);
-  // Check that the next page has enough data.
-  if ((Page1Active() && page2_size_ < required_from_next_page) ||
-      (!Page1Active() && page1_size_ < required_from_next_page)) {
-    // Pages are loaded eagerly by Advance(). The only way the next page's size
-    // can be zero is if we reached EOF.
-    return false;
+  for (DWORD i = 0; i < n1; ++i) {
+    out[i] = pages_[pos_ + i];
   }
-  for (DWORD i = 0, pos = read_pos_ + 1; i < n; ++i, ++pos) {
-    if (pos == page_end_) {
-      pos = Page1Active() ? max_page_size_ : 0;
-    }
-    result[i] = data_[pos];
+  if (n1 == n) {
+    return n;
   }
-  return true;
+
+  DWORD offs = (pos_ < page_size_) ? page_size_ : 0;
+  DWORD n2 = n - n1;  // how much is left to read
+  if (n2 > next_size_) {
+    n2 = next_size_;  // read no more than the other page's size
+  }
+  for (DWORD i = 0; i < n2; ++i) {
+    out[n1 + i] = pages_[offs + i];
+  }
+  return n1 + n2;
 }
 
 }  // namespace
@@ -2014,8 +1983,7 @@ bool TestOnly_CdataEncode(const uint8_t* input, const DWORD size,
   return CdataEscape(input, size, out_stm);
 }
 
-IFStream* TestOnly_CreateIFStream(bazel::windows::AutoHandle* handle,
-                                  DWORD page_size) {
+IFStream* TestOnly_CreateIFStream(HANDLE handle, DWORD page_size) {
   return IFStreamImpl::Create(handle, page_size);
 }
 
