@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -348,7 +349,8 @@ public abstract class RepositoryFunction {
    * <p>If this is false, Bazel may decide not to re-fetch the repository, for example when the
    * {@code --nofetch} command line option is used.
    */
-  protected abstract boolean isLocal(Environment env, Rule rule) throws InterruptedException;
+  protected abstract boolean isLocal(Environment env,
+      FileSystem fileSystem, Rule rule) throws InterruptedException, RepositoryFunctionException;
 
   /**
    * Returns a block of data that must be equal for two Rules for them to be considered the same.

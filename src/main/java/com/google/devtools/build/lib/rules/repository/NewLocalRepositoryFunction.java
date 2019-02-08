@@ -43,7 +43,8 @@ import java.util.Map;
 public class NewLocalRepositoryFunction extends RepositoryFunction {
 
   @Override
-  public boolean isLocal(Environment env, Rule rule) {
+  public boolean isLocal(Environment env, FileSystem fileSystem,
+      Rule rule) {
     return true;
   }
 

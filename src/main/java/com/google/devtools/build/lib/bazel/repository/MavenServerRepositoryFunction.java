@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -35,7 +36,8 @@ import javax.annotation.Nullable;
 public class MavenServerRepositoryFunction extends RepositoryFunction {
 
   @Override
-  public boolean isLocal(Environment env, Rule rule) {
+  public boolean isLocal(Environment env, FileSystem fileSystem,
+      Rule rule) {
     return true;
   }
 

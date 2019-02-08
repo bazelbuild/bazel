@@ -22,12 +22,9 @@ import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
 import com.google.devtools.build.lib.analysis.skylark.SymbolGenerator;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -39,11 +36,12 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -119,19 +117,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               timeoutScaling,
               markerData);
 
-      // Since restarting a repository function can be really expensive, we first ensure that
-      // all label-arguments can be resolved to paths.
-      try {
-        skylarkRepositoryContext.enforceLabelAttributes();
-      } catch (EvalException e) {
-        if (e instanceof RepositoryMissingDependencyException) {
-          // Missing values are expected; just restart before we actually start the rule
-          return null;
-        }
-        // Other EvalExceptions indicate labels not referring to existing files. This is fine,
-        // as long as they are never resolved to files in the execution of the rule; we allow
-        // non-strict rules. So now we have to start evaluating the actual rule, even if that
-        // means the rule might get restarted for legitimate reasons.
+      if (!enforceLabelAttributes(skylarkRepositoryContext)) {
+        return null;
       }
 
       // This rule is mainly executed for its side effect. Nevertheless, the return value is
@@ -193,13 +180,33 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
     }
 
-    boolean hasRefreshRoots = hasRefreshRoots(env, rule);
+    boolean hasNeedsUpdate = rule.getRuleClassObject().getNeedsUpdateFunction() != null;
     if (env.valuesMissing()) {
       return null;
     }
     return RepositoryDirectoryValue.builder()
-        .setHasRefreshRoots(hasRefreshRoots)
+        // todo rename field/method
+        .setHasRefreshRoots(hasNeedsUpdate)
         .setPath(outputDirectory);
+  }
+
+  private boolean enforceLabelAttributes(SkylarkRepositoryContext skylarkRepositoryContext)
+      throws InterruptedException {
+    // Since restarting a repository function can be really expensive, we first ensure that
+    // all label-arguments can be resolved to paths.
+    try {
+      skylarkRepositoryContext.enforceLabelAttributes();
+    } catch (EvalException e) {
+      if (e instanceof RepositoryMissingDependencyException) {
+        // Missing values are expected; just restart before we actually start the rule
+        return false;
+      }
+      // Other EvalExceptions indicate labels not referring to existing files. This is fine,
+      // as long as they are never resolved to files in the execution of the rule; we allow
+      // non-strict rules. So now we have to start evaluating the actual rule, even if that
+      // means the rule might get restarted for legitimate reasons.
+    }
+    return true;
   }
 
   @SuppressWarnings("unchecked")
@@ -208,18 +215,79 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  protected boolean isLocal(Environment env, Rule rule) throws InterruptedException {
+  protected boolean isLocal(Environment env,
+      FileSystem fileSystem, Rule rule) throws InterruptedException, RepositoryFunctionException {
     Object isLocal = rule.getAttributeContainer().getAttr("$local");
-    return Boolean.TRUE.equals(isLocal) || hasRefreshRoots(env, rule);
+    return Boolean.TRUE.equals(isLocal) || needsUpdate(env, fileSystem, rule);
   }
 
-  private boolean hasRefreshRoots(Environment env, Rule rule) throws InterruptedException {
-    ImmutableMap<PathFragment, RepositoryName> roots = ExternalPackageUtil
-        .getRefreshRootsToRepositories(env);
-    if (roots == null) {
+  private boolean needsUpdate(Environment env, FileSystem fileSystem, Rule rule)
+      throws InterruptedException, RepositoryFunctionException {
+    BaseFunction function = rule.getRuleClassObject().getNeedsUpdateFunction();
+    if (function == null) {
       return false;
     }
-    return roots.containsValue(RepositoryName.createFromValidStrippedName(rule.getName()));
+    SkylarkSemantics skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
+      return false;
+    }
+    Path tempDirectory;
+    // fictive output directory, because we are not saving any changes done by needsUpdate
+    // probably there is already similar thing somewhere TODO: get temp dir nicer
+    try {
+      tempDirectory = fileSystem.getPath(Files.createTempDirectory("").toString());
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+    try (Mutability mutability = Mutability.create("Starlark repository needs_update")) {
+      com.google.devtools.build.lib.syntax.Environment buildEnv =
+          com.google.devtools.build.lib.syntax.Environment.builder(mutability)
+              .setSemantics(skylarkSemantics)
+              .setEventHandler(env.getListener())
+              // The fetch phase does not need the tools repository or the fragment map because
+              // it happens before analysis.
+              .setStarlarkContext(
+                  new BazelStarlarkContext(
+                      /* toolsRepository = */ null,
+                      /* fragmentNameToClass = */ null,
+                      rule.getPackage().getRepositoryMapping()))
+              .build();
+
+      // todo probably it should be restricted context, where not all operations are allowed
+      SkylarkRepositoryContext skylarkRepositoryContext =
+          new SkylarkRepositoryContext(
+              rule,
+              tempDirectory,
+              env,
+              clientEnvironment,
+              httpDownloader,
+              timeoutScaling,
+              new HashMap<>());
+
+      if (!enforceLabelAttributes(skylarkRepositoryContext)) {
+        return false;
+      }
+
+      Object retValue =
+          function.call(
+              /*args=*/ ImmutableList.of(skylarkRepositoryContext),
+              /*kwargs=*/ ImmutableMap.of(),
+              null,
+              buildEnv);
+      // todo assert type
+      return Boolean.TRUE.equals(retValue);
+    } catch (EvalException e) {
+      if (e.getCause() instanceof RepositoryMissingDependencyException) {
+        return false;
+      }
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    } finally {
+      try {
+        tempDirectory.delete();
+      } catch (IOException e) {
+        //ignored?
+      }
+    }
   }
 
   @Override

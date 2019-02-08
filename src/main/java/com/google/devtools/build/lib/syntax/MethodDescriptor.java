@@ -155,6 +155,9 @@ public final class MethodDescriptor {
                 "method '%s' returns an object of invalid type %r", getName(), result.getClass()));
       }
       return result;
+    } catch (IllegalArgumentException e) {
+      System.out.println("***");
+      throw new EvalException(loc, "Method invocation failed: " + e);
     } catch (IllegalAccessException e) {
       // TODO(bazel-team): Print a nice error message. Maybe the method exists
       // and an argument is missing or has the wrong type.

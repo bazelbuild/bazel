@@ -80,6 +80,16 @@ public interface RepositoryModuleApi {
             named = true,
             positional = false),
         @Param(
+            name = "needs_update",
+            type = Object.class,
+            legacyNamed = true,
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "TODO"),
+        @Param(
             name = "doc",
             type = String.class,
             defaultValue = "''",
@@ -96,6 +106,7 @@ public interface RepositoryModuleApi {
       Object attrs,
       Boolean local,
       SkylarkList<String> environ,
+      Object needsUpdate,
       String doc,
       FuncallExpression ast,
       Environment env)
