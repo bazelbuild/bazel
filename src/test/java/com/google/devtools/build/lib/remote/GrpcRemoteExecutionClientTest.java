@@ -1177,15 +1177,16 @@ public class GrpcRemoteExecutionClientTest {
                       .setResponse(Any.pack(ExecuteResponse.newBuilder().setStatus(status).build()))
                       .build());
               responseObserver.onCompleted();
+            } else {
+              assertThat(request.getSkipCacheLookup()).isFalse();
+              responseObserver.onNext(
+                  Operation.newBuilder()
+                      .setDone(true)
+                      .setResponse(
+                          Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+                      .build());
+              responseObserver.onCompleted();
             }
-            assertThat(request.getSkipCacheLookup()).isFalse();
-            responseObserver.onNext(
-                Operation.newBuilder()
-                    .setDone(true)
-                    .setResponse(
-                        Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
-                    .build());
-            responseObserver.onCompleted();
           }
         });
     AtomicInteger numCacheUploads = new AtomicInteger();
