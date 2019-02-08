@@ -668,9 +668,7 @@ public class AbstractRemoteActionCacheTests {
 
   private DefaultRemoteActionCache newTestCache() {
     RemoteOptions options = new RemoteOptions();
-    RemoteRetrier retrier =
-        new RemoteRetrier(options, (e) -> false, retryService, Retrier.ALLOW_ALL_CALLS);
-    return new DefaultRemoteActionCache(options, digestUtil, retrier);
+    return new DefaultRemoteActionCache(options, digestUtil);
   }
 
   private static class DefaultRemoteActionCache extends AbstractRemoteActionCache {
@@ -680,8 +678,8 @@ public class AbstractRemoteActionCacheTests {
     AtomicInteger numSuccess = new AtomicInteger();
     AtomicInteger numFailures = new AtomicInteger();
 
-    public DefaultRemoteActionCache(RemoteOptions options, DigestUtil digestUtil, Retrier retrier) {
-      super(options, digestUtil, retrier);
+    public DefaultRemoteActionCache(RemoteOptions options, DigestUtil digestUtil) {
+      super(options, digestUtil);
     }
 
     public Digest addContents(String txt) throws UnsupportedEncodingException {

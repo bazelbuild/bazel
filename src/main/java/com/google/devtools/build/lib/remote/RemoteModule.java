@@ -257,7 +257,6 @@ public final class RemoteModule extends BlazeModule {
                     remoteOptions,
                     GoogleAuthUtils.newCredentials(authAndTlsOptions),
                     env.getWorkingDirectory()),
-                retrier,
                 digestUtil);
       }
 

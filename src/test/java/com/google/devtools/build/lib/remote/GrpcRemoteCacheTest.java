@@ -998,4 +998,62 @@ public class GrpcRemoteCacheTest {
         });
     assertThat(client.getCachedActionResult(actionKey)).isNull();
   }
+
+  @Test
+  public void downloadBlobIsRetriedWithProgress() throws IOException, InterruptedException {
+    final GrpcRemoteCache client = newClient();
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            ByteString data = ByteString.copyFromUtf8("abcdefg");
+            int off = (int) request.getReadOffset();
+            if (off == 0) {
+              data = data.substring(0, 1);
+            } else {
+              data = data.substring(off);
+            }
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(data).build());
+            if (off == 0) {
+              responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+            } else {
+              responseObserver.onCompleted();
+            }
+          }
+        });
+    assertThat(new String(getFromFuture(client.downloadBlob(digest)), UTF_8)).isEqualTo("abcdefg");
+  }
+
+  @Test
+  public void downloadBlobPassesThroughDeadlineExceededWithoutProgress() throws IOException, InterruptedException {
+    final GrpcRemoteCache client = newClient();
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            ByteString data = ByteString.copyFromUtf8("abcdefg");
+            if (request.getReadOffset() == 0) {
+              responseObserver.onNext(
+                  ReadResponse.newBuilder().setData(data.substring(0, 2)).build());
+            }
+            responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+          }
+        });
+    boolean passedThroughDeadlineExceeded = false;
+    try {
+      getFromFuture(client.downloadBlob(digest));
+    } catch (RuntimeException e) {
+      Status st = Status.fromThrowable(e);
+      if (st.getCode() != Status.Code.DEADLINE_EXCEEDED) {
+        throw e;
+      }
+      passedThroughDeadlineExceeded = true;
+    }
+    assertThat(passedThroughDeadlineExceeded).isTrue();
+  }
 }
