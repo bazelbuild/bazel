@@ -23,7 +23,6 @@ import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.devtools.build.skyframe.KeyToConsolidate.OpToStoreBare;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -589,7 +588,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   /** @see DirtyBuildingState#getNextDirtyDirectDeps() */
   @Override
-  public synchronized Collection<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  public synchronized List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     Preconditions.checkState(isReady(), this);
     Preconditions.checkState(isEvaluating(), "Not evaluating during getNextDirty? %s", this);
     return getDirtyBuildingState().getNextDirtyDirectDeps();
@@ -708,7 +707,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized void addTemporaryDirectDepsGroupToDirtyEntry(Collection<SkyKey> group) {
+  public synchronized void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group) {
     Preconditions.checkState(!isDone(), "add group temp shouldn't be done: %s %s", group, this);
     getTemporaryDirectDeps().appendGroup(group);
   }

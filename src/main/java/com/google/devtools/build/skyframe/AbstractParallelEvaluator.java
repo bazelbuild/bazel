@@ -44,6 +44,7 @@ import java.math.BigInteger;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -219,7 +220,7 @@ public abstract class AbstractParallelEvaluator {
         // its reverse dep on this node removed. Failing to do either one of these would result in
         // a graph inconsistency, where the child had a reverse dep on this node, but this node
         // had no kind of dependency on the child.
-        Collection<SkyKey> directDepsToCheck = state.getNextDirtyDirectDeps();
+        List<SkyKey> directDepsToCheck = state.getNextDirtyDirectDeps();
 
         if (invalidatedByErrorTransience(directDepsToCheck, state)) {
           // If this dep is the ErrorTransienceValue and the ErrorTransienceValue has been

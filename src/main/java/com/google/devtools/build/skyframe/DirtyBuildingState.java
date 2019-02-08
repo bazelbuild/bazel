@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
-import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -194,7 +194,7 @@ public abstract class DirtyBuildingState {
    *
    * <p>See {@link NodeEntry#getNextDirtyDirectDeps}.
    */
-  final Collection<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  final List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     Preconditions.checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     Preconditions.checkState(dirtyDirectDepIndex < getNumOfGroupsInLastBuildDirectDeps(), this);
     return getLastBuildDirectDeps().get(dirtyDirectDepIndex++);
