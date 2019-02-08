@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.windows;
 
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
@@ -44,7 +48,17 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     // DO NOT quote argv0, createProcess will do it for us.
     String argv0 = processArgv0(argv.get(0));
     String argvRest =
-        argv.size() > 1 ? WindowsProcesses.quoteCommandLine(argv.subList(1, argv.size())) : "";
+        argv.size() > 1
+            ? Joiner.on(" ").join(
+                Iterables.transform(
+                    argv.subList(1, argv.size()),
+                    new Function<String, String>() {
+                      @Override
+                      public String apply(String s) {
+                        return ShellUtils.escapeCreateProcessArg(s);
+                      }
+                    }))
+            : "";
     byte[] env = convertEnvToNative(builder.getEnv());
 
     String stdoutPath = getRedirectPath(builder.getStdout(), builder.getStdoutFile());

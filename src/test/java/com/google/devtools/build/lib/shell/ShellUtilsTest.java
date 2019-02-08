@@ -134,4 +134,58 @@ public class ShellUtilsTest {
     assertTokenizeFails("-Dfoo='bar", "unterminated quotation");
     assertTokenizeFails("-Dfoo=\"b'ar", "unterminated quotation");
   }
+
+  private void assertCreateProcessEscaping(String arg, String expected) {
+    assertThat(ShellUtils.escapeCreateProcessArg(arg)).isEqualTo(expected);
+  }
+
+  @Test
+  public void testEscapeCreateProcessArg() {
+    assertCreateProcessEscaping("", "\"\"");
+    assertCreateProcessEscaping("with\"quote", "\"with\\\"quote\"");
+    assertCreateProcessEscaping("one\\backslash", "one\\backslash");
+    assertCreateProcessEscaping("one\\ backslash and \\space", "\"one\\ backslash and \\space\"");
+    assertCreateProcessEscaping("two\\\\backslashes", "two\\\\backslashes");
+    assertCreateProcessEscaping(
+        "two\\\\ backslashes \\\\and space", "\"two\\\\ backslashes \\\\and space\"");
+    assertCreateProcessEscaping("one\\\"x", "\"one\\\\\\\"x\"");
+    assertCreateProcessEscaping("two\\\\\"x", "\"two\\\\\\\\\\\"x\"");
+    assertCreateProcessEscaping("a \\ b", "\"a \\ b\"");
+    assertCreateProcessEscaping("a \\\" b", "\"a \\\\\\\" b\"");
+
+    assertCreateProcessEscaping("A", "A");
+    assertCreateProcessEscaping("\"a\"", "\"\\\"a\\\"\"");
+
+    assertCreateProcessEscaping("B C", "\"B C\"");
+    assertCreateProcessEscaping("\"b c\"", "\"\\\"b c\\\"\"");
+
+    assertCreateProcessEscaping("D\"E", "\"D\\\"E\"");
+    assertCreateProcessEscaping("\"d\"e\"", "\"\\\"d\\\"e\\\"\"");
+
+    assertCreateProcessEscaping("C:\\F G", "\"C:\\F G\"");
+    assertCreateProcessEscaping("\"C:\\f g\"", "\"\\\"C:\\f g\\\"\"");
+
+    assertCreateProcessEscaping("C:\\H\"I", "\"C:\\H\\\"I\"");
+    assertCreateProcessEscaping("\"C:\\h\"i\"", "\"\\\"C:\\h\\\"i\\\"\"");
+
+    assertCreateProcessEscaping("C:\\J\\\"K", "\"C:\\J\\\\\\\"K\"");
+    assertCreateProcessEscaping("\"C:\\j\\\"k\"", "\"\\\"C:\\j\\\\\\\"k\\\"\"");
+
+    assertCreateProcessEscaping("C:\\L M ", "\"C:\\L M \"");
+    assertCreateProcessEscaping("\"C:\\l m \"", "\"\\\"C:\\l m \\\"\"");
+
+    assertCreateProcessEscaping("C:\\N O\\", "\"C:\\N O\\\\\"");
+    assertCreateProcessEscaping("\"C:\\n o\\\"", "\"\\\"C:\\n o\\\\\\\"\"");
+
+    assertCreateProcessEscaping("C:\\P Q\\ ", "\"C:\\P Q\\ \"");
+    assertCreateProcessEscaping("\"C:\\p q\\ \"", "\"\\\"C:\\p q\\ \\\"\"");
+
+    assertCreateProcessEscaping("C:\\R\\S\\", "C:\\R\\S\\");
+    assertCreateProcessEscaping("C:\\R x\\S\\", "\"C:\\R x\\S\\\\\"");
+    assertCreateProcessEscaping("\"C:\\r\\s\\\"", "\"\\\"C:\\r\\s\\\\\\\"\"");
+    assertCreateProcessEscaping("\"C:\\r x\\s\\\"", "\"\\\"C:\\r x\\s\\\\\\\"\"");
+
+    assertCreateProcessEscaping("C:\\T U\\W\\", "\"C:\\T U\\W\\\\\"");
+    assertCreateProcessEscaping("\"C:\\t u\\w\\\"", "\"\\\"C:\\t u\\w\\\\\\\"\"");
+  }
 }
