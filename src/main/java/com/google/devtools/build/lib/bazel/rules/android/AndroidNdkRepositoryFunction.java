@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -76,7 +77,8 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
   }
 
   @Override
-  public boolean isLocal(Environment env, Rule rule) {
+  public boolean isLocal(Environment env, FileSystem fileSystem,
+      Rule rule) {
     return true;
   }
 

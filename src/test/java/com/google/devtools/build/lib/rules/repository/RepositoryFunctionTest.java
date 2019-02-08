@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -61,7 +62,8 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    protected boolean isLocal(Environment env, Rule rule) {
+    protected boolean isLocal(Environment env,
+        FileSystem fileSystem, Rule rule) {
       return false;
     }
 

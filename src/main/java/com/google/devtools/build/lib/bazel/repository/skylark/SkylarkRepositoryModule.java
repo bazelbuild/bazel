@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -60,6 +61,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       Object attrs,
       Boolean local,
       SkylarkList<String> environ,
+      Object needsUpdate,
       FuncallExpression ast,
       com.google.devtools.build.lib.syntax.Environment funcallEnv)
       throws EvalException {
@@ -83,6 +85,10 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       }
     }
     builder.setConfiguredTargetFunction(implementation);
+    // todo
+    if (needsUpdate instanceof BaseFunction) {
+      builder.setNeedsUpdateFunction((BaseFunction) needsUpdate);
+    }
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
         funcallEnv.getGlobals().getLabel(), funcallEnv.getTransitiveContentHashCode());
     builder.setWorkspaceOnly();

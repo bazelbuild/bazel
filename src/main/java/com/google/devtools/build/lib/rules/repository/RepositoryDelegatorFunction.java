@@ -169,7 +169,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
     String ruleKey = computeRuleKey(rule, ruleSpecificData);
     Map<String, String> markerData = new TreeMap<>();
-    boolean isLocal = handler.isLocal(env, rule);
+    boolean isLocal = handler.isLocal(env, repoRoot.getFileSystem(), rule);
     if (env.valuesMissing()) {
       return null;
     }

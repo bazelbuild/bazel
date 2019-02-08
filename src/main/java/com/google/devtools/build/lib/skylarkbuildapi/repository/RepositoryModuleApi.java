@@ -78,7 +78,17 @@ public interface RepositoryModuleApi {
                     + "an environment variable in that list change, the repository will be "
                     + "refetched.",
             named = true,
-            positional = false)
+            positional = false),
+        @Param(
+            name = "needs_update",
+            type = Object.class,
+            legacyNamed = true,
+            noneable = true,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "TODO"),
       },
       useAst = true,
       useEnvironment = true)
@@ -87,6 +97,7 @@ public interface RepositoryModuleApi {
       Object attrs,
       Boolean local,
       SkylarkList<String> environ,
+      Object needsUpdate,
       FuncallExpression ast,
       Environment env)
       throws EvalException;

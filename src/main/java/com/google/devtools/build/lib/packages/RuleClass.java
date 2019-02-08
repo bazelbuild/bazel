@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTe
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
+import com.google.devtools.build.lib.packages.OutputFile.Kind;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -654,6 +655,7 @@ public class RuleClass {
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
     private AdvertisedProviderSet.Builder advertisedProviders = AdvertisedProviderSet.builder();
     private BaseFunction configuredTargetFunction = null;
+    private BaseFunction needsUpdateFunction = null;
     private BuildSetting buildSetting = null;
     private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
         NO_EXTERNAL_BINDINGS;
@@ -764,6 +766,7 @@ public class RuleClass {
           configuredTargetFactory,
           configuredTargetFunction);
       if (!workspaceOnly) {
+        Preconditions.checkState(needsUpdateFunction == null);
         if (skylark) {
           assertSkylarkRuleClassHasImplementationFunction();
           assertSkylarkRuleClassHasEnvironmentLabel();
@@ -815,6 +818,7 @@ public class RuleClass {
           preferredDependencyPredicate,
           advertisedProviders.build(),
           configuredTargetFunction,
+          needsUpdateFunction,
           externalBindingsFunction,
           optionReferenceFunction,
           ruleDefinitionEnvironmentLabel,
@@ -1138,6 +1142,11 @@ public class RuleClass {
       return this;
     }
 
+    public Builder setNeedsUpdateFunction(BaseFunction needsUpdateFunction) {
+      this.needsUpdateFunction = needsUpdateFunction;
+      return this;
+    }
+
     public Builder setBuildSetting(BuildSetting buildSetting) {
       this.buildSetting = buildSetting;
       return this;
@@ -1436,6 +1445,8 @@ public class RuleClass {
    */
   @Nullable private final BuildSetting buildSetting;
 
+  @Nullable
+  private final BaseFunction needsUpdateFunction;
   /**
    * Returns the extra bindings a workspace function adds to the WORKSPACE file.
    */
@@ -1514,6 +1525,7 @@ public class RuleClass {
       Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
       @Nullable BaseFunction configuredTargetFunction,
+      @Nullable BaseFunction needsUpdateFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       Function<? super Rule, ? extends Set<String>> optionReferenceFunction,
       @Nullable Label ruleDefinitionEnvironmentLabel,
@@ -1524,7 +1536,7 @@ public class RuleClass {
       boolean supportsPlatforms,
       ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed,
       Set<Label> executionPlatformConstraints,
-      OutputFile.Kind outputFileKind,
+      Kind outputFileKind,
       Collection<Attribute> attributes,
       @Nullable BuildSetting buildSetting) {
     this.name = name;
@@ -1544,6 +1556,7 @@ public class RuleClass {
     this.preferredDependencyPredicate = preferredDependencyPredicate;
     this.advertisedProviders = advertisedProviders;
     this.configuredTargetFunction = configuredTargetFunction;
+    this.needsUpdateFunction = needsUpdateFunction;
     this.externalBindingsFunction = externalBindingsFunction;
     this.optionReferenceFunction = optionReferenceFunction;
     this.ruleDefinitionEnvironmentLabel = ruleDefinitionEnvironmentLabel;
@@ -2326,6 +2339,11 @@ public class RuleClass {
    */
   @Nullable public BaseFunction getConfiguredTargetFunction() {
     return configuredTargetFunction;
+  }
+
+  @Nullable
+  public BaseFunction getNeedsUpdateFunction() {
+    return needsUpdateFunction;
   }
 
   @Nullable

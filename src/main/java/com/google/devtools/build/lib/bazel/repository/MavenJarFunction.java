@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -49,7 +50,8 @@ public class MavenJarFunction extends RepositoryFunction {
   private static final String DEFAULT_SERVER = "default";
 
   @Override
-  public boolean isLocal(Environment env, Rule rule) {
+  public boolean isLocal(Environment env, FileSystem fileSystem,
+      Rule rule) {
     return false;
   }
 

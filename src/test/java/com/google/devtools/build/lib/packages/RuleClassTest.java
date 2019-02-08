@@ -896,7 +896,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         preferredDependencyPredicate,
         advertisedProviders,
         configuredTargetFunction,
-        externalBindingsFunction,
+        null, externalBindingsFunction,
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
         ruleDefinitionEnvironment == null
             ? null

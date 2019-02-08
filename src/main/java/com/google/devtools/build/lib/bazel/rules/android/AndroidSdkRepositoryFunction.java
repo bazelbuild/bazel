@@ -65,7 +65,8 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
           "extras/m2repository");
 
   @Override
-  public boolean isLocal(Environment env, Rule rule) {
+  public boolean isLocal(Environment env, FileSystem fileSystem,
+      Rule rule) {
     return true;
   }
 
