@@ -330,7 +330,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
                       ctx.wrap(() -> requestRead(
                           resourceName,
                           offset + committed,
-                          backoff,
+                          stalledBackoff,
                           digest,
                           out,
                           hashSupplier,
