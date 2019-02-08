@@ -21,20 +21,28 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+py_library(
+    name = "aquery_differ_resolvers",
+    srcs = glob(
+        ["resolvers/*.py"],
+    ),
+)
+
 py_binary(
-    name = "cmd_line_differ",
-    srcs = ["cmd_line_differ.py"],
+    name = "aquery_differ",
+    srcs = ["aquery_differ.py"],
     deps = [
+        ":aquery_differ_resolvers",
         "//src/main/protobuf:analysis_py_proto",
         "//third_party/py/abseil",
     ],
 )
 
 py_test(
-    name = "cmd_line_differ_test",
-    srcs = ["cmd_line_differ_test.py"],
+    name = "aquery_differ_test",
+    srcs = ["aquery_differ_test.py"],
     deps = [
-        ":cmd_line_differ",
+        ":aquery_differ",
         "//src/main/protobuf:analysis_py_proto",
         "//third_party/py/mock",
     ],

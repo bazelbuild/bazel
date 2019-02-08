@@ -17,7 +17,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    - "//tools/cmd_line_differ/..."
+    - "//tools/aquery_differ/..."
   ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -35,7 +35,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    - "//tools/cmd_line_differ/..."
+    - "//tools/aquery_differ/..."
   ubuntu1804:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -53,7 +53,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    - "//tools/cmd_line_differ/..."
+    - "//tools/aquery_differ/..."
   ubuntu1804_nojava:
     build_flags:
     - "--javabase=@openjdk_linux_archive//:runtime"
@@ -69,7 +69,7 @@ platforms:
     - "//src/test/..."
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
-    - "//tools/cmd_line_differ/..."
+    - "//tools/aquery_differ/..."
     # We can't run Android tests without an installed Android SDK / NDK.
     - "-//src/test/java/com/google/devtools/build/android/..."
     - "-//src/test/shell/bazel/android/..."
@@ -127,7 +127,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    - "//tools/cmd_line_differ/..."
+    - "//tools/aquery_differ/..."
   ubuntu1804_java10:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -145,7 +145,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    - "//tools/cmd_line_differ/..."
+    - "//tools/aquery_differ/..."
   ubuntu1804_java11:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -163,7 +163,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    - "//tools/cmd_line_differ/..."
+    - "//tools/aquery_differ/..."
     # Some prebuilt jars doesn't run with Java 11
     - "-//src/test/shell/bazel:external_integration_test"
     - "-//src/test/shell/bazel:maven_test"
@@ -192,7 +192,7 @@ platforms:
     - "//src/tools/singlejar/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    - "//tools/cmd_line_differ/..."
+    - "//tools/aquery_differ/..."
     - "-//src/test/shell/integration:minimal_jdk_test"
   windows:
     batch_commands:
