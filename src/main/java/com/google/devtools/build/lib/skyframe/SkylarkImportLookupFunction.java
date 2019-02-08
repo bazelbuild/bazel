@@ -145,12 +145,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     SkylarkImportLookupKey key = (SkylarkImportLookupKey) skyKey.argument();
     Label importLabel = key.importLabel;
 
-    if (!visitedNested.add(importLabel)) {
-      ImmutableList<Label> cycle =
-          CycleUtils.splitIntoPathAndChain(Predicates.equalTo(importLabel), visitedNested).second;
-      throw new SkylarkImportFailedException("Starlark import cycle: " + cycle);
-    }
-
     // Note that we can't block other threads on the computation of this value due to a potential
     // deadlock on a cycle. Although we are repeating some work, it is possible we have an import
     // cycle where one thread starts at one side of the cycle and the other thread starts at the
@@ -160,6 +154,12 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     if (cachedSkylarkImportLookupValueAndDeps != null) {
       cachedSkylarkImportLookupValueAndDeps.traverse(env::registerDependencies, visitedGlobalDeps);
       return cachedSkylarkImportLookupValueAndDeps;
+    }
+
+    if (!visitedNested.add(importLabel)) {
+      ImmutableList<Label> cycle =
+          CycleUtils.splitIntoPathAndChain(Predicates.equalTo(importLabel), visitedNested).second;
+      throw new SkylarkImportFailedException("Starlark import cycle: " + cycle);
     }
 
     CachedSkylarkImportLookupValueAndDeps.Builder inlineCachedValueBuilder =
