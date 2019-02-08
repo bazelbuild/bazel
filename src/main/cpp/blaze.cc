@@ -1416,25 +1416,6 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
 static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   map<string, EnvVarValue> result;
 
-  // We need to disable HTTP proxies for local (gRPC-based) communication
-  // between the client and server. gRPC currently only checks http_proxy, but
-  // HTTP_PROXY could also be used to specify a proxy, so we check for both.
-  if (!blaze::GetEnv("http_proxy").empty() ||
-      !blaze::GetEnv("HTTP_PROXY").empty()) {
-    BAZEL_LOG(WARNING)
-        << "detected http_proxy set in env, setting no_proxy for localhost.";
-
-    // Disable HTTP proxies for localhost and any localhost-like address,
-    // in case we (or gRPC, etc.) ever use one of these addresses.
-    std::string localhost_addresses = "localhost,127.0.0.1,0:0:0:0:0:0:0:1,::1";
-    result["no_proxy"] = EnvVarValue(EnvVarAction::SET, localhost_addresses);
-    result["NO_PROXY"] = EnvVarValue(EnvVarAction::SET, localhost_addresses);
-
-    // Set no_proxy for the client, as well.
-    blaze::SetEnv("no_proxy", localhost_addresses);
-    blaze::SetEnv("NO_PROXY", localhost_addresses);
-  }
-
   if (!blaze::GetEnv("LD_ASSUME_KERNEL").empty()) {
     // Fix for bug: if ulimit -s and LD_ASSUME_KERNEL are both
     // specified, the JVM fails to create threads.  See thread_stack_regtest.
@@ -1682,8 +1663,13 @@ bool GrpcBlazeServer::Connect() {
     return false;
   }
 
-  std::shared_ptr<grpc::Channel> channel(
-      grpc::CreateChannel(port, grpc::InsecureChannelCredentials()));
+  grpc::ChannelArguments channel_args;
+  // Bazel client and server always run on the same machine and communicate
+  // locally over gRPC; so we want to ignore any configured proxies when setting
+  // up a gRPC channel to the server.
+  channel_args.SetInt(GRPC_ARG_ENABLE_HTTP_PROXY, 0);
+  std::shared_ptr<grpc::Channel> channel(grpc::CreateCustomChannel(
+      port, grpc::InsecureChannelCredentials(), channel_args));
   std::unique_ptr<CommandServer::Stub> client(
       CommandServer::NewStub(channel));
 
