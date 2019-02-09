@@ -184,6 +184,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
             Preconditions.checkNotNull(visitedNested, importLabel),
             inlineCachedValueBuilder,
             visitedGlobalDeps);
+    // All imports traversed, this key can no longer be part of a cycle.
+    Preconditions.checkState(visitedNested.remove(importLabel), importLabel);
 
     if (value != null) {
       inlineCachedValueBuilder.setValue(value);
@@ -350,8 +352,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           inlineCachedValueBuilder.addTransitiveDeps(cachedValue);
         }
       }
-      // All imports traversed, this key can no longer be part of a cycle.
-      Preconditions.checkState(visitedNested.remove(fileLabel), fileLabel);
     }
     if (valuesMissing) {
       // This means some imports are unavailable.
