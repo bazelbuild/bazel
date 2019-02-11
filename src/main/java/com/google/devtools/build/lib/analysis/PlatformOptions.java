@@ -155,7 +155,7 @@ public class PlatformOptions extends FragmentOptions {
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
       help =
-          "If true, the host platform will be inherited from @local_config_platforms//:host, "
+          "If true, the host platform will be inherited from @local_config_platform//:host, "
               + "instead of being based on the --cpu (and --host_cpu) flags.")
   public boolean autoConfigureHostPlatform;
 
