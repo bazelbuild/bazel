@@ -161,10 +161,14 @@ public class ExternalPackageUtil {
     if (patternsMap == null) {
       return null;
     }
-    // It is enough to check only for exact match, since
-    // the files under a directory are calculated only after the directory,
-    // and the directory should be already checked for being a refresh root.
-    return patternsMap.get(rootedPath.getRootRelativePath());
+    // todo how can we improve here???
+    PathFragment relativePath = rootedPath.getRootRelativePath();
+    for (PathFragment refreshRoot : patternsMap.keySet()) {
+      if (relativePath.startsWith(refreshRoot)) {
+        return patternsMap.get(refreshRoot);
+      }
+    }
+    return null;
   }
 
   private static Boolean isUnderBlacklisted(final Environment env, final RootedPath rootedPath)
