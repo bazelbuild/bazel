@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FunctionSignature.Shape;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkMutable;
@@ -604,7 +603,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     private boolean useAlways;
 
     @Override
-    public NoneType addArgument(
+    public CommandLineArgsApi addArgument(
         Object argNameOrValue,
         Object value,
         Object format,
@@ -670,11 +669,11 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
             mapFn != Runtime.NONE ? (BaseFunction) mapFn : null,
             loc);
       }
-      return Runtime.NONE;
+      return this;
     }
 
     @Override
-    public NoneType addAll(
+    public CommandLineArgsApi addAll(
         Object argNameOrValue,
         Object values,
         Object mapEach,
@@ -714,11 +713,11 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
               : (Boolean) expandDirectories,
           terminateWith != Runtime.NONE ? (String) terminateWith : null,
           loc);
-      return Runtime.NONE;
+      return this;
     }
 
     @Override
-    public NoneType addJoined(
+    public CommandLineArgsApi addJoined(
         Object argNameOrValue,
         Object values,
         String joinWith,
@@ -758,7 +757,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
               : (Boolean) expandDirectories,
           /* terminateWith= */ null,
           loc);
-      return Runtime.NONE;
+      return this;
     }
 
     private void addVectorArg(
@@ -889,21 +888,26 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     }
 
     @Override
-    public void useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException {
+    public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
+        throws EvalException {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
       }
       if (!SingleStringArgFormatter.isValid(paramFileArg)) {
         throw new EvalException(
             null,
-            "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"");
+            String.format(
+                "Invalid value for parameter \"param_file_arg\": "
+                    + "Expected string with a single \"%s\"",
+                paramFileArg));
       }
       this.flagFormatString = paramFileArg;
       this.useAlways = useAlways;
+      return this;
     }
 
     @Override
-    public void setParamFileFormat(String format) throws EvalException {
+    public CommandLineArgsApi setParamFileFormat(String format) throws EvalException {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
       }
@@ -921,6 +925,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
               "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"");
       }
       this.parameterFileType = parameterFileType;
+      return this;
     }
 
     private Args(@Nullable Mutability mutability, SkylarkSemantics skylarkSemantics) {
