@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RefreshRootsFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
@@ -435,6 +436,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             new BlacklistedPackagePrefixesFunction(
                 /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
                 /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+        .put(SkyFunctions.REFRESH_ROOTS, new RefreshRootsFunction())
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider))
         .put(

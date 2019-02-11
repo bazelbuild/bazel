@@ -149,6 +149,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (rule == null) {
       return null;
     }
+    boolean hasNeedsUpdate = rule.getRuleClassObject().getNeedsUpdateFunction() != null;
+    if (env.valuesMissing()) {
+      return null;
+    }
 
     RepositoryFunction handler;
     if (rule.getRuleClassObject().isSkylark()) {
@@ -169,6 +173,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
     String ruleKey = computeRuleKey(rule, ruleSpecificData);
     Map<String, String> markerData = new TreeMap<>();
+    if (env.valuesMissing()) {
+      return null;
+    }
     boolean isLocal = handler.isLocal(env, repoRoot.getFileSystem(), rule);
     if (env.valuesMissing()) {
       return null;
@@ -188,7 +195,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         // injecting it in the RepositoryDirectoryValue.
         byte[] digest = writeMarkerFile(markerPath, markerData, ruleKey);
         env.getListener().post(new RepositoryFetching(repositoryName.getName(), true));
-        return localRepo.setDigest(digest).build();
+        return localRepo.setHasRefreshRoots(hasNeedsUpdate).setDigest(digest).build();
       }
     }
 
@@ -210,7 +217,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         return null;
       }
 
-      return RepositoryDirectoryValue.builder().setPath(repoRoot).setDigest(markerHash).build();
+      return RepositoryDirectoryValue.builder().setPath(repoRoot).setDigest(markerHash).setHasRefreshRoots(hasNeedsUpdate).build();
     }
 
     if (isFetch.get()) {
@@ -231,7 +238,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // restart thus calling the possibly very slow (networking, decompression...) fetch()
       // operation again. So we write the marker file here immediately.
       byte[] digest = writeMarkerFile(markerPath, markerData, ruleKey);
-      return result.setDigest(digest).build();
+      return result.setDigest(digest).setHasRefreshRoots(hasNeedsUpdate).build();
     }
 
     if (!repoRoot.exists()) {
@@ -258,7 +265,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                 rule.getName())));
 
     return RepositoryDirectoryValue.builder().setPath(repoRootValue.realRootedPath().asPath())
-        .setFetchingDelayed().build();
+        .setFetchingDelayed().setHasRefreshRoots(hasNeedsUpdate).build();
   }
 
   /**
@@ -405,7 +412,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return null;
   }
 
-  private RepositoryDirectoryValue setupOverride(
+  private RepositoryDirectoryValue setupOverride(//todo should we put the needs update marker also here?
       RepositoryName repositoryName, PathFragment sourcePath, Environment env, Path repoRoot,
       Path markerPath)
       throws RepositoryFunctionException, InterruptedException {

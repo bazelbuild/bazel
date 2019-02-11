@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -52,5 +53,19 @@ public class BlacklistedPackagePrefixesValue implements SkyValue {
       return this.patterns.equals(other.patterns);
     }
     return false;
+  }
+
+  public boolean isUnderBlacklisted(final RootedPath rootedPath) {
+    for (PathFragment pattern : getPatterns()) {
+      if (startsWithFragment(rootedPath, pattern)) {
+        return Boolean.TRUE;
+      }
+    }
+    return Boolean.FALSE;
+  }
+
+  private static boolean startsWithFragment(RootedPath rootedPath, PathFragment fragment) {
+    return rootedPath.getRootRelativePath().startsWith(fragment) ||
+        fragment.isAbsolute() && rootedPath.asPath().asFragment().startsWith(fragment);
   }
 }

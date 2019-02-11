@@ -20,15 +20,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
-import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -87,7 +84,7 @@ public class ExternalPackageUtil {
   }
 
   @Nullable
-  private static RootedPath getWorkspacePath(final Environment env) throws InterruptedException {
+  public static RootedPath getWorkspacePath(final Environment env) throws InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
     if (packageLookupValue == null) {
@@ -126,68 +123,4 @@ public class ExternalPackageUtil {
     return Iterables.getFirst(rules, null);
   }
 
-  // !!! ONLY reads the header of the WORKSPACE file.
-  public static ImmutableMap<PathFragment, RepositoryName> getRefreshRootsToRepositories(
-      final Environment env) throws InterruptedException {
-    RootedPath workspacePath = getWorkspacePath(env);
-    SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
-    WorkspaceFileValue value = (WorkspaceFileValue) env.getValue(workspaceKey);
-    if (value == null) {
-      return null;
-    }
-    Package externalPackage = value.getPackage();
-    if (externalPackage.containsErrors()) {
-      // todo (ichern, prototype) exception kind
-      throw new IllegalStateException("Could not load //external package");
-    }
-    Map<String, RepositoryName> map = externalPackage.getRefreshRootsToRepository();
-    return ImmutableMap.copyOf(map.keySet().stream()
-        .collect(Collectors.toMap(PathFragment::create, map::get)));
-  }
-
-  @Nullable
-  public static RepositoryName getRepositoryForRefreshRoot(final Environment env,
-      final FileType fileType, final RootedPath rootedPath)
-      throws InterruptedException {
-    if (fileType == FileType.INTERNAL) {
-      // Only black listed files and directories may be refreshed by external repositories
-      if (!Boolean.TRUE.equals(isUnderBlacklisted(env, rootedPath))) {
-        return null;
-      }
-    }
-
-    // this can be a SkyValue itself
-    ImmutableMap<PathFragment, RepositoryName> patternsMap = getRefreshRootsToRepositories(env);
-    if (patternsMap == null) {
-      return null;
-    }
-    // todo how can we improve here???
-    PathFragment relativePath = rootedPath.getRootRelativePath();
-    for (PathFragment refreshRoot : patternsMap.keySet()) {
-      if (relativePath.startsWith(refreshRoot)) {
-        return patternsMap.get(refreshRoot);
-      }
-    }
-    return null;
-  }
-
-  private static Boolean isUnderBlacklisted(final Environment env, final RootedPath rootedPath)
-      throws InterruptedException {
-    BlacklistedPackagePrefixesValue blacklisted =
-        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
-    if (blacklisted == null) {
-      return null;
-    }
-    for (PathFragment pattern : blacklisted.getPatterns()) {
-      if (startsWithFragment(rootedPath, pattern)) {
-        return Boolean.TRUE;
-      }
-    }
-    return Boolean.FALSE;
-  }
-
-  private static boolean startsWithFragment(RootedPath rootedPath, PathFragment fragment) {
-    // if the path is under the workspace, should be relative; otherwise absolute
-    return rootedPath.getRootRelativePath().startsWith(fragment);
-  }
 }
