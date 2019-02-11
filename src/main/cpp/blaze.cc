@@ -1591,7 +1591,7 @@ static bool ProtoStringEqual(const StringTypeA &cookieA,
   if (cookie_length != cookieB.size()) {
     return false;
   }
-  return strncmp(cookieA.c_str(), cookieB.c_str(), cookie_length) == 0;
+  return memcmp(cookieA.c_str(), cookieB.c_str(), cookie_length) == 0;
 }
 
 GrpcBlazeServer::GrpcBlazeServer(int connect_timeout_secs) {
