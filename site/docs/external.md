@@ -145,6 +145,8 @@ shadow dependencies. Consider the following scenario:
 myproject/WORKSPACE
 
 ```python
+workspace(name = "myproject")
+
 local_repository(
     name = "A",
     path = "../A",
@@ -158,6 +160,8 @@ local_repository(
 A/WORKSPACE
 
 ```python
+workspace(name = "A")
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "testrunner",
@@ -169,6 +173,8 @@ http_archive(
 B/WORKSPACE
 
 ```python
+workspace(name = "B")
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "testrunner",
@@ -184,6 +190,8 @@ other since they have the same name. To declare both dependencies,
 update myproject/WORKSPACE:
 
 ```python
+workspace(name = "myproject")
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "testrunner-v1",
