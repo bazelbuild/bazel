@@ -18,6 +18,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.HOST_JAVA_RUNTIME_ATTRIBUTE_NAME;
 import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkingInfo;
 import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.createNonStrictCompilationArgsProvider;
 
@@ -129,7 +130,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                             ProtoLangToolchainProvider.class))
                     .value(getProtoToolchainLabel(defaultProtoToolchainLabel)))
             .add(
-                attr(":host_jdk", LABEL)
+                attr(HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
                     .cfg(HostTransition.INSTANCE)
                     .value(hostJdkAttribute)
                     .mandatoryProviders(ToolchainInfo.PROVIDER.id()))

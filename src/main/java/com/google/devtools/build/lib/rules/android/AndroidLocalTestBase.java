@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_ATTRIBUTE_NAME;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -457,7 +458,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     builder.addTransitiveArtifactsWrappedInStableOrder(javaCommon.getRuntimeClasspath());
 
     // Add the JDK files if it comes from P4 (see java_stub_template.txt).
-    TransitiveInfoCollection javabaseTarget = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
+    TransitiveInfoCollection javabaseTarget =
+        ruleContext.getPrerequisite(JAVA_RUNTIME_ATTRIBUTE_NAME, Mode.TARGET);
 
     if (javabaseTarget != null) {
       builder.addTransitiveArtifacts(

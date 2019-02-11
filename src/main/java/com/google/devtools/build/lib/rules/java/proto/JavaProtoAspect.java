@@ -18,6 +18,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.HOST_JAVA_RUNTIME_ATTRIBUTE_NAME;
 import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkingInfo;
 import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.createNonStrictCompilationArgsProvider;
 
@@ -136,7 +137,10 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                     // once it's in a Bazel release.
                     .legacyAllowAnyFileType()
                     .value(getSpeedProtoToolchainLabel(defaultSpeedProtoToolchainLabel)))
-            .add(attr(":host_jdk", LABEL).cfg(HostTransition.INSTANCE).value(hostJdkAttribute))
+            .add(
+                attr(HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
+                    .cfg(HostTransition.INSTANCE)
+                    .value(hostJdkAttribute))
             .add(
                 attr(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME, LABEL)
                     .useOutputLicenses()

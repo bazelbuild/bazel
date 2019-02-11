@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.HOST_JAVA_RUNTIME_ATTRIBUTE_NAME;
+import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_ATTRIBUTE_NAME;
 import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME;
 
 import com.google.common.collect.ImmutableMap;
@@ -62,15 +64,19 @@ public class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi
   // Helper methods to access an instance of JavaRuntimeInfo.
 
   public static JavaRuntimeInfo forHost(RuleContext ruleContext) {
-    return from(ruleContext, ":host_jdk", RuleConfiguredTarget.Mode.HOST);
+    return from(ruleContext, HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, RuleConfiguredTarget.Mode.HOST);
   }
 
   public static JavaRuntimeInfo from(RuleContext ruleContext) {
-    return from(ruleContext, ":jvm", RuleConfiguredTarget.Mode.TARGET);
+    return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME, RuleConfiguredTarget.Mode.TARGET);
   }
 
   public static JavaRuntimeInfo forHost(RuleContext ruleContext, Label toolchainType) {
-    return from(ruleContext, ":host_jdk", RuleConfiguredTarget.Mode.HOST, toolchainType);
+    return from(
+        ruleContext,
+        HOST_JAVA_RUNTIME_ATTRIBUTE_NAME,
+        RuleConfiguredTarget.Mode.HOST,
+        toolchainType);
   }
 
   @Nullable

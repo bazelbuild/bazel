@@ -37,6 +37,8 @@ public class JavaRuleClasses {
       "$java_runtime_toolchain_type";
   public static final String JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME = "$java_toolchain_type";
   public static final String JAVA_TOOLCHAIN_ATTRIBUTE_NAME = ":java_toolchain";
+  public static final String JAVA_RUNTIME_ATTRIBUTE_NAME = ":jvm";
+  public static final String HOST_JAVA_RUNTIME_ATTRIBUTE_NAME = ":host_jdk";
 
   public static Label javaToolchainTypeAttribute(RuleDefinitionEnvironment env) {
     return env.getToolsLabel(TOOLCHAIN_TYPE_LABEL);
@@ -95,12 +97,12 @@ public class JavaRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(
-              attr(":jvm", LABEL)
+              attr(JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
                   .value(JavaSemantics.jvmAttribute(env))
                   .mandatoryProviders(ToolchainInfo.PROVIDER.id())
                   .useOutputLicenses())
           .add(
-              attr(":host_jdk", LABEL)
+              attr(HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, LABEL)
                   .cfg(HostTransition.INSTANCE)
                   .value(JavaSemantics.hostJdkAttribute(env))
                   .mandatoryProviders(ToolchainInfo.PROVIDER.id()))
