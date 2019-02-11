@@ -646,6 +646,7 @@ java_library(
         ":transitive-info-provider",
     ],
     deps = [
+        ":bug-report",
         ":build-request-options",
         ":command-utils",
         ":events",
