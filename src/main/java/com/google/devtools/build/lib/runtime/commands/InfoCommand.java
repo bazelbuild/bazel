@@ -127,8 +127,7 @@ public class InfoCommand implements BlazeCommand {
                 // In order to be able to answer configuration-specific queries, we need to set up
                 // the package path. Since info inherits all the build options, all the necessary
                 // information is available here.
-                env.setupPackageCache(
-                    optionsParsingResult, runtime.getDefaultsPackageContent(optionsParsingResult));
+                env.setupPackageCache(optionsParsingResult);
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
                 return env.getSkyframeExecutor()
                     .getConfiguration(

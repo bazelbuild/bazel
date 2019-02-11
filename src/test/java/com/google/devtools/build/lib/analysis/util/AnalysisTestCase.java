@@ -233,8 +233,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         pkgLocator,
         packageCacheOptions,
         Options.getDefaults(SkylarkSemanticsOptions.class),
-        this.ruleClassProvider.getDefaultsPackageContent(
-            analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -369,8 +367,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         pathPackageLocator,
         packageCacheOptions,
         skylarkSemanticsOptions,
-        ruleClassProvider.getDefaultsPackageContent(
-            analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));

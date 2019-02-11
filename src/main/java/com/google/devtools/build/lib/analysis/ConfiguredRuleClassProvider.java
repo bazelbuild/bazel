@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ComposingRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
-import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.skylark.BazelStarlarkContext;
@@ -54,7 +53,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
@@ -740,21 +738,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    */
   public ImmutableList<Class<? extends BuildConfiguration.Fragment>> getUniversalFragments() {
     return universalFragments;
-  }
-
-  /**
-   * Returns the defaults package for the default settings.
-   */
-  public String getDefaultsPackageContent(InvocationPolicy invocationPolicy) {
-    return DefaultsPackage.getDefaultsPackageContent(configurationOptions, invocationPolicy);
-  }
-
-  /**
-   * Returns the defaults package for the given options taken from an optionsProvider.
-   */
-  public String getDefaultsPackageContent(OptionsProvider optionsProvider) {
-    return DefaultsPackage.getDefaultsPackageContent(
-        BuildOptions.of(configurationOptions, optionsProvider));
   }
 
   /**

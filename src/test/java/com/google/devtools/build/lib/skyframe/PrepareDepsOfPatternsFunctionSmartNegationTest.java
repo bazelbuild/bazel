@@ -107,7 +107,6 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         Options.getDefaults(PackageCacheOptions.class),
         Options.getDefaults(SkylarkSemanticsOptions.class),
-        AnalysisMock.get().getDefaultsPackageContent(),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(null));

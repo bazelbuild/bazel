@@ -125,8 +125,6 @@ public final class TrimmableTestConfigurationFragments {
         .setPrelude("//:prelude.bzl")
         // must be part of BuildOptions for various reasons e.g. dynamic configs
         .addConfigurationOptions(BuildConfiguration.Options.class)
-        // Need to have some defaults values to satisfy DefaultsPackage.getContent()
-        // TODO(dbabkin): remove when DefaultsPackage been deprecated b/79239052
         .addConfigurationFragment(new TestConfiguration.Loader())
         // needed for the other rules to build on and the default workspace
         .addRuleDefinition(new BaseRuleClasses.RootRule())

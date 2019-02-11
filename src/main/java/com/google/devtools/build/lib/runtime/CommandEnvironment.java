@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
@@ -567,20 +566,16 @@ public final class CommandEnvironment {
 
   /**
    * Initializes the package cache using the given options, and syncs the package cache. Also
-   * injects a defaults package and the skylark semantics using the options for the {@link
-   * BuildConfiguration}.
-   *
-   * @see DefaultsPackage
+   * injects the skylark semantics using the options for the {@link BuildConfiguration}.
    */
-  public void setupPackageCache(OptionsProvider options,
-      String defaultsPackageContents) throws InterruptedException, AbruptExitException {
+  public void setupPackageCache(OptionsProvider options)
+      throws InterruptedException, AbruptExitException {
     getSkyframeExecutor()
         .sync(
             reporter,
             options.getOptions(PackageCacheOptions.class),
             packageLocator,
             options.getOptions(SkylarkSemanticsOptions.class),
-            defaultsPackageContents,
             getCommandId(),
             clientEnv,
             timestampGranularityMonitor,
@@ -588,16 +583,13 @@ public final class CommandEnvironment {
   }
 
   public void syncPackageLoading(
-      PackageCacheOptions packageCacheOptions,
-      SkylarkSemanticsOptions skylarkSemanticsOptions,
-      String defaultsPackageContents)
+      PackageCacheOptions packageCacheOptions, SkylarkSemanticsOptions skylarkSemanticsOptions)
       throws AbruptExitException {
     getSkyframeExecutor()
         .syncPackageLoading(
             packageCacheOptions,
             packageLocator,
             skylarkSemanticsOptions,
-            defaultsPackageContents,
             getCommandId(),
             clientEnv,
             timestampGranularityMonitor);

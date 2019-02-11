@@ -298,7 +298,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageCacheOptions,
         skylarkSemanticsOptions,
-        "",
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         tsgm);
@@ -416,7 +415,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         pkgLocator,
         packageCacheOptions,
         skylarkSemanticsOptions,
-        ruleClassProvider.getDefaultsPackageContent(optionsParser),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         tsgm);
@@ -552,8 +550,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         + "and does not match target configuration %s",
         getHostConfiguration(), getTargetConfiguration());
 
-    String defaultsPackageContent = ruleClassProvider.getDefaultsPackageContent(optionsParser);
-    skyframeExecutor.setupDefaultPackage(defaultsPackageContent);
     skyframeExecutor.handleAnalysisInvalidatingChange();
 
     view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);

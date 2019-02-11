@@ -109,8 +109,6 @@ public class PackageFunction implements SkyFunction {
 
   private final IncrementalityIntent incrementalityIntent;
 
-  static final PathFragment DEFAULTS_PACKAGE_NAME = PathFragment.create("tools/defaults");
-
   public PackageFunction(
       PackageFactory packageFactory,
       CachingPackageLocator pkgLocator,
@@ -393,18 +391,10 @@ public class PackageFunction implements SkyFunction {
 
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
     FileValue buildFileValue = null;
-    String replacementContents = null;
 
-    if (isDefaultsPackage(packageId) && PrecomputedValue.isInMemoryToolsDefaults(env)) {
-      replacementContents = PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.get(env);
-      if (replacementContents == null) {
-        return null;
-      }
-    } else {
-      buildFileValue = getBuildFileValue(env, buildFileRootedPath);
-      if (buildFileValue == null) {
-        return null;
-      }
+    buildFileValue = getBuildFileValue(env, buildFileRootedPath);
+    if (buildFileValue == null) {
+      return null;
     }
 
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
@@ -446,7 +436,6 @@ public class PackageFunction implements SkyFunction {
         loadPackage(
             workspaceName,
             repositoryMapping,
-            replacementContents,
             packageId,
             buildFileRootedPath,
             buildFileValue,
@@ -1125,7 +1114,6 @@ public class PackageFunction implements SkyFunction {
   private LoadedPackageCacheEntry loadPackage(
       String workspaceName,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
-      @Nullable String replacementContents,
       PackageIdentifier packageId,
       RootedPath buildFilePath,
       @Nullable FileValue buildFileValue,
@@ -1149,34 +1137,30 @@ public class PackageFunction implements SkyFunction {
             env.getListener().handle(Event.progress("Loading package: " + packageId));
           }
           ParserInputSource input;
-          if (replacementContents == null) {
-            Preconditions.checkNotNull(buildFileValue, packageId);
-            byte[] buildFileBytes = null;
-            try {
-              buildFileBytes =
-                  buildFileValue.isSpecialFile()
-                      ? FileSystemUtils.readContent(inputFile)
-                      : FileSystemUtils.readWithKnownFileSize(inputFile, buildFileValue.getSize());
-            } catch (IOException e) {
-              buildFileBytes =
-                  actionOnIOExceptionReadingBuildFile.maybeGetBuildFileContentsToUse(
-                      inputFile.asFragment(), e);
-              if (buildFileBytes == null) {
-                // Note that we did the work that led to this IOException, so we should
-                // conservatively report this error as transient.
-                throw new PackageFunctionException(new BuildFileContainsErrorsException(
-                    packageId, e.getMessage(), e), Transience.TRANSIENT);
-              }
-              // If control flow reaches here, we're in territory that is deliberately unsound.
-              // See the javadoc for ActionOnIOExceptionReadingBuildFile.
+          Preconditions.checkNotNull(buildFileValue, packageId);
+          byte[] buildFileBytes = null;
+          try {
+            buildFileBytes =
+                buildFileValue.isSpecialFile()
+                    ? FileSystemUtils.readContent(inputFile)
+                    : FileSystemUtils.readWithKnownFileSize(inputFile, buildFileValue.getSize());
+          } catch (IOException e) {
+            buildFileBytes =
+                actionOnIOExceptionReadingBuildFile.maybeGetBuildFileContentsToUse(
+                    inputFile.asFragment(), e);
+            if (buildFileBytes == null) {
+              // Note that we did the work that led to this IOException, so we should
+              // conservatively report this error as transient.
+              throw new PackageFunctionException(
+                  new BuildFileContainsErrorsException(packageId, e.getMessage(), e),
+                  Transience.TRANSIENT);
             }
-            input =
-                ParserInputSource.create(
-                    FileSystemUtils.convertFromLatin1(buildFileBytes), inputFile.asFragment());
-          } else {
-            input =
-                ParserInputSource.create(replacementContents, buildFilePath.asPath().asFragment());
+            // If control flow reaches here, we're in territory that is deliberately unsound.
+            // See the javadoc for ActionOnIOExceptionReadingBuildFile.
           }
+          input =
+              ParserInputSource.create(
+                  FileSystemUtils.convertFromLatin1(buildFileBytes), inputFile.asFragment());
           StoredEventHandler astParsingEventHandler = new StoredEventHandler();
           BuildFileAST ast =
               PackageFactory.parseBuildFile(
@@ -1288,10 +1272,5 @@ public class PackageFunction implements SkyFunction {
       this.importMap = importMap;
       this.fileDependencies = fileDependencies;
     }
-  }
-
-  public static boolean isDefaultsPackage(PackageIdentifier packageIdentifier) {
-    return packageIdentifier.getRepository().isMain()
-        && packageIdentifier.getPackageFragment().equals(DEFAULTS_PACKAGE_NAME);
   }
 }

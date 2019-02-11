@@ -997,14 +997,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected abstract void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler);
 
-  /**
-   * Injects the contents of the computed tools/defaults package.
-   */
-  @VisibleForTesting
-  public void setupDefaultPackage(String defaultsPackageContents) {
-    PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable(), defaultsPackageContents);
-  }
-
   private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
     WorkspaceStatusAction.Environment env =
         new WorkspaceStatusAction.Environment() {
@@ -1319,7 +1311,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       PathPackageLocator pkgLocator,
       PackageCacheOptions packageCacheOptions,
       SkylarkSemanticsOptions skylarkSemanticsOptions,
-      String defaultsPackageContents,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm) {
@@ -1333,10 +1324,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
     setSkylarkSemantics(skylarkSemanticsOptions.toSkylarkSemantics());
-
-    setupDefaultPackage("# //tools/defaults in-memory package is disabled.");
-    PrecomputedValue.ENABLE_DEFAULTS_PACKAGE.set(injectable(), false);
-
     setPackageLocator(pkgLocator);
 
     syscalls.set(getPerBuildSyscallCache(packageCacheOptions.globbingThreads));
@@ -2421,7 +2408,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
       SkylarkSemanticsOptions skylarkSemanticsOptions,
-      String defaultsPackageContents,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
@@ -2432,7 +2418,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         packageCacheOptions,
         pathPackageLocator,
         skylarkSemanticsOptions,
-        defaultsPackageContents,
         commandId,
         clientEnv,
         tsgm);
@@ -2446,7 +2431,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       PackageCacheOptions packageCacheOptions,
       PathPackageLocator pathPackageLocator,
       SkylarkSemanticsOptions skylarkSemanticsOptions,
-      String defaultsPackageContents,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm)
@@ -2456,7 +2440,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           pathPackageLocator,
           packageCacheOptions,
           skylarkSemanticsOptions,
-          defaultsPackageContents,
           commandId,
           clientEnv,
           tsgm);

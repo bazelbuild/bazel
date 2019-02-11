@@ -93,8 +93,7 @@ public class StarlarkOptionsParser {
     try {
       env.syncPackageLoading(
           optionsParser.getOptions(PackageCacheOptions.class),
-          optionsParser.getOptions(SkylarkSemanticsOptions.class),
-          runtime.getDefaultsPackageContent());
+          optionsParser.getOptions(SkylarkSemanticsOptions.class));
     } catch (AbruptExitException e) {
       throw new OptionsParsingException(e.getMessage());
     }

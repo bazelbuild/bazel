@@ -72,11 +72,6 @@ public class PackageLookupFunction implements SkyFunction {
 
     PackageIdentifier packageKey = (PackageIdentifier) skyKey.argument();
 
-    if (PackageFunction.isDefaultsPackage(packageKey)
-        && PrecomputedValue.isInMemoryToolsDefaults(env)) {
-      return PackageLookupValue.success(pkgLocator.getPathEntries().get(0), BuildFileName.BUILD);
-    }
-
     if (!packageKey.getRepository().isMain()) {
       return computeExternalPackageLookupValue(skyKey, env, packageKey);
     } else if (packageKey.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {

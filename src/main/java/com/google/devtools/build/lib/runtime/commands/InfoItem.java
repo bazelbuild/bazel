@@ -593,24 +593,23 @@ public abstract class InfoItem {
   }
 
   /**
-   * Info item for the default package. It is deprecated, it still works, when
-   * explicitly requested, but are not shown by default. It prints multi-line messages and thus
-   * don't play well with grep. We don't print them unless explicitly requested.
+   * Info item for the default package. It is deprecated, it still works, when explicitly requested,
+   * but are not shown by default. It prints multi-line messages and thus don't play well with grep.
+   * We don't print them unless explicitly requested.
+   *
    * @deprecated
    */
+  // TODO(lberki): Try to remove this using an incompatible flag.
   @Deprecated
   public static final class DefaultsPackageInfoItem extends InfoItem {
     public DefaultsPackageInfoItem() {
-      super("defaults-package",
-          "Default packages used as implicit dependencies",
-          true);
+      super("defaults-package", "Obsolete. Retained for backwards compatibility.", true);
     }
 
     @Override
-    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
-        throws AbruptExitException {
+    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
       checkNotNull(env);
-      return print(env.getRuntime().getDefaultsPackageContent());
+      return print("");
     }
   }
 
