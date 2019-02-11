@@ -83,8 +83,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final Artifact zipper;
   private final String purposePrefix;
   private final String runtimeSolibDirBase;
-  private final ImmutableList<? extends TransitiveInfoCollection> staticRuntimesLibs;
-  private final ImmutableList<? extends TransitiveInfoCollection> dynamicRuntimesLibs;
   private final LicensesProvider licensesProvider;
   private final Label toolchainType;
   private final CcToolchainVariables additionalBuildVariables;
@@ -174,15 +172,6 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(ruleContext.getLabel());
     this.staticRuntimeLib = ruleContext.getPrerequisite("static_runtime_lib", Mode.TARGET);
     this.dynamicRuntimeLib = ruleContext.getPrerequisite("dynamic_runtime_lib", Mode.TARGET);
-    this.staticRuntimesLibs =
-        staticRuntimeLib == null
-            ? ImmutableList.copyOf(ruleContext.getPrerequisites("static_runtime_libs", Mode.TARGET))
-            : null;
-    this.dynamicRuntimesLibs =
-        dynamicRuntimeLib == null
-            ? ImmutableList.copyOf(
-                ruleContext.getPrerequisites("dynamic_runtime_libs", Mode.TARGET))
-            : null;
     this.ccToolchainConfigInfo =
         ruleContext.getPrerequisite(
             CcToolchainRule.TOOLCHAIN_CONFIG_ATTR, Mode.TARGET, CcToolchainConfigInfo.PROVIDER);
@@ -252,16 +241,8 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return fdoOptimizeArtifacts;
   }
 
-  public ImmutableList<? extends TransitiveInfoCollection> getStaticRuntimesLibs() {
-    return staticRuntimesLibs;
-  }
-
   public LicensesProvider getLicensesProvider() {
     return licensesProvider;
-  }
-
-  public ImmutableList<? extends TransitiveInfoCollection> getDynamicRuntimesLibs() {
-    return dynamicRuntimesLibs;
   }
 
   public TransitiveInfoCollection getStaticRuntimeLib() {

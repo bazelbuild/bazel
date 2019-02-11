@@ -583,10 +583,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return PathFragment.create(builtInSysroot);
   }
 
-  boolean disableRuntimesFilegroups() {
-    return cppOptions.disableRuntimesFilegroups;
-  }
-
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
