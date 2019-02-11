@@ -221,8 +221,10 @@ public final class AnalysisTestUtil {
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       try {
-        FileSystemUtils.writeContent(stableStatus.getPath(), new byte[] {});
-        FileSystemUtils.writeContent(volatileStatus.getPath(), new byte[] {});
+        FileSystemUtils.writeContent(
+            actionExecutionContext.getInputPath(stableStatus), new byte[] {});
+        FileSystemUtils.writeContent(
+            actionExecutionContext.getInputPath(volatileStatus), new byte[] {});
       } catch (IOException e) {
         throw new ActionExecutionException(e, this, true);
       }

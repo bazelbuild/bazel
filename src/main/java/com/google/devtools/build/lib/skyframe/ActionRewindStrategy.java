@@ -115,11 +115,10 @@ public class ActionRewindStrategy {
         // need to restart the shared deps twice.
         continue;
       }
-      ImmutableList<Action> actionsToCheckForPropagation =
-          noteDepsAndActionsToRestartAndGetActionsToCheckForPropagation(
+      ImmutableList<Action> actionsToCheck =
+          noteDepsAndActionsToRestartAndGetActionsToCheck(
               actionMap, depsToRestart, additionalActionsToRestart);
-      recurseAcrossPropagatingActions(
-          actionsToCheckForPropagation, env, depsToRestart, additionalActionsToRestart);
+      checkActions(actionsToCheck, env, depsToRestart, additionalActionsToRestart);
     }
 
     return new RewindPlan(
@@ -183,7 +182,7 @@ public class ActionRewindStrategy {
     }
   }
 
-  private ImmutableList<Action> noteDepsAndActionsToRestartAndGetActionsToCheckForPropagation(
+  private ImmutableList<Action> noteDepsAndActionsToRestartAndGetActionsToCheck(
       Map<ActionLookupData, Action> actionMap,
       Set<SkyKey> depsToRestart,
       ImmutableList.Builder<Action> additionalActionsToRestart) {
@@ -267,15 +266,24 @@ public class ActionRewindStrategy {
     return lostInputsByDepOwners;
   }
 
-  private void recurseAcrossPropagatingActions(
-      ImmutableList<Action> actionsToCheckForPropagation,
+  /**
+   * Looks at each action in {@code actionsToCheck} and determines whether additional artifacts,
+   * actions, and (in the case of {@link SkyframeAwareAction}s) other Skyframe nodes need to be
+   * restarted. If this finds more actions to restart, those actions are recursively checked too.
+   */
+  private void checkActions(
+      ImmutableList<Action> actionsToCheck,
       Environment env,
       HashSet<SkyKey> depsToRestart,
       ImmutableList.Builder<Action> additionalActionsToRestart)
       throws InterruptedException {
-    ArrayDeque<Action> possiblyPropagatingActions = new ArrayDeque<>(actionsToCheckForPropagation);
-    while (!possiblyPropagatingActions.isEmpty()) {
-      Action action = possiblyPropagatingActions.removeFirst();
+    ArrayDeque<Action> uncheckedActions = new ArrayDeque<>(actionsToCheck);
+    while (!uncheckedActions.isEmpty()) {
+      Action action = uncheckedActions.removeFirst();
+
+      if (action instanceof SkyframeAwareAction) {
+        depsToRestart.addAll(((SkyframeAwareAction) action).getSkyframeDependenciesForRewinding());
+      }
 
       if (!action.mayInsensitivelyPropagateInputs()) {
         continue;
@@ -285,8 +293,10 @@ public class ActionRewindStrategy {
       // those inputs.
       //
       // Note that the artifacts returned by Action#getAllowedDerivedInputs do not need to be
-      // considered because none of the actions which provide non-throwing implementations of
-      // getAllowedDerivedInputs "insensitively propagate inputs".
+      // considered because these two sets:
+      // 1) the set of actions with non-throwing implementations of getAllowedDerivedInputs
+      // 2) the set of actions that "mayInsensitivelyPropagateInputs", plus SkyframeAwareActions
+      // have no overlap.
       Iterable<Artifact> inputs = action.getInputs();
       for (Artifact input : inputs) {
         if (input.isSourceArtifact()) {
@@ -303,10 +313,10 @@ public class ActionRewindStrategy {
         if (actionMap == null) {
           continue;
         }
-        ImmutableList<Action> nextActionsToCheckForPropagation =
-            noteDepsAndActionsToRestartAndGetActionsToCheckForPropagation(
+        ImmutableList<Action> nextActionsToCheck =
+            noteDepsAndActionsToRestartAndGetActionsToCheck(
                 actionMap, depsToRestart, additionalActionsToRestart);
-        possiblyPropagatingActions.addAll(nextActionsToCheckForPropagation);
+        uncheckedActions.addAll(nextActionsToCheck);
       }
     }
   }
