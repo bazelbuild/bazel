@@ -53,6 +53,9 @@ public class ExternalPackageUtil {
       Environment env, boolean returnFirst, Function<Package, List<Rule>> selector)
       throws ExternalPackageException, InterruptedException {
     RootedPath workspacePath = getWorkspacePath(env);
+    if (env.valuesMissing()) {
+      return null;
+    }
 
     List<Rule> rules = returnFirst ? ImmutableList.of() : Lists.newArrayList();
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
