@@ -61,6 +61,7 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   }
 
   /** Returns the unsigned APK file built in the transitive closure. */
+  @Override
   public Artifact getUnsignedApk() {
     return unsignedApk;
   }
@@ -77,6 +78,7 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   }
 
   /* The keystore that was used to sign the apk returned from {@see getApk() */
+  @Override
   public Artifact getKeystore() {
     return keystore;
   }
