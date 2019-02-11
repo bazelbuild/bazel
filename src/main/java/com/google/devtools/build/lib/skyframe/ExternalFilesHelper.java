@@ -16,13 +16,11 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.vfs.Path;
@@ -42,19 +40,16 @@ public class ExternalFilesHelper {
 
   private static final Logger logger = Logger.getLogger(ExternalFilesHelper.class.getName());
   public static final PathFragment EXTERNAL = PathFragment.create("external");
+  public static final BlacklistedPackagePrefixesValue EMPTY_BLACKLISTED = new BlacklistedPackagePrefixesValue(
+      ImmutableSet.of());
 
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ExternalFileAction externalFileAction;
   private final BlazeDirectories directories;
-  private final ImmutableSet<PathFragment> blacklistedPrefixes;
+  private ImmutableSet<PathFragment> blacklistedPrefixes;
   private final PathFragment blacklistPrefixesFile;
   private final int maxNumExternalFilesToLog;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
-
-  // These variables are set to true from multiple threads, but only read in the main thread.
-  // So volatility or an AtomicBoolean is not needed.
-  private boolean anyOutputFilesSeen = false;
-  private boolean anyNonOutputExternalFilesSeen = false;
 
   private ExternalFilesHelper(
       AtomicReference<PathPackageLocator> pkgLocator,
@@ -169,52 +164,35 @@ public class ExternalFilesHelper {
     final boolean anyOutputFilesSeen;
     final boolean anyNonOutputExternalFilesSeen;
 
-    private ExternalFilesKnowledge(boolean anyOutputFilesSeen,
+    public ExternalFilesKnowledge(boolean anyOutputFilesSeen,
         boolean anyNonOutputExternalFilesSeen) {
       this.anyOutputFilesSeen = anyOutputFilesSeen;
       this.anyNonOutputExternalFilesSeen = anyNonOutputExternalFilesSeen;
     }
   }
 
-  @ThreadCompatible
-  ExternalFilesKnowledge getExternalFilesKnowledge() {
-    return new ExternalFilesKnowledge(anyOutputFilesSeen, anyNonOutputExternalFilesSeen);
-  }
-
-  @ThreadCompatible
-  void setExternalFilesKnowledge(ExternalFilesKnowledge externalFilesKnowledge) {
-    anyOutputFilesSeen = externalFilesKnowledge.anyOutputFilesSeen;
-    anyNonOutputExternalFilesSeen = externalFilesKnowledge.anyNonOutputExternalFilesSeen;
-  }
-
-  ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
-    return new ExternalFilesHelper(
-        pkgLocator, externalFileAction, directories, blacklistedPrefixes, blacklistPrefixesFile,
-        maxNumExternalFilesToLog);
-  }
-
-  FileType getAndNoteFileType(RootedPath rootedPath) {
+  FileType getAndNoteFileType(RootedPath rootedPath,
+      BlacklistedPackagePrefixesValue blacklistedValue) {
     PathPackageLocator packageLocator = pkgLocator.get();
     if (packageLocator.getPathEntries().contains(rootedPath.getRoot())) {
+      if (blacklistedValue.isUnderBlacklisted(rootedPath)) {
+        return FileType.EXTERNAL;
+      }
       return FileType.INTERNAL;
     }
     // The outputBase may be null if we're not actually running a build.
     Path outputBase = packageLocator.getOutputBase();
     if (outputBase == null) {
-      anyNonOutputExternalFilesSeen = true;
       return FileType.EXTERNAL;
     }
     if (rootedPath.asPath().startsWith(outputBase)) {
       Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME);
       if (rootedPath.asPath().startsWith(externalRepoDir)) {
-        anyNonOutputExternalFilesSeen = true;
         return FileType.EXTERNAL_REPO;
       } else {
-        anyOutputFilesSeen = true;
         return FileType.OUTPUT;
       }
     }
-    anyNonOutputExternalFilesSeen = true;
     return FileType.EXTERNAL;
   }
 
@@ -229,9 +207,12 @@ public class ExternalFilesHelper {
   void maybeHandleExternalFile(
       RootedPath rootedPath, boolean isDirectory, SkyFunction.Environment env)
       throws NonexistentImmutableExternalFileException, IOException, InterruptedException {
-    FileType fileType = getAndNoteFileType(rootedPath);
+    FileType fileType = getAndNoteFileType(rootedPath, EMPTY_BLACKLISTED);
     if ((fileType == FileType.INTERNAL || fileType == FileType.EXTERNAL)
         && checkForRefreshedRoot(fileType, rootedPath, env)) {
+      return;
+    }
+    if (env.valuesMissing()) {
       return;
     }
     if (fileType == FileType.INTERNAL) {
@@ -254,10 +235,46 @@ public class ExternalFilesHelper {
     RepositoryFunction.addExternalFilesDependencies(rootedPath, isDirectory, directories, env);
   }
 
+  private BlacklistedPackagePrefixesValue getBlacklisted(Environment env, RootedPath rootedPath)
+      throws InterruptedException {
+    if (isWhitelistedFile(rootedPath)) {
+      return EMPTY_BLACKLISTED;
+    }
+    return (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+  }
+
   private boolean checkForRefreshedRoot(
       FileType fileType,
-      RootedPath rootedPath, Environment env)
+      RootedPath rootedPath,
+      Environment env)
       throws InterruptedException {
+    if (isWhitelistedFile(rootedPath)) {
+      return false;
+    }
+
+    RefreshRootsValue refreshRoots = (RefreshRootsValue) env.getValue(RefreshRootsValue.key());
+    if (refreshRoots == null) {
+      return false;
+    }
+    if (refreshRoots.isEmpty()) {
+      return false;
+    }
+
+    BlacklistedPackagePrefixesValue userBlacklisted = getBlacklisted(env, rootedPath);
+    if (userBlacklisted == null) {
+      return false;
+    }
+
+    RepositoryName ownerRepository = RefreshRootsValue.getRepositoryForRefreshRoot(userBlacklisted,
+        refreshRoots, fileType, rootedPath);
+    if (ownerRepository != null) {
+      env.getValue(RepositoryDirectoryValue.key(ownerRepository));
+      return true;
+    }
+    return false;
+  }
+
+  public boolean isWhitelistedFile(RootedPath rootedPath) {
     Path path = rootedPath.asPath();
 
     PathFragment relativePath = rootedPath.getRootRelativePath();
@@ -265,21 +282,15 @@ public class ExternalFilesHelper {
     if (path.equals(packageLocator.getWorkspaceFile()) ||
         packageLocator.getPathEntries().contains(rootedPath.getRoot())
             && (relativePath.isEmpty() || EXTERNAL.equals(relativePath))) {
-      return false;
+      return true;
     }
     if (relativePath.equals(blacklistPrefixesFile)) {
-      return false;
+      return true;
     }
     for (PathFragment prefix : blacklistedPrefixes) {
       if (path.startsWith(prefix)) {
-        return false;
+        return true;
       }
-    }
-    RepositoryName ownerRepository = ExternalPackageUtil
-        .getRepositoryForRefreshRoot(env, fileType, rootedPath);
-    if (ownerRepository != null) {
-      env.getValue(RepositoryDirectoryValue.key(ownerRepository));
-      return true;
     }
     return false;
   }

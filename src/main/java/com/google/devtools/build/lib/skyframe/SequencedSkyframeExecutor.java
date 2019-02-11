@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.EvaluationContext;
+import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
@@ -105,6 +106,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -134,6 +136,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private final DiffAwarenessManager diffAwarenessManager;
   private final Iterable<SkyValueDirtinessChecker> customDirtinessCheckers;
   private Set<String> previousClientEnvironment = ImmutableSet.of();
+  private AtomicReference<ExternalFilesKnowledge> externalFilesKnowledge = new AtomicReference<>();
 
   private int modifiedFiles;
   private int outputDirtyFiles;
@@ -455,6 +458,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
   }
 
+  private boolean emptyExternalFileKnowledge(boolean checkOutputFiles) {
+    ExternalFilesKnowledge knowledge = this.externalFilesKnowledge.get();
+    if (knowledge == null) {
+      return false;
+    }
+    return (!knowledge.anyOutputFilesSeen || !checkOutputFiles)
+        && !knowledge.anyNonOutputExternalFilesSeen;
+  }
+
   /**
    * Finds and invalidates changed files under path entries whose corresponding {@link
    * DiffAwareness} said all files may have been modified.
@@ -466,12 +478,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           pathEntriesWithoutDiffInformation,
       boolean checkOutputFiles)
       throws InterruptedException {
-    ExternalFilesKnowledge externalFilesKnowledge =
-        externalFilesHelper.getExternalFilesKnowledge();
     if (pathEntriesWithoutDiffInformation.isEmpty()
         && Iterables.isEmpty(customDirtinessCheckers)
-        && ((!externalFilesKnowledge.anyOutputFilesSeen || !checkOutputFiles)
-            && !externalFilesKnowledge.anyNonOutputExternalFilesSeen)) {
+        && emptyExternalFileKnowledge(checkOutputFiles)) {
       // Avoid a full graph scan if we have good diff information for all path entries, there are
       // no custom checkers that need to look at the whole graph, and no external (not under any
       // path) files need to be checked.
@@ -503,8 +512,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     // a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after* we
     // are done with the graph scan, lest an interrupt during the graph scan causes us to
     // incorrectly think there are no longer any external files.
-    ExternalFilesHelper tmpExternalFilesHelper =
-        externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
+
     // See the comment for FileType.OUTPUT for why we need to consider output files here.
     EnumSet<FileType> fileTypesToCheck = checkOutputFiles
         ? EnumSet.of(FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.OUTPUT)
@@ -512,8 +520,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     logger.info(
         "About to scan skyframe graph checking for filesystem nodes of types "
             + Iterables.toString(fileTypesToCheck));
+
+    EvaluationResult<SkyValue> blacklistedFilesResult = buildDriver
+        .evaluate(ImmutableSet.of(BlacklistedPackagePrefixesValue.key()), evaluationContext);
+    BlacklistedPackagePrefixesValue userBlacklisted = (BlacklistedPackagePrefixesValue) blacklistedFilesResult
+        .get(BlacklistedPackagePrefixesValue.key());
+    EvaluationResult<SkyValue> refreshRootsResult = buildDriver
+        .evaluate(ImmutableSet.of(RefreshRootsValue.key()), evaluationContext);
+    RefreshRootsValue refreshRoots = (RefreshRootsValue) refreshRootsResult.get(RefreshRootsValue.key());
+
     Differencer.Diff diff;
     try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
+      ExternalDirtinessChecker externalDirtinessChecker = new ExternalDirtinessChecker(
+          externalFilesHelper, fileTypesToCheck, userBlacklisted, refreshRoots);
       diff =
           fsvc.getDirtyKeys(
               memoizingEvaluator.getValues(),
@@ -521,8 +540,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                   Iterables.concat(
                       customDirtinessCheckers,
                       ImmutableList.<SkyValueDirtinessChecker>of(
-                          new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck),
+                          externalDirtinessChecker,
                           new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
+      // We use the knowledge gained during the graph scan that just completed. Otherwise, naively,
+      // once an external file gets into the Skyframe graph, we'll overly-conservatively always think
+      // the graph needs to be scanned.
+      externalFilesKnowledge.set(externalDirtinessChecker.getExternalFilesKnowledge());
     }
     handleChangedFiles(diffPackageRootsUnderWhichToCheck, diff);
 
@@ -530,11 +553,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         pathEntriesWithoutDiffInformation) {
       pair.getSecond().markProcessed();
     }
-    // We use the knowledge gained during the graph scan that just completed. Otherwise, naively,
-    // once an external file gets into the Skyframe graph, we'll overly-conservatively always think
-    // the graph needs to be scanned.
-    externalFilesHelper.setExternalFilesKnowledge(
-        tmpExternalFilesHelper.getExternalFilesKnowledge());
   }
 
   private void handleChangedFiles(

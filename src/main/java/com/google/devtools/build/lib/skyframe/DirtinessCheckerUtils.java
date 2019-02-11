@@ -20,6 +20,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFilesKnowledge;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Root;
@@ -110,11 +111,19 @@ public class DirtinessCheckerUtils {
   static final class ExternalDirtinessChecker extends BasicFilesystemDirtinessChecker {
     private final ExternalFilesHelper externalFilesHelper;
     private final EnumSet<FileType> fileTypesToCheck;
+    private final BlacklistedPackagePrefixesValue userBlacklisted;
+    private final RefreshRootsValue refreshRoots;
+    boolean seenOutput;
+    boolean seenExternal;
 
     ExternalDirtinessChecker(ExternalFilesHelper externalFilesHelper,
-        EnumSet<FileType> fileTypesToCheck) {
+        EnumSet<FileType> fileTypesToCheck,
+        BlacklistedPackagePrefixesValue userBlacklisted,
+        RefreshRootsValue refreshRoots) {
       this.externalFilesHelper = externalFilesHelper;
       this.fileTypesToCheck = fileTypesToCheck;
+      this.userBlacklisted = userBlacklisted;
+      this.refreshRoots = refreshRoots;
     }
 
     @Override
@@ -122,7 +131,11 @@ public class DirtinessCheckerUtils {
       if (!super.applies(key)) {
         return false;
       }
-      FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) key.argument());
+      RootedPath rootedPath = (RootedPath) key.argument();
+      FileType fileType = externalFilesHelper.getAndNoteFileType(rootedPath, userBlacklisted);
+      seenOutput |= FileType.OUTPUT == fileType;
+      seenExternal |= FileType.EXTERNAL == fileType || FileType.EXTERNAL_REPO == fileType;
+
       return fileTypesToCheck.contains(fileType);
     }
 
@@ -135,11 +148,19 @@ public class DirtinessCheckerUtils {
     @Override
     public SkyValueDirtinessChecker.DirtyResult check(
         SkyKey skyKey, SkyValue oldValue, @Nullable TimestampGranularityMonitor tsgm) {
+      RootedPath rootedPath = (RootedPath) skyKey.argument();
+      FileType fileType = externalFilesHelper.getAndNoteFileType(rootedPath, userBlacklisted);
+      if (fileType == FileType.EXTERNAL) {
+        if (RefreshRootsValue.getRepositoryForRefreshRoot(userBlacklisted, refreshRoots,
+            fileType, rootedPath) != null) {
+          return SkyValueDirtinessChecker.DirtyResult.dirty(oldValue);
+        }
+      }
+
       SkyValue newValue = super.createNewValue(skyKey, tsgm);
       if (Objects.equal(newValue, oldValue)) {
         return SkyValueDirtinessChecker.DirtyResult.notDirty(oldValue);
       }
-      FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) skyKey.argument());
       if (fileType == FileType.EXTERNAL_REPO) {
         // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
         // a new SkyValue to the graph yet because it might change once the WORKSPACE file has been
@@ -147,6 +168,10 @@ public class DirtinessCheckerUtils {
         return SkyValueDirtinessChecker.DirtyResult.dirty(oldValue);
       }
       return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(oldValue, newValue);
+    }
+
+    ExternalFilesKnowledge getExternalFilesKnowledge() {
+      return new ExternalFilesKnowledge(seenOutput, seenExternal);
     }
   }
 
