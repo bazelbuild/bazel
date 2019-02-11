@@ -45,18 +45,15 @@ ExitCode BashBinaryLauncher::Launch() {
   vector<wstring> origin_args = this->GetCommandlineArguments();
   wostringstream bash_command;
   wstring bash_main_file = GetBinaryPathWithoutExtension(origin_args[0]);
-  bash_command << GetEscapedArgument(bash_main_file,
-                                     /*escape_backslash = */ true);
+  bash_command << BashEscapeArg(bash_main_file);
   for (int i = 1; i < origin_args.size(); i++) {
     bash_command << L' ';
-    bash_command << GetEscapedArgument(origin_args[i],
-                                       /*escape_backslash = */ true);
+    bash_command << BashEscapeArg(origin_args[i]);
   }
 
   vector<wstring> args;
   args.push_back(L"-c");
-  args.push_back(
-      GetEscapedArgument(bash_command.str(), /*escape_backslash = */ true));
+  args.push_back(BashEscapeArg(bash_command.str()));
   return this->LaunchProcess(bash_binary, args);
 }
 
