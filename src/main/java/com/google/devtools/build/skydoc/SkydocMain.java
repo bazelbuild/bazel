@@ -142,9 +142,17 @@ public class SkydocMain {
   private final LinkedHashSet<Path> pending = new LinkedHashSet<>();
   private final Map<Path, Environment> loaded = new HashMap<>();
   private final SkylarkFileAccessor fileAccessor;
+  private final List<String> depRoots;
 
-  public SkydocMain(SkylarkFileAccessor fileAccessor) {
+  public SkydocMain(SkylarkFileAccessor fileAccessor, List<String> depRoots) {
     this.fileAccessor = fileAccessor;
+    if (depRoots.isEmpty()) {
+      // For backwards compatibility, if no dep_roots are specified, use the current
+      // directory as the only root.
+      this.depRoots = ImmutableList.of(".");
+    } else {
+      this.depRoots = depRoots;
+    }
   }
 
   public static void main(String[] args)
@@ -158,6 +166,7 @@ public class SkydocMain {
     String targetFileLabelString;
     String outputPath;
     ImmutableSet<String> symbolNames;
+    ImmutableList<String> depRoots;
 
     // TODO(cparsons): Remove optional positional arg parsing.
     List<String> residualArgs = parser.getResidue();
@@ -172,10 +181,12 @@ public class SkydocMain {
       targetFileLabelString = residualArgs.get(0);
       outputPath = residualArgs.get(1);
       symbolNames = getSymbolNames(residualArgs);
+      depRoots = ImmutableList.of();
     } else {
       targetFileLabelString = skydocOptions.targetFileLabel;
       outputPath = skydocOptions.outputFilePath;
       symbolNames = ImmutableSet.copyOf(skydocOptions.symbolNames);
+      depRoots = ImmutableList.copyOf(skydocOptions.depRoots);
     }
 
     Label targetFileLabel =
@@ -186,7 +197,7 @@ public class SkydocMain {
     ImmutableList.Builder<RuleInfo> unknownNamedRules = ImmutableList.builder();
     ImmutableMap.Builder<String, UserDefinedFunction> userDefinedFunctions = ImmutableMap.builder();
 
-    new SkydocMain(new FilesystemFileAccessor())
+    new SkydocMain(new FilesystemFileAccessor(), depRoots)
         .eval(
             semanticsOptions.toSkylarkSemantics(),
             targetFileLabel,
@@ -387,7 +398,7 @@ public class SkydocMain {
     }
     pending.add(path);
 
-    ParserInputSource parserInputSource = fileAccessor.inputSource(path.toString());
+    ParserInputSource parserInputSource = getInputSource(path.toString());
     BuildFileAST buildFileAST = BuildFileAST.parseSkylarkFile(parserInputSource, eventHandler);
 
     Map<String, Extension> imports = new HashMap<>();
@@ -403,8 +414,9 @@ public class SkydocMain {
         imports.put(anImport.getImportString(), new Extension(importEnv));
       } catch (NoSuchFileException noSuchFileException) {
         throw new IllegalStateException(
-            String.format("File %s imported '%s', yet %s was not found.",
-                path, anImport.getImportString(), pathOfLabel(relativeLabel)));
+            String.format(
+                "File %s imported '%s', yet %s was not found, even at roots %s.",
+                path, anImport.getImportString(), pathOfLabel(relativeLabel), depRoots));
       }
     }
 
@@ -423,6 +435,17 @@ public class SkydocMain {
         : label.getWorkspaceRoot() + "/";
 
     return Paths.get(workspacePrefix + label.toPathFragment());
+  }
+
+  private ParserInputSource getInputSource(String bzlWorkspacePath) throws IOException {
+    for (String rootPath : depRoots) {
+      if (fileAccessor.fileExists(rootPath + "/" + bzlWorkspacePath)) {
+        return fileAccessor.inputSource(rootPath + "/" + bzlWorkspacePath);
+      }
+    }
+
+    // All depRoots attempted and no valid file was found.
+    throw new NoSuchFileException(bzlWorkspacePath);
   }
 
   /** Evaluates the AST from a single skylark file, given the already-resolved imports. */

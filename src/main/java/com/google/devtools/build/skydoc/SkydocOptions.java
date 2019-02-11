@@ -47,4 +47,13 @@ public class SkydocOptions extends OptionsBase {
       effectTags = OptionEffectTag.UNKNOWN,
       help = "The path of the file to output documentation into")
   public List<String> symbolNames;
+
+  @Option(
+      name = "dep_roots",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.UNKNOWN,
+      help = "File path roots to search when resolving transitive bzl dependencies")
+  public List<String> depRoots;
 }
