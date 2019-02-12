@@ -382,7 +382,10 @@ java_library(
     srcs = glob([
         "skylarkinterface/*.java",
     ]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:__pkg__"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
     deps = [
         ":skylark_semantics",
         "//third_party:jsr305",
