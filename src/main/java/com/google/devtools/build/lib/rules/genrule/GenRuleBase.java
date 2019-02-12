@@ -326,29 +326,17 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         return expandSingletonArtifact(filesToBuild, "$@", "output file");
       }
 
-      if (variableName.equals("OUT_ROOT_DIR")) {
+      if (variableName.equals("RULEDIR")) {
         // The output root directory. This variable expands to the package's root directory
         // in the genfiles tree.
-        Path dirPath;
         PathFragment dirFragment;
         if (ruleContext.getRule().hasBinaryOutput()) {
-          dirPath = ruleContext.getConfiguration().getBinDir().getRoot().asPath();
           dirFragment = ruleContext.getConfiguration().getBinFragment();
         } else {
-          dirPath = ruleContext.getConfiguration().getGenfilesDir().getRoot().asPath();
           dirFragment = ruleContext.getConfiguration().getGenfilesFragment();
         }
-
         PathFragment relPath = ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
-        // TODO: Instead of creating a new directory, use the root
-        String outDirStr = "testing-genrules";
-        Path outputRootDir = dirPath.getRelative(relPath).getRelative(outDirStr);
-        try {
-          outputRootDir.createDirectory();
-        } catch (IOException e) {
-          throw new UncheckedIOException(e);
-        }
-        return dirFragment.getRelative(relPath).getRelative(outDirStr).getPathString();
+        return dirFragment.getRelative(relPath).getPathString();
       }
 
       if (variableName.equals("@D")) {

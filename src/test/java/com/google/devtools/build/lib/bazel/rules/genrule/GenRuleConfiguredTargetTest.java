@@ -283,6 +283,49 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     assertThat(bazExpected.equals(barExpected)).isFalse();
   }
 
+  /** Ensure that variable $(RULE_DIR) gets expanded correctly in the genrule cmd. */
+  @Test
+  public void testRuleDirExpansion() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "genrule(name = 'bar',",
+        "        srcs = ['bar_in.txt'],",
+        "        cmd = 'touch $(RULEDIR)',",
+        "        outs = ['bar/bar_out.txt'])",
+        "genrule(name = 'baz',",
+        "        srcs = ['bar/bar_out.txt'],",
+        "        cmd = 'touch $(RULEDIR)',",
+        "        outs = ['logs/baz_out.txt', 'logs/baz.log'])");
+
+    getConfiguredTarget("//foo:bar");
+
+    FileConfiguredTarget bazOutTarget = getFileConfiguredTarget("//foo:logs/baz_out.txt");
+
+    SpawnAction bazAction = (SpawnAction) getGeneratingAction(bazOutTarget.getArtifact());
+
+    // Make sure the expansion for $(RULEDIR) results in the directory of the BUILD file ("foo")
+    String fooExpected =
+        "touch "
+            + bazOutTarget
+            .getArtifact()
+            .getExecPath()
+            .getParentDirectory()
+            .getParentDirectory()
+            .getPathString();
+    getConfiguredTarget("//foo:bar");
+
+    Artifact barOut = bazAction.getInputs().iterator().next();
+    assertThat(barOut.getExecPath().endsWith(PathFragment.create("foo/bar/bar_out.txt"))).isTrue();
+    SpawnAction barAction = (SpawnAction) getGeneratingAction(barOut);
+    String barExpected = "touch " + barOut.getExecPath().getParentDirectory().getPathString();
+
+    // Make syre $(RULEDIR) always returns the path to the root of the output directory
+    assertCommandEquals(fooExpected, barAction.getArguments().get(2));
+    assertCommandEquals(fooExpected, bazAction.getArguments().get(2));
+
+    assertThat(fooExpected.equals(barExpected)).isFalse();
+  }
+
   /** Ensure that variable $(CC) gets expanded correctly in the genrule cmd. */
   @Test
   public void testMakeVarExpansion() throws Exception {
