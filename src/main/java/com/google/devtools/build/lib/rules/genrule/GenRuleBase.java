@@ -329,14 +329,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       if (variableName.equals("RULEDIR")) {
         // The output root directory. This variable expands to the package's root directory
         // in the genfiles tree.
-        PathFragment dirFragment;
-        if (ruleContext.getRule().hasBinaryOutput()) {
-          dirFragment = ruleContext.getConfiguration().getBinFragment();
-        } else {
-          dirFragment = ruleContext.getConfiguration().getGenfilesFragment();
-        }
+        PathFragment dir = ruleContext.getBinOrGenfilesDirectory().getExecPath();
         PathFragment relPath = ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
-        return dirFragment.getRelative(relPath).getPathString();
+        return dir.getRelative(relPath).getPathString();
       }
 
       if (variableName.equals("@D")) {

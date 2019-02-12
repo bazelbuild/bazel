@@ -161,7 +161,7 @@ public class GenRuleBaseRule implements RuleDefinition {
             <p>
               Note that <code>outs</code> are <i>not</i> included in this substitution. Output files
               are always generated into a predictable location (available via <code>$(@D)</code>,
-              <code>$@</code>, <code>$(OUTS)</code> or <code>$(OUT_ROOT_DIR)</code> or
+              <code>$@</code>, <code>$(OUTS)</code> or <code>$(RULEDIR)</code> or
               <code>$(location <i>output_name</i>)</code>; see below).
             </p>
           </li>
