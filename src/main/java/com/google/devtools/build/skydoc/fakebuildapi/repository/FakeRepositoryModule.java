@@ -26,8 +26,14 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 public class FakeRepositoryModule implements RepositoryModuleApi {
 
   @Override
-  public BaseFunction repositoryRule(BaseFunction implementation, Object attrs, Boolean local,
-      SkylarkList<String> environ, FuncallExpression ast, Environment env) {
+  public BaseFunction repositoryRule(
+      BaseFunction implementation,
+      Object attrs,
+      Boolean local,
+      SkylarkList<String> environ,
+      String doc,
+      FuncallExpression ast,
+      Environment env) {
     return implementation;
   }
 }

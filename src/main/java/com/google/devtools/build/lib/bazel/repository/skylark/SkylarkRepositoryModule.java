@@ -60,6 +60,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       Object attrs,
       Boolean local,
       SkylarkList<String> environ,
+      String doc,
       FuncallExpression ast,
       com.google.devtools.build.lib.syntax.Environment funcallEnv)
       throws EvalException {
