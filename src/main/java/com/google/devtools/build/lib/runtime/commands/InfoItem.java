@@ -28,15 +28,12 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AllowedRuleClassInfo;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeDefinition;
-import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeValue;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.BuildLanguage;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.RuleDefinition;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.LogHandlerQuerier;
 import com.google.devtools.build.lib.util.ProcessUtils;
@@ -53,7 +50,6 @@ import java.lang.management.MemoryUsage;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Level;
@@ -654,29 +650,17 @@ public abstract class InfoItem {
       RuleDefinition.Builder rulePb = RuleDefinition.newBuilder();
       rulePb.setName(ruleClass.getName());
       for (Attribute attr : ruleClass.getAttributes()) {
-        Type<?> t = attr.getType();
         AttributeDefinition.Builder attrPb = AttributeDefinition.newBuilder();
         attrPb.setName(attr.getName());
-        attrPb.setType(ProtoUtils.getDiscriminatorFromType(t));
+        // The protocol compiler, in its infinite wisdom, generates the field as one of the
+        // integer type and the getTypeEnum() method is missing. WTF?
+        attrPb.setType(ProtoUtils.getDiscriminatorFromType(attr.getType()));
         attrPb.setMandatory(attr.isMandatory());
-        attrPb.setAllowEmpty(!attr.isNonEmpty());
-        attrPb.setAllowSingleFile(attr.isSingleArtifact());
-        attrPb.setConfigurable(attr.isConfigurable());
 
-        // Encode default value, if simple.
-        Object v = attr.getDefaultValueUnchecked();
-        if (!(v == null
-            || v instanceof Attribute.ComputedDefault
-            || v instanceof Attribute.SkylarkComputedDefaultTemplate
-            || v instanceof Attribute.LateBoundDefault
-            || v == t.getDefaultValue())) {
-          attrPb.setDefault(convertAttrValue(t, v));
-        }
-        attrPb.setExecutable(attr.isExecutable());
-        if (BuildType.isLabelType(t)) {
+        if (BuildType.isLabelType(attr.getType())) {
           attrPb.setAllowedRuleClasses(getAllowedRuleClasses(ruleClasses, attr));
-          attrPb.setNodep(t.getLabelClass() == Type.LabelClass.NONDEP_REFERENCE);
         }
+
         rulePb.addAttribute(attrPb);
       }
 
@@ -684,44 +668,6 @@ public abstract class InfoItem {
     }
 
     return resultPb.build().toByteArray();
-  }
-
-  // convertAttrValue converts attribute value v of type to t an AttributeValue message.
-  private static AttributeValue convertAttrValue(Type<?> t, Object v) {
-    AttributeValue.Builder b = AttributeValue.newBuilder();
-    if (v instanceof Map) {
-      Type.DictType<?, ?> dictType = (Type.DictType<?, ?>) t;
-      for (Map.Entry<?, ?> entry : ((Map<?, ?>) v).entrySet()) {
-        b.addDictBuilder()
-            .setKey(entry.getKey().toString())
-            .setValue(convertAttrValue(dictType.getValueType(), entry.getValue()))
-            .build();
-      }
-    } else if (v instanceof List) {
-      for (Object elem : (List<?>) v) {
-        b.addList(convertAttrValue(t.getListElementType(), elem));
-      }
-    } else if (t == BuildType.LICENSE) {
-      // TODO(adonovan): need dual function of parseLicense.
-      // Treat as empty list for now.
-    } else if (t == BuildType.DISTRIBUTIONS) {
-      // TODO(adonovan): need dual function of parseDistributions.
-      // Treat as empty list for now.
-    } else if (t == Type.STRING) {
-      b.setString((String) v);
-    } else if (t == Type.INTEGER) {
-      b.setInt((Integer) v);
-    } else if (t == Type.BOOLEAN) {
-      b.setBool((Boolean) v);
-    } else if (t == BuildType.TRISTATE) {
-      b.setInt(((TriState) v).toInt());
-    } else if (BuildType.isLabelType(t)) { // case order matters!
-      b.setString(v.toString());
-    } else {
-      // No native rule attribute of this type (FilesetEntry?) has a default value.
-      throw new IllegalStateException("unexpected type of attribute default value: " + t);
-    }
-    return b.build();
   }
 
   /**

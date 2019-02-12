@@ -494,37 +494,17 @@ message AllowedRuleClassInfo {
 }
 
 // This message represents a single attribute of a single rule.
-// See docs.bazel.build/versions/master/skylark/lib/attr.html.
 message AttributeDefinition {
-  required string name = 1; // e.g. "name", "srcs"
+
+  // Attribute name, i.e. "name", "srcs", "deps"
+  required string name = 1;
   required Attribute.Discriminator type = 2;
-  optional bool mandatory = 3;
-  optional AllowedRuleClassInfo allowed_rule_classes = 4; // type=label*
+  required bool mandatory = 3;
+
+  // Only present for attributes of type LABEL and LABEL_LIST.
+  optional AllowedRuleClassInfo allowed_rule_classes = 4;
+
   optional string documentation = 5;
-  optional bool allow_empty = 6;       // type=*_list|*_dict
-  optional bool allow_single_file = 7; // type=label
-  optional AttributeValue default = 9; // simple (not computed/late-bound) values only
-  optional bool executable = 10;       // type=label
-  optional bool configurable = 11;
-  optional bool nodep = 12;            // type=label*
-}
-
-// An AttributeValue represents the value of an attribute.
-// A single field, determined by the attribute type, is populated.
-//
-// It is used only for AttributeDefinition.default. Attribute and
-// SelectorEntry do their own thing for unfortunate historical reasons.
-message AttributeValue {
-  optional int32 int = 1;           // type=int|tristate
-  optional string string = 2;       // type=string|label|output
-  optional bool bool = 3;           // type=bool
-  repeated AttributeValue list = 4; // type=*_list|distrib
-  repeated DictEntry dict = 5;      // type=*_dict
-
-  message DictEntry {
-    required string key = 1;
-    required AttributeValue value = 2;
-  }
 }
 
 message RuleDefinition {
