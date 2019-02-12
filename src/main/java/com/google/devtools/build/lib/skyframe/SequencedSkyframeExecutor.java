@@ -525,6 +525,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         .evaluate(ImmutableSet.of(RefreshRootsValue.key()), evaluationContext);
     RefreshRootsValue refreshRoots = (RefreshRootsValue) refreshRootsResult.get(RefreshRootsValue.key());
 
+    externalFilesHelper.injectConfiguration(userBlacklisted, refreshRoots);
+
     Differencer.Diff diff;
     try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
       ExternalDirtinessChecker externalDirtinessChecker = new ExternalDirtinessChecker(
