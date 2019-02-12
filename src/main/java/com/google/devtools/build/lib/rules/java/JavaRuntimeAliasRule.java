@@ -18,17 +18,27 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
+import java.io.Serializable;
 
 /** Implementation of the {@code java_runtime_alias} rule. */
 public class JavaRuntimeAliasRule extends CommonAliasRule<JavaConfiguration> {
   public JavaRuntimeAliasRule() {
-    super("java_runtime_alias", JavaSemantics::jvmAttribute, JavaConfiguration.class);
+    super("java_runtime_alias", JavaRuntimeAliasRule::jvmAttribute, JavaConfiguration.class);
   }
 
   @Override
   protected Attribute.Builder<Label> makeAttribute(RuleDefinitionEnvironment environment) {
     Attribute.Builder<Label> builder = super.makeAttribute(environment);
     return builder.mandatoryProviders(ToolchainInfo.PROVIDER.id());
+  }
+
+  static LabelLateBoundDefault<JavaConfiguration> jvmAttribute(RuleDefinitionEnvironment env) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        JavaConfiguration.class,
+        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
+        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
+            (rule, attributes, configuration) -> configuration.getRuntimeLabel());
   }
 }

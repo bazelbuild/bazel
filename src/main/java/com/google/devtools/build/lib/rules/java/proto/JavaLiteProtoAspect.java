@@ -73,9 +73,9 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
   @Nullable private final String jacocoLabel;
   private final String defaultProtoToolchainLabel;
-  private final LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute;
+  private final Label hostJdkAttribute;
   private final Label javaRuntimeToolchainType;
-  private final LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute;
+  private final Label javaToolchainAttribute;
   private final Label javaToolchainType;
 
   public JavaLiteProtoAspect(

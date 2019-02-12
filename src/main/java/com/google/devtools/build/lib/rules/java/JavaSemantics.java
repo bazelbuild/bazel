@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubst
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -52,7 +51,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
-import java.io.Serializable;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -103,34 +101,21 @@ public interface JavaSemantics {
   /** The java_toolchain.compatible_javacopts key for testonly compilations. */
   public static final String TESTONLY_JAVACOPTS_KEY = "testonly";
 
-  static LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute(
-      RuleDefinitionEnvironment environment) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        JavaConfiguration.class,
-        environment.getToolsLabel(JAVA_TOOLCHAIN_LABEL),
-        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
-            (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
+  static Label javaToolchainAttribute(RuleDefinitionEnvironment environment) {
+    return environment.getToolsLabel("//tools/jdk:current_java_toolchain");
   }
 
   /** Name of the output group used for source jars. */
   String SOURCE_JARS_OUTPUT_GROUP = OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
 
   /** Implementation for the :jvm attribute. */
-  static LabelLateBoundDefault<JavaConfiguration> jvmAttribute(RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        JavaConfiguration.class,
-        env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
-        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
-            (rule, attributes, configuration) -> configuration.getRuntimeLabel());
+  static Label jvmAttribute(RuleDefinitionEnvironment env) {
+    return env.getToolsLabel("//tools/jdk:current_java_runtime");
   }
 
   /** Implementation for the :host_jdk attribute. */
-  static LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute(RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromHostConfiguration(
-        JavaConfiguration.class,
-        env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
-        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
-            (rule, attributes, configuration) -> configuration.getRuntimeLabel());
+  static Label hostJdkAttribute(RuleDefinitionEnvironment env) {
+    return env.getToolsLabel("//tools/jdk:current_host_java_runtime");
   }
 
   /**
