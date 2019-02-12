@@ -256,7 +256,7 @@ function test_download_then_extract() {
   ensure_contains_exactly 'output: "out_dir"' 1
   ensure_contains_exactly 'strip_prefix: "server_dir/"' 1
 
-  ensure_output_contains_exactly "external/repo/out_dir/download_and_extract.txt" "This is one file"
+  ensure_output_contains_exactly "external/repo/out_dir/download_then_extract.txt" "This is one file"
 }
 
 function test_download_and_extract() {
