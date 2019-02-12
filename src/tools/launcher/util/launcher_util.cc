@@ -169,7 +169,7 @@ std::wstring BashEscapeArg(const std::wstring& arg) {
   return GetEscapedArgument(arg, /* escape_backslash */ true);
 }
 
-std::wstring WindowsEscapeArg(const std::wstring& arg);
+std::wstring WindowsEscapeArg(const std::wstring& arg) {
   // TODO(laszlocsomor): properly implement escaping syntax for CreateProcessW;
   // it's different from Bash escaping syntax.
   return GetEscapedArgument(arg, /* escape_backslash */ false);
