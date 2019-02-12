@@ -28,9 +28,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PythonStarlarkApiTest extends BuildViewTestCase {
 
-  // TODO(#7054): Imports aren't propagated correctly. When we fix that, add it to the fields
-  // tested here.
-
   /** Defines userlib in //pkg:rules.bzl, which acts as a Starlark-defined version of py_library. */
   private void defineUserlibRule() throws Exception {
     scratch.file(
@@ -44,6 +41,9 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    uses_shared_libraries = \\",
         "        any([py.uses_shared_libraries for py in dep_infos]) or \\",
         "        ctx.attr.uses_shared_libraries",
+        "    imports = depset(",
+        "        direct=ctx.attr.imports,",
+        "        transitive=[py.imports for py in dep_infos])",
         "    has_py2_only_sources = \\",
         "        any([py.has_py2_only_sources for py in dep_infos]) or \\",
         "        ctx.attr.has_py2_only_sources",
@@ -53,11 +53,13 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    legacy_info = struct(",
         "        transitive_sources = transitive_sources,",
         "        uses_shared_libraries = uses_shared_libraries,",
+        "        imports = imports,",
         "        has_py2_only_sources = has_py2_only_sources,",
         "        has_py3_only_sources = has_py3_only_sources)",
         "    modern_info = PyInfo(",
         "        transitive_sources = transitive_sources,",
         "        uses_shared_libraries = uses_shared_libraries,",
+        "        imports = imports,",
         "        has_py2_only_sources = has_py2_only_sources,",
         "        has_py3_only_sources = has_py3_only_sources)",
         "    return struct(py=legacy_info, providers=[modern_info])",
@@ -68,6 +70,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "        'srcs': attr.label_list(allow_files=True),",
         "        'deps': attr.label_list(providers=['py']),",
         "        'uses_shared_libraries': attr.bool(),",
+        "        'imports': attr.string_list(),",
         "        'has_py2_only_sources': attr.bool(),",
         "        'has_py3_only_sources': attr.bool(),",
         "    },",
@@ -86,18 +89,21 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    name = 'loweruserlib',",
         "    srcs = ['loweruserlib.py'],",
         "    uses_shared_libraries = True,",
+        "    imports = ['loweruserlib_path'],",
         "    has_py2_only_sources = True,",
         ")",
         "py_library(",
         "    name = 'pylib',",
         "    srcs = ['pylib.py'],",
         "    deps = [':loweruserlib'],",
+        // No imports attribute here because Google-internal Python rules don't have this attribute.
         "    srcs_version = 'PY3ONLY'",
         ")",
         "userlib(",
         "    name = 'upperuserlib',",
         "    srcs = ['upperuserlib.py'],",
         "    deps = [':pylib'],",
+        "    imports = ['upperuserlib_path'],",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//pkg:upperuserlib");
     StructImpl legacyInfo = PyProviderUtils.getLegacyProvider(target);
@@ -109,6 +115,8 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
             getSourceArtifact("pkg/pylib.py"),
             getSourceArtifact("pkg/upperuserlib.py"));
     assertThat(PyStructUtils.getUsesSharedLibraries(legacyInfo)).isTrue();
+    assertThat(PyStructUtils.getImports(legacyInfo))
+        .containsExactly("loweruserlib_path", "upperuserlib_path");
     assertThat(PyStructUtils.getHasPy2OnlySources(legacyInfo)).isTrue();
     assertThat(PyStructUtils.getHasPy3OnlySources(legacyInfo)).isTrue();
 
@@ -118,6 +126,8 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
             getSourceArtifact("pkg/pylib.py"),
             getSourceArtifact("pkg/upperuserlib.py"));
     assertThat(modernInfo.getUsesSharedLibraries()).isTrue();
+    assertThat(modernInfo.getImports().getSet(String.class))
+        .containsExactly("loweruserlib_path", "upperuserlib_path");
     assertThat(modernInfo.getHasPy2OnlySources()).isTrue();
     assertThat(modernInfo.getHasPy3OnlySources()).isTrue();
   }

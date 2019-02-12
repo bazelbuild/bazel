@@ -56,8 +56,6 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
         NestedSetBuilder.wrap(Order.STABLE_ORDER, allOutputs);
     common.addPyExtraActionPseudoAction();
 
-    NestedSet<String> imports = common.getImports();
-
     Runfiles.Builder runfilesBuilder = new Runfiles.Builder(
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles());
     if (common.getConvertedFiles() != null) {
@@ -69,7 +67,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
     runfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
-    common.addCommonTransitiveInfoProviders(builder, filesToBuild, imports);
+    common.addCommonTransitiveInfoProviders(builder, filesToBuild);
 
     return builder
         .setFilesToBuild(filesToBuild)
@@ -77,7 +75,6 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
             new PyCcLinkParamsProvider(
                 semantics.buildCcInfoProvider(ruleContext.getPrerequisites("deps", Mode.TARGET))))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfilesBuilder.build()))
-        .add(PythonImportsProvider.class, new PythonImportsProvider(imports))
         .build();
   }
 }

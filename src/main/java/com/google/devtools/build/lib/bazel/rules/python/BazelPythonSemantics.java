@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
@@ -131,7 +130,6 @@ public class BazelPythonSemantics implements PythonSemantics {
       RuleContext ruleContext,
       PyCommon common,
       CcInfo ccInfo,
-      NestedSet<String> imports,
       Runfiles.Builder runfilesBuilder)
       throws InterruptedException {
     String main = common.determineMainExecutableSource(/*withWorkspaceName=*/ true);
@@ -156,7 +154,7 @@ public class BazelPythonSemantics implements PythonSemantics {
               ImmutableList.of(
                   Substitution.of("%main%", main),
                   Substitution.of("%python_binary%", pythonBinary),
-                  Substitution.of("%imports%", Joiner.on(":").join(imports)),
+                  Substitution.of("%imports%", Joiner.on(":").join(common.getImports())),
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
                   Substitution.of("%is_zipfile%", "False"),
                   Substitution.of(
@@ -174,11 +172,11 @@ public class BazelPythonSemantics implements PythonSemantics {
               ImmutableList.of(
                   Substitution.of("%main%", main),
                   Substitution.of("%python_binary%", pythonBinary),
-                  Substitution.of("%imports%", Joiner.on(":").join(imports)),
+                  Substitution.of("%imports%", Joiner.on(":").join(common.getImports())),
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
                   Substitution.of("%is_zipfile%", "True"),
-                  Substitution.of("%import_all%",
-                      config.getImportAllRepositories() ? "True" : "False")),
+                  Substitution.of(
+                      "%import_all%", config.getImportAllRepositories() ? "True" : "False")),
               true));
 
       if (OS.getCurrent() != OS.WINDOWS) {

@@ -278,8 +278,8 @@ public final class PyCommon {
       try {
         NestedSet<String> imports = PyProviderUtils.getImports(dep);
         if (!builder.getOrder().isCompatible(imports.getOrder())) {
-          // TODO(brandjon): We should make order an invariant of the Python provider. Then once we
-          /// remove PythonImportsProvider we can move this check into PyProvider/PyStructUtils.
+          // TODO(brandjon): We should make order an invariant of the Python provider, and move this
+          // check into PyInfo/PyStructUtils.
           ruleContext.ruleError(
               getOrderErrorMessage(PyStructUtils.IMPORTS, builder.getOrder(), imports.getOrder()));
         } else {
@@ -586,9 +586,7 @@ public final class PyCommon {
   }
 
   public void addCommonTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder,
-      NestedSet<Artifact> filesToBuild,
-      NestedSet<String> imports) {
+      RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
 
     boolean createLegacyPyProvider =
         !ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider();
@@ -763,19 +761,13 @@ public final class PyCommon {
    * trigger an execution-time failure. See {@link
    * #maybeCreateFailActionDueToTransitiveSourcesVersion}.
    */
-  public Artifact createExecutable(
-      CcInfo ccInfo, NestedSet<String> givenImports, Runfiles.Builder defaultRunfilesBuilder)
+  public Artifact createExecutable(CcInfo ccInfo, Runfiles.Builder defaultRunfilesBuilder)
       throws InterruptedException, RuleErrorException {
     boolean failed = maybeCreateFailActionDueToTransitiveSourcesVersion();
     if (failed) {
       return executable;
     } else {
-      // TODO(#7054): We pass imports as an arg instead of taking them from the PyCommon field
-      // because the imports logic is a little inconsistent, and passing it explicitly may help
-      // avoid creating bugs that make the situation worse. We can eliminate this arg when we
-      // straighten up the other imports logic.
-      return semantics.createExecutable(
-          ruleContext, this, ccInfo, givenImports, defaultRunfilesBuilder);
+      return semantics.createExecutable(ruleContext, this, ccInfo, defaultRunfilesBuilder);
     }
   }
 
