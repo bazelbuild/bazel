@@ -2059,9 +2059,33 @@ Examples:
 </p>
 
 <p><code>bazel run</code> is similar, but not identical, to directly invoking
-the binary built by Bazel. In particular, this command does not run the target
-in the current working directory. <code>bazel run</code> should not be used if
-the binary's behavior depends on the directory it's invoked in.
+the binary built by Bazel and its behavior is different depending on whether the
+binary to be invoked is a test or not.
+
+When the binary is not a test, the current working directory will be the
+runfiles tree of the binary.
+
+When the binary is a test, the current working directory will be the exec root
+and a good-faith attempt is made to replicate the environment tests are usually
+run in. The emulation is not perfect, though, and tests that have multiple
+shards cannot be run this way (the
+<code>--test_sharding_strategy=disabled</code> command line option can be used
+to work around this)
+
+The following extra environment variables are also available to the binary:
+<ul>
+  <li>
+    <code>BUILD_WORKSPACE_DIRECTORY</code>: the root of the workspace where the
+    build was run.
+  </li>
+  <li>
+    <code>BUILD_WORKING_DIRECTORY</code>: the current working directory where
+    Bazel was run from.
+  </li>
+</ul>
+
+These can be used, for example, to interpret file names on the command line in
+a user-friendly way.
 
 <h3>Options for <code>bazel run</code></h3>
 
