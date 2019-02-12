@@ -728,21 +728,6 @@ public class CppOptions extends FragmentOptions {
   public boolean disableExpandIfAllAvailableInFlagSet;
 
   @Option(
-      name = "incompatible_linkopts_in_user_link_flags",
-      oldName = "experimental_linkopts_in_user_link_flags",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, flags coming from --linkopt Bazel option will appear in user_link_flags "
-              + "crosstool variable, not in legacy_link_flags.")
-  public boolean enableLinkoptsInUserLinkFlags;
-
-  @Option(
       name = "incompatible_dont_emit_static_libgcc",
       oldName = "experimental_dont_emit_static_libgcc",
       defaultValue = "true",

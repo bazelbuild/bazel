@@ -556,10 +556,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         + "migration instructions).";
   }
 
-  public boolean enableLinkoptsInUserLinkFlags() {
-    return cppOptions.enableLinkoptsInUserLinkFlags;
-  }
-
   public boolean disableEmittingStaticLibgcc() {
     return cppOptions.disableEmittingStaticLibgcc;
   }
