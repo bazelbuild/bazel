@@ -114,9 +114,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "java_runtime(name = 'remote_jdk10', srcs = [])",
         "java_runtime(name = 'remote_jdk11', srcs = [])",
         "java_runtime_alias(name = 'current_java_runtime')",
-        // This isn't actually the host runtime, but will do. This way, we don't need to pull in the
-        // Skylark implementation of the java_host_runtime_alias rule.
-        "java_runtime_alias(name = 'current_host_java_runtime')",
+        "java_host_runtime_alias(name = 'current_host_java_runtime')",
         "filegroup(name='langtools', srcs=['jdk/lib/tools.jar'])",
         "filegroup(name='bootclasspath', srcs=['jdk/jre/lib/rt.jar'])",
         "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*']))",
