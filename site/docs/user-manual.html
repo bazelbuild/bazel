@@ -805,9 +805,12 @@ The default is <code>armeabi-v7a</code>.
 </p>
 <ul>
 
+ -->
   <li>
-    <code>standalone</code> causes commands to be executed as local subprocesses.
+    <code>standalone</code> causes commands to be executed as local subprocesses. This value is
+    deprecated. Please use <code>local</code> instead.
   </li>
+
   <li>
     <code>sandboxed</code> causes commands to be executed inside a sandbox on the local machine.
     This requires that all input files, data dependencies and tools are listed as direct
@@ -815,26 +818,63 @@ The default is <code>armeabi-v7a</code>.
     This is the default on systems that support sandboxed execution.
   </li>
 
+  <li>
+    <code>local</code> causes commands to be executed as local subprocesses.
+  </li>
+
+ -->
+  <li>
+    <code>docker</code> causes commands to be executed inside a docker sandbox on the local machine.
+    This requires that docker is installed.
+  </li>
+
+  <li>
+    <code>remote</code> causes commands to be executed remotely; this is only available if a
+    remote executor has been configured separately.
+  </li>
+
+</ul>
+
+<h4 id='flag--strategy'><code class='flag'>--strategy <var>mnemonic</var>=<var>strategy</var></code></h4>
+<p>
+  This option controls where and how commands are executed, overriding the default setting on a
+  per-mnemonic basis. See
+  <code class='flag'><a href="#flag--spawn_strategy">--spawn_strategy</a></code> for the supported
+  strategies and their effects.
+</p>
+
+<h4 id='flag--strategy_regexp'><code class='flag'>--strategy_regexp <var>&lt;filter,filter,...&gt;=&lt;strategy&gt;</var></code></h4>
+<p>
+  This option specifies which strategy should be used to execute commands that have descriptions
+  matching a certain <code>regex_filter</code>. See
+  <code class='flag'><a href="#flag--per_file_copt">--per_file_copt</a></code> for details on
+  regex_filter matching. See
+  <code class='flag'><a href="#flag--spawn_strategy">--spawn_strategy</a></code> for the supported
+  strategies and their effects.
+</p>
+<p>
+The first <code>regex_filter</code> that matches the description is used. This option overrides
+other flags for specifying strategy.
+</p>
+<ul>
+  <li>
+    Example: <code>--strategy_regexp=//foo.*\\.cc,-//foo/bar=local</code> means to run actions using
+    <code>local</code> strategy if their descriptions match //foo.*.cc but not //foo/bar.
+  </li>
+  <li>
+    Example:
+    <code>--strategy_regexp='Compiling.*/bar=local' --strategy_regexp=Compiling=sandboxed</code>
+    will run 'Compiling //foo/bar/baz' with the <code>local</code> strategy, but reversing the order
+    would run it with <code>sandboxed</code>.
+  </li>
 </ul>
 
 <h4 id='flag--genrule_strategy'><code class='flag'>--genrule_strategy <var>strategy</var></code></h4>
 <p>
-  This option controls where and how genrules are executed.
+  This is a deprecated short-hand for
+  <code class='flag'>--strategy=Genrule=<var>strategy</var></code>.
 </p>
 <ul>
-
-  <li>
-    <code>standalone</code> causes genrules to run as local subprocesses.
-  </li>
-  <li>
-    <code>sandboxed</code> causes genrules to run inside a sandbox on the local machine.
-    This requires that all input files are listed as direct dependencies in
-    the <code>srcs</code> attribute, and the program(s) executed are listed
-    in the <code>tools</code> attribute.
-    This is the default for Bazel on systems that support sandboxed execution.
-  </li>
-
-</ul>
 
 <h4 id='flag--jobs'><code class='flag'>--jobs <var>n</var></code> (-j)</h4>
 <p>
