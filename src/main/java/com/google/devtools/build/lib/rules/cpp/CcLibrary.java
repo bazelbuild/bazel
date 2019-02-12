@@ -144,7 +144,14 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
     CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
-                ruleContext, semantics, featureConfiguration, ccToolchain, fdoContext)
+                ruleContext,
+                ruleContext,
+                ruleContext.getLabel(),
+                CppHelper.getGrepIncludes(ruleContext),
+                semantics,
+                featureConfiguration,
+                ccToolchain,
+                fdoContext)
             .fromCommon(common, additionalCopts)
             .addSources(common.getSources())
             .addPrivateHeaders(common.getPrivateHeaders())

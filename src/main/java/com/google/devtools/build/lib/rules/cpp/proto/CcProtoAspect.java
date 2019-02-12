@@ -299,6 +299,9 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       CcCompilationHelper helper =
           new CcCompilationHelper(
                   ruleContext,
+                  ruleContext,
+                  ruleContext.getLabel(),
+                  CppHelper.getGrepIncludes(ruleContext),
                   cppSemantics,
                   featureConfiguration,
                   toolchain,

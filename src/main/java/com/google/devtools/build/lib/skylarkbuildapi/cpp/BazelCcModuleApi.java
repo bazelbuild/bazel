@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -56,6 +57,7 @@ public interface BazelCcModuleApi<
   @SkylarkCallable(
       name = "compile",
       documented = false,
+      useLocation = true,
       parameters = {
         @Param(
             name = "ctx",
@@ -127,7 +129,8 @@ public interface BazelCcModuleApi<
       SkylarkList<FileT> headers,
       Object skylarkIncludes,
       Object skylarkCopts,
-      SkylarkList<CcCompilationContextT> ccCompilationContexts)
+      SkylarkList<CcCompilationContextT> ccCompilationContexts,
+      Location location)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(

@@ -173,7 +173,8 @@ public class FakeCcModule
       SkylarkList<FileApi> headers,
       Object skylarkIncludes,
       Object skylarkCopts,
-      SkylarkList<CcCompilationContextApi> ccCompilationContexts) {
+      SkylarkList<CcCompilationContextApi> ccCompilationContexts,
+      Location location) {
     return null;
   }
 

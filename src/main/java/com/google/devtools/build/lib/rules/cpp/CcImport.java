@@ -160,6 +160,9 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     CompilationInfo compilationInfo =
         new CcCompilationHelper(
                 ruleContext,
+                ruleContext,
+                ruleContext.getLabel(),
+                CppHelper.getGrepIncludes(ruleContext),
                 semantics,
                 featureConfiguration,
                 ccToolchain,

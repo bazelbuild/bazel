@@ -890,4 +890,10 @@ public class CppHelper {
         .map(CcInfo::getCcCompilationContext)
         .collect(ImmutableList.toImmutableList());
   }
+
+  public static Artifact getGrepIncludes(RuleContext ruleContext) {
+    return ruleContext.attributes().has("$grep_includes")
+        ? ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST)
+        : null;
+  }
 }

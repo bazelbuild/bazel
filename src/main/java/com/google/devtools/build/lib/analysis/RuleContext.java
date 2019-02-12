@@ -1443,6 +1443,11 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
+  public RuleErrorConsumer getRuleErrorConsumer() {
+    return this;
+  }
+
+  @Override
   public String toString() {
     return "RuleContext(" + getLabel() + ", " + getConfiguration() + ")";
   }
