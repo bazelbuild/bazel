@@ -75,6 +75,15 @@ function ensure_contains_atleast() {
   fi
 }
 
+function ensure_output_contains_exactly() {
+  file_path=$(bazel info output_base)/$1
+  num=`grep "$2" $file_path | wc -l`
+  if [ "$num" -ne 1 ]
+  then
+    fail "Expected to read \"$2\" in $1, but got $num occurrences: " `cat $file_path`
+  fi
+}
+
 function test_execute() {
   set_workspace_command 'repository_ctx.execute(["echo", "testing!"])'
   build_and_process_log
@@ -246,6 +255,8 @@ function test_download_then_extract() {
   ensure_contains_exactly 'archive: "downloaded_file.zip"' 1
   ensure_contains_exactly 'output: "out_dir"' 1
   ensure_contains_exactly 'strip_prefix: "server_dir/"' 1
+
+  ensure_output_contains_exactly "external/repo/out_dir/download_and_extract.txt" "This is one file"
 }
 
 function test_download_and_extract() {
@@ -275,6 +286,8 @@ function test_download_and_extract() {
   ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
   ensure_contains_exactly 'type: "zip"' 1
   ensure_contains_exactly 'strip_prefix: "server_dir/"' 1
+
+  ensure_output_contains_exactly "external/repo/out_dir/download_and_extract.txt" "This is one file"
 }
 
 function test_file() {
