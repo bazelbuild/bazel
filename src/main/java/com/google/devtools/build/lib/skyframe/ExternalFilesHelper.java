@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.vfs.Path;
@@ -50,6 +51,9 @@ public class ExternalFilesHelper {
   private final PathFragment blacklistPrefixesFile;
   private final int maxNumExternalFilesToLog;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
+
+  private final AtomicReference<BlacklistedPackagePrefixesValue> blacklistedRef = new AtomicReference<>();
+  private final AtomicReference<RefreshRootsValue> refreshRootsRef = new AtomicReference<>();
 
   private ExternalFilesHelper(
       AtomicReference<PathPackageLocator> pkgLocator,
@@ -95,6 +99,13 @@ public class ExternalFilesHelper {
         BazelSkyframeExecutorConstants.ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE,
         // These log lines are mostly spam during unit and integration tests.
         /*maxNumExternalFilesToLog=*/ 0);
+  }
+
+  void injectConfiguration(
+      BlacklistedPackagePrefixesValue userBlacklisted,
+      RefreshRootsValue refreshRoots) {
+    blacklistedRef.set(userBlacklisted);
+    refreshRootsRef.set(refreshRoots);
   }
 
 
@@ -235,14 +246,6 @@ public class ExternalFilesHelper {
     RepositoryFunction.addExternalFilesDependencies(rootedPath, isDirectory, directories, env);
   }
 
-  private BlacklistedPackagePrefixesValue getBlacklisted(Environment env, RootedPath rootedPath)
-      throws InterruptedException {
-    if (isWhitelistedFile(rootedPath)) {
-      return EMPTY_BLACKLISTED;
-    }
-    return (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
-  }
-
   private boolean checkForRefreshedRoot(
       FileType fileType,
       RootedPath rootedPath,
@@ -252,7 +255,7 @@ public class ExternalFilesHelper {
       return false;
     }
 
-    RefreshRootsValue refreshRoots = (RefreshRootsValue) env.getValue(RefreshRootsValue.key());
+    RefreshRootsValue refreshRoots = refreshRootsRef.get();
     if (refreshRoots == null) {
       return false;
     }
@@ -260,7 +263,7 @@ public class ExternalFilesHelper {
       return false;
     }
 
-    BlacklistedPackagePrefixesValue userBlacklisted = getBlacklisted(env, rootedPath);
+    BlacklistedPackagePrefixesValue userBlacklisted = blacklistedRef.get();
     if (userBlacklisted == null) {
       return false;
     }
@@ -276,6 +279,9 @@ public class ExternalFilesHelper {
 
   public boolean isWhitelistedFile(RootedPath rootedPath) {
     Path path = rootedPath.asPath();
+    if (rootedPath.getRoot().isAbsolute() && rootedPath.getRootRelativePath().isEmpty()) {
+      return false;
+    }
 
     PathFragment relativePath = rootedPath.getRootRelativePath();
     PathPackageLocator packageLocator = pkgLocator.get();

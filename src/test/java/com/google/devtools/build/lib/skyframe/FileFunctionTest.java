@@ -294,7 +294,6 @@ public class FileFunctionTest {
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("b", false, "a"));
     assertThat(seenFiles).containsExactly(rootedPath("a"),
         rootedPath("b"),
-        rootedPath("WORKSPACE"),
         rootedPath(""));
   }
 
@@ -371,7 +370,6 @@ public class FileFunctionTest {
         .containsExactly(
             rootedPath("a"),
             rootedPath(""),
-            rootedPath("WORKSPACE"),
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/")),
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/outside")));
   }
@@ -389,7 +387,6 @@ public class FileFunctionTest {
         .containsExactly(
             rootedPath("a"),
             rootedPath(""),
-            rootedPath("WORKSPACE"),
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/")),
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/absolute")));
   }
@@ -473,7 +470,6 @@ public class FileFunctionTest {
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("a", false, "b"));
     assertThat(seenFiles).containsExactly(rootedPath("a"),
         rootedPath("b"),
-        rootedPath("WORKSPACE"),
         rootedPath(""));
   }
 
