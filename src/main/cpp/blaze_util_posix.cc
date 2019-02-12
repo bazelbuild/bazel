@@ -796,16 +796,18 @@ static bool UnlimitResource(const int resource, const bool allow_infinity) {
     return true;
   }
 
-  rl.rlim_cur = rl.rlim_max;
-  if (rl.rlim_cur == RLIM_INFINITY && !allow_infinity) {
-    const rlim_t explicit_limit = GetExplicitSystemLimit(resource);
-    if (explicit_limit <= 0) {
-      // If not implemented (-1) or on an error (0), do nothing and try to
-      // increase the soft limit to the hard one. This might fail, but it's good
-      // to try anyway.
-      assert(rl.rlim_cur == rl.rlim_max);
-    } else {
+  const rlim_t explicit_limit = GetExplicitSystemLimit(resource);
+  if (explicit_limit <= 0) {
+    // If not implemented (-1) or on an error (0), do nothing and try to
+    // increase the soft limit to the hard one. This might fail, but it's good
+    // to try anyway.
+    rl.rlim_cur = rl.rlim_max;
+  } else {
+    if ((rl.rlim_max == RLIM_INFINITY && !allow_infinity) ||
+       rl.rlim_max > explicit_limit) {
       rl.rlim_cur = explicit_limit;
+    } else {
+      rl.rlim_cur = rl.rlim_max;
     }
   }
 
