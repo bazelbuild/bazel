@@ -27,7 +27,12 @@ cc_test(
     srcs = ["launcher_util_test.cc"],
     deps = [
         ":util",
+        "//src/main/native/windows:lib-util",
+        "@bazel_tools//tools/cpp/runfiles",
         "@com_google_googletest//:gtest_main",
+    ],
+    data = [
+        ":printarg",
     ],
 )
 
@@ -38,6 +43,12 @@ cc_test(
         ":data_parser",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+cc_binary(
+    name = "printarg",
+    srcs = ["printarg.cc"],
+    testonly = 1,
 )
 
 test_suite(
