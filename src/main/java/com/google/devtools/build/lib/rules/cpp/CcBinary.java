@@ -726,16 +726,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         NestedSetBuilder.wrap(Order.LINK_ORDER, precompiledLibraries.build()));
 
     ImmutableList.Builder<String> userLinkflags = ImmutableList.builder();
-    if (linkingMode != Link.LinkingMode.DYNAMIC
-        && !cppConfiguration.disableEmittingStaticLibgcc()) {
-      // Only force a static link of libgcc if static runtime linking is enabled (which
-      // can't be true if runtimeInputs is empty).
-      // TODO(bazel-team): Move this to CcToolchain.
-      if (!ccToolchain.getStaticRuntimeLinkInputs(ruleContext, featureConfiguration).isEmpty()) {
-        userLinkflags.add("-static-libgcc");
-      }
-    }
-
     userLinkflags.addAll(common.getLinkopts());
     currentCcLinkingContextBuilder
         .addNonCodeInputs(

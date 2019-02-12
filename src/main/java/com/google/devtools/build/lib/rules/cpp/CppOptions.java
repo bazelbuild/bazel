@@ -728,21 +728,6 @@ public class CppOptions extends FragmentOptions {
   public boolean disableExpandIfAllAvailableInFlagSet;
 
   @Option(
-      name = "incompatible_dont_emit_static_libgcc",
-      oldName = "experimental_dont_emit_static_libgcc",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If true, bazel will not add --static-libgcc to the linking command line, it will be "
-              + "the responsibility of the C++ toolchain to append this flag.")
-  public boolean disableEmittingStaticLibgcc;
-
-  @Option(
       name = "incompatible_disable_crosstool_file",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -877,7 +862,6 @@ public class CppOptions extends FragmentOptions {
 
     host.doNotUseCpuTransformer = doNotUseCpuTransformer;
     host.disableGenruleCcToolchainDependency = disableGenruleCcToolchainDependency;
-    host.disableEmittingStaticLibgcc = disableEmittingStaticLibgcc;
     host.disableDepsetInUserFlags = disableDepsetInUserFlags;
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
