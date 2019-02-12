@@ -31,10 +31,10 @@ public class RefreshRootsFunction implements SkyFunction {
       return null;
     }
     Package externalPackage = value.getPackage();
-    if (externalPackage.containsErrors()) {
-      // todo (ichern, prototype) exception kind
-      throw new IllegalStateException("Could not load //external package");
-    }
+    // if (externalPackage.containsErrors()) {
+    //   // todo (ichern, prototype) exception kind
+    //   throw new IllegalStateException("Could not load //external package");
+    // }
     Map<String, RepositoryName> map = externalPackage.getRefreshRootsToRepository();
     ImmutableMap<PathFragment, RepositoryName> asRootsMap = ImmutableMap.copyOf(map.keySet().stream()
         .collect(Collectors.toMap(PathFragment::create, map::get)));

@@ -279,7 +279,8 @@ public class ExternalFilesHelper {
 
     PathFragment relativePath = rootedPath.getRootRelativePath();
     PathPackageLocator packageLocator = pkgLocator.get();
-    if (path.equals(packageLocator.getWorkspaceFile()) ||
+    if ("WORKSPACE".equals(relativePath.getBaseName()) ||
+        path.equals(packageLocator.getWorkspaceFile()) ||
         packageLocator.getPathEntries().contains(rootedPath.getRoot())
             && (relativePath.isEmpty() || EXTERNAL.equals(relativePath))) {
       return true;

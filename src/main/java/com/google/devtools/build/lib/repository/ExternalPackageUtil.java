@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
@@ -87,11 +88,17 @@ public class ExternalPackageUtil {
   }
 
   @Nullable
-  public static RootedPath getWorkspacePath(final Environment env) throws InterruptedException {
+  public static RootedPath getWorkspacePath(final Environment env)
+      throws InterruptedException, ExternalPackageException {
     SkyKey packageLookupKey = PackageLookupValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
     if (packageLookupValue == null) {
       return null;
+    }
+    if (!packageLookupValue.packageExists()) {
+      throw new ExternalPackageException(
+          new NoSuchPackageException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+              packageLookupValue.getErrorMsg()), Transience.TRANSIENT);
     }
     return packageLookupValue.getRootedPath(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
   }
