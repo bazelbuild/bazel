@@ -139,10 +139,11 @@ public class FileFunctionTest {
 
   private SequentialBuildDriver makeDriver(ExternalFileAction externalFileAction) {
     AtomicReference<PathPackageLocator> pkgLocatorRef = new AtomicReference<>(pkgLocator);
+    Path base = pkgRoot.isAbsolute() ? outputBase.getFileSystem().getPath("/") : pkgRoot.asPath();
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(pkgRoot.asPath(), outputBase, outputBase),
-            pkgRoot.asPath(),
+            new ServerDirectories(base, outputBase, outputBase),
+            base,
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
@@ -183,6 +184,7 @@ public class FileFunctionTest {
                             .build(TestRuleClassProvider.getRuleClassProvider(), fs),
                         directories,
                         /*skylarkImportLookupFunctionForInlining=*/ null))
+                .put(SkyFunctions.REFRESH_ROOTS, new RefreshRootsFunction())
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .build(),
@@ -261,7 +263,10 @@ public class FileFunctionTest {
     Set<RootedPath> seenFiles = Sets.newHashSet();
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("a", false, "b"));
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("b", false, "a"));
-    assertThat(seenFiles).containsExactly(rootedPath("a"), rootedPath("b"), rootedPath(""));
+    assertThat(seenFiles).containsExactly(rootedPath("a"),
+        rootedPath("b"),
+        rootedPath("WORKSPACE"),
+        rootedPath(""));
   }
 
   @Test
@@ -329,6 +334,7 @@ public class FileFunctionTest {
         .containsExactly(
             rootedPath("a"),
             rootedPath(""),
+            rootedPath("WORKSPACE"),
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/")),
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/outside")));
   }
@@ -346,6 +352,7 @@ public class FileFunctionTest {
         .containsExactly(
             rootedPath("a"),
             rootedPath(""),
+            rootedPath("WORKSPACE"),
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/")),
             RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/absolute")));
   }
@@ -427,7 +434,10 @@ public class FileFunctionTest {
     Set<RootedPath> seenFiles = Sets.newHashSet();
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("b", true, "a"));
     seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("a", false, "b"));
-    assertThat(seenFiles).containsExactly(rootedPath("a"), rootedPath("b"), rootedPath(""));
+    assertThat(seenFiles).containsExactly(rootedPath("a"),
+        rootedPath("b"),
+        rootedPath("WORKSPACE"),
+        rootedPath(""));
   }
 
   @Test
@@ -648,6 +658,7 @@ public class FileFunctionTest {
             outputBase,
             ImmutableList.of(pkgRoot, Root.fromPath(otherPkgRoot)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
+    FileSystemUtils.createDirectoryAndParents(otherPkgRoot);
     symlink("a", "/other_root/b");
     assertValueChangesIfContentsOfFileChanges("/other_root/b", true, "a");
   }

@@ -113,6 +113,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         new BlacklistedPackagePrefixesFunction(
             /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
             /*additionalBlacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+    skyFunctions.put(SkyFunctions.REFRESH_ROOTS, new RefreshRootsFunction());
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
