@@ -19,11 +19,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -93,7 +91,6 @@ public final class CcLinkingHelper {
 
   private final List<Artifact> nonCodeLinkerInputs = new ArrayList<>();
   private final List<String> linkopts = new ArrayList<>();
-  private final List<TransitiveInfoCollection> deps = new ArrayList<>();
   private final List<CcLinkingContext> ccLinkingContexts = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
   private final List<Artifact> linkActionInputs = new ArrayList<>();
@@ -103,7 +100,6 @@ public final class CcLinkingHelper {
   private LinkTargetType dynamicLinkType = LinkTargetType.NODEPS_DYNAMIC_LIBRARY;
   private boolean neverlink;
 
-  private boolean checkDepsGenerateCpp = true;
   private boolean emitInterfaceSharedLibraries;
   private boolean shouldCreateDynamicLibrary = true;
   private boolean shouldCreateStaticLibraries = true;
@@ -161,7 +157,9 @@ public final class CcLinkingHelper {
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
   public CcLinkingHelper fromCommon(CcCommon common) {
-    addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET));
+    addCcLinkingContexts(
+        CppHelper.getLinkingContextsFromDeps(
+            ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET))));
     addNonCodeLinkerInputs(common.getLinkerScripts());
     return this;
   }
@@ -196,19 +194,6 @@ public final class CcLinkingHelper {
   /** Adds the given options as linker options to the link command. */
   public CcLinkingHelper addLinkopts(Iterable<String> linkopts) {
     Iterables.addAll(this.linkopts, linkopts);
-    return this;
-  }
-
-  /**
-   * Adds the given targets as dependencies - this can include explicit dependencies on other rules
-   * (like from a "deps" attribute) and also implicit dependencies on runtime libraries.
-   */
-  public CcLinkingHelper addDeps(Iterable<? extends TransitiveInfoCollection> deps) {
-    this.ccLinkingContexts.addAll(
-        Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
-            .map(CcInfo::getCcLinkingContext)
-            .collect(ImmutableList.toImmutableList()));
-    Iterables.addAll(this.deps, deps);
     return this;
   }
 
@@ -293,14 +278,6 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  /**
-   * Disables checking that the deps actually are C++ rules.
-   */
-  public CcLinkingHelper setCheckDepsGenerateCpp(boolean checkDepsGenerateCpp) {
-    this.checkDepsGenerateCpp = checkDepsGenerateCpp;
-    return this;
-  }
-
   /*
    * Adds a suffix for paths of linked artifacts. Normally their paths are derived solely from rule
    * labels. In the case of multiple callers (e.g., aspects) acting on a single rule, they may
@@ -349,10 +326,6 @@ public final class CcLinkingHelper {
   public CcLinkingOutputs link(CcCompilationOutputs ccOutputs)
       throws RuleErrorException, InterruptedException {
     Preconditions.checkNotNull(ccOutputs);
-
-    if (checkDepsGenerateCpp) {
-      CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
-    }
 
     // Create link actions (only if there are object files or if explicitly requested).
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;

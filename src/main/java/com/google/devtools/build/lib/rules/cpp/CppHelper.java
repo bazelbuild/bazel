@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLinkWrapper.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
@@ -888,6 +889,13 @@ public class CppHelper {
       List<TransitiveInfoCollection> deps) {
     return Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
         .map(CcInfo::getCcCompilationContext)
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  public static ImmutableList<CcLinkingContext> getLinkingContextsFromDeps(
+      ImmutableList<TransitiveInfoCollection> deps) {
+    return Streams.stream(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
+        .map(CcInfo::getCcLinkingContext)
         .collect(ImmutableList.toImmutableList());
   }
 
