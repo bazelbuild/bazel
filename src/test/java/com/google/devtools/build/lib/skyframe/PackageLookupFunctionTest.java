@@ -134,7 +134,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         new BlacklistedPackagePrefixesFunction(
             /*hardcodedBlacklistedPackagePrefixes=*/ ImmutableSet.of(),
             PathFragment.create(ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING)));
-    skyFunctions.put(SkyFunctions.REFRESH_ROOTS, new RefreshRootsFunction());
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
