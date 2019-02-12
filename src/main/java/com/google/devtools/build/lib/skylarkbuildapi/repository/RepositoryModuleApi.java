@@ -85,7 +85,7 @@ public interface RepositoryModuleApi {
             defaultValue = "''",
             doc =
                 "A description of the repository rule that can be extracted by documentation "
-                    + "generating tools."
+                    + "generating tools.",
             named = true,
             positional = false)
       },
@@ -96,8 +96,8 @@ public interface RepositoryModuleApi {
       Object attrs,
       Boolean local,
       SkylarkList<String> environ,
+      String doc, 
       FuncallExpression ast,
-      Environment env,
-      String doc)
+      Environment env)
       throws EvalException;
 }
