@@ -128,7 +128,8 @@ wstring GetBinaryPathWithExtension(const wstring& binary) {
   return GetBinaryPathWithoutExtension(binary) + L".exe";
 }
 
-wstring GetEscapedArgument(const wstring& argument, bool escape_backslash) {
+static wstring GetEscapedArgument(const wstring& argument,
+                                  bool escape_backslash) {
   wstring escaped_arg;
   // escaped_arg will be at least this long
   escaped_arg.reserve(argument.size());
@@ -163,6 +164,16 @@ wstring GetEscapedArgument(const wstring& argument, bool escape_backslash) {
     escaped_arg += L'\"';
   }
   return escaped_arg;
+}
+
+std::wstring BashEscapeArg(const std::wstring& arg) {
+  return GetEscapedArgument(arg, /* escape_backslash */ true);
+}
+
+std::wstring WindowsEscapeArg(const std::wstring& arg) {
+  // TODO(laszlocsomor): properly implement escaping syntax for CreateProcessW;
+  // it's different from Bash escaping syntax.
+  return GetEscapedArgument(arg, /* escape_backslash */ false);
 }
 
 // An environment variable has a maximum size limit of 32,767 characters

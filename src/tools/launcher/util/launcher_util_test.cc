@@ -74,22 +74,22 @@ TEST_F(LaunchUtilTest, GetBinaryPathWithExtensionTest) {
   ASSERT_EQ(L"foo.sh.exe", GetBinaryPathWithExtension(L"foo.sh"));
 }
 
-TEST_F(LaunchUtilTest, GetEscapedArgumentTest) {
-  ASSERT_EQ(L"\"\"", GetEscapedArgument(L"", true));
-  ASSERT_EQ(L"foo", GetEscapedArgument(L"foo", true));
-  ASSERT_EQ(L"\"foo bar\"", GetEscapedArgument(L"foo bar", true));
-  ASSERT_EQ(L"\"\\\"foo bar\\\"\"", GetEscapedArgument(L"\"foo bar\"", true));
-  ASSERT_EQ(L"foo\\\\bar", GetEscapedArgument(L"foo\\bar", true));
-  ASSERT_EQ(L"foo\\\"bar", GetEscapedArgument(L"foo\"bar", true));
-  ASSERT_EQ(L"C:\\\\foo\\\\bar\\\\",
-            GetEscapedArgument(L"C:\\foo\\bar\\", true));
+TEST_F(LaunchUtilTest, BashEscapeArgTest) {
+  ASSERT_EQ(L"\"\"", BashEscapeArg(L""));
+  ASSERT_EQ(L"foo", BashEscapeArg(L"foo"));
+  ASSERT_EQ(L"\"foo bar\"", BashEscapeArg(L"foo bar"));
+  ASSERT_EQ(L"\"\\\"foo bar\\\"\"", BashEscapeArg(L"\"foo bar\""));
+  ASSERT_EQ(L"foo\\\\bar", BashEscapeArg(L"foo\\bar"));
+  ASSERT_EQ(L"foo\\\"bar", BashEscapeArg(L"foo\"bar"));
+  ASSERT_EQ(L"C:\\\\foo\\\\bar\\\\", BashEscapeArg(L"C:\\foo\\bar\\"));
   ASSERT_EQ(L"\"C:\\\\foo foo\\\\bar\\\\\"",
-            GetEscapedArgument(L"C:\\foo foo\\bar\\", true));
+            BashEscapeArg(L"C:\\foo foo\\bar\\"));
+}
 
-  ASSERT_EQ(L"foo\\bar", GetEscapedArgument(L"foo\\bar", false));
-  ASSERT_EQ(L"C:\\foo\\bar\\", GetEscapedArgument(L"C:\\foo\\bar\\", false));
-  ASSERT_EQ(L"\"C:\\foo foo\\bar\\\"",
-            GetEscapedArgument(L"C:\\foo foo\\bar\\", false));
+TEST_F(LaunchUtilTest, WindowsEscapeArgTest) {
+  ASSERT_EQ(L"foo\\bar", WindowsEscapeArg(L"foo\\bar"));
+  ASSERT_EQ(L"C:\\foo\\bar\\", WindowsEscapeArg(L"C:\\foo\\bar\\"));
+  ASSERT_EQ(L"\"C:\\foo foo\\bar\\\"", WindowsEscapeArg(L"C:\\foo foo\\bar\\"));
 }
 
 TEST_F(LaunchUtilTest, DoesFilePathExistTest) {
