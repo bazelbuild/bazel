@@ -194,7 +194,7 @@ needed, you can simply pass a list of strings to restrict the file types the
 rule accepts.
 
 *   Flag: `--incompatible_disallow_filetype`
-*   Default: `false`
+*   Default: `true`
 *   Tracking issue: [#5831](https://github.com/bazelbuild/bazel/issues/5831)
 
 
