@@ -257,10 +257,13 @@ TEST_F(LaunchUtilTest, WindowsEscapeArgTest) {
     // - second: expected WindowsEscapeArg-encoded string
     {L"foo", L"foo"},
     {L"", L"\"\""},
+    {L" ", L"\" \""},
     {L"foo\\bar", L"foo\\bar"},
     {L"C:\\foo\\bar\\", L"C:\\foo\\bar\\"},
     // TODO(laszlocsomor): fix WindowsEscapeArg to use correct escaping
-    // semantics (not Bash semantics) and add more tests.
+    // semantics (not Bash semantics) and add more tests. The example below is
+    // escaped incorrectly. 
+    // {L"C:\\foo bar\\", L"\"C:\\foo bar\\\""},
   });
 }
 
