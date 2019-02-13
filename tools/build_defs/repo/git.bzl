@@ -121,7 +121,6 @@ def _clone_or_update(ctx):
                   ctx.attr.strip_prefix if ctx.attr.strip_prefix else "None",
               ))
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
-    git_cache = '/tmp/bazel_cache/git_cachee'
     git_cache = ctx.os.environ.get("BAZEL_GIT_REPOSITORY_CACHE")
 
     if git_cache:

@@ -83,6 +83,9 @@ function set_up() {
   tar zxf outer-planets-repo.tar.gz
   tar zxf refetch-repo.tar.gz
 
+  local cache_dir=/tmp/bazel_cache
+  rm -rf $cache_dir
+
   # Fix environment variables for a hermetic use of git.
   export GIT_CONFIG_NOSYSTEM=1
   export GIT_CONFIG_NOGLOBAL=1
@@ -156,6 +159,23 @@ EOF
   bazel run //planets:planet-info >& $TEST_log \
     || echo "Expected build/run to succeed"
   expect_log "Pluto is a dwarf planet"
+}
+
+# This test:
+# 1. Creates a git_repository rule with some commit hash
+# 2. Make sure worksapce can be built and repository cache is updated
+function test_git_repositry_cache_is_populated() {
+  local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
+  local cache_dir=/tmp/bazel_cache
+  local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
+
+
+  export BAZEL_GIT_REPOSITORY_CACHE=$cache_dir
+
+  do_git_repository_test $commit_hash
+
+  cache_commit_hash="$(cat $cache_dir/worktrees/pluto/HEAD)"
+  assert_equals $commit_hash $cache_commit_hash
 }
 
 function test_git_repository() {
