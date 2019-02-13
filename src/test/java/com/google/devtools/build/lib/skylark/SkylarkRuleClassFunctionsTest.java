@@ -25,7 +25,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkFileType;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleClassFunctions.SkylarkRuleFunction;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -245,13 +244,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(attr.getAllowedFileTypesPredicate().apply("a.xml")).isTrue();
     assertThat(attr.getAllowedFileTypesPredicate().apply("a.txt")).isFalse();
     assertThat(attr.isSingleArtifact()).isTrue();
-  }
-
-  @Test
-  public void testAttrWithSkylarkFileType() throws Exception {
-    Attribute attr = buildAttribute("a1", "attr.label_list(allow_files = FileType(['.xml']))");
-    assertThat(attr.getAllowedFileTypesPredicate().apply("a.xml")).isTrue();
-    assertThat(attr.getAllowedFileTypesPredicate().apply("a.txt")).isFalse();
   }
 
   private static SkylarkProviderIdentifier legacy(String legacyId) {
@@ -857,13 +849,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     RuleClass c = ((SkylarkRuleFunction) lookup("r1")).getRuleClass();
     Attribute a = c.getAttributeByName("a1");
     assertThat(a.getDefaultValueUnchecked()).isEqualTo(42);
-  }
-
-  @Test
-  public void testFileType() throws Exception {
-    Object result = evalRuleClassCode("FileType(['.css'])");
-    SkylarkFileType fts = (SkylarkFileType) result;
-    assertThat(fts.getExtensions()).isEqualTo(ImmutableList.of(".css"));
   }
 
   @Test
