@@ -126,10 +126,6 @@ public class ParallelEvaluatorTest {
     return eval(keepGoing, ImmutableList.of(key)).get(key);
   }
 
-  protected ErrorInfo evalValueInError(SkyKey key) throws InterruptedException {
-    return eval(true, ImmutableList.of(key)).getError(key);
-  }
-
   protected <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, SkyKey... keys)
       throws InterruptedException {
     return eval(keepGoing, ImmutableList.copyOf(keys));
@@ -139,6 +135,10 @@ public class ParallelEvaluatorTest {
       throws InterruptedException {
     ParallelEvaluator evaluator = makeEvaluator(graph, tester.getSkyFunctionMap(), keepGoing);
     return evaluator.eval(keys);
+  }
+
+  protected ErrorInfo evalValueInError(SkyKey key) throws InterruptedException {
+    return eval(true, ImmutableList.of(key)).getError(key);
   }
 
   protected GraphTester.TestFunction set(String name, String value) {
