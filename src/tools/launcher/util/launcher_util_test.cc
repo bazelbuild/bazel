@@ -184,8 +184,8 @@ void AssertSubprocessReceivesArgsAsIntended(
     // We already asserted for every element that WindowsEscapeArg(i.first)
     // produces the same output as i.second, so just use i.second instead of
     // converting i.first again.
-    wcsncpy(pcmdline, i.second.c_str(), wprintarg.size());
-    pcmdline[wprintarg.size()] = 0;
+    wcsncpy(pcmdline, i.second.c_str(), i.second.size());
+    pcmdline[i.second.size()] = 0;
 
     // Run the subprocess.
     PROCESS_INFORMATION processInfo;
