@@ -514,6 +514,7 @@ java_test(
     srcs = WINDOWS_ON_WINDOWS_TESTS,
     data = [
         ":MockSubprocess_deploy.jar",
+        ":printarg",
     ] + JNI_LIB,
     jvm_flags = [
         "-Dbazel.windows_unix_root=C:/fake/msys",
@@ -534,6 +535,12 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "@bazel_tools//tools/java/runfiles",
     ],
+)
+
+cc_binary(
+    name = "printarg",
+    testonly = 1,
+    srcs = ["windows/printarg.cc"],
 )
 
 java_library(
